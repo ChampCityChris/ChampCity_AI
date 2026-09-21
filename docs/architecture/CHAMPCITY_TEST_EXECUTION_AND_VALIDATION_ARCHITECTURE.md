@@ -7,7 +7,7 @@ Evidence date: 2026-09-21
 
 ChampCity must provide fast, deterministic, risk-appropriate validation for ordinary implementation and integration without discarding expensive regression, platform, packaging, or performance evidence.
 
-The repository already defines the right validation governance in `TEST_ARCHITECTURE_AND_VALIDATION_GOVERNANCE_STANDARD.md`, including static, fast, affected-capability, integration, Desktop, packaging, migration, performance/soak, and full-regression lanes. The TVA bundle implements that architecture through the executable schema-3 catalog, registered profiles, bounded scheduler and target-owned candidate adapter.
+The repository already defines the right validation governance in `TEST_ARCHITECTURE_AND_VALIDATION_GOVERNANCE_STANDARD.md`, including static, fast, affected-capability, integration, Desktop, packaging, migration, performance/soak, and full-regression lanes. The TVA and test-suite-recovery bundles implement that architecture through the executable schema-4 catalog, registered profiles, bounded scheduler and target-owned candidate adapter.
 
 This document defines the executable architecture that turns the existing governance and `validation/capability-map.json` inventory into actual test selection, scheduling, build reuse, integration gating, and evidence.
 
@@ -287,7 +287,22 @@ The HOTFIX20 session churn proof should be reviewed for separation of functional
 
 The current `--test-concurrency=1` setting makes every test file additive.
 
-ChampCity will use explicit execution-safety metadata rather than global serialization.
+ChampCity uses explicit resource ownership rather than treating any filesystem, Git, network, or child-process use as global state.
+
+Every executable test file declares one or more schema-4 `ownedResources` values:
+
+- `pure-stateless`;
+- `repository-readonly`;
+- `temp-filesystem-isolated`;
+- `isolated-git-fixture`;
+- `bounded-child-process`;
+- `loopback-dynamic-endpoint`;
+- `electron-desktop`;
+- `packaging`;
+- `performance-soak`;
+- `shared-global-state-exclusive`.
+
+The catalog validator rejects missing, empty, unknown, contradictory, or dependency-incomplete resource declarations. `pure-stateless` is exclusive of every other resource. Git fixtures must be repository-local and isolated; network endpoints must be dynamically owned; child processes must be bounded. Mutable selected-repository or machine-global state is represented explicitly as `shared-global-state-exclusive` and fails closed into serial process execution.
 
 Each executable test file receives an execution mode:
 
@@ -297,17 +312,17 @@ Each executable test file receives an execution mode:
 - `exclusive-performance`
 - `exclusive-packaging`
 
-The capability catalog may be extended with this field or a derived validated companion catalog.
+Execution mode remains the scheduler input. Resource ownership is the audited evidence for that mode: isolated resources may use `parallel-safe`; Desktop, packaging, performance, and shared-global resources require their matching exclusive mode.
 
 ### Parallel-safe cohort
 
-Independent fast and isolated integration files run with bounded file-level concurrency.
+Independent fast and isolated integration files run with bounded file-level concurrency. A unique temporary root, isolated temporary Git repository, bounded child process, or dynamically allocated loopback endpoint does not by itself require global serialization.
 
 The initial ceiling must be conservative and configurable; four workers is a reasonable implementation starting point, but the Work Card must measure and choose the supported workstation default.
 
 ### Exclusive cohorts
 
-Tests that intentionally own real Electron/service-host state, machine-global lifecycle, packaging output, or timing/resource measurement run serially within their explicit lane.
+Tests that intentionally own real Electron/Desktop state, packaging output, timing/resource measurement, or mutable machine-global/selected-repository state run serially within their explicit lane. `exclusive-process` is reserved for the last category rather than used as a synonym for process creation.
 
 Parallelization is not allowed to create flakiness merely to improve a benchmark.
 

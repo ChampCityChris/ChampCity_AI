@@ -42,6 +42,7 @@ async function executePlan(plan, { root = ROOT, catalog: trustedCatalog, ensureB
     const record = catalog.tests.find(t => t.testPath === file.testPath);
     assert.ok(record && !seen.has(file.testPath), 'Invalid or repeated executable test');
     assert.equal(file.executionMode, record.execution.scheduling, 'Plan scheduling differs from catalog');
+    assert.deepEqual(file.ownedResources, record.execution.ownedResources, 'Plan resource ownership differs from catalog');
     assert.equal(file.lane, record.proposedValidationLane, 'Plan lane differs from catalog');
     assert.equal(file.requiresBuild, record.execution.requiresBuild, 'Plan build requirement differs from catalog');
     assert.equal(file.platformRequirement, record.execution.platform, 'Plan platform differs from catalog');

@@ -23,7 +23,7 @@ function uniqueStrings(value, label) {
 }
 function validateCatalog(catalog, root, { allowAdditionalTests = false } = {}) {
   exactKeys(catalog, ['schemaVersion', 'capabilities', 'tests'], 'catalog');
-  assert.equal(catalog.schemaVersion, 3, 'Unknown catalog schema');
+  assert.equal(catalog.schemaVersion, 4, 'Unknown catalog schema');
   assert.ok(Array.isArray(catalog.capabilities) && Array.isArray(catalog.tests), 'Missing catalog collections');
   const capabilities = new Map(), behaviors = new Map();
   uniqueStrings(catalog.capabilities.map(c => c.capabilityId), 'Capability identities');

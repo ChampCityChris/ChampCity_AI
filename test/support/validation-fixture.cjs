@@ -13,9 +13,12 @@ function validationFixture(t, files) {
     const record = { ...structuredClone(template), testPath, proposedValidationLane: file.lane ?? 'fast',
       behaviorCoverage: [{ capabilityId: 'fixture', behaviorId: 'case-' + index, proofRole: 'primary', proofLocator: 'case ' + index }] };
     record.execution.requiresBuild = file.requiresBuild ?? false;
+    record.execution.ownedResources = ['temp-filesystem-isolated'];
+    record.execution.scheduling = 'parallel-safe';
+    record.execution.schedulingReason = 'Fixture owns only its validation-run temporary root.';
     return record;
   });
-  const catalog = { schemaVersion: 3, capabilities: [{ capabilityId: 'fixture', description: 'fixture', sourcePatterns: ['src/**'], dependsOn: [], behaviors: tests.map((_, i) => ({ behaviorId: 'case-' + i, description: 'fixture case' })) }], tests };
+  const catalog = { schemaVersion: 4, capabilities: [{ capabilityId: 'fixture', description: 'fixture', sourcePatterns: ['src/**'], dependsOn: [], behaviors: tests.map((_, i) => ({ behaviorId: 'case-' + i, description: 'fixture case' })) }], tests };
   const save = () => fs.writeFileSync(path.join(root, 'validation/capability-map.json'), JSON.stringify(catalog));
   save(); fs.copyFileSync(path.join(ROOT, 'validation/profiles.json'), path.join(root, 'validation/profiles.json'));
   return { root, catalog, save };

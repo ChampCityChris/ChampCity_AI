@@ -18,6 +18,7 @@ test('validation plans deterministically preserve lane profile and ownership req
     for (const entry of plan.tests) {
       const record = catalog.tests.find(t => t.testPath === entry.testPath);
       assert.deepEqual(entry.ownership, record.behaviorCoverage);
+      assert.deepEqual(entry.ownedResources, record.execution.ownedResources);
       assert.deepEqual(entry.duration, record.duration);
       assert.equal(entry.platformRequirement, record.execution.platform);
       assert.equal(entry.requiresBuild, record.execution.requiresBuild);
@@ -45,6 +46,7 @@ test('validation planning rejects invalid selection catalog and ownership instea
     m => { m.tests[0].proposedValidationLane = 'typo'; },
     m => { m.tests[0].execution.requiresBuild = 'false'; },
     m => { m.tests[0].execution.platform = 'unknown'; },
+    m => { m.tests[0].execution.ownedResources = ['unknown-resource']; },
     m => { m.tests[0].duration.milliseconds = -1; },
     m => { m.tests[0].behaviorCoverage[0].capabilityId = 'missing'; },
     m => { m.tests[0].behaviorCoverage[0].proofRole = 'supporting'; },
@@ -68,8 +70,9 @@ test('serial validation execution reports real pass failure timeout and bounded 
   };
   const template = loadCatalog().tests.find(t => t.testPath === 'test/validation/capability-map.test.cjs');
   const tests = Object.keys(files).map((testPath, index) => ({ ...structuredClone(template), testPath,
-    proposedValidationLane: 'fast', behaviorCoverage: [{ capabilityId: 'fixture', behaviorId: `case-${index}`, proofRole: 'primary', proofLocator: `case ${index}` }] }));
-  const catalog = { schemaVersion: 3, capabilities: [{ capabilityId: 'fixture', description: 'fixture', sourcePatterns: ['test/**'], dependsOn: [], behaviors: tests.map((_, i) => ({ behaviorId: `case-${i}`, description: 'fixture case' })) }], tests };
+    proposedValidationLane: 'fast', behaviorCoverage: [{ capabilityId: 'fixture', behaviorId: `case-${index}`, proofRole: 'primary', proofLocator: `case ${index}` }],
+    execution: { ...structuredClone(template.execution), ownedResources: ['temp-filesystem-isolated'], schedulingReason: 'Fixture owns only its temporary repository.' } }));
+  const catalog = { schemaVersion: 4, capabilities: [{ capabilityId: 'fixture', description: 'fixture', sourcePatterns: ['test/**'], dependsOn: [], behaviors: tests.map((_, i) => ({ behaviorId: `case-${i}`, description: 'fixture case' })) }], tests };
   for (const [file, source] of Object.entries(files)) fs.writeFileSync(path.join(root, file), source);
   fs.writeFileSync(path.join(root, 'validation/capability-map.json'), JSON.stringify(catalog));
   fs.copyFileSync(path.join(ROOT, 'validation/profiles.json'), path.join(root, 'validation/profiles.json'));
@@ -117,7 +120,8 @@ test('bounded scheduler overlaps safe files isolates exclusive cohorts and clean
   const {validationFixture}=require('../support/validation-fixture.cjs');
   const source=name=>"const fs=require('node:fs');require('node:test')('scheduled',async()=>{fs.appendFileSync('events.jsonl',JSON.stringify({name:'"+name+"',stage:'start',at:Date.now()})+'\\n');await new Promise(r=>setTimeout(r,180));fs.appendFileSync('events.jsonl',JSON.stringify({name:'"+name+"',stage:'end',at:Date.now()})+'\\n');});";
   const f=validationFixture(t,Object.fromEntries(['a','b','c','d'].map(name=>['test/'+name+'.test.cjs',{source:source(name)}])));
-  f.catalog.tests[2].execution.scheduling='exclusive-process';f.catalog.tests[3].execution.scheduling='exclusive-desktop';f.save();
+  f.catalog.tests[2].execution.scheduling='exclusive-process';f.catalog.tests[2].execution.ownedResources=['shared-global-state-exclusive'];
+  f.catalog.tests[3].execution.scheduling='exclusive-desktop';f.catalog.tests[3].execution.ownedResources=['electron-desktop'];f.save();
   for(let repeat=0;repeat<2;repeat++){
     fs.writeFileSync(path.join(f.root,'events.jsonl'),'');
     const receipt=await executePlan(planValidation({root:f.root,testPaths:f.catalog.tests.map(r=>r.testPath),concurrency:2}),{root:f.root});

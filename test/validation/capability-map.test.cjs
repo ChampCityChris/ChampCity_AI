@@ -51,7 +51,7 @@ function proofIndex() {
 
 test("capability map has exact top-level vocabulary and one record for every executable test", () => {
   exactKeys(capabilityMap, ["capabilities", "schemaVersion", "tests"], "capability map");
-  assert.equal(capabilityMap.schemaVersion, 3);
+  assert.equal(capabilityMap.schemaVersion, 4);
   assert.ok(Array.isArray(capabilityMap.capabilities));
   assert.ok(Array.isArray(capabilityMap.tests));
 
@@ -82,6 +82,10 @@ test("inventory fields and allowed values fail closed, including required negati
     ["invalid lane", (record) => { record.proposedValidationLane = "unit"; }],
     ["invalid platform", (record) => { record.platformDependency = "linux"; }],
     ["invalid execution platform", (record) => { record.execution.platform = "desktop"; }],
+    ["missing owned resources", (record) => { delete record.execution.ownedResources; }],
+    ["empty owned resources", (record) => { record.execution.ownedResources = []; }],
+    ["unknown owned resource", (record) => { record.execution.ownedResources = ["unknown-resource"]; }],
+    ["unsafe parallel resource", (record) => { record.execution.ownedResources = ["shared-global-state-exclusive"]; }],
     ["platform disagreement", (record) => { record.execution.platform = record.platformDependency === "none" ? "windows" : "any"; }],
     ["invalid source inspection", (record) => { record.sourceInspectionClassification = "regex"; }],
     ["invalid disposition", (record) => { record.v2Disposition = "delete"; }],

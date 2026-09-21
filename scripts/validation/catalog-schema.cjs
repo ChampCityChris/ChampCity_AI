@@ -53,6 +53,18 @@ const dispositions = new Set([
   "split",
 ]);
 const dependencyKeys = ["electron", "filesystem", "git", "network", "process", "timing"];
+const ownedResourceClasses = new Set([
+  "bounded-child-process",
+  "electron-desktop",
+  "isolated-git-fixture",
+  "loopback-dynamic-endpoint",
+  "packaging",
+  "performance-soak",
+  "pure-stateless",
+  "repository-readonly",
+  "shared-global-state-exclusive",
+  "temp-filesystem-isolated",
+]);
 const kebabCase = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function exactKeys(value, expectedKeys, label) {
@@ -133,9 +145,54 @@ function validateInventoryFields(record) {
   sortedUniqueStrings(record.validationRoles, `${record.testPath} validationRoles`, validationRoles);
   assert.ok(record.validationRoles.length > 0, `${record.testPath} validationRoles must not be empty`);
 
-  exactKeys(record.execution, ["externalCapabilities", "platform", "requiresBuild", "scheduling", "schedulingReason", ...(record.execution.profileRestriction === undefined ? [] : ["profileRestriction"])], `${record.testPath} execution`);
+  exactKeys(record.execution, ["externalCapabilities", "ownedResources", "platform", "requiresBuild", "scheduling", "schedulingReason", ...(record.execution.profileRestriction === undefined ? [] : ["profileRestriction"])], `${record.testPath} execution`);
   assert.ok(require("./scheduler.cjs").MODES.includes(record.execution.scheduling), "Invalid or missing scheduling classification");
   nonEmptyString(record.execution.schedulingReason, "Scheduling reason");
+  sortedUniqueStrings(record.execution.ownedResources, `${record.testPath} ownedResources`, ownedResourceClasses);
+  assert.ok(record.execution.ownedResources.length > 0, `${record.testPath} ownedResources must not be empty`);
+  const ownedResources = new Set(record.execution.ownedResources);
+  if (ownedResources.has("pure-stateless")) {
+    assert.equal(ownedResources.size, 1, `${record.testPath} pure-stateless cannot be combined with another resource`);
+    assert.ok(
+      ["electron", "filesystem", "git", "network", "process"].every((dependency) => !record.dependencies[dependency]),
+      `${record.testPath} pure-stateless dependency mismatch`,
+    );
+  }
+  if (ownedResources.has("isolated-git-fixture")) assert.equal(record.dependencies.git, true, `${record.testPath} Git resource dependency mismatch`);
+  if (ownedResources.has("bounded-child-process")) assert.equal(record.dependencies.process, true, `${record.testPath} process resource dependency mismatch`);
+  if (ownedResources.has("loopback-dynamic-endpoint")) assert.equal(record.dependencies.network, true, `${record.testPath} network resource dependency mismatch`);
+  if (record.dependencies.electron) assert.ok(ownedResources.has("electron-desktop"), `${record.testPath} missing Electron/Desktop resource`);
+  if (record.dependencies.git) assert.ok(ownedResources.has("isolated-git-fixture"), `${record.testPath} missing Git resource`);
+  if (record.dependencies.network) assert.ok(ownedResources.has("loopback-dynamic-endpoint"), `${record.testPath} missing network resource`);
+  if (record.dependencies.process) {
+    assert.ok(
+      ownedResources.has("bounded-child-process") || ownedResources.has("shared-global-state-exclusive"),
+      `${record.testPath} missing process resource`,
+    );
+  }
+  if (record.dependencies.filesystem) {
+    assert.ok(
+      ["isolated-git-fixture", "repository-readonly", "shared-global-state-exclusive", "temp-filesystem-isolated"]
+        .some((resource) => ownedResources.has(resource)),
+      `${record.testPath} missing filesystem resource`,
+    );
+  }
+  const schedulingResources = {
+    "exclusive-desktop": "electron-desktop",
+    "exclusive-packaging": "packaging",
+    "exclusive-performance": "performance-soak",
+    "exclusive-process": "shared-global-state-exclusive",
+  };
+  const requiredSchedulingResource = schedulingResources[record.execution.scheduling];
+  if (requiredSchedulingResource) assert.ok(ownedResources.has(requiredSchedulingResource), `${record.testPath} scheduling resource mismatch`);
+  for (const [mode, exclusiveResource] of Object.entries(schedulingResources)) {
+    if (ownedResources.has(exclusiveResource)) assert.equal(record.execution.scheduling, mode, `${record.testPath} exclusive resource scheduling mismatch`);
+  }
+  if (record.execution.scheduling === "parallel-safe") {
+    for (const exclusiveResource of Object.values(schedulingResources)) {
+      assert.equal(ownedResources.has(exclusiveResource), false, `${record.testPath} parallel-safe resource mismatch`);
+    }
+  }
   assert.equal(typeof record.execution.requiresBuild, "boolean", `${record.testPath} requiresBuild`);
   assert.ok(new Set(["any", "windows"]).has(record.execution.platform), `${record.testPath} execution platform`);
   assert.equal(
@@ -170,4 +227,4 @@ function validateInventoryFields(record) {
   }
 }
 
-module.exports = { exactKeys, nonEmptyString, sortedUniqueStrings, kebabCase, validateInventoryFields };
+module.exports = { exactKeys, nonEmptyString, ownedResourceClasses, sortedUniqueStrings, kebabCase, validateInventoryFields };

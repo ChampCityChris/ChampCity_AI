@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "capabilities": [
     {
       "capabilityId": "agent-harness-mcp-runtime",
@@ -4416,8 +4416,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -4483,8 +4486,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -4613,7 +4619,14 @@
           "git-cli"
         ],
         "scheduling": "exclusive-desktop",
-        "schedulingReason": "Real Desktop, platform or machine-global lifecycle evidence requires exclusive execution."
+        "schedulingReason": "Retained exclusive Desktop/platform ownership; audited resources: bounded-child-process, electron-desktop, isolated-git-fixture, loopback-dynamic-endpoint, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "electron-desktop",
+          "isolated-git-fixture",
+          "loopback-dynamic-endpoint",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -4767,7 +4780,10 @@
         "platform": "any",
         "externalCapabilities": [],
         "scheduling": "parallel-safe",
-        "schedulingReason": "TVA04 source review: pure data, process-local mocks/read-only source, or unique temporary roots; no machine-global process or timing measurement."
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -4836,8 +4852,14 @@
         "externalCapabilities": [
           "git-cli"
         ],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, loopback-dynamic-endpoint, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "loopback-dynamic-endpoint",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -4990,8 +5012,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -5100,8 +5125,12 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: loopback-dynamic-endpoint, temp-filesystem-isolated.",
+        "ownedResources": [
+          "loopback-dynamic-endpoint",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -5159,7 +5188,10 @@
         "platform": "windows",
         "externalCapabilities": [],
         "scheduling": "exclusive-desktop",
-        "schedulingReason": "Real Desktop, platform or machine-global lifecycle evidence requires exclusive execution."
+        "schedulingReason": "Retained exclusive Desktop/platform ownership; audited resources: electron-desktop.",
+        "ownedResources": [
+          "electron-desktop"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -5217,7 +5249,13 @@
           "git-cli"
         ],
         "scheduling": "exclusive-desktop",
-        "schedulingReason": "Real Desktop, platform or machine-global lifecycle evidence requires exclusive execution."
+        "schedulingReason": "Retained exclusive Desktop/platform ownership; audited resources: bounded-child-process, electron-desktop, isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "electron-desktop",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -5294,8 +5332,13 @@
         "externalCapabilities": [
           "git-cli"
         ],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Real temporary Git repositories and process-wide Git configuration require isolated file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, repository-readonly.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -5378,8 +5421,13 @@
         "externalCapabilities": [
           "git-cli"
         ],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Real temporary Git repositories and process-wide Git configuration require isolated file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -5449,8 +5497,13 @@
         "externalCapabilities": [
           "git-cli"
         ],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Real temporary Git repositories and process-wide Git configuration require isolated file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -5541,8 +5594,13 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -5589,8 +5647,12 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -5637,8 +5699,13 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -5691,8 +5758,13 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -5752,7 +5824,10 @@
         "platform": "any",
         "externalCapabilities": [],
         "scheduling": "parallel-safe",
-        "schedulingReason": "TVA04 source review: pure data, process-local mocks/read-only source, or unique temporary roots; no machine-global process or timing measurement."
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -5799,8 +5874,13 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -5847,8 +5927,13 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -5882,7 +5967,7 @@
         "electron": false,
         "filesystem": true,
         "git": false,
-        "network": false,
+        "network": true,
         "process": false,
         "timing": true
       },
@@ -5895,8 +5980,12 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: loopback-dynamic-endpoint, temp-filesystem-isolated.",
+        "ownedResources": [
+          "loopback-dynamic-endpoint",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -5955,7 +6044,7 @@
         "electron": false,
         "filesystem": true,
         "git": false,
-        "network": false,
+        "network": true,
         "process": false,
         "timing": true
       },
@@ -5969,8 +6058,12 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: loopback-dynamic-endpoint, temp-filesystem-isolated.",
+        "ownedResources": [
+          "loopback-dynamic-endpoint",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -6092,8 +6185,12 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: loopback-dynamic-endpoint, temp-filesystem-isolated.",
+        "ownedResources": [
+          "loopback-dynamic-endpoint",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -6152,7 +6249,11 @@
         "platform": "windows",
         "externalCapabilities": [],
         "scheduling": "exclusive-desktop",
-        "schedulingReason": "Real Desktop, platform or machine-global lifecycle evidence requires exclusive execution."
+        "schedulingReason": "Retained exclusive Desktop/platform ownership; audited resources: electron-desktop, temp-filesystem-isolated.",
+        "ownedResources": [
+          "electron-desktop",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -6243,8 +6344,12 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: loopback-dynamic-endpoint, temp-filesystem-isolated.",
+        "ownedResources": [
+          "loopback-dynamic-endpoint",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -6324,8 +6429,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -6400,8 +6508,13 @@
         "externalCapabilities": [
           "git-cli"
         ],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -6591,8 +6704,13 @@
         "externalCapabilities": [
           "git-cli"
         ],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -6674,8 +6792,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -6821,8 +6942,13 @@
         "externalCapabilities": [
           "git-cli"
         ],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -6916,8 +7042,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -6972,7 +7101,11 @@
         "platform": "windows",
         "externalCapabilities": [],
         "scheduling": "exclusive-desktop",
-        "schedulingReason": "Real Desktop, platform or machine-global lifecycle evidence requires exclusive execution."
+        "schedulingReason": "Retained exclusive Desktop/platform ownership; audited resources: electron-desktop, repository-readonly.",
+        "ownedResources": [
+          "electron-desktop",
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -7087,8 +7220,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -7163,8 +7299,13 @@
         "externalCapabilities": [
           "git-cli"
         ],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Real temporary Git repositories and process-wide Git configuration require isolated file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -7218,8 +7359,13 @@
         "externalCapabilities": [
           "git-cli"
         ],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Real temporary Git repositories and process-wide Git configuration require isolated file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -7270,8 +7416,12 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: loopback-dynamic-endpoint, temp-filesystem-isolated.",
+        "ownedResources": [
+          "loopback-dynamic-endpoint",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -7377,8 +7527,14 @@
         "externalCapabilities": [
           "git-cli"
         ],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, loopback-dynamic-endpoint, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "loopback-dynamic-endpoint",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -7468,7 +7624,12 @@
           "npm-cli"
         ],
         "scheduling": "exclusive-desktop",
-        "schedulingReason": "Real Desktop, platform or machine-global lifecycle evidence requires exclusive execution."
+        "schedulingReason": "Retained exclusive Desktop/platform ownership; audited resources: electron-desktop, repository-readonly, temp-filesystem-isolated.",
+        "ownedResources": [
+          "electron-desktop",
+          "repository-readonly",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -7545,8 +7706,13 @@
         "externalCapabilities": [
           "git-cli"
         ],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Real temporary Git repositories and process-wide Git configuration require isolated file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -7597,8 +7763,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -7707,8 +7876,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -7764,8 +7936,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -7814,8 +7989,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -7882,8 +8060,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -7997,8 +8178,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -8089,8 +8273,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -8187,8 +8374,14 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, repository-readonly, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "repository-readonly",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -8388,8 +8581,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -8456,8 +8652,12 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -8523,8 +8723,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -8590,8 +8793,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -8657,8 +8863,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: pure-stateless.",
+        "ownedResources": [
+          "pure-stateless"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -8723,8 +8932,13 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -8772,7 +8986,10 @@
         "platform": "any",
         "externalCapabilities": [],
         "scheduling": "parallel-safe",
-        "schedulingReason": "TVA04 source review: pure data, process-local mocks/read-only source, or unique temporary roots; no machine-global process or timing measurement."
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: pure-stateless.",
+        "ownedResources": [
+          "pure-stateless"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -8850,8 +9067,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -8906,7 +9126,12 @@
         "platform": "windows",
         "externalCapabilities": [],
         "scheduling": "exclusive-desktop",
-        "schedulingReason": "Real Desktop, platform or machine-global lifecycle evidence requires exclusive execution."
+        "schedulingReason": "Retained exclusive Desktop/platform ownership; audited resources: bounded-child-process, electron-desktop, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "electron-desktop",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -8992,7 +9217,11 @@
         "platform": "windows",
         "externalCapabilities": [],
         "scheduling": "exclusive-desktop",
-        "schedulingReason": "Real Desktop, platform or machine-global lifecycle evidence requires exclusive execution."
+        "schedulingReason": "Retained exclusive Desktop/platform ownership; audited resources: electron-desktop, temp-filesystem-isolated.",
+        "ownedResources": [
+          "electron-desktop",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -9228,7 +9457,10 @@
         "platform": "windows",
         "externalCapabilities": [],
         "scheduling": "exclusive-desktop",
-        "schedulingReason": "Real Desktop, platform or machine-global lifecycle evidence requires exclusive execution."
+        "schedulingReason": "Retained exclusive Desktop/platform ownership; audited resources: electron-desktop.",
+        "ownedResources": [
+          "electron-desktop"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -9301,8 +9533,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -9350,8 +9585,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -9406,8 +9644,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -9499,7 +9740,10 @@
         "platform": "any",
         "externalCapabilities": [],
         "scheduling": "parallel-safe",
-        "schedulingReason": "TVA04 source review: pure data, process-local mocks/read-only source, or unique temporary roots; no machine-global process or timing measurement."
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -9596,8 +9840,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -9687,8 +9934,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -9784,7 +10034,10 @@
         "platform": "any",
         "externalCapabilities": [],
         "scheduling": "parallel-safe",
-        "schedulingReason": "TVA04 source review: pure data, process-local mocks/read-only source, or unique temporary roots; no machine-global process or timing measurement."
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: pure-stateless.",
+        "ownedResources": [
+          "pure-stateless"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -9833,8 +10086,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -9884,8 +10140,12 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: loopback-dynamic-endpoint, temp-filesystem-isolated.",
+        "ownedResources": [
+          "loopback-dynamic-endpoint",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -10002,8 +10262,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -10142,8 +10405,13 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -10251,8 +10519,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -10342,8 +10613,12 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -10513,8 +10788,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -10670,8 +10948,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -10773,8 +11054,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -10840,8 +11124,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -10889,7 +11176,10 @@
         "platform": "any",
         "externalCapabilities": [],
         "scheduling": "parallel-safe",
-        "schedulingReason": "TVA04 source review: pure data, process-local mocks/read-only source, or unique temporary roots; no machine-global process or timing measurement."
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: pure-stateless.",
+        "ownedResources": [
+          "pure-stateless"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -10961,8 +11251,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -11019,7 +11312,11 @@
         "platform": "windows",
         "externalCapabilities": [],
         "scheduling": "exclusive-packaging",
-        "schedulingReason": "Package output and platform qualification require exclusive execution."
+        "schedulingReason": "Retained exclusive packaging-output ownership; audited resources: packaging, repository-readonly.",
+        "ownedResources": [
+          "packaging",
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -11103,7 +11400,13 @@
         "platform": "windows",
         "externalCapabilities": [],
         "scheduling": "exclusive-packaging",
-        "schedulingReason": "Package output and platform qualification require exclusive execution."
+        "schedulingReason": "Retained exclusive packaging-output ownership; audited resources: loopback-dynamic-endpoint, packaging, repository-readonly, temp-filesystem-isolated.",
+        "ownedResources": [
+          "loopback-dynamic-endpoint",
+          "packaging",
+          "repository-readonly",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -11349,7 +11652,11 @@
         "platform": "any",
         "externalCapabilities": [],
         "scheduling": "exclusive-performance",
-        "schedulingReason": "Elapsed-time, volume or resource qualification must not overlap other files."
+        "schedulingReason": "Retained exclusive timing/soak measurement ownership; audited resources: performance-soak, temp-filesystem-isolated.",
+        "ownedResources": [
+          "performance-soak",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -11384,7 +11691,7 @@
         "electron": false,
         "filesystem": true,
         "git": false,
-        "network": false,
+        "network": true,
         "process": false,
         "timing": true
       },
@@ -11398,7 +11705,12 @@
         "platform": "any",
         "externalCapabilities": [],
         "scheduling": "exclusive-performance",
-        "schedulingReason": "Elapsed-time, volume or resource qualification must not overlap other files."
+        "schedulingReason": "Retained exclusive timing/soak measurement ownership; audited resources: loopback-dynamic-endpoint, performance-soak, temp-filesystem-isolated.",
+        "ownedResources": [
+          "loopback-dynamic-endpoint",
+          "performance-soak",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -11439,7 +11751,7 @@
         "electron": false,
         "filesystem": true,
         "git": false,
-        "network": false,
+        "network": true,
         "process": false,
         "timing": true
       },
@@ -11453,7 +11765,12 @@
         "platform": "any",
         "externalCapabilities": [],
         "scheduling": "exclusive-performance",
-        "schedulingReason": "Elapsed-time, volume or resource qualification must not overlap other files."
+        "schedulingReason": "Retained exclusive timing/soak measurement ownership; audited resources: loopback-dynamic-endpoint, performance-soak, temp-filesystem-isolated.",
+        "ownedResources": [
+          "loopback-dynamic-endpoint",
+          "performance-soak",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -11502,8 +11819,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -11551,8 +11871,12 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -11618,8 +11942,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -11703,8 +12030,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -11830,8 +12160,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -11891,8 +12224,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -11940,7 +12276,10 @@
         "platform": "any",
         "externalCapabilities": [],
         "scheduling": "parallel-safe",
-        "schedulingReason": "TVA04 source review: pure data, process-local mocks/read-only source, or unique temporary roots; no machine-global process or timing measurement."
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: pure-stateless.",
+        "ownedResources": [
+          "pure-stateless"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -12006,7 +12345,10 @@
         "platform": "any",
         "externalCapabilities": [],
         "scheduling": "parallel-safe",
-        "schedulingReason": "TVA04 source review: pure data, process-local mocks/read-only source, or unique temporary roots; no machine-global process or timing measurement."
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: pure-stateless.",
+        "ownedResources": [
+          "pure-stateless"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -12090,8 +12432,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -12151,8 +12496,12 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -12314,8 +12663,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -12368,8 +12720,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -12459,8 +12814,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -12568,8 +12926,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: pure-stateless.",
+        "ownedResources": [
+          "pure-stateless"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -12647,8 +13008,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -12720,8 +13084,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -12787,8 +13154,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -12849,8 +13219,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -12917,8 +13290,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -13008,8 +13384,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -13070,8 +13449,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -13149,8 +13531,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -13204,8 +13589,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -13259,8 +13647,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -13320,8 +13711,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -13435,8 +13829,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -13538,8 +13935,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -13600,8 +14000,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -13715,8 +14118,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -13776,8 +14182,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -13861,8 +14270,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -13975,8 +14387,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -14054,8 +14469,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -14193,8 +14611,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -14260,8 +14681,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -14351,8 +14775,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -14412,8 +14839,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -14485,8 +14915,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -14546,8 +14979,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -14601,8 +15037,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -14669,8 +15108,11 @@
         "requiresBuild": false,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -14770,8 +15212,12 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly, temp-filesystem-isolated.",
+        "ownedResources": [
+          "repository-readonly",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -14824,8 +15270,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -14895,8 +15344,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -14971,8 +15423,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -15020,8 +15475,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -15081,7 +15539,10 @@
         "platform": "any",
         "externalCapabilities": [],
         "scheduling": "parallel-safe",
-        "schedulingReason": "TVA04 source review: pure data, process-local mocks/read-only source, or unique temporary roots; no machine-global process or timing measurement."
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -15154,8 +15615,13 @@
         "externalCapabilities": [
           "git-cli"
         ],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -15244,8 +15710,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: pure-stateless.",
+        "ownedResources": [
+          "pure-stateless"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -15378,8 +15847,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -15590,8 +16062,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -15658,7 +16133,12 @@
         "platform": "windows",
         "externalCapabilities": [],
         "scheduling": "exclusive-desktop",
-        "schedulingReason": "Real Desktop, platform or machine-global lifecycle evidence requires exclusive execution."
+        "schedulingReason": "Retained exclusive Desktop/platform ownership; audited resources: bounded-child-process, electron-desktop, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "electron-desktop",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -15708,8 +16188,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -15817,8 +16300,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -15902,8 +16388,12 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -15981,8 +16471,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -16108,7 +16601,10 @@
         "platform": "any",
         "externalCapabilities": [],
         "scheduling": "parallel-safe",
-        "schedulingReason": "TVA04 source review: pure data, process-local mocks/read-only source, or unique temporary roots; no machine-global process or timing measurement."
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: pure-stateless.",
+        "ownedResources": [
+          "pure-stateless"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -16194,8 +16690,13 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: isolated-git-fixture, repository-readonly, temp-filesystem-isolated.",
+        "ownedResources": [
+          "isolated-git-fixture",
+          "repository-readonly",
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -16311,8 +16812,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -16396,8 +16900,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"
@@ -16482,8 +16989,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -16563,8 +17073,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -16757,8 +17270,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -16820,8 +17336,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -16876,8 +17395,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral",
@@ -16932,8 +17454,11 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
       },
       "proofCharacteristics": [
         "behavioral"

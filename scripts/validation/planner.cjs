@@ -55,6 +55,7 @@ function planValidation({ root = ROOT, catalog, profiles, lane, profile, testPat
     requiresBuild: record.execution.requiresBuild,
     duration: record.duration,
     ownership: record.behaviorCoverage,
+    ownedResources: record.execution.ownedResources,
     executionMode: record.execution.scheduling,
   }));
   const requiresBuild = Boolean(profile && profiles.profiles[profile].requiresBuild && !affected?.documentationOnly) || tests.some(t => t.requiresBuild);
