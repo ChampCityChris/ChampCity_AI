@@ -136,11 +136,16 @@ export async function runRoutedWorkflow(root: string, intakeId: string, action: 
       if (repair) await app.execution.reviewRepair({ ...review, repairId: repair.repairId });
       else await app.execution.reviewFormal(review);
     } else {
-      if (action === "prepare") await (repair ? app.execution.prepareRepair(request) : app.execution.prepare(request));
-      const draft = await (repair ? app.execution.getRepairDraft(request) : app.execution.getDraft(request));
-      if (!draft) throw Error("Prepare the current Work Item handoff first.");
-      if (action === "prepare") { instruction = draft.preparedInstruction; feedback = "Work Card Architect handoff copied."; }
-      else feedback = draft.promotionError ?? `Draft: ${draft.submission.state}.`;
+      if (action === "prepare") {
+        const prepared = await (repair ? app.execution.prepareRepair(request) : app.execution.prepare(request));
+        if (!prepared || !("preparedInstruction" in prepared)) throw Error("Prepare the current Work Item handoff first.");
+        instruction = prepared.preparedInstruction;
+        feedback = "Work Card Architect handoff copied.";
+      } else {
+        const draft = await (repair ? app.execution.getRepairDraft(request) : app.execution.getDraft(request));
+        if (!draft || !("submission" in draft)) throw Error("Prepare the current Work Item handoff first.");
+        feedback = draft.promotionError ?? `Draft: ${draft.submission.state}.`;
+      }
     }
   } else if (action === "implement") await app.implement({ ...request, selection: input.selection });
   else if (action === "resolve-environment") await worker.startEnvironmentResolution(root, selector);

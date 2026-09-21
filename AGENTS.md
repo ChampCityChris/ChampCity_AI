@@ -43,6 +43,8 @@ Before changing production code, tests, scripts, migrations, fixtures, packaging
 
 ## Git safety
 
+Operator-directed repository policy: perform all development work directly on `dev` in the primary repository checkout. Retain only `dev` and `main` branches locally and on `origin`. Do not create additional branches or worktrees unless the Operator explicitly changes this policy. `main` remains the release branch; do not move it merely to consolidate development work.
+
 The Operator is the only authority over Git and release work. Current Operator direction and explicit task constraints define the scope of every branch, stage, commit, push, merge, rebase, tag, release, reset, clean, restore, and stash action. A Work Card or Repair Card may record those constraints, but it is not a permission source and does not permit Git mutation.
 
 - Obey any explicit prohibition such as `no Git this turn`.

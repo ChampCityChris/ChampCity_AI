@@ -10,6 +10,8 @@ test("routed application checkpoints source and integrates only after real Plan 
   const { createRoutedDevelopmentApplicationService } = require("../../dist/main/planExecution/routedDevelopmentApplicationService.js");
   const { parseCanonicalMarkdownDocument, serializeCanonicalMarkdownDocument } = require("../../dist/shared/documents/canonicalMarkdown.js");
   const { readCheckpointReceipt } = require("../../dist/main/planExecution/workItemCheckpointReceipt.js");
+  const { readLifecycleCheckpointReceipt } = require("../../dist/main/planExecution/lifecycleEvidenceCheckpointReceipt.js");
+  const { createWorkIntakeBranchService } = require("../../dist/main/workIntake/workIntakeBranchService.js");
   for (const conflicted of [false, true]) await t.test(conflicted ? "conflicted target" : "clean target", async (t) => {
     const fixture = await seedApprovedRoutedWorkPlan(t, { topology: "direct", topologyRationale: "One bounded source change", acceptanceCriteria: ["Product behavior accepted"],
       workItems: [{ workItemId: "WI01", title: "Preserve accepted source", purpose: "One bounded source change", dependsOn: [], acceptanceCriteria: ["Incoming behavior accepted"] }] }, "feature-change", {
@@ -66,9 +68,24 @@ test("routed application checkpoints source and integrates only after real Plan 
     assert.equal((await api.query()).workItems[0].stage, "review-validate");
     await api.validate({ ...await request(), decision: { decision: "ValidatePassed", operatorNotes: "Current source behavior checked" } });
     const close = await api.close(await request());
+    assert.equal(close.checkpoint.status, "committed", close.checkpoint.message);
+    const workItemReceipt = readLifecycleCheckpointReceipt(git("show", "--no-patch", "--format=%B", close.checkpoint.commit), close.checkpoint.checkpointId);
+    assert.equal(workItemReceipt.beforeHead, completed.checkpoint.commit);
+    assert.deepEqual(workItemReceipt.boundary, { kind: "work-item", routeDecisionId: fixture.binding.identity.routeDecisionId,
+      planId: fixture.binding.identity.planId, planRevision: fixture.binding.planRevision, workItemId: "WI01", implementationId: "WI01" });
+    assert.deepEqual(workItemReceipt.files.map((entry) => entry.artifactType).sort(), ["formal-work-card", "implementer-report", "validation-record", "work-card-close-return-record"]);
+    assert.equal(git("status", "--porcelain"), "", "Work Item lifecycle boundary leaves the incoming checkout clean");
     const boundary = { kind: "plan" };
     const saved = await api.saveAcceptance({ boundary, expectedFingerprint: (await api.query()).fingerprint, closureDecision: "Close", rationale: "Complete product behavior proven", criteria: [{ criterion: "Product behavior accepted", status: "passed", evidencePaths: [close.recordPath] }] });
-    await api.reviewAcceptance({ boundary, expectedFingerprint: (await api.query()).fingerprint, expectedRevision: saved.artifactRevision, disposition: "Approved" });
+    const accepted = await api.reviewAcceptance({ boundary, expectedFingerprint: (await api.query()).fingerprint, expectedRevision: saved.artifactRevision, disposition: "Approved" });
+    assert.equal(accepted.checkpoint.status, "committed", accepted.checkpoint.message);
+    const planReceipt = readLifecycleCheckpointReceipt(git("show", "--no-patch", "--format=%B", accepted.checkpoint.commit), accepted.checkpoint.checkpointId);
+    assert.deepEqual(planReceipt.boundary, { kind: "plan", routeDecisionId: fixture.binding.identity.routeDecisionId,
+      planId: fixture.binding.identity.planId, planRevision: fixture.binding.planRevision });
+    assert.deepEqual(planReceipt.files.map((entry) => entry.artifactType), ["plan-closeout"]);
+    assert.equal(git("status", "--porcelain"), "", "Plan acceptance is durable before integration");
+    assert.equal((await createWorkIntakeBranchService({ repositoryId: intake.branchBinding.repositoryId, repositoryRoot: root }).verify(intake.branchBinding)).currentHead,
+      accepted.checkpoint.commit, "branch verification accepts the exact mixed source/lifecycle chain");
     const ready = await app.integration.query(); assert.equal(ready.status, "ready", ready.reasons.join("\n"));
     assert.deepEqual(ready.checkpointCommits, [completed.checkpoint.commit]);
     const planPath = path.join(root, fixture.binding.planPath); const planBytes = fs.readFileSync(planPath);
@@ -141,6 +158,10 @@ test("routed direct Work Item preserves sequential Repairs and completes only af
   await assert.rejects(api.close({ workItemId: "WI01", expectedFingerprint: stale.fingerprint }), /Approved completion/);
   write(validation.markdownPath, originalValidation.metadata, originalValidation.bodyMarkdown);
   const closed = await api.close(await request());
+  assert.equal(closed.checkpoint.status, "committed", closed.checkpoint.message);
+  const closedHead = run.git("rev-parse", "HEAD");
+  assert.equal(closedHead, closed.checkpoint.commit);
+  assert.equal(run.git("status", "--porcelain"), "", "Work Item 1 lifecycle evidence is clean before Work Item 2");
   const complete = await api.query();
   assert.equal(complete.workItems[0].stage, "complete");
   assert.equal(complete.workItems[1].eligible, true);
@@ -161,14 +182,14 @@ test("routed direct Work Item preserves sequential Repairs and completes only af
   fs.writeFileSync(path.join(root, reportPath), reportBytes);
   fs.appendFileSync(path.join(root, run.reportPath), "\nChanged earlier failed-validation evidence.\n");
   assert.equal((await api.query()).status, "blocked", "sequential Repair completion requires its earlier validation basis to remain current");
-  assert.equal(run.git("rev-parse", "HEAD"), run.initialHead);
+  assert.equal(run.git("rev-parse", "HEAD"), closedHead, "Work Item 2 begins from Work Item 1's exact lifecycle checkpoint head");
   assert.equal(fs.existsSync(path.join(root, "planning/phases")), false);
   assert.equal(read(binding.relativePath).metadata.identity.planId, binding.identity.planId);
 });
 
 test("routed phased Work Item repairs report review and closes within its genuine Phase", async (t) => {
   const run = await routedLifecycleFixture(t, true);
-  const { api, request, read, write } = run;
+  const { api, request, read, write, git } = run;
   await api.reviewReport({ ...await request(), expectedRevision: 1, disposition: "RevisionRequested", notes: "Add the missing export evidence" });
   const repair = await api.createRepair({ ...await request(), defect: "Add the missing export evidence" });
   assert.match(repair.repairMarkdownPath, /\/phases\/P1\/Work_Cards\/WI01-REPAIR01.md$/);
@@ -188,12 +209,23 @@ test("routed phased Work Item repairs report review and closes within its genuin
   const validation = await api.validate({ ...await request(), decision: { decision: "ValidatePassed", operatorNotes: "Evidence reviewed" } });
   assert.equal(read(validation.markdownPath).metadata.identity.phaseId, "P1");
   const close = await api.close(await request());
+  assert.equal(close.checkpoint.status, "committed", close.checkpoint.message);
   assert.match(close.recordPath, /\/phases\/P1\/Close_Return_Records\//);
-  const projected = await api.query();
+  let projected = await api.query();
   assert.equal(projected.workItems[0].complete, true);
   assert.equal(projected.workItems[1].eligible, false, "Phase acceptance is not supplied by Work Item close");
   assert.equal(projected.phases[0].complete, false);
   assert.equal(projected.complete, false);
+  const boundary = { kind: "phase", phaseId: "P1" };
+  const saved = await api.saveAcceptance({ boundary, expectedFingerprint: projected.fingerprint, closureDecision: "Close", rationale: "P1 evidence accepted",
+    criteria: [{ criterion: "P1 milestone accepted", status: "passed", evidencePaths: [close.recordPath] }] });
+  const accepted = await api.reviewAcceptance({ boundary, expectedFingerprint: (await api.query()).fingerprint, expectedRevision: saved.artifactRevision, disposition: "Approved" });
+  assert.equal(accepted.checkpoint.status, "committed", accepted.checkpoint.message);
+  assert.equal(git("status", "--porcelain"), "", "Phase acceptance leaves a clean boundary for the next Phase");
+  projected = await api.query();
+  assert.equal(projected.phases[0].complete, true);
+  assert.equal(projected.workItems[1].eligible, true);
+  await api.begin({ workItemId: "WI02", expectedFingerprint: projected.fingerprint });
   assert.equal(fs.existsSync(path.join(run.root, "planning/phases")), false);
 });
 
@@ -205,7 +237,9 @@ async function routedLifecycleFixture(t, phased) {
   const item = (id, deps, phaseId) => ({ workItemId: id, title: `Deliver ${id}`, purpose: "Bounded export", dependsOn: deps, acceptanceCriteria: [`${id} export accepted`], ...(phaseId ? { phaseId } : {}) });
   const phase = (id, deps) => ({ phaseId: id, title: id, purpose: "Distinct milestone", dependsOn: deps, acceptanceCriteria: [`${id} milestone accepted`] });
   const structure = { topology: phased ? "phased" : "direct", topologyRationale: phased ? "Distinct milestone gates" : "One bounded delivery", acceptanceCriteria: ["Export accepted"], workItems: [item("WI01", [], phased ? "P1" : undefined), item("WI02", ["WI01"], phased ? "P2" : undefined)], ...(phased ? { phases: [phase("P1", []), phase("P2", ["P1"])] } : {}) };
-  const fixture = await seedApprovedRoutedWorkPlan(t, structure);
+  const fixture = await seedApprovedRoutedWorkPlan(t, structure, "feature-change", {
+    setupRepository(root) { fs.writeFileSync(path.join(root, ".gitignore"), "/planning/\n"); },
+  });
   const { root, intake } = fixture;
   const api = createRoutedDevelopmentExecutionService(root, intake.intakeId);
   const request = async () => ({ workItemId: "WI01", expectedFingerprint: (await api.query()).fingerprint });

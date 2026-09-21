@@ -148,7 +148,7 @@ export function createSourceControlService(binding: { repositoryId: string; repo
     }),
     prepareBranch: (branchName: string) => run("prepare-branch", true, () => prepareGitBranch(root, branchName)),
     switchBranch: (branchName: string) => run("switch-branch", true, () => switchGitBranch(root, branchName)),
-    stage: (paths: string[]) => run("stage", true, () => stageGitChanges(root, paths)),
+    stage: (paths: string[], options?: { includeIgnored?: boolean }) => run("stage", true, () => stageGitChanges(root, paths, options)),
     commit: (message: string) => run("commit", true, () => commitGitChanges(root, message)),
     fetch: (remote?: string) => run("fetch", true, () => fetchGitRemote(root, remote)),
     push: (input: Parameters<typeof pushGitBranch>[1] = {}) => run("push", true, () => pushGitBranch(root, input)),

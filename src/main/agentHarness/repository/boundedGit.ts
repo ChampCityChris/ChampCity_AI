@@ -49,7 +49,10 @@ export function runBoundedGit(options: GitExecutionOptions): Promise<GitExecutio
     let child;
 
     try {
-      child = spawn("git", options.args, {
+      const args = process.platform === "win32"
+        ? ["-c", "core.longpaths=true", ...options.args]
+        : options.args;
+      child = spawn("git", args, {
         cwd: options.cwd,
         detached: process.platform !== "win32",
         shell: false,

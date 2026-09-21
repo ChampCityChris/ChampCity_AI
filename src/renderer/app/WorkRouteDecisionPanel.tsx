@@ -4,6 +4,28 @@ import type { WorkRouteDecisionInput, WorkRouteDecisionModel } from "../../share
 import { WorkPlanningPanel } from "./WorkPlanningPanel";
 import { WorkIssuePanel } from "./WorkIssuePanel";
 
+export function WorkRouteDecisionControls({ model, selected, rationale, busy, onRationaleChange, onSelectedChange, onDecide }: {
+  model: WorkRouteDecisionModel;
+  selected: WorkRouteId;
+  rationale: string;
+  busy: boolean;
+  onRationaleChange: (value: string) => void;
+  onSelectedChange: (value: WorkRouteId) => void;
+  onDecide: (disposition: WorkRouteDecisionInput["disposition"]) => void;
+}) {
+  if (model.state !== "awaiting-decision" && model.state !== "reroute-required") return null;
+  const disabled = busy || !rationale.trim() || !model.sourceAssessment;
+  return <>
+    <label>Decision rationale or revision instructions<textarea value={rationale} onChange={(event) => onRationaleChange(event.target.value)} /></label>
+    <button disabled={disabled} onClick={() => onDecide("accept")}>Accept recommendation</button>
+    <label>Override with route<select value={selected} onChange={(event) => onSelectedChange(event.target.value as WorkRouteId)}>
+      {workRouteProfiles.map((profile) => <option key={profile.routeId} value={profile.routeId}>{profile.label}</option>)}
+    </select></label>
+    <button disabled={disabled} onClick={() => onDecide("override")}>Select this route</button>
+    <button disabled={disabled} onClick={() => onDecide("request-revision")}>Request revised assessment</button>
+  </>;
+}
+
 export function WorkRouteDecisionPanel({ intakeId, assessmentRevision, onOpenIssue }: { intakeId: string; assessmentRevision: number; onOpenIssue?: (issueId: string) => void }) {
   const [model, setModel] = useState<WorkRouteDecisionModel | null>(null);
   const [selected, setSelected] = useState<WorkRouteId>("greenfield");
@@ -17,7 +39,7 @@ export function WorkRouteDecisionPanel({ intakeId, assessmentRevision, onOpenIss
     return () => { current = false; };
   }, [intakeId, assessmentRevision]);
   async function decide(disposition: WorkRouteDecisionInput["disposition"]) {
-    if (!model?.sourceAssessment) return;
+    if (!model?.sourceAssessment || model.state !== "awaiting-decision" && model.state !== "reroute-required") return;
     setBusy(true); setError("");
     try {
       setModel(await window.champcity.decideWorkRoute(intakeId, { expectedDecisionRevision: model.artifactRevision,
@@ -26,20 +48,14 @@ export function WorkRouteDecisionPanel({ intakeId, assessmentRevision, onOpenIss
     } catch (failure) { setError(failure instanceof Error ? failure.message : "Route decision failed."); }
     finally { setBusy(false); }
   }
-  const disabled = busy || !rationale.trim() || !model?.sourceAssessment || ["stale", "revision-requested"].includes(model?.state ?? "");
   return <section aria-label="Operator route decision">
     <h3>Your route decision</h3>
     {error || model?.error ? <p role="alert">{error || model?.error}</p> : null}
     <p role="status">{model?.state ?? "Loading route decision…"}</p>
     <p>Selected route: {model?.selection ? workRouteProfileRegistry[model.selection.selectedRouteId].label : "Awaiting your decision"}</p>
     {model?.recommendation?.kind === "architect-reroute-recommendation" ? <p>Reroute recommended: {workRouteProfileRegistry[model.recommendation.replacementRouteId].label}. {model.recommendation.rationale}</p> : null}
-    <label>Decision rationale or revision instructions<textarea value={rationale} onChange={(event) => setRationale(event.target.value)} /></label>
-    <button disabled={disabled} onClick={() => void decide("accept")}>Accept recommendation</button>
-    <label>Override with route<select value={selected} onChange={(event) => setSelected(event.target.value as WorkRouteId)}>
-      {workRouteProfiles.map((profile) => <option key={profile.routeId} value={profile.routeId}>{profile.label}</option>)}
-    </select></label>
-    <button disabled={disabled} onClick={() => void decide("override")}>Select this route</button>
-    <button disabled={disabled} onClick={() => void decide("request-revision")}>Request revised assessment</button>
+    {model ? <WorkRouteDecisionControls model={model} selected={selected} rationale={rationale} busy={busy}
+      onRationaleChange={setRationale} onSelectedChange={setSelected} onDecide={(disposition) => void decide(disposition)} /> : null}
     {model?.history.length ? <details><summary>Decision history</summary><ol>{model.history.map((entry) => <li key={entry.decision.decisionId}>{entry.decision.disposition}: {entry.decision.rationale}</li>)}</ol></details> : null}
     {model?.selection?.selectedRouteId === "issue-resolution" && ["selected", "reroute-required", "revision-requested", "stale"].includes(model.state)
       ? <WorkIssuePanel key={model.selection.decisionId} intakeId={intakeId} onOpenIssue={onOpenIssue} onRoutingChanged={async () => { setModel(await window.champcity.getWorkRouteDecision(intakeId)); }} />
