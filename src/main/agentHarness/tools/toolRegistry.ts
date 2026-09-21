@@ -31,6 +31,7 @@ import {
   setGitBranchUpstream,
   unsetGitBranchUpstream,
   deleteGitRemoteBranch,
+  amendGitCommit, revertGitCommit, cherryPickGitCommit,
   commitGitChanges,
   createGitTag,
   deleteGitBranch,
@@ -129,6 +130,7 @@ const HOTFIX10_RESERVED_TOOLBOX_NAMES = [
 type RequiredScope = "files.read" | "files.write";
 type ParamType = "string" | "number" | "boolean" | "string-array";
 type GitMutationAction =
+  | "amend_commit" | "revert_commit" | "cherry_pick_commit"
   | "create_worktree_from_ref"
   | "create_worktree_for_branch"
   | "remove_worktree"
@@ -573,7 +575,10 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
         gitMutationAction("unstage_changes", requiredParams({ paths: "string-array" })),
         gitMutationAction("restore_files", { ...requiredParams({ paths: "string-array" }), ...optionalParams({ sourceRef: "string" }) }),
         gitMutationAction("stage_changes", requiredParams({ paths: "string-array" })),
-        gitMutationAction("commit", requiredParams({ message: "string" })),
+        gitMutationAction("amend_commit", { ...requiredParams({ expectedHead: "string" }), ...optionalParams({ message: "string" }) }),
+        gitMutationAction("revert_commit", { ...requiredParams({ commit: "string", expectedHead: "string" }), ...optionalParams({ mainline: "number" }) }),
+        gitMutationAction("cherry_pick_commit", { ...requiredParams({ commit: "string", expectedHead: "string" }), ...optionalParams({ mainline: "number" }) }),
+        gitMutationAction("commit", { ...requiredParams({ message: "string" }), ...optionalParams({ expectedHead: "string" }) }),
         gitMutationAction("push", optionalParams({ remote: "string", branch: "string", expectedCommit: "string", remoteBranch: "string", setUpstream: "boolean" })),
         gitMutationAction("integrate_to_dev", {}),
       ],
@@ -943,8 +948,13 @@ function gitMutationAction(
           return restoreGitFiles(context.root, { paths: requiredStringArray(values.paths, "paths"), sourceRef: stringValue(values.sourceRef) });
         case "stage_changes":
           return stageGitChanges(context.root, requiredStringArray(values.paths, "paths"));
+        case "amend_commit":
+          return amendGitCommit(context.root, { expectedHead: requiredString(values.expectedHead, "expectedHead"), message: stringValue(values.message) });
+        case "revert_commit":
+        case "cherry_pick_commit":
+          return (name === "revert_commit" ? revertGitCommit : cherryPickGitCommit)(context.root, { commit: requiredString(values.commit, "commit"), expectedHead: requiredString(values.expectedHead, "expectedHead"), mainline: numberValue(values.mainline) });
         case "commit":
-          return commitGitChanges(context.root, requiredString(values.message, "message"));
+          return commitGitChanges(context.root, requiredString(values.message, "message"), stringValue(values.expectedHead));
         case "push":
           return pushGitBranch(context.root, {
             remote: stringValue(values.remote),

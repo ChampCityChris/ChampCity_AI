@@ -809,11 +809,85 @@ export async function stageGitChanges(root: string, paths: string[]): Promise<{
   return { stagedPaths };
 }
 
-export async function commitGitChanges(root: string, message: string): Promise<{
+export async function assertExpectedGitHead(root: string, expectedHead: string): Promise<string> {
+  if (!/^[a-f0-9]{40,64}$/.test(expectedHead) || await readHead(root) !== expectedHead) throw gitPrecondition("HEAD does not match the required exact commit.");
+  return expectedHead;
+}
+
+export async function inspectGitOperationState(root: string): Promise<string[]> {
+  const directory = path.resolve(root, (await runRefGit(root, ["rev-parse", "--git-dir"])).stdout.trim());
+  return ["MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "sequencer", "rebase-merge", "rebase-apply"].filter((name) => fs.existsSync(path.join(directory, name)));
+}
+
+export async function assertNoGitOperation(root: string): Promise<void> {
+  if ((await inspectGitOperationState(root)).length) throw gitPrecondition("Finish or abort the existing Git operation first.");
+}
+
+export async function gitConflictPaths(root: string): Promise<{ conflictingPaths: string[]; truncated: boolean }> {
+  const paths = (await runRefGit(root, ["diff", "--name-only", "--diff-filter=U", "-z"])).stdout.split("\0").filter(Boolean);
+  return { conflictingPaths: paths.slice(0, 256).map((entry) => entry.slice(0, 4096)), truncated: paths.length > 256 || paths.some((entry) => entry.length > 4096) };
+}
+
+export async function resolveGitTransformCommit(root: string, input: { commit: string; mainline?: number }) {
+  const revision = validateRevision(input.commit, "commit");
+  if (/\.\.|[\s:^]/.test(revision)) throw gitPrecondition("Select one commit or ref, without ranges or revision-list expressions.");
+  const commit = await resolveCommit(root, revision);
+  const parents = (await runRefGit(root, ["show", "--no-patch", "--format=%P", commit])).stdout.trim().split(/\s+/).filter(Boolean);
+  if (parents.length > 1) {
+    if (!Number.isSafeInteger(input.mainline) || input.mainline! < 1 || input.mainline! > parents.length) throw gitPrecondition("Merge commits require an explicit valid mainline parent.");
+  } else if (input.mainline !== undefined) throw gitPrecondition("Mainline is only valid for a merge commit.");
+  return { commit, mainline: input.mainline };
+}
+
+export async function amendGitCommit(root: string, input: { expectedHead: string; message?: string }) {
+  await currentBranch(root);
+  await assertNoGitOperation(root);
+  const previousCommit = await assertExpectedGitHead(root, input.expectedHead);
+  const message = input.message === undefined ? undefined : validateCommitMessage(input.message);
+  const priorMessage = (await runRefGit(root, ["show", "--no-patch", "--format=%B", previousCommit])).stdout;
+  const priorTree = (await runRefGit(root, ["rev-parse", `${previousCommit}^{tree}`])).stdout.trim();
+  const tree = (await runRefGit(root, ["write-tree"])).stdout.trim();
+  if (tree === priorTree && (message === undefined || message.trim() === priorMessage.trim())) throw gitPrecondition("Amend requires a changed message or staged tree.");
+  await assertExpectedGitHead(root, previousCommit);
+  await runRefGit(root, ["commit", "--amend", "--no-gpg-sign", ...(message === undefined ? ["--no-edit"] : ["--message", message])]);
+  return { previousCommit, commit: await readHead(root) };
+}
+
+export async function transformGitCommit(root: string, operation: "revert" | "cherry-pick", input: { commit: string; expectedHead: string; mainline?: number }) {
+  await currentBranch(root);
+  await assertNoGitOperation(root);
+  await assertCleanRepository(root);
+  const source = await resolveGitTransformCommit(root, input);
+  const previousCommit = await assertExpectedGitHead(root, input.expectedHead);
+  try {
+    await runRefGit(root, ["-c", "rerere.enabled=false", operation, "--no-edit", "--no-gpg-sign", ...(source.mainline === undefined ? [] : ["--mainline", String(source.mainline)]), source.commit]);
+    const commit = await readHead(root);
+    if (commit === previousCommit || (await inspectGitOperationState(root)).length) throw gitPrecondition("Commit transform did not finish with one new commit.");
+    return { sourceCommit: source.commit, previousCommit, commit };
+  } catch {
+    let evidence: { conflictingPaths: string[]; truncated: boolean } = { conflictingPaths: [], truncated: true };
+    try { evidence = await gitConflictPaths(root); } catch { /* Always attempt rollback even when evidence exceeds output bounds. */ }
+    let rolledBack = false;
+    try {
+      if ((await inspectGitOperationState(root)).length) await runRefGit(root, [operation, "--abort"]);
+      await assertExpectedGitHead(root, previousCommit);
+      await assertCleanRepository(root);
+      await assertNoGitOperation(root);
+      rolledBack = true;
+    } catch { /* Explicit residual-state receipt below. */ }
+    throw new AgentHarnessError("GIT_EXECUTION_FAILED", rolledBack ? "Commit transform failed and was rolled back to the original clean HEAD." : "Commit transform failed; rollback could not be verified. Residual operation state may remain.", { ...evidence, previousCommit, rolledBack, residualOperationState: !rolledBack });
+  }
+}
+
+export const revertGitCommit = (root: string, input: Parameters<typeof transformGitCommit>[2]) => transformGitCommit(root, "revert", input);
+export const cherryPickGitCommit = (root: string, input: Parameters<typeof transformGitCommit>[2]) => transformGitCommit(root, "cherry-pick", input);
+
+export async function commitGitChanges(root: string, message: string, expectedHead?: string): Promise<{
   commit: string;
   message: string;
 }> {
   const commitMessage = validateCommitMessage(message);
+  if (expectedHead !== undefined) await assertExpectedGitHead(root, expectedHead);
   const staged = await runBoundedGit({
     cwd: root,
     args: ["diff", "--cached", "--quiet", "--"],
@@ -825,6 +899,7 @@ export async function commitGitChanges(root: string, message: string): Promise<{
   if (staged.exitCode !== 1) {
     throw gitPrecondition("Git could not verify the staged diff.");
   }
+  if (expectedHead !== undefined) await assertExpectedGitHead(root, expectedHead);
   await runBoundedGit({ cwd: root, args: ["commit", "--message", commitMessage] });
   return { commit: await readHead(root), message: commitMessage };
 }

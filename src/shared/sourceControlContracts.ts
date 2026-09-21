@@ -5,6 +5,7 @@ export interface SourceControlPosition {
 }
 
 export type SourceControlOperation =
+  | "amend-commit" | "revert-commit" | "cherry-pick-commit"
   | "inspect-commit" | "compare-refs" | "list-tags" | "inspect-remotes" | "unstage" | "restore-files"
   | "create-branch-from-ref"
   | "advance-branch-ref"
@@ -38,6 +39,7 @@ export type SourceControlResult<T> =
         phase: "precondition" | "operation" | "receipt";
         /** Failure does not imply rollback; inspect before retrying a mutation. */
         mutationMayHaveOccurred: boolean;
+        recovery?: { rolledBack: boolean; residualOperationState: boolean; conflictingPaths: string[] };
       };
       /** Present when the operation succeeded but subsequent receipt inspection failed. */
       completedResult?: T;

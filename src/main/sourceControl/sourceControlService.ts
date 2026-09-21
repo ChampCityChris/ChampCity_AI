@@ -5,6 +5,7 @@ import { runBoundedGit, isGitWorkTree } from "../agentHarness/repository/bounded
 import {
   inspectGitDiff, inspectGitChangedFiles, inspectGitCommit, compareGitRefs, listGitTags, inspectGitRemotes, unstageGitChanges, restoreGitFiles,
   createGitBranchFromRef, advanceGitBranchRef, renameGitBranch, setGitBranchUpstream, unsetGitBranchUpstream, deleteGitRemoteBranch,
+  amendGitCommit, revertGitCommit, cherryPickGitCommit,
   commitGitChanges, deleteGitBranch, fastForwardGitBranch, fetchGitRemote,
   inspectGitBranchState, inspectGitHistory, prepareGitBranch, pushGitBranch,
   stageGitChanges, switchGitBranch,
@@ -73,6 +74,10 @@ export function createSourceControlService(binding: { repositoryId: string; repo
           message: error instanceof AgentHarnessError
             ? error.message.replaceAll(root, "<PROJECT_REPO>").replace(/[\r\n]+/g, " ").slice(0, 1000)
             : "Source-control operation could not complete.",
+          ...(error instanceof AgentHarnessError && typeof error.details?.rolledBack === "boolean" ? {
+            recovery: { rolledBack: error.details.rolledBack, residualOperationState: error.details.residualOperationState === true,
+              conflictingPaths: Array.isArray(error.details.conflictingPaths) ? error.details.conflictingPaths.filter((value): value is string => typeof value === "string").slice(0, 256) : [] }
+          } : {}),
           phase,
           mutationMayHaveOccurred: mutate && phase !== "precondition",
         },
@@ -134,7 +139,10 @@ export function createSourceControlService(binding: { repositoryId: string; repo
     prepareBranch: (branchName: string) => run("prepare-branch", true, () => prepareGitBranch(root, branchName)),
     switchBranch: (branchName: string) => run("switch-branch", true, () => switchGitBranch(root, branchName)),
     stage: (paths: string[]) => run("stage", true, () => stageGitChanges(root, paths)),
-    commit: (message: string) => run("commit", true, () => commitGitChanges(root, message)),
+    commit: (message: string, expectedHead?: string) => run("commit", true, () => commitGitChanges(root, message, expectedHead)),
+    amendCommit: (input: Parameters<typeof amendGitCommit>[1]) => run("amend-commit", true, () => amendGitCommit(root, input)),
+    revertCommit: (input: Parameters<typeof revertGitCommit>[1]) => run("revert-commit", true, () => revertGitCommit(root, input)),
+    cherryPickCommit: (input: Parameters<typeof cherryPickGitCommit>[1]) => run("cherry-pick-commit", true, () => cherryPickGitCommit(root, input)),
     fetch: (remote?: string) => run("fetch", true, () => fetchGitRemote(root, remote)),
     push: (input: Parameters<typeof pushGitBranch>[1] = {}) => run("push", true, () => pushGitBranch(root, input)),
     fastForward: (input: Parameters<typeof fastForwardGitBranch>[1] = {}) =>
