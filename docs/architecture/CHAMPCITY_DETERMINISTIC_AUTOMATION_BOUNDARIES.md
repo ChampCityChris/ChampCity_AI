@@ -127,18 +127,20 @@ Target boundary:
 - ChampCity persists the resolved structured implementation/Validation/Evidence representations.
 - Markdown Implementer Report becomes a rendered view/export rather than a model-maintained source of truth.
 
-### 4.2 Git tool exposure
+### 4.2 Source-control provider exposure
 
 The frozen V1 `src/main/agentHarness/tools/toolRegistry.ts` dispatches bounded Git mutation actions for branch preparation, staging, commit, push, and fast-forward integration through `src/main/agentHarness/repository/gitMutations.ts`. The implementation enforces deterministic preconditions such as repository containment/pathspec validation, valid branch/ref names, clean-tree requirements where applicable, existing staged changes before commit, configured remotes, and fast-forward-only integration.
 
-`src/main/agentHarness/repository/boundedGit.ts` and `gitMutations.ts` demonstrate that underlying Git mechanics can be implemented in bounded deterministic code. V2 should extract these semantics behind RepositoryService rather than reintroduce an AI permission/command loop.
+`src/main/agentHarness/repository/boundedGit.ts` and `gitMutations.ts` demonstrate that underlying Git mechanics can be implemented in bounded deterministic code. V2 should retain those mechanics behind the Git source-control provider and RepositoryService rather than reintroduce an AI permission/command loop or make Git's command vocabulary the permanent workflow contract.
 
 The routine workflow should therefore stop spending model calls deciding or invoking predictable source-control steps one operation at a time once the corresponding governed services exist.
 
 Target boundary:
 
 - AI may inspect diffs or history when those facts are needed for reasoning.
-- normal branch creation, staging, commit, push, integration, changed-file calculation, dirty-tree checks, and readiness checks are Repository Service responsibilities driven by workflow policy;
+- workflows request semantic outcomes such as isolated work source, RepositoryCheckout provisioning, durable ImplementationRevision capture, synchronization, integration candidate preparation, target advancement, changed-file calculation, and readiness checks;
+- RepositoryService translates those outcomes through the configured source-control provider;
+- for Git, branch creation, worktree operations, staging/index bookkeeping, commit, fetch/push, merge/integration, dirty-tree checks, and ref movement remain deterministic provider mechanics rather than workflow concepts;
 - AI may propose a semantic change summary when useful, but should not perform routine Git bookkeeping;
 - ChampCity should produce a source-control receipt and attach it to the work record.
 
@@ -175,7 +177,7 @@ The Structured Project State model should eliminate this reconstruction by makin
 
 | Area | Default owner | AI may do | AI must not do |
 | --- | --- | --- | --- |
-| Git operations | Repository & Source Control Management | Inspect diff/history for reasoning; describe semantic change intent | Routine branch, stage, commit, push, merge/integrate, reset bookkeeping, changed-file calculation |
+| Source-control operations | Repository & Source Control Management | Inspect diff/history for reasoning; describe semantic change intent or semantic conflict resolution | Routine source-line/checkout/revision/synchronization/integration mechanics; provider-specific branch/worktree/index/commit/push/merge/reset bookkeeping; changed-file calculation |
 | Hashes/checksums | ChampCity mechanics | Reason about a reported mismatch if necessary | Calculate, copy-forward, compare, or maintain authoritative hashes |
 | Canonical IDs | ChampCity mechanics | Refer to IDs supplied in context | Generate canonical entity IDs, relationship IDs, lineage IDs, revision IDs, submission IDs |
 | Human-facing aliases | ChampCity mechanics by policy | Suggest a title/name | Manually increment `WC03`, `REPAIR02`, `FC04`, etc. |

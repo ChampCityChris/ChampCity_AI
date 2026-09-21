@@ -21,7 +21,7 @@ When documents overlap, use this precedence:
 3. **Adopted V2 product/foundational architecture:**
    - `CHAMPCITY_PRODUCT_CAPABILITY_MODEL.md`;
    - `CHAMPCITY_FOUNDATIONAL_ARCHITECTURE_PRINCIPLES.md`.
-4. **Topic-specific adopted architecture/contracts**, including Structured Project State, Client-Service, Repository/Source Layout, Runtime Recovery, Agent Runtime Interface, Deterministic Automation Boundaries, the Architectural Review Cycle, and `CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md` for Work Intake routing, Plan topology, generic execution, and application-owned Git lifecycle.
+4. **Topic-specific adopted architecture/contracts**, including Structured Project State, Client-Service, Repository/Source Layout, Runtime Recovery, Agent Runtime Interface, Deterministic Automation Boundaries, the Architectural Review Cycle, `CHAMPCITY_SOURCE_CONTROL_PROVIDER_ARCHITECTURE.md` for the provider-neutral source-control model, `CHAMPCITY_CONCURRENT_REPOSITORY_CHECKOUT_ARCHITECTURE.md` for concurrent writable source execution, and `CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md` for Work Intake routing, Plan topology, generic execution, and application-owned source-control lifecycle.
 5. **Current migration/source mappings** such as `SOURCE_EXTRACTION_MAP.md`, the Desktop Source Mapping, and Vocabulary Migration Plan.
 6. **Historical/design-discussion documents**, which may explain rationale but may not override the adopted contracts above.
 
@@ -46,6 +46,9 @@ When frozen V1 documentation and V2 target architecture coexist in the same repo
 - **Workspace** — task-oriented ChampCity working station/surface.
 - **Repository** — durable source/content repository identity.
 - **RepositoryCheckout** — concrete working copy/worktree of a Repository.
+- **SourceLine** — provider-neutral movable line of development associated with a Work Item, integration target, or other source role.
+- **SourceRevision** — immutable provider-backed source state.
+- **ImplementationRevision** — durable SourceRevision produced as the reviewable implementation result of a Work Item.
 - **Host** — physical or virtual machine running ChampCity components/services.
 - **ServiceInstance** — one running service/process instance on a Host.
 - **Execution Environment** — bounded environment in which engineering execution occurs.
@@ -108,6 +111,7 @@ The following are intentional architecture changes, not regressions to be “fix
 - Appropriate visual/human acceptance may be deferred and aggregated at Phase Validation.
 - ChampCity may mechanically advance/close bounded work within already directed scope when no genuine Operator Decision is required.
 - Git/source-control mechanics become deterministic RepositoryService responsibilities rather than a separate permission hierarchy or routine inference work.
+- Git becomes the first source-control provider beneath ChampCity-owned SourceLine/SourceRevision/RepositoryCheckout/Integration semantics rather than the workflow-defining API.
 - Codex becomes the first Agent Runtime adapter rather than an architecture-defining dependency.
 - Desktop and Server consume shared Product Core/client/service semantics without becoming writable peers for one Project State instance.
 
@@ -131,6 +135,8 @@ docs/
 │   ├── CHAMPCITY_RUNTIME_RECOVERY_DECISION.md
 │   ├── CHAMPCITY_REPOSITORY_AND_SOURCE_LAYOUT_DECISION.md
 │   ├── CHAMPCITY_ARCHITECTURAL_REVIEW_CYCLE.md
+│   ├── CHAMPCITY_SOURCE_CONTROL_PROVIDER_ARCHITECTURE.md
+│   ├── CHAMPCITY_CONCURRENT_REPOSITORY_CHECKOUT_ARCHITECTURE.md
 │   ├── CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md
 │   └── PROJECT_INTEGRATION_VALIDATION_POLICY.md
 ├── governance/

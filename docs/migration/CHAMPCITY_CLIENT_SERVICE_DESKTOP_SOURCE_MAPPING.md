@@ -279,23 +279,25 @@ Frozen V1 now implements branch/stage/commit/push/integrate through `gitMutation
 | `searchRepository(...)` | `searchRepositoryFiles()` | **Existing — adapter** | Preserve bounded search. |
 | `getDiff(...)` | `gitDiff()` | **Existing — adapter** | Preserve deterministic Git diff. |
 | `getHistory(...)` | Tool contract currently returns a deferred placeholder. | **New/partial** | Implement bounded history provider. |
-| `getBranches(...)` | No consolidated service API. | **New** | Deterministic Git provider. |
+| `listSourceLines(...)` | Branch inspection exists through bounded Git mechanics; no provider-neutral service API. | **Partial/New semantic adapter** | Map provider branches/refs to SourceLine behind RepositoryService. |
 | `getChangedFiles(...)` | Can be derived from Git status/diff; no explicit semantic service. | **Partial** | Implement code-owned query. |
 | `runReadinessCheck(...)` | `preCommitSafetyScan()` / `readiness_summary` | **Existing — adapter** | Preserve deterministic scanning. |
 | `registerRepository(...)` | `registerWorkspaceRoot()` / Agent Harness `registerWorkspace`. | **Existing behavior — rename/re-key** | Repository registry, not Workspace registry. |
 | `unregisterRepository(...)` | `unregisterWorkspace()` | **Existing behavior — rename/re-key** | Preserve registration semantics. |
 | `applyChangeSet(...)` | direct artifact writes plus patches; implementation workers also modify files through runtime. | **Partial** | Define one governed source mutation contract. |
 | `applyPatch(...)` | `registerPatchProposal`, `sha256Patch`, `applyApprovedPatch` | **Existing — adapter** | ChampCity owns proposal/hash/authorization mechanics. |
-| `prepareBranch(...)` | `prepareGitBranch()` through `git_toolbox.prepare_branch`. | **Existing bounded implementation** | Extract behind RepositoryService; retain deterministic branch/precondition checks. |
-| `stageChanges(...)` | `stageGitChanges()` through `git_toolbox.stage_changes`. | **Existing bounded implementation** | Extract behind RepositoryService; retain contained bounded pathspec validation. |
-| `commitChanges(...)` | `commitGitChanges()` through `git_toolbox.commit`. | **Existing bounded implementation** | Extract behind RepositoryService; retain staged-diff/message checks and receipt generation. |
-| `push(...)` | `pushGitBranch()` through `git_toolbox.push`. | **Existing bounded implementation** | Extract behind RepositoryService; retain configured-remote/branch validation. |
-| `integrate(...)` | `integrateGitBranchToDev()` through `git_toolbox.integrate_to_dev`. | **Existing bounded implementation** | Extract behind RepositoryService; generalize target semantics later while preserving fast-forward safety. |
+| `createWorkSource(...)` | `prepareGitBranch()` through `git_toolbox.prepare_branch`. | **Existing provider mechanic / new semantic adapter** | GitProvider maps Work Item source lineage to branch/ref creation while preserving deterministic preconditions. |
+| `provisionRepositoryCheckout(...)` | Integration code has bounded Git worktree creation/ownership checks; general Work Item checkout lifecycle is not yet exposed. | **Partial** | Generalize behind RepositoryCheckout mechanics; do not expose arbitrary worktree shell commands. |
+| `captureImplementationRevision(...)` | `stageGitChanges()` + `commitGitChanges()` and current machine-owned Work Item checkpoint service. | **Existing mechanics / semantic consolidation** | Hide Git index/staging behind durable ImplementationRevision capture and receipt generation. |
+| `refreshRepository(...)` / `synchronizeSourceLine(...)` | bounded fetch/push operations. | **Existing provider mechanics / semantic adapter** | Retain configured-remote/ref validation behind provider-neutral synchronization semantics. |
+| `prepareIntegrationCandidate(...)` / `advanceIntegrationTarget(...)` | current integration-candidate services plus bounded integration Git mechanics. | **Existing/partial semantic implementation** | Preserve exact incoming/current-target semantics and target-owned validation while moving Git merge/ref mechanics under GitProvider. |
 | `restoreFiles(...)` | no consolidated target operation. | **New** | Add explicit safe restore semantics. |
 
 ### RepositoryService conclusion
 
-This is a high-value early extraction. It directly implements the architectural rule that mechanical repository/Git work should be deterministic code rather than inference-token work.
+This is a high-value early extraction. It directly implements the architectural rule that mechanical repository/source-control work should be deterministic code rather than inference-token work.
+
+The bounded Git functions above are **GitProvider implementation assets**, not the permanent RepositoryService vocabulary. `CHAMPCITY_SOURCE_CONTROL_PROVIDER_ARCHITECTURE.md` controls the provider-neutral target model; `CHAMPCITY_CONCURRENT_REPOSITORY_CHECKOUT_ARCHITECTURE.md` controls concurrent checkout semantics.
 
 ---
 

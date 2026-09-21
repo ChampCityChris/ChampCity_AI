@@ -2,10 +2,11 @@
 
 ## Objective
 
-Implement the adopted concurrent RepositoryCheckout architecture so ChampCity can operate like a multi-agent engineering team: multiple Work Items execute concurrently on isolated branches/checkouts, each implementation becomes a durable checkpoint revision before review, and completed work integrates safely into a moving `dev` target.
+Implement the adopted source-control provider and concurrent RepositoryCheckout architecture so ChampCity can operate like a multi-agent engineering team: multiple Work Items execute concurrently on isolated SourceLines/RepositoryCheckouts, each implementation becomes a durable ImplementationRevision before review, and completed work integrates safely into a moving `dev` target.
 
 ## Governing Architecture
 
+- `docs/architecture/CHAMPCITY_SOURCE_CONTROL_PROVIDER_ARCHITECTURE.md`
 - `docs/architecture/CHAMPCITY_CONCURRENT_REPOSITORY_CHECKOUT_ARCHITECTURE.md`
 - `docs/architecture/CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md`
 - `docs/architecture/CHAMPCITY_CLIENT_SERVICE_CONTRACT.md`

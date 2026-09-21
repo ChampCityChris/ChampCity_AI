@@ -2,9 +2,10 @@
 
 ## Governing Files
 
-1. `docs/architecture/CHAMPCITY_CONCURRENT_REPOSITORY_CHECKOUT_ARCHITECTURE.md`
-2. `docs/implementation-bundles/repository-checkout-orchestration/ASTRA_EXECUTION_MANIFEST.md`
-3. `docs/implementation-bundles/repository-checkout-orchestration/WORK_CARD_PLAN.md`
+1. `docs/architecture/CHAMPCITY_SOURCE_CONTROL_PROVIDER_ARCHITECTURE.md`
+2. `docs/architecture/CHAMPCITY_CONCURRENT_REPOSITORY_CHECKOUT_ARCHITECTURE.md`
+3. `docs/implementation-bundles/repository-checkout-orchestration/ASTRA_EXECUTION_MANIFEST.md`
+4. `docs/implementation-bundles/repository-checkout-orchestration/WORK_CARD_PLAN.md`
 
 ## Execution Order
 

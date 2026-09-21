@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Implement first-class concurrent RepositoryCheckout mechanics in ChampCity A/I without exposing Git worktree plumbing as the Operator's workflow model.
+Implement first-class provider-neutral source-control and concurrent RepositoryCheckout mechanics in ChampCity A/I without exposing Git branch/worktree/index plumbing as the Operator's workflow model.
 
 ## Before Starting
 
@@ -21,10 +21,11 @@ Stop on material mismatch rather than redesigning around it.
 At initialization read only:
 
 1. this manifest;
-2. `CHAMPCITY_CONCURRENT_REPOSITORY_CHECKOUT_ARCHITECTURE.md`;
-3. `WORK_CARD_PLAN.md`;
-4. `BUNDLE_INDEX.md`;
-5. RCO01.
+2. `CHAMPCITY_SOURCE_CONTROL_PROVIDER_ARCHITECTURE.md`;
+3. `CHAMPCITY_CONCURRENT_REPOSITORY_CHECKOUT_ARCHITECTURE.md`;
+4. `WORK_CARD_PLAN.md`;
+5. `BUNDLE_INDEX.md`;
+6. RCO01.
 
 After each card is implemented, validated, reported, and checkpointed, read the next card plus only required dependency reports.
 

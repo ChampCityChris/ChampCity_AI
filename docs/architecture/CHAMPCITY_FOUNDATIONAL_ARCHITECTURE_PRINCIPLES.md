@@ -262,6 +262,32 @@ As local models, inference hardware, and agent runtimes improve, ChampCity shoul
 
 Runtime independence also enables different roles or tasks to use different models or runtimes without redefining the workflow architecture.
 
+### Source-control provider independence
+
+The same adapter principle applies to source control.
+
+Git is the current and first source-control provider, but Git's command model must not define the ChampCity workflow model. RepositoryService owns semantic Repository, RepositoryCheckout, SourceLine, SourceRevision, ImplementationRevision, IntegrationTarget, and IntegrationCandidate behavior. A Git provider translates those semantics into Git refs, commits, worktrees, index/staging, merge operations, and remotes.
+
+Conceptually:
+
+```text
+          ChampCity RepositoryService
+                    |
+          Source-Control Provider Contract
+                    |
+        +-----------+-----------+
+        |                       |
+   Git Provider            Future Provider
+        |
+ branches / commits /
+ worktrees / index /
+ fetch / push / merge
+```
+
+The Operator and normal AI workflow should reason about engineering work and durable revisions, not detached HEAD, stash, staging/index state, or worktree plumbing. Provider-specific terminology remains available for diagnostics and advanced tooling where useful.
+
+The controlling contract is `CHAMPCITY_SOURCE_CONTROL_PROVIDER_ARCHITECTURE.md`; concurrent writable checkout mechanics are specialized by `CHAMPCITY_CONCURRENT_REPOSITORY_CHECKOUT_ARCHITECTURE.md`.
+
 ---
 
 ## 6. Canonical Domain Vocabulary
@@ -275,6 +301,10 @@ The following terminology is canonical for new architecture work.
 | **Project** | The durable thing being created, maintained, or developed through ChampCity. |
 | **Workspace** | A task-oriented ChampCity working surface or station where a particular type of work is performed. |
 | **Repository** | A source/content repository associated with a Project and managed through Repository & Source Control Management. |
+| **RepositoryCheckout** | A concrete readable/writable working copy of a Repository used by an Execution Environment or local Operator context. |
+| **SourceLine** | A provider-neutral movable line of development, such as a Work Item source line or integration target. |
+| **SourceRevision** | An immutable source-control-provider-backed state of a Repository. |
+| **ImplementationRevision** | The durable SourceRevision produced as the completed source result of a bounded Work Item implementation. |
 | **Host** | A physical or virtual machine running one or more ChampCity components or services. |
 | **Execution Environment** | The bounded environment in which implementation commands, builds, tests, tools, or related engineering execution occur. |
 | **Client** | A user-facing ChampCity application that presents the product and communicates with ChampCity services. |

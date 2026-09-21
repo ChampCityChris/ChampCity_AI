@@ -11,7 +11,9 @@ The current implementation is too greenfield-shaped. Project Intake immediately 
 This architecture restores and completes the previously established Work Intake routing design and adds two governing corrections:
 
 1. route-specific planning must be separate from direct/phased execution topology; and
-2. Git/source-control mechanics must be application-owned deterministic machinery rather than agent-owned behavior.
+2. source-control mechanics must be application-owned deterministic machinery rather than agent-owned behavior.
+
+Provider-neutral source-control semantics are governed by `CHAMPCITY_SOURCE_CONTROL_PROVIDER_ARCHITECTURE.md`. References in this document to Git branches, commits, worktrees, or merge mechanics describe the current GitProvider implementation/migration path and do not redefine those provider details as permanent workflow concepts.
 
 ## 2. Governing Model
 
@@ -22,7 +24,7 @@ Project selected or created
         ↓
 Start Work
         ↓
-Application establishes dedicated Work Intake Git branch
+Application establishes dedicated Work Intake source line
         ↓
 Universal Work Intake
         ↓
@@ -249,11 +251,11 @@ If the competing changes cannot be reconciled without changing approved product 
 
 ChampCity does not need a new application-level Work Stream governance concept to support concurrent development.
 
-Concurrency is provided by Git branches and repository checkouts/worktrees/clones.
+Concurrency is provided by independent SourceLines and RepositoryCheckouts. Under the current GitProvider these map to branches plus checkouts/worktrees; another provider may implement the same ChampCity contract differently.
 
-The Work Intake architecture must therefore avoid Project-global singleton assumptions such as "the one current branch" as durable Project truth. A particular client/session may have one selected Work Intake, but branch identity belongs to the Work Intake.
+The Work Intake architecture must therefore avoid Project-global singleton assumptions such as "the one current branch" or "the one current checkout" as durable Project truth. A particular client/session may have one selected Work Intake, but source-line and execution-checkout identity belong to the Work Intake/Work Item.
 
-Concurrent checkout/worktree provisioning is Repository/Source-Control implementation detail and may evolve separately; it does not create a new planning workflow or authority model.
+Concurrent RepositoryCheckout provisioning is Repository/Source-Control implementation detail and may evolve independently of the workflow. It does not create a new planning workflow or authority model.
 
 ## 5. Routing Model
 

@@ -200,19 +200,22 @@ Current and expected responsibilities include:
 - repository access and containment boundaries;
 - controlled repository mutation;
 - repository ecosystem awareness;
-- working-tree state;
+- RepositoryCheckout identity and lifecycle;
+- provider-neutral SourceLine and SourceRevision identity;
+- pending change-set and durable implementation-revision capture;
 - diffs;
 - source-control history;
-- branches;
-- staging;
-- commits;
-- push/integration;
+- source-line management;
+- source synchronization;
+- integration-candidate and integration-target mechanics;
 - readiness and pre-commit checks;
 - deterministic hashes, changed-file calculations, and source-control bookkeeping where required;
 - future remote repository management; and
 - future multi-repository project relationships.
 
-Git Management is a major part of this domain but is too narrow to name the capability. Git is the current source-control mechanism; ChampCity's responsibility is broader repository ownership and management.
+Git Management is a major current implementation of this domain but is too narrow to name or define the capability. Git is the first source-control provider; ChampCity owns the semantic source-control model and RepositoryService contract above it. Provider-specific concepts such as branches, worktrees, staging/index state, commits, fetch/push, and merge mechanics remain adapter/diagnostic details except where an advanced provider-specific surface intentionally exposes them.
+
+The controlling provider-neutral architecture is `CHAMPCITY_SOURCE_CONTROL_PROVIDER_ARCHITECTURE.md`. The concurrent writable-checkout specialization is `CHAMPCITY_CONCURRENT_REPOSITORY_CHECKOUT_ARCHITECTURE.md`.
 
 Repository Management and AI Tools also have different responsibilities:
 

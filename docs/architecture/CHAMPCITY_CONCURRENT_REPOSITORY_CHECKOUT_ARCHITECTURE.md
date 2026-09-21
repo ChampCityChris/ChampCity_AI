@@ -7,7 +7,7 @@ Evidence date: 2026-09-20
 
 ChampCity must support multiple engineering agents working concurrently on independent Work Items in the same Repository without creating a serialized development queue, mixing uncommitted source, or requiring the Operator to reason about Git plumbing.
 
-This document specializes the concurrency decision already adopted by `CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md`: concurrency is provided by branches plus concrete repository checkouts/worktrees/clones, while Work Intake remains the workflow owner and Repository/Source-Control Management owns the mechanics.
+This document specializes both `CHAMPCITY_SOURCE_CONTROL_PROVIDER_ARCHITECTURE.md` and the concurrency decision already adopted by `CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md`. ChampCity's canonical concept is `RepositoryCheckout`; Git linked worktrees are the preferred first-provider mechanism for efficient local concurrency. Work Intake remains the workflow owner and Repository/Source-Control Management owns the mechanics.
 
 ## Failure Evidence and RCA
 
@@ -27,11 +27,11 @@ The root cause is not a new workflow requirement. It is incomplete RepositoryChe
 
 A durable source/content repository identity. Git object history belongs to the Repository.
 
-### Branch
+### SourceLine / Git branch
 
-A source-control ref/line of history. Branch identity belongs to the Work Intake or Work Item that owns the source line.
+A SourceLine is ChampCity's provider-neutral movable line of development. In the Git provider it maps to a branch/ref. SourceLine identity belongs to the Work Intake or Work Item that owns the source line.
 
-A branch does not itself provide a writable filesystem surface.
+A SourceLine/branch does not itself provide a writable filesystem surface.
 
 ### RepositoryCheckout
 

@@ -475,9 +475,11 @@ projectState.migrationCompleted
 
 # 4. RepositoryService
 
-`RepositoryService` owns repositories and source-control mechanics.
+`RepositoryService` owns repositories, RepositoryCheckouts, source-control semantics, and provider-backed source-control mechanics.
 
 A Repository is source-code or content storage associated with a Project. It is not a Workspace.
+
+The permanent RepositoryService contract is provider-neutral. Git is the first source-control provider, not the definition of the service. The controlling provider architecture is `CHAMPCITY_SOURCE_CONTROL_PROVIDER_ARCHITECTURE.md`; concurrent writable checkout behavior is specialized by `CHAMPCITY_CONCURRENT_REPOSITORY_CHECKOUT_ARCHITECTURE.md`.
 
 ## Responsibilities
 
@@ -486,9 +488,13 @@ A Repository is source-code or content storage associated with a Project. It is 
 - inspect repository metadata/ecosystem/availability;
 - enforce containment and path policy;
 - expose controlled file read/search/change operations;
-- provide deterministic Git/source-control mechanics;
+- maintain RepositoryCheckout identity/lifecycle;
+- provide provider-neutral SourceLine and immutable SourceRevision semantics;
+- capture durable ImplementationRevisions from attributed pending changes;
+- provide deterministic source-control mechanics through a configured provider;
 - calculate hashes/diffs/status in code rather than through AI inference;
-- perform governed branch/stage/commit/push/integration operations; and
+- perform governed work-source, checkout, revision, synchronization, and integration-target operations;
+- expose provider capabilities and bounded diagnostics; and
 - support multiple repositories per Project.
 
 ## Queries
@@ -503,31 +509,46 @@ Returns repository identity, location, type, availability, and Project associati
 Returns repository characteristics and detected ecosystem information.
 
 ### `getRepositoryStatus(repositoryId)`
-Returns source-control and working-tree state.
+Returns provider/source-control availability and repository summary state.
+
+### `getSourceControlCapabilities(repositoryId)`
+Returns the configured provider identity and semantic capability set required for workflow eligibility and diagnostics.
+
+### `listRepositoryCheckouts(repositoryId)`
+Returns verified concrete working copies belonging to the Repository.
+
+### `getRepositoryCheckout(repositoryId, checkoutId)`
+Returns checkout identity, provider state, current revision/source-line association, lifecycle, and bounded host metadata.
 
 ### `listFiles(repositoryId, path?, options?)`
-Returns a bounded repository tree/directory listing.
+Returns a bounded repository tree/directory listing from the selected checkout context or applicable primary checkout.
 
 ### `readFile(repositoryId, path, options?)`
-Reads permitted repository content.
+Reads permitted repository content from the specified checkout context or the primary checkout when compatibility behavior applies.
 
-### `searchRepository(repositoryId, query)`
-Searches repository contents.
+### `readFileAtRevision(repositoryId, sourceRevisionId, path, options?)`
+Reads permitted source directly from an immutable revision without requiring a mutable checkout where the provider supports it.
+
+### `searchRepository(repositoryId, query, options?)`
+Searches repository contents in the specified checkout/revision context allowed by policy.
 
 ### `getDiff(repositoryId, options?)`
-Returns deterministic source-control differences.
+Returns deterministic source-control differences for the specified checkout/revision context.
 
 ### `getHistory(repositoryId, options?)`
-Returns source-control history.
+Returns provider-neutral source-control history.
 
-### `getBranches(repositoryId)`
-Returns branches and current branch state.
+### `listSourceLines(repositoryId, filter?)`
+Returns provider-neutral named development/target lines and provider metadata.
 
-### `getChangedFiles(repositoryId)`
-Returns files changed from the applicable baseline.
+### `resolveSourceRevision(repositoryId, selector)`
+Resolves a provider-supported selector to an immutable SourceRevision.
 
-### `runReadinessCheck(repositoryId)`
-Runs deterministic repository readiness/pre-commit checks.
+### `getChangedFiles(repositoryId, checkoutId?)`
+Returns pending files changed from the applicable immutable revision.
+
+### `runReadinessCheck(repositoryId, checkoutId?)`
+Runs deterministic repository/source readiness checks for the specified execution source.
 
 ## Commands
 
@@ -537,29 +558,40 @@ Registers a Repository as a managed ChampCity resource.
 ### `unregisterRepository(repositoryId)`
 Removes registration without necessarily deleting source content.
 
-### `applyChangeSet(repositoryId, changeSet)`
-Applies controlled source modifications.
+### `applyChangeSet(repositoryId, checkoutId, changeSet)`
+Applies controlled source modifications to the authorized checkout.
 
-### `applyPatch(repositoryId, patch)`
-Applies a deterministic patch through repository policy.
+### `applyPatch(repositoryId, checkoutId, patch)`
+Applies a deterministic patch through repository/checkout policy.
 
-### `prepareBranch(repositoryId, branchRequest)`
-Creates or prepares a branch according to source-control policy.
+### `createWorkSource(repositoryId, baseRevision, workOwner)`
+Creates the provider-backed isolated source lineage required for a Work Item.
 
-### `stageChanges(repositoryId, selection)`
-Stages selected changes.
+### `provisionRepositoryCheckout(repositoryId, source, checkoutPolicy)`
+Creates or resumes a concrete checkout through provider policy.
 
-### `commitChanges(repositoryId, commitRequest)`
-Creates a source-control commit with ChampCity-generated mechanical metadata where applicable.
+### `captureImplementationRevision(repositoryId, checkoutId, attribution)`
+Captures the exact attributed PendingChangeSet as a durable immutable SourceRevision/ImplementationRevision. Provider-specific staging/index mechanics remain internal.
 
-### `push(repositoryId, target?)`
-Pushes changes through configured remote policy.
+### `refreshRepository(repositoryId, remotePolicy?)`
+Refreshes provider/remote state through configured policy.
 
-### `integrate(repositoryId, integrationRequest)`
-Performs governed source-control integration.
+### `synchronizeSourceLine(repositoryId, sourceLineId, target?)`
+Synchronizes a local source line/revision through provider remote policy.
 
-### `restoreFiles(repositoryId, selection)`
+### `prepareIntegrationCandidate(repositoryId, incomingRevision, integrationTarget)`
+Creates an isolated provider-backed candidate combining one immutable incoming ImplementationRevision with the current IntegrationTarget.
+
+### `advanceIntegrationTarget(repositoryId, validatedCandidate)`
+Advances the semantic target only from an exact validated IntegrationCandidate.
+
+### `retireRepositoryCheckout(repositoryId, checkoutId, retirementPolicy)`
+Retires a managed checkout only after cleanup safety invariants are proven.
+
+### `restoreFiles(repositoryId, checkoutId, selection)`
 Restores selected changes where policy permits.
+
+Provider-specific compatibility/diagnostic adapters may continue to expose lower-level Git operations during migration. Those are not the permanent semantic RepositoryService API.
 
 ## Events
 
@@ -567,9 +599,11 @@ Restores selected changes where policy permits.
 repository.registered
 repository.unregistered
 repository.changed
-repository.branchChanged
-repository.commitCreated
-repository.pushCompleted
+repository.checkoutProvisioned
+repository.checkoutRetired
+repository.sourceLineChanged
+repository.revisionCreated
+repository.synchronizationCompleted
 repository.integrationCompleted
 repository.availabilityChanged
 ```
