@@ -16,7 +16,9 @@ function parseJsonBytes(bytes: Buffer, label: string): unknown {
 }
 
 function parsedPolicy(bytes: Buffer) {
-  return { policy: parseIntegrationPolicy(parseJsonBytes(bytes, "Integration policy")), sha256: createHash("sha256").update(bytes).digest("hex") };
+  return { policy: parseIntegrationPolicy(parseJsonBytes(bytes, "Integration policy")), sha256: createHash("sha256").update(bytes).digest("hex"),
+    // Git's Windows checkout conversion is not a policy edit; all other whitespace remains identity-bearing.
+    textSha256: createHash("sha256").update(bytes.toString("utf8").replaceAll("\r\n", "\n")).digest("hex") };
 }
 
 export function loadIntegrationPolicy(repositoryRoot: string) {

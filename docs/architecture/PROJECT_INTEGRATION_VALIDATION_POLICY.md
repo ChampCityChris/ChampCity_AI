@@ -6,7 +6,7 @@ Status: implemented target-owned provider contract; routed Development orchestra
 
 The selected Repository owns `.champcity/integration-policy.json`. This is runtime configuration in the existing `.champcity/` namespace, separate from Work Card validation selection and the metadata under `validation/`. Production never imports the capability map. For one integration, the authoritative policy is the exact blob at the immutable target commit selected by integration-target resolution. Incoming/source working-tree bytes never govern their own candidate.
 
-The version 1 document has exactly three fields:
+The version 1 document has three required fields and the optional strict `repair` section described below:
 
 | Field | Contract |
 | --- | --- |
@@ -41,6 +41,18 @@ An incoming branch may propose a different `.champcity/integration-policy.json`,
 Direct application-injected checks used by the existing WIR20/WIR21 fixtures remain supported as an explicit alternative to the production provider. A service cannot combine both sources. The existing clean-checkout, exact-commit, Plan freshness, incoming-history, and target-history checks remain in force. Evidence provides validation results; it does not confer product disposition or publication authority.
 
 ## Current ChampCity composition
+
+### Bounded Integration Repair scope
+
+The optional version-1 `repair` section contains `allowedEditableRoots` (1–32 exact repository-relative boundaries), optional `protectedPaths` (0–32 boundaries), and `sources` (0–14 distinct Markdown paths with role `architecture` or `contract`). An exact file can be a leaf boundary. Empty/root-wide boundaries, glob syntax, traversal, path aliases and extra fields are rejected. Absence of this section preserves validation-only policy use; production Integration Repair fails closed without it.
+
+`createIntegrationRepairPolicyProvider` resolves the target-commit policy using the current candidate, verified Intake branch binding and completed approved Plan. It adds exactly one current canonical Intake and Plan from the main-process loader. Supplemental documents must match the target's immutable text and the candidate's current ordinary files, allowing only CRLF/LF checkout conversion. All configured paths are checked for containment and redirection; deleted or not-yet-created edit leaves may be absent. Governing context remains bounded to 80,000 characters.
+
+Editable source is the union of current conflicts and incoming changed paths since the common merge base, filtered through allowed/protected boundaries. Target-only changes do not broaden the repair set. Renames contribute both endpoints. The deterministic set must contain 1–32 files. An out-of-policy conflict, empty/excessive set, missing/stale/redirected evidence, or changed policy requires Operator/replanning. Intake, Plan, all governing documents, policy/administrative state, Git metadata, dependency/generated output and protected boundaries are never editable. No model or renderer selects paths.
+
+The provider re-resolves policy before applying or committing a prepared patch, including after service recreation. Existing source digests, starting hashes, index/HEAD guards and retry ownership remain enforced by the Integration Repair controller. Repair requires unchanged target-policy text in both incoming and candidate checkouts, permitting CRLF/LF checkout conversion only; additional whitespace or content changes still fail. The receipt continues to bind the exact target-blob SHA-256. A proposed policy transition may be validated normally but cannot govern its own semantic repair.
+
+ChampCity allows `src`, `test`, `scripts`, `assets` and `packaging`; it explicitly protects `docs`, `planning`, `validation`, `package.json` and `package-lock.json`. Its supplemental sources are this contract and `CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md`. Routed Development wiring belongs to REPAIR06.
 
 | Check ID | Lane | Existing npm script | Deadline |
 | --- | --- | --- | --- |

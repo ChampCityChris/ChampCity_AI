@@ -16,7 +16,7 @@ interface IntegrationRepairOwner {
   current: (record: IntegrationCandidateRecord) => Promise<unknown>;
   validate: (record: IntegrationCandidateRecord) => Promise<IntegrationCandidateRecord>;
   exclusive: <T>(action: () => Promise<T>) => Promise<T>;
-  policy?: () => Promise<IntegrationRepairPolicy>;
+  policy?: (record: IntegrationCandidateRecord) => Promise<IntegrationRepairPolicy>;
 }
 const safeText = (value: string) => value.replaceAll("<!-- CHAMPCITY-METADATA", "[canonical metadata begins]").replaceAll("CHAMPCITY-METADATA -->", "[canonical metadata ends]");
 export function createIntegrationRepairController(owner: IntegrationRepairOwner) {
@@ -71,6 +71,10 @@ export function createIntegrationRepairController(owner: IntegrationRepairOwner)
     if (record.activeRepairId !== repairId || !["conflicted", "validation-failed"].includes(record.status)) throw Error("Integration Repair is not the current failed candidate's active attempt.");
     const attempt = readRepair(candidateId, repairId);
     if (attempt.status !== "prepared") throw Error("Integration Repair is no longer awaiting source resolution.");
+    if (attempt.policy.policySha256) {
+      const resolved = await owner.policy?.(record);
+      if (JSON.stringify(resolved) !== JSON.stringify(attempt.policy)) throw Error("Integration Repair scope policy changed; Operator/replanning is required.");
+    }
     const current = sourceContext(record, attempt.policy);
     if (JSON.stringify(current.sourceDigests) !== JSON.stringify(attempt.sourceDigests)) throw Error("Integration Repair governing intent changed; no Git continuation is allowed.");
     return { record, attempt };
@@ -82,7 +86,7 @@ export function createIntegrationRepairController(owner: IntegrationRepairOwner)
       if (!["conflicted", "validation-failed"].includes(record.status)) throw Error("Integration Repair requires a conflicted or validation-failed candidate.");
       if (record.activeRepairId) { const current = readRepair(candidateId, record.activeRepairId); if (current.status === "prepared") { await active(candidateId, current.repairId); return current; } }
       if (!owner.policy) throw Error("Application integration policy has not supplied bounded repair source evidence.");
-      const policy = await owner.policy(); const attemptNumber = (record.repairAttemptCount ?? 0) + 1;
+      const policy = await owner.policy(record); const attemptNumber = (record.repairAttemptCount ?? 0) + 1;
       if (attemptNumber > 10) throw Error("Integration Repair attempt bound reached; Operator disposition is required.");
       const { sourceDigests, context } = sourceContext(record, policy);
       if (policy.editablePaths.some((entry) => Object.hasOwn(sourceDigests, entry))) throw Error("Integration Repair may not edit its governing intent or contracts.");

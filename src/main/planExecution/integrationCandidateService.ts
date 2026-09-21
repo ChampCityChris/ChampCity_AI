@@ -30,7 +30,7 @@ export interface IntegrationCandidateHooks {
   /** Direct application hooks remain available for WIR20/WIR21 fixtures; production supplies validationPolicy instead. */
   checks?: IntegrationValidationCheck[];
   validationPolicy?: { resolve: (targetCommit: string) => Promise<ResolvedIntegrationValidationPolicy> };
-  repairPolicy?: () => Promise<IntegrationRepairPolicy>;
+  repairPolicy?: (record: IntegrationCandidateRecord) => Promise<IntegrationRepairPolicy>;
 }
 const locks = new Set<string>();
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");

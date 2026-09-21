@@ -58,6 +58,15 @@ export async function integrationRepairDiffs(root: string, input: { candidateId:
   if (/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\b(?:gh[pousr]_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{24,})\b|(?:^|\/)\.env(?:[.\s/]|$)/m.test(targetDiff + incomingDiff)) throw fail("Integration Repair diff contains protected evidence.");
   return { targetDiff, incomingDiff };
 }
+/** Incoming changes since the common ancestor, excluding target-only changes. Rename endpoints are explicit. */
+export async function integrationRepairChangedPaths(root: string, input: { candidateId: string; mergeBase: string; incomingCommit: string }) {
+  await registeredIntegrationCheckout(root, input.candidateId);
+  for (const commit of [input.mergeBase, input.incomingCommit]) if (!/^[a-f0-9]{40,64}$/.test(commit)) throw fail("Integration Repair scope requires exact refs.");
+  const output = (await runBoundedGit({ cwd: root, args: ["diff", "--no-ext-diff", "--no-textconv", "--no-renames", "--name-only", "-z", input.mergeBase, input.incomingCommit, "--"], stdoutLimitBytes: 1_000_000 })).stdout;
+  const paths = output.split("\0");
+  if (paths.pop() !== "" || paths.length > 256) throw fail("Integration Repair changed paths exceed their bound.");
+  return paths;
+}
 export async function commitIntegrationRepair(root: string, input: { candidateId: string; repairId: string; incomingCommit: string; snapshot: IntegrationRepairSnapshot; editablePaths: string[] }) {
   if (!/^REPAIR\d{2}$/.test(input.repairId)) throw fail("Integration Repair identity is invalid.");
   const paths = await registeredIntegrationCheckout(root, input.candidateId);

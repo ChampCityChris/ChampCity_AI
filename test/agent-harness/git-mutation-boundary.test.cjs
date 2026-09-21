@@ -39,6 +39,14 @@ test("integration policy rejects untrusted schemas and redirected or unbounded c
     assert.throws(() => parseIntegrationPolicy(value), undefined, label);
   }
   assert.deepEqual(parseIntegrationPolicy(policy), policy);
+  const repair = { allowedEditableRoots: ["src"], protectedPaths: ["src/protected"], sources: [{ role: "architecture", path: "docs/architecture.md" }] };
+  assert.deepEqual(parseIntegrationPolicy({ ...policy, repair }).repair, repair);
+  for (const change of [
+    { allowedEditableRoots: ["."] }, { allowedEditableRoots: ["src/**"] }, { allowedEditableRoots: ["../src"] },
+    { allowedEditableRoots: [] }, { allowedEditableRoots: ["src", "SRC"] }, { protectedPaths: ["src/../policy"] },
+    { sources: [{ role: "intake", path: "intake.md" }] }, { sources: [{ role: "contract", path: "docs/data.json" }] },
+    { sources: Array(15).fill(repair.sources[0]) }, { command: "expand-scope" },
+  ]) assert.throws(() => parseIntegrationPolicy({ ...policy, repair: { ...repair, ...change } }));
   assert.throws(() => loadIntegrationPolicy(root), /missing/);
   const directory = path.join(root, ".champcity"); fs.mkdirSync(directory);
   const config = path.join(directory, "integration-policy.json");
@@ -62,13 +70,14 @@ test("integration policy rejects untrusted schemas and redirected or unbounded c
 
 for (const [title, scenarios] of [
   ["target-owned repository policy gates isolated integration candidates", ["policy", "policy-weakened-incoming", "policy-valid-future", "policy-invalid-future", "policy-changed-script", "policy-missing-script", "policy-recreated", "policy-stale-target", "policy-failure", "policy-timeout", "policy-output", "policy-mutates"]],
-  ["isolated integration candidates gate target advancement on current Plan and post-merge proof", ["unchanged", "advanced-clean", "conflict", "validation-failed", "validation-mutates", "stale-target", "remote-target", "operator-decision", "worker-git"]],
+  ["isolated integration candidates gate target advancement on current Plan and post-merge proof", ["unchanged", "advanced-clean", "conflict", "validation-failed", "validation-mutates", "stale-target", "remote-target", "operator-decision", "worker-git", "repair-many", "repair-empty"]],
 ]) test(title, async (t) => {
   const { createIntegrationCandidateService } = require("../../dist/main/planExecution/integrationCandidateService.js");
   const { workIntakeBranchName } = require("../../dist/main/workIntake/workIntakeBranchService.js");
   const { integrationPaths } = require("../../dist/main/agentHarness/repository/integrationGit.js");
   const { execFileSync } = require("node:child_process");
   const { createIntegrationPolicyProvider, loadIntegrationPolicyAtCommit } = require("../../dist/main/planExecution/integrationPolicyProvider.js");
+  const { createIntegrationRepairPolicyProvider } = require("../../dist/main/planExecution/integrationRepairPolicyProvider.js");
   for (const scenario of scenarios) await t.test(scenario, async () => {
     const root = createBoundWorkspace(`champcity-integration-${scenario}-`, true);
     t.after(() => fs.rmSync(path.dirname(root), { recursive: true, force: true }));
@@ -76,6 +85,13 @@ for (const [title, scenarios] of [
     fs.writeFileSync(path.join(root, ".gitignore"), "/planning/\n");
     fs.writeFileSync(path.join(root, "shared.txt"), "base\n");
     const policyScenario = scenario.startsWith("policy");
+    if (!policyScenario) {
+      git(root, ["config", "core.autocrlf", "true"]);
+      fs.writeFileSync(path.join(root, "architecture.md"), "# Accepted architecture\n\nKeep both public contracts.\n");
+      fs.writeFileSync(path.join(root, ".champcity/integration-policy.json"), JSON.stringify({ schemaVersion: 1,
+        checks: [{ checkId: "source", lane: "integration", runner: { kind: "npm-script", script: "verify", timeoutMs: 10000 } }], requiredIntegrationChecks: ["source"],
+        repair: { allowedEditableRoots: scenario === "repair-empty" ? ["no-incoming-source"] : ["shared.txt", "incoming.txt", "src"], protectedPaths: ["src/protected"], sources: [{ role: "architecture", path: "architecture.md" }] } }));
+    }
     if (policyScenario) {
       fs.appendFileSync(path.join(root, ".gitignore"), "/.policy-proof.json\n/.policy-processes.json\n");
       fs.mkdirSync(path.join(root, ".champcity"), { recursive: true });
@@ -111,6 +127,10 @@ ${scenario === "policy-timeout" ? "const child = require('node:child_process').s
     git(root, ["switch", "-c", incomingBranch]);
     const textualConflict = ["conflict", "operator-decision", "worker-git"].includes(scenario);
     fs.writeFileSync(path.join(root, textualConflict ? "shared.txt" : "incoming.txt"), "incoming accepted behavior\n");
+    if (scenario === "repair-many") {
+      fs.mkdirSync(path.join(root, "src"));
+      for (let index = 0; index < 33; index++) fs.writeFileSync(path.join(root, "src", `source-${index}.txt`), "accepted\n");
+    }
     if (policyScenario) {
       const policyPath = path.join(root, ".champcity/integration-policy.json");
       const manifestPath = path.join(root, "package.json");
@@ -165,10 +185,11 @@ ${scenario === "policy-timeout" ? "const child = require('node:child_process').s
       const script = textualConflict ? "const fs=require('node:fs');const value=fs.readFileSync('shared.txt','utf8');if(!value.includes('incoming accepted')||!value.includes('target accepted'))process.exit(2);" : "const fs=require('node:fs');if(!fs.readFileSync('incoming.txt','utf8').includes('accepted'))process.exit(2);";
       execFileSync(process.execPath, ["-e", script], { cwd: candidateRoot, windowsHide: true, stdio: "pipe" });
       if (scenario === "validation-mutates") fs.writeFileSync(path.join(candidateRoot, "incoming.txt"), "changed during validation\n");
-      return { exitCode: scenario === "validation-failed" && !fs.readFileSync(path.join(candidateRoot, "incoming.txt"), "utf8").includes("verified resolution") ? 1 : 0, summary: "Source preservation check" };
+      return { exitCode: scenario.startsWith("repair-") || scenario === "validation-failed" && !fs.readFileSync(path.join(candidateRoot, "incoming.txt"), "utf8").includes("verified resolution") ? 1 : 0, summary: "Source preservation check" };
     } }];
     const serviceHooks = { repositoryRoot: root, repositoryId: binding.repositoryId, load: async () => ({ binding, plan }),
-      repairPolicy: async () => ({ sources: [{ role: "intake", path: "planning/intake.md" }, { role: "plan", path: "planning/plan.md" }, { role: "architecture", path: "planning/architecture.md" }], editablePaths: [textualConflict ? "shared.txt" : "incoming.txt"] }),
+      ...createIntegrationRepairPolicyProvider({ repositoryRoot: root, repositoryId: binding.repositoryId,
+        load: async () => ({ binding, plan, intakePath: "planning/intake.md", planPath: "planning/plan.md" }) }),
       ...(policyScenario ? createIntegrationPolicyProvider(root) : { checks: directChecks }) };
     const service = createIntegrationCandidateService(serviceHooks);
     plan.fresh = false; await assert.rejects(service.create(), /Plan completion/); plan.fresh = true;
@@ -178,6 +199,13 @@ ${scenario === "policy-timeout" ? "const child = require('node:child_process').s
     assert.equal(candidate.mergeBase, base);
     assert.deepEqual(service.read(candidate.candidateId), candidate);
     const checkout = integrationPaths(root, candidate.candidateId).checkout;
+    if (scenario.startsWith("repair-")) {
+      assert.equal(candidate.status, "validation-failed");
+      await assert.rejects(service.prepareRepair(candidate.candidateId), /Operator\/replanning.*1–32 paths/);
+      assert.equal(git(root, ["rev-parse", targetBranch]), target);
+      await service.abort(candidate.candidateId);
+      return;
+    }
     if (policyScenario) {
       assert.equal(candidate.validationPolicySha256, (await loadIntegrationPolicyAtCommit(root, target)).sha256, "Receipt binds the immutable target policy");
       assert.equal(fs.existsSync(path.join(root, ".policy-proof.json")), false, "Checks never run in the source checkout");
@@ -256,7 +284,28 @@ ${scenario === "policy-timeout" ? "const child = require('node:child_process').s
       }
     }
     if (textualConflict || scenario === "validation-failed") {
+      if (scenario === "conflict") {
+        const provider = serviceHooks.repairPolicy;
+        for (const conflict of ["out-of-policy.txt", "src/protected/source.txt", "architecture.md", "planning/intake.md", ".champcity/integration-policy.json", "src/dist/output.js"]) {
+          await assert.rejects(provider({ ...candidate, conflictingPaths: [conflict] }), /outside.*boundary/);
+        }
+        const governing = path.join(checkout, "architecture.md"); const original = fs.readFileSync(governing);
+        fs.writeFileSync(governing, "changed architecture"); await assert.rejects(provider(candidate), /evidence changed/);
+        fs.unlinkSync(governing); await assert.rejects(provider(candidate), /missing/); fs.writeFileSync(governing, original);
+        const config = path.join(checkout, ".champcity/integration-policy.json"); const policyBytes = fs.readFileSync(config);
+        fs.appendFileSync(config, "\n"); await assert.rejects(provider(candidate), /policy changed/); fs.writeFileSync(config, policyBytes);
+      }
       const attempt = await service.prepareRepair(candidate.candidateId);
+      assert.deepEqual(attempt.policy.editablePaths, [textualConflict ? "shared.txt" : "incoming.txt"]);
+      assert.equal(attempt.policy.sources.filter((entry) => entry.role === "intake").length, 1);
+      assert.equal(attempt.policy.sources.filter((entry) => entry.role === "plan").length, 1);
+      assert.ok(attempt.policy.policySha256);
+      if (scenario === "conflict") {
+        const config = path.join(checkout, ".champcity/integration-policy.json"); const original = fs.readFileSync(config);
+        fs.appendFileSync(config, "\n");
+        await assert.rejects(service.applyRepairPatch(candidate.candidateId, attempt.repairId, [{ path: "shared.txt", beforeSha256: attempt.snapshot.editable["shared.txt"], content: "untrusted expansion" }]), /policy changed/);
+        fs.writeFileSync(config, original);
+      }
       assert.equal(attempt.repairId, "REPAIR01");
       assert.equal((await service.prepareRepair(candidate.candidateId)).repairId, attempt.repairId);
       assert.match(attempt.prompt, /Do not run Git merge, add, commit, checkout-ours\/theirs, merge-continue, push/);

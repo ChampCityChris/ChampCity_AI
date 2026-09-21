@@ -3,6 +3,7 @@ import type { IntegrationValidationEvidence } from "./integrationCandidateContra
 export interface IntegrationRepairPolicy {
   sources: Array<{ role: "intake" | "plan" | "architecture" | "contract"; path: string }>;
   editablePaths: string[];
+  policySha256?: string;
 }
 export interface IntegrationRepairSnapshot {
   head: string;
