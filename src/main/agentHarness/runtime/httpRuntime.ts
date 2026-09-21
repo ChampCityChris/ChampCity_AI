@@ -81,7 +81,7 @@ const DEFAULT_MCP_SESSION_POLICY: AgentHarnessMcpSessionPolicy = {
   idleTtlMs: 5 * 60 * 1_000,
   reaperCadenceMs: 60 * 1_000,
   globalCap: 32,
-  perPrincipalCap: 8,
+  perPrincipalCap: 32,
 };
 
 type McpSessionLifecycleState = "initializing" | "active" | "disposing" | "disposed";
@@ -100,8 +100,8 @@ interface McpSessionRecord {
   requiredScope: string;
   createdAt: number;
   lastMeaningfulActivityAt: number;
-  inFlightRequestCount: number;
-  liveResponseCount: number;
+  executingWorkCount: number;
+  liveTransportCount: number;
   lifecycleState: McpSessionLifecycleState;
   server: AgentHarnessMcpServer | null;
   transport: StreamableHTTPServerTransport | null;
@@ -162,8 +162,8 @@ class McpSessionRegistry {
         requiredScope,
         createdAt: timestamp,
         lastMeaningfulActivityAt: timestamp,
-        inFlightRequestCount: 0,
-        liveResponseCount: 0,
+        executingWorkCount: 0,
+        liveTransportCount: 0,
         lifecycleState: "initializing",
         server: null,
         transport: null,
@@ -214,39 +214,45 @@ class McpSessionRegistry {
     return new Map(this.activeSessionCountsByScope);
   }
 
-  beginRequest(record: McpSessionRecord, response: ServerResponse): {
+  beginWork(record: McpSessionRecord): {
     finish: (successful: boolean) => void;
   } {
     if (!this.records.has(record.registrationKey) || !["initializing", "active"].includes(record.lifecycleState)) {
       throw new Error("MCP session is no longer addressable.");
     }
-    record.inFlightRequestCount += 1;
-    record.liveResponseCount += 1;
+    record.executingWorkCount += 1;
     record.lastMeaningfulActivityAt = this.now();
-    let responseReleased = false;
-    const releaseResponse = (): void => {
-      if (responseReleased) {
-        return;
-      }
-      responseReleased = true;
-      record.liveResponseCount = Math.max(0, record.liveResponseCount - 1);
-    };
-    response.once("finish", releaseResponse);
-    response.once("close", releaseResponse);
-    response.once("error", releaseResponse);
-    let requestReleased = false;
+    let workReleased = false;
     return {
       finish: (successful) => {
-        if (requestReleased) {
+        if (workReleased) {
           return;
         }
-        requestReleased = true;
-        record.inFlightRequestCount = Math.max(0, record.inFlightRequestCount - 1);
+        workReleased = true;
+        record.executingWorkCount = Math.max(0, record.executingWorkCount - 1);
         if (successful && record.lifecycleState === "active") {
           record.lastMeaningfulActivityAt = this.now();
         }
       },
     };
+  }
+
+  beginTransport(record: McpSessionRecord, response: ServerResponse): void {
+    if (!this.records.has(record.registrationKey) || !["initializing", "active"].includes(record.lifecycleState)) {
+      throw new Error("MCP session is no longer addressable.");
+    }
+    record.liveTransportCount += 1;
+    let transportReleased = false;
+    const releaseTransport = (): void => {
+      if (transportReleased) {
+        return;
+      }
+      transportReleased = true;
+      record.liveTransportCount = Math.max(0, record.liveTransportCount - 1);
+    };
+    response.once("finish", releaseTransport);
+    response.once("close", releaseTransport);
+    response.once("error", releaseTransport);
   }
 
   dispose(record: McpSessionRecord, reason: McpSessionDisposalReason): Promise<boolean> {
@@ -268,8 +274,8 @@ class McpSessionRegistry {
         this.activeSessionCountsByScope.set(record.requiredScope, nextScopeCount);
       }
     }
-    record.inFlightRequestCount = 0;
-    record.liveResponseCount = 0;
+    record.executingWorkCount = 0;
+    record.liveTransportCount = 0;
     this.disposedCounts[reason] += 1;
     const disposalPromise = (async () => {
       try {
@@ -318,17 +324,17 @@ class McpSessionRegistry {
 
   diagnostics(): AgentHarnessMcpSessionDiagnostics {
     const retained = [...this.records.values()];
-    const busy = retained.filter((record) => this.isBusy(record)).length;
-    const streaming = retained.filter((record) => record.liveResponseCount > 0).length;
-    const inFlight = retained.filter((record) => record.inFlightRequestCount > 0).length;
+    const busy = retained.filter((record) => this.isProtected(record)).length;
+    const streaming = retained.filter((record) => record.liveTransportCount > 0).length;
+    const inFlight = retained.filter((record) => record.executingWorkCount > 0).length;
     return {
       retainedSessionCount: retained.length,
       busySessionCount: busy,
       idleSessionCount: retained.length - busy,
       streamingSessionCount: streaming,
       inFlightSessionCount: inFlight,
-      currentInFlightRequestCount: this.activeRequestCount(),
-      liveStreamCount: retained.reduce((count, record) => count + record.liveResponseCount, 0),
+      currentInFlightRequestCount: this.activeWorkCount(),
+      liveStreamCount: retained.reduce((count, record) => count + record.liveTransportCount, 0),
       totalCreated: this.totalCreated,
       totalDisposed: { ...this.disposedCounts },
       rejectedInitializationCount: this.rejectedInitializationCount,
@@ -343,8 +349,8 @@ class McpSessionRegistry {
     };
   }
 
-  activeRequestCount(): number {
-    return [...this.records.values()].reduce((count, record) => count + record.inFlightRequestCount, 0);
+  activeWorkCount(): number {
+    return [...this.records.values()].reduce((count, record) => count + record.executingWorkCount, 0);
   }
 
   private enqueueMutation<T>(operation: () => Promise<T>): Promise<T> {
@@ -356,7 +362,7 @@ class McpSessionRegistry {
   private async reapExpiredExclusive(): Promise<number> {
     const now = this.now();
     const expired = [...this.records.values()].filter((record) =>
-      this.isEligible(record) && now - record.lastMeaningfulActivityAt >= this.policy.idleTtlMs
+      this.isIdleTtlEligible(record) && now - record.lastMeaningfulActivityAt >= this.policy.idleTtlMs
     );
     await Promise.all(expired.map((record) => this.dispose(record, "idleTtl")));
     this.reaperRunCount += 1;
@@ -366,7 +372,7 @@ class McpSessionRegistry {
 
   private async makeCapacityForPrincipal(authorizationPrincipal: string): Promise<void> {
     while (this.countForPrincipal(authorizationPrincipal) >= this.policy.perPrincipalCap) {
-      const victim = this.leastRecentlyActiveEligible((record) =>
+      const victim = this.leastRecentlyActiveCapacityCandidate((record) =>
         record.authorizationPrincipal === authorizationPrincipal
       );
       if (!victim) {
@@ -379,7 +385,7 @@ class McpSessionRegistry {
 
   private async makeGlobalCapacity(): Promise<void> {
     while (this.records.size >= this.policy.globalCap) {
-      const victim = this.leastRecentlyActiveEligible(() => true);
+      const victim = this.leastRecentlyActiveCapacityCandidate(() => true);
       if (!victim) {
         this.rejectedInitializationCount += 1;
         throw new McpSessionCapacityError();
@@ -394,22 +400,31 @@ class McpSessionRegistry {
     ).length;
   }
 
-  private leastRecentlyActiveEligible(predicate: (record: McpSessionRecord) => boolean): McpSessionRecord | undefined {
+  private leastRecentlyActiveCapacityCandidate(
+    predicate: (record: McpSessionRecord) => boolean,
+  ): McpSessionRecord | undefined {
     return [...this.records.values()]
-      .filter((record) => predicate(record) && this.isEligible(record))
+      .filter((record) => predicate(record) && this.isCapacityCandidate(record))
       .sort((left, right) =>
-        left.lastMeaningfulActivityAt - right.lastMeaningfulActivityAt || left.createdAt - right.createdAt
+        Number(left.liveTransportCount > 0) - Number(right.liveTransportCount > 0) ||
+        left.lastMeaningfulActivityAt - right.lastMeaningfulActivityAt ||
+        left.createdAt - right.createdAt
       )[0];
   }
 
-  private isBusy(record: McpSessionRecord): boolean {
+  private isProtected(record: McpSessionRecord): boolean {
     return record.lifecycleState === "initializing" ||
-      record.inFlightRequestCount > 0 ||
-      record.liveResponseCount > 0;
+      record.executingWorkCount > 0;
   }
 
-  private isEligible(record: McpSessionRecord): boolean {
-    return record.lifecycleState === "active" && !this.isBusy(record);
+  private isIdleTtlEligible(record: McpSessionRecord): boolean {
+    return record.lifecycleState === "active" &&
+      record.executingWorkCount === 0 &&
+      record.liveTransportCount === 0;
+  }
+
+  private isCapacityCandidate(record: McpSessionRecord): boolean {
+    return record.lifecycleState === "active" && record.executingWorkCount === 0;
   }
 }
 
@@ -723,12 +738,12 @@ export async function startAgentHarnessHttpRuntime(options: AgentHarnessHttpRunt
       readinessReasonCode = "controlled-restart-draining";
       operationalDiagnostics.setReadiness("degraded", "controlled-restart-draining");
       sessions.setAccepting(false);
-      const activeRequestsAtStart = sessions.activeRequestCount();
+      const activeRequestsAtStart = sessions.activeWorkCount();
       const deadline = Date.now() + Math.max(0, deadlineMs);
       let activeRequestsAtEnd = activeRequestsAtStart;
       while (activeRequestsAtEnd > 0 && Date.now() < deadline) {
         await delay(25);
-        activeRequestsAtEnd = sessions.activeRequestCount();
+        activeRequestsAtEnd = sessions.activeWorkCount();
       }
       return {
         outcome: activeRequestsAtEnd === 0 ? "drained" : "deadline-exceeded",
@@ -779,7 +794,10 @@ async function handleMcpRequest(req: IncomingMessage, res: ServerResponse, optio
       });
       return;
     }
-    const request = options.sessions.beginRequest(existingSession, res);
+    const request = req.method === "GET"
+      ? null
+      : options.sessions.beginWork(existingSession);
+    options.sessions.beginTransport(existingSession, res);
     let successful = false;
     try {
       const parsedBody = req.method === "POST" ? await readBody(req, MCP_MAX_REQUEST_BYTES) : undefined;
@@ -789,7 +807,7 @@ async function handleMcpRequest(req: IncomingMessage, res: ServerResponse, optio
       await existingSession.transport.handleRequest(req, res, parsedBody);
       successful = true;
     } finally {
-      request.finish(successful);
+      request?.finish(successful);
     }
     return;
   }
@@ -833,7 +851,8 @@ async function handleMcpRequest(req: IncomingMessage, res: ServerResponse, optio
         options.operationalDiagnostics,
       );
       options.sessions.attachResources(record, mcpServer, transport);
-      const request = options.sessions.beginRequest(record, res);
+      const request = options.sessions.beginWork(record);
+      options.sessions.beginTransport(record, res);
       let successful = false;
       try {
         await mcpServer.connect(transport);

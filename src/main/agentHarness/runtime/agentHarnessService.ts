@@ -445,7 +445,7 @@ function emptyMcpSessionDiagnostics(): AgentHarnessMcpSessionDiagnostics {
     lastSuccessfulReaperAt: null,
     limits: {
       globalCap: 32,
-      perPrincipalCap: 8,
+      perPrincipalCap: 32,
       idleTtlMs: 5 * 60 * 1_000,
     },
   };
