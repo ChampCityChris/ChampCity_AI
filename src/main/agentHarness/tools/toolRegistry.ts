@@ -1,3 +1,4 @@
+import { beginIsolatedOperation, inspectIsolatedOperation, continueIsolatedOperation, abortIsolatedOperation, advanceIsolatedOperation, type IsolatedOperationKind } from "../repository/isolatedGitOperations";
 import { createManagedWorktree, listManagedWorktrees, inspectManagedWorktree, removeManagedWorktree, type ManagedWorkspaceStore } from "../repository/managedWorktrees";
 import { AgentHarnessError, toBoundedError } from "../core/errors";
 import { writeAttachedImage } from "../repository/attachedImages";
@@ -130,6 +131,7 @@ const HOTFIX10_RESERVED_TOOLBOX_NAMES = [
 type RequiredScope = "files.read" | "files.write";
 type ParamType = "string" | "number" | "boolean" | "string-array";
 type GitMutationAction =
+  | "begin_isolated_operation" | "continue_isolated_operation" | "abort_isolated_operation" | "advance_isolated_operation"
   | "amend_commit" | "revert_commit" | "cherry_pick_commit"
   | "create_worktree_from_ref"
   | "create_worktree_for_branch"
@@ -513,6 +515,7 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
         gitInspectionAction("changed_files", {}, ({ context }) => inspectGitChangedFiles(context.root)),
         gitInspectionAction("inspect_commit", { ...requiredParams({ ref: "string" }), ...optionalParams({ includePatch: "boolean" }) }, ({ context, params }) => inspectGitCommit(context.root, { ref: requiredString(params.ref, "ref"), includePatch: booleanValue(params.includePatch) })),
         gitInspectionAction("compare_refs", requiredParams({ leftRef: "string", rightRef: "string" }), ({ context, params }) => compareGitRefs(context.root, { leftRef: requiredString(params.leftRef, "leftRef"), rightRef: requiredString(params.rightRef, "rightRef") })),
+        gitInspectionAction("inspect_isolated_operation", requiredParams({ operationId: "string" }), ({ context, params, managedWorkspaces }) => inspectIsolatedOperation(context.root, requiredString(params.operationId, "operationId"), requiredManagedStore(managedWorkspaces))),
         gitInspectionAction("list_worktrees", {}, ({ context, managedWorkspaces }) => listManagedWorktrees(context.root, requiredManagedStore(managedWorkspaces))),
         gitInspectionAction("inspect_worktree", requiredParams({ workspaceId: "string" }), ({ context, params, managedWorkspaces }) => inspectManagedWorktree(context.root, requiredString(params.workspaceId, "workspaceId"), requiredManagedStore(managedWorkspaces))),
         gitInspectionAction("list_tags", {}, ({ context }) => listGitTags(context.root)),
@@ -569,6 +572,10 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
           ...optionalParams({ remote: "string" }),
         }),
         gitMutationAction("delete_branch", requiredParams({ branchName: "string" })),
+        gitMutationAction("begin_isolated_operation", { ...requiredParams({ targetBranch: "string", sourceRef: "string", expectedTargetCommit: "string" }), operation: { type: "string", required: true, allowedValues: ["merge", "cherry-pick", "revert"] }, ...optionalParams({ mainline: "number" }) }),
+        gitMutationAction("continue_isolated_operation", requiredParams({ operationId: "string" })),
+        gitMutationAction("abort_isolated_operation", requiredParams({ operationId: "string" })),
+        gitMutationAction("advance_isolated_operation", requiredParams({ operationId: "string", expectedTargetCommit: "string", expectedCandidateCommit: "string" })),
         gitMutationAction("create_worktree_from_ref", requiredParams({ checkoutName: "string", branchName: "string", sourceRef: "string" })),
         gitMutationAction("create_worktree_for_branch", requiredParams({ checkoutName: "string", branchName: "string" })),
         gitMutationAction("remove_worktree", requiredParams({ workspaceId: "string", expectedBranch: "string" })),
@@ -888,6 +895,14 @@ function gitMutationAction(
     params,
     dispatch: async ({ context, params: values, managedWorkspaces }) => {
       switch (name) {
+        case "begin_isolated_operation":
+          return beginIsolatedOperation(context.root, { operation: requiredString(values.operation, "operation") as IsolatedOperationKind, targetBranch: requiredString(values.targetBranch, "targetBranch"), sourceRef: requiredString(values.sourceRef, "sourceRef"), expectedTargetCommit: requiredString(values.expectedTargetCommit, "expectedTargetCommit"), mainline: numberValue(values.mainline) }, requiredManagedStore(managedWorkspaces));
+        case "continue_isolated_operation":
+          return continueIsolatedOperation(context.root, requiredString(values.operationId, "operationId"), requiredManagedStore(managedWorkspaces));
+        case "abort_isolated_operation":
+          return abortIsolatedOperation(context.root, requiredString(values.operationId, "operationId"), requiredManagedStore(managedWorkspaces));
+        case "advance_isolated_operation":
+          return advanceIsolatedOperation(context.root, { operationId: requiredString(values.operationId, "operationId"), expectedTargetCommit: requiredString(values.expectedTargetCommit, "expectedTargetCommit"), expectedCandidateCommit: requiredString(values.expectedCandidateCommit, "expectedCandidateCommit") }, requiredManagedStore(managedWorkspaces));
         case "create_worktree_from_ref":
         case "create_worktree_for_branch":
           return createManagedWorktree(context.root, { checkoutName: requiredString(values.checkoutName, "checkoutName"), branchName: requiredString(values.branchName, "branchName"), sourceRef: name === "create_worktree_from_ref" ? requiredString(values.sourceRef, "sourceRef") : undefined }, requiredManagedStore(managedWorkspaces));

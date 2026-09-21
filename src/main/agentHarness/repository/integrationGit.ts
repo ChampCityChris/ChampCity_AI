@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { AgentHarnessError } from "../core/errors";
 import { runBoundedGit } from "./boundedGit";
-import { inspectGitBranchState, inspectGitHistory } from "./gitMutations";
+import { advanceGitBranchRef, inspectGitCheckout, inspectGitBranchState, inspectGitHistory } from "./gitMutations";
 
 const fail = (message: string) => new AgentHarnessError("GIT_EXECUTION_FAILED", message);
 const exact = (commit: string) => { if (!/^[a-f0-9]{40,64}$/.test(commit)) throw fail("Integration requires an exact commit."); return commit; };
@@ -86,11 +86,7 @@ export async function createIntegrationCheckout(root: string, input: { candidate
 }
 export async function inspectIntegrationCheckout(root: string, candidateId: string) {
   const paths = await registeredIntegrationCheckout(root, candidateId);
-  const commit = await commitAt(paths.checkout, "HEAD");
-  const conflictingPaths = (await runBoundedGit({ cwd: paths.checkout, args: ["diff", "--name-only", "--diff-filter=U", "-z"] })).stdout.split("\0").filter(Boolean);
-  if (conflictingPaths.length > 256 || conflictingPaths.some((entry) => /[\r\n]/.test(entry) || entry.length > 4096)) throw fail("Conflict evidence exceeds the bounded path limit.");
-  const status = (await runBoundedGit({ cwd: paths.checkout, args: ["status", "--porcelain=v1", "-z", "--untracked-files=all"] })).stdout;
-  return { commit, conflictingPaths, clean: status.length === 0 };
+  return inspectGitCheckout(paths.checkout);
 }
 export async function mergeIntegrationCheckout(root: string, input: { candidateId: string; incomingCommit: string; targetCommit: string }) {
   const paths = await registeredIntegrationCheckout(root, input.candidateId);
@@ -110,7 +106,7 @@ export async function advanceIntegrationTarget(root: string, input: { candidateI
   const worktrees = (await runBoundedGit({ cwd: root, args: ["worktree", "list", "--porcelain", "-z"] })).stdout.split("\0");
   if (worktrees.includes(`branch refs/heads/${input.targetBranch}`)) throw fail("Target is checked out in another context; release that checkout before advancing it.");
   if (!await ancestor(root, input.localTargetCommit, input.candidateCommit) || !await ancestor(root, input.incomingCommit, input.candidateCommit)) throw fail("Candidate does not preserve both accepted histories.");
-  await runBoundedGit({ cwd: root, args: ["update-ref", "--no-deref", `refs/heads/${input.targetBranch}`, input.candidateCommit, input.localTargetCommit] });
+  await advanceGitBranchRef(root, { branchName: input.targetBranch, sourceRef: input.candidateCommit, expectedCurrentCommit: input.localTargetCommit });
   return { commit: await commitAt(root, `refs/heads/${input.targetBranch}`) };
 }
 export async function abortIntegrationCheckout(root: string, candidateId: string) {

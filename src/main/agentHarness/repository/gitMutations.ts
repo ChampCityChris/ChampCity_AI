@@ -828,6 +828,14 @@ export async function gitConflictPaths(root: string): Promise<{ conflictingPaths
   return { conflictingPaths: paths.slice(0, 256).map((entry) => entry.slice(0, 4096)), truncated: paths.length > 256 || paths.some((entry) => entry.length > 4096) };
 }
 
+/** Shared bounded checkout evidence for application and MCP integration candidates. */
+export async function inspectGitCheckout(root: string) {
+  const conflicts = await gitConflictPaths(root);
+  if (conflicts.truncated || conflicts.conflictingPaths.some((entry) => /[\r\n]/.test(entry))) throw gitPrecondition("Conflict evidence exceeds the bounded path limit.");
+  const status = await runRefGit(root, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
+  return { commit: await readHead(root), conflictingPaths: conflicts.conflictingPaths, clean: status.stdout.length === 0 };
+}
+
 export async function resolveGitTransformCommit(root: string, input: { commit: string; mainline?: number }) {
   const revision = validateRevision(input.commit, "commit");
   if (/\.\.|[\s:^]/.test(revision)) throw gitPrecondition("Select one commit or ref, without ranges or revision-list expressions.");

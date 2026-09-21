@@ -1,3 +1,5 @@
+import { beginIsolatedOperation, inspectIsolatedOperation, continueIsolatedOperation, abortIsolatedOperation, advanceIsolatedOperation } from "../agentHarness/repository/isolatedGitOperations";
+import type { ManagedWorkspaceStore } from "../agentHarness/repository/managedWorktrees";
 import fs from "node:fs";
 import path from "node:path";
 import { AgentHarnessError } from "../agentHarness/core/errors";
@@ -19,7 +21,7 @@ import type {
 } from "../../shared/sourceControlContracts";
 
 /** Called by trusted main-process services with a selected repository, without MCP/model mediation. */
-export function createSourceControlService(binding: { repositoryId: string; repositoryRoot: string }) {
+export function createSourceControlService(binding: { repositoryId: string; repositoryRoot: string; managedWorkspaces?: ManagedWorkspaceStore }) {
   const repositoryId = binding.repositoryId;
   const root = path.resolve(binding.repositoryRoot);
 
@@ -86,9 +88,18 @@ export function createSourceControlService(binding: { repositoryId: string; repo
     }
   }
 
+  const managedStore = () => {
+    if (!binding.managedWorkspaces) throw new AgentHarnessError("WORKSPACE_UNAVAILABLE", "Managed workspace registration is unavailable.");
+    return binding.managedWorkspaces;
+  };
   const changedFiles = () => inspectGitChangedFiles(root);
 
   return {
+    beginIsolatedOperation: (input: Parameters<typeof beginIsolatedOperation>[1]) => run("isolated-begin", true, () => beginIsolatedOperation(root, input, managedStore())),
+    inspectIsolatedOperation: (operationId: string) => run("isolated-inspect", false, () => inspectIsolatedOperation(root, operationId, managedStore())),
+    continueIsolatedOperation: (operationId: string) => run("isolated-continue", true, () => continueIsolatedOperation(root, operationId, managedStore())),
+    abortIsolatedOperation: (operationId: string) => run("isolated-abort", true, () => abortIsolatedOperation(root, operationId, managedStore())),
+    advanceIsolatedOperation: (input: Parameters<typeof advanceIsolatedOperation>[1]) => run("isolated-advance", true, () => advanceIsolatedOperation(root, input, managedStore())),
     snapshotIntegrationRepair: (candidateId: string, editablePaths: string[]) => run("integration-repair-snapshot", false, () => snapshotIntegrationRepair(root, candidateId, editablePaths)),
     integrationRepairDiffs: (input: Parameters<typeof integrationRepairDiffs>[1]) => run("integration-repair-diffs", false, () => integrationRepairDiffs(root, input)),
     commitIntegrationRepair: (input: Parameters<typeof commitIntegrationRepair>[1]) => run("integration-repair-commit", true, () => commitIntegrationRepair(root, input)),
