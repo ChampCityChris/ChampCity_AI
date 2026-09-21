@@ -318,7 +318,9 @@ Execution mode remains the scheduler input. Resource ownership is the audited ev
 
 Independent fast and isolated integration files run with bounded file-level concurrency. A unique temporary root, isolated temporary Git repository, bounded child process, or dynamically allocated loopback endpoint does not by itself require global serialization.
 
-The initial ceiling must be conservative and configurable; four workers is a reasonable implementation starting point, but the Work Card must measure and choose the supported workstation default.
+The repository-owned scheduler configuration admits at most four general test workers, with independent ceilings of two child-process-heavy files, two isolated Git fixtures, and two loopback/network files. Pure/stateless, repository-readonly, and isolated temporary-filesystem work may fill the four-worker ceiling. Desktop/Electron, packaging, performance/soak, and shared-global pools each have a limit of one and act as queue barriers.
+
+Callers cannot override concurrency or resource limits. The scheduler scans deterministic selection order, admits compatible work continuously, and prevents work after a queued barrier from passing it. A barrier starts only after active work quiesces and runs alone. Failures are recorded per file without cancelling other admitted or pending work. Completion order does not change receipt order.
 
 ### Exclusive cohorts
 

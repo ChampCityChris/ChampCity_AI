@@ -95,8 +95,7 @@ async function run(request, emit) {
   assert.ok(catalog.tests.length <= MAX_FILES, 'Catalog exceeds bounded toolbox file inventory');
   const selection = requestOptions(request, profiles);
   if (request.action === 'audit_test_corpus') selection.testPaths = catalog.tests.map(file => file.testPath);
-  const plan = planValidation({ root, catalog, profiles, ...selection,
-    ...(request.action === 'audit_test_corpus' ? { concurrency: 1 } : {}) });
+  const plan = planValidation({ root, catalog, profiles, ...selection });
   for (const file of plan.tests) containedFile(root, file.testPath, 4_000_000);
   const byPath = new Map(plan.tests.map(file => [file.testPath, file]));
   emit({ type: 'plan', sourceContext: initialContext, selected: plan.tests.map(file => ({

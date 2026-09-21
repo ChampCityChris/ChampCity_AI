@@ -3489,11 +3489,11 @@
         },
         {
           "behaviorId": "bounded-safe-scheduling",
-          "description": "Concurrent safe file execution, exclusive cohorts, deterministic receipts and process cleanup."
+          "description": "Resource-aware admission, exclusive barriers, deterministic receipts, continued failure handling, and process cleanup."
         },
         {
-          "behaviorId": "bounded-serial-validation-execution",
-          "description": "serial validation execution reports real pass failure timeout and bounded output"
+          "behaviorId": "bounded-validation-execution",
+          "description": "bounded validation execution reports real pass failure timeout and bounded output"
         },
         {
           "behaviorId": "deterministic-validation-plans",
@@ -5736,8 +5736,8 @@
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 37874,
-        "basis": "Measured by the TSR07 normal Windows focused provider run of test/agent-harness/integration-profile-gate.test.cjs; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 39597,
+        "basis": "Measured by the TSR10 normal Windows focused provider run of test/agent-harness/integration-profile-gate.test.cjs; value is the rounded-up TAP duration_ms summary."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -7019,8 +7019,8 @@
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 485,
-        "basis": "Measured by the TSR06 normal Windows focused run of test/agent-harness/reserved-toolbox-namespace.test.cjs; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 466,
+        "basis": "Measured by the TSR10 normal Windows focused run of test/agent-harness/reserved-toolbox-namespace.test.cjs; value is the rounded-up TAP duration_ms summary."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -15516,8 +15516,8 @@
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 116,
-        "basis": "Measured by the TSR06 normal Windows focused run of test/validation/capability-map.test.cjs; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 123,
+        "basis": "Measured by the TSR10 normal Windows focused run of test/validation/capability-map.test.cjs; value is the rounded-up TAP duration_ms summary."
       },
       "proposedValidationLane": "static",
       "platformDependency": "none",
@@ -15639,13 +15639,13 @@
         {
           "capabilityId": "validation-execution",
           "behaviorId": "bounded-safe-scheduling",
-          "proofLocator": "bounded scheduler overlaps safe files isolates exclusive cohorts and cleans failed process descendants",
+          "proofLocator": "bounded resource scheduler overlaps compatible work enforces barriers continues after failure and cleans descendants",
           "proofRole": "primary"
         },
         {
           "capabilityId": "validation-execution",
-          "behaviorId": "bounded-serial-validation-execution",
-          "proofLocator": "serial validation execution reports real pass failure timeout and bounded output",
+          "behaviorId": "bounded-validation-execution",
+          "proofLocator": "bounded validation execution reports real pass failure timeout and bounded output",
           "proofRole": "primary"
         },
         {

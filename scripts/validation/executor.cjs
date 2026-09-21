@@ -2,7 +2,7 @@ const { sourceContext, completeReceipt } = require('./telemetry.cjs');
 const { detectCapabilities } = require('./environment.cjs');
 const fs = require('node:fs');
 const os = require('node:os');
-const { scheduleTests, runCohorts } = require('./scheduler.cjs');
+const { runSchedule, scheduleTests } = require('./scheduler.cjs');
 const path = require('node:path');
 const { performance } = require('node:perf_hooks');
 const assert = require('node:assert/strict');
@@ -49,7 +49,7 @@ async function executePlan(plan, { root = ROOT, catalog: trustedCatalog, ensureB
     assert.deepEqual(file.externalCapabilities, record.execution.externalCapabilities, 'Plan capabilities differ from catalog');
     seen.add(file.testPath);
   }
-  assert.deepEqual(plan.cohorts, scheduleTests(plan.tests, plan.concurrency), 'Plan scheduling cohorts differ');
+  assert.deepEqual(plan.schedule, scheduleTests(plan.tests), 'Plan resource schedule differs');
   const started = performance.now(), results = [], steps = [], runId = randomUUID();
   const captureContext = () => suppliedContext ? { ...suppliedContext, checkout: sourceContext(root) } : sourceContext(root);
   const context = captureContext();
@@ -77,7 +77,7 @@ async function executePlan(plan, { root = ROOT, catalog: trustedCatalog, ensureB
   const availableCapabilities = await detectCapabilities(root, [...new Set(plan.tests.flatMap(file=>file.externalCapabilities))]);
   const byPath = new Map(plan.tests.map(file => [file.testPath, file]));
   const scheduledAt = performance.now();
-  const completed = await runCohorts(plan.cohorts, async testPath => {
+  const completed = await runSchedule(plan.schedule, async testPath => {
     const file = byPath.get(testPath);
     const schedulerWaitMs = Math.round(performance.now() - scheduledAt);
     if (file.platformRequirement === 'windows' && process.platform !== 'win32') return { testPath, lane: file.lane, status: 'unavailable', reason: 'requires-windows', durationMs: 0 };

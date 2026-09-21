@@ -1,5 +1,5 @@
 const { selectAffected } = require('./affected.cjs');
-const { DEFAULT_CONCURRENCY, scheduleTests } = require('./scheduler.cjs');
+const { scheduleTests } = require('./scheduler.cjs');
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
@@ -29,7 +29,8 @@ function validateProfiles(config) {
 function loadProfiles(root = ROOT) {
   return validateProfiles(JSON.parse(fs.readFileSync(path.join(root, 'validation/profiles.json'), 'utf8')));
 }
-function planValidation({ root = ROOT, catalog, profiles, lane, profile, testPaths, platform = process.platform, externalCapabilities = [], concurrency = DEFAULT_CONCURRENCY, changedPaths, capabilityIds = [] } = {}) {
+function planValidation({ root = ROOT, catalog, profiles, lane, profile, testPaths, platform = process.platform, externalCapabilities = [], concurrency, changedPaths, capabilityIds = [] } = {}) {
+  assert.equal(concurrency, undefined, 'Concurrency and resource pools are repository-owned');
   catalog = catalog ? validateCatalog(catalog, root) : loadCatalog(root);
   profiles = profiles ? validateProfiles(profiles) : loadProfiles(root);
   assert.equal([lane, profile, testPaths].filter(x => x !== undefined).length, 1, 'Select exactly one lane, profile, or explicit test list');
@@ -60,7 +61,7 @@ function planValidation({ root = ROOT, catalog, profiles, lane, profile, testPat
   }));
   const requiresBuild = Boolean(profile && profiles.profiles[profile].requiresBuild && !affected?.documentationOnly) || tests.some(t => t.requiresBuild);
   const staticSteps = requiresBuild ? ['production-build'] : (lane === 'static' || profile && profiles.profiles[profile].requiresTypecheck) ? ['typecheck'] : [];
-  return { schemaVersion: 1, selection: affected ? { ...affected, selected: undefined } : null, concurrency, cohorts: scheduleTests(tests, concurrency), staticSteps, profile: profile ?? null, lane: lane ?? null, platform,
+  return { schemaVersion: 2, selection: affected ? { ...affected, selected: undefined } : null, schedule: scheduleTests(tests), staticSteps, profile: profile ?? null, lane: lane ?? null, platform,
     requiresBuild,
     estimatedDurationMs: tests.reduce((sum, t) => sum + t.duration.milliseconds, 0), tests };
 }

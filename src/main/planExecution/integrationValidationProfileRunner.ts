@@ -88,7 +88,7 @@ function validTelemetry(value: unknown): value is IntegrationProfileTelemetry {
   const t = value as IntegrationProfileTelemetry;
   const count = (n: unknown): n is number => Number.isSafeInteger(n) && (n as number) >= 0 && (n as number) <= 1_000_000_000;
   const lane = (n: unknown): boolean => typeof n === "string" && INTEGRATION_VALIDATION_LANES.includes(n as typeof INTEGRATION_VALIDATION_LANES[number]);
-  return count(t.buildDurationMs) && count(t.concurrency) && t.concurrency >= 1 && t.concurrency <= 4 && count(t.cohortCount)
+  return count(t.buildDurationMs) && count(t.concurrency) && t.concurrency >= 1 && t.concurrency <= 4 && count(t.resourcePoolCount)
     && Array.isArray(t.selectedLanes) && t.selectedLanes.length <= 9 && t.selectedLanes.every(lane)
     && Array.isArray(t.selectedCapabilities) && t.selectedCapabilities.length <= 512 && t.selectedCapabilities.every(id=>typeof id === "string" && /^[a-z0-9-]{1,160}$/.test(id))
     && Array.isArray(t.perLane) && t.perLane.length <= 9 && t.perLane.every(row=>row && lane(row.lane) && count(row.fileCount) && count(row.fileDurationMs))

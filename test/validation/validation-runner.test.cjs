@@ -7,6 +7,7 @@ const { LANES, ROOT, loadCatalog, validateCatalog } = require('../../scripts/val
 const { loadProfiles, planValidation } = require('../../scripts/validation/planner.cjs');
 const { executePlan } = require('../../scripts/validation/executor.cjs');
 const { main } = require('../../scripts/validation/cli.cjs');
+const { runSchedule, scheduleTests } = require('../../scripts/validation/scheduler.cjs');
 
 test('validation plans deterministically preserve lane profile and ownership requirements', () => {
   const catalog = loadCatalog();
@@ -58,7 +59,7 @@ test('validation planning rejects invalid selection catalog and ownership instea
   }
 });
 
-test('serial validation execution reports real pass failure timeout and bounded output', async t => {
+test('bounded validation execution reports real pass failure timeout and bounded output', async t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'champcity-validation-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.mkdirSync(path.join(root, 'test'));
@@ -116,24 +117,62 @@ test('one run owns the build consumed by multiple lanes and stale output cannot 
 });
 
 
-test('bounded scheduler overlaps safe files isolates exclusive cohorts and cleans failed process descendants', async t => {
+test('bounded resource scheduler overlaps compatible work enforces barriers continues after failure and cleans descendants', async t => {
+  const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+  const synthetic = [
+    ['temp-a', 'parallel-safe', ['temp-filesystem-isolated']],
+    ['git-a', 'parallel-safe', ['isolated-git-fixture']],
+    ['git-b', 'parallel-safe', ['isolated-git-fixture']],
+    ['git-c', 'parallel-safe', ['isolated-git-fixture']],
+    ['process-a', 'parallel-safe', ['bounded-child-process']],
+    ['network-a', 'parallel-safe', ['loopback-dynamic-endpoint']],
+    ['global', 'exclusive-process', ['shared-global-state-exclusive']],
+    ['after', 'parallel-safe', ['pure-stateless']],
+  ].map(([testPath, executionMode, ownedResources]) => ({ testPath, executionMode, ownedResources }));
+  const trace = [];
+  let activeGit = 0, maximumGit = 0;
+  const scheduled = await runSchedule(scheduleTests(synthetic), async testPath => {
+    if (testPath.startsWith('git-')) { activeGit += 1; maximumGit = Math.max(maximumGit, activeGit); }
+    await wait(testPath === 'global' ? 30 : 80);
+    if (testPath.startsWith('git-')) activeGit -= 1;
+    if (testPath === 'process-a') throw Error('synthetic runner failure');
+    return { testPath, status: 'passed', durationMs: 1 };
+  }, { onEvent: event => trace.push(event) });
+  assert.deepEqual([...scheduled.keys()], synthetic.map(entry => entry.testPath), 'result order follows selection order');
+  assert.equal(scheduled.get('process-a').status, 'execution-failed');
+  assert.equal(scheduled.get('after').status, 'passed', 'later work continues after an admitted failure');
+  assert.equal(maximumGit, 2, 'isolated Git pool limit is enforced');
+  assert.equal(Math.max(...trace.map(event => event.active)), 4, 'independent resources fill the general worker pool');
+  const sequence = (type, testPath) => trace.find(event => event.type === type && event.testPath === testPath).sequence;
+  assert.ok(synthetic.slice(0, 6).every(entry => sequence('finish', entry.testPath) < sequence('start', 'global')));
+  assert.ok(sequence('finish', 'global') < sequence('start', 'after'));
+
+  const benchmarkFiles = Array.from({ length: 8 }, (_, index) => ({
+    testPath: `benchmark-${index}`,
+    executionMode: 'parallel-safe',
+    ownedResources: [["bounded-child-process"], ["isolated-git-fixture"], ["loopback-dynamic-endpoint"], ["temp-filesystem-isolated"]][index % 4],
+  }));
+  const benchmarkRun = async () => { await wait(80); return { status: 'passed', durationMs: 80 }; };
+  const resourceStarted = Date.now();
+  await runSchedule(scheduleTests(benchmarkFiles), benchmarkRun);
+  const resourceDurationMs = Date.now() - resourceStarted;
+  const legacyStarted = Date.now();
+  let next = 0;
+  await Promise.all(Array.from({ length: 2 }, async () => { while (next < benchmarkFiles.length) { next += 1; await benchmarkRun(); } }));
+  const legacyDurationMs = Date.now() - legacyStarted;
+  assert.ok(resourceDurationMs < legacyDurationMs * 0.75, `resource=${resourceDurationMs}ms legacy=${legacyDurationMs}ms`);
+  t.diagnostic(`resource scheduler benchmark: ${resourceDurationMs}ms; legacy two-worker cohort: ${legacyDurationMs}ms`);
+
   const {validationFixture}=require('../support/validation-fixture.cjs');
-  const source=name=>"const fs=require('node:fs');require('node:test')('scheduled',async()=>{fs.appendFileSync('events.jsonl',JSON.stringify({name:'"+name+"',stage:'start',at:Date.now()})+'\\n');await new Promise(r=>setTimeout(r,180));fs.appendFileSync('events.jsonl',JSON.stringify({name:'"+name+"',stage:'end',at:Date.now()})+'\\n');});";
-  const f=validationFixture(t,Object.fromEntries(['a','b','c','d'].map(name=>['test/'+name+'.test.cjs',{source:source(name)}])));
-  f.catalog.tests[2].execution.scheduling='exclusive-process';f.catalog.tests[2].execution.ownedResources=['shared-global-state-exclusive'];
-  f.catalog.tests[3].execution.scheduling='exclusive-desktop';f.catalog.tests[3].execution.ownedResources=['electron-desktop'];f.save();
-  for(let repeat=0;repeat<2;repeat++){
-    fs.writeFileSync(path.join(f.root,'events.jsonl'),'');
-    const receipt=await executePlan(planValidation({root:f.root,testPaths:f.catalog.tests.map(r=>r.testPath),concurrency:2}),{root:f.root});
-    assert.equal(receipt.status,'passed',JSON.stringify(receipt));
-    assert.deepEqual(receipt.results.map(r=>r.testPath),f.catalog.tests.map(r=>r.testPath));
-    const events=fs.readFileSync(path.join(f.root,'events.jsonl'),'utf8').trim().split('\n').map(JSON.parse);
-    const at=(name,stage)=>events.find(e=>e.name===name&&e.stage===stage).at;
-    assert.ok(Math.max(at('a','start'),at('b','start'))<Math.min(at('a','end'),at('b','end')),'safe files overlap');
-    assert.ok(at('c','start')>=Math.max(at('a','end'),at('b','end')));assert.ok(at('d','start')>=at('c','end'));
-  }
+  const f=validationFixture(t,{'test/c.test.cjs':{source:"require('node:test')('placeholder',()=>{});"}});
+  f.catalog.tests[0].dependencies.process=true;
+  f.catalog.tests[0].execution.ownedResources=['bounded-child-process','temp-filesystem-isolated'];
+  f.catalog.tests[0].execution.schedulingReason='Fixture owns a bounded child and its validation-run temporary root.';
+  f.save();
   const bad=structuredClone(f.catalog);delete bad.tests[0].execution.scheduling;assert.throws(()=>validateCatalog(bad,f.root),/field vocabulary|scheduling/);
-  assert.throws(()=>planValidation({root:f.root,lane:'fast',concurrency:20}),/Concurrency/);
+  assert.throws(()=>planValidation({root:f.root,lane:'fast',concurrency:2}),/repository-owned/);
+  const bypass=planValidation({root:f.root,lane:'fast'});bypass.schedule.limits['general-worker']=20;
+  await assert.rejects(executePlan(bypass,{root:f.root}),/resource schedule differs/);
   const descendant="const cp=require('node:child_process'),fs=require('node:fs');require('node:test')('fails with child',()=>{const child=cp.spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore',windowsHide:true});child.unref();fs.writeFileSync('pid.txt',String(child.pid));const temp=require('node:os').tmpdir();fs.writeFileSync('temporary-root.txt',temp);fs.writeFileSync(require('node:path').join(temp,'orphan.txt'),'fixture');throw Error('fixture failure');});";
   fs.writeFileSync(path.join(f.root,'test/c.test.cjs'),descendant);
   const failed=await executePlan(planValidation({root:f.root,testPaths:['test/c.test.cjs']}),{root:f.root,timeoutMs:5000});
@@ -180,7 +219,7 @@ test('public validation commands dispatch composed profiles and reject accidenta
   assert.throws(()=>main(['run','--profile','integration-gate']), /requires an explicit changed-path set/);
   assert.throws(()=>main(['run','--profile','work-item']), /requires an explicit changed-path set/);
   assert.throws(()=>main(['run','--profile','full-supported-platform','--changes','scope.json']), /cannot narrow/);
-  assert.throws(()=>main(['preview','--lane','fast','--concurrency','10']), /Concurrency/);
+  assert.throws(()=>main(['preview','--lane','fast','--concurrency','10']), /Invalid or duplicate/);
   const {validationFixture}=require('../support/validation-fixture.cjs');
   const source="require('node:test')('dispatch fixture',()=>{});";
   const fixture=validationFixture(t,{
@@ -231,7 +270,7 @@ test('changed source runs one build through scheduled proof into stable bounded 
   assert.equal(receipt.status,'passed',JSON.stringify(receipt));assert.equal(receipt.sourceStable,true);assert.equal(receipt.sourceContext.revision,git('rev-parse','HEAD'));assert.equal(receipt.sourceContext.dirty,false);
   assert.equal(receipt.steps.length,1);assert.equal(fs.readFileSync(path.join(f.root,'build-count.txt'),'utf8'),'x');
   assert.ok(receipt.results.every(r=>r.buildRunId===receipt.runId));assert.equal(receipt.telemetry.counts.pass,2);assert.equal(receipt.telemetry.counts.skipped,0);
-  assert.equal(receipt.telemetry.budget.status,'within-target');assert.deepEqual(receipt.telemetry.selectedLanes,['affected-capability','integration']);assert.equal(receipt.telemetry.concurrency,2);assert.ok(receipt.selection.every(s=>s.reason.startsWith('affected:')));assert.equal(receipt.telemetry.slowestFiles.length,2);
+  assert.equal(receipt.telemetry.budget.status,'within-target');assert.deepEqual(receipt.telemetry.selectedLanes,['affected-capability','integration']);assert.equal(receipt.telemetry.concurrency,4);assert.ok(receipt.selection.every(s=>s.reason.startsWith('affected:')));assert.equal(receipt.telemetry.slowestFiles.length,2);
   assert.deepEqual(evaluateBudget({lane:'static'},29999),{targetMs:30000,reviewThresholdMs:30000,status:'within-target'});
   assert.equal(evaluateBudget({lane:'fast'},30000).status,'target-missed');assert.equal(evaluateBudget({lane:'fast'},60000).status,'review-required');
   assert.equal(evaluateBudget({profile:'work-item'},60000).status,'review-required');assert.equal(evaluateBudget({profile:'integration-gate'},180000).status,'target-missed');assert.equal(evaluateBudget({profile:'integration-gate'},300000).status,'review-required');

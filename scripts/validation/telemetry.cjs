@@ -56,9 +56,9 @@ function completeReceipt(plan, receipt, context, finalContext) {
   const slowestFiles = [...receipt.results].sort((a,b)=>b.durationMs-a.durationMs||a.testPath.localeCompare(b.testPath)).slice(0,5).map(({testPath,durationMs,status})=>({testPath,durationMs,status}));
   const telemetry = { buildDurationMs: receipt.steps.reduce((sum,step)=>sum+step.durationMs,0), selectedLanes:lanes,
     selectedCapabilities:[...new Set(plan.tests.flatMap(file=>file.ownership.map(owner=>owner.capabilityId)))].sort(),
-    concurrency:plan.concurrency, cohortCount:plan.cohorts.length, perLane, counts, slowestFiles, budget:evaluateBudget(plan,receipt.durationMs) };
+    concurrency:plan.schedule.limits['general-worker'], resourcePoolCount:Object.keys(plan.schedule.limits).length, perLane, counts, slowestFiles, budget:evaluateBudget(plan,receipt.durationMs) };
   return { ...receipt, sourceContext:context, sourceStable:stable, ...(stable?{}:{failureReason:'source-changed-during-validation'}), telemetry,
     selection:plan.tests.map(file=>({testPath:file.testPath,lane:file.lane,reason:file.reason})),
-    cohorts:plan.cohorts, failureEvidence:receipt.results.filter(r=>r.status!=='passed').slice(0,10).map(({testPath,status,reason,output})=>({testPath,status,...(reason?{reason}:{}),...(output?{output:output.slice(-1200)}:{})})) };
+    schedule:plan.schedule, failureEvidence:receipt.results.filter(r=>r.status!=='passed').slice(0,10).map(({testPath,status,reason,output})=>({testPath,status,...(reason?{reason}:{}),...(output?{output:output.slice(-1200)}:{})})) };
 }
 module.exports = { sourceContext, evaluateBudget, completeReceipt };

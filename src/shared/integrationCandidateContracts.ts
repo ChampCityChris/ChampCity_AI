@@ -5,7 +5,7 @@ export interface IntegrationProfileTelemetry {
   selectedLanes: string[];
   selectedCapabilities: string[];
   concurrency: number;
-  cohortCount: number;
+  resourcePoolCount: number;
   perLane: Array<{ lane: string; fileCount: number; fileDurationMs: number }>;
   counts: { tests: number; pass: number; fail: number; skipped: number; cancelled: number; unavailableFiles: number; blockedFiles: number; unknownCountFiles: number };
   slowestFiles: Array<{ testPath: string; durationMs: number; status: string }>;

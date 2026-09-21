@@ -10,7 +10,7 @@ function main(args, { root = ROOT } = {}) {
   const options = {};
   for (let i = 1; i < args.length; i++) {
     const name = args[i];
-    assert.ok(['--profile', '--lane', '--changes', '--concurrency', '--preview'].includes(name) && !Object.hasOwn(options, name), 'Invalid or duplicate validation argument');
+    assert.ok(['--profile', '--lane', '--changes', '--preview'].includes(name) && !Object.hasOwn(options, name), 'Invalid or duplicate validation argument');
     if (name === '--preview') options[name] = true;
     else { assert.ok(typeof args[i + 1] === 'string' && !args[i + 1].startsWith('--'), 'Missing validation argument'); options[name] = args[++i]; }
   }
@@ -26,7 +26,7 @@ function main(args, { root = ROOT } = {}) {
     changes = JSON.parse(fs.readFileSync(absolute, 'utf8'));
     assert.ok(changes && typeof changes === 'object' && !Array.isArray(changes) && Object.keys(changes).every(key=>['changedPaths','capabilityIds'].includes(key)) && Array.isArray(changes.changedPaths), 'Invalid change-set fixture');
   }
-  const plan = planValidation({ root, ...(options['--profile'] === undefined ? {} : { profile: options['--profile'] }), ...(options['--lane'] === undefined ? {} : { lane: options['--lane'] }), ...(options['--concurrency'] === undefined ? {} : {concurrency:Number(options['--concurrency'])}), ...changes });
+  const plan = planValidation({ root, ...(options['--profile'] === undefined ? {} : { profile: options['--profile'] }), ...(options['--lane'] === undefined ? {} : { lane: options['--lane'] }), ...changes });
   return preview ? plan : executePlan(plan, { root });
 }
 if (require.main === module) {
