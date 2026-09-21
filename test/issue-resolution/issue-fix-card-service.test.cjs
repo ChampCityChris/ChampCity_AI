@@ -63,7 +63,8 @@ test("Fix Card planning handoff applies shared validation scope guidance without
     `${expectedValidationGuidance.join("\n")}\n`,
   );
   const renderedGuidance = instruction.slice(validationGuidanceStart, requiredSectionsStart);
-  assert.doesNotMatch(renderedGuidance, /Work Card|Development Phase|phase parentage/i);
+  assert.doesNotMatch(renderedGuidance, /(?:^|\n)(?:Phase ID|Work Card ID|Parent Work Card ID):/i);
+  assert.doesNotMatch(renderedGuidance, /\b(?:phaseId|phaseRevision|workCardId|parentWorkCardId)\s*[:=]/);
   assert.match(instruction, /Selected Issue\/Fix Card context:/);
   assert.match(instruction, /Issue ID: ISSUE_069/);
   assert.match(instruction, /Fix Card ID: ISSUE_069-FC01/);

@@ -10319,8 +10319,8 @@
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 5818,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/issue-resolution/issue-fix-card-service.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 8423,
+        "basis": "Measured by the TSR08 normal Windows focused run of test/issue-resolution/issue-fix-card-service.test.cjs; value is the rounded-up TAP duration_ms summary."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
