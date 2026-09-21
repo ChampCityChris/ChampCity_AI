@@ -1,0 +1,13 @@
+# HOTFIX21E Implementer Report
+
+- Approved repository root verified; Dev-based isolated branch hotfix/git-mcp-capability-completeness, starting bedcb30. Original checkout preserved; no push, merge, release, or network Git action performed.
+- Hotfix card HOTFIX21E adds begin/inspect/continue/abort/advance_isolated_operation for merge, cherry-pick, and revert. Ordinary registered-workspace tools address returned candidate workspace identities.
+- Operations use random bounded identities, exact captured endpoints, owned temporary branches, and HOTFIX21C managed checkouts. A canonical Markdown record with application-owned metadata is atomically persisted under common Git administration storage; no JSON sidecar or tracked workspace binding is added.
+- Conflicts remain in the candidate. Continue checks no unmerged paths, exact captured HEAD and source marker, and the expected Git operation before noninteractive continuation. No resolution content is synthesized.
+- Advance requires persisted ready/clean candidate, exact expected endpoints, source ancestry for merge or one-child commit structure for transforms, and shared fast-forward CAS with checked-out target protection. Completed candidates remain registered for evidence and can be removed through clean managed-worktree cleanup.
+- Abort applies native abort where needed, then removes only verified operation-owned checkout and its temporary ref. It preserves source and target branches. Aborted records remain as idempotent tombstones. Restart reads persisted records and verifies workspace/common-directory ownership; missing or interrupted cleanup state reports unavailable rather than guessing.
+- Application Work Intake integration and generic MCP operations now share inspectGitCheckout and advanceGitBranchRef; application SourceControlService exposes the same isolated primitives through optional trusted managed-registry binding.
+- Created isolatedGitOperations.ts and this report. Modified gitMutations.ts, integrationGit.ts, toolRegistry.ts, sourceControlService.ts, sourceControlContracts.ts, and existing namespace/OAuth inventories. No dependencies, raw Git actions, behavior tests, or generated artifacts added.
+- All card validation, build, typecheck, Git/integration suites and npm test SKIPPED at the Operator's explicit direction. Conflict resolution and restart behavior have source review only; no runtime proof or passing test claim.
+- Exact staged diff reviewed; git diff --cached --check and bounded staged secret/local-path/generated-artifact scan used for commit safety. No detected findings. Commit hash pending; supplied after commit.
+- Residual risk: compilation/runtime acceptance remains outstanding. Next: HOTFIX21F after this commit.

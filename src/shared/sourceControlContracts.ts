@@ -5,6 +5,16 @@ export interface SourceControlPosition {
 }
 
 export type SourceControlOperation =
+  | "inspect-reflog" | "replace-branch-ref" | "push-with-lease" | "delete-untracked-paths" | "discard-managed-worktree" | "isolated-skip"
+  | "isolated-begin" | "isolated-inspect" | "isolated-continue" | "isolated-abort" | "isolated-advance"
+  | "amend-commit" | "revert-commit" | "cherry-pick-commit"
+  | "inspect-commit" | "compare-refs" | "list-tags" | "inspect-remotes" | "unstage" | "restore-files"
+  | "create-branch-from-ref"
+  | "advance-branch-ref"
+  | "rename-branch"
+  | "set-branch-upstream"
+  | "unset-branch-upstream"
+  | "delete-remote-branch"
   | "status" | "branches" | "history" | "diff" | "changed-files" | "readiness" | "commit-message"
   | "prepare-branch" | "switch-branch" | "stage" | "commit" | "fetch" | "push"
   | "fast-forward" | "delete-branch" | "integration-target" | "integration-create"
@@ -31,6 +41,7 @@ export type SourceControlResult<T> =
         phase: "precondition" | "operation" | "receipt";
         /** Failure does not imply rollback; inspect before retrying a mutation. */
         mutationMayHaveOccurred: boolean;
+        recovery?: { rolledBack: boolean; residualOperationState: boolean; conflictingPaths: string[] };
       };
       /** Present when the operation succeeded but subsequent receipt inspection failed. */
       completedResult?: T;

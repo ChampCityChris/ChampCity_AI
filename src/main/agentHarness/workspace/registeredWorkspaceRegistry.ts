@@ -1,3 +1,4 @@
+import { managedWorkspaceId, verifyManagedCheckout } from "../repository/managedWorktrees";
 import fs from "node:fs";
 import path from "node:path";
 import type {
@@ -17,6 +18,7 @@ const registryFileName = "registered-workspaces.json";
 interface StoredRegisteredWorkspace {
   workspaceId: string;
   canonicalRoot: string;
+  managed?: { commonDirectory: string; checkoutName: string };
 }
 
 interface StoredRegisteredWorkspaceRegistry {
@@ -116,6 +118,20 @@ export class RegisteredWorkspaceRegistry {
     return summaryFromContext(context);
   }
 
+  async registerManaged(root: string, commonDirectory: string, checkoutName: string): Promise<AgentHarnessRegisteredWorkspaceSummary> {
+    this.assertReady();
+    const entry: StoredRegisteredWorkspace = { workspaceId: managedWorkspaceId(commonDirectory, checkoutName), canonicalRoot: root, managed: { commonDirectory, checkoutName } };
+    const context = await this.resolveStoredEntry(entry);
+    const existing = this.entries.get(entry.workspaceId);
+    if (existing && (existing.canonicalRoot !== root || !existing.managed)) throw new AgentHarnessError("WORKSPACE_REGISTRY_CONFLICT", "Managed workspace identity is already registered.");
+    const next = new Map(this.entries);
+    next.set(entry.workspaceId, entry);
+    this.persist(next);
+    this.entries = next;
+    this.contexts.set(entry.workspaceId, context);
+    return summaryFromContext(context);
+  }
+
   unregister(workspaceId: string): AgentHarnessWorkspaceRegistrySnapshot {
     this.assertReady();
     const normalized = requiredWorkspaceId(workspaceId);
@@ -195,6 +211,13 @@ export class RegisteredWorkspaceRegistry {
   }
 
   private async resolveStoredEntry(entry: StoredRegisteredWorkspace): Promise<AgentHarnessWorkspaceContext> {
+    if (entry.managed) {
+      const { commonDirectory, checkoutName } = entry.managed;
+      await verifyManagedCheckout(entry.canonicalRoot, commonDirectory, checkoutName);
+      if (entry.workspaceId !== managedWorkspaceId(commonDirectory, checkoutName)) throw new Error("Managed workspace identity changed.");
+      return { root: entry.canonicalRoot, workspaceId: entry.workspaceId, repositoryName: checkoutName, gitBacked: true,
+        capabilities: { filesystemRead: true, artifactWrite: true, patchWorkflow: true, gitInspection: true } };
+    }
     const context = await resolveWorkspaceRootContextAsync(entry.canonicalRoot);
     if (context.workspaceId !== entry.workspaceId || rootKey(context.root) !== rootKey(entry.canonicalRoot)) {
       throw new Error("Registered workspace identity changed.");
@@ -270,10 +293,16 @@ function isStoredRegistry(value: unknown): value is StoredRegisteredWorkspaceReg
         return false;
       }
       const candidate = entry as Record<string, unknown>;
-      return Object.keys(candidate).every((key) => ["workspaceId", "canonicalRoot"].includes(key)) &&
+      return Object.keys(candidate).every((key) => ["workspaceId", "canonicalRoot", "managed"].includes(key)) &&
         typeof candidate.workspaceId === "string" &&
         /^[a-z0-9_]+$/.test(candidate.workspaceId) &&
         typeof candidate.canonicalRoot === "string" &&
-        path.isAbsolute(candidate.canonicalRoot);
+        path.isAbsolute(candidate.canonicalRoot) && (candidate.managed === undefined || (
+          candidate.managed !== null && typeof candidate.managed === "object" && !Array.isArray(candidate.managed) &&
+          Object.keys(candidate.managed).every((key) => ["commonDirectory", "checkoutName"].includes(key)) &&
+          typeof (candidate.managed as Record<string, unknown>).commonDirectory === "string" &&
+          path.isAbsolute((candidate.managed as { commonDirectory: string }).commonDirectory) &&
+          typeof (candidate.managed as Record<string, unknown>).checkoutName === "string"
+        ));
     });
 }
