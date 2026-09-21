@@ -2988,9 +2988,12 @@
         "src/main/agentHarness/repository/gitMutations.ts",
         "src/main/agentHarness/tools/releaseToolbox.ts",
         "src/main/planExecution/**",
+        "src/main/sourceControl/**",
+        "src/main/workIntake/workIntakeBranchService.ts",
         "src/shared/integration*",
         "test/fixtures/routed-completed/**",
         "test/support/completed-routed-plan.cjs",
+        "test/support/git-mutation-fixtures.cjs",
         "test/support/integration-scenarios.cjs",
         "test/support/integration-semantics.cjs",
         "test/support/windows-test.cjs"
@@ -3022,6 +3025,10 @@
         {
           "behaviorId": "all-five-bounded-git-toolbox-mutations-execute-in-a-registered-git-repository-without-a-planning",
           "description": "all five bounded git_toolbox mutations execute in a registered Git repository without a planning corpus"
+        },
+        {
+          "behaviorId": "application-source-control-returns-attributable-receipts-and-preserves-git-safety",
+          "description": "application source control returns attributable receipts and preserves Git safety without MCP"
         },
         {
           "behaviorId": "branch-state-existing-branch-switching-and-bounded-history-expose-real-repository-evidence",
@@ -3200,6 +3207,10 @@
           "description": "SemVer and set_version are bounded to a validated version and npm-owned version files"
         },
         {
+          "behaviorId": "source-checkpoints-bind-attributed-files-and-current-intake-branch",
+          "description": "source and lifecycle checkpoints bind attributed files to the current Intake branch and reject unrelated or stale evidence"
+        },
+        {
           "behaviorId": "status-recovers-the-latest-completed-candidate-validation-and-its-safe-receipts",
           "description": "status recovers the latest completed candidate validation and its safe receipts"
         },
@@ -3232,8 +3243,8 @@
           "description": "Windows candidate cleanup runs outside the hosting process"
         },
         {
-          "behaviorId": "work-card-and-repair-approval-ignore-git-wording-and-do-not-stamp-git-tool-metadata",
-          "description": "Work Card and Repair approval ignore Git wording and do not stamp Git-tool metadata"
+          "behaviorId": "work-intake-branch-binding-selects-an-exact-base-and-fails-closed-before-persistence",
+          "description": "Work Intake branch binding selects an exact base and fails closed before persistence"
         }
       ]
     },
@@ -5250,15 +5261,15 @@
       ]
     },
     {
-      "testPath": "test/agent-harness/git-mutation-boundary.test.cjs",
+      "testPath": "test/agent-harness/git-toolbox-local-operations.test.cjs",
       "currentTestCount": {
-        "value": 19,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/git-mutation-boundary.test.cjs; the TAP summary reported 19 tests, including generated subtests."
+        "value": 6,
+        "basis": "Measured during TSR05 by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/git-toolbox-local-operations.test.cjs; the TAP summary reported 6 tests including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 32701,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/git-mutation-boundary.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 14744,
+        "basis": "Measured in the TSR05 normal Windows focused integration run; value is the rounded-up TAP duration_ms summary for test/agent-harness/git-toolbox-local-operations.test.cjs."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -5284,7 +5295,7 @@
           "git-cli"
         ],
         "scheduling": "exclusive-process",
-        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+        "schedulingReason": "Real temporary Git repositories and process-wide Git configuration require isolated file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -5308,6 +5319,148 @@
           "proofLocator": "branch state, existing-branch switching, and bounded history expose real repository evidence",
           "proofRole": "primary"
         },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "git-dispatch-and-mutation-modules-do-not-import-workflow-decision-services",
+          "proofLocator": "Git dispatch and mutation modules do not import workflow decision services",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "merge-branch-carries-a-hotfix-into-main-and-forward-into-diverged-dev-then-deletes-merged-branch",
+          "proofLocator": "merge_branch carries a hotfix into main and forward into diverged dev, then deletes merged branches safely",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "merge-branch-reports-conflicts-and-aborts-the-merge-without-resolving-or-rewriting-history",
+          "proofLocator": "merge_branch reports conflicts and aborts the merge without resolving or rewriting history",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "oauth-workspace-registration-git-backed-state-action-and-parameter-gates-remain-enforced",
+          "proofLocator": "OAuth, workspace registration, Git-backed state, action, and parameter gates remain enforced",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/agent-harness/git-toolbox-remote-operations.test.cjs",
+      "currentTestCount": {
+        "value": 4,
+        "basis": "Measured during TSR05 by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/git-toolbox-remote-operations.test.cjs; the TAP summary reported 4 tests including generated subtests."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 30787,
+        "basis": "Measured in the TSR05 normal Windows focused integration run; value is the rounded-up TAP duration_ms summary for test/agent-harness/git-toolbox-remote-operations.test.cjs."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [
+          "git-cli"
+        ],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Real temporary Git repositories and process-wide Git configuration require isolated file execution."
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "environment-bound",
+        "external-capability-bound"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "fetch-remote-and-fast-forward-branch-update-from-configured-upstream-without-a-merge-commit",
+          "proofLocator": "fetch_remote and fast_forward_branch update from configured upstream without a merge commit",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "independent-branch-refs-preserve-dirty-checkout-and-exact-fast-forward-ownership",
+          "proofLocator": "independent branch refs preserve dirty checkout state and enforce exact fast-forward ownership",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "mapped-branch-push-upstream-and-exact-remote-deletion",
+          "proofLocator": "mapped branch push upstream and exact remote deletion preserve local refs and sanitize failures",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "push-and-integrate-to-dev-reject-divergence-without-force-merge-commits-rebase-or-reset",
+          "proofLocator": "push and integrate_to_dev reject divergence without force, merge commits, rebase, or reset",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/agent-harness/git-toolbox-tag-operations.test.cjs",
+      "currentTestCount": {
+        "value": 10,
+        "basis": "Measured during TSR05 by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/git-toolbox-tag-operations.test.cjs; the TAP summary reported 10 tests including generated subtests."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 27447,
+        "basis": "Measured in the TSR05 normal Windows focused integration run; value is the rounded-up TAP duration_ms summary for test/agent-harness/git-toolbox-tag-operations.test.cjs."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [
+          "git-cli"
+        ],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Real temporary Git repositories and process-wide Git configuration require isolated file execution."
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "environment-bound",
+        "external-capability-bound"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
         {
           "capabilityId": "release-and-git-operations",
           "behaviorId": "delete-tag-cleans-local-only-tags-and-both-absent-retries-without-touching-remote-history",
@@ -5352,62 +5505,8 @@
         },
         {
           "capabilityId": "release-and-git-operations",
-          "behaviorId": "fetch-remote-and-fast-forward-branch-update-from-configured-upstream-without-a-merge-commit",
-          "proofLocator": "fetch_remote and fast_forward_branch update from configured upstream without a merge commit",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "release-and-git-operations",
-          "behaviorId": "git-dispatch-and-mutation-modules-do-not-import-workflow-decision-services",
-          "proofLocator": "Git dispatch and mutation modules do not import workflow decision services",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "release-and-git-operations",
-          "behaviorId": "independent-branch-refs-preserve-dirty-checkout-and-exact-fast-forward-ownership",
-          "proofLocator": "independent branch refs preserve dirty checkout state and enforce exact fast-forward ownership",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "release-and-git-operations",
-          "behaviorId": "mapped-branch-push-upstream-and-exact-remote-deletion",
-          "proofLocator": "mapped branch push upstream and exact remote deletion preserve local refs and sanitize failures",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "release-and-git-operations",
-          "behaviorId": "merge-branch-carries-a-hotfix-into-main-and-forward-into-diverged-dev-then-deletes-merged-branch",
-          "proofLocator": "merge_branch carries a hotfix into main and forward into diverged dev, then deletes merged branches safely",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "release-and-git-operations",
-          "behaviorId": "merge-branch-reports-conflicts-and-aborts-the-merge-without-resolving-or-rewriting-history",
-          "proofLocator": "merge_branch reports conflicts and aborts the merge without resolving or rewriting history",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "release-and-git-operations",
-          "behaviorId": "oauth-workspace-registration-git-backed-state-action-and-parameter-gates-remain-enforced",
-          "proofLocator": "OAuth, workspace registration, Git-backed state, action, and parameter gates remain enforced",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "release-and-git-operations",
-          "behaviorId": "push-and-integrate-to-dev-reject-divergence-without-force-merge-commits-rebase-or-reset",
-          "proofLocator": "push and integrate_to_dev reject divergence without force, merge commits, rebase, or reset",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "release-and-git-operations",
           "behaviorId": "release-tag-actions-create-verify-and-push-tags-without-overwriting-local-or-remote-tags",
           "proofLocator": "release tag actions create, verify, and push tags without overwriting local or remote tags",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "release-and-git-operations",
-          "behaviorId": "work-card-and-repair-approval-ignore-git-wording-and-do-not-stamp-git-tool-metadata",
-          "proofLocator": "Work Card and Repair approval ignore Git wording and do not stamp Git-tool metadata",
           "proofRole": "primary"
         }
       ]
@@ -7031,6 +7130,116 @@
       ]
     },
     {
+      "testPath": "test/agent-harness/source-checkpoint-boundary.test.cjs",
+      "currentTestCount": {
+        "value": 1,
+        "basis": "Measured during TSR05 by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/source-checkpoint-boundary.test.cjs; the TAP summary reported 1 test."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 68145,
+        "basis": "Measured in the TSR05 normal Windows focused integration run; value is the rounded-up TAP duration_ms summary for test/agent-harness/source-checkpoint-boundary.test.cjs."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "integration",
+        "production-path"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [
+          "git-cli"
+        ],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Real temporary Git repositories and process-wide Git configuration require isolated file execution."
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "environment-bound",
+        "external-capability-bound",
+        "production-path"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "source-checkpoints-bind-attributed-files-and-current-intake-branch",
+          "proofLocator": "generic source completion checkpoints only attributed files on the Intake branch and keeps remote failure separate",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/agent-harness/source-control-service-boundary.test.cjs",
+      "currentTestCount": {
+        "value": 1,
+        "basis": "Measured during TSR05 by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/source-control-service-boundary.test.cjs; the TAP summary reported 1 test."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 24843,
+        "basis": "Measured in the TSR05 normal Windows focused integration run; value is the rounded-up TAP duration_ms summary for test/agent-harness/source-control-service-boundary.test.cjs."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "integration",
+        "production-path"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [
+          "git-cli"
+        ],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Real temporary Git repositories and process-wide Git configuration require isolated file execution."
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "environment-bound",
+        "external-capability-bound",
+        "production-path"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "application-source-control-returns-attributable-receipts-and-preserves-git-safety",
+          "proofLocator": "application source control returns attributable receipts and preserves Git safety without MCP",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
       "testPath": "test/agent-harness/visual-asset-preview.test.cjs",
       "currentTestCount": {
         "value": 10,
@@ -7298,6 +7507,61 @@
           "capabilityId": "background-agent-lifecycle",
           "behaviorId": "windows-npm-resolution-fails-closed-when-no-standalone-node-prerequisite-exists",
           "proofLocator": "Windows npm resolution fails closed when no standalone Node prerequisite exists",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/agent-harness/work-intake-branch-boundary.test.cjs",
+      "currentTestCount": {
+        "value": 1,
+        "basis": "Measured during TSR05 by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/work-intake-branch-boundary.test.cjs; the TAP summary reported 1 test."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 39264,
+        "basis": "Measured in the TSR05 normal Windows focused integration run; value is the rounded-up TAP duration_ms summary for test/agent-harness/work-intake-branch-boundary.test.cjs."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "integration",
+        "production-path"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [
+          "git-cli"
+        ],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Real temporary Git repositories and process-wide Git configuration require isolated file execution."
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "environment-bound",
+        "external-capability-bound",
+        "production-path"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "work-intake-branch-binding-selects-an-exact-base-and-fails-closed-before-persistence",
+          "proofLocator": "Work Intake branch binding selects an exact base and fails closed before persistence",
           "proofRole": "primary"
         }
       ]
