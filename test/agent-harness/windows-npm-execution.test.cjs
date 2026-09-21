@@ -2,7 +2,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const test = require("node:test");
+const test = require("../support/windows-test.cjs");
 
 const repositoryRoot = path.resolve(__dirname, "../..");
 const {

@@ -5,6 +5,14 @@
 **Governing architecture:** `docs/architecture/CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md`  
 **Implementer Report:** `docs/implementation-bundles/test-execution-architecture/Implementer_Reports/TVA06_IMPLEMENTER_REPORT.md`
 
+## Broken Suite Quarantine
+
+This card must use **minimal focused validation only**.
+
+Do not run the legacy repository-wide aggregate, `npm test` while it still maps to that aggregate, `test:full`, `node --test "test/**/*.test.cjs"`, the complete supported-platform/full-regression profile, or an entire known-pathological test file when a narrower named subset can prove the owned behavior.
+
+Use the smallest structural tests, named test cases, specific files, planner previews, and adapter-conformance subsets required by this card. Whole-repository qualification is post-bundle work.
+
 ## Failed Integration Evidence
 
 Current `.champcity/integration-policy.json` requires `typecheck`, `build`, and `test:unit:built` for every candidate. The latter executes every test serially, making routine HOTFIX20 integration exceed 26 minutes of Operator wall-clock time.
@@ -74,7 +82,7 @@ Replace the routine integration full-regression check with a target-owned, candi
 
 Focused integration-policy/candidate fixture tests are mandatory.
 
-Do not use the legacy monolithic full suite as the only proof that the new gate works. An explicit one-time full supported-platform regression may be run after the focused replacement passes, but its cost is not the acceptance metric for ordinary integration.
+Do not execute the legacy monolithic full suite or a complete supported-platform/full-regression profile during this card. Prove the new gate with candidate-aware focused fixtures, planner previews, and the smallest affected integration subsets. Whole-repository qualification is post-bundle work.
 
 ## Implementer Report
 

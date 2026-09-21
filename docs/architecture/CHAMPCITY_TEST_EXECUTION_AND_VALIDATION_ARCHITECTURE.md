@@ -1,21 +1,21 @@
 # ChampCity Test Execution and Validation Architecture
 
-Status: Adopted V2 implementation architecture  
-Evidence date: 2026-09-20
+Status: Implemented validation execution architecture; full qualification remains explicit
+Evidence date: 2026-09-21
 
 ## Purpose
 
 ChampCity must provide fast, deterministic, risk-appropriate validation for ordinary implementation and integration without discarding expensive regression, platform, packaging, or performance evidence.
 
-The repository already defines the right validation governance in `TEST_ARCHITECTURE_AND_VALIDATION_GOVERNANCE_STANDARD.md`, including static, fast, affected-capability, integration, Desktop, packaging, migration, performance/soak, and full-regression lanes. The current execution path does not implement that architecture: package scripts and integration policy still collapse materially different evidence into one serial test command.
+The repository already defines the right validation governance in `TEST_ARCHITECTURE_AND_VALIDATION_GOVERNANCE_STANDARD.md`, including static, fast, affected-capability, integration, Desktop, packaging, migration, performance/soak, and full-regression lanes. The TVA bundle implements that architecture through the executable schema-3 catalog, registered profiles, bounded scheduler and target-owned candidate adapter.
 
 This document defines the executable architecture that turns the existing governance and `validation/capability-map.json` inventory into actual test selection, scheduling, build reuse, integration gating, and evidence.
 
-## Failure Evidence
+## Historical failure evidence (before TVA)
 
 The 2026-09-20 HOTFIX20 integration exceeded 26 minutes of Operator wall-clock time for a routine hotfix-to-`dev` integration.
 
-Current source confirms the expensive path:
+The pre-TVA source confirmed the expensive path:
 
 - `package.json` maps `npm test` to `test:full`.
 - `test:full` runs `npm run build && npm run test:unit:built`.
@@ -29,11 +29,11 @@ Current source confirms the expensive path:
 - the integration candidate service executes required checks serially.
 - the repository already has a machine-readable capability map with per-test lane, dependencies, platform, duration, and behavior ownership, but no production/development runner consumes `proposedValidationLane` or behavior coverage for test selection.
 
-The result is a validation system that has rich classification metadata but still executes like a single pre-architecture regression script.
+That historical path is retired. See [Validation Command Lanes](../dev/VALIDATION_COMMAND_LANES.md) for current commands and the TVA Implementer Reports for observed evidence.
 
 ## Architectural Decision
 
-ChampCity will implement validation as a **planned execution system**, not as one repository-wide test command.
+ChampCity implements validation as a **planned execution system**.
 
 Conceptually:
 
@@ -574,7 +574,7 @@ This architecture must be implemented without a big-bang deletion of tests.
 9. optimize/rewrite redundant and source-proxy tests with evidence;
 10. measure and enforce budgets.
 
-Until the integration profile is implemented, the current full-regression gate remains truthful but expensive.
+The integration-gate profile is implemented. Full supported-platform/release qualification remains explicit and was not executed during the TVA bundle quarantine.
 
 ## Safety Invariants
 

@@ -64,14 +64,14 @@ Read [Validation Command Lanes](../dev/VALIDATION_COMMAND_LANES.md), then invoke
 
 ```powershell
 npm ci
-npm run typecheck
-npm run build
-npm test
+npm run test:release
 git diff --check
 git status --short
 ```
 
-The first four commands use the isolated current-working-tree candidate snapshot. The final two commands use the registered source repository. Callers cannot select either working directory, the copied file set, exclusions, executable, arguments, or environment.
+The first two commands use the isolated current-working-tree candidate snapshot. The final two commands use the registered source repository. Callers cannot select either working directory, the copied file set, exclusions, executable, arguments, or environment.
+
+The release profile owns one production build and all applicable supported-platform proof, including performance, desktop, migration and packaging. Ordinary npm test is not release qualification. Preview with `npm run test:release -- --preview` before an authorized release run.
 
 Record exact exit results and relevant test counts. A restricted-lane `spawn EPERM` is not a pass; rerun once in the approved normal Windows lane. Resolve or explicitly block on source failures.
 

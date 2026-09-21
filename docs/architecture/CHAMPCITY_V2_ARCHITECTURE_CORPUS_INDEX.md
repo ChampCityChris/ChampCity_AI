@@ -70,7 +70,7 @@ Legacy MCP `workspaceId` is a Repository-routing compatibility identity. It must
 | `CHAMPCITY_STRUCTURED_PROJECT_STATE_DOMAIN_MODEL.md` | **Adopted V2 logical domain model** | Canonical Project State, revision/supersession, Decision/disposition, Validation/Evidence, completion semantics | Architecture |
 | `CHAMPCITY_CLIENT_SERVICE_CONTRACT.md` | **Adopted V2 semantic service contract** | Deployment-neutral client/service boundary | Architecture |
 | `CHAMPCITY_DETERMINISTIC_AUTOMATION_BOUNDARIES.md` | **Adopted V2 rulebook** | AI judgment vs deterministic ChampCity mechanics | Architecture / Governance |
-| `CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md` | **Adopted test execution architecture** | Executable validation catalog/profiles, lane scheduling, affected-capability selection, integration gate, build reuse, validation telemetry | Architecture / Validation |
+| `CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md` | **Implemented execution architecture; explicit full qualification pending** | Executable validation catalog/profiles, lane scheduling, affected-capability selection, integration gate, build reuse, validation telemetry | Architecture / Validation |
 | `CHAMPCITY_AGENT_RUNTIME_INTERFACE_CONTRACT.md` | **V2 implementation baseline v1** | Portable agent-runtime contract; Codex first adapter | Architecture / Contract |
 | `CHAMPCITY_RUNTIME_RECOVERY_DECISION.md` | **Adopted architecture decision** | Runtime/external-action continuation and recovery semantics | Architecture |
 | `CHAMPCITY_REPOSITORY_AND_SOURCE_LAYOUT_DECISION.md` | **Adopted architecture decision** | Existing `ChampCity_AI` product monorepo; app/package boundaries | Architecture |

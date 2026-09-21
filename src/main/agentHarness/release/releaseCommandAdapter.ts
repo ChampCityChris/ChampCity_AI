@@ -11,6 +11,7 @@ export type ReleaseCommandId =
   | "npm-run-typecheck"
   | "npm-run-build"
   | "npm-test"
+  | "npm-test-release"
   | "git-diff-check"
   | "git-status-short"
   | "npm-package-win-dir"
@@ -43,6 +44,7 @@ export type ReleaseCommandRequest =
         | "npm-run-typecheck"
         | "npm-run-build"
         | "npm-test"
+        | "npm-test-release"
         | "git-diff-check"
         | "git-status-short"
         | "npm-package-win-dir"
@@ -133,6 +135,8 @@ function commandSpecification(request: ReleaseCommandRequest): SpawnSpecificatio
       return npmSpec(["run", "typecheck"], 10 * 60_000);
     case "npm-run-build":
       return npmSpec(["run", "build"], 15 * 60_000);
+    case "npm-test-release":
+      return npmSpec(["run", "test:release"], 60 * 60_000);
     case "npm-test":
       return npmSpec(["test"], 30 * 60_000);
     case "git-diff-check":

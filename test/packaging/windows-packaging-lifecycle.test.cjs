@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const net = require("node:net");
-const test = require("node:test");
+const test = require("../support/windows-test.cjs");
 
 const repositoryRoot = path.join(__dirname, "..", "..");
 const lifecycle = require("../../dist/main/agentHarness/runtime/agentHarnessInstallLifecycle.js");

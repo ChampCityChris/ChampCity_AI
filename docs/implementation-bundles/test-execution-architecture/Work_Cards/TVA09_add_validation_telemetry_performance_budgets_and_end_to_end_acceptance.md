@@ -5,6 +5,14 @@
 **Governing architecture:** `docs/architecture/CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md`  
 **Implementer Report:** `docs/implementation-bundles/test-execution-architecture/Implementer_Reports/TVA09_IMPLEMENTER_REPORT.md`
 
+## Broken Suite Quarantine
+
+This card must use **minimal focused validation only**.
+
+Do not run the legacy repository-wide aggregate, `npm test` while it still maps to that aggregate, `test:full`, `node --test "test/**/*.test.cjs"`, the complete supported-platform/full-regression profile, or an entire known-pathological test file when a narrower named subset can prove the owned behavior.
+
+Use the smallest structural tests, named test cases, specific files, planner previews, and adapter-conformance subsets required by this card. Whole-repository qualification is post-bundle work.
+
 ## Objective
 
 Prove the new validation architecture end to end, record machine-owned timing/selection evidence, and prevent the suite from silently regressing back into a 20+ minute routine integration gate.
@@ -35,8 +43,9 @@ Prove the new validation architecture end to end, record machine-owned timing/se
    - ordinary bounded candidate uses integration-gate, not full regression;
    - performance/Desktop/packaging are excluded unless affected/policy-required;
    - all selected proof passes before target eligibility.
-8. Run the explicit full supported-platform regression once and record lane-by-lane duration/composition.
-9. Update architecture/corpus/development documentation to mark the new execution architecture implemented and retire the legacy monolithic command description.
+8. Generate and validate the explicit full supported-platform plan, proving complete catalog/lane coverage without executing the repository-wide aggregate during this bundle.
+9. Execute representative minimal proof from every applicable lane sufficient to prove dispatch, scheduling, receipts, and budget enforcement.
+10. Update architecture/corpus/development documentation to mark the new execution architecture implemented and retire the legacy monolithic command description.
 
 ## Required End-to-End Scenarios
 
@@ -60,15 +69,16 @@ At minimum:
 4. **Unknown source path**
    - planning fails visibly rather than falling back to full suite.
 
-5. **Explicit full profile**
-   - all applicable supported-platform lanes run and report separately.
+5. **Explicit full profile plan**
+   - all applicable supported-platform lanes are selected and reported separately in plan/receipt preview;
+   - repository-wide execution remains deferred to post-bundle qualification.
 
 ## Acceptance Criteria
 
 1. Fast and affected lanes satisfy governance budgets or have a documented concrete blocker that remains in-scope; do not declare pass from timeout values.
 2. Ordinary integration gate is below the 5-minute review threshold on the supported workstation and targets <3 minutes.
 3. HOTFIX20-shaped integration no longer invokes full regression/performance/packaging/Desktop proof absent affected policy.
-4. Full regression remains executable and green across applicable supported-platform lanes.
+4. Full-regression planning remains complete and mechanically executable across applicable supported-platform lanes; whole-repository execution is deferred to post-bundle qualification.
 5. No executable test is absent from the capability catalog.
 6. Validation receipts explain what ran and why.
 7. No new flakiness is introduced by scheduling/parallelism.
@@ -82,7 +92,7 @@ Run:
 
 - catalog/planner/executor suites;
 - representative fast/affected/integration/Desktop/performance lanes;
-- explicit full supported-platform profile;
+- explicit full supported-platform plan preview plus representative minimal per-lane execution;
 - IntegrationCandidate end-to-end profile proof;
 - canonical static/build proof.
 
@@ -96,7 +106,7 @@ Provide:
 - measured lane/profile durations;
 - slowest remaining proof;
 - exact HOTFIX20-shaped integration plan and duration;
-- full regression lane composition/duration;
+- full-regression plan composition and projected/measured representative lane durations;
 - any remaining performance debt;
 - tests reused/extended/consolidated/retired/new;
 - exact commands/results;

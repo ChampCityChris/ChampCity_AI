@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const test = require("node:test");
+const test = require("../support/windows-test.cjs");
 const path = require("node:path");
 const fs = require("node:fs");
 

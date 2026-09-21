@@ -118,7 +118,7 @@ export function selectNextWorkCardCandidate(
 
 /** The routed owner verifies executor eligibility before invoking this shared handoff writer. */
 export function generateRoutedWorkCardIntakeHandoff(workspaceRoot: string, binding: RoutedDevelopmentExecutionBinding,
-  scope: ResolvedWorkItemArtifactScope, item: PlanWorkItemCandidate) {
+  scope: ResolvedWorkItemArtifactScope, item: PlanWorkItemCandidate, planningContext?: PlanningProjectionContext) {
   const identity = workItemArtifactIdentity(scope, item.workItemId);
   if (identity.planId !== binding.identity.planId || identity.intakeId !== binding.identity.intakeId ||
     scope.planDigest !== binding.planDigest || !binding.structure.workItems.some((candidate) => JSON.stringify(candidate) === JSON.stringify(item))) {
@@ -127,14 +127,14 @@ export function generateRoutedWorkCardIntakeHandoff(workspaceRoot: string, bindi
   const targets = workItemIntakeTargets(scope, { candidateId: item.workItemId, title: item.title });
   const sourceRevisions = [{ path: binding.planPath, revision: binding.planRevision }, { path: binding.relativePath, revision: binding.artifactRevision }];
   const candidate = { ...item, candidateId: item.workItemId };
-  const existing = listPlanningDocuments(workspaceRoot).find((document) => document.markdownPath === targets.handoffMarkdownPath);
+  const existing = listPlanningDocuments(planningContext ?? workspaceRoot).find((document) => document.markdownPath === targets.handoffMarkdownPath);
   if (existing) {
     const metadata = existing.metadata.canonical;
     if (existing.documentReadState !== "readable" || existing.effectiveDisposition !== "Approved" ||
       metadata?.artifactType !== "work-card-intake-handoff" || JSON.stringify(metadata.identity) !== JSON.stringify(identity) ||
       JSON.stringify(metadata.sourceRevisions) !== JSON.stringify(sourceRevisions) ||
       JSON.stringify(metadata.workflowData.candidate) !== JSON.stringify(candidate) || metadata.workflowData.formalWorkCardTarget !== targets.formalWorkCardMarkdownPath ||
-      evaluateDocumentFreshness(workspaceRoot, existing.logicalDocumentId).state !== "fresh") throw Error("Routed Work Card handoff conflicts with current Plan evidence.");
+      evaluateDocumentFreshness(planningContext ?? workspaceRoot, existing.logicalDocumentId).state !== "fresh") throw Error("Routed Work Card handoff conflicts with current Plan evidence.");
     return { ...targets, reusedExisting: true };
   }
   writeCanonicalMarkdownDocument({ workspaceRoot, relativePath: targets.handoffMarkdownPath, metadata: {

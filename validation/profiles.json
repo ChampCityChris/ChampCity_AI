@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "profiles": {
+    "implementation-fast": {
+      "lanes": [
+        "fast",
+        "static"
+      ],
+      "requiresBuild": true,
+      "requiredCapabilities": [
+        "validation-capability-map"
+      ],
+      "documentationPatterns": [
+        "*.md",
+        "docs/**"
+      ],
+      "includeAllFast": false
+    },
+    "work-item": {
+      "lanes": [
+        "affected-capability",
+        "fast",
+        "integration",
+        "static"
+      ],
+      "requiresBuild": true,
+      "requiredCapabilities": [
+        "validation-capability-map"
+      ],
+      "documentationPatterns": [
+        "*.md",
+        "docs/**"
+      ],
+      "includeAllFast": true,
+      "capabilityLanes": {
+        "canonical-document-migration": [
+          "migration"
+        ],
+        "windows-packaging": [
+          "desktop-platform",
+          "packaging"
+        ]
+      }
+    },
+    "repair": {
+      "lanes": [
+        "affected-capability",
+        "fast",
+        "integration",
+        "static"
+      ],
+      "requiresBuild": true,
+      "requiredCapabilities": [
+        "validation-capability-map"
+      ],
+      "documentationPatterns": [
+        "*.md",
+        "docs/**"
+      ],
+      "includeAllFast": true,
+      "capabilityLanes": {
+        "canonical-document-migration": [
+          "migration"
+        ],
+        "windows-packaging": [
+          "desktop-platform",
+          "packaging"
+        ]
+      }
+    },
+    "integration-gate": {
+      "lanes": [
+        "affected-capability",
+        "fast",
+        "integration",
+        "static"
+      ],
+      "requiresBuild": true,
+      "requiredCapabilities": [
+        "validation-capability-map"
+      ],
+      "documentationPatterns": [
+        "*.md",
+        "docs/**"
+      ],
+      "includeAllFast": false,
+      "capabilityLanes": {
+        "canonical-document-migration": [
+          "migration"
+        ],
+        "windows-packaging": [
+          "desktop-platform",
+          "packaging"
+        ]
+      }
+    },
+    "phase-close": {
+      "lanes": [
+        "affected-capability",
+        "fast",
+        "integration",
+        "static"
+      ],
+      "requiresBuild": true,
+      "requiredCapabilities": [
+        "validation-capability-map"
+      ],
+      "documentationPatterns": [
+        "*.md",
+        "docs/**"
+      ],
+      "includeAllFast": true,
+      "capabilityLanes": {
+        "canonical-document-migration": [
+          "migration"
+        ],
+        "windows-packaging": [
+          "desktop-platform",
+          "packaging"
+        ]
+      }
+    },
+    "release-qualification": {
+      "lanes": [
+        "affected-capability",
+        "desktop-platform",
+        "fast",
+        "integration",
+        "migration",
+        "packaging",
+        "performance-soak",
+        "static"
+      ],
+      "requiresBuild": true,
+      "requiredCapabilities": [
+        "validation-capability-map"
+      ],
+      "documentationPatterns": [
+        "*.md",
+        "docs/**"
+      ],
+      "includeAllFast": false
+    },
+    "full-supported-platform": {
+      "lanes": [
+        "affected-capability",
+        "desktop-platform",
+        "fast",
+        "integration",
+        "migration",
+        "packaging",
+        "performance-soak",
+        "static"
+      ],
+      "requiresBuild": true,
+      "requiredCapabilities": [
+        "validation-capability-map"
+      ],
+      "documentationPatterns": [
+        "*.md",
+        "docs/**"
+      ],
+      "includeAllFast": false
+    }
+  }
+}

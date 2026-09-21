@@ -2,28 +2,42 @@
   "schemaVersion": 1,
   "checks": [
     {
-      "checkId": "champcity-typecheck",
-      "lane": "static",
-      "runner": { "kind": "npm-script", "script": "typecheck", "timeoutMs": 120000 }
-    },
-    {
-      "checkId": "champcity-build",
-      "lane": "static",
-      "runner": { "kind": "npm-script", "script": "build", "timeoutMs": 120000 }
-    },
-    {
-      "checkId": "champcity-regression-built",
-      "lane": "full-regression",
-      "runner": { "kind": "npm-script", "script": "test:unit:built", "timeoutMs": 900000 }
+      "checkId": "champcity-integration-gate",
+      "lane": "integration",
+      "runner": {
+        "kind": "validation-profile",
+        "profile": "integration-gate",
+        "timeoutMs": 900000
+      }
     }
   ],
-  "requiredIntegrationChecks": ["champcity-typecheck", "champcity-build", "champcity-regression-built"],
+  "requiredIntegrationChecks": [
+    "champcity-integration-gate"
+  ],
   "repair": {
-    "allowedEditableRoots": ["src", "test", "scripts", "assets", "packaging"],
-    "protectedPaths": ["docs", "planning", "validation", "package.json", "package-lock.json"],
+    "allowedEditableRoots": [
+      "src",
+      "test",
+      "scripts",
+      "assets",
+      "packaging"
+    ],
+    "protectedPaths": [
+      "docs",
+      "planning",
+      "validation",
+      "package.json",
+      "package-lock.json"
+    ],
     "sources": [
-      { "role": "architecture", "path": "docs/architecture/CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md" },
-      { "role": "contract", "path": "docs/architecture/PROJECT_INTEGRATION_VALIDATION_POLICY.md" }
+      {
+        "role": "architecture",
+        "path": "docs/architecture/CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md"
+      },
+      {
+        "role": "contract",
+        "path": "docs/architecture/PROJECT_INTEGRATION_VALIDATION_POLICY.md"
+      }
     ]
   }
 }

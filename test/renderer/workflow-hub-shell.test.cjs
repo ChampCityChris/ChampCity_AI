@@ -127,11 +127,11 @@ test("Hub with no selected project renders project-selection shell without Devel
   assert.match(sidebarMarkup, /Settings/);
   assert.match(sidebarMarkup, /aria-label="Theme"/);
   assert.doesNotMatch(sidebarMarkup, /Current Phase|Current Work Card|Workflow navigation|Workflows/);
-  assert.match(hubMarkup, /Select a project before choosing a workflow\./);
+  assert.match(hubMarkup, /Select a project to start work\./);
   assert.doesNotMatch(hubMarkup, /Development|Current Required Workflow Step|Phase Loop|Work Card loop/);
 });
 
-test("Selected-project Hub renders exactly Development and Issue Resolution workflow cards", () => {
+test("Selected-project Hub prioritizes Work Intake and retains Development and Issue recovery", () => {
   const markup = renderToStaticMarkup(React.createElement(WorkflowHubWorkspace, {
     onOpenWorkflow: () => undefined,
     projectName: "ChampCity_AI",
@@ -139,7 +139,11 @@ test("Selected-project Hub renders exactly Development and Issue Resolution work
   }));
 
   assert.match(markup, /<h1 id="workspace-heading">Workflows<\/h1>/);
-  assert.match(markup, /Choose how you want to work with ChampCity_AI\./);
+  assert.match(markup, /Start a new body of work on ChampCity_AI, or continue existing work\./);
+  assert.match(markup, /aria-label="Start work"/);
+  assert.match(markup, /Open Work Intake/);
+  assert.match(markup, /<details><summary>Continue legacy Development or Issue work<\/summary>/);
+  assert.match(markup, /aria-label="Existing workflow recovery"/);
   assert.match(markup, /class="workflow-card"/);
   assert.match(markup, /Development/);
   assert.match(markup, /Plan, implement, review, and validate planned software development\./);
@@ -251,14 +255,19 @@ function sampleCurrentModel() {
 
 test("MCP handoff preflight preserves drafts while stale or unavailable and permits retry only on current refresh", async () => {
   const source = fs.readFileSync(path.join(repoRoot, "src/renderer/app/App.tsx"), "utf8");
-  // Execute the production handler bodies with IPC/state boundaries supplied explicitly.
-  function handler(name) {
-    const start = source.indexOf(`  async function ${name}(`);
-    assert.ok(start >= 0);
-    const end = source.indexOf("\n  async function ", start + 1);
-    return source.slice(start, end);
-  }
+  // Select declarations structurally; whitespace and neighboring function order are irrelevant.
   const ts = require("typescript");
+  const ast = ts.createSourceFile("App.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const declarations = new Map();
+  function visit(node) {
+    if (ts.isFunctionDeclaration(node) && node.name) declarations.set(node.name.text, node);
+    ts.forEachChild(node, visit);
+  }
+  visit(ast);
+  function handler(name) {
+    assert.ok(declarations.has(name), "Missing production handler: " + name);
+    return declarations.get(name).getText(ast);
+  }
   const body = ts.transpileModule([
     handler("refreshAgentHarnessServiceHostLifecycleStatus"),
     handler("preflightMcpHandoff"),

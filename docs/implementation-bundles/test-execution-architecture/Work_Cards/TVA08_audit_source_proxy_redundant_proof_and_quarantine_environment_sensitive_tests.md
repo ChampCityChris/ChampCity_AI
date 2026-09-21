@@ -5,6 +5,14 @@
 **Governing architecture:** `docs/architecture/CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md`  
 **Implementer Report:** `docs/implementation-bundles/test-execution-architecture/Implementer_Reports/TVA08_IMPLEMENTER_REPORT.md`
 
+## Broken Suite Quarantine
+
+This card must use **minimal focused validation only**.
+
+Do not run the legacy repository-wide aggregate, `npm test` while it still maps to that aggregate, `test:full`, `node --test "test/**/*.test.cjs"`, the complete supported-platform/full-regression profile, or an entire known-pathological test file when a narrower named subset can prove the owned behavior.
+
+Use the smallest structural tests, named test cases, specific files, planner previews, and adapter-conformance subsets required by this card. Whole-repository qualification is post-bundle work.
+
 ## Objective
 
 Reduce maintenance noise and invalid failures after lane execution is stable by reconciling source-inspection, redundant, and environment-sensitive proof using the existing capability-map dispositions.
@@ -50,7 +58,7 @@ This card is not a test-count reduction exercise.
 - capability-map validator;
 - affected rewritten/consolidated tests;
 - explicit quarantine lane preview/execution;
-- one full-regression profile after all dispositions are complete.
+- full-regression profile composition/coverage preview after all dispositions are complete; do not execute the repository-wide aggregate during this card.
 
 ## Implementer Report
 

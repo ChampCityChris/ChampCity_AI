@@ -1,0 +1,30 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const os=require('node:os');
+const path=require('node:path');
+const test=require('node:test');
+const {runIntegrationPolicyCheck:run}=require('../../dist/main/planExecution/integrationPolicyRunners.js');
+
+test('real npm adapter preserves candidate cwd trusted scripts process bounds and sanitized failure evidence',async t=>{
+ require('../support/execution-metrics.cjs').measureExecution(t,'npm-adapter');
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'champcity-npm-adapter-'));
+ t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const script='node verify.cjs';
+ const check={checkId:'fixture',lane:'integration',runner:{kind:'npm-script',script:'verify',timeoutMs:15000}};
+ const manifest={private:true,scripts:{verify:script,preverify:'node -e "process.exit(79)"',postverify:'node -e "process.exit(79)"'}};
+ fs.writeFileSync(path.join(root,'package.json'),JSON.stringify(manifest));
+ fs.writeFileSync(path.join(root,'.npmrc'),'if-present=true\nworkspaces=true\nscript-shell=unavailable-fixture-interpreter\n');
+ const source=value=>fs.writeFileSync(path.join(root,'verify.cjs'),value);
+ source("require('node:fs').writeFileSync('cwd-proof.txt',process.cwd());");
+ assert.equal((await run(root,check,script)).exitCode,0);
+ assert.equal(fs.readFileSync(path.join(root,'cwd-proof.txt'),'utf8'),root);
+ assert.match((await run(root,check,'node untrusted.cjs')).summary,/target-trusted/);
+ source("console.error('AssertionError: expected accepted marker');console.error(process.cwd());console.error('ACCESS_TOKEN=fixture-secret-token-value');process.exit(9);");
+ const failure=await run(root,check,script);assert.equal(failure.exitCode,9);assert.match(failure.summary,/AssertionError/);
+ assert.ok(failure.summary.length<=1200);assert.ok(!failure.summary.includes(root)&&!failure.summary.includes('fixture-secret-token-value'));
+ source("process.stdout.write('x'.repeat(2*1024*1024));setInterval(()=>{},1000);");
+ assert.match((await run(root,check,script)).summary,/output limit/);
+ source("const child=require('node:child_process').spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore',windowsHide:true});require('node:fs').writeFileSync('pids.json',JSON.stringify([process.pid,child.pid]));setInterval(()=>{},1000);");
+ assert.match((await run(root,{...check,runner:{...check.runner,timeoutMs:2500}},script)).summary,/duration limit/);
+ for(const pid of JSON.parse(fs.readFileSync(path.join(root,'pids.json'),'utf8')))assert.throws(()=>process.kill(pid,0),/ESRCH/);
+});

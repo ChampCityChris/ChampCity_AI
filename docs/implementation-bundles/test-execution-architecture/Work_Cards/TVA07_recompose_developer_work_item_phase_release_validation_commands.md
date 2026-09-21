@@ -5,6 +5,14 @@
 **Governing architecture:** `docs/architecture/CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md`  
 **Implementer Report:** `docs/implementation-bundles/test-execution-architecture/Implementer_Reports/TVA07_IMPLEMENTER_REPORT.md`
 
+## Broken Suite Quarantine
+
+This card must use **minimal focused validation only**.
+
+Do not run the legacy repository-wide aggregate, `npm test` while it still maps to that aggregate, `test:full`, `node --test "test/**/*.test.cjs"`, the complete supported-platform/full-regression profile, or an entire known-pathological test file when a narrower named subset can prove the owned behavior.
+
+Use the smallest structural tests, named test cases, specific files, planner previews, and adapter-conformance subsets required by this card. Whole-repository qualification is post-bundle work.
+
 ## Confirmed Migration Defect
 
 The repository still documents and exposes the frozen-V1 monolithic command model:
@@ -74,9 +82,7 @@ without reading implementation scripts.
 
 ## Validation
 
-Run every new public command in plan-preview mode where available and execute representative fast, affected, integration, performance, and full profile paths appropriate to this card.
-
-The full profile is run once as migration acceptance, not repeatedly during implementation.
+Run every new public command in plan-preview mode where available. Execute only representative minimal fast, affected, integration, performance, and platform subsets needed to prove dispatch. Do **not** execute the repository-wide full profile during this card; validate its composition through plan preview and profile-contract tests only.
 
 ## Implementer Report
 

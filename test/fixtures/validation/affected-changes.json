@@ -1,0 +1,24 @@
+{
+  "renderer": [
+    "src/renderer/app/WorkflowHubWorkspace.tsx"
+  ],
+  "mcp": [
+    "src/main/agentHarness/runtime/httpRuntime.ts"
+  ],
+  "shared": [
+    "src/main/agentHarness/repository/gitMutations.ts"
+  ],
+  "multiple": [
+    "src/shared/developmentEnvironment/developmentEnvironmentContract.ts",
+    "src/renderer/app/WorkflowHubWorkspace.tsx"
+  ],
+  "documentation": [
+    "docs/development/DEVELOPMENT_GUIDE.md"
+  ],
+  "unknown": [
+    "src/unowned/new-runtime.ts"
+  ],
+  "single": [
+    "src/shared/developmentEnvironment/developmentEnvironmentContract.ts"
+  ]
+}

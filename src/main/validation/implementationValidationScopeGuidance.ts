@@ -12,6 +12,8 @@ const implementationValidationScopeRuleTemplates = [
   "- When practical, prefer dedicated focused tests, relevant named test cases, or a focused lane whose assertions map to this {contractNoun} objective.",
   "- Full-suite or broad integration cleanliness belongs only to a {contractNoun} that explicitly owns integration or baseline validation.",
   "- If a shared validation lane discovers a demonstrated unrelated or pre-existing failure, require the Implementer to record it and route it to the appropriate owner instead of automatically attributing it to this {contractNoun}.",
+  "- Use the repository validation planner preview. Ordinary Work Card proof is static/build plus affected capabilities and applicable integration; the work-item profile owns a single build. Repair proof includes the failed scenario, affected capabilities, and preserved behavior. Supply explicit changed paths and any additional capability scope.",
+  "- Phase close uses phase-close scope; release qualification and explicitly owned full regression use their wider profiles. Do not prepend duplicate typecheck/build steps or substitute ordinary npm test for release qualification.",
   "- Unexplained failures that may affect this {contractNoun} objective still require classification and cannot be ignored.",
 ] as const;
 

@@ -7,10 +7,20 @@ export const INTEGRATION_VALIDATION_LANES = [
   "packaging", "migration", "performance-soak", "full-regression",
 ] as const;
 
+export const INTEGRATION_VALIDATION_PROFILES = ["implementation-fast", "work-item", "repair", "integration-gate", "phase-close", "release-qualification", "full-supported-platform"] as const;
+export interface IntegrationValidationContext {
+  readonly repositoryId: string;
+  readonly targetCommit: string;
+  readonly incomingCommit: string;
+  readonly candidateCommit: string;
+  readonly candidateId: string;
+  readonly targetBranch: string;
+  readonly platform: NodeJS.Platform;
+}
 export interface IntegrationPolicyCheck {
   checkId: string;
   lane: typeof INTEGRATION_VALIDATION_LANES[number];
-  runner: { kind: "npm-script"; script: string; timeoutMs: number };
+  runner: { kind: "npm-script"; script: string; timeoutMs: number } | { kind: "validation-profile"; profile: typeof INTEGRATION_VALIDATION_PROFILES[number]; timeoutMs: number };
 }
 export interface IntegrationPolicy {
   schemaVersion: 1;
@@ -72,11 +82,17 @@ export function parseIntegrationPolicy(value: unknown): IntegrationPolicy {
     const check = object(value, ["checkId", "lane", "runner"]);
     if (!identity(check.checkId)) throw Error("Invalid integration check identity.");
     if (!INTEGRATION_VALIDATION_LANES.includes(check.lane as IntegrationPolicyCheck["lane"])) throw Error("Invalid integration validation lane.");
-    const runner = object(check.runner, ["kind", "script", "timeoutMs"]);
-    if (runner.kind !== "npm-script") throw Error("Unsupported integration runner adapter.");
-    if (typeof runner.script !== "string" || !/^[A-Za-z0-9][A-Za-z0-9:._-]{0,79}$/.test(runner.script)) throw Error("Invalid npm script identity.");
+    const kind = check.runner && typeof check.runner === "object" ? (check.runner as { kind?: unknown }).kind : undefined;
+    if (kind !== "npm-script" && kind !== "validation-profile") throw Error("Unsupported integration runner adapter.");
+    const runner = object(check.runner, ["kind", kind === "npm-script" ? "script" : "profile", "timeoutMs"]);
     if (!Number.isInteger(runner.timeoutMs) || (runner.timeoutMs as number) < 1 || (runner.timeoutMs as number) > INTEGRATION_CHECK_MAX_TIMEOUT_MS) throw Error("Integration check duration exceeds its bound.");
-    return { checkId: check.checkId, lane: check.lane as IntegrationPolicyCheck["lane"], runner: { kind: "npm-script", script: runner.script, timeoutMs: runner.timeoutMs as number } };
+    const timeoutMs = runner.timeoutMs as number;
+    if (kind === "validation-profile") {
+      if (!INTEGRATION_VALIDATION_PROFILES.includes(runner.profile as typeof INTEGRATION_VALIDATION_PROFILES[number])) throw Error("Unregistered validation profile.");
+      return { checkId: check.checkId, lane: check.lane as IntegrationPolicyCheck["lane"], runner: { kind, profile: runner.profile as typeof INTEGRATION_VALIDATION_PROFILES[number], timeoutMs } };
+    }
+    if (typeof runner.script !== "string" || !/^[A-Za-z0-9][A-Za-z0-9:._-]{0,79}$/.test(runner.script)) throw Error("Invalid npm script identity.");
+    return { checkId: check.checkId, lane: check.lane as IntegrationPolicyCheck["lane"], runner: { kind, script: runner.script, timeoutMs } };
   });
   if (new Set(checks.map((check) => check.checkId)).size !== checks.length) throw Error("Duplicate integration check identity.");
   const required = policy.requiredIntegrationChecks;

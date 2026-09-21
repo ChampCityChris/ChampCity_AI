@@ -1,9 +1,22 @@
 import type { SourceControlReceipt } from "./sourceControlContracts";
 
+export interface IntegrationProfileTelemetry {
+  buildDurationMs: number;
+  selectedLanes: string[];
+  selectedCapabilities: string[];
+  concurrency: number;
+  cohortCount: number;
+  perLane: Array<{ lane: string; fileCount: number; fileDurationMs: number }>;
+  counts: { tests: number; pass: number; fail: number; skipped: number; cancelled: number; unavailableFiles: number; blockedFiles: number; unknownCountFiles: number };
+  slowestFiles: Array<{ testPath: string; durationMs: number; status: string }>;
+  budget: { targetMs: number | null; reviewThresholdMs: number | null; status: "not-budgeted" | "within-target" | "target-missed" | "review-required" };
+}
+
 export interface IntegrationValidationEvidence {
   checkId: string;
   exitCode: number | null;
   summary: string;
+  profileEvidence?: { profileId: string; authoritySha256: string; targetCommit: string; incomingCommit: string; candidateCommit: string; runId: string; status: "passed" | "failed" | "incomplete"; selectedTests: string[]; excludedLanes: string[]; durationMs: number; telemetry?: IntegrationProfileTelemetry };
 }
 export interface IntegrationCandidateRecord {
   candidateId: string;

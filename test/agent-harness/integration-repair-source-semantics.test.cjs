@@ -1,0 +1,1 @@
+require("../support/integration-scenarios.cjs").registerIntegrationScenarios("Integration Repair source boundaries retain validation retries Operator decisions and worker index rejection", ["validation-failed","operator-decision","worker-git"]);

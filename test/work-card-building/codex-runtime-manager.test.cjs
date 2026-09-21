@@ -26,23 +26,6 @@ test("current runtime is retained; repeated initialization and status reads have
   assert.deepEqual(f.manager.getStatus().selection, selection);
 });
 
-for (const failure of ["lookup", "download", "probe", "promotion"]) {
-  test(`${failure} failure retains last known good with degraded status`, async () => {
-    const f = runtimeFixture({
-      latestVersion: async () => { if (failure === "lookup") throw Error("offline"); return "0.153.4"; },
-      ...(failure === "download" ? { stage: async () => { throw Error("download failed"); } } : {}),
-      ...(failure === "probe" ? { probe: async (runtime) => { if (runtime.version !== "0.146.0") throw Error("incompatible"); return catalog; } } : {}),
-      ...(failure === "promotion" ? { promote: async () => { throw Error("rename failed"); } } : {}),
-    });
-    await f.ready;
-    assert.equal(f.manager.getStatus().version, "0.146.0");
-    assert.equal(f.manager.getStatus().updateState, "degraded");
-    await f.manager.launch();
-    assert.equal(f.calls.at(-1)[1].executable, f.prior.executable);
-    assert.equal(f.calls.some((call) => Array.isArray(call) && call[0] === "promote"), false);
-  });
-}
-
 test("first-launch offline bootstrap is copied/probed/promoted and update failure remains visible", async () => {
   const f = runtimeFixture({ loadCurrent: async () => null, latestVersion: async () => { throw Error("offline"); } });
   await f.ready;

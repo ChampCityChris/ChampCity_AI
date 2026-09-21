@@ -1,10 +1,10 @@
 # Project Integration Validation Policy
 
-Status: implemented target-owned provider contract; routed Development orchestration remains WIR22-REPAIR06 work.
+Status: implemented target-owned candidate-aware validation and routed Integration Repair.
 
 ## Repository authority and schema
 
-The selected Repository owns `.champcity/integration-policy.json`. This is runtime configuration in the existing `.champcity/` namespace, separate from Work Card validation selection and the metadata under `validation/`. Production never imports the capability map. For one integration, the authoritative policy is the exact blob at the immutable target commit selected by integration-target resolution. Incoming/source working-tree bytes never govern their own candidate.
+The selected Repository owns `.champcity/integration-policy.json`. This is runtime configuration in the existing `.champcity/` namespace, separate from Work Card validation selection and the metadata under `validation/`. Production does not import runtime code from validation metadata. The registered profile adapter reads bounded target-owned metadata and executes a temporary immutable target toolkit. For one integration, the authoritative policy is the exact blob at the immutable target commit selected by integration-target resolution. Incoming/source working-tree bytes never govern their own candidate.
 
 The version 1 document has three required fields and the optional strict `repair` section described below:
 
@@ -22,7 +22,7 @@ Working-tree policy reads require a UTF-8 JSON ordinary file of at most 65536 by
 
 ## Runner and evidence boundary
 
-`createIntegrationPolicyProvider` supplies a target-aware `validationPolicy` resolver to the main-process `IntegrationCandidateHooks`. The candidate service invokes it only after immutable target resolution and obtains the ordered checks, target-policy SHA-256, and candidate assertion for that target commit. The provider accepts only the selected repository root and exact target commit; it does not accept renderer/model command text or executable registrations. No routed Development caller is wired by this repair.
+`createIntegrationPolicyProvider` supplies a target-aware `validationPolicy` resolver to the main-process `IntegrationCandidateHooks`. The candidate service invokes it only after immutable target resolution and obtains the ordered checks, target-policy SHA-256, and candidate assertion for that target commit. The provider accepts only the selected repository root and exact target commit; it does not accept renderer/model command text or executable registrations. Routed Development uses this provider. Each check receives frozen main-process context identifying repository, target branch/commit, incoming commit, candidate identity/commit, and platform.
 
 For each required target-policy npm check, the provider reads the bounded `package.json` blob at the same target commit and retains the target's exact script string. Before running that check, the provider verifies the isolated checkout's registration and the npm runner requires the candidate's ordinary, bounded `package.json` to contain exactly the same script definition. A missing or changed definition fails closed without execution. The runner launches the host npm toolchain with `shell: false`, the candidate checkout as working directory, and fixed application-owned flags, so the trusted check definition evaluates candidate source. Windows uses the existing standalone Node/npm resolver. No dependency installation occurs.
 
@@ -52,14 +52,22 @@ Editable source is the union of current conflicts and incoming changed paths sin
 
 The provider re-resolves policy before applying or committing a prepared patch, including after service recreation. Existing source digests, starting hashes, index/HEAD guards and retry ownership remain enforced by the Integration Repair controller. Repair requires unchanged target-policy text in both incoming and candidate checkouts, permitting CRLF/LF checkout conversion only; additional whitespace or content changes still fail. The receipt continues to bind the exact target-blob SHA-256. A proposed policy transition may be validated normally but cannot govern its own semantic repair.
 
-ChampCity allows `src`, `test`, `scripts`, `assets` and `packaging`; it explicitly protects `docs`, `planning`, `validation`, `package.json` and `package-lock.json`. Its supplemental sources are this contract and `CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md`. Routed Development wiring belongs to REPAIR06.
+ChampCity allows `src`, `test`, `scripts`, `assets` and `packaging`; it explicitly protects `docs`, `planning`, `validation`, `package.json` and `package-lock.json`. Its supplemental sources are this contract and `CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md`. Routed Development uses the same repair provider and profile identity.
 
-| Check ID | Lane | Existing npm script | Deadline |
-| --- | --- | --- | --- |
-| `champcity-typecheck` | `static` | `typecheck` | 120000 ms |
-| `champcity-build` | `static` | `build` | 120000 ms |
-| `champcity-regression-built` | `full-regression` | `test:unit:built` | 900000 ms |
+### Candidate-aware profile adapter
 
-These checks run serially in this order. The build runs once; the regression check consumes compiled output instead of calling a script that builds again. This wider integration policy does not change the focused validation commands required by an individual Work Card or Repair Card.
+The second registered runner shape is exactly kind: validation-profile, profile, and timeoutMs. Profile must be one of the application-registered implementation-fast, work-item, repair, integration-gate, phase-close, release-qualification or full-supported-platform identities. Timeout remains bounded by 900000 ms. Policy cannot inject commands, executable paths, arguments or test lists.
 
-The existing `test/agent-harness/git-mutation-boundary.test.cjs` owns policy parsing, containment, exact-commit reads, actual npm execution in disposable registered candidates, target-policy authority, candidate script integrity, controlled policy transition, service recreation/stale-target rejection, sanitized failure evidence, and timeout/output boundaries. Its composition probe uses the current ChampCity policy with controlled fixture script bodies to prove selection and isolation without launching the full repository suite. Actual full-regression evidence is a later integration run, not a claim of this focused repair.
+ChampCity now requires one champcity-integration-gate check in the integration lane, selecting integration-gate with a 900000 ms failure ceiling. The architecture target is under three minutes, with a five-minute review threshold; the failure ceiling does not raise either budget. The gate owns one build, affected fast/integration proof and catalog-integrity sentinel. Default selection excludes Desktop, packaging, unaffected migration, performance and full regression. Target profiles can explicitly add migration or Desktop/packaging lanes for their owning capability. A target policy may deliberately select full-supported-platform or release-qualification; those plan all applicable lanes.
+
+The application computes target-to-candidate changed paths with bounded exact-revision Git plumbing and no rename collapsing, preserving both endpoints. The planner never shells out to Git. Candidate creation and repair revalidation use the current committed candidate revision, while target and incoming identities stay fixed.
+
+At resolution, the provider reads the fixed validation toolkit files, catalog, profiles and required build/typecheck definitions from the exact target commit. It hashes that authority and materializes only the fixed toolkit files in a private temporary directory under the candidate's application-owned Git storage. No incoming toolkit code is imported or executed as the judge. The host standalone Node toolchain runs this snapshot with context and metadata on stdin. The directory is removed after completion. No workflow evidence JSON sidecar or dependency install is created.
+
+The proposed candidate catalog must pass exact executable coverage. Target-owned capabilities, primary/complementary proof and existing test files cannot be removed. Target source patterns and execution/lane restrictions remain authoritative; incoming catalog additions may broaden proof. A path unclassified by target ownership blocks the candidate even if incoming metadata attempts to classify it. Proposed future profiles must also pass their complete supported schema, but target profiles select the current run. Toolkit/profile/catalog updates can therefore be proposed without replacing the code or requirements judging that update. Retiring required target proof needs a separately governed target-policy transition. Unknown ownership never falls back silently to full regression.
+
+The snapshot checks candidate build/typecheck definitions against target-trusted strings and uses fixed host npm, interpreter, no pre/post scripts, no workspace expansion and no if-present fallback. Candidate working-tree cleanliness and exact commit are independently checked before/after validation and before target advancement. Stale target/incoming refs still block advancement. Integration Repair invokes the same target authority with its new candidate commit; previous validation does not certify a new repair.
+
+Profile evidence is stored inside the existing canonical candidate Markdown record: registered profile identity, authority hash, exact revisions, run identity, bounded selected test paths, excluded lanes, elapsed time and status. Raw subprocess output is never persisted. The profile process has a bounded deadline/output size and descendant termination. Unavailable/incomplete/failed evidence cannot validate or advance a candidate.
+
+Focused ownership is split among integration-profile-gate, integration-policy-semantics, integration-npm-adapter, integration-repair-provider/controller/source semantics, and routed integration composition tests. Full supported-platform qualification remains explicit post-bundle work; focused adapter fixtures do not claim whole-repository acceptance.

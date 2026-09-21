@@ -528,9 +528,9 @@ export function requireReadyImplementerReportForReview(
 }
 
 /** Repair evidence uses the same identity/source/body checks, with its distinct disposition. */
-export function requireCurrentImplementerReportForRepair(workspaceRoot: string, scope: WorkItemArtifactScope, workCardId: string): PlanningDocumentSummary {
-  const context = resolveApprovedReportContext(workspaceRoot, scope, workCardId);
-  const readiness = classifyExpectedImplementerReportReadiness(workspaceRoot, context, undefined, true);
+export function requireCurrentImplementerReportForRepair(workspaceRoot: string, scope: WorkItemArtifactScope, workCardId: string, planningContext?: PlanningProjectionContext): PlanningDocumentSummary {
+  const context = resolveApprovedReportContext(workspaceRoot, scope, workCardId, planningContext);
+  const readiness = classifyExpectedImplementerReportReadiness(workspaceRoot, context, planningContext, true);
   if (readiness.reportReadiness !== "ready-for-review" || readiness.report?.effectiveDisposition !== "RevisionRequested") throw Error("Current substantive RevisionRequested Implementer Report is required for Repair.");
   return readiness.report;
 }

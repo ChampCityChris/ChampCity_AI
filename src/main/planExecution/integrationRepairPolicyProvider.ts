@@ -85,13 +85,7 @@ export function createIntegrationRepairPolicyProvider(hooks: {
     const changed = await source.integrationRepairChangedPaths({ candidateId: record.candidateId, mergeBase: record.mergeBase, incomingCommit: record.incomingCommit });
     const inspected = await source.inspectIntegration(record.candidateId);
     if (!changed.ok || !inspected.ok) stop("candidate diff/conflict evidence is unavailable.");
-    const protectedPaths = [INTEGRATION_POLICY_PATH, ...sources.map((entry) => entry.path), ...(scope.protectedPaths ?? [])];
-    const allowed = (entry: string) => !reserved(entry) && !protectedPaths.some((boundary) => within(entry, boundary)) && scope.allowedEditableRoots.some((boundary) => within(entry, boundary));
-    // The original conflict set remains fixed across repair attempts, even after conflicts are committed.
-    const conflicts = [...new Set([...record.conflictingPaths, ...inspected.result.conflictingPaths])];
-    if (conflicts.some((entry) => !allowed(entry))) stop("a conflict falls outside the protected repair boundary.");
-    const editablePaths = [...new Set([...conflicts, ...changed.result].map(integrationPolicyPath))].filter(allowed).sort();
-    if (!editablePaths.length || editablePaths.length > 32) stop("the deterministic editable set must contain 1–32 paths.");
+    const editablePaths = deriveIntegrationRepairEditablePaths(scope, sources, record.conflictingPaths, inspected.result.conflictingPaths, changed.result);
     for (const entry of editablePaths) {
       contained(root, entry, true); contained(checkout, entry, true);
       integrationSourceBytes(checkout, entry);
@@ -99,4 +93,17 @@ export function createIntegrationRepairPolicyProvider(hooks: {
     // Stable identity survives service recreation and changes when policy or supplemental evidence changes.
     return { sources, editablePaths, policySha256: integrationSourceDigest(snapshot.sha256) };
   } };
+}
+
+/** Pure scope derivation, independently proved without repeating repository acquisition. */
+export function deriveIntegrationRepairEditablePaths(scope: { allowedEditableRoots: string[]; protectedPaths?: string[] }, sources: IntegrationRepairPolicy["sources"], originalConflicts: string[], observedConflicts: string[], changedPaths: string[]): string[] {
+  const protectedPaths = [INTEGRATION_POLICY_PATH, ...sources.map((entry) => entry.path), ...(scope.protectedPaths ?? [])];
+  const allowed = (entry: string) => !reserved(entry) && !protectedPaths.some((boundary) => within(entry, boundary)) && scope.allowedEditableRoots.some((boundary) => within(entry, boundary));
+  // The original conflict set remains fixed across repair attempts, even after conflicts are committed.
+  const conflicts = [...new Set([...originalConflicts, ...observedConflicts])];
+  if (conflicts.some((entry) => !allowed(entry))) stop("a conflict falls outside the protected repair boundary.");
+  const editablePaths = [...new Set([...conflicts, ...changedPaths].map(integrationPolicyPath))].filter(allowed).sort();
+  if (!editablePaths.length || editablePaths.length > 32) stop("the deterministic editable set must contain 1–32 paths.");
+
+  return editablePaths;
 }

@@ -33,9 +33,7 @@ const SEMVER_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]
 
 const NPM_VALIDATION_COMMANDS = [
   "npm-ci",
-  "npm-run-typecheck",
-  "npm-run-build",
-  "npm-test",
+  "npm-test-release",
 ] as const satisfies ReadonlyArray<ReleaseCommandRequest["id"]>;
 
 const GIT_VALIDATION_COMMANDS = [

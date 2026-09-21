@@ -47,6 +47,7 @@ A proper Work Card must:
 9. **Require tests and validation**
 
    The card must name the focused test suites and general validation lanes the Implementer must run, with exact command/result reporting where the current workflow requires model-maintained reporting.
+   For repository Work Cards, use planner preview and the work-item profile with an exact changed-path set: static/build + affected capabilities + applicable integration. Do not require duplicate typecheck/build commands. Ordinary npm test is fast developer feedback. Phase-close scope and explicit full/release profiles belong to the workflows that own wider qualification. See [Validation Command Lanes](../dev/VALIDATION_COMMAND_LANES.md).
    Validation scope must map to the card's owned behavior. When a shared test file or suite contains unrelated domains, do not make the entire shared surface an all-or-nothing acceptance gate unless the card owns those domains. Unrelated or pre-existing failures discovered by broader validation must be recorded and routed to the proper owner rather than automatically attributed to the current card.
    Before requiring a new permanent automated test, inspect the existing tests and `validation/capability-map.json` for the affected behavior. Prefer, in order: (1) reuse an existing test unchanged when it already proves the required behavior; (2) modify or extend an existing test when the new requirement belongs to the same stable behavior or proof boundary; (3) consolidate overlapping or redundant proof only when the Work Card explicitly authorizes consolidation and regression protection is preserved or improved; (4) create a new permanent test only when existing coverage cannot adequately prove a materially distinct behavior, boundary condition, regression, failure mode, contract, or risk. A Work Card must not require a new test merely because production code changes. Successful Work Card completion does not require test-count growth, and test quantity is not an acceptance criterion. Every new permanent test requires a specific coverage-gap justification identifying the previously uncovered behavior, boundary, regression, failure mode, contract, or risk.
    The Work Card must require its Implementer Report to distinguish: existing tests reused unchanged; existing tests modified or extended; tests consolidated when the card explicitly authorizes consolidation; tests retired when the card explicitly authorizes retirement; and new permanent tests added, with the specific coverage-gap justification for each addition.
@@ -94,6 +95,8 @@ A proper Repair Card must:
 
    Acceptance criteria must prove the defect is fixed and that preserved behavior still works.
 10. **Require regression proof**
+
+    Use the repair profile with exact changed paths and preserved capability scope, plus focused regression for the failed scenario. Require affected proof and preservation of accepted behavior; do not substitute the full suite for a bounded repair objective.
 
     Tests must cover the failed scenario and relevant no-regression scenarios. Screenshots alone are not enough for a repair pass when deterministic/runtime proof is available.
 11. **Require a Repair Implementer Report or structured implementation result**

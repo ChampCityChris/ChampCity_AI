@@ -86,6 +86,7 @@ test(`Desktop runtime ${failure} failure retains the last known good runtime and
   assert.equal(status.version, fixture.prior.version);
   assert.equal(status.updateState, "degraded");
   assert.deepEqual(status.selection, selection);
+  assert.equal(fixture.calls.some(call => Array.isArray(call) && call[0] === "promote"), false);
 
   const lease = fixture.manager.acquire(selection);
   await fixture.manager.launch();

@@ -27,7 +27,7 @@ The frozen V1 repository begins V2 planning with a single test command that comb
 - a sixty-second idle measurement;
 - tests with timeout allowances ranging through several minutes.
 
-The current command runs every matching test file serially. The canonical validation sequence also builds the application before invoking a test command that builds it again.
+That historical command ran every matching test file serially and duplicated builds. The TVA implementation now exposes composed profiles and an explicit full command; see [Validation Command Lanes](../dev/VALIDATION_COMMAND_LANES.md). The baseline findings below remain historical rationale.
 
 This baseline is not treated as proof that the tests are useless. It is evidence that valuable regression protection has accumulated without a coherent test architecture. The V2 kickoff must preserve useful behavior proof while separating fast development feedback from expensive integration, platform, packaging, and soak evidence.
 
@@ -56,7 +56,7 @@ This baseline is not treated as proof that the tests are useless. It is evidence
 
 ## Validation Lanes
 
-The V2 repository must expose distinct deterministic commands. Exact script names may be settled during implementation, but the following semantic lanes are required.
+The repository exposes distinct deterministic commands through its shared planner/executor. The following semantic lane requirements govern those commands.
 
 ### Static lane
 

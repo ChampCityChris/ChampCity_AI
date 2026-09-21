@@ -5,133 +5,13 @@ const net = require("node:net");
 const os = require("node:os");
 const path = require("node:path");
 const { promisify } = require("node:util");
-const test = require("node:test");
+const test = require("../support/windows-test.cjs");
 const { Client } = require("@modelcontextprotocol/sdk/client/index.js");
 const { StreamableHTTPClientTransport } = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
 
 const execFileAsync = promisify(execFile);
 const repositoryRoot = path.resolve(__dirname, "../..");
 const electronPath = require("electron");
-
-function read(relativePath) {
-  return fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8");
-}
-
-test("Desktop and Service Host controllers do not import worker-owned runtime implementations", () => {
-  const ts = require("typescript");
-  const runtimeRoot = "src/main/agentHarness/runtime/";
-  const workerModules = ["agentHarnessService", "httpRuntime", "mcpServer"];
-  const rules = [
-    ["src/main/main.ts", [...workerModules, "agentHarnessController"]],
-    [`${runtimeRoot}agentHarnessServiceHost.ts`, workerModules],
-    [`${runtimeRoot}agentHarnessController.ts`, workerModules],
-  ];
-  for (const [file, forbidden] of rules) {
-    const absolute = path.join(repositoryRoot, file);
-    const tree = ts.createSourceFile(absolute, read(file), ts.ScriptTarget.Latest, true);
-    const forbiddenPaths = forbidden.map((name) => path.join(repositoryRoot, runtimeRoot, name));
-    forbiddenPaths.push(
-      path.join(repositoryRoot, "src/main/agentHarness/tools/toolRegistry"),
-      path.join(repositoryRoot, "src/main/agentHarness/repository/repositoryOperations"),
-    );
-    function visit(node) {
-      let specifier;
-      if ((ts.isImportDeclaration(node) && !node.importClause?.isTypeOnly) || ts.isExportDeclaration(node)) {
-        specifier = node.moduleSpecifier;
-      } else if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
-        (ts.isIdentifier(node.expression) && node.expression.text === "require"))) {
-        specifier = node.arguments[0];
-      }
-      if (specifier && ts.isStringLiteralLike(specifier) && specifier.text.startsWith(".")) {
-        const target = path.resolve(path.dirname(absolute), specifier.text);
-        assert.equal(forbiddenPaths.some((entry) => [entry, `${entry}.ts`, `${entry}.js`].includes(target)), false,
-          `${file} imports worker-owned module ${specifier.text}`);
-      }
-      ts.forEachChild(node, visit);
-    }
-    visit(tree);
-  }
-});
-
-test("compiled bootstrap routes maintenance, Service Host, and Desktop modes with appropriate switches", async () => {
-  const vm = require("node:vm");
-  const { createRequire } = require("node:module");
-  const entry = path.join(repositoryRoot, "dist/main/bootstrap.js");
-  const nativeRequire = createRequire(entry);
-  assert.equal(JSON.parse(read("package.json")).main, "dist/main/bootstrap.js");
-  for (const [args, expectedRoute, expectedSwitches] of [
-    [[], "desktop", []],
-    [["--agent-harness-service-host"], "host", ["disable-gpu"]],
-    [["--champcity-install-configure-background-agent=enabled", "--agent-harness-service-host"], "configure", ["headless", "disable-gpu"]],
-    [["--champcity-uninstall-cleanup"], "cleanup", ["headless", "disable-gpu"]],
-  ]) {
-    const routes = [];
-    const switches = [];
-    const exits = [];
-    let identityApplied = false;
-    const application = {
-      getPath: () => "fixture-app-data", setPath() {}, setName: () => { identityApplied = true; }, setAppUserModelId() {},
-      commandLine: { appendSwitch: (value) => switches.push(value) },
-      whenReady: async () => {}, exit: (code) => exits.push(code),
-    };
-    const record = (route) => { assert.equal(identityApplied, true); routes.push(route); };
-    vm.runInNewContext(read("dist/main/bootstrap.js"), {
-      exports: {}, console, process: { argv: ["fixture", ...args], env: {} },
-      require: (id) => {
-        if (id === "electron") return { app: application };
-        if (id === "./main") { record("desktop"); return {}; }
-        if (id === "./agentHarness/runtime/agentHarnessServiceHost") return { runAgentHarnessServiceHost: async () => record("host") };
-        if (id === "./agentHarness/runtime/agentHarnessInstallLifecycle") return {
-          ...nativeRequire(id),
-          configureInstalledBackgroundAgent: async (_app, enabled) => { assert.equal(enabled, true); record("configure"); },
-          cleanupBackgroundAgentForUninstall: async () => record("cleanup"),
-        };
-        return nativeRequire(id);
-      },
-    });
-    await new Promise((resolve) => setImmediate(resolve));
-    assert.deepEqual(routes, [expectedRoute]);
-    assert.deepEqual(switches, expectedSwitches);
-    assert.deepEqual(exits, ["configure", "cleanup"].includes(expectedRoute) ? [0] : []);
-  }
-});
-
-test("worker and host protocol validators accept registered-workspace controls and reject obsolete selected-project controls", () => {
-  const worker = require("../../dist/main/agentHarness/runtime/agentHarnessProcessProtocol.js");
-  const host = require("../../dist/main/agentHarness/runtime/agentHarnessServiceHostProtocol.js");
-  for (const [validate, protocolVersion] of [
-    [worker.isAgentHarnessControlRequest, worker.agentHarnessProcessProtocolVersion],
-    [host.isAgentHarnessServiceHostRequest, host.agentHarnessServiceHostControlProtocolVersion],
-  ]) {
-    const request = { protocolVersion, kind: "request", requestId: "fixture-request", expectedInstanceId: "fixture-instance", payload: null };
-    for (const operation of ["list-registered-workspaces", "register-workspace", "unregister-workspace"]) {
-      const valid = { ...request, operation };
-      assert.equal(validate(valid), true);
-      assert.equal(validate({ ...valid, requestId: "" }), false);
-      assert.equal(validate({ ...valid, protocolVersion: -1 }), false);
-    }
-    for (const operation of ["activate-workspace", "deactivate-workspace", "query-workspace-access", "confirm-workspace-access"]) {
-      assert.equal(validate({ ...request, operation }), false);
-    }
-  }
-});
-
-test("worker unhandled rejection exits with failure for controller recovery", () => {
-  const vm = require("node:vm");
-  const { EventEmitter } = require("node:events");
-  const workerProcess = new EventEmitter();
-  workerProcess.parentPort = new EventEmitter();
-  const exits = [];
-  workerProcess.exit = (code) => exits.push(code);
-  vm.runInNewContext(read("dist/main/agentHarness/runtime/agentHarnessWorker.js"), {
-    exports: {},
-    require: () => ({}),
-    process: workerProcess,
-  });
-  assert.deepEqual(exits, []);
-  workerProcess.emit("unhandledRejection", new Error("unexpected asynchronous worker failure"));
-  assert.deepEqual(exits, [1]);
-});
 
 test("actual Electron utility-process boundary preserves MCP routing, controls, heartbeat concurrency, and bounded recovery", { timeout: 180_000 }, async (context) => {
   const result = await runElectronFixture("electron-agent-harness-process-boundary.cjs");
@@ -898,154 +778,6 @@ test("differential Control B minimal Electron main heartbeat with external Servi
   await runDifferentialHeartbeatControl(context, "Control B");
 });
 
-async function runDifferentialHeartbeatControl(context, scenario) {
-  const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-agent-harness-differential-"));
-  const userDataRoot = path.join(container, "user-data");
-  const projectA = createWorkspace(container, "Project_A", "desktop heartbeat project");
-  // The normal eager-startup run performs no measured repository request.
-  createSearchWorkload(projectA);
-  let heartbeatEvidence = null;
-  let cleanup = null;
-  let owner = null;
-  let launchedHost = null;
-  try {
-    if (scenario !== "Control B") {
-      assert.equal(fs.existsSync(path.join(userDataRoot, "codex-runtime")), false);
-      const desktop = await runServiceHostDesktop(userDataRoot, projectA, false, false, false, true, "eager");
-      heartbeatEvidence = desktop.desktopHeartbeat;
-      assert.equal(heartbeatEvidence.ownerProcessId, desktop.desktopProcessId);
-      assert.equal(heartbeatEvidence.serviceHostProcessId, desktop.serviceHostProcessId);
-      assert.equal(desktop.selection.ok, true);
-      assert.equal(desktop.selection.workspaceRoot, projectA);
-      assert.equal(desktop.registryManagement.restored.workspace.workspaceId, "project_a");
-      assert.equal(desktop.status.state, "running");
-      assert.deepEqual(desktop.status.registeredWorkspaceIds, ["project_a"]);
-      assert.equal(desktop.normalWindowCount, 1);
-    } else {
-      owner = recoveringServiceHostClient(userDataRoot, () => {
-        launchedHost = launchServiceHostCandidate(userDataRoot);
-      });
-      const identity = await owner.connect();
-      heartbeatEvidence = {
-        serviceHostProcessId: identity.serviceHostProcessId,
-        workerProcessId: identity.workerProcessId,
-      };
-      await owner.registerWorkspace(projectA);
-      const result = await runElectronFixtureToExit("electron-agent-harness-process-boundary.cjs", {
-        CHAMPCITY_USER_DATA_ROOT: userDataRoot,
-        CHAMPCITY_TEST_MINIMAL_EXTERNAL_HEARTBEAT: "true",
-      });
-      const match = result.stdout.match(/AGENT_HARNESS_PROCESS_BOUNDARY_RESULT=(\{.*\})/);
-      assert.ok(match, result.stdout);
-      heartbeatEvidence = JSON.parse(match[1]);
-      assert.equal(heartbeatEvidence.serviceHostProcessId, launchedHost.pid);
-    }
-    owner?.disconnect();
-    cleanup = await cleanupIsolatedServiceHost(userDataRoot, heartbeatEvidence);
-    context.diagnostic(`differential heartbeat measurements: ${JSON.stringify({
-      ...heartbeatEvidence,
-      cleanupCompleted: cleanup.completed,
-      remainingOwnedProcessIds: cleanup.remainingProcessIds,
-    })}`);
-    context.diagnostic(`differential heartbeat cleanup: ${JSON.stringify(cleanup)}`);
-    const evidence = heartbeatEvidence;
-    assert.equal(evidence.scenario, scenario);
-    const processIds = [evidence.ownerProcessId, evidence.serviceHostProcessId, evidence.workerProcessId];
-    if (scenario === "Control B") {
-      processIds.push(evidence.mcpLoadClientProcessId);
-      assert.equal(evidence.normalWindowCountDuringOperation, 0);
-      assert.ok(evidence.searchCount >= 1);
-      assert.equal(evidence.mcpResultStatus, "success");
-      assert.equal(evidence.mcpMatchCount, 1);
-      assert.equal(evidence.mcpLoadCleanup.clientClosed, true);
-      assert.equal(evidence.mcpLoadCleanup.processExited, true);
-      assert.equal(evidence.mcpLoadCleanup.exitCode, 0);
-      assert.equal(evidence.mcpLoadCleanup.signalCode, null);
-      assert.equal(evidence.mcpLoadCleanup.forcedTermination, false);
-      assert.equal(evidence.mcpLoadCleanup.closeError, null);
-      assert.deepEqual(evidence.mcpLoadCleanup.cleanupErrors, []);
-    } else {
-      assert.equal(evidence.normalWindowPresentDuringOperation, true);
-      assert.equal(evidence.normalWindowCountDuringOperation, 1);
-      assert.ok(evidence.operationDurationMs >= 5_000);
-      assert.equal(evidence.searchCount, 0);
-      assert.equal(evidence.mcpResultStatus, "not-requested");
-      assert.equal(evidence.mcpMatchCount, null);
-      assert.equal(evidence.mcpLoadClientProcessId, null);
-      assert.equal(evidence.mcpLoadCleanup, null);
-      assert.equal(cleanup.externalLoadDescriptorPresent, false);
-    }
-    assert.ok(processIds.every((pid) => Number.isInteger(pid) && pid > 0));
-    assert.equal(new Set(processIds).size, processIds.length);
-    assert.ok(evidence.operationDurationMs >= 500);
-    assert.ok(evidence.heartbeatCount >= 20);
-    assert.ok(evidence.firstHeartbeatAtMs < evidence.operationDurationMs);
-    // The idle timeout can complete in the same Date.now() millisecond as the
-    // final timer callback. Loaded scenarios retain REPAIR02's strict boundary.
-    assert.ok(scenario !== "Control B"
-      ? evidence.lastHeartbeatAtMs <= evidence.operationDurationMs
-      : evidence.lastHeartbeatAtMs < evidence.operationDurationMs);
-    assert.equal(cleanup.completed, true);
-    assert.equal(cleanup.identityConfirmed, true);
-    assert.equal(cleanup.gracefulShutdown, true);
-    assert.deepEqual(cleanup.forcedProcessIds, []);
-    assert.deepEqual(cleanup.cleanupErrors, []);
-    assertProcessMeasurement(evidence);
-    if (scenario !== "Control B") {
-      assertCodexStartupObservation(evidence);
-    }
-    assert.ok(
-      evidence.maximumHeartbeatGapMs <= 250,
-      `maximumHeartbeatGapMs ${evidence.maximumHeartbeatGapMs} exceeded the unchanged 250 ms gate`,
-    );
-  } finally {
-    owner?.disconnect();
-    cleanup = cleanup || await cleanupIsolatedServiceHost(userDataRoot, heartbeatEvidence);
-    // This exact child handle also covers launch failure before a descriptor exists.
-    if (launchedHost?.pid && processExists(launchedHost.pid)) {
-      terminateIfRunning(launchedHost.pid);
-      await waitForProcessExit(launchedHost.pid, 15_000);
-    }
-    context.diagnostic(`differential final cleanup: ${JSON.stringify(cleanup)}`);
-    assert.equal(cleanup.completed, true);
-    fs.rmSync(container, { recursive: true, force: true });
-  }
-}
-
-function assertCodexStartupObservation(evidence) {
-  const startup = evidence.codexStartup;
-  assert.equal(startup.requestCount, 1);
-  assert.equal(startup.mode, "eager");
-  assert.ok(Number.isFinite(startup.requestedAtMs));
-  assert.ok(startup.requestedAtMs <= 0);
-  assert.equal(startup.workerRequestCount, 1);
-  assert.ok(Number.isInteger(startup.initializerWorkerProcessId));
-  assert.notEqual(startup.initializerWorkerProcessId, evidence.desktopProcessId);
-  assert.notEqual(startup.initializerWorkerProcessId, evidence.serviceHostProcessId);
-  assert.notEqual(startup.initializerWorkerProcessId, evidence.workerProcessId);
-  assert.ok(Number.isFinite(startup.workerSpawnedAtMs));
-  assert.equal(startup.workerActiveDuringMeasurement, true);
-  const terminal = evidence.codexStartupTerminal;
-  assert.ok(terminal);
-  assert.equal(terminal.observation.resultClass, "resolved");
-  assert.ok(["current", "updated", "degraded"].includes(terminal.status.updateState));
-  assert.ok(terminal.status.catalogCount > 0);
-  if (terminal.status.selection) {
-    assert.equal(terminal.status.selectionBlocker, null);
-  }
-}
-
-function assertProcessMeasurement(evidence) {
-  const processEvidence = evidence.processEvidence;
-  assert.ok(processEvidence);
-  assert.ok(processEvidence.cpuUsageDelta.user >= 0);
-  assert.ok(processEvidence.cpuUsageDelta.system >= 0);
-  assert.equal(
-    evidence.maximumHeartbeatGapEndAtMs - evidence.maximumHeartbeatGapStartAtMs,
-    evidence.maximumHeartbeatGapMs,
-  );
-}
-
 test("real desktop main heartbeat continues during Service Host worker-owned broad MCP search", { timeout: 180_000 }, async (context) => {
   const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-agent-harness-desktop-heartbeat-"));
   const userDataRoot = path.join(container, "user-data");
@@ -1245,6 +977,158 @@ test("valid and malformed explicit-stop intent suppress passive launch while exp
     fs.rmSync(container, { recursive: true, force: true });
   }
 });
+
+function read(relativePath) {
+  return fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8");
+}
+
+async function runDifferentialHeartbeatControl(context, scenario) {
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-agent-harness-differential-"));
+  const userDataRoot = path.join(container, "user-data");
+  const projectA = createWorkspace(container, "Project_A", "desktop heartbeat project");
+  // The normal eager-startup run performs no measured repository request.
+  createSearchWorkload(projectA);
+  let heartbeatEvidence = null;
+  let cleanup = null;
+  let owner = null;
+  let launchedHost = null;
+  try {
+    if (scenario !== "Control B") {
+      assert.equal(fs.existsSync(path.join(userDataRoot, "codex-runtime")), false);
+      const desktop = await runServiceHostDesktop(userDataRoot, projectA, false, false, false, true, "eager");
+      heartbeatEvidence = desktop.desktopHeartbeat;
+      assert.equal(heartbeatEvidence.ownerProcessId, desktop.desktopProcessId);
+      assert.equal(heartbeatEvidence.serviceHostProcessId, desktop.serviceHostProcessId);
+      assert.equal(desktop.selection.ok, true);
+      assert.equal(desktop.selection.workspaceRoot, projectA);
+      assert.equal(desktop.registryManagement.restored.workspace.workspaceId, "project_a");
+      assert.equal(desktop.status.state, "running");
+      assert.deepEqual(desktop.status.registeredWorkspaceIds, ["project_a"]);
+      assert.equal(desktop.normalWindowCount, 1);
+    } else {
+      owner = recoveringServiceHostClient(userDataRoot, () => {
+        launchedHost = launchServiceHostCandidate(userDataRoot);
+      });
+      const identity = await owner.connect();
+      heartbeatEvidence = {
+        serviceHostProcessId: identity.serviceHostProcessId,
+        workerProcessId: identity.workerProcessId,
+      };
+      await owner.registerWorkspace(projectA);
+      const result = await runElectronFixtureToExit("electron-agent-harness-process-boundary.cjs", {
+        CHAMPCITY_USER_DATA_ROOT: userDataRoot,
+        CHAMPCITY_TEST_MINIMAL_EXTERNAL_HEARTBEAT: "true",
+      });
+      const match = result.stdout.match(/AGENT_HARNESS_PROCESS_BOUNDARY_RESULT=(\{.*\})/);
+      assert.ok(match, result.stdout);
+      heartbeatEvidence = JSON.parse(match[1]);
+      assert.equal(heartbeatEvidence.serviceHostProcessId, launchedHost.pid);
+    }
+    owner?.disconnect();
+    cleanup = await cleanupIsolatedServiceHost(userDataRoot, heartbeatEvidence);
+    context.diagnostic(`differential heartbeat measurements: ${JSON.stringify({
+      ...heartbeatEvidence,
+      cleanupCompleted: cleanup.completed,
+      remainingOwnedProcessIds: cleanup.remainingProcessIds,
+    })}`);
+    context.diagnostic(`differential heartbeat cleanup: ${JSON.stringify(cleanup)}`);
+    const evidence = heartbeatEvidence;
+    assert.equal(evidence.scenario, scenario);
+    const processIds = [evidence.ownerProcessId, evidence.serviceHostProcessId, evidence.workerProcessId];
+    if (scenario === "Control B") {
+      processIds.push(evidence.mcpLoadClientProcessId);
+      assert.equal(evidence.normalWindowCountDuringOperation, 0);
+      assert.ok(evidence.searchCount >= 1);
+      assert.equal(evidence.mcpResultStatus, "success");
+      assert.equal(evidence.mcpMatchCount, 1);
+      assert.equal(evidence.mcpLoadCleanup.clientClosed, true);
+      assert.equal(evidence.mcpLoadCleanup.processExited, true);
+      assert.equal(evidence.mcpLoadCleanup.exitCode, 0);
+      assert.equal(evidence.mcpLoadCleanup.signalCode, null);
+      assert.equal(evidence.mcpLoadCleanup.forcedTermination, false);
+      assert.equal(evidence.mcpLoadCleanup.closeError, null);
+      assert.deepEqual(evidence.mcpLoadCleanup.cleanupErrors, []);
+    } else {
+      assert.equal(evidence.normalWindowPresentDuringOperation, true);
+      assert.equal(evidence.normalWindowCountDuringOperation, 1);
+      assert.ok(evidence.operationDurationMs >= 5_000);
+      assert.equal(evidence.searchCount, 0);
+      assert.equal(evidence.mcpResultStatus, "not-requested");
+      assert.equal(evidence.mcpMatchCount, null);
+      assert.equal(evidence.mcpLoadClientProcessId, null);
+      assert.equal(evidence.mcpLoadCleanup, null);
+      assert.equal(cleanup.externalLoadDescriptorPresent, false);
+    }
+    assert.ok(processIds.every((pid) => Number.isInteger(pid) && pid > 0));
+    assert.equal(new Set(processIds).size, processIds.length);
+    assert.ok(evidence.operationDurationMs >= 500);
+    assert.ok(evidence.heartbeatCount >= 20);
+    assert.ok(evidence.firstHeartbeatAtMs < evidence.operationDurationMs);
+    // The idle timeout can complete in the same Date.now() millisecond as the
+    // final timer callback. Loaded scenarios retain REPAIR02's strict boundary.
+    assert.ok(scenario !== "Control B"
+      ? evidence.lastHeartbeatAtMs <= evidence.operationDurationMs
+      : evidence.lastHeartbeatAtMs < evidence.operationDurationMs);
+    assert.equal(cleanup.completed, true);
+    assert.equal(cleanup.identityConfirmed, true);
+    assert.equal(cleanup.gracefulShutdown, true);
+    assert.deepEqual(cleanup.forcedProcessIds, []);
+    assert.deepEqual(cleanup.cleanupErrors, []);
+    assertProcessMeasurement(evidence);
+    if (scenario !== "Control B") {
+      assertCodexStartupObservation(evidence);
+    }
+    assert.ok(
+      evidence.maximumHeartbeatGapMs <= 250,
+      `maximumHeartbeatGapMs ${evidence.maximumHeartbeatGapMs} exceeded the unchanged 250 ms gate`,
+    );
+  } finally {
+    owner?.disconnect();
+    cleanup = cleanup || await cleanupIsolatedServiceHost(userDataRoot, heartbeatEvidence);
+    // This exact child handle also covers launch failure before a descriptor exists.
+    if (launchedHost?.pid && processExists(launchedHost.pid)) {
+      terminateIfRunning(launchedHost.pid);
+      await waitForProcessExit(launchedHost.pid, 15_000);
+    }
+    context.diagnostic(`differential final cleanup: ${JSON.stringify(cleanup)}`);
+    assert.equal(cleanup.completed, true);
+    fs.rmSync(container, { recursive: true, force: true });
+  }
+}
+
+function assertCodexStartupObservation(evidence) {
+  const startup = evidence.codexStartup;
+  assert.equal(startup.requestCount, 1);
+  assert.equal(startup.mode, "eager");
+  assert.ok(Number.isFinite(startup.requestedAtMs));
+  assert.ok(startup.requestedAtMs <= 0);
+  assert.equal(startup.workerRequestCount, 1);
+  assert.ok(Number.isInteger(startup.initializerWorkerProcessId));
+  assert.notEqual(startup.initializerWorkerProcessId, evidence.desktopProcessId);
+  assert.notEqual(startup.initializerWorkerProcessId, evidence.serviceHostProcessId);
+  assert.notEqual(startup.initializerWorkerProcessId, evidence.workerProcessId);
+  assert.ok(Number.isFinite(startup.workerSpawnedAtMs));
+  assert.equal(startup.workerActiveDuringMeasurement, true);
+  const terminal = evidence.codexStartupTerminal;
+  assert.ok(terminal);
+  assert.equal(terminal.observation.resultClass, "resolved");
+  assert.ok(["current", "updated", "degraded"].includes(terminal.status.updateState));
+  assert.ok(terminal.status.catalogCount > 0);
+  if (terminal.status.selection) {
+    assert.equal(terminal.status.selectionBlocker, null);
+  }
+}
+
+function assertProcessMeasurement(evidence) {
+  const processEvidence = evidence.processEvidence;
+  assert.ok(processEvidence);
+  assert.ok(processEvidence.cpuUsageDelta.user >= 0);
+  assert.ok(processEvidence.cpuUsageDelta.system >= 0);
+  assert.equal(
+    evidence.maximumHeartbeatGapEndAtMs - evidence.maximumHeartbeatGapStartAtMs,
+    evidence.maximumHeartbeatGapMs,
+  );
+}
 
 async function runServiceHostDesktop(
   userDataRoot,

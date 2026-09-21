@@ -6,6 +6,14 @@
 **RCA:** `docs/implementation-bundles/test-execution-architecture/CODE_REVIEW_AND_RCA.md`  
 **Implementer Report:** `docs/implementation-bundles/test-execution-architecture/Implementer_Reports/TVA02A_IMPLEMENTER_REPORT.md`
 
+## Broken Suite Quarantine
+
+This card must use **minimal focused validation only**.
+
+Do not run the legacy repository-wide aggregate, `npm test` while it still maps to that aggregate, `test:full`, `node --test "test/**/*.test.cjs"`, the complete supported-platform/full-regression profile, or an entire known-pathological test file when a narrower named subset can prove the owned behavior.
+
+Use the smallest structural tests, named test cases, specific files, planner previews, and adapter-conformance subsets required by this card. Whole-repository qualification is post-bundle work.
+
 ## Purpose
 
 Recover from the specific performance regressions introduced during the 2026-09-20 WIR22 repair sequence before broader lane decomposition continues.
@@ -160,8 +168,11 @@ The Implementer Report must include before/after counts and measured durations.
 
 ### Git/integration policy boundary
 
-- full `git-mutation-boundary.test.cjs` returns to **at most the pre-today 240-second review envelope** before later TVA optimization;
-- target after the remaining cards is lower, but TVA02A must eliminate the 10–18 minute regression first;
+- the legacy full `git-mutation-boundary.test.cjs` file is **not executed during TVA02A**;
+- the real npm adapter-conformance subset completes in **under 60 seconds**;
+- the semantic target-policy subset completes in **under 60 seconds** without unnecessary real npm execution;
+- the real Integration Repair provider-conformance subset completes in **under 60 seconds**;
+- the semantic Integration Repair controller subset completes in **under 60 seconds** without recreating the complete real-provider stack;
 - real npm invocation count is bounded to the explicit adapter-conformance cases, not the full semantic matrix;
 - semantic target-policy cases still prove policy identity/transition/freshness behavior.
 
@@ -193,9 +204,9 @@ Run and measure:
 5. semantic target-policy subset without unnecessary real npm;
 6. real repair-provider conformance subset;
 7. semantic Integration Repair controller subset;
-8. full `git-mutation-boundary.test.cjs` once after the decomposed proof passes.
+8. validation-plan preview proving the decomposed policy/provider/controller subsets collectively retain every behavior formerly owned by the pathological aggregate.
 
-Do not proceed to TVA02 if the full Git boundary remains above the 240-second same-day recovery envelope or ordinary routed focus remains above 120 seconds without a concrete external blocker.
+Do not execute the complete `git-mutation-boundary.test.cjs` file during this card. Do not proceed to TVA02 if ordinary routed focus remains above 120 seconds, any ordinary subset above remains above 60 seconds, or the structural/process-count proof still shows repeated amplification without a concrete external blocker.
 
 ## Implementer Report
 
@@ -207,7 +218,8 @@ Write `TVA02A_IMPLEMENTER_REPORT.md` with:
 - exact tests moved/decomposed;
 - retained end-to-end proof;
 - behavioral proof that snapshot reuse remains fresh after mutation;
-- any remaining hotspot above 30 seconds;
+- any remaining focused hotspot above 30 seconds;
+- explicit proof that no whole-repository or whole-pathological-file aggregate was executed;
 - commands/results and deviations.
 
 ## Post-Implementation

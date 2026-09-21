@@ -1,4 +1,5 @@
 import path from "node:path";
+import type { RoutedDevelopmentExecutionBinding } from "../../shared/routedDevelopmentExecutionContracts";
 import { isDeepStrictEqual } from "node:util";
 import type { WorkItemArtifactScopeReference } from "../../shared/workItemArtifactScope";
 import { readRoutedDevelopmentExecutionBinding } from "../planExecution/routedDevelopmentExecutionBinding";
@@ -47,7 +48,14 @@ export async function resolveWorkItemArtifactScope(root: string, reference: Work
   const ref = parseWorkItemArtifactScopeReference(reference);
   if (ref.kind === "legacy-phase") return makeScope(ref, `planning/phases/${ref.phaseId}`, null);
   const binding = await readRoutedDevelopmentExecutionBinding(root, ref.intakeId);
-  if (!binding || binding.identity.planId !== ref.planId || binding.identity.routeDecisionId !== ref.routeDecisionId) throw Error("Artifact scope requires its current routed execution binding.");
+  return resolveWorkItemArtifactScopeFromBinding(ref, binding);
+}
+
+/** Reuse a binding already verified for this stable main-process projection. */
+export function resolveWorkItemArtifactScopeFromBinding(reference: WorkItemArtifactScopeReference, binding: RoutedDevelopmentExecutionBinding | null): ResolvedWorkItemArtifactScope {
+  const ref = parseWorkItemArtifactScopeReference(reference);
+  if (ref.kind === "legacy-phase") throw Error("A routed binding cannot resolve legacy Phase scope.");
+  if (!binding || binding.identity.intakeId !== ref.intakeId || binding.identity.planId !== ref.planId || binding.identity.routeDecisionId !== ref.routeDecisionId) throw Error("Artifact scope requires its current routed execution binding.");
   if (ref.kind === "routed-direct-plan" ? binding.structure.topology !== "direct" :
     binding.structure.topology !== "phased" || !binding.structure.phases.some((phase) => phase.phaseId === ref.phaseId)) {
     throw Error("Artifact scope must match the Plan topology and a genuine declared Phase.");

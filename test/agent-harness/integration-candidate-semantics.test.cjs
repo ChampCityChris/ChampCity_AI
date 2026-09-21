@@ -1,0 +1,1 @@
+require("../support/integration-scenarios.cjs").registerIntegrationScenarios("isolated integration candidates gate target advancement on current Plan and post-merge proof", ["unchanged","advanced-clean","validation-mutates","stale-target","remote-target","repair-many","repair-empty"]);

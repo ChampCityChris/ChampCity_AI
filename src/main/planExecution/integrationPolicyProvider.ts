@@ -1,3 +1,4 @@
+import { loadValidationProfileAuthority, runValidationProfile } from "./integrationValidationProfileRunner";
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -42,15 +43,18 @@ function requiredTargetScripts(value: unknown, names: string[]): Map<string, str
   return definitions;
 }
 
-/** Main-process production provider; deliberately not connected to routed Development until REPAIR06. */
-export function createIntegrationPolicyProvider(repositoryRoot: string): Required<Pick<IntegrationCandidateHooks, "validationPolicy">> {
+/** Main-process target-owned provider for routed Development and Integration Repair. */
+export function createIntegrationPolicyProvider(repositoryRoot: string, runCheck: typeof runIntegrationPolicyCheck = runIntegrationPolicyCheck): Required<Pick<IntegrationCandidateHooks, "validationPolicy">> {
   const root = fs.realpathSync(repositoryRoot);
   if (fs.lstatSync(repositoryRoot).isSymbolicLink()) throw Error("Integration repository root must not be redirected.");
   return { validationPolicy: { resolve: async (targetCommit) => {
     const snapshot = await loadIntegrationPolicyAtCommit(root, targetCommit);
     const required = snapshot.policy.requiredIntegrationChecks.map((checkId) => snapshot.policy.checks.find((entry) => entry.checkId === checkId)!);
     const manifest = parseJsonBytes(await readIntegrationCommitFile(root, targetCommit, "package.json", PACKAGE_MANIFEST_MAX_BYTES), "Target package manifest");
-    const scripts = requiredTargetScripts(manifest, required.map((check) => check.runner.script));
+    const npmChecks = required.filter((check) => check.runner.kind === "npm-script");
+    const scripts = requiredTargetScripts(manifest, npmChecks.map((check) => check.runner.kind === "npm-script" ? check.runner.script : ""));
+    const profileAuthority = required.some((check) => check.runner.kind === "validation-profile")
+      ? await loadValidationProfileAuthority(root, targetCommit, Object.fromEntries(requiredTargetScripts(manifest, ["build", "typecheck"]))) : undefined;
     async function assertCandidate(candidateRoot: string) {
       const relative = path.relative(path.join(root, ".git", "champcity-integration"), candidateRoot).split(path.sep);
       if (relative.length !== 2 || !/^[a-f0-9]{64}$/.test(relative[0]) || relative[1] !== "checkout") throw Error("Validation requires an isolated integration candidate checkout.");
@@ -62,9 +66,11 @@ export function createIntegrationPolicyProvider(repositoryRoot: string): Require
     return {
       sha256: snapshot.sha256,
       assertCandidate,
-      checks: required.map((check) => ({ checkId: check.checkId, run: async (candidateRoot: string) => {
+      checks: required.map((check) => ({ checkId: check.checkId, run: async (candidateRoot: string, context) => {
         await assertCandidate(candidateRoot);
-        const result = await runIntegrationPolicyCheck(candidateRoot, check, scripts.get(check.runner.script)!);
+        const result = check.runner.kind === "validation-profile"
+          ? await runValidationProfile(root, candidateRoot, check, context, profileAuthority!)
+          : await runCheck(candidateRoot, check, scripts.get(check.runner.script)!);
         await assertCandidate(candidateRoot);
         return result;
       } })),

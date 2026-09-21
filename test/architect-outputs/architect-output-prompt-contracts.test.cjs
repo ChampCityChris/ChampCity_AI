@@ -117,7 +117,7 @@ const repairWorkCardHeadings = [
   "Manual Validation",
 ];
 
-test("validation-scope guidance preserves seven shared rules and keeps Work Card coverage governance out of Fix Cards", () => {
+test("validation-scope guidance preserves shared scope and profile rules and keeps Work Card coverage governance out of Fix Cards", () => {
   const workCardGuidance = buildImplementationValidationScopeGuidance("work-card");
   const fixCardGuidance = buildImplementationValidationScopeGuidance("fix-card");
   const normalizeContractNoun = (lines) => lines.map((line) =>
@@ -126,9 +126,13 @@ test("validation-scope guidance preserves seven shared rules and keeps Work Card
   const workCardRules = workCardGuidance.filter((line) => line.startsWith("- "));
   const fixCardRules = fixCardGuidance.filter((line) => line.startsWith("- "));
 
-  assert.equal(workCardRules.length, 12);
-  assert.equal(fixCardRules.length, 7);
-  assert.deepEqual(normalizeContractNoun(workCardRules.slice(0, 7)), normalizeContractNoun(fixCardRules));
+  assert.equal(workCardRules.length, 14);
+  assert.equal(fixCardRules.length, 9);
+  assert.deepEqual(normalizeContractNoun(workCardRules.slice(0, 9)), normalizeContractNoun(fixCardRules));
+  for (const phrase of ["work-item profile owns a single build", "failed scenario, affected capabilities, and preserved behavior", "release qualification and explicitly owned full regression"]) {
+    assert.ok(workCardGuidance.some(line=>line.includes(phrase)), phrase);
+    assert.ok(fixCardGuidance.some(line=>line.includes(phrase)), phrase);
+  }
   for (const workCardOnlyPhrase of [
     "validation/capability-map.json",
     "reuse an existing test unchanged",

@@ -63,6 +63,24 @@ For each card:
 
 Do not pause between cards for source-control operations or source-control confirmation.
 
+## Broken Suite Quarantine
+
+The legacy repository-wide aggregate suite is quarantined for the entire TVA implementation bundle.
+
+During TVA01 through TVA09 Astra must **not** execute:
+
+- `npm test` while it still resolves to the legacy aggregate;
+- `test:full` or any equivalent repository-wide aggregate;
+- `node --test ... "test/**/*.test.cjs"`;
+- the complete supported-platform/full-regression profile;
+- an entire known-pathological test file merely because one contained behavior changed, when a narrower named subset can prove the card.
+
+Validation during this bundle must use the smallest focused proof that establishes the card's owned behavior. Prefer structural/count assertions, named test patterns, specific files, fixture-level adapter conformance, and plan-preview tests.
+
+The full repository qualification is **post-bundle work**. It is not an Implementer requirement for TVA01–TVA09.
+
+If a card appears to require the broken aggregate to prove correctness, stop and report the missing focused proof boundary as a TVA architecture defect. Do not run the aggregate anyway.
+
 ## Same-Day Regression Recovery Gate
 
 TVA02A is the same-day regression recovery gate. Do not continue to TVA02 while the pathological focused timings remain above TVA02A's measured acceptance thresholds unless a concrete external/infrastructure blocker is documented for Architect review.
@@ -95,7 +113,7 @@ When a new test is required, identify the previously uncovered behavior/failure 
 
 Measure before and after relevant cards. Do not claim performance improvement from timeout values.
 
-TVA09 owns final measured acceptance against the architecture budgets.
+TVA09 owns final measured focused/profile acceptance against the architecture budgets. Whole-repository qualification remains post-bundle.
 
 ## Stop Conditions
 

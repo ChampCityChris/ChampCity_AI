@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { resolvePlanningProjectionContext, type PlanningProjectionContext } from "../documents/planningProjectionContext";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import type { CanonicalDocumentMetadata } from "../../shared/documents/canonicalMarkdown";
@@ -52,9 +53,9 @@ function eligible(input: PlanExecutionInput, boundary: RoutedAcceptanceBoundary)
   const phase = projection.phases.find((entry) => entry.phaseId === boundary.phaseId);
   return Boolean(phase?.eligible && phase.workItemsComplete);
 }
-function readAcceptance(root: string, binding: RoutedDevelopmentExecutionBinding, input: PlanExecutionInput, boundary: RoutedAcceptanceBoundary) {
+function readAcceptance(root: string, binding: RoutedDevelopmentExecutionBinding, input: PlanExecutionInput, boundary: RoutedAcceptanceBoundary, planningContext?: PlanningProjectionContext) {
   const relativePath = routedAcceptancePath(binding, boundary);
-  const document = listPlanningDocuments(root).find((entry) => entry.markdownPath === relativePath);
+  const document = listPlanningDocuments(planningContext ?? root).find((entry) => entry.markdownPath === relativePath);
   const declared = criteriaFor(binding, boundary);
   const projection: RoutedAcceptanceProjection = { boundary, relativePath, acceptanceCriteria: declared, eligible: eligible(input, boundary), fresh: false, reasons: [], criteria: [] };
   if (!document) return { projection, evidence: undefined };
@@ -71,7 +72,7 @@ function readAcceptance(root: string, binding: RoutedDevelopmentExecutionBinding
     const digests = meta.workflowData.sourceDigests as Record<string, unknown> | undefined;
     if (meta.workflowData.planRevision !== binding.planRevision || meta.workflowData.planDigest !== binding.planDigest || !isDeepStrictEqual(meta.workflowData.completionBasis, expectedBasis) ||
       !isDeepStrictEqual(meta.sourceRevisions.map((source) => source.path).sort(), expectedSources) || !digests || !isDeepStrictEqual(Object.keys(digests).sort(), expectedSources) ||
-      !meta.sourceRevisions.every((source) => currentDigest(root, source.path) === digests[source.path]) || evaluateDocumentFreshness(root, document.logicalDocumentId).state !== "fresh") throw Error("Acceptance evidence is stale; record a new revision against current completion evidence.");
+      !meta.sourceRevisions.every((source) => currentDigest(root, source.path) === digests[source.path]) || evaluateDocumentFreshness(planningContext ?? root, document.logicalDocumentId).state !== "fresh") throw Error("Acceptance evidence is stale; record a new revision against current completion evidence.");
     projection.fresh = evidence.fresh = true;
     evidence.criteria = projection.criteria.map((entry) => ({ ...entry, status: isAcceptedCloseout(document.effectiveDisposition, meta.workflowData.closureDecision, true) ? entry.status : "pending", evidencePaths: [...entry.evidencePaths, relativePath] }));
   } catch (error) {
@@ -82,29 +83,31 @@ function readAcceptance(root: string, binding: RoutedDevelopmentExecutionBinding
 }
 
 /** Populate real Phase and Plan acceptance, then let the generic executor decide completion. */
-export function loadRoutedAcceptance(root: string, binding: RoutedDevelopmentExecutionBinding, input: PlanExecutionInput): RoutedAcceptanceProjection[] {
+export function loadRoutedAcceptance(root: string, binding: RoutedDevelopmentExecutionBinding, input: PlanExecutionInput, planningContext?: PlanningProjectionContext): RoutedAcceptanceProjection[] {
+  planningContext = resolvePlanningProjectionContext(root, planningContext);
   const boundaries = routedAcceptanceBoundaries(binding);
   // Basis uses deterministic Phase paths, so record loading does not depend on array order.
-  const phaseResults = boundaries.filter((boundary) => boundary.kind === "phase").map((boundary) => ({ boundary, ...readAcceptance(root, binding, input, boundary) }));
+  const phaseResults = boundaries.filter((boundary) => boundary.kind === "phase").map((boundary) => ({ boundary, ...readAcceptance(root, binding, input, boundary, planningContext) }));
   input.phases = phaseResults.flatMap(({ boundary, evidence }) => evidence && boundary.kind === "phase" ? [{ ...evidence, phaseId: boundary.phaseId }] : []);
-  const plan = readAcceptance(root, binding, input, { kind: "plan" });
+  const plan = readAcceptance(root, binding, input, { kind: "plan" }, planningContext);
   input.planEvidence = plan.evidence;
   return [...phaseResults.map(({ boundary, projection }) => ({ ...projection, eligible: eligible(input, boundary) })), plan.projection];
 }
 
-export function saveRoutedAcceptance(root: string, binding: RoutedDevelopmentExecutionBinding, input: PlanExecutionInput, request: RoutedAcceptanceInput) {
+export function saveRoutedAcceptance(root: string, binding: RoutedDevelopmentExecutionBinding, input: PlanExecutionInput, request: RoutedAcceptanceInput, planningContext?: PlanningProjectionContext) {
+  planningContext = resolvePlanningProjectionContext(root, planningContext);
   const relativePath = routedAcceptancePath(binding, request.boundary);
   if (!eligible(input, request.boundary)) throw Error("Acceptance requires current completed children and prerequisite boundaries.");
   validateCriteria(request.criteria, criteriaFor(binding, request.boundary));
   if (!["Close", "DoNotClose"].includes(request.closureDecision) || typeof request.rationale !== "string" || !request.rationale.trim() || request.rationale.length > 10000) throw Error("Acceptance requires a bounded rationale and closure decision.");
-  const documents = listPlanningDocuments(root);
+  const documents = listPlanningDocuments(planningContext ?? root);
   const existing = documents.find((entry) => entry.markdownPath === relativePath);
   if (existing && (!existing.metadata.canonical || !isDeepStrictEqual(existing.metadata.canonical.identity, identityFor(binding, request.boundary)) || existing.metadata.artifactType !== `${request.boundary.kind}-closeout`)) throw Error("Acceptance target conflicts with an existing artifact.");
   const completionBasis = basis(binding, input, request.boundary);
   const paths = [...new Set([...completionBasis, ...request.criteria.flatMap((entry) => entry.evidencePaths)])].sort();
   const sourceRevisions = paths.map((relative) => {
     const document = documents.find((entry) => entry.markdownPath === relative);
-    if (relative === relativePath || !document?.metadata.canonical || document.documentReadState !== "readable" || document.metadata.participationRole === "historical" || evaluateDocumentFreshness(root, document.logicalDocumentId).state !== "fresh") throw Error("Acceptance evidence requires current canonical documents, without self-reference.");
+    if (relative === relativePath || !document?.metadata.canonical || document.documentReadState !== "readable" || document.metadata.participationRole === "historical" || evaluateDocumentFreshness(planningContext ?? root, document.logicalDocumentId).state !== "fresh") throw Error("Acceptance evidence requires current canonical documents, without self-reference.");
     return { path: relative, revision: document.metadata.artifactRevision ?? 1 };
   });
   const metadata: CanonicalDocumentMetadata = { schemaVersion: 1, artifactType: `${request.boundary.kind}-closeout`, artifactRevision: (existing?.metadata.artifactRevision ?? 0) + 1,
@@ -116,11 +119,12 @@ export function saveRoutedAcceptance(root: string, binding: RoutedDevelopmentExe
   return { relativePath, artifactRevision: metadata.artifactRevision };
 }
 
-export function reviewRoutedAcceptance(root: string, binding: RoutedDevelopmentExecutionBinding, input: PlanExecutionInput, request: { boundary: RoutedAcceptanceBoundary; expectedRevision: number; disposition: "Approved" | "RevisionRequested" | "Rejected"; notes?: string }) {
-  const { projection } = readAcceptance(root, binding, input, request.boundary);
+export function reviewRoutedAcceptance(root: string, binding: RoutedDevelopmentExecutionBinding, input: PlanExecutionInput, request: { boundary: RoutedAcceptanceBoundary; expectedRevision: number; disposition: "Approved" | "RevisionRequested" | "Rejected"; notes?: string }, planningContext?: PlanningProjectionContext) {
+  planningContext = resolvePlanningProjectionContext(root, planningContext);
+  const { projection } = readAcceptance(root, binding, input, request.boundary, planningContext);
   if (!projection.eligible || !projection.fresh || projection.artifactRevision !== request.expectedRevision || !["Approved", "RevisionRequested", "Rejected"].includes(request.disposition)) throw Error("Current eligible acceptance revision is required for review.");
   if (request.disposition === "Approved") {
-    const document = listPlanningDocuments(root).find((entry) => entry.markdownPath === projection.relativePath)!;
+    const document = listPlanningDocuments(planningContext ?? root).find((entry) => entry.markdownPath === projection.relativePath)!;
     if (!isAcceptedCloseout("Approved", document.metadata.canonical?.workflowData.closureDecision, true) || projection.criteria.some((entry) => entry.status !== "passed")) throw Error("Approval requires Close and passing evidence for every declared acceptance criterion.");
   }
   updateCanonicalMarkdownDisposition({ workspaceRoot: root, relativePath: projection.relativePath, status: request.disposition, notes: request.notes });

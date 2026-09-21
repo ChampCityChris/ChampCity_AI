@@ -1,3 +1,4 @@
+import type { IntegrationValidationContext } from "../../shared/integrationPolicyContracts";
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -17,7 +18,7 @@ import { assertIntegrationSourceText } from "../agentHarness/repository/integrat
 /** Main-process adapters supply current durable Plan evidence and the required validation policy, never renderer commands. */
 export interface IntegrationValidationCheck {
   checkId: string;
-  run: (candidateRoot: string) => Promise<Omit<IntegrationValidationEvidence, "checkId">>;
+  run: (candidateRoot: string, context: Readonly<IntegrationValidationContext>) => Promise<Omit<IntegrationValidationEvidence, "checkId">>;
 }
 export interface ResolvedIntegrationValidationPolicy {
   sha256: string;
@@ -112,14 +113,16 @@ export function createIntegrationCandidateService(hooks: IntegrationCandidateHoo
     record.validation = [];
     for (const check of resolved.checks) {
       try {
-        const proof = await check.run(integrationPaths(root, record.candidateId).checkout);
+        const context = Object.freeze({ repositoryId: record.repositoryId, targetCommit: record.targetCommit, incomingCommit: record.incomingCommit,
+          candidateCommit: before.commit, candidateId: record.candidateId, targetBranch: record.targetBranch, platform: process.platform });
+        const proof = await check.run(integrationPaths(root, record.candidateId).checkout, context);
         // Retain bounded semantic failure detail from the trusted adapter, never raw process diagnostics.
         const passed = Number.isInteger(proof.exitCode) && proof.exitCode === 0;
         let summary = passed ? "Required check passed." : "Required check failed; inspect the configured validation adapter evidence.";
         if (typeof proof.summary === "string" && proof.summary.trim() && proof.summary.length <= 4000 && !/(?:[A-Za-z]:[\\/]|\/(?:Users|home|tmp|var\/tmp)\/|CHAMPCITY-METADATA)/.test(proof.summary)) {
           assertIntegrationSourceText(proof.summary); summary = proof.summary.trim();
         }
-        record.validation.push({ checkId: check.checkId, exitCode: Number.isInteger(proof.exitCode) ? proof.exitCode : null, summary });
+        record.validation.push({ checkId: check.checkId, exitCode: Number.isInteger(proof.exitCode) ? proof.exitCode : null, summary, ...(proof.profileEvidence ? { profileEvidence: proof.profileEvidence } : {}) });
       } catch { record.validation.push({ checkId: check.checkId, exitCode: null, summary: "Required check could not complete." }); }
     }
     const after = unwrap(await source.inspectIntegration(record.candidateId), record);

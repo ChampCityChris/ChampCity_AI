@@ -31,11 +31,10 @@ npm ci
 npm start
 ```
 
-Run the canonical validation lane from the repository root:
+Run bounded developer validation from the repository root:
 
 ```powershell
-npm run typecheck
-npm run build
+npm test -- --preview
 npm test
 ```
 

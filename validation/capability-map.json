@@ -1,12 +1,14 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 3,
   "capabilities": [
     {
       "capabilityId": "agent-harness-mcp-runtime",
       "description": "Loopback MCP runtime, session, diagnostics, settings, and tool-contract lifecycle for registered workspaces.",
       "sourcePatterns": [
         "src/main/agentHarness/runtime/**",
-        "src/main/agentHarness/tools/**"
+        "src/main/agentHarness/tools/**",
+        "test/support/mcp-diagnostics-fixture.cjs",
+        "test/support/mcp-session-fixture.cjs"
       ],
       "dependsOn": [
         "agent-harness-repository-operations",
@@ -764,7 +766,8 @@
       "description": "Background Agent Service Host process ownership, startup, tray, recovery, and build identity.",
       "sourcePatterns": [
         "src/main/agentHarness/runtime/**",
-        "src/main/bootstrap.ts"
+        "src/main/bootstrap.ts",
+        "test/support/windows-test.cjs"
       ],
       "dependsOn": [
         "agent-harness-mcp-runtime",
@@ -1226,7 +1229,8 @@
       "description": "Managed Codex app-server initialization, transport, execution, review, and renderer presentation.",
       "sourcePatterns": [
         "src/main/workCardBuilding/**",
-        "src/renderer/app/WorkCardBuildingReviewWorkspace.tsx"
+        "src/renderer/app/WorkCardBuildingReviewWorkspace.tsx",
+        "test/support/windows-test.cjs"
       ],
       "dependsOn": [
         "development-environment-provisioning",
@@ -1640,7 +1644,8 @@
       "description": "Development capability contracts, preflight, elevation, Windows provisioning, and environment refresh.",
       "sourcePatterns": [
         "src/main/developmentEnvironment/**",
-        "src/shared/developmentEnvironment/**"
+        "src/shared/developmentEnvironment/**",
+        "test/support/windows-test.cjs"
       ],
       "dependsOn": [],
       "behaviors": [
@@ -2979,8 +2984,16 @@
       "capabilityId": "release-and-git-operations",
       "description": "Candidate validation, bounded Git mutations, release actions, and repository-state evidence.",
       "sourcePatterns": [
+        ".champcity/integration-policy.json",
         "src/main/agentHarness/repository/gitMutations.ts",
-        "src/main/agentHarness/tools/releaseToolbox.ts"
+        "src/main/agentHarness/tools/releaseToolbox.ts",
+        "src/main/planExecution/**",
+        "src/shared/integration*",
+        "test/fixtures/routed-completed/**",
+        "test/support/completed-routed-plan.cjs",
+        "test/support/integration-scenarios.cjs",
+        "test/support/integration-semantics.cjs",
+        "test/support/windows-test.cjs"
       ],
       "dependsOn": [
         "agent-harness-repository-operations"
@@ -3013,6 +3026,18 @@
         {
           "behaviorId": "branch-state-existing-branch-switching-and-bounded-history-expose-real-repository-evidence",
           "description": "branch state, existing-branch switching, and bounded history expose real repository evidence"
+        },
+        {
+          "behaviorId": "candidate-aware-validation-profile",
+          "description": "Target-owned profile toolkit/catalog, exact candidate context and repair revision revalidation."
+        },
+        {
+          "behaviorId": "candidate-profile-controls-target-eligibility",
+          "description": "Actual target-owned profile passes before candidate advance; failed selected proof blocks the target."
+        },
+        {
+          "behaviorId": "candidate-runner-context",
+          "description": "Application candidate orchestration supplies immutable exact runner context."
         },
         {
           "behaviorId": "candidate-snapshot-preserves-exact-current-git-visible-bytes-and-excludes-ignored-local-state",
@@ -3083,6 +3108,34 @@
           "description": "ineligible existing release metadata and asset states fail closed without mutation"
         },
         {
+          "behaviorId": "integration-candidate-source-integrity",
+          "description": "isolated integration candidates gate target advancement on current Plan and post-merge proof"
+        },
+        {
+          "behaviorId": "integration-npm-adapter",
+          "description": "real npm adapter preserves candidate cwd trusted scripts process bounds and sanitized failure evidence"
+        },
+        {
+          "behaviorId": "integration-policy-schema-boundary",
+          "description": "integration policy rejects untrusted schemas and redirected or unbounded configuration"
+        },
+        {
+          "behaviorId": "integration-repair-controller",
+          "description": "Integration Repair controller preserves retry ownership patch disposition intent and Operator decisions without process setup"
+        },
+        {
+          "behaviorId": "integration-repair-provider",
+          "description": "real Integration Repair provider binds immutable policy changed paths ownership and governing bytes"
+        },
+        {
+          "behaviorId": "integration-repair-source-boundary",
+          "description": "Integration Repair source boundaries retain validation retries Operator decisions and worker index rejection"
+        },
+        {
+          "behaviorId": "integration-target-policy-authority",
+          "description": "target-owned repository policy gates isolated integration candidates"
+        },
+        {
           "behaviorId": "isolated-npm-ci-leaves-a-held-source-node-modules-electron-sentinel-intact",
           "description": "isolated npm ci leaves a held source node_modules/electron sentinel intact"
         },
@@ -3129,6 +3182,10 @@
         {
           "behaviorId": "release-toolbox-publishes-exact-read-write-scoped-actions-with-no-raw-command-surface",
           "description": "release_toolbox publishes exact read/write-scoped actions with no raw command surface"
+        },
+        {
+          "behaviorId": "routed-checkpoint-integration-composition",
+          "description": "routed clean and conflict integration preserves completed checkpoint and Plan lineage from the nearest durable boundary"
         },
         {
           "behaviorId": "semver-and-set-version-are-bounded-to-a-validated-version-and-npm-owned-version-files",
@@ -3318,7 +3375,7 @@
         },
         {
           "behaviorId": "selected-project-hub-renders-exactly-development-and-issue-resolution-workflow-cards",
-          "description": "Selected-project Hub renders exactly Development and Issue Resolution workflow cards"
+          "description": "Selected-project Hub prioritizes Work Intake and retains Development and Issue recovery"
         },
         {
           "behaviorId": "top-phases-rail-stays-in-progress-while-phase-execution-remains-active",
@@ -3358,6 +3415,8 @@
       "capabilityId": "validation-capability-map",
       "description": "Repository-owned capability/test inventory schema, ownership, proof relationships, and corpus integrity.",
       "sourcePatterns": [
+        "*.md",
+        "docs/**",
         "test/**/*.test.cjs",
         "validation/capability-map.json"
       ],
@@ -3382,6 +3441,60 @@
         {
           "behaviorId": "protector-sets-expose-primary-complementary-overlapping-and-redundant-relationships-mechanically",
           "description": "protector sets expose primary, complementary, overlapping, and redundant relationships mechanically"
+        }
+      ]
+    },
+    {
+      "capabilityId": "validation-execution",
+      "description": "Repository-owned validation planning and execution.",
+      "sourcePatterns": [
+        "package.json",
+        "scripts/copy-branding-assets.mjs",
+        "scripts/validation/**",
+        "src/main/validation/**",
+        "test/fixtures/validation/**",
+        "test/support/execution-metrics.cjs",
+        "test/support/validation-fixture.cjs",
+        "test/validation/validation-runner.test.cjs",
+        "tsconfig.json",
+        "validation/profiles.json",
+        "vite.config.ts"
+      ],
+      "dependsOn": [
+        "validation-capability-map"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "affected-proof-selection",
+          "description": "Deterministic exact-path ownership, explicit broadening, dependency closure and actionable unmapped-source failures."
+        },
+        {
+          "behaviorId": "bounded-safe-scheduling",
+          "description": "Concurrent safe file execution, exclusive cohorts, deterministic receipts and process cleanup."
+        },
+        {
+          "behaviorId": "bounded-serial-validation-execution",
+          "description": "serial validation execution reports real pass failure timeout and bounded output"
+        },
+        {
+          "behaviorId": "deterministic-validation-plans",
+          "description": "validation plans deterministically preserve lane profile and ownership requirements"
+        },
+        {
+          "behaviorId": "fail-closed-validation-selection",
+          "description": "validation planning rejects invalid selection catalog and ownership instead of omitting proof"
+        },
+        {
+          "behaviorId": "public-profile-dispatch",
+          "description": "Public CLI and scripts compose registered proof and reject accidental broad affected execution."
+        },
+        {
+          "behaviorId": "run-owned-build-freshness",
+          "description": "One current-run build serves all built proof; stale output cannot bypass build failure."
+        },
+        {
+          "behaviorId": "source-bound-budgeted-receipts",
+          "description": "Exact source context, selection, counts and advisory budget outcomes survive build-once scheduled end-to-end execution."
         }
       ]
     },
@@ -3472,7 +3585,8 @@
       "sourcePatterns": [
         "electron-builder.yml",
         "packaging/windows/**",
-        "scripts/validate-windows-package-metadata.cjs"
+        "scripts/validate-windows-package-metadata.cjs",
+        "test/support/windows-test.cjs"
       ],
       "dependsOn": [
         "background-agent-lifecycle",
@@ -3669,6 +3783,10 @@
         {
           "behaviorId": "approved-repair-work-card-routes-to-implement-with-repair-report-target",
           "description": "Approved Repair Work Card routes to Implement with repair report target"
+        },
+        {
+          "behaviorId": "bounded-routed-projection-inventory",
+          "description": "routed projection shares one fresh inventory across large Work Item and document sets"
         },
         {
           "behaviorId": "build-workspace-availability-distinguishes-unavailable-preflight-retry-from-codex-readiness",
@@ -4252,12 +4370,12 @@
       "testPath": "test/agent-harness/agent-harness-build-identity.test.cjs",
       "currentTestCount": {
         "value": 4,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/agent-harness-build-identity.test.cjs; the TAP summary reported 4 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 214,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/agent-harness-build-identity.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 252,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -4278,7 +4396,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -4317,12 +4437,12 @@
       "testPath": "test/agent-harness/agent-harness-core.test.cjs",
       "currentTestCount": {
         "value": 14,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/agent-harness-core.test.cjs; the TAP summary reported 14 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 514,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/agent-harness-core.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 629,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -4343,7 +4463,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -4440,13 +4562,13 @@
     {
       "testPath": "test/agent-harness/agent-harness-process-boundary.test.cjs",
       "currentTestCount": {
-        "value": 22,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/agent-harness-process-boundary.test.cjs; the TAP summary reported 22 tests, including generated subtests."
+        "value": 18,
+        "basis": "TVA02 mechanically preserved top-level test declarations; nested runtime counts may differ."
       },
       "duration": {
-        "kind": "measured",
-        "milliseconds": 62657,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/agent-harness-process-boundary.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "kind": "estimated",
+        "milliseconds": 60000,
+        "basis": "Retained Desktop boundary after four small contracts moved; one real Electron case measured 5.76 seconds, full file intentionally not run."
       },
       "proposedValidationLane": "desktop-platform",
       "platformDependency": "windows",
@@ -4458,8 +4580,8 @@
         "process": true,
         "timing": true
       },
-      "sourceInspectionClassification": "mixed",
-      "v2Disposition": "split",
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "quarantine",
       "validationRoles": [
         "capability",
         "desktop-platform",
@@ -4470,31 +4592,24 @@
         "platform": "windows",
         "externalCapabilities": [
           "git-cli"
-        ]
+        ],
+        "scheduling": "exclusive-desktop",
+        "schedulingReason": "Real Desktop, platform or machine-global lifecycle evidence requires exclusive execution."
       },
       "proofCharacteristics": [
         "behavioral",
         "environment-bound",
         "external-capability-bound",
-        "source-text",
-        "static-analysis",
         "timing-sensitive"
       ],
       "dispositionReasons": [
-        "environment-coupled",
-        "proof-boundary-should-change"
+        "environment-coupled"
       ],
       "behaviorCoverage": [
         {
           "capabilityId": "background-agent-lifecycle",
           "behaviorId": "actual-electron-utility-process-boundary-preserves-mcp-routing-controls-heartbeat-concurrency-an",
           "proofLocator": "actual Electron utility-process boundary preserves MCP routing, controls, heartbeat concurrency, and bounded recovery",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "background-agent-lifecycle",
-          "behaviorId": "compiled-bootstrap-routes-maintenance-service-host-and-desktop-modes-with-appropriate-switches",
-          "proofLocator": "compiled bootstrap routes maintenance, Service Host, and Desktop modes with appropriate switches",
           "proofRole": "primary"
         },
         {
@@ -4507,12 +4622,6 @@
           "capabilityId": "background-agent-lifecycle",
           "behaviorId": "controlled-service-host-restart-preserves-registry-and-confirms-replacement-build-identity",
           "proofLocator": "controlled Service Host restart preserves registry and confirms replacement build identity",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "background-agent-lifecycle",
-          "behaviorId": "desktop-and-service-host-controllers-do-not-import-worker-owned-runtime-implementations",
-          "proofLocator": "Desktop and Service Host controllers do not import worker-owned runtime implementations",
           "proofRole": "primary"
         },
         {
@@ -4604,6 +4713,62 @@
           "behaviorId": "valid-and-malformed-explicit-stop-intent-suppress-passive-launch-while-explicit-start-clears-sup",
           "proofLocator": "valid and malformed explicit-stop intent suppress passive launch while explicit Start clears suppression",
           "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/agent-harness/agent-harness-process-contract.test.cjs",
+      "currentTestCount": {
+        "value": 4,
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 332,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "ast-static-analysis",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "contract",
+        "source-structure"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "TVA04 source review: pure data, process-local mocks/read-only source, or unique temporary roots; no machine-global process or timing measurement."
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "static-analysis"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "background-agent-lifecycle",
+          "behaviorId": "compiled-bootstrap-routes-maintenance-service-host-and-desktop-modes-with-appropriate-switches",
+          "proofLocator": "compiled bootstrap routes maintenance, Service Host, and Desktop modes with appropriate switches",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "background-agent-lifecycle",
+          "behaviorId": "desktop-and-service-host-controllers-do-not-import-worker-owned-runtime-implementations",
+          "proofLocator": "Desktop and Service Host controllers do not import worker-owned runtime implementations",
+          "proofRole": "primary"
         },
         {
           "capabilityId": "background-agent-lifecycle",
@@ -4623,12 +4788,12 @@
       "testPath": "test/agent-harness/agent-harness-runtime.test.cjs",
       "currentTestCount": {
         "value": 18,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/agent-harness-runtime.test.cjs; the TAP summary reported 18 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 4085,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/agent-harness-runtime.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 5456,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -4651,7 +4816,9 @@
         "platform": "any",
         "externalCapabilities": [
           "git-cli"
-        ]
+        ],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -4777,12 +4944,12 @@
       "testPath": "test/agent-harness/agent-harness-service-host-lifecycle.test.cjs",
       "currentTestCount": {
         "value": 11,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/agent-harness-service-host-lifecycle.test.cjs; the TAP summary reported 11 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 102,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/agent-harness-service-host-lifecycle.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 170,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -4803,7 +4970,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -4884,12 +5053,12 @@
       "testPath": "test/agent-harness/agent-harness-service-host-protocol-compatibility.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/agent-harness-service-host-protocol-compatibility.test.cjs; the TAP summary reported 2 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 107,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/agent-harness-service-host-protocol-compatibility.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 176,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -4911,7 +5080,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -4941,12 +5112,12 @@
       "testPath": "test/agent-harness/background-agent-tray-presentation.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/background-agent-tray-presentation.test.cjs; the TAP summary reported 2 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 69,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/background-agent-tray-presentation.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 151,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "desktop-platform",
       "platformDependency": "windows",
@@ -4959,7 +5130,7 @@
         "timing": false
       },
       "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
+      "v2Disposition": "quarantine",
       "validationRoles": [
         "capability",
         "desktop-platform"
@@ -4967,14 +5138,15 @@
       "execution": {
         "requiresBuild": true,
         "platform": "windows",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-desktop",
+        "schedulingReason": "Real Desktop, platform or machine-global lifecycle evidence requires exclusive execution."
       },
       "proofCharacteristics": [
         "behavioral",
         "environment-bound"
       ],
       "dispositionReasons": [
-        "current-proof-appropriate",
         "environment-coupled"
       ],
       "behaviorCoverage": [
@@ -5014,7 +5186,7 @@
         "timing": false
       },
       "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
+      "v2Disposition": "quarantine",
       "validationRoles": [
         "capability",
         "desktop-platform"
@@ -5024,7 +5196,9 @@
         "platform": "windows",
         "externalCapabilities": [
           "git-cli"
-        ]
+        ],
+        "scheduling": "exclusive-desktop",
+        "schedulingReason": "Real Desktop, platform or machine-global lifecycle evidence requires exclusive execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -5032,7 +5206,6 @@
         "external-capability-bound"
       ],
       "dispositionReasons": [
-        "current-proof-appropriate",
         "environment-coupled"
       ],
       "behaviorCoverage": [
@@ -5089,8 +5262,8 @@
         "process": true,
         "timing": false
       },
-      "sourceInspectionClassification": "mixed",
-      "v2Disposition": "split",
+      "sourceInspectionClassification": "ast-static-analysis",
+      "v2Disposition": "preserve",
       "validationRoles": [
         "capability",
         "integration",
@@ -5101,18 +5274,18 @@
         "platform": "any",
         "externalCapabilities": [
           "git-cli"
-        ]
+        ],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
         "environment-bound",
         "external-capability-bound",
-        "source-text",
         "static-analysis"
       ],
       "dispositionReasons": [
-        "environment-coupled",
-        "proof-boundary-should-change"
+        "current-proof-appropriate"
       ],
       "behaviorCoverage": [
         {
@@ -5220,17 +5393,371 @@
       ]
     },
     {
-      "testPath": "test/agent-harness/mcp-operational-diagnostics.test.cjs",
+      "testPath": "test/agent-harness/integration-candidate-semantics.test.cjs",
       "currentTestCount": {
-        "value": 7,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/mcp-operational-diagnostics.test.cjs; the TAP summary reported 7 tests, including generated subtests."
+        "value": 1,
+        "basis": "Top-level decomposed scenario groups; nested cases retain their own runtime counts."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 240000,
+        "basis": "Seven retained real-source-control scenarios; not rerun as a whole during TVA02A quarantine."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "integration-candidate-source-integrity",
+          "proofLocator": "isolated integration candidates gate target advancement on current Plan and post-merge proof",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/agent-harness/integration-npm-adapter.test.cjs",
+      "currentTestCount": {
+        "value": 1,
+        "basis": "One top-level contract containing the explicitly separated adapter/provider/controller scenario assertions."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 81218,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/mcp-operational-diagnostics.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 5180,
+        "basis": "TVA02A focused normal Windows invocation; detailed commands and timing in its Implementer Report."
       },
-      "proposedValidationLane": "performance-soak",
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": true,
+        "timing": true
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "integration-npm-adapter",
+          "proofLocator": "real npm adapter preserves candidate cwd trusted scripts process bounds and sanitized failure evidence",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/agent-harness/integration-policy-semantics.test.cjs",
+      "currentTestCount": {
+        "value": 2,
+        "basis": "Top-level decomposed scenario groups; nested cases retain their own runtime counts."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 37968,
+        "basis": "TVA02A focused normal Windows invocation; detailed commands and timing in its Implementer Report."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "integration-policy-schema-boundary",
+          "proofLocator": "integration policy rejects untrusted schemas and redirected or unbounded configuration",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "integration-target-policy-authority",
+          "proofLocator": "target-owned repository policy gates isolated integration candidates",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/agent-harness/integration-profile-gate.test.cjs",
+      "currentTestCount": {
+        "value": 7,
+        "basis": "Three top-level contracts plus four generated candidate scenarios."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 17000,
+        "basis": "TVA06 measured first profile adapter/context run about 14 seconds plus added bounded source-mutation subcase."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "candidate-aware-validation-profile",
+          "proofLocator": "candidate profile uses immutable target toolkit ownership and revisions through repair revalidation",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "candidate-profile-controls-target-eligibility",
+          "proofRole": "primary",
+          "proofLocator": "actual candidate profile receipts control target eligibility"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "candidate-runner-context",
+          "proofLocator": "candidate orchestration supplies frozen exact runner context",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/agent-harness/integration-repair-controller.test.cjs",
+      "currentTestCount": {
+        "value": 1,
+        "basis": "One top-level contract containing the explicitly separated adapter/provider/controller scenario assertions."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 210,
+        "basis": "TVA02A focused normal Windows invocation; detailed commands and timing in its Implementer Report."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "TVA04 source review: pure data, process-local mocks/read-only source, or unique temporary roots; no machine-global process or timing measurement."
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "integration-repair-controller",
+          "proofLocator": "Integration Repair controller preserves retry ownership patch disposition intent and Operator decisions without process setup",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/agent-harness/integration-repair-provider.test.cjs",
+      "currentTestCount": {
+        "value": 1,
+        "basis": "One top-level contract containing the explicitly separated adapter/provider/controller scenario assertions."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 19897,
+        "basis": "TVA02A focused normal Windows invocation; detailed commands and timing in its Implementer Report."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "integration-repair-provider",
+          "proofLocator": "real Integration Repair provider binds immutable policy changed paths ownership and governing bytes",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/agent-harness/integration-repair-source-semantics.test.cjs",
+      "currentTestCount": {
+        "value": 1,
+        "basis": "One top-level contract containing the explicitly separated adapter/provider/controller scenario assertions."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 32377,
+        "basis": "TVA02A focused normal Windows invocation; detailed commands and timing in its Implementer Report."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "integration-repair-source-boundary",
+          "proofLocator": "Integration Repair source boundaries retain validation retries Operator decisions and worker index rejection",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/agent-harness/mcp-operational-diagnostics.test.cjs",
+      "currentTestCount": {
+        "value": 5,
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 6605,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+      },
+      "proposedValidationLane": "integration",
       "platformDependency": "none",
       "dependencies": {
         "electron": false,
@@ -5243,12 +5770,14 @@
       "sourceInspectionClassification": "none",
       "v2Disposition": "preserve",
       "validationRoles": [
-        "capability"
+        "integration"
       ],
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -5287,31 +5816,19 @@
           "behaviorId": "service-diagnostics-remain-monotonic-across-http-runtime-generations-within-one-worker-generatio",
           "proofLocator": "service diagnostics remain monotonic across HTTP runtime generations within one worker generation",
           "proofRole": "primary"
-        },
-        {
-          "capabilityId": "agent-harness-mcp-runtime",
-          "behaviorId": "settled-sixty-second-idle-sample-stays-within-cpu-and-event-loop-lag-limits",
-          "proofLocator": "settled sixty-second idle sample stays within CPU and event-loop lag limits",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "agent-harness-mcp-runtime",
-          "behaviorId": "two-batch-abrupt-reconnect-soak-plateaus-at-the-cap-without-linear-rss-growth",
-          "proofLocator": "two-batch abrupt reconnect soak plateaus at the cap without linear RSS growth",
-          "proofRole": "primary"
         }
       ]
     },
     {
       "testPath": "test/agent-harness/mcp-session-lifecycle.test.cjs",
       "currentTestCount": {
-        "value": 14,
-        "basis": "Measured by node --test --test-concurrency=1 test/agent-harness/mcp-session-lifecycle.test.cjs; the summary reported 14 tests."
+        "value": 13,
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 21191,
-        "basis": "Measured by node --test --test-concurrency=1 test/agent-harness/mcp-session-lifecycle.test.cjs in the HOTFIX20 normal Windows focused lane; value is the rounded-up duration_ms summary."
+        "milliseconds": 6489,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -5332,7 +5849,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -5342,12 +5861,6 @@
         "current-proof-appropriate"
       ],
       "behaviorCoverage": [
-        {
-          "capabilityId": "agent-harness-mcp-runtime",
-          "behaviorId": "abrupt-mcp-clients-remain-globally-bounded-and-one-runtime-reaper-expires-retained-session-state",
-          "proofLocator": "abrupt MCP clients remain globally bounded and one runtime reaper expires retained session state",
-          "proofRole": "primary"
-        },
         {
           "capabilityId": "agent-harness-mcp-runtime",
           "behaviorId": "agent-harness-status-retains-bounded-runtime-close-diagnostics-after-service-shutdown",
@@ -5432,12 +5945,12 @@
       "testPath": "test/agent-harness/mcp-tool-contract-generation.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/mcp-tool-contract-generation.test.cjs; the TAP summary reported 2 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 1379,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/mcp-tool-contract-generation.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 1455,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -5459,7 +5972,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -5508,7 +6023,7 @@
         "timing": false
       },
       "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
+      "v2Disposition": "quarantine",
       "validationRoles": [
         "capability",
         "desktop-platform"
@@ -5516,14 +6031,15 @@
       "execution": {
         "requiresBuild": true,
         "platform": "windows",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-desktop",
+        "schedulingReason": "Real Desktop, platform or machine-global lifecycle evidence requires exclusive execution."
       },
       "proofCharacteristics": [
         "behavioral",
         "environment-bound"
       ],
       "dispositionReasons": [
-        "current-proof-appropriate",
         "environment-coupled"
       ],
       "behaviorCoverage": [
@@ -5581,12 +6097,12 @@
       "testPath": "test/agent-harness/oauth-offline-access.test.cjs",
       "currentTestCount": {
         "value": 9,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/oauth-offline-access.test.cjs; the TAP summary reported 9 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 1833,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/oauth-offline-access.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 2035,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -5607,7 +6123,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -5660,12 +6178,12 @@
       "testPath": "test/agent-harness/registered-workspace-registry.test.cjs",
       "currentTestCount": {
         "value": 5,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/registered-workspace-registry.test.cjs; the TAP summary reported 5 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 1033,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/registered-workspace-registry.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 1645,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -5686,7 +6204,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -5748,8 +6268,8 @@
         "process": true,
         "timing": false
       },
-      "sourceInspectionClassification": "mixed",
-      "v2Disposition": "split",
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
       "validationRoles": [
         "capability",
         "integration",
@@ -5760,18 +6280,17 @@
         "platform": "any",
         "externalCapabilities": [
           "git-cli"
-        ]
+        ],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
         "environment-bound",
-        "external-capability-bound",
-        "source-text",
-        "static-analysis"
+        "external-capability-bound"
       ],
       "dispositionReasons": [
-        "environment-coupled",
-        "proof-boundary-should-change"
+        "current-proof-appropriate"
       ],
       "behaviorCoverage": [
         {
@@ -5924,12 +6443,12 @@
       "testPath": "test/agent-harness/repository-enumeration-semantics.test.cjs",
       "currentTestCount": {
         "value": 6,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/repository-enumeration-semantics.test.cjs; the TAP summary reported 6 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 508,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/repository-enumeration-semantics.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 1016,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -5952,7 +6471,9 @@
         "platform": "any",
         "externalCapabilities": [
           "git-cli"
-        ]
+        ],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -6007,12 +6528,12 @@
       "testPath": "test/agent-harness/repository-file-operations.test.cjs",
       "currentTestCount": {
         "value": 17,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/repository-file-operations.test.cjs; the TAP summary reported 17 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 452,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/repository-file-operations.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 531,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -6033,7 +6554,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -6150,12 +6673,12 @@
       "testPath": "test/agent-harness/repository-io-hardening.test.cjs",
       "currentTestCount": {
         "value": 11,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/repository-io-hardening.test.cjs; the TAP summary reported 11 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 2527,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/repository-io-hardening.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 3454,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -6178,7 +6701,9 @@
         "platform": "any",
         "externalCapabilities": [
           "git-cli"
-        ]
+        ],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -6245,12 +6770,12 @@
       "testPath": "test/agent-harness/reserved-toolbox-namespace.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/reserved-toolbox-namespace.test.cjs; the TAP summary reported 2 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 350,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/reserved-toolbox-namespace.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 426,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -6271,7 +6796,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -6316,7 +6843,7 @@
         "timing": false
       },
       "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
+      "v2Disposition": "quarantine",
       "validationRoles": [
         "capability",
         "desktop-platform"
@@ -6324,14 +6851,15 @@
       "execution": {
         "requiresBuild": true,
         "platform": "windows",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-desktop",
+        "schedulingReason": "Real Desktop, platform or machine-global lifecycle evidence requires exclusive execution."
       },
       "proofCharacteristics": [
         "behavioral",
         "environment-bound"
       ],
       "dispositionReasons": [
-        "current-proof-appropriate",
         "environment-coupled"
       ],
       "behaviorCoverage": [
@@ -6413,12 +6941,12 @@
       "testPath": "test/agent-harness/sibling-process-launch.test.cjs",
       "currentTestCount": {
         "value": 5,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/sibling-process-launch.test.cjs; the TAP summary reported 5 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 75,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/sibling-process-launch.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 145,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -6439,7 +6967,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -6510,7 +7040,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -6615,7 +7147,9 @@
         "platform": "any",
         "externalCapabilities": [
           "git-cli"
-        ]
+        ],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -6693,7 +7227,7 @@
         "timing": false
       },
       "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
+      "v2Disposition": "quarantine",
       "validationRoles": [
         "capability",
         "desktop-platform"
@@ -6703,7 +7237,9 @@
         "platform": "windows",
         "externalCapabilities": [
           "npm-cli"
-        ]
+        ],
+        "scheduling": "exclusive-desktop",
+        "schedulingReason": "Real Desktop, platform or machine-global lifecycle evidence requires exclusive execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -6711,7 +7247,6 @@
         "external-capability-bound"
       ],
       "dispositionReasons": [
-        "current-proof-appropriate",
         "environment-coupled"
       ],
       "behaviorCoverage": [
@@ -6751,12 +7286,12 @@
       "testPath": "test/app-shell/app-shell.test.cjs",
       "currentTestCount": {
         "value": 11,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/app-shell/app-shell.test.cjs; the TAP summary reported 11 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 493,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/app-shell/app-shell.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 612,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -6777,7 +7312,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -6858,12 +7395,12 @@
       "testPath": "test/app-shell/clipboard-handoff.test.cjs",
       "currentTestCount": {
         "value": 18,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/app-shell/clipboard-handoff.test.cjs; the TAP summary reported 18 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 301,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/app-shell/clipboard-handoff.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 371,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -6875,8 +7412,8 @@
         "process": false,
         "timing": false
       },
-      "sourceInspectionClassification": "mixed",
-      "v2Disposition": "split",
+      "sourceInspectionClassification": "ast-static-analysis",
+      "v2Disposition": "preserve",
       "validationRoles": [
         "capability",
         "integration",
@@ -6885,15 +7422,16 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
-        "source-text",
         "static-analysis"
       ],
       "dispositionReasons": [
-        "proof-boundary-should-change"
+        "current-proof-appropriate"
       ],
       "behaviorCoverage": [
         {
@@ -6914,12 +7452,12 @@
       "testPath": "test/app-shell/native-dialog.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/app-shell/native-dialog.test.cjs; the TAP summary reported 1 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 225,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/app-shell/native-dialog.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 300,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -6931,8 +7469,8 @@
         "process": false,
         "timing": false
       },
-      "sourceInspectionClassification": "mixed",
-      "v2Disposition": "split",
+      "sourceInspectionClassification": "ast-static-analysis",
+      "v2Disposition": "preserve",
       "validationRoles": [
         "capability",
         "integration",
@@ -6941,15 +7479,16 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
-        "source-text",
         "static-analysis"
       ],
       "dispositionReasons": [
-        "proof-boundary-should-change"
+        "current-proof-appropriate"
       ],
       "behaviorCoverage": [
         {
@@ -6964,12 +7503,12 @@
       "testPath": "test/app-shell/native-product-identity.test.cjs",
       "currentTestCount": {
         "value": 4,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/app-shell/native-product-identity.test.cjs; the TAP summary reported 4 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 250,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/app-shell/native-product-identity.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 328,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "static",
       "platformDependency": "none",
@@ -6981,8 +7520,8 @@
         "process": false,
         "timing": false
       },
-      "sourceInspectionClassification": "mixed",
-      "v2Disposition": "split",
+      "sourceInspectionClassification": "ast-static-analysis",
+      "v2Disposition": "preserve",
       "validationRoles": [
         "capability",
         "source-structure"
@@ -6990,15 +7529,16 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
-        "source-text",
         "static-analysis"
       ],
       "dispositionReasons": [
-        "proof-boundary-should-change"
+        "current-proof-appropriate"
       ],
       "behaviorCoverage": [
         {
@@ -7057,7 +7597,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -7170,7 +7712,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -7260,7 +7804,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -7315,7 +7861,7 @@
         {
           "capabilityId": "work-card-workflow",
           "behaviorId": "formal-work-card-validation-governance-guidance",
-          "proofLocator": "validation-scope guidance preserves seven shared rules and keeps Work Card coverage governance out of Fix Cards",
+          "proofLocator": "validation-scope guidance preserves shared scope and profile rules and keeps Work Card coverage governance out of Fix Cards",
           "proofRole": "supporting",
           "relationshipToPrimary": "complementary",
           "primaryProof": {
@@ -7346,8 +7892,8 @@
         "process": false,
         "timing": false
       },
-      "sourceInspectionClassification": "mixed",
-      "v2Disposition": "split",
+      "sourceInspectionClassification": "ast-static-analysis",
+      "v2Disposition": "preserve",
       "validationRoles": [
         "capability",
         "integration",
@@ -7356,15 +7902,16 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
-        "source-text",
         "static-analysis"
       ],
       "dispositionReasons": [
-        "proof-boundary-should-change"
+        "current-proof-appropriate"
       ],
       "behaviorCoverage": [
         {
@@ -7546,8 +8093,8 @@
         "process": false,
         "timing": false
       },
-      "sourceInspectionClassification": "mixed",
-      "v2Disposition": "split",
+      "sourceInspectionClassification": "ast-static-analysis",
+      "v2Disposition": "preserve",
       "validationRoles": [
         "capability",
         "integration",
@@ -7556,15 +8103,16 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
-        "source-text",
         "static-analysis"
       ],
       "dispositionReasons": [
-        "proof-boundary-should-change"
+        "current-proof-appropriate"
       ],
       "behaviorCoverage": [
         {
@@ -7623,7 +8171,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -7688,7 +8238,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -7727,12 +8279,12 @@
       "testPath": "test/characterization/desktop-project-repository-binding.test.cjs",
       "currentTestCount": {
         "value": 4,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/characterization/desktop-project-repository-binding.test.cjs; the TAP summary reported 4 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 849,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/characterization/desktop-project-repository-binding.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 1456,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -7753,7 +8305,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -7810,23 +8364,23 @@
         "timing": false
       },
       "sourceInspectionClassification": "none",
-      "v2Disposition": "migrate",
+      "v2Disposition": "preserve",
       "validationRoles": [
         "capability",
         "characterization"
       ],
       "execution": {
-        "requiresBuild": false,
+        "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": [
-          "codex-app-server"
-        ]
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
       ],
       "dispositionReasons": [
-        "behavior-owner-will-change"
+        "current-proof-appropriate"
       ],
       "behaviorCoverage": [
         {
@@ -7846,6 +8400,118 @@
           "behaviorId": "desktop-runtime-failure-failure-retains-the-last-known-good-runtime-and-explicit-model-selection",
           "proofLocator": "Desktop runtime ${failure} failure retains the last known good runtime and explicit model selection",
           "proofRole": "primary"
+        },
+        {
+          "capabilityId": "codex-implementation-runtime",
+          "behaviorId": "failure-failure-retains-last-known-good-with-degraded-status",
+          "proofLocator": "Desktop runtime ${failure} failure retains the last known good runtime and explicit model selection",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/characterization/routed-integration-focus.test.cjs",
+      "currentTestCount": {
+        "value": 1,
+        "basis": "Top-level decomposed scenario groups; nested cases retain their own runtime counts."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 80050,
+        "basis": "TVA02A focused normal Windows invocation; detailed commands and timing in its Implementer Report."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "routed-checkpoint-integration-composition",
+          "proofLocator": "routed clean and conflict integration preserves completed checkpoint and Plan lineage from the nearest durable boundary",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/characterization/routed-lifecycle-acceptance.test.cjs",
+      "currentTestCount": {
+        "value": 1,
+        "basis": "Top-level decomposed scenario groups; nested cases retain their own runtime counts."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 740155,
+        "basis": "TVA02A focused normal Windows invocation; detailed commands and timing in its Implementer Report."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "profileRestriction": [
+          "full-supported-platform",
+          "phase-close",
+          "release-qualification"
+        ],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "routed-checkpoint-integration-composition",
+          "proofLocator": "routed application checkpoints source and integrates only after real Plan completion, including Integration Repair",
+          "proofRole": "supporting",
+          "primaryProof": {
+            "testPath": "test/characterization/routed-integration-focus.test.cjs",
+            "proofLocator": "routed clean and conflict integration preserves completed checkpoint and Plan lineage from the nearest durable boundary"
+          },
+          "relationshipToPrimary": "complementary"
         }
       ]
     },
@@ -7853,12 +8519,12 @@
       "testPath": "test/context-menu/local-renderer-context-menu.test.cjs",
       "currentTestCount": {
         "value": 6,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/context-menu/local-renderer-context-menu.test.cjs; the TAP summary reported 6 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 65,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/context-menu/local-renderer-context-menu.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 146,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "fast",
       "platformDependency": "none",
@@ -7878,7 +8544,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "TVA04 source review: pure data, process-local mocks/read-only source, or unique temporary roots; no machine-global process or timing measurement."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -7929,12 +8597,12 @@
       "testPath": "test/development-environment/development-environment-preflight-service.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/development-environment/development-environment-preflight-service.test.cjs; the TAP summary reported 2 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 241,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/development-environment/development-environment-preflight-service.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 339,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -7955,7 +8623,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -8000,7 +8670,7 @@
         "timing": false
       },
       "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
+      "v2Disposition": "quarantine",
       "validationRoles": [
         "capability",
         "desktop-platform"
@@ -8008,14 +8678,15 @@
       "execution": {
         "requiresBuild": true,
         "platform": "windows",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-desktop",
+        "schedulingReason": "Real Desktop, platform or machine-global lifecycle evidence requires exclusive execution."
       },
       "proofCharacteristics": [
         "behavioral",
         "environment-bound"
       ],
       "dispositionReasons": [
-        "current-proof-appropriate",
         "environment-coupled"
       ],
       "behaviorCoverage": [
@@ -8085,7 +8756,7 @@
         "timing": false
       },
       "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
+      "v2Disposition": "quarantine",
       "validationRoles": [
         "capability",
         "desktop-platform"
@@ -8093,14 +8764,15 @@
       "execution": {
         "requiresBuild": true,
         "platform": "windows",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-desktop",
+        "schedulingReason": "Real Desktop, platform or machine-global lifecycle evidence requires exclusive execution."
       },
       "proofCharacteristics": [
         "behavioral",
         "environment-bound"
       ],
       "dispositionReasons": [
-        "current-proof-appropriate",
         "environment-coupled"
       ],
       "behaviorCoverage": [
@@ -8320,7 +8992,7 @@
         "timing": false
       },
       "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
+      "v2Disposition": "quarantine",
       "validationRoles": [
         "capability",
         "desktop-platform"
@@ -8328,14 +9000,15 @@
       "execution": {
         "requiresBuild": true,
         "platform": "windows",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-desktop",
+        "schedulingReason": "Real Desktop, platform or machine-global lifecycle evidence requires exclusive execution."
       },
       "proofCharacteristics": [
         "behavioral",
         "environment-bound"
       ],
       "dispositionReasons": [
-        "current-proof-appropriate",
         "environment-coupled"
       ],
       "behaviorCoverage": [
@@ -8375,12 +9048,12 @@
       "testPath": "test/documents/artifact-source-revision.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/documents/artifact-source-revision.test.cjs; the TAP summary reported 1 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 703,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/documents/artifact-source-revision.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 177,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -8401,7 +9074,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -8422,12 +9097,12 @@
       "testPath": "test/documents/artifact-transaction.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/documents/artifact-transaction.test.cjs; the TAP summary reported 2 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 625,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/documents/artifact-transaction.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 149,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -8448,7 +9123,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -8475,12 +9152,12 @@
       "testPath": "test/documents/canonical-markdown-document.test.cjs",
       "currentTestCount": {
         "value": 7,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/documents/canonical-markdown-document.test.cjs; the TAP summary reported 7 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 1023,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/documents/canonical-markdown-document.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 197,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -8502,7 +9179,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -8562,15 +9241,114 @@
       ]
     },
     {
-      "testPath": "test/documents/planning-document-service.test.cjs",
+      "testPath": "test/documents/disposition-transaction.test.cjs",
       "currentTestCount": {
-        "value": 8,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/documents/planning-document-service.test.cjs; the TAP summary reported 8 tests, including generated subtests."
+        "value": 9,
+        "basis": "TVA02 mechanically preserved top-level test declarations; nested runtime counts may differ."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 2768,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/documents/planning-document-service.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 533,
+        "basis": "TVA02 rounded sum of focused top-level case durations, excluding runner startup; soak and idle measured separately after explicit warm-up correction."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "ast-static-analysis",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "performance-soak",
+        "source-structure"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "TVA04 source review: pure data, process-local mocks/read-only source, or unique temporary roots; no machine-global process or timing measurement."
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "static-analysis"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "workflow-performance",
+          "behaviorId": "architect-review-rebuilds-its-model-and-development-projection-together-after-a-reachable-promot",
+          "proofLocator": "Architect review rebuilds its model and Development projection together after a reachable promotion",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-performance",
+          "behaviorId": "architect-review-returns-a-model-and-development-projection-from-the-same-final-planning-generat",
+          "proofLocator": "Architect review returns a model and Development projection from the same final planning generation",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-performance",
+          "behaviorId": "development-assembly-discards-a-candidate-when-reachable-phase-map-promotion-advances-durable-st",
+          "proofLocator": "Development assembly discards a candidate when reachable Phase Map promotion advances durable state",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-performance",
+          "behaviorId": "failed-architect-promotion-does-not-advance-the-durable-promotion-epoch",
+          "proofLocator": "failed Architect promotion does not advance the durable promotion epoch",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-performance",
+          "behaviorId": "generic-development-disposition-uses-one-pre-write-and-one-final-post-write-planning-acquisition",
+          "proofLocator": "generic Development disposition uses one pre-write and one final post-write planning acquisition",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-performance",
+          "behaviorId": "pathological-promotion-epoch-changes-exhaust-the-bounded-retry-budget-and-publish-no-success-bun",
+          "proofLocator": "pathological promotion epoch changes exhaust the bounded retry budget and publish no success bundle",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-performance",
+          "behaviorId": "stabilizer-does-not-inspect-or-promote-an-architect-submission-outside-supplied-assembly",
+          "proofLocator": "stabilizer does not inspect or promote an Architect submission outside supplied assembly",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-performance",
+          "behaviorId": "stable-assembly-observes-a-promotion-epoch-change-at-the-deepest-returned-projection-boundary",
+          "proofLocator": "stable assembly observes a promotion epoch change at the deepest returned projection boundary",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-performance",
+          "behaviorId": "successful-renderer-dispositions-consume-the-returned-transaction-with-one-ipc-call",
+          "proofLocator": "successful renderer dispositions consume the returned transaction with one IPC call",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/documents/planning-document-service.test.cjs",
+      "currentTestCount": {
+        "value": 8,
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 330,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -8591,7 +9369,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -8654,12 +9434,12 @@
       "testPath": "test/documents/planning-repository-snapshot.test.cjs",
       "currentTestCount": {
         "value": 9,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/documents/planning-repository-snapshot.test.cjs; the TAP summary reported 9 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 1339,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/documents/planning-repository-snapshot.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 482,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -8680,7 +9460,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -8749,12 +9531,12 @@
       "testPath": "test/documents/repository-binding-compatibility.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/documents/repository-binding-compatibility.test.cjs; the TAP summary reported 1 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 66,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/documents/repository-binding-compatibility.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 147,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "fast",
       "platformDependency": "none",
@@ -8774,7 +9556,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "TVA04 source review: pure data, process-local mocks/read-only source, or unique temporary roots; no machine-global process or timing measurement."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -8795,12 +9579,12 @@
       "testPath": "test/documents/single-file-workflow.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/documents/single-file-workflow.test.cjs; the TAP summary reported 1 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 172,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/documents/single-file-workflow.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 281,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -8822,7 +9606,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -8871,9 +9657,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": [
-          "external-mcp-provider"
-        ]
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -8989,9 +9775,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": [
-          "github-api"
-        ]
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -9129,7 +9915,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -9236,7 +10024,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -9325,7 +10115,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -9494,7 +10286,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -9649,7 +10443,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -9750,7 +10546,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -9789,12 +10587,12 @@
       "testPath": "test/lifecycle/evidence-lifecycle-resolver.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/lifecycle/evidence-lifecycle-resolver.test.cjs; the TAP summary reported 1 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 107,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/lifecycle/evidence-lifecycle-resolver.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 175,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -9815,7 +10613,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -9836,12 +10636,12 @@
       "testPath": "test/lifecycle/nested-lifecycle.test.cjs",
       "currentTestCount": {
         "value": 5,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/lifecycle/nested-lifecycle.test.cjs; the TAP summary reported 5 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 77,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/lifecycle/nested-lifecycle.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 152,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "fast",
       "platformDependency": "none",
@@ -9861,7 +10661,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "TVA04 source review: pure data, process-local mocks/read-only source, or unique temporary roots; no machine-global process or timing measurement."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -9906,12 +10708,12 @@
       "testPath": "test/migration/paired-artifacts-to-canonical-markdown-v1.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/migration/paired-artifacts-to-canonical-markdown-v1.test.cjs; the TAP summary reported 2 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 119,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/migration/paired-artifacts-to-canonical-markdown-v1.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 184,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "migration",
       "platformDependency": "none",
@@ -9932,7 +10734,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -9959,12 +10763,12 @@
       "testPath": "test/packaging/windows-installer-scope.test.cjs",
       "currentTestCount": {
         "value": 6,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/packaging/windows-installer-scope.test.cjs; the TAP summary reported 6 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 65,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/packaging/windows-installer-scope.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 142,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "packaging",
       "platformDependency": "windows",
@@ -9977,7 +10781,7 @@
         "timing": false
       },
       "sourceInspectionClassification": "source-text",
-      "v2Disposition": "rewrite",
+      "v2Disposition": "quarantine",
       "validationRoles": [
         "capability",
         "desktop-platform",
@@ -9987,7 +10791,9 @@
       "execution": {
         "requiresBuild": false,
         "platform": "windows",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-packaging",
+        "schedulingReason": "Package output and platform qualification require exclusive execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -9996,8 +10802,7 @@
         "source-text"
       ],
       "dispositionReasons": [
-        "environment-coupled",
-        "proof-boundary-should-change"
+        "environment-coupled"
       ],
       "behaviorCoverage": [
         {
@@ -10060,7 +10865,7 @@
         "timing": false
       },
       "sourceInspectionClassification": "mixed",
-      "v2Disposition": "split",
+      "v2Disposition": "quarantine",
       "validationRoles": [
         "capability",
         "desktop-platform",
@@ -10070,7 +10875,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "windows",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-packaging",
+        "schedulingReason": "Package output and platform qualification require exclusive execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -10080,8 +10887,7 @@
         "static-analysis"
       ],
       "dispositionReasons": [
-        "environment-coupled",
-        "proof-boundary-should-change"
+        "environment-coupled"
       ],
       "behaviorCoverage": [
         {
@@ -10287,13 +11093,13 @@
     {
       "testPath": "test/performance/disposition-transaction-collapse.test.cjs",
       "currentTestCount": {
-        "value": 19,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/performance/disposition-transaction-collapse.test.cjs; the TAP summary reported 19 tests, including generated subtests."
+        "value": 1,
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 15666,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/performance/disposition-transaction-collapse.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 13253,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "performance-soak",
       "platformDependency": "none",
@@ -10305,8 +11111,8 @@
         "process": false,
         "timing": true
       },
-      "sourceInspectionClassification": "mixed",
-      "v2Disposition": "split",
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "quarantine",
       "validationRoles": [
         "capability",
         "performance-soak",
@@ -10315,76 +11121,126 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-performance",
+        "schedulingReason": "Elapsed-time, volume or resource qualification must not overlap other files."
       },
       "proofCharacteristics": [
         "behavioral",
-        "source-text",
-        "static-analysis",
         "timing-sensitive"
       ],
       "dispositionReasons": [
-        "proof-boundary-should-change"
+        "environment-coupled"
       ],
       "behaviorCoverage": [
-        {
-          "capabilityId": "workflow-performance",
-          "behaviorId": "architect-review-rebuilds-its-model-and-development-projection-together-after-a-reachable-promot",
-          "proofLocator": "Architect review rebuilds its model and Development projection together after a reachable promotion",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "workflow-performance",
-          "behaviorId": "architect-review-returns-a-model-and-development-projection-from-the-same-final-planning-generat",
-          "proofLocator": "Architect review returns a model and Development projection from the same final planning generation",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "workflow-performance",
-          "behaviorId": "development-assembly-discards-a-candidate-when-reachable-phase-map-promotion-advances-durable-st",
-          "proofLocator": "Development assembly discards a candidate when reachable Phase Map promotion advances durable state",
-          "proofRole": "primary"
-        },
         {
           "capabilityId": "workflow-performance",
           "behaviorId": "development-disposition-meets-the-controlled-200-document-latency-gate",
           "proofLocator": "Development disposition meets the controlled 200-document latency gate",
           "proofRole": "primary"
-        },
+        }
+      ]
+    },
+    {
+      "testPath": "test/performance/mcp-operational-soak.test.cjs",
+      "currentTestCount": {
+        "value": 2,
+        "basis": "TVA02 mechanically preserved top-level test declarations; nested runtime counts may differ."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 80945,
+        "basis": "TVA02 rounded sum of focused top-level case durations, excluding runner startup; soak and idle measured separately after explicit warm-up correction."
+      },
+      "proposedValidationLane": "performance-soak",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": true
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "quarantine",
+      "validationRoles": [
+        "performance-soak"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "exclusive-performance",
+        "schedulingReason": "Elapsed-time, volume or resource qualification must not overlap other files."
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "timing-sensitive"
+      ],
+      "dispositionReasons": [
+        "environment-coupled"
+      ],
+      "behaviorCoverage": [
         {
-          "capabilityId": "workflow-performance",
-          "behaviorId": "failed-architect-promotion-does-not-advance-the-durable-promotion-epoch",
-          "proofLocator": "failed Architect promotion does not advance the durable promotion epoch",
+          "capabilityId": "agent-harness-mcp-runtime",
+          "behaviorId": "settled-sixty-second-idle-sample-stays-within-cpu-and-event-loop-lag-limits",
+          "proofLocator": "settled sixty-second idle sample stays within CPU and event-loop lag limits",
           "proofRole": "primary"
         },
         {
-          "capabilityId": "workflow-performance",
-          "behaviorId": "generic-development-disposition-uses-one-pre-write-and-one-final-post-write-planning-acquisition",
-          "proofLocator": "generic Development disposition uses one pre-write and one final post-write planning acquisition",
+          "capabilityId": "agent-harness-mcp-runtime",
+          "behaviorId": "two-batch-abrupt-reconnect-soak-plateaus-at-the-cap-without-linear-rss-growth",
+          "proofLocator": "two-batch abrupt reconnect soak plateaus at the cap without linear RSS growth",
           "proofRole": "primary"
-        },
+        }
+      ]
+    },
+    {
+      "testPath": "test/performance/mcp-session-volume.test.cjs",
+      "currentTestCount": {
+        "value": 1,
+        "basis": "TVA02 mechanically preserved top-level test declarations; nested runtime counts may differ."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 15078,
+        "basis": "TVA02 rounded sum of focused top-level case durations, excluding runner startup; soak and idle measured separately after explicit warm-up correction."
+      },
+      "proposedValidationLane": "performance-soak",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": true
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "quarantine",
+      "validationRoles": [
+        "performance-soak"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "exclusive-performance",
+        "schedulingReason": "Elapsed-time, volume or resource qualification must not overlap other files."
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "timing-sensitive"
+      ],
+      "dispositionReasons": [
+        "environment-coupled"
+      ],
+      "behaviorCoverage": [
         {
-          "capabilityId": "workflow-performance",
-          "behaviorId": "pathological-promotion-epoch-changes-exhaust-the-bounded-retry-budget-and-publish-no-success-bun",
-          "proofLocator": "pathological promotion epoch changes exhaust the bounded retry budget and publish no success bundle",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "workflow-performance",
-          "behaviorId": "stabilizer-does-not-inspect-or-promote-an-architect-submission-outside-supplied-assembly",
-          "proofLocator": "stabilizer does not inspect or promote an Architect submission outside supplied assembly",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "workflow-performance",
-          "behaviorId": "stable-assembly-observes-a-promotion-epoch-change-at-the-deepest-returned-projection-boundary",
-          "proofLocator": "stable assembly observes a promotion epoch change at the deepest returned projection boundary",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "workflow-performance",
-          "behaviorId": "successful-renderer-dispositions-consume-the-returned-transaction-with-one-ipc-call",
-          "proofLocator": "successful renderer dispositions consume the returned transaction with one IPC call",
+          "capabilityId": "agent-harness-mcp-runtime",
+          "behaviorId": "abrupt-mcp-clients-remain-globally-bounded-and-one-runtime-reaper-expires-retained-session-state",
+          "proofLocator": "abrupt MCP clients remain globally bounded and one runtime reaper expires retained session state",
           "proofRole": "primary"
         }
       ]
@@ -10419,7 +11275,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -10466,7 +11324,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -10531,7 +11391,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -10614,7 +11476,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -10739,7 +11603,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -10798,7 +11664,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -10818,13 +11686,13 @@
     {
       "testPath": "test/project-intake/post-submit-review-state.test.cjs",
       "currentTestCount": {
-        "value": 4,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/project-intake/post-submit-review-state.test.cjs; the TAP summary reported 4 tests, including generated subtests."
+        "value": 5,
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 78,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/project-intake/post-submit-review-state.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 286,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "fast",
       "platformDependency": "none",
@@ -10844,7 +11712,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "TVA04 source review: pure data, process-local mocks/read-only source, or unique temporary roots; no machine-global process or timing measurement."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -10883,12 +11753,12 @@
       "testPath": "test/project-intake/project-intake-corpus-status.test.cjs",
       "currentTestCount": {
         "value": 7,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/project-intake/project-intake-corpus-status.test.cjs; the TAP summary reported 7 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 77,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/project-intake/project-intake-corpus-status.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 153,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "fast",
       "platformDependency": "none",
@@ -10908,7 +11778,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "TVA04 source review: pure data, process-local mocks/read-only source, or unique temporary roots; no machine-global process or timing measurement."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -10991,7 +11863,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -11050,7 +11924,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -11211,7 +12087,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -11238,12 +12116,12 @@
       "testPath": "test/renderer/agent-harness-settings-workspace.test.cjs",
       "currentTestCount": {
         "value": 8,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/agent-harness-settings-workspace.test.cjs; the TAP summary reported 8 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 849,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/agent-harness-settings-workspace.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 925,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -11263,7 +12141,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -11352,7 +12232,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -11459,7 +12341,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -11536,7 +12420,9 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -11607,7 +12493,9 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -11672,9 +12560,9 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": [
-          "codex-app-server"
-        ]
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -11708,12 +12596,12 @@
       "testPath": "test/renderer/document-review-surface-source.test.cjs",
       "currentTestCount": {
         "value": 4,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/document-review-surface-source.test.cjs; the TAP summary reported 4 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 451,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/document-review-surface-source.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 529,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -11725,8 +12613,8 @@
         "process": false,
         "timing": false
       },
-      "sourceInspectionClassification": "mixed",
-      "v2Disposition": "split",
+      "sourceInspectionClassification": "ast-static-analysis",
+      "v2Disposition": "preserve",
       "validationRoles": [
         "capability",
         "source-structure"
@@ -11734,16 +12622,17 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
         "rendered-output",
-        "source-text",
         "static-analysis"
       ],
       "dispositionReasons": [
-        "proof-boundary-should-change"
+        "current-proof-appropriate"
       ],
       "behaviorCoverage": [
         {
@@ -11776,12 +12665,12 @@
       "testPath": "test/renderer/evidence-driven-refresh-coordinator.test.cjs",
       "currentTestCount": {
         "value": 8,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/evidence-driven-refresh-coordinator.test.cjs; the TAP summary reported 8 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 143,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/evidence-driven-refresh-coordinator.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 206,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -11801,7 +12690,9 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -11865,12 +12756,12 @@
       "testPath": "test/renderer/execution-context-dashboard.test.cjs",
       "currentTestCount": {
         "value": 3,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/execution-context-dashboard.test.cjs; the TAP summary reported 3 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 140,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/execution-context-dashboard.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 222,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -11890,7 +12781,9 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -11924,12 +12817,12 @@
       "testPath": "test/renderer/figma-redesign-shell.test.cjs",
       "currentTestCount": {
         "value": 6,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/figma-redesign-shell.test.cjs; the TAP summary reported 6 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 235,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/figma-redesign-shell.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 308,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -11941,8 +12834,8 @@
         "process": false,
         "timing": false
       },
-      "sourceInspectionClassification": "mixed",
-      "v2Disposition": "split",
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
       "validationRoles": [
         "capability",
         "source-structure"
@@ -11950,16 +12843,16 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
-        "rendered-output",
-        "source-text",
-        "static-analysis"
+        "rendered-output"
       ],
       "dispositionReasons": [
-        "proof-boundary-should-change"
+        "current-proof-appropriate"
       ],
       "behaviorCoverage": [
         {
@@ -12029,9 +12922,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": [
-          "github-api"
-        ]
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -12084,7 +12977,9 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -12137,7 +13032,9 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -12196,7 +13093,9 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -12309,7 +13208,9 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -12410,7 +13311,9 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -12461,8 +13364,8 @@
         "process": false,
         "timing": false
       },
-      "sourceInspectionClassification": "mixed",
-      "v2Disposition": "split",
+      "sourceInspectionClassification": "ast-static-analysis",
+      "v2Disposition": "preserve",
       "validationRoles": [
         "capability",
         "source-structure"
@@ -12470,16 +13373,17 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
         "rendered-output",
-        "source-text",
         "static-analysis"
       ],
       "dispositionReasons": [
-        "proof-boundary-should-change"
+        "current-proof-appropriate"
       ],
       "behaviorCoverage": [
         {
@@ -12584,7 +13488,9 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -12643,7 +13549,9 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -12726,7 +13634,9 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -12838,7 +13748,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -12890,12 +13802,12 @@
       "testPath": "test/renderer/project-rail-presentation.test.cjs",
       "currentTestCount": {
         "value": 16,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/project-rail-presentation.test.cjs; the TAP summary reported 16 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 298,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/project-rail-presentation.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 413,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -12915,7 +13827,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -13052,7 +13966,9 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -13117,7 +14033,9 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -13206,7 +14124,9 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -13265,7 +14185,9 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -13336,7 +14258,9 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -13395,7 +14319,9 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -13448,7 +14374,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -13488,12 +14416,12 @@
       "testPath": "test/renderer/workflow-hub-shell.test.cjs",
       "currentTestCount": {
         "value": 9,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/workflow-hub-shell.test.cjs; the TAP summary reported 9 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 491,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/workflow-hub-shell.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 641,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -13505,8 +14433,8 @@
         "process": false,
         "timing": false
       },
-      "sourceInspectionClassification": "mixed",
-      "v2Disposition": "split",
+      "sourceInspectionClassification": "ast-static-analysis",
+      "v2Disposition": "preserve",
       "validationRoles": [
         "capability",
         "source-structure"
@@ -13514,16 +14442,17 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
         "rendered-output",
-        "source-text",
         "static-analysis"
       ],
       "dispositionReasons": [
-        "proof-boundary-should-change"
+        "current-proof-appropriate"
       ],
       "behaviorCoverage": [
         {
@@ -13571,7 +14500,7 @@
         {
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "selected-project-hub-renders-exactly-development-and-issue-resolution-workflow-cards",
-          "proofLocator": "Selected-project Hub renders exactly Development and Issue Resolution workflow cards",
+          "proofLocator": "Selected-project Hub prioritizes Work Intake and retains Development and Issue recovery",
           "proofRole": "primary"
         },
         {
@@ -13586,12 +14515,12 @@
       "testPath": "test/repository/issue-screenshot-submission-wiring.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/repository/issue-screenshot-submission-wiring.test.cjs; the TAP summary reported 1 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 452,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/repository/issue-screenshot-submission-wiring.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 505,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "static",
       "platformDependency": "none",
@@ -13603,8 +14532,8 @@
         "process": false,
         "timing": false
       },
-      "sourceInspectionClassification": "mixed",
-      "v2Disposition": "split",
+      "sourceInspectionClassification": "ast-static-analysis",
+      "v2Disposition": "preserve",
       "validationRoles": [
         "capability",
         "contract",
@@ -13614,17 +14543,18 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
         "contract",
         "production-path",
-        "source-text",
         "static-analysis"
       ],
       "dispositionReasons": [
-        "proof-boundary-should-change"
+        "current-proof-appropriate"
       ],
       "behaviorCoverage": [
         {
@@ -13639,12 +14569,12 @@
       "testPath": "test/repository/phase-validation-wiring.test.cjs",
       "currentTestCount": {
         "value": 3,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/repository/phase-validation-wiring.test.cjs; the TAP summary reported 3 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 1179,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/repository/phase-validation-wiring.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 1364,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "static",
       "platformDependency": "none",
@@ -13656,8 +14586,8 @@
         "process": false,
         "timing": false
       },
-      "sourceInspectionClassification": "mixed",
-      "v2Disposition": "split",
+      "sourceInspectionClassification": "ast-static-analysis",
+      "v2Disposition": "preserve",
       "validationRoles": [
         "capability",
         "contract",
@@ -13667,17 +14597,18 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
         "contract",
         "production-path",
-        "source-text",
         "static-analysis"
       ],
       "dispositionReasons": [
-        "proof-boundary-should-change"
+        "current-proof-appropriate"
       ],
       "behaviorCoverage": [
         {
@@ -13709,12 +14640,12 @@
       "testPath": "test/repository/runtime-wiring-source.test.cjs",
       "currentTestCount": {
         "value": 29,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/repository/runtime-wiring-source.test.cjs; the TAP summary reported 29 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 797,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/repository/runtime-wiring-source.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 905,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "static",
       "platformDependency": "none",
@@ -13726,8 +14657,8 @@
         "process": false,
         "timing": false
       },
-      "sourceInspectionClassification": "mixed",
-      "v2Disposition": "split",
+      "sourceInspectionClassification": "ast-static-analysis",
+      "v2Disposition": "preserve",
       "validationRoles": [
         "capability",
         "contract",
@@ -13737,17 +14668,18 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
         "contract",
         "production-path",
-        "source-text",
         "static-analysis"
       ],
       "dispositionReasons": [
-        "proof-boundary-should-change"
+        "current-proof-appropriate"
       ],
       "behaviorCoverage": [
         {
@@ -13786,12 +14718,12 @@
       "testPath": "test/resolver/first-non-approved-resolver.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/resolver/first-non-approved-resolver.test.cjs; the TAP summary reported 1 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 109,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/resolver/first-non-approved-resolver.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 177,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -13812,7 +14744,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -13833,12 +14767,12 @@
       "testPath": "test/resolver/single-file-resolver.test.cjs",
       "currentTestCount": {
         "value": 3,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/resolver/single-file-resolver.test.cjs; the TAP summary reported 3 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 141,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/resolver/single-file-resolver.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 203,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -13859,7 +14793,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -13892,12 +14828,12 @@
       "testPath": "test/validation/capability-map.test.cjs",
       "currentTestCount": {
         "value": 5,
-        "basis": "Static inspection of five top-level node:test declarations; the file creates no generated test cases."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 96,
-        "basis": "Measured by node --test --test-concurrency=1 test/validation/capability-map.test.cjs in the WC02 normal Windows focused-validation run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 170,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "static",
       "platformDependency": "none",
@@ -13917,7 +14853,9 @@
       "execution": {
         "requiresBuild": false,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "TVA04 source review: pure data, process-local mocks/read-only source, or unique temporary roots; no machine-global process or timing measurement."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -13959,15 +14897,107 @@
       ]
     },
     {
+      "testPath": "test/validation/validation-runner.test.cjs",
+      "currentTestCount": {
+        "value": 8,
+        "basis": "Eight top-level contracts including source-bound end-to-end receipts."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 1500,
+        "basis": "Small deterministic planner checks and bounded isolated Node adapter probes."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": false,
+        "platform": "any",
+        "externalCapabilities": [
+          "git-cli"
+        ],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "validation-execution",
+          "behaviorId": "affected-proof-selection",
+          "proofLocator": "affected proof selection is deterministic complete within profile scope and rejects unknown paths and cycles",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "validation-execution",
+          "behaviorId": "bounded-safe-scheduling",
+          "proofLocator": "bounded scheduler overlaps safe files isolates exclusive cohorts and cleans failed process descendants",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "validation-execution",
+          "behaviorId": "bounded-serial-validation-execution",
+          "proofLocator": "serial validation execution reports real pass failure timeout and bounded output",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "validation-execution",
+          "behaviorId": "deterministic-validation-plans",
+          "proofLocator": "validation plans deterministically preserve lane profile and ownership requirements",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "validation-execution",
+          "behaviorId": "fail-closed-validation-selection",
+          "proofLocator": "validation planning rejects invalid selection catalog and ownership instead of omitting proof",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "validation-execution",
+          "behaviorId": "public-profile-dispatch",
+          "proofRole": "primary",
+          "proofLocator": "public validation commands dispatch composed profiles and reject accidental broad affected runs"
+        },
+        {
+          "capabilityId": "validation-execution",
+          "behaviorId": "run-owned-build-freshness",
+          "proofLocator": "one run owns the build consumed by multiple lanes and stale output cannot bypass a failed build",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "validation-execution",
+          "behaviorId": "source-bound-budgeted-receipts",
+          "proofLocator": "changed source runs one build through scheduled proof into stable bounded budgeted receipts",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
       "testPath": "test/work-card-building/codex-app-server-transport.test.cjs",
       "currentTestCount": {
         "value": 15,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-building/codex-app-server-transport.test.cjs; the TAP summary reported 15 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 648,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-building/codex-app-server-transport.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 722,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "fast",
       "platformDependency": "none",
@@ -13987,9 +15017,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": [
-          "codex-app-server"
-        ]
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -14121,9 +15151,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": [
-          "codex-app-server"
-        ]
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -14333,9 +15363,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": [
-          "codex-app-server"
-        ]
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -14382,7 +15412,7 @@
         "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-building/codex-runtime-initializer-process.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
       },
       "proposedValidationLane": "desktop-platform",
-      "platformDependency": "none",
+      "platformDependency": "windows",
       "dependencies": {
         "electron": true,
         "filesystem": true,
@@ -14392,17 +15422,17 @@
         "timing": true
       },
       "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
+      "v2Disposition": "quarantine",
       "validationRoles": [
         "capability",
         "desktop-platform"
       ],
       "execution": {
         "requiresBuild": false,
-        "platform": "any",
-        "externalCapabilities": [
-          "codex-app-server"
-        ]
+        "platform": "windows",
+        "externalCapabilities": [],
+        "scheduling": "exclusive-desktop",
+        "schedulingReason": "Real Desktop, platform or machine-global lifecycle evidence requires exclusive execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -14410,7 +15440,6 @@
         "timing-sensitive"
       ],
       "dispositionReasons": [
-        "current-proof-appropriate",
         "environment-coupled"
       ],
       "behaviorCoverage": [
@@ -14425,8 +15454,8 @@
     {
       "testPath": "test/work-card-building/codex-runtime-manager.test.cjs",
       "currentTestCount": {
-        "value": 15,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-building/codex-runtime-manager.test.cjs; the TAP summary reported 15 tests, including generated subtests."
+        "value": 11,
+        "basis": "Four redundant generated failure cases consolidated into Desktop runtime characterization; remaining contracts preserved."
       },
       "duration": {
         "kind": "measured",
@@ -14452,9 +15481,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": [
-          "codex-app-server"
-        ]
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -14485,12 +15514,6 @@
           "capabilityId": "codex-implementation-runtime",
           "behaviorId": "explicit-preferences-are-projected-by-both-consumers-and-frozen-during-an-active-lease",
           "proofLocator": "explicit preferences are projected by both consumers and frozen during an active lease",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "codex-implementation-runtime",
-          "behaviorId": "failure-failure-retains-last-known-good-with-degraded-status",
-          "proofLocator": "${failure} failure retains last known good with degraded status",
           "proofRole": "primary"
         },
         {
@@ -14567,7 +15590,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -14650,7 +15675,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -14727,7 +15754,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -14825,12 +15854,12 @@
       "testPath": "test/work-card-planning/development-environment-contract.test.cjs",
       "currentTestCount": {
         "value": 7,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-planning/development-environment-contract.test.cjs; the TAP summary reported 7 tests, including generated subtests."
+        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 68,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-planning/development-environment-contract.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 141,
+        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
       },
       "proposedValidationLane": "fast",
       "platformDependency": "none",
@@ -14851,7 +15880,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "TVA04 source review: pure data, process-local mocks/read-only source, or unique temporary roots; no machine-global process or timing measurement."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -14927,7 +15958,7 @@
         "timing": false
       },
       "sourceInspectionClassification": "mixed",
-      "v2Disposition": "split",
+      "v2Disposition": "preserve",
       "validationRoles": [
         "capability",
         "integration",
@@ -14936,7 +15967,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -14944,9 +15977,15 @@
         "static-analysis"
       ],
       "dispositionReasons": [
-        "proof-boundary-should-change"
+        "current-proof-appropriate"
       ],
       "behaviorCoverage": [
+        {
+          "capabilityId": "work-card-workflow",
+          "behaviorId": "bounded-routed-projection-inventory",
+          "proofLocator": "routed projection shares one fresh inventory across large Work Item and document sets",
+          "proofRole": "primary"
+        },
         {
           "capabilityId": "work-card-workflow",
           "behaviorId": "disposition-formal-work-card-blocks-preparation-and-late-revision-promotion-without-changing-byt",
@@ -15045,7 +16084,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -15128,7 +16169,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"
@@ -15185,12 +16228,12 @@
       "testPath": "test/workflow/current-close-planning-context.test.cjs",
       "currentTestCount": {
         "value": 10,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/workflow/current-close-planning-context.test.cjs; the TAP summary reported 10 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 946,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/workflow/current-close-planning-context.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 932,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -15212,7 +16255,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -15264,12 +16309,12 @@
       "testPath": "test/workflow/current-execution-context.test.cjs",
       "currentTestCount": {
         "value": 24,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/workflow/current-execution-context.test.cjs; the TAP summary reported 24 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 4798,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/workflow/current-execution-context.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 4895,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -15291,7 +16336,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -15483,7 +16530,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -15544,7 +16593,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -15598,7 +16649,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral",
@@ -15626,12 +16679,12 @@
       "testPath": "test/workspaces/workspace-document-review.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/workspaces/workspace-document-review.test.cjs; the TAP summary reported 1 tests, including generated subtests."
+        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 99,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/workspaces/workspace-document-review.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 161,
+        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -15652,7 +16705,9 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": []
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Conservative isolated process cohort: full dependency/global-state safety not established for concurrent file execution."
       },
       "proofCharacteristics": [
         "behavioral"

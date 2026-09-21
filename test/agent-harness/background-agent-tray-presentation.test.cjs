@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const path = require("node:path");
-const test = require("node:test");
+const test = require("../support/windows-test.cjs");
 
 const root = path.resolve(__dirname, "../..");
 

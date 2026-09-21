@@ -367,9 +367,9 @@ test("current execution context projects Work Card intake, planning, build, vali
     /Handoff action is invalid from the current workflow state: work-card-close/,
   );
   const candidateSelection = selectNextWorkCardCandidate(root, "phase-01");
-  assert.equal(candidateSelection.state, "all-complete");
-  assert.equal(candidateSelection.explanations[0].state, "complete");
-  assert.match(candidateSelection.explanations[0].reason, /Approved validation evidence/);
+  assert.equal(candidateSelection.state, "selected", "Approved validation still has an unconsumed Close / Next boundary");
+  assert.equal(candidateSelection.selectedCandidate.candidateId, "WC01");
+  assert.equal(candidateSelection.explanations[0].state, "eligible");
   const directMap = getCurrentWorkCardMapProjection(root, "phase-01");
   assert.equal(directMap.payload.state, "ready");
   assert.equal(directMap.payload.phaseValidationWorkspaceId, "phase-validation");
@@ -380,6 +380,10 @@ test("current execution context projects Work Card intake, planning, build, vali
   assert.equal(completeMap.payload.phaseValidationWorkspaceId, "phase-validation");
   assert.equal(completeMap.payload.candidates[0].status, "Complete");
   assert.equal(completeMap.payload.candidates[0].isActive, false);
+  const afterCloseReturn = selectNextWorkCardCandidate(root, "phase-01");
+  assert.equal(afterCloseReturn.state, "all-complete");
+  assert.equal(afterCloseReturn.explanations[0].state, "complete");
+  assert.match(afterCloseReturn.explanations[0].reason, /Approved validation/);
   const repeatedDefaultMap = getCurrentWorkCardMapProjection(root, "phase-01");
   assert.equal(repeatedDefaultMap.payload.state, "all-complete");
   assert.equal(

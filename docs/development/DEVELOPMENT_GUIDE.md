@@ -43,21 +43,18 @@ The current baseline uses Electron `44.3.0`, TypeScript, React 18, Vite, Tailwin
 Read [Validation Command Lanes](../dev/VALIDATION_COMMAND_LANES.md) before running these commands.
 
 ```powershell
-npm run typecheck
-npm run build
+npm test -- --preview
 npm test
 ```
 
-- `npm run typecheck` runs TypeScript without emitting output.
-- `npm run build` compiles main/preload/shared TypeScript, creates the Vite renderer bundle, and copies required branding assets into `dist/branding/`.
-- `npm test` runs the full package lane: it rebuilds and then executes Node's test runner serially.
-- `npm run test:unit` rebuilds and runs the same compiled Node test lane.
-- `npm run test:unit:built` runs tests against the already-built output and is appropriate only when that output is known to match the current source.
+The ordinary developer profile runs one production build plus static and fast proof. For a Work Card, use `npm run test:affected -- --changes tmp/changes.json`; the change set declares exact changed paths and optional capability scope. Preview with `--preview` first. The [command table](../dev/VALIDATION_COMMAND_LANES.md) describes integration, repair, phase, platform, performance and explicit full/release commands. Unavailable environments are incomplete evidence.
+
+`npm run build` compiles main/preload/shared TypeScript, creates the Vite renderer bundle, and copies branding assets. A profile owns that build when needed, so do not run a duplicate typecheck/build first. Standalone `validate:static` selects static proof and owns the build when those contracts inspect built output. The legacy raw built aggregate has been removed.
 
 The validation hierarchy is:
 
 1. required focused checks for the active card;
-2. static typecheck and build;
+2. one profile-owned static/build step;
 3. capability and production-path tests relevant to the changed behavior;
 4. a non-acceptance Electron launch smoke only when explicitly needed;
 5. Operator-observed validation and acceptance, which the Implementer cannot claim.
@@ -134,3 +131,5 @@ The main process compares build identities. Rebuilding while a Service Host is r
 - [Repository Code, Test, and Migration Boundary](../architecture/REPOSITORY_CODE_TEST_AND_MIGRATION_BOUNDARY.md)
 - [Validation Command Lanes](../dev/VALIDATION_COMMAND_LANES.md)
 - [Release Process](../release/RELEASE_PROCESS.md)
+
+The validation execution architecture is implemented. Use profile receipts for source identity, selected proof, counts, timing and budget outcomes; consult [Validation Command Lanes](../dev/VALIDATION_COMMAND_LANES.md) for their limits. Full/release qualification remains a separate explicitly owned run.

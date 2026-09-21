@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { createPlanningProjectionContext } from "../documents/planningProjectionContext";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
@@ -8,7 +9,7 @@ import type { PlanningDocumentSummary } from "../../shared/documents/planningDoc
 import { readRoutedDevelopmentExecutionBinding } from "./routedDevelopmentExecutionBinding";
 import { projectPlanExecution } from "./planExecutor";
 import { developmentLifecycleStage } from "./developmentExecutionAdapter";
-import { resolveWorkItemArtifactScope, workItemArtifactScopeFromIdentity, workItemIntakeTargets } from "../workCardLoop/workItemArtifactScope";
+import { resolveWorkItemArtifactScope, resolveWorkItemArtifactScopeFromBinding, workItemArtifactScopeFromIdentity, workItemIntakeTargets } from "../workCardLoop/workItemArtifactScope";
 import { evaluateDocumentFreshness, listPlanningDocuments } from "../documents/planningDocumentService";
 import { generateRoutedWorkCardIntakeHandoff } from "../workCardIntake/workCardIntakeService";
 import { createFormalWorkCardArchitectOutputDefinition, type FormalWorkCardContext } from "../workCardPlanning/workCardPlanningService";
@@ -37,14 +38,15 @@ export async function loadRoutedDevelopmentExecution(workspaceRoot: string, inta
   const scopes = new Map<string, Awaited<ReturnType<typeof resolveWorkItemArtifactScope>>>();
   for (const item of binding.structure.workItems) {
     const key = item.phaseId ?? "";
-    if (!scopes.has(key)) scopes.set(key, await resolveWorkItemArtifactScope(workspaceRoot, {
+    if (!scopes.has(key)) scopes.set(key, resolveWorkItemArtifactScopeFromBinding({
       intakeId, routeDecisionId: binding.identity.routeDecisionId, planId: binding.identity.planId,
       ...(binding.structure.topology === "direct" ? { kind: "routed-direct-plan" as const } : { kind: "routed-phase" as const, phaseId: item.phaseId! }),
-    }));
+    }, binding));
   }
   if ([...scopes.values()].some((scope) => scope.planDigest !== binding.planDigest)) throw Error("Plan changed while resolving execution scope.");
   const prefix = `planning/work-intake/execution/${intakeId}/`;
-  const documents = listPlanningDocuments(workspaceRoot).filter((document) => document.markdownPath.startsWith(prefix));
+  const planningContext = createPlanningProjectionContext(workspaceRoot);
+  const documents = listPlanningDocuments(planningContext).filter((document) => document.markdownPath.startsWith(prefix));
   const acceptancePaths = routedAcceptanceBoundaries(binding).map((boundary) => routedAcceptancePath(binding, boundary));
   const blockers: string[] = [];
   const workItems: WorkItemExecutionEvidence[] = [];
@@ -56,7 +58,7 @@ export async function loadRoutedDevelopmentExecution(workspaceRoot: string, inta
       const candidate = binding.structure.workItems.find((item) => item.workItemId === originalWorkItemId(identity.workCardId));
       if (!candidate || ref.kind === "legacy-phase" || ref.planId !== binding.identity.planId || ref.routeDecisionId !== binding.identity.routeDecisionId ||
         !isDeepStrictEqual(ref, scopes.get(candidate.phaseId ?? "")!.reference)) throw Error("Execution artifact has incompatible Work Item lineage.");
-      if (["work-card-intake-handoff", "formal-work-card"].includes(document.metadata.artifactType ?? "") && evaluateDocumentFreshness(workspaceRoot, document.logicalDocumentId).state !== "fresh") throw Error("Execution artifact is stale.");
+      if (["work-card-intake-handoff", "formal-work-card"].includes(document.metadata.artifactType ?? "") && evaluateDocumentFreshness(planningContext, document.logicalDocumentId).state !== "fresh") throw Error("Execution artifact is stale.");
     } catch (error) { blockers.push(`${document.markdownPath}: ${(error as Error).message}`); }
   }
   const entries = binding.structure.workItems.map((candidate) => {
@@ -76,22 +78,22 @@ export async function loadRoutedDevelopmentExecution(workspaceRoot: string, inta
       formal.metadata.canonical?.identity.candidateId !== candidate.workItemId || formal.metadata.canonical?.participationRole !== "gatingReview")) blockers.push(`Formal Work Card ${candidate.workItemId} has incompatible source evidence.`);
     if (handoff && handoff.effectiveDisposition !== "Approved") blockers.push(`Work Card handoff ${candidate.workItemId} is not Approved.`);
     if (formal?.effectiveDisposition === "Rejected") blockers.push(`Formal Work Card ${candidate.workItemId} was rejected; return to its approved Plan.`);
-    const activeRepair = resolveExactActiveRepairWorkCardContext(workspaceRoot, undefined, scope);
-    const terminalRepair = resolveTerminalApprovedRepairImplementationContext(workspaceRoot, scope, candidate.workItemId);
+    const activeRepair = resolveExactActiveRepairWorkCardContext(workspaceRoot, planningContext, scope);
+    const terminalRepair = resolveTerminalApprovedRepairImplementationContext(workspaceRoot, scope, candidate.workItemId, planningContext);
     if (activeRepair.status === "needs-attention") blockers.push(activeRepair.reason);
     if (terminalRepair.status === "needs-attention") blockers.push(terminalRepair.reason);
     const repairContext = activeRepair.status === "ready" && activeRepair.context.parentWorkCardId === candidate.workItemId ? activeRepair.context : terminalRepair.status === "ready" ? terminalRepair.context : undefined;
     const executionWorkCardId = repairContext?.repairId ?? candidate.workItemId;
     const executionContract = repairContext ? repairContext.existing : formal;
-    const completion = resolveEffectiveWorkCardCompletion(workspaceRoot, scope, candidate.workItemId);
-    const closeReturn = resolveWorkCardCloseReturnConsumption(workspaceRoot, completion);
+    const completion = resolveEffectiveWorkCardCompletion(workspaceRoot, scope, candidate.workItemId, planningContext);
+    const closeReturn = resolveWorkCardCloseReturnConsumption(workspaceRoot, completion, planningContext);
     let reportReady = false, reportRequiresRepair = false;
     if (executionContract?.effectiveDisposition === "Approved") {
       try {
-        const review = getWorkCardBuildingReviewProjection(workspaceRoot, scope, executionWorkCardId);
+        const review = getWorkCardBuildingReviewProjection(workspaceRoot, scope, executionWorkCardId, planningContext);
         reportReady = review.reportReadiness === "ready-for-review";
         if (review.report?.disposition === "RevisionRequested") {
-          requireCurrentImplementerReportForRepair(workspaceRoot, scope, executionWorkCardId);
+          requireCurrentImplementerReportForRepair(workspaceRoot, scope, executionWorkCardId, planningContext);
           reportRequiresRepair = true;
         } else if (["invalid", "conflict"].includes(review.reportReadiness)) blockers.push(review.reportReadinessReason);
       } catch (error) { blockers.push((error as Error).message); }
@@ -112,9 +114,9 @@ export async function loadRoutedDevelopmentExecution(workspaceRoot: string, inta
   }).join("\n")).digest("hex");
   const input: PlanExecutionInput & { evidenceFingerprint: string } = { planId: binding.identity.planId, planRevision: binding.planRevision,
     approved: true, fresh: true, structure: binding.structure, blockers, workItems, phases: [], evidenceFingerprint };
-  const acceptance = loadRoutedAcceptance(workspaceRoot, binding, input);
+  const acceptance = loadRoutedAcceptance(workspaceRoot, binding, input, planningContext);
   const projection: RoutedDevelopmentExecutionProjection = { ...projectPlanExecution(input), acceptance };
-  return { binding, entries, input, projection };
+  return { binding, entries, input, projection, planningContext };
 }
 
 /** Every action re-resolves current Plan, branch, scope and artifact evidence before writing. */
@@ -143,9 +145,9 @@ export function createRoutedDevelopmentExecutionService(workspaceRoot: string, i
   function formalContext(state: Awaited<ReturnType<typeof loadRoutedDevelopmentExecution>>, entry: Awaited<ReturnType<typeof loadRoutedDevelopmentExecution>>["entries"][number]): FormalWorkCardContext {
     if (!entry.handoff) throw Error("Begin routed Work Card Intake before Formal Work Card planning.");
     // The shared handoff writer validates idempotent reuse without rewriting evidence.
-    generateRoutedWorkCardIntakeHandoff(workspaceRoot, state.binding, entry.scope, entry.candidate);
+    generateRoutedWorkCardIntakeHandoff(workspaceRoot, state.binding, entry.scope, entry.candidate, state.planningContext);
     const report = resolveWorkCardImplementerReportContext(workspaceRoot, { scope: entry.scope, workCardId: entry.candidate.workItemId,
-      formalWorkCardPath: entry.targets.formalWorkCardMarkdownPath, formalWorkCardRevision: entry.formal?.metadata.artifactRevision ?? 1, workCardTitle: entry.candidate.title });
+      formalWorkCardPath: entry.targets.formalWorkCardMarkdownPath, formalWorkCardRevision: entry.formal?.metadata.artifactRevision ?? 1, workCardTitle: entry.candidate.title }, state.planningContext);
     const mcp = resolveMcpWorkspaceBindingForPrompt(workspaceRoot, entry.handoff.metadata.canonical?.workflowData ?? {});
     return { handoff: entry.handoff, scope: entry.scope, phaseId: entry.candidate.phaseId, workCardId: entry.candidate.workItemId, candidateId: entry.candidate.workItemId,
       candidate: { ...entry.candidate, candidateId: entry.candidate.workItemId }, targetPath: entry.targets.formalWorkCardMarkdownPath, implementerReportPath: report.implementerReportPath,
@@ -153,12 +155,16 @@ export function createRoutedDevelopmentExecutionService(workspaceRoot: string, i
         formalWorkCardTargetPath: entry.targets.formalWorkCardMarkdownPath, implementerReportTargetPath: report.implementerReportPath },
       sourceRevisions: [...(entry.handoff.metadata.sourceRevisions ?? []), { path: entry.handoff.markdownPath, revision: entry.handoff.metadata.artifactRevision ?? 1 }], existing: entry.formal };
   }
+  function draft(state: Awaited<ReturnType<typeof loadRoutedDevelopmentExecution>>, entry: Awaited<ReturnType<typeof loadRoutedDevelopmentExecution>>["entries"][number], prepare: true): ReturnType<typeof prepareArchitectOutputRuntimeSubmission>;
+  function draft(state: Awaited<ReturnType<typeof loadRoutedDevelopmentExecution>>, entry: Awaited<ReturnType<typeof loadRoutedDevelopmentExecution>>["entries"][number], prepare: false): ReturnType<typeof getArchitectOutputRuntimeStatus>;
   function draft(state: Awaited<ReturnType<typeof loadRoutedDevelopmentExecution>>, entry: Awaited<ReturnType<typeof loadRoutedDevelopmentExecution>>["entries"][number], prepare: boolean) {
     const owner = `routed-work-card-planning-${intakeId}`;
     if (!prepare && !matchesActiveDraft(owner, entry.handoff)) return undefined;
     const registry = createArchitectOutputRegistry([createFormalWorkCardArchitectOutputDefinition(() => formalContext(state, entry), owner)]);
     return prepare ? prepareArchitectOutputRuntimeSubmission(workspaceRoot, "formal-work-card", owner, registry) : getArchitectOutputRuntimeStatus(workspaceRoot, "formal-work-card", owner, registry);
   }
+  function repairDraft(state: Awaited<ReturnType<typeof loadRoutedDevelopmentExecution>>, entry: Awaited<ReturnType<typeof loadRoutedDevelopmentExecution>>["entries"][number], prepare: true): ReturnType<typeof prepareArchitectOutputRuntimeSubmission>;
+  function repairDraft(state: Awaited<ReturnType<typeof loadRoutedDevelopmentExecution>>, entry: Awaited<ReturnType<typeof loadRoutedDevelopmentExecution>>["entries"][number], prepare: false): ReturnType<typeof getArchitectOutputRuntimeStatus>;
   function repairDraft(state: Awaited<ReturnType<typeof loadRoutedDevelopmentExecution>>, entry: Awaited<ReturnType<typeof loadRoutedDevelopmentExecution>>["entries"][number], prepare: boolean) {
     const owner = `routed-work-card-repair-${intakeId}`;
     if (!prepare && !matchesActiveDraft(owner, entry.repairContext?.handoff)) return undefined;
@@ -174,11 +180,11 @@ export function createRoutedDevelopmentExecutionService(workspaceRoot: string, i
   }
   return {
     async query() { return (await loadRoutedDevelopmentExecution(workspaceRoot, intakeId)).projection; },
-    saveAcceptance(request: RoutedAcceptanceInput) { return acceptanceAction(request, (state) => saveRoutedAcceptance(workspaceRoot, state.binding, state.input, request)); },
+    saveAcceptance(request: RoutedAcceptanceInput) { return acceptanceAction(request, (state) => saveRoutedAcceptance(workspaceRoot, state.binding, state.input, request, state.planningContext)); },
     reviewAcceptance(request: RoutedAcceptanceRequest & { expectedRevision: number; disposition: "Approved" | "RevisionRequested" | "Rejected"; notes?: string }) {
-      return acceptanceAction(request, (state) => reviewRoutedAcceptance(workspaceRoot, state.binding, state.input, request));
+      return acceptanceAction(request, (state) => reviewRoutedAcceptance(workspaceRoot, state.binding, state.input, request, state.planningContext));
     },
-    begin(request: RoutedWorkItemRequest) { return action(request, (state, entry) => generateRoutedWorkCardIntakeHandoff(workspaceRoot, state.binding, entry.scope, entry.candidate)); },
+    begin(request: RoutedWorkItemRequest) { return action(request, (state, entry) => generateRoutedWorkCardIntakeHandoff(workspaceRoot, state.binding, entry.scope, entry.candidate, state.planningContext)); },
     prepare(request: RoutedWorkItemRequest) { return action(request, (state, entry) => draft(state, entry, true)); },
     getDraft(request: RoutedWorkItemRequest) { return action(request, (state, entry) => draft(state, entry, false)); },
     reviewFormal(request: RoutedWorkItemRequest & { expectedRevision: number; disposition: DocumentDispositionStatus; notes?: string }) {

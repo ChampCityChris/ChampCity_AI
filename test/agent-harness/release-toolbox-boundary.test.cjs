@@ -72,6 +72,7 @@ test("production command adapter fixes executables, arguments, deadlines, and sa
 
   const common = { root, repository: "Example/Fixture", tagName: "v1.2.3" };
   for (const [request, executable, args, publicArgs] of [
+    [{ id: "npm-test-release" }, path.join(toolchain, "node.exe"), [path.join(npmRoot, "bin/npm-cli.js"), "run", "test:release"], ["run", "test:release"]],
     [{ id: "npm-run-build" }, path.join(toolchain, "node.exe"), [path.join(npmRoot, "bin/npm-cli.js"), "run", "build"], ["run", "build"]],
     [{ id: "git-diff-check" }, "git", ["diff", "--check"]],
     [{ id: "gh-release-upload", installerPath: path.join(root, "release/setup.exe"), installerRelativePath: "release/setup.exe" }, "gh", ["release", "upload", "v1.2.3", path.join(root, "release/setup.exe"), "--repo", "Example/Fixture"], ["release", "upload", "v1.2.3", "release/setup.exe", "--repo", "Example/Fixture"]],
@@ -305,7 +306,7 @@ test("status recovers the latest completed candidate validation and its safe rec
   const completed = await service.validateCandidate(root);
   assert.match(completed.validationId, /^validation_[0-9a-f-]{36}$/i);
   assert.equal(completed.passed, true);
-  assert.equal(completed.commandReceipts.length, 6);
+  assert.equal(completed.commandReceipts.length, 4);
   assert.match(completed.candidateSnapshot.sourceHead, /^[0-9a-f]{40,64}$/);
   assert.match(completed.candidateSnapshot.candidateDigest, /^[0-9a-f]{64}$/);
   assert.equal(completed.candidateSnapshot.cleanupStatus, "succeeded");
@@ -313,7 +314,7 @@ test("status recovers the latest completed candidate validation and its safe rec
   assert.ok(Date.parse(completed.completedAt));
   const npmRequests = validationRequests.filter((entry) => entry.id.startsWith("npm"));
   const gitRequests = validationRequests.filter((entry) => entry.id === "git-diff-check" || entry.id === "git-status-short");
-  assert.equal(npmRequests.length, 4);
+  assert.equal(npmRequests.length, 2);
   assert.ok(npmRequests.every((entry) => normalize(entry.root) === normalize(npmRequests[0].root)));
   assert.notEqual(normalize(npmRequests[0].root), normalize(root));
   assert.equal(fs.existsSync(npmRequests[0].root), false);
@@ -323,7 +324,7 @@ test("status recovers the latest completed candidate validation and its safe rec
   assert.deepEqual(status.latestCandidateValidation, completed);
   assert.deepEqual(
     status.latestCandidateValidation.commandReceipts.map((entry) => entry.commandId),
-    ["npm-ci", "npm-run-typecheck", "npm-run-build", "npm-test", "git-diff-check", "git-status-short"],
+    ["npm-ci", "npm-test-release", "git-diff-check", "git-status-short"],
   );
   const otherStatus = await service.status(otherRoot, true);
   assert.equal(otherStatus.latestCandidateValidation, null);
@@ -344,16 +345,16 @@ test("validation and Windows packaging execute only fixed ordered sequences and 
         assert.notEqual(normalize(request.root), normalize(root));
         assert.equal(fs.existsSync(path.join(request.root, "node_modules")), false);
       }
-      return receipt(request.id, request.id === "npm-run-build" ? { status: "nonzero", exitCode: 2 } : {});
+      return receipt(request.id, request.id === "npm-test-release" ? { status: "nonzero", exitCode: 2 } : {});
     },
   });
   const validation = await validationService.validateCandidate(root);
   assert.equal(validation.passed, false);
-  assert.equal(validation.failedCommand, "npm-run-build");
+  assert.equal(validation.failedCommand, "npm-test-release");
   assert.equal(validation.failedPhase, "npm-validation");
-  assert.deepEqual(validationRequests.map((entry) => entry.id), ["npm-ci", "npm-run-typecheck", "npm-run-build"]);
+  assert.deepEqual(validationRequests.map((entry) => entry.id), ["npm-ci", "npm-test-release"]);
   assert.ok(validationRequests.every((entry) => normalize(entry.root) === normalize(candidateRoot)));
-  assert.equal(validation.commandReceipts.length, 3);
+  assert.equal(validation.commandReceipts.length, 2);
   assert.equal(validation.candidateSnapshot.cleanupStatus, "succeeded");
   assert.equal(fs.existsSync(candidateRoot), false);
   assert.equal(fs.readFileSync(sourceSentinel, "utf8"), "source dependency sentinel");

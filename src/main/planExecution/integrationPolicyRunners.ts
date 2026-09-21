@@ -53,12 +53,14 @@ function npmInvocation(): { executable: string; args: string[] } {
 }
 
 async function runNpmScript(root: string, check: IntegrationPolicyCheck, trustedScriptDefinition: string): Promise<Evidence> {
+  if (check.runner.kind !== "npm-script") return failure("Unsupported integration runner adapter.");
+  const script = check.runner.script;
   try {
     const bytes = readIntegrationPolicyFile(root, "package.json", 1_000_000);
     const manifest = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
     const scripts = manifest?.scripts;
-    if (!scripts || typeof scripts !== "object" || Array.isArray(scripts) || !Object.hasOwn(scripts, check.runner.script)
-      || typeof scripts[check.runner.script] !== "string" || scripts[check.runner.script] !== trustedScriptDefinition) {
+    if (!scripts || typeof scripts !== "object" || Array.isArray(scripts) || !Object.hasOwn(scripts, script)
+      || typeof scripts[script] !== "string" || scripts[script] !== trustedScriptDefinition) {
       return failure("Required npm script is missing or differs from the target-trusted definition.");
     }
   } catch { return failure("Candidate package manifest is missing, invalid, redirected, or exceeds its file bound."); }
@@ -108,7 +110,7 @@ async function runNpmScript(root: string, check: IntegrationPolicyCheck, trusted
       // cannot substitute an unrelated executable while reporting the named check as passing.
       if (process.platform === "win32" && (!process.env.SystemRoot || !path.isAbsolute(process.env.SystemRoot))) throw Error("System shell is unavailable.");
       const scriptShell = process.platform === "win32" ? path.join(process.env.SystemRoot!, "System32", "cmd.exe") : "/bin/sh";
-      child = spawn(invocation.executable, [...invocation.args, "--prefix", root, "--workspaces=false", "--if-present=false", "--ignore-scripts", "--script-shell", scriptShell, "run", check.runner.script], {
+      child = spawn(invocation.executable, [...invocation.args, "--prefix", root, "--workspaces=false", "--if-present=false", "--ignore-scripts", "--script-shell", scriptShell, "run", script], {
         cwd: root, shell: false, windowsHide: true, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"], env: environment,
       });
     } catch { finish(failure("Required npm script could not start.")); return; }

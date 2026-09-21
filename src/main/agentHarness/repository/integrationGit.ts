@@ -129,3 +129,13 @@ export async function abortIntegrationCheckout(root: string, candidateId: string
   }
   return { cleaned: true };
 }
+
+/** Exact target-to-candidate diff; --no-renames retains both endpoints as owned changes. */
+export async function readIntegrationChangedPaths(root: string, input: { candidateId: string; targetCommit: string; candidateCommit: string }): Promise<string[]> {
+  const paths = await registeredIntegrationCheckout(root, input.candidateId);
+  if (await commitAt(paths.checkout, "HEAD") !== exact(input.candidateCommit)) throw fail("Validation candidate revision changed.");
+  const result = await runBoundedGit({ cwd: root, args: ["diff", "--name-only", "--no-renames", "-z", exact(input.targetCommit), exact(input.candidateCommit), "--"], stdoutLimitBytes: 1_000_000 });
+  const changed = result.stdout.split("\0").filter(Boolean).map(exactRepositoryPath);
+  if (changed.length > 4096) throw fail("Validation diff exceeds its path bound.");
+  return [...new Set(changed)].sort();
+}
