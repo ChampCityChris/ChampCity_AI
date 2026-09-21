@@ -1,6 +1,6 @@
 # TVA04 — Add Explicit Test Scheduling Safety and Bounded Parallelism
 
-**Order:** 4 of 9  
+**Order:** 5 of 10  
 **Depends on:** TVA01–TVA03  
 **Governing architecture:** `docs/architecture/CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md`  
 **Implementer Report:** `docs/implementation-bundles/test-execution-architecture/Implementer_Reports/TVA04_IMPLEMENTER_REPORT.md`

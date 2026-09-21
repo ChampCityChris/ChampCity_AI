@@ -277,6 +277,187 @@ Even after lane governance was adopted, card authors continued to reach for the 
 
 This is both an execution gap and a workflow migration gap.
 
+## Same-Day Regression Delta — Confirmed 2026-09-20
+
+The repository was already slow before the current WIR22 repair sequence. The evidence does **not** support treating the present two-hour Work Card behavior as merely the old baseline.
+
+### Pre-regression reference point
+
+WIR20 recorded:
+
+```text
+test/agent-harness/git-mutation-boundary.test.cjs
+30 tests
+209.52 seconds
+```
+
+Approximately 3.5 minutes for one focused integration file was already too slow, but it provides a useful pre-today reference point.
+
+### Regression 1 — Routed lifecycle projection repeatedly reacquires complete planning inventories
+
+WIR22 REPAIR04 introduced/expanded routed direct/phased lifecycle proof and reported:
+
+```text
+34 focused tests
+766,621 ms
+≈ 12.8 minutes
+```
+
+REPAIR05 reported:
+
+```text
+55 focused tests
+897,083 ms
+≈ 15.0 minutes
+```
+
+Current production source confirms a multiplicative projection cost:
+
+- `loadRoutedDevelopmentExecution()` calls `listPlanningDocuments(workspaceRoot)`, which acquires a full `PlanningRepositorySnapshot`;
+- while iterating execution artifacts it calls `evaluateDocumentFreshness(workspaceRoot, ...)`;
+- the string-root overload of `evaluateDocumentFreshness` calls `acquirePlanningRepositorySnapshot(workspaceRoot)` again;
+- every snapshot acquisition runs `discoverPlanningMarkdownInventory()`, recursively walking `planning/` and `lstat`-ing the inventory even when cached content can be reused;
+- routed actions call `loadRoutedDevelopmentExecution()` again as their precondition;
+- tests commonly call `query()` immediately before the action to obtain the current fingerprint, causing the projection work to run twice;
+- composed lifecycle helpers called from the projection can independently acquire additional planning snapshots.
+
+This bypasses the existing `PlanningProjectionContext` optimization pattern. The repository already contains performance proof requiring one pre-write and one post-write planning inventory scan for comparable Development projection work. Routed execution was added without carrying that architecture forward.
+
+This is a production-path performance regression as well as a test regression.
+
+### Regression 2 — Full production lifecycle replay was added to focused tests
+
+REPAIR06 added a routed application composition case that performs, for each clean/conflicted subcase:
+
+```text
+seed routed Intake
+→ route decision
+→ route assessment
+→ approved Plan
+→ Work Card Intake
+→ Formal Work Card draft/promotion/review
+→ Implementer execution
+→ source checkpoint
+→ Work Item validation
+→ close
+→ Plan acceptance
+→ integration candidate
+→ target validation
+→ target advancement
+→ conflict path + Integration Repair when applicable
+```
+
+Measured result:
+
+```text
+selected parent + two subcases: 2,184,020 ms ≈ 36.4 minutes
+clean subcase:                  820,196 ms ≈ 13.7 minutes
+conflicted subcase:          1,363,358 ms ≈ 22.7 minutes
+```
+
+The worker in this test is a controlled in-process fake. No live model call explains the delay.
+
+The test therefore magnifies the routed projection/source-control/integration costs by replaying the complete lifecycle twice. Much of the intermediate lifecycle behavior already has owning tests elsewhere.
+
+A full production-path acceptance case remains valuable, but it must not be the ordinary focused regression for every change touching routed Development.
+
+### Regression 3 — Real npm process execution was multiplied across semantic policy scenarios
+
+REPAIR06A introduced the target-owned integration-policy provider and a real `npm-script` runner. Its policy scenarios invoke actual npm processes in isolated candidates.
+
+Timing progression:
+
+```text
+WIR20 before policy provider:
+  30 tests   209.52 s  ≈ 3.5 min
+
+REPAIR06A:
+  43 tests   638.92 s  ≈ 10.6 min
+
+REPAIR06A-REPAIR01:
+  46 tests   673.57 s  ≈ 11.2 min
+
+REPAIR06B:
+  48 tests 1,117.39 s  ≈ 18.6 min
+```
+
+The focused target-policy subset alone recorded:
+
+```text
+13 tests
+207,629.84 ms
+≈ 3.46 minutes
+```
+
+The semantic scenario matrix now repeatedly pays real process-launch and candidate source-control costs even when the behavior under test is policy identity, stale target rejection, schema transition, or service recreation rather than npm process execution itself.
+
+The real npm adapter requires dedicated conformance proof for:
+
+- trusted script resolution;
+- actual candidate cwd;
+- lifecycle/pre-post suppression;
+- hostile `.npmrc` override resistance;
+- timeout/process-tree termination;
+- output ceiling;
+- bounded/sanitized failure evidence.
+
+Those expensive adapter properties do **not** need to be re-proved through every higher-level semantic integration scenario.
+
+### Regression 4 — Production Integration Repair broadened expensive real-source-control work across preserved scenarios
+
+REPAIR06B routed existing conflict, validation-failure, retry, worker-index, and Operator-decision scenarios through the production repair-policy provider.
+
+That provider adds repeated immutable blob reads, changed-path calculation, checkout ownership verification, policy resolution, source digest checks, and bounded Git process execution.
+
+This is legitimate production behavior, but exercising the complete provider/process stack for the entire semantic scenario matrix transformed a previously slow file into an 18.6-minute test file.
+
+Semantic controller behavior and real provider/process conformance need separate proof boundaries.
+
+### Why this creates two-hour Work Cards
+
+The present validation cost is iterative, not one final run.
+
+A typical repair cycle can become:
+
+```text
+focused run 10–20+ min
+→ failure
+→ correction
+→ focused rerun 10–20+ min
+→ another production-path run 15–36 min
+→ correction
+→ rerun
+→ required combined regression
+```
+
+Two or three correction cycles can consume two hours before the Implementer reaches broader validation.
+
+The full repository gate is still a serious architectural problem, but it is **not sufficient** to explain today's magnitude. Today's routed-projection amplification and heavyweight semantic test composition must be repaired directly.
+
+### Confirmed root-cause hierarchy
+
+1. **New repeated planning snapshot/inventory acquisition in routed projections** — algorithmic production regression.
+2. **New full-lifecycle production-path replay inside focused regression** — test composition regression.
+3. **New real npm process execution repeated across broad semantic policy scenarios** — adapter-boundary regression.
+4. **New production Integration Repair provider exercised across the complete scenario matrix** — real-process/source-control amplification.
+5. **Existing global serial execution** — multiplies all of the above.
+6. **Existing full-regression integration policy** — makes all unrelated expensive proof a final integration tax.
+
+The TVA implementation is not complete unless it corrects items 1–4 as well as items 5–6.
+
+### Immediate regression-recovery targets
+
+Before claiming general test-architecture success:
+
+- a stable routed projection must use one shared PlanningProjectionContext/inventory scan rather than reacquiring snapshots inside artifact loops;
+- a routed mutation may use the minimal bounded pre/post snapshots required for correctness, not repeated independent inventory scans through composed helpers;
+- ordinary focused routed-integration proof must not replay the entire planning/implementation/validation lifecycle for every semantic branch;
+- one explicit end-to-end lifecycle acceptance may remain in a wider integration profile;
+- semantic integration-policy scenarios must not launch real npm unless npm/process behavior is the thing being proved;
+- semantic Integration Repair scenarios must use the narrowest provider boundary that still proves the owned behavior;
+- the full `git-mutation-boundary.test.cjs` file must first return at least to its pre-today timing envelope, then be optimized further by the remaining TVA cards;
+- no ordinary focused test command should contain a 10+ minute single test file after the regression-recovery card.
+
 ## Root Cause Analysis
 
 ### Primary root cause

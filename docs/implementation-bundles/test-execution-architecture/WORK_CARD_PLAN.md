@@ -19,19 +19,22 @@ Astra implements this bundle in the repository context supplied by ChampCity. So
 ## Card Sequence
 
 1. **TVA01 — Make the Capability Map Executable and Establish Validation Profiles**
-2. **TVA02 — Split Mixed-Lane Tests and Isolate Performance/Desktop Proof**
-3. **TVA03 — Build Once and Establish Built-Output Freshness**
-4. **TVA04 — Add Explicit Test Scheduling Safety and Bounded Parallelism**
-5. **TVA05 — Implement Deterministic Affected-Capability Selection**
-6. **TVA06 — Replace Integration Full Regression with the Candidate-Aware Integration Gate**
-7. **TVA07 — Recompose Developer, Work Item, Phase, and Release Validation Commands**
-8. **TVA08 — Audit Source-Proxy/Redundant Proof and Quarantine Environment-Sensitive Tests**
-9. **TVA09 — Add Validation Telemetry, Performance Budgets, and End-to-End Acceptance**
+2. **TVA02A — Eliminate Same-Day Projection and Process-Amplification Regressions**
+3. **TVA02 — Split Mixed-Lane Tests and Isolate Performance/Desktop Proof**
+4. **TVA03 — Build Once and Establish Built-Output Freshness**
+5. **TVA04 — Add Explicit Test Scheduling Safety and Bounded Parallelism**
+6. **TVA05 — Implement Deterministic Affected-Capability Selection**
+7. **TVA06 — Replace Integration Full Regression with the Candidate-Aware Integration Gate**
+8. **TVA07 — Recompose Developer, Work Item, Phase, and Release Validation Commands**
+9. **TVA08 — Audit Source-Proxy/Redundant Proof and Quarantine Environment-Sensitive Tests**
+10. **TVA09 — Add Validation Telemetry, Performance Budgets, and End-to-End Acceptance**
 
 ## Dependency Shape
 
 ```text
 TVA01
+  ↓
+TVA02A
   ↓
 TVA02
   ↓
@@ -50,7 +53,7 @@ TVA08
 TVA09
 ```
 
-The sequence is intentionally conservative. TVA06 may not weaken the current integration gate until TVA01–TVA05 provide deterministic replacement selection and execution.
+The sequence is intentionally conservative. TVA02A must recover the same-day pathological timing regression before broader lane work continues. TVA06 may not weaken the current integration gate until TVA01–TVA05 provide deterministic replacement selection and execution.
 
 ## Expected Outcome
 

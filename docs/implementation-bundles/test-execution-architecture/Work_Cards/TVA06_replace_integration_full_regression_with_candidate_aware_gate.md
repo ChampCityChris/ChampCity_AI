@@ -1,6 +1,6 @@
 # TVA06 — Replace Integration Full Regression with the Candidate-Aware Integration Gate
 
-**Order:** 6 of 9  
+**Order:** 7 of 10  
 **Depends on:** TVA01–TVA05 and current target-owned integration validation policy  
 **Governing architecture:** `docs/architecture/CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md`  
 **Implementer Report:** `docs/implementation-bundles/test-execution-architecture/Implementer_Reports/TVA06_IMPLEMENTER_REPORT.md`

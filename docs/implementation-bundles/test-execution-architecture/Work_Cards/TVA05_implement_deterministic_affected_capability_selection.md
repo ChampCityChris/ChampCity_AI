@@ -1,6 +1,6 @@
 # TVA05 — Implement Deterministic Affected-Capability Selection
 
-**Order:** 5 of 9  
+**Order:** 6 of 10  
 **Depends on:** TVA01–TVA04  
 **Governing architecture:** `docs/architecture/CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md`  
 **Implementer Report:** `docs/implementation-bundles/test-execution-architecture/Implementer_Reports/TVA05_IMPLEMENTER_REPORT.md`

@@ -1,6 +1,6 @@
 # TVA03 — Build Once and Establish Built-Output Freshness
 
-**Order:** 3 of 9  
+**Order:** 4 of 10  
 **Depends on:** TVA01–TVA02  
 **Governing architecture:** `docs/architecture/CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md`  
 **Implementer Report:** `docs/implementation-bundles/test-execution-architecture/Implementer_Reports/TVA03_IMPLEMENTER_REPORT.md`

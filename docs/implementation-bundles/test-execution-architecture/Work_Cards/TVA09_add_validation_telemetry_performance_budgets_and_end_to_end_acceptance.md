@@ -1,6 +1,6 @@
 # TVA09 — Add Validation Telemetry, Performance Budgets, and End-to-End Acceptance
 
-**Order:** 9 of 9  
+**Order:** 10 of 10  
 **Depends on:** TVA01–TVA08  
 **Governing architecture:** `docs/architecture/CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md`  
 **Implementer Report:** `docs/implementation-bundles/test-execution-architecture/Implementer_Reports/TVA09_IMPLEMENTER_REPORT.md`

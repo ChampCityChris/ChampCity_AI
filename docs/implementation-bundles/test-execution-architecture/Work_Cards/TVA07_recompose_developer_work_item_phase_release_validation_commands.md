@@ -1,6 +1,6 @@
 # TVA07 — Recompose Developer, Work Item, Phase, and Release Validation Commands
 
-**Order:** 7 of 9  
+**Order:** 8 of 10  
 **Depends on:** TVA01–TVA06  
 **Governing architecture:** `docs/architecture/CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md`  
 **Implementer Report:** `docs/implementation-bundles/test-execution-architecture/Implementer_Reports/TVA07_IMPLEMENTER_REPORT.md`

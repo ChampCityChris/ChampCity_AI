@@ -1,7 +1,7 @@
 # TVA02 — Split Mixed-Lane Tests and Isolate Performance/Desktop Proof
 
-**Order:** 2 of 9  
-**Depends on:** TVA01  
+**Order:** 3 of 10  
+**Depends on:** TVA01, TVA02A
 **Governing architecture:** `docs/architecture/CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md`  
 **Implementer Report:** `docs/implementation-bundles/test-execution-architecture/Implementer_Reports/TVA02_IMPLEMENTER_REPORT.md`
 

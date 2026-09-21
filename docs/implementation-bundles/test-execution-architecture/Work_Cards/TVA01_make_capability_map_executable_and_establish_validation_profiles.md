@@ -1,6 +1,6 @@
 # TVA01 — Make the Capability Map Executable and Establish Validation Profiles
 
-**Order:** 1 of 9  
+**Order:** 1 of 10  
 **Depends on:** current capability-map validator and adopted test-governance standard  
 **Governing architecture:** `docs/architecture/CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md`  
 **RCA:** `docs/implementation-bundles/test-execution-architecture/CODE_REVIEW_AND_RCA.md`  

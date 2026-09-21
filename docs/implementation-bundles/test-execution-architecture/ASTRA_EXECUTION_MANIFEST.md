@@ -23,7 +23,7 @@ Historical references to provider-specific source-control mechanics in the RCA/a
 Verify only:
 
 1. selected Repository is `ChampCity_AI`;
-2. all nine TVA Work Cards exist;
+2. all ten TVA Work Cards exist;
 3. the architecture, governance standard, and RCA are readable and materially consistent with current source;
 4. `validation/capability-map.json` exists and its current validator passes before schema changes;
 5. current integration policy still uses the legacy full-regression validation path unless a prior TVA card has intentionally changed it.
@@ -50,7 +50,7 @@ After each card is implemented, validated, and reported, read the next card and 
 
 Execute:
 
-`TVA01 → TVA02 → TVA03 → TVA04 → TVA05 → TVA06 → TVA07 → TVA08 → TVA09`
+`TVA01 → TVA02A → TVA02 → TVA03 → TVA04 → TVA05 → TVA06 → TVA07 → TVA08 → TVA09`
 
 For each card:
 
@@ -62,6 +62,12 @@ For each card:
 6. continue automatically to the next card unless a real blocker or Operator-owned product/architecture decision is required.
 
 Do not pause between cards for source-control operations or source-control confirmation.
+
+## Same-Day Regression Recovery Gate
+
+TVA02A is the same-day regression recovery gate. Do not continue to TVA02 while the pathological focused timings remain above TVA02A's measured acceptance thresholds unless a concrete external/infrastructure blocker is documented for Architect review.
+
+Moving a slow test to another lane, increasing its timeout, or parallelizing repeated redundant work does not satisfy this gate.
 
 ## Preservation Rule
 
