@@ -4389,12 +4389,12 @@
       "testPath": "test/agent-harness/agent-harness-build-identity.test.cjs",
       "currentTestCount": {
         "value": 4,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 252,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 251,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -4459,12 +4459,12 @@
       "testPath": "test/agent-harness/agent-harness-core.test.cjs",
       "currentTestCount": {
         "value": 14,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 629,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 725,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -4588,12 +4588,12 @@
       "testPath": "test/agent-harness/agent-harness-process-boundary.test.cjs",
       "currentTestCount": {
         "value": 18,
-        "basis": "TVA02 mechanically preserved top-level test declarations; nested runtime counts may differ."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
-        "kind": "estimated",
-        "milliseconds": 60000,
-        "basis": "Retained Desktop boundary after four small contracts moved; one real Electron case measured 5.76 seconds, full file intentionally not run."
+        "kind": "measured",
+        "milliseconds": 70347,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "desktop-platform",
       "platformDependency": "windows",
@@ -4752,12 +4752,12 @@
       "testPath": "test/agent-harness/agent-harness-process-contract.test.cjs",
       "currentTestCount": {
         "value": 4,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 332,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 316,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -4823,12 +4823,12 @@
       "testPath": "test/agent-harness/agent-harness-runtime.test.cjs",
       "currentTestCount": {
         "value": 18,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 5456,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 5268,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -4985,12 +4985,12 @@
       "testPath": "test/agent-harness/agent-harness-service-host-lifecycle.test.cjs",
       "currentTestCount": {
         "value": 11,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 170,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 162,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -5097,12 +5097,12 @@
       "testPath": "test/agent-harness/agent-harness-service-host-protocol-compatibility.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 176,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 159,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -5160,12 +5160,12 @@
       "testPath": "test/agent-harness/background-agent-tray-presentation.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 151,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 160,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "desktop-platform",
       "platformDependency": "windows",
@@ -5219,12 +5219,12 @@
       "testPath": "test/agent-harness/candidate-validation-snapshot.test.cjs",
       "currentTestCount": {
         "value": 5,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/candidate-validation-snapshot.test.cjs; the TAP summary reported 5 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 3824,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/candidate-validation-snapshot.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 4831,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "desktop-platform",
       "platformDependency": "windows",
@@ -5302,12 +5302,12 @@
       "testPath": "test/agent-harness/git-toolbox-local-operations.test.cjs",
       "currentTestCount": {
         "value": 6,
-        "basis": "Measured during TSR05 by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/git-toolbox-local-operations.test.cjs; the TAP summary reported 6 tests including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 14744,
-        "basis": "Measured in the TSR05 normal Windows focused integration run; value is the rounded-up TAP duration_ms summary for test/agent-harness/git-toolbox-local-operations.test.cjs."
+        "milliseconds": 12473,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -5392,12 +5392,12 @@
       "testPath": "test/agent-harness/git-toolbox-remote-operations.test.cjs",
       "currentTestCount": {
         "value": 4,
-        "basis": "Measured during TSR05 by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/git-toolbox-remote-operations.test.cjs; the TAP summary reported 4 tests including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 30787,
-        "basis": "Measured in the TSR05 normal Windows focused integration run; value is the rounded-up TAP duration_ms summary for test/agent-harness/git-toolbox-remote-operations.test.cjs."
+        "milliseconds": 25966,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -5468,12 +5468,12 @@
       "testPath": "test/agent-harness/git-toolbox-tag-operations.test.cjs",
       "currentTestCount": {
         "value": 10,
-        "basis": "Measured during TSR05 by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/git-toolbox-tag-operations.test.cjs; the TAP summary reported 10 tests including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 27447,
-        "basis": "Measured in the TSR05 normal Windows focused integration run; value is the rounded-up TAP duration_ms summary for test/agent-harness/git-toolbox-tag-operations.test.cjs."
+        "milliseconds": 23314,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -5568,12 +5568,12 @@
       "testPath": "test/agent-harness/integration-candidate-semantics.test.cjs",
       "currentTestCount": {
         "value": 8,
-        "basis": "Measured during TSR07; the TAP summary reported one owner plus seven generated candidate scenarios."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 25906,
-        "basis": "Measured by the TSR07 normal Windows focused run of test/agent-harness/integration-candidate-semantics.test.cjs; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 21793,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -5621,12 +5621,12 @@
       "testPath": "test/agent-harness/integration-npm-adapter.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "One top-level contract containing the explicitly separated adapter/provider/controller scenario assertions."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 5180,
-        "basis": "TVA02A focused normal Windows invocation; detailed commands and timing in its Implementer Report."
+        "milliseconds": 4125,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -5672,13 +5672,13 @@
     {
       "testPath": "test/agent-harness/integration-policy-semantics.test.cjs",
       "currentTestCount": {
-        "value": 2,
-        "basis": "Top-level decomposed scenario groups; nested cases retain their own runtime counts."
+        "value": 10,
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 37968,
-        "basis": "TVA02A focused normal Windows invocation; detailed commands and timing in its Implementer Report."
+        "milliseconds": 29739,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -5732,12 +5732,12 @@
       "testPath": "test/agent-harness/integration-profile-gate.test.cjs",
       "currentTestCount": {
         "value": 7,
-        "basis": "Three top-level contracts plus four generated candidate scenarios."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 39597,
-        "basis": "Measured by the TSR10 normal Windows focused provider run of test/agent-harness/integration-profile-gate.test.cjs; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 32923,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -5797,12 +5797,12 @@
       "testPath": "test/agent-harness/integration-repair-controller.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "One top-level contract containing the explicitly separated adapter/provider/controller scenario assertions."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 210,
-        "basis": "TVA02A focused normal Windows invocation; detailed commands and timing in its Implementer Report."
+        "milliseconds": 276,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -5848,12 +5848,12 @@
       "testPath": "test/agent-harness/integration-repair-provider.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "One top-level contract containing the explicitly separated adapter/provider/controller scenario assertions."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 19897,
-        "basis": "TVA02A focused normal Windows invocation; detailed commands and timing in its Implementer Report."
+        "milliseconds": 14974,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -5900,13 +5900,13 @@
     {
       "testPath": "test/agent-harness/integration-repair-source-semantics.test.cjs",
       "currentTestCount": {
-        "value": 1,
-        "basis": "One top-level contract containing the explicitly separated adapter/provider/controller scenario assertions."
+        "value": 4,
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 32377,
-        "basis": "TVA02A focused normal Windows invocation; detailed commands and timing in its Implementer Report."
+        "milliseconds": 27391,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -5954,12 +5954,12 @@
       "testPath": "test/agent-harness/mcp-operational-diagnostics.test.cjs",
       "currentTestCount": {
         "value": 5,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 6605,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 6450,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -6031,12 +6031,12 @@
       "testPath": "test/agent-harness/mcp-session-lifecycle.test.cjs",
       "currentTestCount": {
         "value": 13,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 6489,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 6583,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -6157,12 +6157,12 @@
       "testPath": "test/agent-harness/mcp-tool-contract-generation.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 1455,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 1453,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -6221,12 +6221,12 @@
       "testPath": "test/agent-harness/multi-user-startup-registration.test.cjs",
       "currentTestCount": {
         "value": 8,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/multi-user-startup-registration.test.cjs; the TAP summary reported 8 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 160,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/multi-user-startup-registration.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 307,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "desktop-platform",
       "platformDependency": "windows",
@@ -6317,12 +6317,12 @@
       "testPath": "test/agent-harness/oauth-offline-access.test.cjs",
       "currentTestCount": {
         "value": 9,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 2035,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 2021,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -6402,12 +6402,12 @@
       "testPath": "test/agent-harness/registered-workspace-registry.test.cjs",
       "currentTestCount": {
         "value": 5,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 1645,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 1482,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -6478,12 +6478,12 @@
       "testPath": "test/agent-harness/release-toolbox-boundary.test.cjs",
       "currentTestCount": {
         "value": 50,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/release-toolbox-boundary.test.cjs; the TAP summary reported 50 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 16320,
-        "basis": "Measured by the TSR07 normal Windows focused run of test/agent-harness/release-toolbox-boundary.test.cjs; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 13543,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -6675,12 +6675,12 @@
       "testPath": "test/agent-harness/repository-enumeration-semantics.test.cjs",
       "currentTestCount": {
         "value": 6,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 1016,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 630,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -6765,12 +6765,12 @@
       "testPath": "test/agent-harness/repository-file-operations.test.cjs",
       "currentTestCount": {
         "value": 17,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 531,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 556,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -6913,12 +6913,12 @@
       "testPath": "test/agent-harness/repository-io-hardening.test.cjs",
       "currentTestCount": {
         "value": 11,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 3454,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 3460,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -7015,12 +7015,12 @@
       "testPath": "test/agent-harness/reserved-toolbox-namespace.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 466,
-        "basis": "Measured by the TSR10 normal Windows focused run of test/agent-harness/reserved-toolbox-namespace.test.cjs; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 489,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -7073,12 +7073,12 @@
       "testPath": "test/agent-harness/service-host-power-recovery.test.cjs",
       "currentTestCount": {
         "value": 12,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/service-host-power-recovery.test.cjs; the TAP summary reported 12 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 85,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/service-host-power-recovery.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 149,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "desktop-platform",
       "platformDependency": "windows",
@@ -7193,12 +7193,12 @@
       "testPath": "test/agent-harness/sibling-process-launch.test.cjs",
       "currentTestCount": {
         "value": 5,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 145,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 132,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -7269,12 +7269,12 @@
       "testPath": "test/agent-harness/source-checkpoint-boundary.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "Measured during TSR05 by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/source-checkpoint-boundary.test.cjs; the TAP summary reported 1 test."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 68145,
-        "basis": "Measured in the TSR05 normal Windows focused integration run; value is the rounded-up TAP duration_ms summary for test/agent-harness/source-checkpoint-boundary.test.cjs."
+        "milliseconds": 57330,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -7329,12 +7329,12 @@
       "testPath": "test/agent-harness/source-control-service-boundary.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "Measured during TSR05 by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/source-control-service-boundary.test.cjs; the TAP summary reported 1 test."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 24843,
-        "basis": "Measured in the TSR05 normal Windows focused integration run; value is the rounded-up TAP duration_ms summary for test/agent-harness/source-control-service-boundary.test.cjs."
+        "milliseconds": 20178,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -7389,12 +7389,12 @@
       "testPath": "test/agent-harness/visual-asset-preview.test.cjs",
       "currentTestCount": {
         "value": 10,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/visual-asset-preview.test.cjs; the TAP summary reported 10 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 7708,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/visual-asset-preview.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 8185,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -7498,12 +7498,12 @@
       "testPath": "test/agent-harness/visual-asset-toolbox.test.cjs",
       "currentTestCount": {
         "value": 7,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/visual-asset-toolbox.test.cjs; the TAP summary reported 7 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 2226,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/visual-asset-toolbox.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 2573,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -7594,12 +7594,12 @@
       "testPath": "test/agent-harness/windows-npm-execution.test.cjs",
       "currentTestCount": {
         "value": 5,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/windows-npm-execution.test.cjs; the TAP summary reported 5 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 3940,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/windows-npm-execution.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 4546,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "desktop-platform",
       "platformDependency": "windows",
@@ -7676,12 +7676,12 @@
       "testPath": "test/agent-harness/work-intake-branch-boundary.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "Measured during TSR05 by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/work-intake-branch-boundary.test.cjs; the TAP summary reported 1 test."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 39264,
-        "basis": "Measured in the TSR05 normal Windows focused integration run; value is the rounded-up TAP duration_ms summary for test/agent-harness/work-intake-branch-boundary.test.cjs."
+        "milliseconds": 29164,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -7736,12 +7736,12 @@
       "testPath": "test/app-shell/app-shell.test.cjs",
       "currentTestCount": {
         "value": 11,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 612,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 553,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -7848,12 +7848,12 @@
       "testPath": "test/app-shell/clipboard-handoff.test.cjs",
       "currentTestCount": {
         "value": 18,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 371,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 350,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -7908,12 +7908,12 @@
       "testPath": "test/app-shell/native-dialog.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 300,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 290,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -7962,12 +7962,12 @@
       "testPath": "test/app-shell/native-product-identity.test.cjs",
       "currentTestCount": {
         "value": 4,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 328,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 296,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "static",
       "platformDependency": "none",
@@ -8032,13 +8032,13 @@
     {
       "testPath": "test/architect-interview/architect-interview-workspace.test.cjs",
       "currentTestCount": {
-        "value": 12,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/architect-interview/architect-interview-workspace.test.cjs; the TAP summary reported 12 tests, including generated subtests."
+        "value": 13,
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 526,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/architect-interview/architect-interview-workspace.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 16259,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -8150,13 +8150,13 @@
     {
       "testPath": "test/architect-outputs/architect-draft-ingestion.test.cjs",
       "currentTestCount": {
-        "value": 8,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/architect-outputs/architect-draft-ingestion.test.cjs; the TAP summary reported 8 tests, including generated subtests."
+        "value": 9,
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 151,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/architect-outputs/architect-draft-ingestion.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 30666,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -8244,13 +8244,13 @@
     {
       "testPath": "test/architect-outputs/architect-output-prompt-contracts.test.cjs",
       "currentTestCount": {
-        "value": 8,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/architect-outputs/architect-output-prompt-contracts.test.cjs; the TAP summary reported 8 tests, including generated subtests. The WC02 assertion-only extension retained the declaration and generation structure."
+        "value": 10,
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 249,
-        "basis": "Measured by node --test --test-concurrency=1 test/architect-outputs/architect-output-prompt-contracts.test.cjs in the WC02 normal Windows focused-validation run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 24523,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -8346,12 +8346,12 @@
       "testPath": "test/architect-outputs/architect-output-workspace-repair.test.cjs",
       "currentTestCount": {
         "value": 27,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/architect-outputs/architect-output-workspace-repair.test.cjs during TSR04; the TAP summary reported 27 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 19210,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/architect-outputs/architect-output-workspace-repair.test.cjs in the TSR04 normal Windows focused run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 13464,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -8553,12 +8553,12 @@
       "testPath": "test/browser/architect-browser-handoff.test.cjs",
       "currentTestCount": {
         "value": 4,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/browser/architect-browser-handoff.test.cjs; the TAP summary reported 4 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 311,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/browser/architect-browser-handoff.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 440,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -8625,12 +8625,12 @@
       "testPath": "test/characterization/desktop-development-lifecycle.test.cjs",
       "currentTestCount": {
         "value": 6,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/characterization/desktop-development-lifecycle.test.cjs during TSR03; the TAP summary reported 6 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 10982,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/characterization/desktop-development-lifecycle.test.cjs in the TSR03 normal Windows focused run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 10320,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -8695,13 +8695,13 @@
     {
       "testPath": "test/characterization/desktop-issue-lifecycle.test.cjs",
       "currentTestCount": {
-        "value": 4,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/characterization/desktop-issue-lifecycle.test.cjs; the TAP summary reported 4 tests, including generated subtests."
+        "value": 5,
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 487,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/characterization/desktop-issue-lifecycle.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 43467,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -8766,12 +8766,12 @@
       "testPath": "test/characterization/desktop-project-repository-binding.test.cjs",
       "currentTestCount": {
         "value": 4,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 1456,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 1176,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -8836,12 +8836,12 @@
       "testPath": "test/characterization/desktop-runtime-model-selection.test.cjs",
       "currentTestCount": {
         "value": 7,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/characterization/desktop-runtime-model-selection.test.cjs; the TAP summary reported 7 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 69,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/characterization/desktop-runtime-model-selection.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 124,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -8906,12 +8906,12 @@
       "testPath": "test/characterization/routed-integration-focus.test.cjs",
       "currentTestCount": {
         "value": 3,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/characterization/routed-integration-focus.test.cjs during TSR03; the TAP summary reported 3 tests including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 23904,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/characterization/routed-integration-focus.test.cjs in the TSR04 normal Windows focused run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 15545,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -8959,12 +8959,12 @@
       "testPath": "test/context-menu/local-renderer-context-menu.test.cjs",
       "currentTestCount": {
         "value": 6,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 146,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 141,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "fast",
       "platformDependency": "none",
@@ -9040,12 +9040,12 @@
       "testPath": "test/development-environment/development-environment-preflight-service.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 339,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 345,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -9098,12 +9098,12 @@
       "testPath": "test/development-environment/elevated-command-transport.test.cjs",
       "currentTestCount": {
         "value": 7,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/development-environment/elevated-command-transport.test.cjs; the TAP summary reported 7 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 2946,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/development-environment/elevated-command-transport.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 3780,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "desktop-platform",
       "platformDependency": "windows",
@@ -9189,12 +9189,12 @@
       "testPath": "test/development-environment/windows-development-environment-provisioner.test.cjs",
       "currentTestCount": {
         "value": 32,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/development-environment/windows-development-environment-provisioner.test.cjs; the TAP summary reported 32 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 508,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/development-environment/windows-development-environment-provisioner.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 591,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "desktop-platform",
       "platformDependency": "windows",
@@ -9429,12 +9429,12 @@
       "testPath": "test/development-environment/windows-environment-refresh.test.cjs",
       "currentTestCount": {
         "value": 5,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/development-environment/windows-environment-refresh.test.cjs; the TAP summary reported 5 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 65,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/development-environment/windows-environment-refresh.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 125,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "desktop-platform",
       "platformDependency": "windows",
@@ -9506,12 +9506,12 @@
       "testPath": "test/documents/artifact-source-revision.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 177,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 178,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -9558,12 +9558,12 @@
       "testPath": "test/documents/artifact-transaction.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 149,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 136,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -9616,12 +9616,12 @@
       "testPath": "test/documents/canonical-markdown-document.test.cjs",
       "currentTestCount": {
         "value": 7,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 197,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 202,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -9710,13 +9710,13 @@
     {
       "testPath": "test/documents/disposition-transaction.test.cjs",
       "currentTestCount": {
-        "value": 9,
-        "basis": "TVA02 mechanically preserved top-level test declarations; nested runtime counts may differ."
+        "value": 18,
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 533,
-        "basis": "TVA02 rounded sum of focused top-level case durations, excluding runner startup; soak and idle measured separately after explicit warm-up correction."
+        "milliseconds": 869,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -9813,12 +9813,12 @@
       "testPath": "test/documents/planning-document-service.test.cjs",
       "currentTestCount": {
         "value": 8,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 330,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 351,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -9907,12 +9907,12 @@
       "testPath": "test/documents/planning-repository-snapshot.test.cjs",
       "currentTestCount": {
         "value": 9,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 482,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 530,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -10007,12 +10007,12 @@
       "testPath": "test/documents/repository-binding-compatibility.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 147,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 143,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "fast",
       "platformDependency": "none",
@@ -10058,12 +10058,12 @@
       "testPath": "test/documents/single-file-workflow.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 281,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 289,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -10112,12 +10112,12 @@
       "testPath": "test/external-providers/external-mcp-provider-gateway.test.cjs",
       "currentTestCount": {
         "value": 12,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/external-providers/external-mcp-provider-gateway.test.cjs; the TAP summary reported 12 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 541,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/external-providers/external-mcp-provider-gateway.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 676,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -10234,12 +10234,12 @@
       "testPath": "test/external-providers/github-provider.test.cjs",
       "currentTestCount": {
         "value": 16,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/external-providers/github-provider.test.cjs; the TAP summary reported 16 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 389,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/external-providers/github-provider.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 433,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -10378,12 +10378,12 @@
       "testPath": "test/issue-resolution/issue-architect-planning-service.test.cjs",
       "currentTestCount": {
         "value": 12,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/issue-resolution/issue-architect-planning-service.test.cjs during TSR04; the TAP summary reported 12 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 2030,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/issue-resolution/issue-architect-planning-service.test.cjs in the TSR04 normal Windows focused run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 1723,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -10492,12 +10492,12 @@
       "testPath": "test/issue-resolution/issue-close-service.test.cjs",
       "currentTestCount": {
         "value": 8,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/issue-resolution/issue-close-service.test.cjs; the TAP summary reported 8 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 1174,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/issue-resolution/issue-close-service.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 1585,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -10586,12 +10586,12 @@
       "testPath": "test/issue-resolution/issue-fix-card-service.test.cjs",
       "currentTestCount": {
         "value": 21,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/issue-resolution/issue-fix-card-service.test.cjs; the TAP summary reported 21 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 8423,
-        "basis": "Measured by the TSR08 normal Windows focused run of test/issue-resolution/issue-fix-card-service.test.cjs; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 8082,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -10761,12 +10761,12 @@
       "testPath": "test/issue-resolution/issue-planning-service.test.cjs",
       "currentTestCount": {
         "value": 19,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/issue-resolution/issue-planning-service.test.cjs; the TAP summary reported 19 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 617,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/issue-resolution/issue-planning-service.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 789,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -10921,12 +10921,12 @@
       "testPath": "test/issue-resolution/issue-resolution-service.test.cjs",
       "currentTestCount": {
         "value": 10,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/issue-resolution/issue-resolution-service.test.cjs; the TAP summary reported 10 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 174,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/issue-resolution/issue-resolution-service.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 304,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -11027,12 +11027,12 @@
       "testPath": "test/issue-resolution/issue-validation-service.test.cjs",
       "currentTestCount": {
         "value": 4,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/issue-resolution/issue-validation-service.test.cjs; the TAP summary reported 4 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 706,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/issue-resolution/issue-validation-service.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 956,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -11097,12 +11097,12 @@
       "testPath": "test/lifecycle/evidence-lifecycle-resolver.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 175,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 271,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -11149,12 +11149,12 @@
       "testPath": "test/lifecycle/nested-lifecycle.test.cjs",
       "currentTestCount": {
         "value": 5,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 152,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 137,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "fast",
       "platformDependency": "none",
@@ -11224,12 +11224,12 @@
       "testPath": "test/migration/paired-artifacts-to-canonical-markdown-v1.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 184,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 161,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "migration",
       "platformDependency": "none",
@@ -11282,12 +11282,12 @@
       "testPath": "test/packaging/windows-installer-scope.test.cjs",
       "currentTestCount": {
         "value": 6,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 142,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 128,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "packaging",
       "platformDependency": "windows",
@@ -11370,12 +11370,12 @@
       "testPath": "test/packaging/windows-packaging-lifecycle.test.cjs",
       "currentTestCount": {
         "value": 46,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/packaging/windows-packaging-lifecycle.test.cjs; the TAP summary reported 46 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 294,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/packaging/windows-packaging-lifecycle.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 347,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "packaging",
       "platformDependency": "windows",
@@ -11623,12 +11623,12 @@
       "testPath": "test/performance/disposition-transaction-collapse.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 13253,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 13232,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "performance-soak",
       "platformDependency": "none",
@@ -11678,12 +11678,12 @@
       "testPath": "test/performance/mcp-operational-soak.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "TVA02 mechanically preserved top-level test declarations; nested runtime counts may differ."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 80945,
-        "basis": "TVA02 rounded sum of focused top-level case durations, excluding runner startup; soak and idle measured separately after explicit warm-up correction."
+        "milliseconds": 80959,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "performance-soak",
       "platformDependency": "none",
@@ -11738,12 +11738,12 @@
       "testPath": "test/performance/mcp-session-volume.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "TVA02 mechanically preserved top-level test declarations; nested runtime counts may differ."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 15078,
-        "basis": "TVA02 rounded sum of focused top-level case durations, excluding runner startup; soak and idle measured separately after explicit warm-up correction."
+        "milliseconds": 14749,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "performance-soak",
       "platformDependency": "none",
@@ -11792,12 +11792,12 @@
       "testPath": "test/phase-close/phase-close-service.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/phase-close/phase-close-service.test.cjs; the TAP summary reported 1 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 117,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/phase-close/phase-close-service.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 172,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -11844,12 +11844,12 @@
       "testPath": "test/phase-close/phase-validation-state.test.cjs",
       "currentTestCount": {
         "value": 12,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/phase-close/phase-validation-state.test.cjs during TSR03; the TAP summary reported 12 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 7868,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/phase-close/phase-validation-state.test.cjs in the TSR03 normal Windows focused run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 7064,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -11915,12 +11915,12 @@
       "testPath": "test/phase-interview/phase-interview-service.test.cjs",
       "currentTestCount": {
         "value": 7,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/phase-interview/phase-interview-service.test.cjs; the TAP summary reported 7 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 912,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/phase-interview/phase-interview-service.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 981,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -12003,12 +12003,12 @@
       "testPath": "test/phase-map/phase-map-service.test.cjs",
       "currentTestCount": {
         "value": 14,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/phase-map/phase-map-service.test.cjs; the TAP summary reported 14 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 678,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/phase-map/phase-map-service.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 867,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -12133,12 +12133,12 @@
       "testPath": "test/phase-planning/phase-planning-service.test.cjs",
       "currentTestCount": {
         "value": 3,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/phase-planning/phase-planning-service.test.cjs; the TAP summary reported 3 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 659,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/phase-planning/phase-planning-service.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 910,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -12197,12 +12197,12 @@
       "testPath": "test/project-close/project-close-service.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/project-close/project-close-service.test.cjs; the TAP summary reported 1 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 144,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/project-close/project-close-service.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 264,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -12249,12 +12249,12 @@
       "testPath": "test/project-intake/post-submit-review-state.test.cjs",
       "currentTestCount": {
         "value": 5,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 286,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 311,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "fast",
       "platformDependency": "none",
@@ -12318,12 +12318,12 @@
       "testPath": "test/project-intake/project-intake-corpus-status.test.cjs",
       "currentTestCount": {
         "value": 7,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 153,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 150,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "fast",
       "platformDependency": "none",
@@ -12404,13 +12404,13 @@
     {
       "testPath": "test/project-intake/project-intake-service.test.cjs",
       "currentTestCount": {
-        "value": 3,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/project-intake/project-intake-service.test.cjs; the TAP summary reported 3 tests, including generated subtests."
+        "value": 5,
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 111,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/project-intake/project-intake-service.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 44637,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -12469,12 +12469,12 @@
       "testPath": "test/project-planning/project-planning-service.test.cjs",
       "currentTestCount": {
         "value": 28,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/project-planning/project-planning-service.test.cjs during TSR01; the TAP summary reported 28 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 14807,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/project-planning/project-planning-service.test.cjs in the TSR01 normal Windows focused run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 13108,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -12636,12 +12636,12 @@
       "testPath": "test/reconstruction/reconstruction-repair01.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/reconstruction/reconstruction-repair01.test.cjs; the TAP summary reported 2 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 208,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/reconstruction/reconstruction-repair01.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 328,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -12694,12 +12694,12 @@
       "testPath": "test/renderer/agent-harness-settings-workspace.test.cjs",
       "currentTestCount": {
         "value": 8,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 925,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 913,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -12788,12 +12788,12 @@
       "testPath": "test/renderer/architect-browser-attachment-coordinator.test.cjs",
       "currentTestCount": {
         "value": 11,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/architect-browser-attachment-coordinator.test.cjs; the TAP summary reported 11 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 134,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/architect-browser-attachment-coordinator.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 310,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -12900,12 +12900,12 @@
       "testPath": "test/renderer/architect-interview-refresh-state.test.cjs",
       "currentTestCount": {
         "value": 6,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/architect-interview-refresh-state.test.cjs; the TAP summary reported 6 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 71,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/architect-interview-refresh-state.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 124,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -12982,12 +12982,12 @@
       "testPath": "test/renderer/architect-output-viewed-revisions.test.cjs",
       "currentTestCount": {
         "value": 5,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/architect-output-viewed-revisions.test.cjs; the TAP summary reported 5 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 127,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/architect-output-viewed-revisions.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 195,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -13058,12 +13058,12 @@
       "testPath": "test/renderer/architect-output-workspace-source.test.cjs",
       "currentTestCount": {
         "value": 4,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/architect-output-workspace-source.test.cjs; the TAP summary reported 4 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 268,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/architect-output-workspace-source.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 337,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -13128,12 +13128,12 @@
       "testPath": "test/renderer/codex-execution-presentation-ownership.test.cjs",
       "currentTestCount": {
         "value": 3,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/codex-execution-presentation-ownership.test.cjs; the TAP summary reported 3 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 144,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/codex-execution-presentation-ownership.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 192,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -13192,12 +13192,12 @@
       "testPath": "test/renderer/document-review-surface-source.test.cjs",
       "currentTestCount": {
         "value": 4,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 529,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 481,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -13264,12 +13264,12 @@
       "testPath": "test/renderer/evidence-driven-refresh-coordinator.test.cjs",
       "currentTestCount": {
         "value": 8,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 206,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 183,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -13358,12 +13358,12 @@
       "testPath": "test/renderer/execution-context-dashboard.test.cjs",
       "currentTestCount": {
         "value": 3,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 222,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 197,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -13422,12 +13422,12 @@
       "testPath": "test/renderer/figma-redesign-shell.test.cjs",
       "currentTestCount": {
         "value": 6,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 308,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 300,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -13505,12 +13505,12 @@
       "testPath": "test/renderer/github-provider-settings.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/github-provider-settings.test.cjs; the TAP summary reported 2 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 142,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/github-provider-settings.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 198,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -13563,12 +13563,12 @@
       "testPath": "test/renderer/issue-architect-planning-workspace.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/issue-architect-planning-workspace.test.cjs; the TAP summary reported 2 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 217,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/issue-architect-planning-workspace.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 249,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -13621,12 +13621,12 @@
       "testPath": "test/renderer/issue-close-workspace.test.cjs",
       "currentTestCount": {
         "value": 3,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/issue-close-workspace.test.cjs; the TAP summary reported 3 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 203,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/issue-close-workspace.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 255,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -13685,12 +13685,12 @@
       "testPath": "test/renderer/issue-fix-card-workspaces.test.cjs",
       "currentTestCount": {
         "value": 12,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/issue-fix-card-workspaces.test.cjs; the TAP summary reported 12 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 272,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/issue-fix-card-workspaces.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 344,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -13803,12 +13803,12 @@
       "testPath": "test/renderer/issue-planning-workspace.test.cjs",
       "currentTestCount": {
         "value": 10,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/issue-planning-workspace.test.cjs; the TAP summary reported 10 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 291,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/issue-planning-workspace.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 334,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -13909,12 +13909,12 @@
       "testPath": "test/renderer/issue-resolution-shell.test.cjs",
       "currentTestCount": {
         "value": 3,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/issue-resolution-shell.test.cjs; the TAP summary reported 3 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 249,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/issue-resolution-shell.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 355,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -13973,12 +13973,12 @@
       "testPath": "test/renderer/issue-screenshot-intake.test.cjs",
       "currentTestCount": {
         "value": 11,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/issue-screenshot-intake.test.cjs; the TAP summary reported 11 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 478,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/issue-screenshot-intake.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 522,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -14092,12 +14092,12 @@
       "testPath": "test/renderer/issue-validation-workspace.test.cjs",
       "currentTestCount": {
         "value": 3,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/issue-validation-workspace.test.cjs; the TAP summary reported 3 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 534,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/issue-validation-workspace.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 592,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -14156,12 +14156,12 @@
       "testPath": "test/renderer/phase-map-presentation.test.cjs",
       "currentTestCount": {
         "value": 7,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/phase-map-presentation.test.cjs; the TAP summary reported 7 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 193,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/phase-map-presentation.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 239,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -14244,12 +14244,12 @@
       "testPath": "test/renderer/phase-validation-renderer-sequencing.test.cjs",
       "currentTestCount": {
         "value": 11,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/phase-validation-renderer-sequencing.test.cjs; the TAP summary reported 11 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 672,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/phase-validation-renderer-sequencing.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 686,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -14361,12 +14361,12 @@
       "testPath": "test/renderer/project-planning-blocker-banner.test.cjs",
       "currentTestCount": {
         "value": 6,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/project-planning-blocker-banner.test.cjs; the TAP summary reported 6 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 255,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/project-planning-blocker-banner.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 322,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -14443,12 +14443,12 @@
       "testPath": "test/renderer/project-rail-presentation.test.cjs",
       "currentTestCount": {
         "value": 16,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 413,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 472,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -14585,12 +14585,12 @@
       "testPath": "test/renderer/work-card-building-review-workspace.test.cjs",
       "currentTestCount": {
         "value": 4,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/work-card-building-review-workspace.test.cjs; the TAP summary reported 4 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 263,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/work-card-building-review-workspace.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 317,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -14655,12 +14655,12 @@
       "testPath": "test/renderer/work-card-close-workspace.test.cjs",
       "currentTestCount": {
         "value": 8,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/work-card-close-workspace.test.cjs; the TAP summary reported 8 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 206,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/work-card-close-workspace.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 302,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -14749,12 +14749,12 @@
       "testPath": "test/renderer/work-card-intake-workspace.test.cjs",
       "currentTestCount": {
         "value": 3,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/work-card-intake-workspace.test.cjs; the TAP summary reported 3 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 143,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/work-card-intake-workspace.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 195,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -14813,12 +14813,12 @@
       "testPath": "test/renderer/work-card-map-workspace.test.cjs",
       "currentTestCount": {
         "value": 5,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/work-card-map-workspace.test.cjs; the TAP summary reported 5 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 202,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/work-card-map-workspace.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 281,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -14888,13 +14888,13 @@
     {
       "testPath": "test/renderer/work-card-plan-presentation.test.cjs",
       "currentTestCount": {
-        "value": 3,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/work-card-plan-presentation.test.cjs; the TAP summary reported 3 tests, including generated subtests."
+        "value": 4,
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 162,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/work-card-plan-presentation.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 213,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -14953,12 +14953,12 @@
       "testPath": "test/renderer/work-card-repair-workspace.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/work-card-repair-workspace.test.cjs; the TAP summary reported 2 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 198,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/work-card-repair-workspace.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 247,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -15011,12 +15011,12 @@
       "testPath": "test/renderer/work-card-report-review-workspace.test.cjs",
       "currentTestCount": {
         "value": 4,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/work-card-report-review-workspace.test.cjs; the TAP summary reported 4 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 196,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/renderer/work-card-report-review-workspace.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 249,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -15081,12 +15081,12 @@
       "testPath": "test/renderer/workflow-hub-shell.test.cjs",
       "currentTestCount": {
         "value": 9,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 641,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 630,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -15183,12 +15183,12 @@
       "testPath": "test/repository/issue-screenshot-submission-wiring.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 505,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 518,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "static",
       "platformDependency": "none",
@@ -15241,12 +15241,12 @@
       "testPath": "test/repository/phase-validation-wiring.test.cjs",
       "currentTestCount": {
         "value": 3,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 1364,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 1317,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "static",
       "platformDependency": "none",
@@ -15315,12 +15315,12 @@
       "testPath": "test/repository/runtime-wiring-source.test.cjs",
       "currentTestCount": {
         "value": 29,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 905,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 858,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "static",
       "platformDependency": "none",
@@ -15396,12 +15396,12 @@
       "testPath": "test/resolver/first-non-approved-resolver.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 177,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 169,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -15448,12 +15448,12 @@
       "testPath": "test/resolver/single-file-resolver.test.cjs",
       "currentTestCount": {
         "value": 3,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 203,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 182,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -15512,12 +15512,12 @@
       "testPath": "test/validation/capability-map.test.cjs",
       "currentTestCount": {
         "value": 5,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 123,
-        "basis": "Measured by the TSR10 normal Windows focused run of test/validation/capability-map.test.cjs; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 158,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "static",
       "platformDependency": "none",
@@ -15587,12 +15587,12 @@
       "testPath": "test/validation/validation-runner.test.cjs",
       "currentTestCount": {
         "value": 8,
-        "basis": "Eight top-level contracts including source-bound end-to-end receipts."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 9344,
-        "basis": "Measured by the TSR06 normal Windows focused run of test/validation/validation-runner.test.cjs; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 7984,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -15684,12 +15684,12 @@
       "testPath": "test/work-card-building/codex-app-server-transport.test.cjs",
       "currentTestCount": {
         "value": 15,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 722,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 692,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "fast",
       "platformDependency": "none",
@@ -15820,12 +15820,12 @@
       "testPath": "test/work-card-building/codex-implementer-execution-service.test.cjs",
       "currentTestCount": {
         "value": 29,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-building/codex-implementer-execution-service.test.cjs; the TAP summary reported 29 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 6862,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-building/codex-implementer-execution-service.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 26153,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -16035,12 +16035,12 @@
       "testPath": "test/work-card-building/codex-runtime-initializer-client.test.cjs",
       "currentTestCount": {
         "value": 4,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-building/codex-runtime-initializer-client.test.cjs; the TAP summary reported 4 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 74,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-building/codex-runtime-initializer-client.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 124,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -16105,12 +16105,12 @@
       "testPath": "test/work-card-building/codex-runtime-initializer-process.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-building/codex-runtime-initializer-process.test.cjs; the TAP summary reported 1 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 247,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-building/codex-runtime-initializer-process.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 327,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "desktop-platform",
       "platformDependency": "windows",
@@ -16161,12 +16161,12 @@
       "testPath": "test/work-card-building/codex-runtime-manager.test.cjs",
       "currentTestCount": {
         "value": 11,
-        "basis": "Four redundant generated failure cases consolidated into Desktop runtime characterization; remaining contracts preserved."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 94,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-building/codex-runtime-manager.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 143,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -16273,12 +16273,12 @@
       "testPath": "test/work-card-building/work-card-building-review-service.test.cjs",
       "currentTestCount": {
         "value": 7,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-building/work-card-building-review-service.test.cjs; the TAP summary reported 7 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 281,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-building/work-card-building-review-service.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 359,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -16361,12 +16361,12 @@
       "testPath": "test/work-card-intake/work-card-intake-service.test.cjs",
       "currentTestCount": {
         "value": 9,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-intake/work-card-intake-service.test.cjs during TSR02; the TAP summary reported 9 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 3449,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-intake/work-card-intake-service.test.cjs in the TSR02 normal Windows focused run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 2993,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -16443,13 +16443,13 @@
     {
       "testPath": "test/work-card-loop/work-card-loop-state-service.test.cjs",
       "currentTestCount": {
-        "value": 13,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-loop/work-card-loop-state-service.test.cjs; the TAP summary reported 13 tests, including generated subtests."
+        "value": 14,
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 1687,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-loop/work-card-loop-state-service.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 1840,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -16573,12 +16573,12 @@
       "testPath": "test/work-card-planning/development-environment-contract.test.cjs",
       "currentTestCount": {
         "value": 7,
-        "basis": "Observed TAP summary in TVA09 focused profile/lane execution, including generated cases."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 141,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 125,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "fast",
       "platformDependency": "none",
@@ -16662,12 +16662,12 @@
       "testPath": "test/work-card-planning/work-card-planning-service.test.cjs",
       "currentTestCount": {
         "value": 17,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-planning/work-card-planning-service.test.cjs during TSR02; the TAP summary reported 17 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 14053,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-planning/work-card-planning-service.test.cjs in the TSR02 normal Windows focused run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 13439,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -16785,12 +16785,12 @@
       "testPath": "test/work-card-repair/work-card-repair-service.test.cjs",
       "currentTestCount": {
         "value": 7,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-repair/work-card-repair-service.test.cjs; the TAP summary reported 7 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 384,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-repair/work-card-repair-service.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 408,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -16873,12 +16873,12 @@
       "testPath": "test/work-card-validation/work-card-validation-service.test.cjs",
       "currentTestCount": {
         "value": 7,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-validation/work-card-validation-service.test.cjs; the TAP summary reported 7 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 299,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/work-card-validation/work-card-validation-service.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 379,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -16961,12 +16961,12 @@
       "testPath": "test/workflow/current-close-planning-context.test.cjs",
       "currentTestCount": {
         "value": 10,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 932,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 944,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -17045,12 +17045,12 @@
       "testPath": "test/workflow/current-execution-context.test.cjs",
       "currentTestCount": {
         "value": 24,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 4895,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 4819,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -17242,12 +17242,12 @@
       "testPath": "test/workflow/phase-validation-production-boundary.test.cjs",
       "currentTestCount": {
         "value": 8,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/workflow/phase-validation-production-boundary.test.cjs; the TAP summary reported 8 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 2031,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/workflow/phase-validation-production-boundary.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 2208,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -17308,12 +17308,12 @@
       "testPath": "test/workflow/production-service-proof.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/workflow/production-service-proof.test.cjs; the TAP summary reported 2 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 261,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/workflow/production-service-proof.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 338,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -17368,12 +17368,12 @@
       "testPath": "test/workspace-evidence/selected-workspace-evidence-notifier.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/workspace-evidence/selected-workspace-evidence-notifier.test.cjs; the TAP summary reported 2 tests, including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 115,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/workspace-evidence/selected-workspace-evidence-notifier.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 165,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -17427,12 +17427,12 @@
       "testPath": "test/workspaces/workspace-document-review.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "TVA09 supported-workstation receipt TAP summary including generated subtests."
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 161,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 148,
+        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",

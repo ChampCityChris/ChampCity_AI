@@ -111,8 +111,8 @@ test("Desktop Issue lifecycle requires all Fix Cards closed, aggregate Operator 
 });
 
 test("routed phased correction uses generic barriers and exact Phase evidence before aggregate Issue close", async (t) => {
-  const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
-  const { root, intake, git, initialHead } = await seedRoutedWorkIntake(t, "issue-resolution");
+  const { seedPreparedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
+  const { root, intake, git, initialHead } = seedPreparedRoutedWorkIntake(t, "issue-resolution");
   const service = require("../../dist/main/issueResolution/issueResolutionService.js");
   const { runWorkIssueAction } = require("../../dist/main/workPlanning/workIssueRoutingService.js");
   const { workPlanningKernel: kernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");

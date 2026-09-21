@@ -4,8 +4,8 @@ const path = require("node:path");
 const test = require("node:test");
 
 test("Greenfield uses the common kernel with evidence-first new-product discovery and explicit full-scope planning", async (t) => {
-  const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
-  const { root, intake } = await seedRoutedWorkIntake(t, "greenfield", { workRequest: "Create a study planner", desiredOutcome: "Students organize their study schedule",
+  const { seedPreparedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
+  const { root, intake } = seedPreparedRoutedWorkIntake(t, "greenfield", { workRequest: "Create a study planner", desiredOutcome: "Students organize their study schedule",
     hasExistingSourceOrPlanning: false, knownConstraints: "Offline use and accessible keyboard navigation" });
   const { workPlanningKernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
   const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");

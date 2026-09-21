@@ -5,8 +5,8 @@ const path = require("node:path");
 const test = require("node:test");
 
 test("Feature planning requires baseline delta and preservation while keeping candidates within the current capability boundary", async (t) => {
-  const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
-  const { root, intake } = await seedRoutedWorkIntake(t, "feature-change", { workRequest: "Add CSV export to existing schedules", desiredOutcome: "Export current schedules without changing scheduling behavior" });
+  const { seedPreparedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
+  const { root, intake } = seedPreparedRoutedWorkIntake(t, "feature-change", { workRequest: "Add CSV export to existing schedules", desiredOutcome: "Export current schedules without changing scheduling behavior" });
   const { workPlanningKernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
   const baselinePath = path.join(root, "planning", "existing-roadmap.md");
   fs.writeFileSync(baselinePath, "# Existing roadmap\nExport later; unrelated sharing remains future work.\n");

@@ -156,7 +156,12 @@ foreach ($file in $files) {
         }
 
         if ($process.HasExited) {
-            $exitCode = $process.ExitCode
+            # Complete redirected-stream handling and refresh the native process
+            # object before reading ExitCode. The timeout overload alone left the
+            # prior audit's Start-Process wrapper with blank exit codes on Windows.
+            $process.WaitForExit()
+            $process.Refresh()
+            $exitCode = [int]$process.ExitCode
         }
     }
     catch {
@@ -253,4 +258,3 @@ $results |
     Sort-Object @{ Expression = { [int64]$_.DurationMs }; Descending = $true } |
     Select-Object -First 20 TestFile, DurationSec, Status, Tests, Failed, Skipped |
     Format-Table -AutoSize
-
