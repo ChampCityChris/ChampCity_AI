@@ -13,7 +13,7 @@ function registerIntegrationScenarios(title, scenarios, options = {}) {
   for (const scenario of scenarios) await t.test(scenario, async (t) => {
     const semanticPolicy = scenario.startsWith("policy");
     const semanticRepair = ["operator-decision", "worker-git", "validation-failed"].includes(scenario);
-    if (semanticPolicy || semanticRepair || options.sourceFixture) require("../support/integration-semantics.cjs").installSemanticSourceFixture(t);
+    if (semanticPolicy || semanticRepair || options.sourceFixture) require("../support/integration-semantics.cjs").installSemanticSourceFixture(t, options.sourceFixture ? { allowCheckpointChain: true } : undefined);
     const root = createBoundWorkspace(`champcity-integration-${scenario}-`, true);
     t.after(() => fs.rmSync(path.dirname(root), { recursive: true, force: true }));
     git(root, ["branch", "-m", "product-target"]);
@@ -114,7 +114,7 @@ ${scenario === "policy-timeout" ? "const child = require('node:child_process').s
     const directChecks = [{ checkId: "preserved-source", run: async (candidateRoot, context) => {
       validationCalls++;
       assert.equal(Object.isFrozen(context), true);
-      assert.equal(context.repositoryId, binding.repositoryId); assert.equal(context.targetCommit, target); assert.equal(context.incomingCommit, incoming);
+      assert.equal(context.repositoryId, binding.repositoryId); assert.equal(context.targetCommit, remote ? git(remote, ["rev-parse", `refs/heads/${targetBranch}`]) : target); assert.equal(context.incomingCommit, incoming);
       assert.equal(context.candidateCommit, git(candidateRoot, ["rev-parse", "HEAD"])); assert.equal(context.targetBranch, targetBranch); assert.match(context.candidateId, /^[a-f0-9]{64}$/);
       assert.notEqual(candidateRoot, root);
       assert.equal(git(root, ["rev-parse", targetBranch]), target, "Target remains untouched during validation");

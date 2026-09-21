@@ -55,9 +55,11 @@ test("production command adapter fixes executables, arguments, deadlines, and sa
       spawn: (executable, args, options) => {
         spawns.push({ executable, args: Array.from(args), options });
         if (executable === "taskkill") {
+          const killer = new EventEmitter();
+          killer.unref = () => {};
           currentChild.exitCode = 1;
           queueMicrotask(() => currentChild.emit("close", 1));
-          return { unref() {} };
+          return killer;
         }
         const child = new EventEmitter();
         child.stdout = new PassThrough();

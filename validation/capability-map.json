@@ -5514,13 +5514,13 @@
     {
       "testPath": "test/agent-harness/integration-candidate-semantics.test.cjs",
       "currentTestCount": {
-        "value": 1,
-        "basis": "Top-level decomposed scenario groups; nested cases retain their own runtime counts."
+        "value": 8,
+        "basis": "Measured during TSR07; the TAP summary reported one owner plus seven generated candidate scenarios."
       },
       "duration": {
-        "kind": "estimated",
-        "milliseconds": 240000,
-        "basis": "Seven retained real-source-control scenarios; not rerun as a whole during TVA02A quarantine."
+        "kind": "measured",
+        "milliseconds": 25906,
+        "basis": "Measured by the TSR07 normal Windows focused run of test/agent-harness/integration-candidate-semantics.test.cjs; value is the rounded-up TAP duration_ms summary."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -5669,8 +5669,8 @@
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 36004,
-        "basis": "Measured by the TSR06 normal Windows focused run of test/agent-harness/integration-profile-gate.test.cjs; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 37874,
+        "basis": "Measured by the TSR07 normal Windows focused provider run of test/agent-harness/integration-profile-gate.test.cjs; value is the rounded-up TAP duration_ms summary."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -6374,8 +6374,8 @@
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 9844,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/agent-harness/release-toolbox-boundary.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 16320,
+        "basis": "Measured by the TSR07 normal Windows focused run of test/agent-harness/release-toolbox-boundary.test.cjs; value is the rounded-up TAP duration_ms summary."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
