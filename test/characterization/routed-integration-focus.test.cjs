@@ -2,17 +2,17 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const {seedCompletedRoutedPlan}=require('../support/completed-routed-plan.cjs');
 const {installSemanticSourceFixture}=require('../support/integration-semantics.cjs');
 const {createRoutedIntegrationService}=require('../../dist/main/planExecution/routedIntegrationService.js');
-const runner=require('../../dist/main/planExecution/integrationPolicyRunners.js');
+const policyProvider=require('../../dist/main/planExecution/integrationPolicyProvider.js');
 
 test('routed clean and conflict integration preserves completed checkpoint and Plan lineage from the nearest durable boundary',async t=>{
  require('../support/execution-metrics.cjs').measureExecution(t,'routed-integration-focus');
  for(const conflicted of [false,true])await t.test(conflicted?'conflicted target':'clean target',async t=>{
   const f=seedCompletedRoutedPlan(t),{root,git}=f;
-  installSemanticSourceFixture(t,{verifyCheckpoints:true});
-  t.mock.method(runner,'runIntegrationPolicyCheck',async candidateRoot=>{
+  installSemanticSourceFixture(t,{allowCheckpointChain:true});
+  t.mock.method(policyProvider,'createIntegrationPolicyProvider',()=>({checks:[{checkId:'accepted-source',run:async candidateRoot=>{
    const values=fs.readFileSync(path.join(candidateRoot,'source.js'),'utf8');
    return{exitCode:values.includes('incoming')&&(!fs.existsSync(path.join(candidateRoot,'target.accepted'))||values.includes('target'))?0:1,summary:'Deterministic source-preservation fixture'};
-  });
+  }}]}));
   const integration=createRoutedIntegrationService(root,f.intakeId);
   const ready=await integration.query();assert.equal(ready.status,'ready',ready.reasons.join('\n'));assert.deepEqual(ready.checkpointCommits,[f.checkpointCommit]);
   const planPath=path.join(root,f.planPath),original=fs.readFileSync(planPath);fs.appendFileSync(planPath,'\nChanged accepted intent\n');

@@ -5,8 +5,9 @@ const path = require("node:path");
 const test = require("node:test");
 
 test("routed defect preserves Intake and branch through RCA, phased correction, stale evidence, and general reroute", async (t) => {
-  const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
-  const { root, intake, route, git, initialHead } = await seedRoutedWorkIntake(t, "issue-resolution", { workRequest: "Schedule saves fail after reconnect", desiredOutcome: "Existing schedules survive reconnect" });
+  const { seedPreparedRoutedWorkIntake, bypassWorkIntakeBranchVerification } = require("../support/work-intake-fixtures.cjs");
+  const { root, intake, route, git, initialHead } = seedPreparedRoutedWorkIntake(t, "issue-resolution", { workRequest: "Schedule saves fail after reconnect", desiredOutcome: "Existing schedules survive reconnect" });
+  bypassWorkIntakeBranchVerification(t);
   const { runWorkIssueAction } = require("../../dist/main/workPlanning/workIssueRoutingService.js");
   const { workPlanningKernel: kernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
   const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");

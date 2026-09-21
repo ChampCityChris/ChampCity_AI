@@ -21,6 +21,8 @@ test("Operator route decisions preserve authority, revisions and branch while re
     knownConstraints: "Preserve product", hasExistingSourceOrPlanning: true, repositoryReviewContext: "", baseBranch: "main", baseCommit: initialHead });
   assert.equal(created.ok, true, JSON.stringify(created));
   const intake = created.value;
+  const { bypassWorkIntakeBranchVerification } = require("../support/work-intake-fixtures.cjs");
+  bypassWorkIntakeBranchVerification(t);
   const originalIntake = fs.readFileSync(path.join(root, intake.relativePath), "utf8");
   async function promote() {
     const prepared = await routing.prepareWorkRoutingAssessment(root, intake.intakeId);

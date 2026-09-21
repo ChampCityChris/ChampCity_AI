@@ -7894,22 +7894,22 @@
     {
       "testPath": "test/architect-outputs/architect-output-workspace-repair.test.cjs",
       "currentTestCount": {
-        "value": 26,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/architect-outputs/architect-output-workspace-repair.test.cjs; the TAP summary reported 26 tests, including generated subtests."
+        "value": 27,
+        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/architect-outputs/architect-output-workspace-repair.test.cjs during TSR04; the TAP summary reported 27 tests, including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 4608,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/architect-outputs/architect-output-workspace-repair.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 19210,
+        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/architect-outputs/architect-output-workspace-repair.test.cjs in the TSR04 normal Windows focused run; value is the rounded-up TAP duration_ms summary."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
       "dependencies": {
         "electron": false,
         "filesystem": true,
-        "git": false,
+        "git": true,
         "network": false,
-        "process": false,
+        "process": true,
         "timing": false
       },
       "sourceInspectionClassification": "ast-static-analysis",
@@ -8437,8 +8437,8 @@
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 99885,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/characterization/routed-integration-focus.test.cjs in the TSR03 normal Windows focused run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 23904,
+        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/characterization/routed-integration-focus.test.cjs in the TSR04 normal Windows focused run; value is the rounded-up TAP duration_ms summary."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -9850,22 +9850,22 @@
     {
       "testPath": "test/issue-resolution/issue-architect-planning-service.test.cjs",
       "currentTestCount": {
-        "value": 11,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/issue-resolution/issue-architect-planning-service.test.cjs; the TAP summary reported 11 tests, including generated subtests."
+        "value": 12,
+        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/issue-resolution/issue-architect-planning-service.test.cjs during TSR04; the TAP summary reported 12 tests, including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 220,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/issue-resolution/issue-architect-planning-service.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 2030,
+        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/issue-resolution/issue-architect-planning-service.test.cjs in the TSR04 normal Windows focused run; value is the rounded-up TAP duration_ms summary."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
       "dependencies": {
         "electron": false,
         "filesystem": true,
-        "git": false,
+        "git": true,
         "network": false,
-        "process": false,
+        "process": true,
         "timing": false
       },
       "sourceInspectionClassification": "none",
