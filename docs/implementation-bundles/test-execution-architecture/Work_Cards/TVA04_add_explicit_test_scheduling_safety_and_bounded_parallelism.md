@@ -5,6 +5,14 @@
 **Governing architecture:** `docs/architecture/CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md`  
 **Implementer Report:** `docs/implementation-bundles/test-execution-architecture/Implementer_Reports/TVA04_IMPLEMENTER_REPORT.md`
 
+## Broken Suite Quarantine
+
+This card must use **minimal focused validation only**.
+
+Do not run the legacy repository-wide aggregate, `npm test` while it still maps to that aggregate, `test:full`, `node --test "test/**/*.test.cjs"`, the complete supported-platform/full-regression profile, or an entire known-pathological test file when a narrower named subset can prove the owned behavior.
+
+Use the smallest structural tests, named test cases, specific files, planner previews, and adapter-conformance subsets required by this card. Whole-repository qualification is post-bundle work.
+
 ## Confirmed Defect
 
 The only repository-wide built test command hard-codes `--test-concurrency=1`. This avoids concurrency hazards by serializing every test file, including independent deterministic files that can safely run together.

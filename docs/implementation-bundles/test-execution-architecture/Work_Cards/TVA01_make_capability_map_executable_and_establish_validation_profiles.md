@@ -6,6 +6,14 @@
 **RCA:** `docs/implementation-bundles/test-execution-architecture/CODE_REVIEW_AND_RCA.md`  
 **Implementer Report:** `docs/implementation-bundles/test-execution-architecture/Implementer_Reports/TVA01_IMPLEMENTER_REPORT.md`
 
+## Broken Suite Quarantine
+
+This card must use **minimal focused validation only**.
+
+Do not run the legacy repository-wide aggregate, `npm test` while it still maps to that aggregate, `test:full`, `node --test "test/**/*.test.cjs"`, the complete supported-platform/full-regression profile, or an entire known-pathological test file when a narrower named subset can prove the owned behavior.
+
+Use the smallest structural tests, named test cases, specific files, planner previews, and adapter-conformance subsets required by this card. Whole-repository qualification is post-bundle work.
+
 ## Verified Evidence
 
 - `validation/capability-map.json` already records every executable permanent test file and includes proposed lane, duration, platform, dependencies, behavior coverage, and V2 disposition.
