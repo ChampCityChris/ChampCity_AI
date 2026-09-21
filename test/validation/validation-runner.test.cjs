@@ -173,8 +173,8 @@ test('public validation commands dispatch composed profiles and reject accidenta
     assert.ok(Array.isArray(preview.tests), name);
     if(name==='test') assert.ok(preview.tests.every(file=>['static','fast'].includes(file.lane)));
   }
-  assert.throws(()=>main(['run','--profile','integration-gate']), /requires --changes/);
-  assert.throws(()=>main(['run','--profile','work-item']), /requires --changes/);
+  assert.throws(()=>main(['run','--profile','integration-gate']), /requires an explicit changed-path set/);
+  assert.throws(()=>main(['run','--profile','work-item']), /requires an explicit changed-path set/);
   assert.throws(()=>main(['run','--profile','full-supported-platform','--changes','scope.json']), /cannot narrow/);
   assert.throws(()=>main(['preview','--lane','fast','--concurrency','10']), /Concurrency/);
   const {validationFixture}=require('../support/validation-fixture.cjs');

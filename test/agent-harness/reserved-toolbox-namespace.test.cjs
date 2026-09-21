@@ -32,7 +32,6 @@ const RESERVED_TOOLBOX_NAMES = [
   "skill_toolbox",
   "memory_toolbox",
   "validation_toolbox",
-  "test_toolbox",
   "development_toolbox",
   "system_toolbox",
   "network_toolbox",
@@ -133,6 +132,14 @@ const EXISTING_TOOL_ACTIONS = {
     "abandon_github_draft_release",
     "verify_github_release",
   ],
+  test_toolbox: [
+    "status",
+    "run_test_file",
+    "run_test_pattern",
+    "run_validation_profile",
+    "run_validation_lane",
+    "audit_test_corpus",
+  ],
   integration_toolbox: ["status"],
   browser_toolbox: ["status"],
   knowledge_toolbox: ["status"],
@@ -152,7 +159,7 @@ test("HOTFIX10 publishes the exact stable top-level namespace and preserves exis
 
   assert.equal(fullTools.length, 35);
   assert.deepEqual([...toolsByName.keys()].sort(), EXPECTED_TOOL_NAMES);
-  assert.equal(RESERVED_TOOLBOX_NAMES.length, 25);
+  assert.equal(RESERVED_TOOLBOX_NAMES.length, 24);
   for (const [name, actions] of Object.entries(EXISTING_TOOL_ACTIONS)) {
     assert.deepEqual(toolsByName.get(name)?.actions, actions, name);
   }
@@ -194,7 +201,8 @@ test("HOTFIX10 placeholders are strict read-only registered-Workspace status act
   const fixture = createWorkspace("Reserved_Status_Project");
   const registry = createRegistry(fixture);
   const readTools = new Map(registry.listTools("files.read").map((tool) => [tool.name, tool]));
-  const writeToolNames = new Set(registry.listTools("files.write").map((tool) => tool.name));
+  const writeTools = new Map(registry.listTools("files.write").map((tool) => [tool.name, tool]));
+  const writeToolNames = new Set(writeTools.keys());
   const beforeWorkspace = snapshotDirectory(fixture.root);
   const beforeUserData = snapshotDirectory(fixture.userDataRoot);
 
@@ -239,6 +247,52 @@ test("HOTFIX10 placeholders are strict read-only registered-Workspace status act
     assert.equal(rejected.ok, false, name);
     assert.equal(rejected.error.code, "INVALID_INPUT", name);
   }
+
+  const testRead = readTools.get("test_toolbox");
+  const testWrite = writeTools.get("test_toolbox");
+  assert.deepEqual(testRead?.actions, ["status"]);
+  assert.equal(testRead?.readOnly, true);
+  assert.deepEqual(testWrite?.actions, [
+    "run_test_file",
+    "run_test_pattern",
+    "run_validation_profile",
+    "run_validation_lane",
+    "audit_test_corpus",
+  ]);
+  assert.equal(testWrite?.readOnly, false);
+  const testSchema = registry.listTools("files.read files.write").find((tool) => tool.name === "test_toolbox").inputZodSchema;
+  assert.equal(testSchema.safeParse({ workspaceId: fixture.workspaceId, action: "run_test_file", params: { testPath: "test/validation/capability-map.test.cjs" } }).success, true);
+  assert.equal(testSchema.safeParse({ workspaceId: fixture.workspaceId, action: "run_test_pattern", params: { testPath: "test/validation/capability-map.test.cjs", testNamePattern: "one owner" } }).success, true);
+  assert.equal(testSchema.safeParse({ workspaceId: fixture.workspaceId, action: "run_validation_profile", params: { profile: "work-item", changedPaths: ["src/main/example.ts"], capabilityIds: ["fixture"] } }).success, true);
+  assert.equal(testSchema.safeParse({ workspaceId: fixture.workspaceId, action: "run_validation_lane", params: { lane: "integration" } }).success, true);
+  assert.equal(testSchema.safeParse({ workspaceId: fixture.workspaceId, action: "audit_test_corpus", params: {} }).success, true);
+  for (const invalid of [
+    { workspaceId: fixture.workspaceId, action: "run_test_file", params: {} },
+    { workspaceId: fixture.workspaceId, action: "run_validation_lane", params: { lane: "unknown" } },
+    { workspaceId: fixture.workspaceId, action: "audit_test_corpus", params: { command: "node --test" } },
+  ]) assert.equal(testSchema.safeParse(invalid).success, false);
+
+  const testStatus = await registry.callTool({
+    name: "test_toolbox",
+    arguments: { workspaceId: fixture.workspaceId, action: "status", params: {} },
+    scope: "files.read",
+  });
+  assert.equal(testStatus.ok, true);
+  assert.deepEqual(testStatus.payload, {
+    toolbox: "test_toolbox",
+    state: "implemented",
+    implemented: true,
+    executionScope: "files.write",
+    maximumCatalogFiles: 512,
+    perStepTimeoutMs: 900_000,
+  });
+  const deniedTestExecution = await registry.callTool({
+    name: "test_toolbox",
+    arguments: { workspaceId: fixture.workspaceId, action: "run_test_file", params: { testPath: "test/validation/capability-map.test.cjs" } },
+    scope: "files.read",
+  });
+  assert.equal(deniedTestExecution.ok, false);
+  assert.equal(deniedTestExecution.error.code, "OAUTH_SCOPE_DENIED");
 
   const deniedScope = await registry.callTool({
     name: RESERVED_TOOLBOX_NAMES[0],

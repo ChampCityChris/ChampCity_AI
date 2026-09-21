@@ -5668,9 +5668,9 @@
         "basis": "Three top-level contracts plus four generated candidate scenarios."
       },
       "duration": {
-        "kind": "estimated",
-        "milliseconds": 17000,
-        "basis": "TVA06 measured first profile adapter/context run about 14 seconds plus added bounded source-mutation subcase."
+        "kind": "measured",
+        "milliseconds": 36004,
+        "basis": "Measured by the TSR06 normal Windows focused run of test/agent-harness/integration-profile-gate.test.cjs; value is the rounded-up TAP duration_ms summary."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -6893,8 +6893,8 @@
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 426,
-        "basis": "Measured per-file Node process and cleanup duration in TVA09 ValidationExecutor on supported Windows; build recorded separately."
+        "milliseconds": 485,
+        "basis": "Measured by the TSR06 normal Windows focused run of test/agent-harness/reserved-toolbox-namespace.test.cjs; value is the rounded-up TAP duration_ms summary."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -15058,8 +15058,8 @@
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 170,
-        "basis": "TVA09 normal Windows supported-workstation renderer integration receipt; actual file process duration, excluding the separately owned build."
+        "milliseconds": 116,
+        "basis": "Measured by the TSR06 normal Windows focused run of test/validation/capability-map.test.cjs; value is the rounded-up TAP duration_ms summary."
       },
       "proposedValidationLane": "static",
       "platformDependency": "none",
@@ -15129,9 +15129,9 @@
         "basis": "Eight top-level contracts including source-bound end-to-end receipts."
       },
       "duration": {
-        "kind": "estimated",
-        "milliseconds": 1500,
-        "basis": "Small deterministic planner checks and bounded isolated Node adapter probes."
+        "kind": "measured",
+        "milliseconds": 9344,
+        "basis": "Measured by the TSR06 normal Windows focused run of test/validation/validation-runner.test.cjs; value is the rounded-up TAP duration_ms summary."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
