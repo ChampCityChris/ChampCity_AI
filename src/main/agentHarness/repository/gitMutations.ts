@@ -165,6 +165,141 @@ export async function inspectGitHistory(root: string, input: {
   return { ref, resolvedCommit, commits, ancestry };
 }
 
+/** Ref operations never borrow the selected checkout's index or working files. */
+export async function createGitBranchFromRef(root: string, input: { branchName: string; sourceRef: string }) {
+  const { branchName } = input;
+  await assertRefBranchName(root, branchName);
+  const sourceRef = validateRevision(input.sourceRef, "sourceRef");
+  const sourceCommit = await resolveCommit(root, sourceRef);
+  if (await localBranchExists(root, branchName)) throw gitPrecondition("Branch already exists; it will not be overwritten.");
+  await assertDirectBranchRef(root, branchName);
+  // An all-zero old value is an atomic create-only assertion (also for SHA-256 repositories).
+  await runRefGit(root, ["update-ref", "--no-deref", `refs/heads/${branchName}`, sourceCommit, "0".repeat(sourceCommit.length)]);
+  return { branchName, sourceRef, sourceCommit };
+}
+
+export async function advanceGitBranchRef(root: string, input: {
+  branchName: string; sourceRef: string; expectedCurrentCommit: string;
+}) {
+  const { branchName } = input;
+  await assertExistingDirectBranch(root, branchName);
+  const expected = exactRefCommit(input.expectedCurrentCommit);
+  const sourceRef = validateRevision(input.sourceRef, "sourceRef");
+  const previousCommit = await resolveCommit(root, `refs/heads/${branchName}`);
+  if (previousCommit !== expected) throw gitPrecondition("Branch changed before ref advancement.");
+  const commit = await resolveCommit(root, sourceRef);
+  const ancestry = await runBoundedGit({ cwd: root, args: ["merge-base", "--is-ancestor", previousCommit, commit], rejectNonZero: false });
+  if (ancestry.exitCode !== 0) throw gitPrecondition("Branch advancement requires fast-forward ancestry.");
+  await assertBranchCheckoutState(root, branchName, false);
+  await runRefGit(root, ["update-ref", "--no-deref", `refs/heads/${branchName}`, commit, previousCommit]);
+  return { branchName, sourceRef, previousCommit, commit };
+}
+
+export async function renameGitBranch(root: string, input: { branchName: string; newBranchName: string }) {
+  const { branchName, newBranchName } = input;
+  await assertExistingDirectBranch(root, branchName);
+  await assertRefBranchName(root, newBranchName);
+  if (await localBranchExists(root, newBranchName)) throw gitPrecondition("Rename destination branch already exists.");
+  await assertDirectBranchRef(root, newBranchName);
+  await assertBranchCheckoutState(root, branchName, true);
+  const commit = await resolveCommit(root, `refs/heads/${branchName}`);
+  await runRefGit(root, ["branch", "--move", "--", branchName, newBranchName]);
+  return { branchName, newBranchName, commit };
+}
+
+export async function setGitBranchUpstream(root: string, input: { branchName: string; remote: string; remoteBranch: string }) {
+  const { branchName, remoteBranch } = input;
+  await assertExistingDirectBranch(root, branchName);
+  const remote = await assertConfiguredRemote(root, input.remote);
+  await assertValidBranchRefName(root, remoteBranch, "remoteBranch");
+  const ref = `refs/remotes/${remote}/${remoteBranch}`;
+  if (!await refExists(root, ref)) throw gitPrecondition("Remote-tracking branch is absent; fetch it first.");
+  await resolveCommit(root, ref);
+  await runRefGit(root, ["branch", `--set-upstream-to=${ref}`, "--", branchName]);
+  return { branchName, upstream: `${remote}/${remoteBranch}` };
+}
+
+export async function unsetGitBranchUpstream(root: string, input: { branchName: string }) {
+  await assertExistingDirectBranch(root, input.branchName);
+  await runRefGit(root, ["branch", "--unset-upstream", "--", input.branchName]);
+  return { branchName: input.branchName, upstream: null };
+}
+
+export async function deleteGitRemoteBranch(root: string, input: {
+  remote: string; remoteBranch: string; expectedRemoteCommit: string;
+}) {
+  const remote = await assertConfiguredRemote(root, input.remote);
+  const { remoteBranch } = input;
+  await assertValidBranchRefName(root, remoteBranch, "remoteBranch");
+  const expected = exactRefCommit(input.expectedRemoteCommit);
+  await assertSingleRemoteDestination(root, remote);
+  const ref = `refs/heads/${remoteBranch}`;
+  if (await inspectRemoteBranchCommit(root, remote, ref) !== expected) {
+    throw gitPrecondition("Remote branch is absent or changed before deletion.");
+  }
+  // The exact lease also protects the interval between ls-remote and receive-pack.
+  await runRefGit(root, ["push", "--no-follow-tags", "--no-mirror", `--force-with-lease=${ref}:${expected}`, "--", remote, `:${ref}`]);
+  if (await inspectRemoteBranchCommit(root, remote, ref) !== null) {
+    throw gitPrecondition("Remote branch deletion was not confirmed absent; inspect before retrying.");
+  }
+  return { remote, remoteBranch, deletedCommit: expected, remoteState: "absent" as const };
+}
+
+async function assertRefBranchName(root: string, name: string): Promise<void> {
+  await assertValidLocalBranchName(root, name);
+  if (name === "HEAD" || Buffer.byteLength(name, "utf8") > MAX_REVISION_BYTES) {
+    throw new AgentHarnessError("INVALID_INPUT", "A bounded local branch name is required.");
+  }
+}
+
+async function assertDirectBranchRef(root: string, name: string): Promise<void> {
+  const symbolic = await runBoundedGit({ cwd: root, args: ["symbolic-ref", "--quiet", `refs/heads/${name}`], rejectNonZero: false });
+  if (symbolic.exitCode !== 1) throw gitPrecondition("Symbolic or ambiguous branch refs are not supported.");
+}
+
+async function assertExistingDirectBranch(root: string, name: string): Promise<void> {
+  await assertRefBranchName(root, name);
+  await assertDirectBranchRef(root, name);
+  if (!await localBranchExists(root, name)) throw gitPrecondition("Local branch does not exist.");
+}
+
+async function assertBranchCheckoutState(root: string, name: string, allowCurrent: boolean): Promise<void> {
+  const output = await runRefGit(root, ["worktree", "list", "--porcelain", "-z"]);
+  const matches = output.stdout.split("\0").filter((field) => field === `branch refs/heads/${name}`);
+  const permitted = allowCurrent && await currentBranchOrNull(root) === name ? 1 : 0;
+  if (matches.length > permitted) throw gitPrecondition("Branch is checked out in a conflicting worktree.");
+}
+
+function exactRefCommit(value: string): string {
+  if (typeof value !== "string" || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(value)) {
+    throw new AgentHarnessError("INVALID_INPUT", "An exact commit object ID is required.");
+  }
+  return value;
+}
+
+async function runRefGit(root: string, args: string[]) {
+  const result = await runBoundedGit({ cwd: root, args, rejectNonZero: false });
+  if (result.exitCode !== 0) throw gitPrecondition("Bounded Git ref operation failed; inspect repository state before retrying.");
+  return result;
+}
+
+async function assertSingleRemoteDestination(root: string, remote: string): Promise<void> {
+  const fetch = (await runRefGit(root, ["remote", "get-url", "--all", remote])).stdout.trim();
+  const push = (await runRefGit(root, ["remote", "get-url", "--push", "--all", remote])).stdout.trim();
+  if (!fetch || /[\r\n]/.test(fetch) || fetch !== push) throw gitPrecondition("Operation requires one matching remote fetch and push destination.");
+  const mirror = await runBoundedGit({ cwd: root, args: ["config", "--get", "--bool", `remote.${remote}.mirror`], rejectNonZero: false });
+  if ((mirror.exitCode !== 0 && mirror.exitCode !== 1) || mirror.stdout.trim() === "true") throw gitPrecondition("Operation requires a non-mirroring remote.");
+}
+
+async function inspectRemoteBranchCommit(root: string, remote: string, ref: string): Promise<string | null> {
+  const output = await runRefGit(root, ["ls-remote", "--heads", "--", remote, ref]);
+  const lines = output.stdout.split(/\r?\n/).filter(Boolean);
+  if (lines.length === 0) return null;
+  const fields = lines[0].split("\t");
+  if (lines.length !== 1 || fields.length !== 2 || fields[1] !== ref) throw gitPrecondition("Remote branch inspection returned ambiguous metadata.");
+  return exactRefCommit(fields[0]);
+}
+
 export async function prepareGitBranch(root: string, branchName: string): Promise<{
   branchName: string;
   head: string;
@@ -539,10 +674,14 @@ export async function pushGitBranch(root: string, input: {
   remote?: string;
   branch?: string;
   expectedCommit?: string;
+  remoteBranch?: string;
+  setUpstream?: boolean;
 } = {}): Promise<{
   remote: string;
   branch: string;
   commit: string;
+  remoteBranch?: string;
+  upstream?: string;
 }> {
   const remote = await assertConfiguredRemote(root, input.remote ?? "origin");
   const branch = input.branch ?? await currentBranch(root);
@@ -554,9 +693,21 @@ export async function pushGitBranch(root: string, input: {
   if (input.expectedCommit !== undefined && (!/^[a-f0-9]{40,64}$/.test(input.expectedCommit) || commit !== input.expectedCommit)) {
     throw gitPrecondition("Branch changed before exact-commit synchronization.");
   }
-  const ref = `refs/heads/${branch}`;
-  await runBoundedGit({ cwd: root, args: ["push", "--", remote, `${input.expectedCommit ?? ref}:${ref}`] });
-  return { remote, branch, commit };
+  const remoteBranch = input.remoteBranch ?? branch;
+  await assertValidBranchRefName(root, remoteBranch, "remoteBranch");
+  if (input.setUpstream !== undefined && typeof input.setUpstream !== "boolean") {
+    throw new AgentHarnessError("INVALID_INPUT", "setUpstream must be a boolean.");
+  }
+  // Ordinary pushes retain support for configured push destinations distinct from fetch.
+  if (input.setUpstream) await assertSingleRemoteDestination(root, remote);
+  await runRefGit(root, ["push", "--no-follow-tags", "--no-mirror", "--", remote, `${commit}:refs/heads/${remoteBranch}`]);
+  if (input.setUpstream) {
+    await setGitBranchUpstream(root, { branchName: branch, remote, remoteBranch });
+  }
+  return { remote, branch, commit,
+    ...(input.remoteBranch !== undefined ? { remoteBranch } : {}),
+    ...(input.setUpstream ? { upstream: `${remote}/${remoteBranch}` } : {}),
+  };
 }
 
 export async function integrateGitBranchToDev(root: string): Promise<{

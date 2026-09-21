@@ -5,6 +5,12 @@ export interface SourceControlPosition {
 }
 
 export type SourceControlOperation =
+  | "create-branch-from-ref"
+  | "advance-branch-ref"
+  | "rename-branch"
+  | "set-branch-upstream"
+  | "unset-branch-upstream"
+  | "delete-remote-branch"
   | "status" | "branches" | "history" | "diff" | "changed-files" | "readiness" | "commit-message"
   | "prepare-branch" | "switch-branch" | "stage" | "commit" | "fetch" | "push"
   | "fast-forward" | "delete-branch" | "integration-target" | "integration-create"

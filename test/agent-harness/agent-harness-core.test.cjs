@@ -754,6 +754,12 @@ test("Agent Harness direct write calls require files.write before provider dispa
       expectedPath: "planning/denied.png",
     },
     ...[
+      "create_branch_from_ref",
+      "advance_branch_ref",
+      "rename_branch",
+      "set_branch_upstream",
+      "unset_branch_upstream",
+      "delete_remote_branch",
       "prepare_branch",
       "switch_branch",
       "fetch_remote",

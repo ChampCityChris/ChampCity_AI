@@ -23,6 +23,12 @@ import {
   writeTextArtifact,
 } from "../repository/repositoryOperations";
 import {
+  createGitBranchFromRef,
+  advanceGitBranchRef,
+  renameGitBranch,
+  setGitBranchUpstream,
+  unsetGitBranchUpstream,
+  deleteGitRemoteBranch,
   commitGitChanges,
   createGitTag,
   deleteGitBranch,
@@ -121,6 +127,12 @@ const HOTFIX10_RESERVED_TOOLBOX_NAMES = [
 type RequiredScope = "files.read" | "files.write";
 type ParamType = "string" | "number" | "boolean" | "string-array";
 type GitMutationAction =
+  | "create_branch_from_ref"
+  | "advance_branch_ref"
+  | "rename_branch"
+  | "set_branch_upstream"
+  | "unset_branch_upstream"
+  | "delete_remote_branch"
   | "prepare_branch"
   | "switch_branch"
   | "fetch_remote"
@@ -498,6 +510,12 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
         gitInspectionAction("verify_tag", requiredParams({ tagName: "string" }), ({ context, params }) => (
           verifyGitTag(context.root, requiredString(params.tagName, "tagName"))
         )),
+        gitMutationAction("create_branch_from_ref", requiredParams({ branchName: "string", sourceRef: "string" })),
+        gitMutationAction("advance_branch_ref", requiredParams({ branchName: "string", sourceRef: "string", expectedCurrentCommit: "string" })),
+        gitMutationAction("rename_branch", requiredParams({ branchName: "string", newBranchName: "string" })),
+        gitMutationAction("set_branch_upstream", requiredParams({ branchName: "string", remote: "string", remoteBranch: "string" })),
+        gitMutationAction("unset_branch_upstream", requiredParams({ branchName: "string" })),
+        gitMutationAction("delete_remote_branch", requiredParams({ remote: "string", remoteBranch: "string", expectedRemoteCommit: "string" })),
         gitMutationAction("prepare_branch", requiredParams({ branchName: "string" })),
         gitMutationAction("switch_branch", requiredParams({ branchName: "string" })),
         gitMutationAction("fetch_remote", optionalParams({ remote: "string" })),
@@ -527,7 +545,7 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
         gitMutationAction("delete_branch", requiredParams({ branchName: "string" })),
         gitMutationAction("stage_changes", requiredParams({ paths: "string-array" })),
         gitMutationAction("commit", requiredParams({ message: "string" })),
-        gitMutationAction("push", optionalParams({ remote: "string", branch: "string" })),
+        gitMutationAction("push", optionalParams({ remote: "string", branch: "string", expectedCommit: "string", remoteBranch: "string", setUpstream: "boolean" })),
         gitMutationAction("integrate_to_dev", {}),
       ],
     },
@@ -836,6 +854,18 @@ function gitMutationAction(
     params,
     dispatch: async ({ context, params: values }) => {
       switch (name) {
+        case "create_branch_from_ref":
+          return createGitBranchFromRef(context.root, { branchName: requiredString(values.branchName, "branchName"), sourceRef: requiredString(values.sourceRef, "sourceRef") });
+        case "advance_branch_ref":
+          return advanceGitBranchRef(context.root, { branchName: requiredString(values.branchName, "branchName"), sourceRef: requiredString(values.sourceRef, "sourceRef"), expectedCurrentCommit: requiredString(values.expectedCurrentCommit, "expectedCurrentCommit") });
+        case "rename_branch":
+          return renameGitBranch(context.root, { branchName: requiredString(values.branchName, "branchName"), newBranchName: requiredString(values.newBranchName, "newBranchName") });
+        case "set_branch_upstream":
+          return setGitBranchUpstream(context.root, { branchName: requiredString(values.branchName, "branchName"), remote: requiredString(values.remote, "remote"), remoteBranch: requiredString(values.remoteBranch, "remoteBranch") });
+        case "unset_branch_upstream":
+          return unsetGitBranchUpstream(context.root, { branchName: requiredString(values.branchName, "branchName") });
+        case "delete_remote_branch":
+          return deleteGitRemoteBranch(context.root, { remote: requiredString(values.remote, "remote"), remoteBranch: requiredString(values.remoteBranch, "remoteBranch"), expectedRemoteCommit: requiredString(values.expectedRemoteCommit, "expectedRemoteCommit") });
         case "prepare_branch":
           return prepareGitBranch(context.root, requiredString(values.branchName, "branchName"));
         case "switch_branch":
@@ -881,6 +911,9 @@ function gitMutationAction(
           return pushGitBranch(context.root, {
             remote: stringValue(values.remote),
             branch: stringValue(values.branch),
+            expectedCommit: stringValue(values.expectedCommit),
+            remoteBranch: stringValue(values.remoteBranch),
+            setUpstream: booleanValue(values.setUpstream),
           });
         case "integrate_to_dev":
           return integrateGitBranchToDev(context.root);

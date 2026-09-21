@@ -75,6 +75,12 @@ const EXISTING_TOOL_ACTIONS = {
     "inspect_branch_state",
     "inspect_history",
     "verify_tag",
+    "create_branch_from_ref",
+    "advance_branch_ref",
+    "rename_branch",
+    "set_branch_upstream",
+    "unset_branch_upstream",
+    "delete_remote_branch",
     "prepare_branch",
     "switch_branch",
     "fetch_remote",
@@ -128,6 +134,27 @@ test("HOTFIX10 publishes the exact stable top-level namespace and preserves exis
     assert.deepEqual(toolsByName.get(name)?.actions, ["status"], name);
   }
 
+  const gitSchema = toolsByName.get("git_toolbox").inputZodSchema;
+  for (const [action, params] of [
+    ["create_branch_from_ref", { branchName: "feature", sourceRef: "dev" }],
+    ["advance_branch_ref", { branchName: "feature", sourceRef: "dev", expectedCurrentCommit: "a".repeat(40) }],
+    ["rename_branch", { branchName: "feature", newBranchName: "renamed" }],
+    ["set_branch_upstream", { branchName: "feature", remote: "origin", remoteBranch: "dev" }],
+    ["unset_branch_upstream", { branchName: "feature" }],
+    ["delete_remote_branch", { remote: "origin", remoteBranch: "dev", expectedRemoteCommit: "a".repeat(40) }],
+  ]) {
+    const input = { workspaceId: fixture.workspaceId, action, params };
+    assert.equal(gitSchema.safeParse(input).success, true, action);
+    assert.equal(gitSchema.safeParse({ ...input, params: { ...params, force: true } }).success, false, action);
+    for (const key of Object.keys(params)) {
+      const missing = { ...params }; delete missing[key];
+      assert.equal(gitSchema.safeParse({ ...input, params: missing }).success, false, action + ":" + key);
+    }
+  }
+  const push = { workspaceId: fixture.workspaceId, action: "push", params: { remoteBranch: "other", setUpstream: true, expectedCommit: "a".repeat(40) } };
+  assert.equal(gitSchema.safeParse(push).success, true);
+  assert.equal(gitSchema.safeParse({ ...push, params: { setUpstream: "true" } }).success, false);
+  assert.equal(gitSchema.safeParse({ ...push, params: {} }).success, true);
   const firstCapture = captureAgentHarnessPublicToolContract(registry, "files.read files.write");
   const secondCapture = captureAgentHarnessPublicToolContract(registry, "files.write files.read files.write");
   assert.equal(firstCapture.toolCount, 35);

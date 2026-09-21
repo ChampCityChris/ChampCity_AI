@@ -3,6 +3,7 @@ import path from "node:path";
 import { AgentHarnessError } from "../agentHarness/core/errors";
 import { runBoundedGit, isGitWorkTree } from "../agentHarness/repository/boundedGit";
 import {
+  createGitBranchFromRef, advanceGitBranchRef, renameGitBranch, setGitBranchUpstream, unsetGitBranchUpstream, deleteGitRemoteBranch,
   commitGitChanges, deleteGitBranch, fastForwardGitBranch, fetchGitRemote,
   inspectGitBranchState, inspectGitHistory, prepareGitBranch, pushGitBranch,
   stageGitChanges, switchGitBranch,
@@ -145,6 +146,12 @@ export function createSourceControlService(binding: { repositoryId: string; repo
         ...(await preCommitSafetyScan(root, true)),
       };
     }),
+    createBranchFromRef: (input: Parameters<typeof createGitBranchFromRef>[1]) => run("create-branch-from-ref", true, () => createGitBranchFromRef(root, input)),
+    advanceBranchRef: (input: Parameters<typeof advanceGitBranchRef>[1]) => run("advance-branch-ref", true, () => advanceGitBranchRef(root, input)),
+    renameBranch: (input: Parameters<typeof renameGitBranch>[1]) => run("rename-branch", true, () => renameGitBranch(root, input)),
+    setBranchUpstream: (input: Parameters<typeof setGitBranchUpstream>[1]) => run("set-branch-upstream", true, () => setGitBranchUpstream(root, input)),
+    unsetBranchUpstream: (input: Parameters<typeof unsetGitBranchUpstream>[1]) => run("unset-branch-upstream", true, () => unsetGitBranchUpstream(root, input)),
+    deleteRemoteBranch: (input: Parameters<typeof deleteGitRemoteBranch>[1]) => run("delete-remote-branch", true, () => deleteGitRemoteBranch(root, input)),
     prepareBranch: (branchName: string) => run("prepare-branch", true, () => prepareGitBranch(root, branchName)),
     switchBranch: (branchName: string) => run("switch-branch", true, () => switchGitBranch(root, branchName)),
     stage: (paths: string[]) => run("stage", true, () => stageGitChanges(root, paths)),
