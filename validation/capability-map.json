@@ -11917,20 +11917,20 @@
     {
       "testPath": "test/project-planning/project-planning-service.test.cjs",
       "currentTestCount": {
-        "value": 20,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/project-planning/project-planning-service.test.cjs; the TAP summary reported 20 tests, including generated subtests."
+        "value": 28,
+        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/project-planning/project-planning-service.test.cjs during TSR01; the TAP summary reported 28 tests, including generated subtests."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 879,
-        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/project-planning/project-planning-service.test.cjs in the WC02 normal Windows inventory run; value is the rounded-up TAP duration_ms summary."
+        "milliseconds": 14807,
+        "basis": "Measured by node --test --test-reporter=tap --test-concurrency=1 test/project-planning/project-planning-service.test.cjs in the TSR01 normal Windows focused run; value is the rounded-up TAP duration_ms summary."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
       "dependencies": {
         "electron": false,
         "filesystem": true,
-        "git": false,
+        "git": true,
         "network": false,
         "process": false,
         "timing": false

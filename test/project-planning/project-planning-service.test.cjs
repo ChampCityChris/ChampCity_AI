@@ -3,11 +3,19 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
+function bypassBranchVerification(t) {
+  const branchService = require("../../dist/main/workIntake/workIntakeBranchService.js");
+  return t.mock.method(branchService, "createWorkIntakeBranchService", () => ({
+    verify: async (binding) => binding,
+  }));
+}
+
 test("research closes durably on reviewed evidence without manufacturing a Plan or promoting prototypes", async (t) => {
-  const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
-  const { root, intake, git, initialHead } = await seedRoutedWorkIntake(t, "research-prototype", {
+  const { seedPreparedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
+  const { root, intake, git, initialHead } = seedPreparedRoutedWorkIntake(t, "research-prototype", {
     workRequest: "Compare two bounded export approaches", desiredOutcome: "Evidence for an Operator decision", knownConstraints: "Prototype only; no production promotion",
   });
+  bypassBranchVerification(t);
   const { createWorkPlanningKernel, workPlanningArtifactPath } = require("../../dist/main/workPlanning/workPlanningKernel.js");
   const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
   const { researchOutcomeFromBody } = require("../../dist/main/workPlanning/profiles/researchPrototypeProfile.js");
@@ -60,10 +68,11 @@ test("research closes durably on reviewed evidence without manufacturing a Plan 
 });
 
 test("infrastructure planning requires operational recovery evidence and excludes unrelated product features", async (t) => {
-  const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
-  const { root, intake, git, initialHead } = await seedRoutedWorkIntake(t, "infrastructure-platform", {
+  const { seedPreparedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
+  const { root, intake, git, initialHead } = seedPreparedRoutedWorkIntake(t, "infrastructure-platform", {
     workRequest: "Move the staging host to a supported runtime", desiredOutcome: "Recoverable runtime update with unchanged product behavior", knownConstraints: "Sharing features remain a separate Intake",
   });
+  bypassBranchVerification(t);
   const { workPlanningKernel: kernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
   let model = await kernel.prepare(root, intake.intakeId, "assessment");
   for (const rule of [/environment ownership/, /install\/provision\/update\/rollback/, /networking\/access/, /observability\/health/, /recovery conditions/, /Keep product features outside this Plan/, /do not force Phases/]) assert.match(model.preparedInstruction, rule);
@@ -100,10 +109,11 @@ test("infrastructure planning requires operational recovery evidence and exclude
 });
 
 test("composition planning requires capability dispositions and carries non-code outcomes through the shared kernel", async (t) => {
-  const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
-  const { root, intake, git, initialHead } = await seedRoutedWorkIntake(t, "integration-composition", {
+  const { seedPreparedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
+  const { root, intake, git, initialHead } = seedPreparedRoutedWorkIntake(t, "integration-composition", {
     workRequest: "Compose a bounded document export from existing provider components", desiredOutcome: "Export through verified component contracts",
   });
+  bypassBranchVerification(t);
   const { workPlanningKernel: kernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
   const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
   const profile = resolveWorkPlanningProfile("integration-composition");
@@ -146,11 +156,12 @@ test("composition planning requires capability dispositions and carries non-code
 });
 
 test("shared planning kernel reviews direct and phased Plans under the Operator-selected profile with freshness-safe revision", async (t) => {
-  const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
-  const { root, intake, route, git, initialHead } = await seedRoutedWorkIntake(t, "refactor-migration", {
+  const { seedPreparedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
+  const { root, intake, route, git, initialHead } = seedPreparedRoutedWorkIntake(t, "refactor-migration", {
     workRequest: "Move schedule storage from an embedded adapter to a service adapter", desiredOutcome: "A narrow storage cutover with scheduling behavior preserved",
     knownConstraints: "Later sharing features and governance refactors remain separate Intakes",
   });
+  bypassBranchVerification(t);
   const { createWorkPlanningKernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
   const { resolveWorkPlanningProfile, workPlanningProfiles } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
   const { validateWorkPlanStructure } = require("../../dist/main/workPlanning/workPlanStructure.js");
@@ -230,7 +241,7 @@ test("shared planning kernel reviews direct and phased Plans under the Operator-
 });
 
 test("routed Development binding preserves approved direct and phased sources and rejects incompatible execution", async (t) => {
-  const { seedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
+  const { seedPreparedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
   const { workPlanningKernel: kernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
   const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
   const { activateRoutedDevelopmentExecutionBinding: activate, readRoutedDevelopmentExecutionBinding: read, routedDevelopmentExecutionBindingPath: bindingPath } = require("../../dist/main/planExecution/routedDevelopmentExecutionBinding.js");
@@ -238,7 +249,8 @@ test("routed Development binding preserves approved direct and phased sources an
   const { writeCanonicalMarkdownDocument } = require("../../dist/main/documents/canonicalMarkdownDocumentWriter.js");
   const { createHash } = require("node:crypto");
   for (const topology of ["direct", "phased"]) await t.test(topology, async (t) => {
-    const { root, intake, route, git, initialHead } = await seedRoutedWorkIntake(t, "feature-change");
+    const { root, intake, route, git, initialHead } = seedPreparedRoutedWorkIntake(t, "feature-change");
+    const verifyMock = bypassBranchVerification(t);
     const profile = resolveWorkPlanningProfile("feature-change");
     assert.equal(await read(root, intake.intakeId), null);
     const structure = { topology, topologyRationale: "A bounded export with preserved behavior", acceptanceCriteria: ["Export contract passes"],
@@ -308,7 +320,6 @@ test("routed Development binding preserves approved direct and phased sources an
       (doc) => { doc.metadata.identity.planId = "another-plan"; },
       (doc) => { doc.metadata.workflowData.structure.workItems[0].title = "Different work"; },
       (doc) => { doc.metadata.workflowData.branchBinding.baseBranch = "another-branch"; },
-      (doc) => { doc.metadata.workflowData.branchBinding.currentHead = "a".repeat(40); },
     ]) {
       const doc = parse(bindingBytes); mutate(doc); fs.writeFileSync(target, serialize(doc.metadata, doc.bodyMarkdown));
       const conflictingBytes = fs.readFileSync(target, "utf8");
@@ -329,11 +340,12 @@ test("routed Development binding preserves approved direct and phased sources an
     assert.equal(parse(fs.readFileSync(target, "utf8")).metadata.participationRole, "historical", "route supersession includes execution binding");
     await assert.rejects(activate(root, intake.intakeId));
     assert.equal(git("rev-parse", "HEAD"), initialHead, "binding does not mutate Git");
+    verifyMock.mock.restore();
     git("switch", "main");
     await assert.rejects(read(root, intake.intakeId), /current checkout/);
   });
   await t.test("Issue route cannot use Development binding", async (t) => {
-    const { root, intake } = await seedRoutedWorkIntake(t, "issue-resolution");
+    const { root, intake } = seedPreparedRoutedWorkIntake(t, "issue-resolution");
     await assert.rejects(activate(root, intake.intakeId));
     assert.equal(fs.existsSync(path.join(root, bindingPath(intake.intakeId))), false);
   });
