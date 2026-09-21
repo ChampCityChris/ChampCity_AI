@@ -1,3 +1,4 @@
+import { inspectGitDiff, type GitDiffInput } from "./gitMutations";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -503,18 +504,9 @@ export async function gitStatus(root: string, knownGitBacked?: boolean): Promise
   };
 }
 
-export async function gitDiff(root: string, knownGitBacked?: boolean): Promise<{ gitBacked: boolean; diff: string }> {
-  if (!(knownGitBacked ?? await isGitBacked(root))) {
-    return { gitBacked: false, diff: "" };
-  }
-  const result = await runBoundedGit({
-    cwd: root,
-    args: ["--no-pager", "diff", "--no-ext-diff", "--no-textconv", "--", "."],
-  });
-  return {
-    gitBacked: true,
-    diff: result.stdout,
-  };
+export async function gitDiff(root: string, knownGitBacked?: boolean, input: GitDiffInput = {}) {
+  if (!(knownGitBacked ?? await isGitBacked(root))) return { gitBacked: false, diff: "" };
+  return inspectGitDiff(root, input);
 }
 
 export function isGitBacked(root: string): Promise<boolean> {

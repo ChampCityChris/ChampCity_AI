@@ -1,8 +1,14 @@
+import { skipIsolatedOperationStep, beginIsolatedOperation, inspectIsolatedOperation, continueIsolatedOperation, abortIsolatedOperation, advanceIsolatedOperation } from "../agentHarness/repository/isolatedGitOperations";
+import { discardManagedWorktree, type ManagedWorkspaceStore } from "../agentHarness/repository/managedWorktrees";
 import fs from "node:fs";
 import path from "node:path";
 import { AgentHarnessError } from "../agentHarness/core/errors";
 import { runBoundedGit, isGitWorkTree } from "../agentHarness/repository/boundedGit";
 import {
+  inspectGitReflog, replaceGitBranchRef, pushGitWithLease, deleteGitUntrackedPaths,
+  inspectGitDiff, inspectGitChangedFiles, inspectGitCommit, compareGitRefs, listGitTags, inspectGitRemotes, unstageGitChanges, restoreGitFiles,
+  createGitBranchFromRef, advanceGitBranchRef, renameGitBranch, setGitBranchUpstream, unsetGitBranchUpstream, deleteGitRemoteBranch,
+  amendGitCommit, revertGitCommit, cherryPickGitCommit,
   commitGitChanges, deleteGitBranch, fastForwardGitBranch, fetchGitRemote,
   inspectGitBranchState, inspectGitHistory, prepareGitBranch, pushGitBranch,
   stageGitChanges, switchGitBranch,
@@ -11,12 +17,12 @@ import { gitDiff, gitStatus, preCommitSafetyScan } from "../agentHarness/reposit
 import { abortIntegrationCheckout, advanceIntegrationTarget, createIntegrationCheckout, inspectIntegrationCheckout, inspectIntegrationTarget, mergeIntegrationCheckout } from "../agentHarness/repository/integrationGit";
 import { commitIntegrationRepair, integrationRepairChangedPaths, integrationRepairDiffs, snapshotIntegrationRepair } from "../agentHarness/repository/integrationRepairGit";
 import type {
-  SourceControlChangedFile, SourceControlOperation, SourceControlPosition,
+  SourceControlOperation, SourceControlPosition,
   SourceControlReceipt, SourceControlResult,
 } from "../../shared/sourceControlContracts";
 
 /** Called by trusted main-process services with a selected repository, without MCP/model mediation. */
-export function createSourceControlService(binding: { repositoryId: string; repositoryRoot: string }) {
+export function createSourceControlService(binding: { repositoryId: string; repositoryRoot: string; managedWorkspaces?: ManagedWorkspaceStore }) {
   const repositoryId = binding.repositoryId;
   const root = path.resolve(binding.repositoryRoot);
 
@@ -71,6 +77,10 @@ export function createSourceControlService(binding: { repositoryId: string; repo
           message: error instanceof AgentHarnessError
             ? error.message.replaceAll(root, "<PROJECT_REPO>").replace(/[\r\n]+/g, " ").slice(0, 1000)
             : "Source-control operation could not complete.",
+          ...(error instanceof AgentHarnessError && typeof error.details?.rolledBack === "boolean" ? {
+            recovery: { rolledBack: error.details.rolledBack, residualOperationState: error.details.residualOperationState === true,
+              conflictingPaths: Array.isArray(error.details.conflictingPaths) ? error.details.conflictingPaths.filter((value): value is string => typeof value === "string").slice(0, 256) : [] }
+          } : {}),
           phase,
           mutationMayHaveOccurred: mutate && phase !== "precondition",
         },
@@ -79,36 +89,24 @@ export function createSourceControlService(binding: { repositoryId: string; repo
     }
   }
 
-  async function changedFiles(): Promise<SourceControlChangedFile[]> {
-    const output = await runBoundedGit({
-      cwd: root, args: ["status", "--porcelain=v1", "-z", "--untracked-files=all"],
-    });
-    const records = output.stdout.split("\0");
-    if (records.pop() !== "") {
-      throw new AgentHarnessError("GIT_EXECUTION_FAILED", "Git returned incomplete changed-file evidence.");
-    }
-    const files: SourceControlChangedFile[] = [];
-    for (let index = 0; index < records.length; index += 1) {
-      const record = records[index];
-      if (record.length < 4 || record[2] !== " ") {
-        throw new AgentHarnessError("GIT_EXECUTION_FAILED", "Git returned invalid changed-file evidence.");
-      }
-      const file: SourceControlChangedFile = {
-        path: record.slice(3), indexStatus: record[0], worktreeStatus: record[1],
-      };
-      if (/[RC]/.test(record.slice(0, 2))) {
-        const originalPath = records[++index];
-        if (!originalPath) {
-          throw new AgentHarnessError("GIT_EXECUTION_FAILED", "Git returned incomplete rename evidence.");
-        }
-        file.originalPath = originalPath;
-      }
-      files.push(file);
-    }
-    return files;
-  }
+  const managedStore = () => {
+    if (!binding.managedWorkspaces) throw new AgentHarnessError("WORKSPACE_UNAVAILABLE", "Managed workspace registration is unavailable.");
+    return binding.managedWorkspaces;
+  };
+  const changedFiles = () => inspectGitChangedFiles(root);
 
   return {
+    inspectReflog: (input: Parameters<typeof inspectGitReflog>[1] = {}) => run("inspect-reflog", false, () => inspectGitReflog(root, input)),
+    replaceBranchRef: (input: Parameters<typeof replaceGitBranchRef>[1]) => run("replace-branch-ref", true, () => replaceGitBranchRef(root, input)),
+    pushWithLease: (input: Parameters<typeof pushGitWithLease>[1]) => run("push-with-lease", true, () => pushGitWithLease(root, input)),
+    deleteUntrackedPaths: (paths: string[]) => run("delete-untracked-paths", true, () => deleteGitUntrackedPaths(root, paths)),
+    discardManagedWorktree: (input: Parameters<typeof discardManagedWorktree>[1]) => run("discard-managed-worktree", true, () => discardManagedWorktree(root, input, managedStore())),
+    skipIsolatedOperationStep: (operationId: string) => run("isolated-skip", true, () => skipIsolatedOperationStep(root, operationId, managedStore())),
+    beginIsolatedOperation: (input: Parameters<typeof beginIsolatedOperation>[1]) => run("isolated-begin", true, () => beginIsolatedOperation(root, input, managedStore())),
+    inspectIsolatedOperation: (operationId: string) => run("isolated-inspect", false, () => inspectIsolatedOperation(root, operationId, managedStore())),
+    continueIsolatedOperation: (operationId: string) => run("isolated-continue", true, () => continueIsolatedOperation(root, operationId, managedStore())),
+    abortIsolatedOperation: (operationId: string) => run("isolated-abort", true, () => abortIsolatedOperation(root, operationId, managedStore())),
+    advanceIsolatedOperation: (input: Parameters<typeof advanceIsolatedOperation>[1]) => run("isolated-advance", true, () => advanceIsolatedOperation(root, input, managedStore())),
     snapshotIntegrationRepair: (candidateId: string, editablePaths: string[]) => run("integration-repair-snapshot", false, () => snapshotIntegrationRepair(root, candidateId, editablePaths)),
     integrationRepairDiffs: (input: Parameters<typeof integrationRepairDiffs>[1]) => run("integration-repair-diffs", false, () => integrationRepairDiffs(root, input)),
     integrationRepairChangedPaths: (input: Parameters<typeof integrationRepairChangedPaths>[1]) => run("integration-repair-diffs", false, () => integrationRepairChangedPaths(root, input)),
@@ -132,10 +130,15 @@ export function createSourceControlService(binding: { repositoryId: string; repo
       run("history", false, () => inspectGitHistory(root, input)),
     diff: () => run("diff", false, async () => ({
       unstaged: (await gitDiff(root, true)).diff,
-      staged: (await runBoundedGit({
-        cwd: root, args: ["--no-pager", "diff", "--cached", "--no-ext-diff", "--no-textconv", "--", "."],
-      })).stdout,
+      staged: (await inspectGitDiff(root, { view: "staged" })).diff,
     })),
+    inspectDiff: (input: Parameters<typeof inspectGitDiff>[1] = {}) => run("diff", false, () => inspectGitDiff(root, input)),
+    inspectCommit: (input: Parameters<typeof inspectGitCommit>[1]) => run("inspect-commit", false, () => inspectGitCommit(root, input)),
+    compareRefs: (input: Parameters<typeof compareGitRefs>[1]) => run("compare-refs", false, () => compareGitRefs(root, input)),
+    listTags: () => run("list-tags", false, () => listGitTags(root)),
+    inspectRemotes: () => run("inspect-remotes", false, () => inspectGitRemotes(root)),
+    unstage: (paths: string[]) => run("unstage", true, () => unstageGitChanges(root, paths)),
+    restoreFiles: (input: Parameters<typeof restoreGitFiles>[1]) => run("restore-files", true, () => restoreGitFiles(root, input)),
     changedFiles: () => run("changed-files", false, changedFiles),
     readiness: () => run("readiness", false, async () => {
       const status = await gitStatus(root, true);
@@ -146,10 +149,19 @@ export function createSourceControlService(binding: { repositoryId: string; repo
         ...(await preCommitSafetyScan(root, true)),
       };
     }),
+    createBranchFromRef: (input: Parameters<typeof createGitBranchFromRef>[1]) => run("create-branch-from-ref", true, () => createGitBranchFromRef(root, input)),
+    advanceBranchRef: (input: Parameters<typeof advanceGitBranchRef>[1]) => run("advance-branch-ref", true, () => advanceGitBranchRef(root, input)),
+    renameBranch: (input: Parameters<typeof renameGitBranch>[1]) => run("rename-branch", true, () => renameGitBranch(root, input)),
+    setBranchUpstream: (input: Parameters<typeof setGitBranchUpstream>[1]) => run("set-branch-upstream", true, () => setGitBranchUpstream(root, input)),
+    unsetBranchUpstream: (input: Parameters<typeof unsetGitBranchUpstream>[1]) => run("unset-branch-upstream", true, () => unsetGitBranchUpstream(root, input)),
+    deleteRemoteBranch: (input: Parameters<typeof deleteGitRemoteBranch>[1]) => run("delete-remote-branch", true, () => deleteGitRemoteBranch(root, input)),
     prepareBranch: (branchName: string) => run("prepare-branch", true, () => prepareGitBranch(root, branchName)),
     switchBranch: (branchName: string) => run("switch-branch", true, () => switchGitBranch(root, branchName)),
     stage: (paths: string[]) => run("stage", true, () => stageGitChanges(root, paths)),
-    commit: (message: string) => run("commit", true, () => commitGitChanges(root, message)),
+    commit: (message: string, expectedHead?: string) => run("commit", true, () => commitGitChanges(root, message, expectedHead)),
+    amendCommit: (input: Parameters<typeof amendGitCommit>[1]) => run("amend-commit", true, () => amendGitCommit(root, input)),
+    revertCommit: (input: Parameters<typeof revertGitCommit>[1]) => run("revert-commit", true, () => revertGitCommit(root, input)),
+    cherryPickCommit: (input: Parameters<typeof cherryPickGitCommit>[1]) => run("cherry-pick-commit", true, () => cherryPickGitCommit(root, input)),
     fetch: (remote?: string) => run("fetch", true, () => fetchGitRemote(root, remote)),
     push: (input: Parameters<typeof pushGitBranch>[1] = {}) => run("push", true, () => pushGitBranch(root, input)),
     fastForward: (input: Parameters<typeof fastForwardGitBranch>[1] = {}) =>

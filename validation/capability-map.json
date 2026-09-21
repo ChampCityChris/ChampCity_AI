@@ -3104,6 +3104,10 @@
           "description": "Git dispatch and mutation modules do not import workflow decision services"
         },
         {
+          "behaviorId": "independent-branch-refs-preserve-dirty-checkout-and-exact-fast-forward-ownership",
+          "description": "independent branch refs preserve dirty checkout state and enforce exact fast-forward ownership"
+        },
+        {
           "behaviorId": "ineligible-existing-release-metadata-and-asset-states-fail-closed-without-mutation",
           "description": "ineligible existing release metadata and asset states fail closed without mutation"
         },
@@ -3138,6 +3142,10 @@
         {
           "behaviorId": "isolated-npm-ci-leaves-a-held-source-node-modules-electron-sentinel-intact",
           "description": "isolated npm ci leaves a held source node_modules/electron sentinel intact"
+        },
+        {
+          "behaviorId": "mapped-branch-push-upstream-and-exact-remote-deletion",
+          "description": "mapped branch push upstream and exact remote deletion preserve local refs and sanitize failures"
         },
         {
           "behaviorId": "merge-branch-carries-a-hotfix-into-main-and-forward-into-diverged-dev-then-deletes-merged-branch",
@@ -5352,6 +5360,18 @@
           "capabilityId": "release-and-git-operations",
           "behaviorId": "git-dispatch-and-mutation-modules-do-not-import-workflow-decision-services",
           "proofLocator": "Git dispatch and mutation modules do not import workflow decision services",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "independent-branch-refs-preserve-dirty-checkout-and-exact-fast-forward-ownership",
+          "proofLocator": "independent branch refs preserve dirty checkout state and enforce exact fast-forward ownership",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "mapped-branch-push-upstream-and-exact-remote-deletion",
+          "proofLocator": "mapped branch push upstream and exact remote deletion preserve local refs and sanitize failures",
           "proofRole": "primary"
         },
         {

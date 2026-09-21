@@ -745,6 +745,11 @@ test("application source control returns attributable receipts and preserves Git
   assert.equal((await success(service.status(), "status")).result.clean, true);
   assert.equal((await success(service.readiness(), "readiness")).result.clean, true);
   assert.deepEqual((await success(service.branches(), "branches")).result.remotes, []);
+  const createdRef = await success(service.createBranchFromRef({ branchName: "non-checkout", sourceRef: "dev" }), "create-branch-from-ref");
+  assert.equal(createdRef.result.sourceCommit, baseline);
+  assert.deepEqual(createdRef.receipt.before, createdRef.receipt.after);
+  await success(service.renameBranch({ branchName: "non-checkout", newBranchName: "non-checkout-renamed" }), "rename-branch");
+  await success(service.advanceBranchRef({ branchName: "non-checkout-renamed", sourceRef: baseline, expectedCurrentCommit: baseline }), "advance-branch-ref");
   const prepared = await success(service.prepareBranch("work/service"), "prepare-branch");
   assert.deepEqual(prepared.receipt.before, { branch: "dev", commit: baseline });
   assert.deepEqual(prepared.receipt.after, { branch: "work/service", commit: baseline });
@@ -897,6 +902,119 @@ test("Work Intake branch binding selects an exact base and fails closed before p
     .establish(input, persist);
   assert.equal(nonGit.ok, false);
   assert.equal(persistenceCalls, 1);
+});
+
+
+test("independent branch refs preserve dirty checkout state and enforce exact fast-forward ownership", async (t) => {
+  const root = createBoundWorkspace("champcity-ref-primitives-", true);
+  t.after(() => fs.rmSync(path.dirname(root), { recursive: true, force: true }));
+  commitAllFixtureState(root, "base");
+  const base = git(root, ["rev-parse", "HEAD"]);
+  git(root, ["config", "branch.autoSetupMerge", "always"]);
+  git(root, ["branch", "old-endpoint"]); git(root, ["tag", "base-tag"]);
+  fs.writeFileSync(path.join(root, "later.txt"), "later\n"); commitAllFixtureState(root, "later");
+  const later = git(root, ["rev-parse", "HEAD"]);
+  git(root, ["update-ref", "refs/remotes/origin/fetched", later]);
+  fs.writeFileSync(path.join(root, "README.md"), "staged\n"); git(root, ["add", "README.md"]);
+  fs.appendFileSync(path.join(root, "README.md"), "unstaged\n");
+  fs.writeFileSync(path.join(root, "untracked.txt"), "untracked\n");
+  const snapshot = () => ({
+    head: git(root, ["rev-parse", "HEAD"]), branch: git(root, ["symbolic-ref", "HEAD"]),
+    index: fs.readFileSync(path.join(root, ".git", "index")).toString("base64"),
+    status: git(root, ["status", "--porcelain=v1", "-z"]),
+    staged: git(root, ["diff", "--cached", "--binary"]), unstaged: git(root, ["diff", "--binary"]),
+    untracked: fs.readFileSync(path.join(root, "untracked.txt"), "utf8"),
+  });
+  const before = snapshot(); const registry = registryFor(root);
+  for (const [branchName, sourceRef, sourceCommit] of [
+    ["copy/local", "old-endpoint", base], ["copy/tag", "base-tag", base],
+    ["copy/sha", later, later], ["copy/remote", "origin/fetched", later], ["copy/dev", "dev", later],
+  ]) {
+    const created = await requireSuccess(callGit(registry, root, "create_branch_from_ref", { branchName, sourceRef }));
+    assert.deepEqual(created.payload, { branchName, sourceRef, sourceCommit });
+    assert.equal(git(root, ["rev-parse", branchName]), sourceCommit);
+    assert.equal(git(root, ["for-each-ref", "--format=%(upstream)", `refs/heads/${branchName}`]), "");
+    assert.deepEqual(snapshot(), before);
+  }
+  assert.equal((await callGit(registry, root, "create_branch_from_ref", { branchName: "copy/local", sourceRef: later })).ok, false);
+  assert.equal(git(root, ["rev-parse", "copy/local"]), base);
+  const advance = { branchName: "copy/local", sourceRef: later, expectedCurrentCommit: base };
+  const advanced = await requireSuccess(callGit(registry, root, "advance_branch_ref", advance));
+  assert.equal(advanced.payload.previousCommit, base); assert.equal(advanced.payload.commit, later);
+  assert.equal((await callGit(registry, root, "advance_branch_ref", advance)).ok, false, "stale expected commit");
+  assert.equal((await callGit(registry, root, "advance_branch_ref", { ...advance, sourceRef: base, expectedCurrentCommit: later })).ok, false, "non-fast-forward");
+  assert.equal((await callGit(registry, root, "advance_branch_ref", { ...advance, branchName: "dev", expectedCurrentCommit: later })).ok, false, "current checkout");
+  const peer = path.join(path.dirname(root), "peer"); git(root, ["worktree", "add", peer, "copy/tag"]);
+  assert.equal((await callGit(registry, root, "advance_branch_ref", { ...advance, branchName: "copy/tag" })).ok, false, "other checkout");
+  assert.equal((await callGit(registry, root, "rename_branch", { branchName: "copy/tag", newBranchName: "must-not-rename" })).ok, false);
+  await requireSuccess(callGit(registry, root, "rename_branch", { branchName: "copy/sha", newBranchName: "renamed" }));
+  assert.equal(git(root, ["rev-parse", "renamed"]), later);
+  assert.equal((await callGit(registry, root, "rename_branch", { branchName: "renamed", newBranchName: "copy/dev" })).ok, false);
+  assert.deepEqual(snapshot(), before);
+  await requireSuccess(callGit(registry, root, "rename_branch", { branchName: "dev", newBranchName: "dirty-renamed" }));
+  assert.deepEqual(snapshot(), { ...before, branch: "refs/heads/dirty-renamed" });
+  for (const sourceRef of ["--all", "missing", "HEAD\nother", "x".repeat(1025)]) {
+    assert.equal((await callGit(registry, root, "create_branch_from_ref", { branchName: "invalid-source", sourceRef })).ok, false);
+  }
+  git(root, ["symbolic-ref", "refs/heads/symbolic", "refs/heads/renamed"]);
+  assert.equal((await callGit(registry, root, "advance_branch_ref", { ...advance, branchName: "symbolic", expectedCurrentCommit: later })).ok, false);
+  git(root, ["symbolic-ref", "refs/heads/dangling", "refs/heads/missing"]);
+  assert.equal((await callGit(registry, root, "create_branch_from_ref", { branchName: "dangling", sourceRef: base })).ok, false);
+  assert.equal(git(root, ["symbolic-ref", "refs/heads/dangling"]), "refs/heads/missing");
+});
+
+test("mapped branch push upstream and exact remote deletion preserve local refs and sanitize failures", async (t) => {
+  const root = createBoundWorkspace("champcity-remote-branches-", true);
+  t.after(() => fs.rmSync(path.dirname(root), { recursive: true, force: true }));
+  commitAllFixtureState(root, "base"); const base = git(root, ["rev-parse", "HEAD"]);
+  const remote = path.join(path.dirname(root), "remote.git"); git(path.dirname(root), ["init", "--bare", remote]);
+  git(root, ["remote", "add", "origin", remote]);
+  const registry = registryFor(root);
+  const pushed = await requireSuccess(callGit(registry, root, "push", { branch: "dev", remoteBranch: "published/other", expectedCommit: base, setUpstream: true }));
+  assert.equal(pushed.payload.upstream, "origin/published/other");
+  assert.equal(git(remote, ["rev-parse", "refs/heads/published/other"]), base);
+  const inspect = async () => (await requireSuccess(callGit(registry, root, "inspect_branch_state", { branchName: "dev" }, "files.read"))).payload.selectedBranch;
+  assert.equal((await inspect()).upstream, "origin/published/other");
+  await requireSuccess(callGit(registry, root, "unset_branch_upstream", { branchName: "dev" }));
+  assert.equal((await inspect()).upstream, null);
+  for (const params of [{ branchName: "missing", remote: "origin", remoteBranch: "published/other" }, { branchName: "dev", remote: "missing", remoteBranch: "published/other" }, { branchName: "dev", remote: "origin", remoteBranch: "missing" }]) {
+    assert.equal((await callGit(registry, root, "set_branch_upstream", params)).ok, false);
+  }
+  await requireSuccess(callGit(registry, root, "set_branch_upstream", { branchName: "dev", remote: "origin", remoteBranch: "published/other" }));
+  assert.equal((await inspect()).upstream, "origin/published/other");
+  fs.writeFileSync(path.join(root, "later.txt"), "later\n"); commitAllFixtureState(root, "later");
+  const later = git(root, ["rev-parse", "HEAD"]);
+  assert.equal((await callGit(registry, root, "push", { expectedCommit: base })).ok, false);
+  const oldPush = await requireSuccess(callGit(registry, root, "push"));
+  assert.deepEqual(oldPush.payload, { remote: "origin", branch: "dev", commit: later });
+  assert.equal(git(remote, ["rev-parse", "refs/heads/dev"]), later);
+  const localRefs = git(root, ["for-each-ref", "--format=%(refname) %(objectname)", "refs/heads", "refs/tags"]);
+  const params = { remote: "origin", remoteBranch: "published/other", expectedRemoteCommit: later };
+  assert.equal((await callGit(registry, root, "delete_remote_branch", params)).ok, false);
+  const rejectedHook = path.join(remote, "hooks", "pre-receive");
+  fs.writeFileSync(rejectedHook, '#!/bin/sh\necho "private-diagnostic-marker" >&2\nexit 1\n'); fs.chmodSync(rejectedHook, 0o755);
+  const rejected = await callGit(registry, root, "delete_remote_branch", { ...params, expectedRemoteCommit: base });
+  assert.equal(rejected.ok, false); assert.equal(JSON.stringify(rejected).includes("private-diagnostic-marker"), false);
+  assert.equal(JSON.stringify(rejected).includes(remote), false); fs.unlinkSync(rejectedHook);
+  git(root, ["config", "remote.origin.mirror", "true"]);
+  assert.equal((await callGit(registry, root, "delete_remote_branch", { ...params, expectedRemoteCommit: base })).ok, false);
+  git(root, ["config", "--unset", "remote.origin.mirror"]);
+  git(root, ["config", "remote.origin.pushurl", root]);
+  assert.equal((await callGit(registry, root, "delete_remote_branch", { ...params, expectedRemoteCommit: base })).ok, false);
+  git(root, ["config", "--unset", "remote.origin.pushurl"]);
+  const raceHook = path.join(root, ".git", "hooks", "pre-push");
+  fs.writeFileSync(raceHook, `#!/bin/sh
+git --git-dir="$2" update-ref refs/heads/published/other ${later} ${base}
+`); fs.chmodSync(raceHook, 0o755);
+  assert.equal((await callGit(registry, root, "delete_remote_branch", { ...params, expectedRemoteCommit: base })).ok, false, "Remote movement between inspection and receive-pack is preserved");
+  assert.equal(git(remote, ["rev-parse", "refs/heads/published/other"]), later);
+  fs.unlinkSync(raceHook); git(remote, ["update-ref", "refs/heads/published/other", base, later]);
+  const deleted = await requireSuccess(callGit(registry, root, "delete_remote_branch", { ...params, expectedRemoteCommit: base }));
+  assert.deepEqual(deleted.payload, { remote: "origin", remoteBranch: "published/other", deletedCommit: base, remoteState: "absent" });
+  assert.equal(git(remote, ["for-each-ref", "--format=%(objectname)", "refs/heads/published/other"]), "");
+  assert.equal(git(root, ["for-each-ref", "--format=%(refname) %(objectname)", "refs/heads", "refs/tags"]), localRefs);
+  assert.equal(git(remote, ["rev-parse", "refs/heads/dev"]), later);
+  assert.equal((await callGit(registry, root, "delete_remote_branch", { ...params, expectedRemoteCommit: base })).ok, false);
 });
 
 function createBoundWorkspace(prefix, gitBacked) {

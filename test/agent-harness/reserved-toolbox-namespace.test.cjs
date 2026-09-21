@@ -70,11 +70,26 @@ const EXISTING_TOOL_ACTIONS = {
   git_toolbox: [
     "status",
     "diff",
+    "changed_files",
+    "inspect_commit",
+    "compare_refs",
+    "inspect_reflog",
+    "inspect_isolated_operation",
+    "list_worktrees",
+    "inspect_worktree",
+    "list_tags",
+    "inspect_remotes",
     "pre_commit_scan",
     "readiness_summary",
     "inspect_branch_state",
     "inspect_history",
     "verify_tag",
+    "create_branch_from_ref",
+    "advance_branch_ref",
+    "rename_branch",
+    "set_branch_upstream",
+    "unset_branch_upstream",
+    "delete_remote_branch",
     "prepare_branch",
     "switch_branch",
     "fetch_remote",
@@ -84,7 +99,24 @@ const EXISTING_TOOL_ACTIONS = {
     "push_tag",
     "delete_tag",
     "delete_branch",
+    "replace_branch_ref",
+    "push_with_lease",
+    "delete_untracked_paths",
+    "discard_managed_worktree",
+    "skip_isolated_operation_step",
+    "begin_isolated_operation",
+    "continue_isolated_operation",
+    "abort_isolated_operation",
+    "advance_isolated_operation",
+    "create_worktree_from_ref",
+    "create_worktree_for_branch",
+    "remove_worktree",
+    "unstage_changes",
+    "restore_files",
     "stage_changes",
+    "amend_commit",
+    "revert_commit",
+    "cherry_pick_commit",
     "commit",
     "push",
     "integrate_to_dev",
@@ -128,6 +160,27 @@ test("HOTFIX10 publishes the exact stable top-level namespace and preserves exis
     assert.deepEqual(toolsByName.get(name)?.actions, ["status"], name);
   }
 
+  const gitSchema = toolsByName.get("git_toolbox").inputZodSchema;
+  for (const [action, params] of [
+    ["create_branch_from_ref", { branchName: "feature", sourceRef: "dev" }],
+    ["advance_branch_ref", { branchName: "feature", sourceRef: "dev", expectedCurrentCommit: "a".repeat(40) }],
+    ["rename_branch", { branchName: "feature", newBranchName: "renamed" }],
+    ["set_branch_upstream", { branchName: "feature", remote: "origin", remoteBranch: "dev" }],
+    ["unset_branch_upstream", { branchName: "feature" }],
+    ["delete_remote_branch", { remote: "origin", remoteBranch: "dev", expectedRemoteCommit: "a".repeat(40) }],
+  ]) {
+    const input = { workspaceId: fixture.workspaceId, action, params };
+    assert.equal(gitSchema.safeParse(input).success, true, action);
+    assert.equal(gitSchema.safeParse({ ...input, params: { ...params, force: true } }).success, false, action);
+    for (const key of Object.keys(params)) {
+      const missing = { ...params }; delete missing[key];
+      assert.equal(gitSchema.safeParse({ ...input, params: missing }).success, false, action + ":" + key);
+    }
+  }
+  const push = { workspaceId: fixture.workspaceId, action: "push", params: { remoteBranch: "other", setUpstream: true, expectedCommit: "a".repeat(40) } };
+  assert.equal(gitSchema.safeParse(push).success, true);
+  assert.equal(gitSchema.safeParse({ ...push, params: { setUpstream: "true" } }).success, false);
+  assert.equal(gitSchema.safeParse({ ...push, params: {} }).success, true);
   const firstCapture = captureAgentHarnessPublicToolContract(registry, "files.read files.write");
   const secondCapture = captureAgentHarnessPublicToolContract(registry, "files.write files.read files.write");
   assert.equal(firstCapture.toolCount, 35);

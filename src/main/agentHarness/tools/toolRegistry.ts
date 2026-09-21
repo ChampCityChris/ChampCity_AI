@@ -1,3 +1,5 @@
+import { skipIsolatedOperationStep, beginIsolatedOperation, inspectIsolatedOperation, continueIsolatedOperation, abortIsolatedOperation, advanceIsolatedOperation, type IsolatedOperationKind } from "../repository/isolatedGitOperations";
+import { discardManagedWorktree, createManagedWorktree, listManagedWorktrees, inspectManagedWorktree, removeManagedWorktree, type ManagedWorkspaceStore } from "../repository/managedWorktrees";
 import { AgentHarnessError, toBoundedError } from "../core/errors";
 import { writeAttachedImage } from "../repository/attachedImages";
 import { replaceControlledMarkdownBody } from "../repository/controlledMarkdownDrafts";
@@ -23,6 +25,15 @@ import {
   writeTextArtifact,
 } from "../repository/repositoryOperations";
 import {
+  inspectGitReflog, replaceGitBranchRef, pushGitWithLease, deleteGitUntrackedPaths,
+  inspectGitChangedFiles, inspectGitCommit, compareGitRefs, listGitTags, inspectGitRemotes, unstageGitChanges, restoreGitFiles,
+  createGitBranchFromRef,
+  advanceGitBranchRef,
+  renameGitBranch,
+  setGitBranchUpstream,
+  unsetGitBranchUpstream,
+  deleteGitRemoteBranch,
+  amendGitCommit, revertGitCommit, cherryPickGitCommit,
   commitGitChanges,
   createGitTag,
   deleteGitBranch,
@@ -121,6 +132,20 @@ const HOTFIX10_RESERVED_TOOLBOX_NAMES = [
 type RequiredScope = "files.read" | "files.write";
 type ParamType = "string" | "number" | "boolean" | "string-array";
 type GitMutationAction =
+  | "replace_branch_ref" | "push_with_lease" | "delete_untracked_paths" | "discard_managed_worktree" | "skip_isolated_operation_step"
+  | "begin_isolated_operation" | "continue_isolated_operation" | "abort_isolated_operation" | "advance_isolated_operation"
+  | "amend_commit" | "revert_commit" | "cherry_pick_commit"
+  | "create_worktree_from_ref"
+  | "create_worktree_for_branch"
+  | "remove_worktree"
+  | "unstage_changes"
+  | "restore_files"
+  | "create_branch_from_ref"
+  | "advance_branch_ref"
+  | "rename_branch"
+  | "set_branch_upstream"
+  | "unset_branch_upstream"
+  | "delete_remote_branch"
   | "prepare_branch"
   | "switch_branch"
   | "fetch_remote"
@@ -159,6 +184,7 @@ interface ToolProvider {
 }
 
 interface DispatchInput {
+  managedWorkspaces?: ManagedWorkspaceStore;
   context: AgentHarnessWorkspaceContext;
   params: Record<string, unknown>;
   userDataRoot: string;
@@ -205,6 +231,7 @@ export interface AgentHarnessToolRegistry {
 }
 
 interface RegistryOptions {
+  managedWorkspaces?: ManagedWorkspaceStore;
   workspaceAccess: AgentHarnessWorkspaceAccessProvider;
   userDataRoot: string;
   runtimeDiagnostics?: () => Record<string, unknown>;
@@ -259,6 +286,7 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
         const dispatchResult = await contract.dispatch({
           context,
           params,
+          managedWorkspaces: options.managedWorkspaces,
           userDataRoot: options.userDataRoot,
           workspaceSummaries: options.workspaceAccess.listWorkspaceSummaries,
           runtimeDiagnostics: options.runtimeDiagnostics,
@@ -289,7 +317,9 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
           ok: false,
           toolName: call.name,
           action,
-          error: toBoundedError(error),
+          error: call.name === "git_toolbox" && /worktree|isolated_operation|reflog|delete_untracked_paths/.test(action) && !(error instanceof AgentHarnessError)
+            ? { code: "GIT_EXECUTION_FAILED", message: "Managed Git operation is unavailable or its filesystem state changed; inspect before retrying." }
+            : toBoundedError(error),
           attemptId,
           timestamp,
         };
@@ -478,7 +508,23 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
       description: "ChampCity A/I Agent Harness git_toolbox.",
       actions: [
         gitInspectionAction("status", {}, ({ context }) => gitStatus(context.root, context.gitBacked)),
-        gitInspectionAction("diff", {}, ({ context }) => gitDiff(context.root, context.gitBacked)),
+        gitInspectionAction("diff", {
+          view: { type: "string", allowedValues: ["unstaged", "staged", "between_refs"] },
+          ...optionalParams({ baseRef: "string", targetRef: "string", paths: "string-array" }),
+        }, ({ context, params }) => gitDiff(context.root, context.gitBacked, {
+          view: stringValue(params.view) as "unstaged" | "staged" | "between_refs" | undefined,
+          baseRef: stringValue(params.baseRef), targetRef: stringValue(params.targetRef),
+          paths: params.paths === undefined ? undefined : requiredStringArray(params.paths, "paths"),
+        })),
+        gitInspectionAction("changed_files", {}, ({ context }) => inspectGitChangedFiles(context.root)),
+        gitInspectionAction("inspect_commit", { ...requiredParams({ ref: "string" }), ...optionalParams({ includePatch: "boolean" }) }, ({ context, params }) => inspectGitCommit(context.root, { ref: requiredString(params.ref, "ref"), includePatch: booleanValue(params.includePatch) })),
+        gitInspectionAction("compare_refs", requiredParams({ leftRef: "string", rightRef: "string" }), ({ context, params }) => compareGitRefs(context.root, { leftRef: requiredString(params.leftRef, "leftRef"), rightRef: requiredString(params.rightRef, "rightRef") })),
+        gitInspectionAction("inspect_reflog", optionalParams({ ref: "string", maxCount: "number" }), ({ context, params }) => inspectGitReflog(context.root, { ref: stringValue(params.ref), maxCount: numberValue(params.maxCount) })),
+        gitInspectionAction("inspect_isolated_operation", requiredParams({ operationId: "string" }), ({ context, params, managedWorkspaces }) => inspectIsolatedOperation(context.root, requiredString(params.operationId, "operationId"), requiredManagedStore(managedWorkspaces))),
+        gitInspectionAction("list_worktrees", {}, ({ context, managedWorkspaces }) => listManagedWorktrees(context.root, requiredManagedStore(managedWorkspaces))),
+        gitInspectionAction("inspect_worktree", requiredParams({ workspaceId: "string" }), ({ context, params, managedWorkspaces }) => inspectManagedWorktree(context.root, requiredString(params.workspaceId, "workspaceId"), requiredManagedStore(managedWorkspaces))),
+        gitInspectionAction("list_tags", {}, ({ context }) => listGitTags(context.root)),
+        gitInspectionAction("inspect_remotes", {}, ({ context }) => inspectGitRemotes(context.root)),
         gitInspectionAction("pre_commit_scan", {}, ({ context }) => preCommitSafetyScan(context.root, context.gitBacked)),
         gitInspectionAction("readiness_summary", {}, ({ context }) => preCommitSafetyScan(context.root, context.gitBacked)),
         gitInspectionAction("inspect_branch_state", optionalParams({ branchName: "string" }), ({ context, params }) => (
@@ -498,6 +544,12 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
         gitInspectionAction("verify_tag", requiredParams({ tagName: "string" }), ({ context, params }) => (
           verifyGitTag(context.root, requiredString(params.tagName, "tagName"))
         )),
+        gitMutationAction("create_branch_from_ref", requiredParams({ branchName: "string", sourceRef: "string" })),
+        gitMutationAction("advance_branch_ref", requiredParams({ branchName: "string", sourceRef: "string", expectedCurrentCommit: "string" })),
+        gitMutationAction("rename_branch", requiredParams({ branchName: "string", newBranchName: "string" })),
+        gitMutationAction("set_branch_upstream", requiredParams({ branchName: "string", remote: "string", remoteBranch: "string" })),
+        gitMutationAction("unset_branch_upstream", requiredParams({ branchName: "string" })),
+        gitMutationAction("delete_remote_branch", requiredParams({ remote: "string", remoteBranch: "string", expectedRemoteCommit: "string" })),
         gitMutationAction("prepare_branch", requiredParams({ branchName: "string" })),
         gitMutationAction("switch_branch", requiredParams({ branchName: "string" })),
         gitMutationAction("fetch_remote", optionalParams({ remote: "string" })),
@@ -525,9 +577,26 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
           ...optionalParams({ remote: "string" }),
         }),
         gitMutationAction("delete_branch", requiredParams({ branchName: "string" })),
+        gitMutationAction("replace_branch_ref", requiredParams({ branchName: "string", expectedCurrentCommit: "string", sourceRef: "string" })),
+        gitMutationAction("push_with_lease", { ...requiredParams({ remote: "string", localBranch: "string", remoteBranch: "string", expectedLocalCommit: "string", expectedRemoteCommit: "string" }), ...optionalParams({ setUpstream: "boolean" }) }),
+        gitMutationAction("delete_untracked_paths", requiredParams({ paths: "string-array" })),
+        gitMutationAction("discard_managed_worktree", requiredParams({ workspaceId: "string", expectedBranch: "string", confirmDiscard: "boolean" })),
+        gitMutationAction("skip_isolated_operation_step", requiredParams({ operationId: "string" })),
+        gitMutationAction("begin_isolated_operation", { ...requiredParams({ targetBranch: "string", sourceRef: "string", expectedTargetCommit: "string" }), operation: { type: "string", required: true, allowedValues: ["merge", "cherry-pick", "revert", "rebase"] }, ...optionalParams({ mainline: "number" }) }),
+        gitMutationAction("continue_isolated_operation", requiredParams({ operationId: "string" })),
+        gitMutationAction("abort_isolated_operation", requiredParams({ operationId: "string" })),
+        gitMutationAction("advance_isolated_operation", requiredParams({ operationId: "string", expectedTargetCommit: "string", expectedCandidateCommit: "string" })),
+        gitMutationAction("create_worktree_from_ref", requiredParams({ checkoutName: "string", branchName: "string", sourceRef: "string" })),
+        gitMutationAction("create_worktree_for_branch", requiredParams({ checkoutName: "string", branchName: "string" })),
+        gitMutationAction("remove_worktree", requiredParams({ workspaceId: "string", expectedBranch: "string" })),
+        gitMutationAction("unstage_changes", requiredParams({ paths: "string-array" })),
+        gitMutationAction("restore_files", { ...requiredParams({ paths: "string-array" }), ...optionalParams({ sourceRef: "string" }) }),
         gitMutationAction("stage_changes", requiredParams({ paths: "string-array" })),
-        gitMutationAction("commit", requiredParams({ message: "string" })),
-        gitMutationAction("push", optionalParams({ remote: "string", branch: "string" })),
+        gitMutationAction("amend_commit", { ...requiredParams({ expectedHead: "string" }), ...optionalParams({ message: "string" }) }),
+        gitMutationAction("revert_commit", { ...requiredParams({ commit: "string", expectedHead: "string" }), ...optionalParams({ mainline: "number" }) }),
+        gitMutationAction("cherry_pick_commit", { ...requiredParams({ commit: "string", expectedHead: "string" }), ...optionalParams({ mainline: "number" }) }),
+        gitMutationAction("commit", { ...requiredParams({ message: "string" }), ...optionalParams({ expectedHead: "string" }) }),
+        gitMutationAction("push", optionalParams({ remote: "string", branch: "string", expectedCommit: "string", remoteBranch: "string", setUpstream: "boolean" })),
         gitMutationAction("integrate_to_dev", {}),
       ],
     },
@@ -834,8 +903,43 @@ function gitMutationAction(
     kind: "git-mutation",
     requiredScope: "files.write",
     params,
-    dispatch: async ({ context, params: values }) => {
+    dispatch: async ({ context, params: values, managedWorkspaces }) => {
       switch (name) {
+        case "replace_branch_ref":
+          return replaceGitBranchRef(context.root, { branchName: requiredString(values.branchName, "branchName"), expectedCurrentCommit: requiredString(values.expectedCurrentCommit, "expectedCurrentCommit"), sourceRef: requiredString(values.sourceRef, "sourceRef") });
+        case "push_with_lease":
+          return pushGitWithLease(context.root, { remote: requiredString(values.remote, "remote"), localBranch: requiredString(values.localBranch, "localBranch"), remoteBranch: requiredString(values.remoteBranch, "remoteBranch"), expectedLocalCommit: requiredString(values.expectedLocalCommit, "expectedLocalCommit"), expectedRemoteCommit: requiredString(values.expectedRemoteCommit, "expectedRemoteCommit"), setUpstream: booleanValue(values.setUpstream) });
+        case "delete_untracked_paths":
+          return deleteGitUntrackedPaths(context.root, requiredStringArray(values.paths, "paths"));
+        case "discard_managed_worktree":
+          return discardManagedWorktree(context.root, { workspaceId: requiredString(values.workspaceId, "workspaceId"), expectedBranch: requiredString(values.expectedBranch, "expectedBranch"), confirmDiscard: values.confirmDiscard === true }, requiredManagedStore(managedWorkspaces));
+        case "skip_isolated_operation_step":
+          return skipIsolatedOperationStep(context.root, requiredString(values.operationId, "operationId"), requiredManagedStore(managedWorkspaces));
+        case "begin_isolated_operation":
+          return beginIsolatedOperation(context.root, { operation: requiredString(values.operation, "operation") as IsolatedOperationKind, targetBranch: requiredString(values.targetBranch, "targetBranch"), sourceRef: requiredString(values.sourceRef, "sourceRef"), expectedTargetCommit: requiredString(values.expectedTargetCommit, "expectedTargetCommit"), mainline: numberValue(values.mainline) }, requiredManagedStore(managedWorkspaces));
+        case "continue_isolated_operation":
+          return continueIsolatedOperation(context.root, requiredString(values.operationId, "operationId"), requiredManagedStore(managedWorkspaces));
+        case "abort_isolated_operation":
+          return abortIsolatedOperation(context.root, requiredString(values.operationId, "operationId"), requiredManagedStore(managedWorkspaces));
+        case "advance_isolated_operation":
+          return advanceIsolatedOperation(context.root, { operationId: requiredString(values.operationId, "operationId"), expectedTargetCommit: requiredString(values.expectedTargetCommit, "expectedTargetCommit"), expectedCandidateCommit: requiredString(values.expectedCandidateCommit, "expectedCandidateCommit") }, requiredManagedStore(managedWorkspaces));
+        case "create_worktree_from_ref":
+        case "create_worktree_for_branch":
+          return createManagedWorktree(context.root, { checkoutName: requiredString(values.checkoutName, "checkoutName"), branchName: requiredString(values.branchName, "branchName"), sourceRef: name === "create_worktree_from_ref" ? requiredString(values.sourceRef, "sourceRef") : undefined }, requiredManagedStore(managedWorkspaces));
+        case "remove_worktree":
+          return removeManagedWorktree(context.root, { workspaceId: requiredString(values.workspaceId, "workspaceId"), expectedBranch: requiredString(values.expectedBranch, "expectedBranch") }, requiredManagedStore(managedWorkspaces));
+        case "create_branch_from_ref":
+          return createGitBranchFromRef(context.root, { branchName: requiredString(values.branchName, "branchName"), sourceRef: requiredString(values.sourceRef, "sourceRef") });
+        case "advance_branch_ref":
+          return advanceGitBranchRef(context.root, { branchName: requiredString(values.branchName, "branchName"), sourceRef: requiredString(values.sourceRef, "sourceRef"), expectedCurrentCommit: requiredString(values.expectedCurrentCommit, "expectedCurrentCommit") });
+        case "rename_branch":
+          return renameGitBranch(context.root, { branchName: requiredString(values.branchName, "branchName"), newBranchName: requiredString(values.newBranchName, "newBranchName") });
+        case "set_branch_upstream":
+          return setGitBranchUpstream(context.root, { branchName: requiredString(values.branchName, "branchName"), remote: requiredString(values.remote, "remote"), remoteBranch: requiredString(values.remoteBranch, "remoteBranch") });
+        case "unset_branch_upstream":
+          return unsetGitBranchUpstream(context.root, { branchName: requiredString(values.branchName, "branchName") });
+        case "delete_remote_branch":
+          return deleteGitRemoteBranch(context.root, { remote: requiredString(values.remote, "remote"), remoteBranch: requiredString(values.remoteBranch, "remoteBranch"), expectedRemoteCommit: requiredString(values.expectedRemoteCommit, "expectedRemoteCommit") });
         case "prepare_branch":
           return prepareGitBranch(context.root, requiredString(values.branchName, "branchName"));
         case "switch_branch":
@@ -873,14 +977,26 @@ function gitMutationAction(
           });
         case "delete_branch":
           return deleteGitBranch(context.root, requiredString(values.branchName, "branchName"));
+        case "unstage_changes":
+          return unstageGitChanges(context.root, requiredStringArray(values.paths, "paths"));
+        case "restore_files":
+          return restoreGitFiles(context.root, { paths: requiredStringArray(values.paths, "paths"), sourceRef: stringValue(values.sourceRef) });
         case "stage_changes":
           return stageGitChanges(context.root, requiredStringArray(values.paths, "paths"));
+        case "amend_commit":
+          return amendGitCommit(context.root, { expectedHead: requiredString(values.expectedHead, "expectedHead"), message: stringValue(values.message) });
+        case "revert_commit":
+        case "cherry_pick_commit":
+          return (name === "revert_commit" ? revertGitCommit : cherryPickGitCommit)(context.root, { commit: requiredString(values.commit, "commit"), expectedHead: requiredString(values.expectedHead, "expectedHead"), mainline: numberValue(values.mainline) });
         case "commit":
-          return commitGitChanges(context.root, requiredString(values.message, "message"));
+          return commitGitChanges(context.root, requiredString(values.message, "message"), stringValue(values.expectedHead));
         case "push":
           return pushGitBranch(context.root, {
             remote: stringValue(values.remote),
             branch: stringValue(values.branch),
+            expectedCommit: stringValue(values.expectedCommit),
+            remoteBranch: stringValue(values.remoteBranch),
+            setUpstream: booleanValue(values.setUpstream),
           });
         case "integrate_to_dev":
           return integrateGitBranchToDev(context.root);
@@ -1044,4 +1160,9 @@ function isImageBearingDispatchResult(value: unknown): value is ImageBearingDisp
     typeof value === "object" &&
     (value as Partial<ImageBearingDispatchResult>)[IMAGE_BEARING_DISPATCH_RESULT] === true,
   );
+}
+
+function requiredManagedStore(store: ManagedWorkspaceStore | undefined): ManagedWorkspaceStore {
+  if (!store) throw new AgentHarnessError("WORKSPACE_UNAVAILABLE", "Managed workspace registration is unavailable.");
+  return store;
 }
