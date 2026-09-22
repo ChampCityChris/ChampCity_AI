@@ -23,6 +23,8 @@ import { checkpointResearchCompletion, resolveResearchCompletion } from "./resea
 const sha = (text: Buffer) => createHash("sha256").update(text).digest("hex");
 const message = (error: unknown) => error instanceof Error && !/(?:[A-Za-z]:[\\/]|\/(?:Users|home|tmp)\/)/.test(error.message)
   ? error.message.slice(0, 1500) : "Current routed integration evidence could not be resolved.";
+const sameLogicalCompletion = (left: IntegrationCompletionEvidence, right: IntegrationCompletionEvidence) =>
+  left.kind === right.kind && left.routeDecisionId === right.routeDecisionId && left.completionId === right.completionId;
 const sameCompletion = (left: IntegrationCompletionEvidence, right: IntegrationCompletionEvidence) =>
   left.kind === right.kind && left.routeDecisionId === right.routeDecisionId && left.completionId === right.completionId && left.revision === right.revision &&
   left.fingerprint === right.fingerprint && left.sourcePath === right.sourcePath;
@@ -121,16 +123,20 @@ export function createRoutedIntegrationService(root: string, intakeId: string) {
       if (state.kind === "plan" && !state.projection.complete) return { status: "not-ready", reasons: ["Complete the current Plan, including Work Item close and declared acceptance criteria."],
         completionKind: "plan", completionFingerprint: state.completion.fingerprint, checkpointCommits: [] };
       const checkpointCommits = state.kind === "plan" ? await planCheckpoints(state) : await researchCheckpoints(state);
-      const records = candidate.list(intakeId).filter((entry) => sameCompletion(entry.completion, state.completion));
+      const records = candidate.list(intakeId).filter((entry) => sameLogicalCompletion(entry.completion, state.completion));
       let record = records.at(0);
       if (record?.status === "aborted") {
         const target = await source.integrationTarget({ baseCommit: state.branchBinding.baseCommit, incomingBranch: state.branchBinding.workBranch, targetBranch: state.branchBinding.baseBranch, remote: state.branchBinding.remote?.name });
         if (!target.ok) throw Error(target.error.message);
-        if (record.completion.fingerprint === state.completion.fingerprint && record.incomingCommit === target.result.incomingCommit && record.targetCommit === target.result.targetCommit && record.localTargetCommit === target.result.localTargetCommit) {
+        if (sameCompletion(record.completion, state.completion) && record.incomingCommit === target.result.incomingCommit && record.targetCommit === target.result.targetCommit && record.localTargetCommit === target.result.localTargetCommit) {
           return { status: "not-ready", reasons: ["This exact integration candidate was aborted. Changed completion evidence or a changed source baseline is required to create another candidate; the retained receipt remains available."],
             completionKind: state.kind, completionFingerprint: state.completion.fingerprint, checkpointCommits, candidate: record };
         }
         record = undefined;
+      }
+      if (record && !sameCompletion(record.completion, state.completion)) {
+        return { status: "not-ready", reasons: ["Retained candidate belongs to changed completion evidence; abort it before constructing a fresh candidate."],
+          completionKind: state.kind, completionFingerprint: state.completion.fingerprint, checkpointCommits, candidate: record };
       }
       if (state.kind === "research" && !checkpointCommits.length && !record) return { status: "ready", reasons: ["Accepted Research will be checkpointed before candidate construction."],
         completionKind: "research", completionFingerprint: state.completion.fingerprint, checkpointCommits: [] };
