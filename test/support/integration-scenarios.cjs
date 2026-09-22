@@ -107,8 +107,10 @@ ${scenario === "policy-timeout" ? "const child = require('node:child_process').s
     const binding = { repositoryId: "integration-fixture", intakeId: `intake-${scenario}`, baseBranch: targetBranch, baseCommit: base, workBranch: incomingBranch, currentHead: incoming, ...(remote ? { remote: { name: "origin", syncState: "synced" } } : {}) };
     const proof = { planRevision: 1, fresh: true, blockers: [], evidencePaths: ["accepted.md"], criteria: [{ criterion: "Behavior accepted", status: "passed", evidencePaths: ["accepted.md"] }] };
     const plan = { planId: "PLAN01", planRevision: 1, approved: true, fresh: true, blockers: [], structure: { topology: "direct", topologyRationale: "One accepted item", acceptanceCriteria: ["Behavior accepted"], workItems: [{ workItemId: "WI01", title: "Accepted work", purpose: "Bounded change", dependsOn: [], acceptanceCriteria: ["Behavior accepted"] }] }, workItems: [{ ...proof, workItemId: "WI01", stage: "complete" }], phases: [], planEvidence: proof };
+    const routeDecisionId = "decision-fixture";
+    const completion = () => ({ kind: "plan", routeDecisionId, completionId: plan.planId, revision: plan.planRevision, fingerprint: require("../../dist/main/planExecution/planExecutor.js").projectPlanExecution(plan).fingerprint, sourcePath: "planning/plan.md" });
     writeDoc(root, "planning/intake.md", "work-intake", "Pending", { identity: { intakeId: binding.intakeId }, bodyMarkdown: "# Work Intake\n\nPreserve incoming and target behavior." });
-    writeDoc(root, "planning/plan.md", "work-planning-plan", "Approved", { identity: { intakeId: binding.intakeId, planId: plan.planId }, bodyMarkdown: "# Work Plan\n\nBoth accepted capabilities must remain." });
+    writeDoc(root, "planning/plan.md", "work-planning-plan", "Approved", { identity: { intakeId: binding.intakeId, routeDecisionId, planId: plan.planId }, bodyMarkdown: "# Work Plan\n\nBoth accepted capabilities must remain." });
     fs.writeFileSync(path.join(root, "planning/architecture.md"), "# Accepted architecture\n\nKeep both public contracts.\n");
     let validationCalls = 0;
     const directChecks = [{ checkId: "preserved-source", run: async (candidateRoot, context) => {
@@ -132,8 +134,9 @@ ${scenario === "policy-timeout" ? "const child = require('node:child_process').s
       proof.push(check.runner.script);fs.writeFileSync(proofPath,JSON.stringify(proof));
       return {exitCode:0,summary:"Deterministic semantic check passed."};
     };
-    const serviceHooks = { repositoryRoot: root, repositoryId: binding.repositoryId, load: async () => ({ binding, plan }),
-      ...(semanticRepair ? {repairPolicy:async()=>({sources:[{role:"intake",path:"planning/intake.md"},{role:"plan",path:"planning/plan.md"},{role:"architecture",path:"architecture.md"}],editablePaths:[textualConflict?"shared.txt":"incoming.txt"],policySha256:"f".repeat(64)})} : createIntegrationRepairPolicyProvider({repositoryRoot:root,repositoryId:binding.repositoryId,load:async()=>({binding,plan,intakePath:"planning/intake.md",planPath:"planning/plan.md"})})),
+    const load = async () => { if (!require("../../dist/main/planExecution/planExecutor.js").projectPlanExecution(plan).complete) throw Error("Plan completion is required."); return { binding, completion: completion() }; };
+    const serviceHooks = { repositoryRoot: root, repositoryId: binding.repositoryId, load,
+      ...(semanticRepair ? {repairPolicy:async()=>({sources:[{role:"intake",path:"planning/intake.md"},{role:"completion",path:"planning/plan.md"},{role:"architecture",path:"architecture.md"}],editablePaths:[textualConflict?"shared.txt":"incoming.txt"],policySha256:"f".repeat(64)})} : createIntegrationRepairPolicyProvider({repositoryRoot:root,repositoryId:binding.repositoryId,load:async()=>({...await load(),intakePath:"planning/intake.md"})})),
       ...(policyScenario ? createIntegrationPolicyProvider(root, semanticRunner) : { checks: directChecks }) };
     if (options.prepareProfile) {
       const provider = createIntegrationPolicyProvider(root);
@@ -251,7 +254,7 @@ ${scenario === "policy-timeout" ? "const child = require('node:child_process').s
       const attempt = await service.prepareRepair(candidate.candidateId);
       assert.deepEqual(attempt.policy.editablePaths, [textualConflict ? "shared.txt" : "incoming.txt"]);
       assert.equal(attempt.policy.sources.filter((entry) => entry.role === "intake").length, 1);
-      assert.equal(attempt.policy.sources.filter((entry) => entry.role === "plan").length, 1);
+      assert.equal(attempt.policy.sources.filter((entry) => entry.role === "completion").length, 1);
       assert.ok(attempt.policy.policySha256);
       if (scenario === "conflict") {
         const config = path.join(checkout, ".champcity/integration-policy.json"); const original = fs.readFileSync(config);

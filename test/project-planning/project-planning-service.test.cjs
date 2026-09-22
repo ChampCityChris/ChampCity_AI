@@ -15,7 +15,6 @@ test("research closes durably on reviewed evidence without manufacturing a Plan 
   const { root, intake, git, initialHead } = seedPreparedRoutedWorkIntake(t, "research-prototype", {
     workRequest: "Compare two bounded export approaches", desiredOutcome: "Evidence for an Operator decision", knownConstraints: "Prototype only; no production promotion",
   });
-  bypassBranchVerification(t);
   const { createWorkPlanningKernel, workPlanningArtifactPath } = require("../../dist/main/workPlanning/workPlanningKernel.js");
   const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
   const { researchOutcomeFromBody } = require("../../dist/main/workPlanning/profiles/researchPrototypeProfile.js");
@@ -40,8 +39,10 @@ test("research closes durably on reviewed evidence without manufacturing a Plan 
   };
   const body = "# Route Architect Assessment\n\n" + Object.entries(evidence).map(([heading, value]) => `## ${heading}\n${value}`).join("\n\n");
   assert.deepEqual(Object.keys(evidence), resolveWorkPlanningProfile("research-prototype").assessmentSections);
-  writeDraft(root, model.submission.expectedDraftSlots[0].draftRelativePath, body.replace(block(outcome), "No structured outcome supplied."));
+  const failedDraftPath = model.submission.expectedDraftSlots[0].draftRelativePath;
+  writeDraft(root, failedDraftPath, body.replace(block(outcome), "No structured outcome supplied."));
   model = await kernel.get(root, intake.intakeId, "assessment");
+  fs.unlinkSync(path.join(root, failedDraftPath));
   assert.equal(model.submission.state, "promotion-failed");
   assert.match(model.error, /champcity-research-outcome/);
   model = await kernel.prepare(root, intake.intakeId, "assessment");
@@ -55,6 +56,24 @@ test("research closes durably on reviewed evidence without manufacturing a Plan 
   assert.deepEqual(durable.metadata.workflowData.researchOutcome, outcome);
   assert.equal(durable.metadata.documentDisposition.status, "Approved");
   assert.equal((await createWorkPlanningKernel().get(root, intake.intakeId, "assessment")).researchClosed, true);
+  const { resolveResearchCompletion, checkpointResearchCompletion } = require("../../dist/main/planExecution/researchCompletionService.js");
+  const resolved = await resolveResearchCompletion(root, intake.intakeId);
+  assert.deepEqual(resolved.completion, {
+    kind: "research", routeDecisionId: model.artifact.identity.routeDecisionId, completionId: model.artifact.identity.assessmentId,
+    revision: model.artifact.artifactRevision,
+    fingerprint: require("node:crypto").createHash("sha256").update(fs.readFileSync(path.join(root, model.artifact.relativePath))).digest("hex"),
+    sourcePath: model.artifact.relativePath,
+  });
+  const checkpointed = await checkpointResearchCompletion(root, intake.intakeId);
+  assert.equal(checkpointed.checkpoint.status, "committed", checkpointed.checkpoint.message);
+  const checkpointHead = git("rev-parse", "HEAD");
+  assert.equal(checkpointed.checkpoint.commit, checkpointHead);
+  assert.notEqual(checkpointHead, initialHead);
+  const routed = await require("../../dist/main/planExecution/routedWorkflowService.js").getRoutedWorkflow(root, intake.intakeId);
+  assert.equal(routed.integration.status, "ready");
+  assert.equal(routed.integration.completionKind, "research");
+  assert.equal(routed.execution, undefined);
+  assert.ok(routed.actions.includes("integrate"));
   const { activateRoutedDevelopmentExecutionBinding, routedDevelopmentExecutionBindingPath } = require("../../dist/main/planExecution/routedDevelopmentExecutionBinding.js");
   await assert.rejects(activateRoutedDevelopmentExecutionBinding(root, intake.intakeId), /no implementation Plan/);
   assert.equal(fs.existsSync(path.join(root, routedDevelopmentExecutionBindingPath(intake.intakeId))), false);
@@ -64,7 +83,7 @@ test("research closes durably on reviewed evidence without manufacturing a Plan 
   model = await kernel.review(root, intake.intakeId, "assessment", { expectedRevision: 1, disposition: "RevisionRequested", notes: "Reconsider the bounded comparison evidence" });
   assert.equal(model.researchClosed, false, "Closure follows current review state");
   await assert.rejects(kernel.prepare(root, intake.intakeId, "plan"), /approved route-specific assessment/);
-  assert.equal(git("rev-parse", "HEAD"), initialHead);
+  assert.equal(git("rev-parse", "HEAD"), checkpointHead);
 });
 
 test("infrastructure planning requires operational recovery evidence and excludes unrelated product features", async (t) => {

@@ -3393,6 +3393,10 @@
           "description": "required state does not alter Project Intake lifecycle status text"
         },
         {
+          "behaviorId": "research-completion-renders-shared-integration-without-plan-controls",
+          "description": "Research closure renders shared routed integration with Research wording and without Plan execution controls"
+        },
+        {
           "behaviorId": "selected-project-hub-renders-exactly-development-and-issue-resolution-workflow-cards",
           "description": "Selected-project Hub prioritizes Work Intake and retains Development and Issue recovery"
         },
@@ -7268,13 +7272,13 @@
     {
       "testPath": "test/agent-harness/source-checkpoint-boundary.test.cjs",
       "currentTestCount": {
-        "value": 1,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 2,
+        "basis": "WIR23-REPAIR03A added one focused Research lifecycle-checkpoint owner to the previously measured file."
       },
       "duration": {
-        "kind": "measured",
-        "milliseconds": 57330,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
+        "kind": "estimated",
+        "milliseconds": 140000,
+        "basis": "Prior measured owner plus the final WIR23-REPAIR03A focused supported-Windows result; pending the next full-file measurement refresh."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -8905,13 +8909,13 @@
     {
       "testPath": "test/characterization/routed-integration-focus.test.cjs",
       "currentTestCount": {
-        "value": 3,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 4,
+        "basis": "Observed TAP summary after WIR23-REPAIR03C added the Research routed-integration owner."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 15545,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
+        "milliseconds": 172026,
+        "basis": "Measured by the final WIR23-REPAIR03C supported-Windows full-file run; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -12472,9 +12476,9 @@
         "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
-        "kind": "measured",
-        "milliseconds": 13108,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
+        "kind": "estimated",
+        "milliseconds": 115000,
+        "basis": "Prior full-file measurement plus the final WIR23-REPAIR03A/03C focused Research closure result; pending the next full-file measurement refresh."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -14578,6 +14582,68 @@
           "behaviorId": "top-rail-separates-viewed-workspace-from-current-required-workspace",
           "proofLocator": "top rail separates viewed workspace from current required workspace",
           "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/renderer/research-routed-integration.test.cjs",
+      "currentTestCount": {
+        "value": 2,
+        "basis": "Declared by WIR23-REPAIR03C for the previously uncovered no-execution Research integration rendering boundary."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 371,
+        "basis": "Measured by the WIR23-REPAIR03C supported-Windows renderer proof; wall-clock file-process duration."
+      },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": false,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe renderer proof with repository-readonly source bundling.",
+        "ownedResources": [
+          "repository-readonly"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "research-completion-renders-shared-integration-without-plan-controls",
+          "proofLocator": "Research-closed planning renders shared routed integration without Plan execution controls",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "research-completion-renders-shared-integration-without-plan-controls",
+          "proofLocator": "Routed execution presents Research integration wording and preserves Plan wording",
+          "proofRole": "supporting",
+          "relationshipToPrimary": "complementary",
+          "primaryProof": {
+            "testPath": "test/renderer/research-routed-integration.test.cjs",
+            "proofLocator": "Research-closed planning renders shared routed integration without Plan execution controls"
+          }
         }
       ]
     },

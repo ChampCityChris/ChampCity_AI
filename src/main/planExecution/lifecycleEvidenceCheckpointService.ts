@@ -8,12 +8,15 @@ import type { WorkIntakeBranchBinding } from "../../shared/workIntakeBranchContr
 import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
 import { createSourceControlService } from "../sourceControl/sourceControlService";
 import { createWorkIntakeBranchService } from "../workIntake/workIntakeBranchService";
+import { readWorkIntake } from "../workIntake/workIntakeService";
+import { getWorkRouteDecision } from "../workIntake/workRouteDecisionService";
 import { workItemArtifactScopeFromIdentity } from "../workCardLoop/workItemArtifactScope";
 import { lifecycleCheckpointIdFor, lifecycleCheckpointSubject } from "./lifecycleEvidenceCheckpointReceipt";
 
 export type LifecycleEvidenceCheckpointInput =
   | { binding: WorkIntakeBranchBinding; boundary: Extract<LifecycleEvidenceBoundary, { kind: "work-item" }>; artifacts: { contractPath: string; reportPath: string; validationPath: string; closePath: string }; synchronize?: boolean }
-  | { binding: WorkIntakeBranchBinding; boundary: Extract<LifecycleEvidenceBoundary, { kind: "phase" | "plan" }>; artifacts: { closeoutPath: string }; synchronize?: boolean };
+  | { binding: WorkIntakeBranchBinding; boundary: Extract<LifecycleEvidenceBoundary, { kind: "phase" | "plan" }>; artifacts: { closeoutPath: string }; synchronize?: boolean }
+  | { binding: WorkIntakeBranchBinding; boundary: Extract<LifecycleEvidenceBoundary, { kind: "research" }>; artifacts: { assessmentPath: string; routeDecisionPath: string }; synchronize?: boolean };
 
 interface CanonicalArtifact extends LifecycleEvidenceCheckpointArtifact { metadata: CanonicalDocumentMetadata }
 const locks = new Set<string>();
@@ -89,7 +92,52 @@ function acceptanceArtifacts(root: string, input: Extract<LifecycleEvidenceCheck
   return [closeout];
 }
 
-function validatedArtifacts(root: string, input: LifecycleEvidenceCheckpointInput): CanonicalArtifact[] {
+async function researchArtifacts(root: string, input: Extract<LifecycleEvidenceCheckpointInput, { boundary: { kind: "research" } }>): Promise<CanonicalArtifact[]> {
+  const { binding, boundary } = input;
+  const intake = readWorkIntake(root, binding.intakeId);
+  const route = await getWorkRouteDecision(root, binding.intakeId);
+  if (route.state !== "selected" || route.selection?.selectedRouteId !== "research-prototype" || route.selection.decisionId !== boundary.routeDecisionId ||
+    route.relativePath !== input.artifacts.routeDecisionPath) throw Error("Research lifecycle checkpoint requires the exact current Research route.");
+  const assessment = artifact(root, input.artifacts.assessmentPath);
+  const identity = assessment.metadata.identity;
+  const outcome = assessment.metadata.workflowData.researchOutcome as Record<string, unknown> | undefined;
+  if (assessment.artifactType !== "work-planning-assessment" || assessment.artifactRevision !== boundary.assessmentRevision ||
+    assessment.metadata.documentDisposition.status !== "Approved" || identity.intakeId !== binding.intakeId ||
+    identity.routeDecisionId !== boundary.routeDecisionId || identity.routeId !== "research-prototype" || identity.assessmentId !== boundary.assessmentId ||
+    outcome?.outcome !== "no-implementation-plan-required") throw Error("Research lifecycle checkpoint requires the exact approved no-Plan Assessment.");
+
+  const routeSourcePath = route.selection.sourceAssessment.path;
+  const rootPaths = [intake.relativePath, input.artifacts.routeDecisionPath, routeSourcePath, input.artifacts.assessmentPath];
+  const collected = new Map<string, CanonicalArtifact>();
+  const queue = [...new Set(rootPaths)];
+  while (queue.length) {
+    const relativePath = queue.shift()!;
+    if (collected.has(relativePath)) continue;
+    if (collected.size >= 20) throw Error("Research lifecycle checkpoint source graph exceeds its 20-file bound.");
+    const current = artifact(root, relativePath);
+    if (current.metadata.identity.intakeId !== undefined && current.metadata.identity.intakeId !== binding.intakeId) {
+      throw Error("Research lifecycle checkpoint evidence belongs to a different Intake.");
+    }
+    collected.set(relativePath, current);
+    for (const source of current.metadata.sourceRevisions) {
+      const ancestor = artifact(root, source.path);
+      const routeProvenance = relativePath === assessment.path && source.path === input.artifacts.routeDecisionPath;
+      if (ancestor.artifactRevision !== source.revision && !routeProvenance) throw Error("Research lifecycle checkpoint source evidence is stale.");
+      if (routeProvenance && (route.selection.decisionId !== identity.routeDecisionId || route.selection.selectedRouteId !== identity.routeId)) {
+        throw Error("Research route provenance no longer matches the approved Assessment.");
+      }
+      queue.push(source.path);
+    }
+  }
+  for (const required of rootPaths) if (!collected.has(required)) throw Error("Research lifecycle checkpoint source graph is incomplete.");
+  return [...collected.values()];
+}
+
+async function validatedArtifacts(root: string, input: LifecycleEvidenceCheckpointInput): Promise<CanonicalArtifact[]> {
+  if (input.boundary.kind === "research") {
+    if (input.boundary.assessmentRevision < 1 || !Number.isSafeInteger(input.boundary.assessmentRevision)) throw Error("Lifecycle checkpoint requires an exact positive Assessment revision.");
+    return researchArtifacts(root, input as Extract<LifecycleEvidenceCheckpointInput, { boundary: { kind: "research" } }>);
+  }
   if (input.boundary.planRevision < 1 || !Number.isSafeInteger(input.boundary.planRevision)) throw Error("Lifecycle checkpoint requires an exact positive Plan revision.");
   return input.boundary.kind === "work-item"
     ? workItemArtifacts(root, input as Extract<LifecycleEvidenceCheckpointInput, { boundary: { kind: "work-item" } }>)
@@ -110,7 +158,7 @@ export async function checkpointLifecycleEvidence(root: string, input: Lifecycle
     const branch = createWorkIntakeBranchService({ repositoryId: binding.repositoryId, repositoryRoot: root });
     const source = createSourceControlService({ repositoryId: binding.repositoryId, repositoryRoot: root });
     const current = await branch.verify(binding);
-    const candidates = validatedArtifacts(root, input).sort((a, b) => a.path.localeCompare(b.path));
+    const candidates = (await validatedArtifacts(root, input)).sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
     const candidatePaths = candidates.map((entry) => entry.path);
     const before = unwrap(await source.changedFiles(), receipts);
     if (before.length > 500 || before.some((entry) => entry.originalPath || entry.indexStatus !== " " && entry.indexStatus !== "?" || !candidatePaths.includes(entry.path))) {
@@ -131,7 +179,7 @@ export async function checkpointLifecycleEvidence(root: string, input: Lifecycle
       const currentArtifact = artifact(root, entry.path);
       if (currentArtifact.sha256 !== expected.sha256 || currentArtifact.artifactType !== expected.artifactType || currentArtifact.artifactRevision !== expected.artifactRevision) throw Error("Lifecycle evidence changed while staging the checkpoint.");
       return { path: expected.path, sha256: expected.sha256, artifactType: expected.artifactType, artifactRevision: expected.artifactRevision };
-    }).sort((a, b) => a.path.localeCompare(b.path));
+    }).sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
     const diff = unwrap(await source.diff(), receipts);
     if (!diff.staged.trim() || diff.unstaged.trim()) throw Error("The exact staged lifecycle evidence is unavailable or changed.");
     const evidence: LifecycleEvidenceCheckpointEvidence = { intakeId: binding.intakeId, repositoryId: binding.repositoryId, workBranch: binding.workBranch,

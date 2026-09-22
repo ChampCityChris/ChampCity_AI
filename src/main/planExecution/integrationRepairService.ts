@@ -46,18 +46,27 @@ export function createIntegrationRepairController(owner: IntegrationRepairOwner)
     return { ...record, prompt: parsed.bodyMarkdown };
   }
   function sourceContext(record: IntegrationCandidateRecord, policy: IntegrationRepairPolicy) {
-    if (!Array.isArray(policy.sources) || policy.sources.length < 2 || policy.sources.length > 16 || policy.sources.filter((entry) => entry.role === "intake").length !== 1 || policy.sources.filter((entry) => entry.role === "plan").length !== 1 || new Set(policy.sources.map((entry) => entry.path)).size !== policy.sources.length) throw Error("Integration Repair requires exact Intake, Plan and bounded relevant contracts.");
+    if (!Array.isArray(policy.sources) || policy.sources.length < 2 || policy.sources.length > 16 || policy.sources.filter((entry) => entry.role === "intake").length !== 1 || policy.sources.filter((entry) => entry.role === "completion").length !== 1 || new Set(policy.sources.map((entry) => entry.path)).size !== policy.sources.length) throw Error("Integration Repair requires exact Intake, completion evidence and bounded relevant contracts.");
     const sourceDigests: Record<string, string> = {}; const context: string[] = [];
     for (const source of policy.sources) {
-      if (!["intake", "plan", "architecture", "contract"].includes(source.role)) throw Error("Unknown Integration Repair evidence role.");
+      if (!["intake", "completion", "architecture", "contract"].includes(source.role)) throw Error("Unknown Integration Repair evidence role.");
       const bytes = integrationSourceBytes(owner.root, source.path);
       if (bytes === null) throw Error("Integration Repair governing evidence is missing.");
       sourceDigests[source.path] = integrationSourceDigest(bytes);
       let body = bytes;
-      if (source.role === "intake" || source.role === "plan") {
+      if (source.role === "intake" || source.role === "completion") {
         const parsed = parseCanonicalMarkdownDocument(bytes);
         if (parsed.metadata.participationRole === "historical" || parsed.metadata.identity.intakeId !== record.intakeId) throw Error("Integration Repair intent belongs to stale or different work.");
-        if (source.role === "plan" && (parsed.metadata.artifactType !== "work-planning-plan" || parsed.metadata.identity.planId !== record.planId || parsed.metadata.artifactRevision !== record.planRevision || parsed.metadata.documentDisposition.status !== "Approved")) throw Error("Integration Repair requires the current approved Plan intent.");
+        if (source.role === "completion") {
+          const completion = record.completion;
+          const metadata = parsed.metadata;
+          const sharedInvalid = metadata.identity.routeDecisionId !== completion.routeDecisionId || metadata.artifactRevision !== completion.revision || metadata.documentDisposition.status !== "Approved";
+          const planInvalid = completion.kind === "plan" && (metadata.artifactType !== "work-planning-plan" || metadata.identity.planId !== completion.completionId);
+          const researchOutcome = metadata.workflowData.researchOutcome as Record<string, unknown> | undefined;
+          const researchInvalid = completion.kind === "research" && (metadata.artifactType !== "work-planning-assessment" || metadata.identity.assessmentId !== completion.completionId ||
+            metadata.identity.routeId !== "research-prototype" || researchOutcome?.outcome !== "no-implementation-plan-required");
+          if (sharedInvalid || planInvalid || researchInvalid) throw Error("Integration Repair requires the current approved completion evidence.");
+        }
         if (source.role === "intake" && parsed.metadata.artifactType !== "work-intake") throw Error("Integration Repair requires canonical Intake intent.");
         body = parsed.bodyMarkdown;
       }

@@ -17,10 +17,10 @@ test('Integration Repair controller preserves retry ownership patch disposition 
   const candidateId=(++sequence).toString(16).padStart(64,'0'),paths=integrationPaths(root,candidateId);
   fs.mkdirSync(paths.checkout,{recursive:true});fs.writeFileSync(path.join(paths.checkout,'source.txt'),'incoming accepted\ntarget accepted\n');
   writeDoc(root,'planning/intake.md','work-intake','Pending',{identity:{intakeId:'fixture'}});
-  writeDoc(root,'planning/plan.md','work-planning-plan','Approved',{identity:{intakeId:'fixture',planId:'PLAN01'}});
-  let candidate={candidateId,intakeId:'fixture',planId:'PLAN01',planRevision:1,status:'validation-failed',candidateCommit:'a'.repeat(40),baseCommit:'b'.repeat(40),targetCommit:'a'.repeat(40),incomingCommit:'c'.repeat(40),mergeBase:'b'.repeat(40),conflictingPaths:[],validation:[],receipts:[],message:'fixture validation failed'};
+  writeDoc(root,'planning/plan.md','work-planning-plan','Approved',{identity:{intakeId:'fixture',routeDecisionId:'decision-fixture',planId:'PLAN01'}});
+  let candidate={candidateId,intakeId:'fixture',completion:{kind:'plan',routeDecisionId:'decision-fixture',completionId:'PLAN01',revision:1,fingerprint:'d'.repeat(64),sourcePath:'planning/plan.md'},status:'validation-failed',candidateCommit:'a'.repeat(40),baseCommit:'b'.repeat(40),targetCommit:'a'.repeat(40),incomingCommit:'c'.repeat(40),mergeBase:'b'.repeat(40),conflictingPaths:[],validation:[],receipts:[],message:'fixture validation failed'};
   let commits=0,pass=false,commitFailure=null;
-  const policy={sources:[{role:'intake',path:'planning/intake.md'},{role:'plan',path:'planning/plan.md'}],editablePaths:['source.txt'],policySha256:'f'.repeat(64)};
+  const policy={sources:[{role:'intake',path:'planning/intake.md'},{role:'completion',path:'planning/plan.md'}],editablePaths:['source.txt'],policySha256:'f'.repeat(64)};
   const ok=result=>({ok:true,result,receipt:{operation:'fixture',before:null,after:null}});
   const owner={root,read:id=>{assert.equal(id,candidateId);return candidate},persist:record=>{candidate=record},current:async()=>{},exclusive:async fn=>fn(),policy:async()=>structuredClone(policy),
    source:{snapshotIntegrationRepair:async()=>ok({head:candidate.candidateCommit,mergeHead:null,indexDigest:'index',changed:{},editable:{'source.txt':digest(fs.readFileSync(path.join(paths.checkout,'source.txt'),'utf8'))},unmerged:[]}),integrationRepairDiffs:async()=>ok({incomingDiff:'incoming accepted',targetDiff:'target accepted'}),commitIntegrationRepair:async()=>{commits++;return commitFailure?{ok:false,error:{message:commitFailure},receipt:{operation:'fixture'}}:ok({commit:String(commits).repeat(40)})}},

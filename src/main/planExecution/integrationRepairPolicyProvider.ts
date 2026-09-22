@@ -10,7 +10,6 @@ import { integrationPaths, readIntegrationCommitFile } from "../agentHarness/rep
 import { integrationSourceBytes, integrationSourceDigest } from "../agentHarness/repository/integrationRepairGit";
 import { readIntegrationPolicyFile } from "./integrationPolicyFiles";
 import { loadIntegrationPolicy, loadIntegrationPolicyAtCommit } from "./integrationPolicyProvider";
-import { projectPlanExecution } from "./planExecutor";
 
 function stop(reason: string): never { throw Error(`Integration Repair requires Operator/replanning: ${reason}`); }
 const within = (file: string, root: string) => file.toLowerCase() === root.toLowerCase() || file.toLowerCase().startsWith(`${root.toLowerCase()}/`);
@@ -35,7 +34,7 @@ function contained(root: string, relative: string, allowMissing: boolean) {
 export function createIntegrationRepairPolicyProvider(hooks: {
   repositoryRoot: string;
   repositoryId: string;
-  load: () => Promise<Awaited<ReturnType<IntegrationCandidateHooks["load"]>> & { intakePath: string; planPath: string }>;
+  load: () => Promise<Awaited<ReturnType<IntegrationCandidateHooks["load"]>> & { intakePath: string }>;
 }): Required<Pick<IntegrationCandidateHooks, "repairPolicy">> {
   const root = fs.realpathSync(hooks.repositoryRoot);
   if (fs.lstatSync(hooks.repositoryRoot).isSymbolicLink()) stop("repository root is redirected.");
@@ -43,10 +42,9 @@ export function createIntegrationRepairPolicyProvider(hooks: {
   return { repairPolicy: async (record) => {
     const current = await hooks.load();
     const binding = await createWorkIntakeBranchService({ repositoryRoot: root, repositoryId: hooks.repositoryId }).verify(current.binding);
-    const plan = projectPlanExecution(current.plan);
     if (record.repositoryId !== hooks.repositoryId || record.intakeId !== binding.intakeId || record.incomingCommit !== binding.currentHead
       || record.incomingBranch !== binding.workBranch || record.targetBranch !== binding.baseBranch || record.baseCommit !== binding.baseCommit
-      || record.planId !== plan.planId || record.planRevision !== plan.planRevision || record.planFingerprint !== plan.fingerprint || !plan.complete) stop("current Intake/Plan binding is stale.");
+      || JSON.stringify(record.completion) !== JSON.stringify(current.completion)) stop("current Intake/completion binding is stale.");
     const snapshot = await loadIntegrationPolicyAtCommit(root, record.targetCommit);
     const scope = snapshot.policy.repair;
     if (!scope) stop("target policy has no bounded repair section.");
@@ -59,7 +57,7 @@ export function createIntegrationRepairPolicyProvider(hooks: {
     if (scope.allowedEditableRoots.some(reserved)) stop("editable roots include protected administration or generated output.");
     const sources: IntegrationRepairPolicy["sources"] = [
       { role: "intake", path: integrationPolicyPath(current.intakePath) },
-      { role: "plan", path: integrationPolicyPath(current.planPath) }, ...scope.sources,
+      { role: "completion", path: integrationPolicyPath(current.completion.sourcePath) }, ...scope.sources,
     ];
     if (new Set(sources.map((entry) => entry.path.toLowerCase())).size !== sources.length) stop("governing evidence must be distinct.");
     let contextBytes = 0;
@@ -69,11 +67,18 @@ export function createIntegrationRepairPolicyProvider(hooks: {
       const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
       integrationSourceBytes(root, entry.path);
       contextBytes += text.length;
-      if (entry.role === "intake" || entry.role === "plan") {
+      if (entry.role === "intake" || entry.role === "completion") {
         const parsed = parseCanonicalMarkdownDocument(text).metadata;
-        if (parsed.participationRole === "historical" || parsed.identity.intakeId !== record.intakeId
-          || parsed.artifactType !== (entry.role === "intake" ? "work-intake" : "work-planning-plan")) stop("governing intent is stale.");
-        if (entry.role === "plan" && (parsed.identity.planId !== record.planId || parsed.artifactRevision !== record.planRevision || parsed.documentDisposition.status !== "Approved")) stop("approved Plan evidence is stale.");
+        if (parsed.participationRole === "historical" || parsed.identity.intakeId !== record.intakeId || entry.role === "intake" && parsed.artifactType !== "work-intake") stop("governing intent is stale.");
+        if (entry.role === "completion") {
+          const completion = record.completion;
+          const sharedInvalid = parsed.identity.routeDecisionId !== completion.routeDecisionId || parsed.artifactRevision !== completion.revision || parsed.documentDisposition.status !== "Approved";
+          const planInvalid = completion.kind === "plan" && (parsed.artifactType !== "work-planning-plan" || parsed.identity.planId !== completion.completionId);
+          const researchOutcome = parsed.workflowData.researchOutcome as Record<string, unknown> | undefined;
+          const researchInvalid = completion.kind === "research" && (parsed.artifactType !== "work-planning-assessment" || parsed.identity.assessmentId !== completion.completionId ||
+            parsed.identity.routeId !== "research-prototype" || researchOutcome?.outcome !== "no-implementation-plan-required");
+          if (sharedInvalid || planInvalid || researchInvalid) stop("approved completion evidence is stale.");
+        }
       } else {
         const targetBytes = await readIntegrationCommitFile(root, record.targetCommit, entry.path, 250_000);
         const candidateBytes = readIntegrationPolicyFile(checkout, entry.path, 250_000);

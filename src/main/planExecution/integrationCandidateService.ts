@@ -3,19 +3,18 @@ import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import type { IntegrationCandidateRecord, IntegrationValidationEvidence } from "../../shared/integrationCandidateContracts";
-import type { PlanExecutionInput } from "../../shared/planExecutionContracts";
+import type { IntegrationCompletionEvidence } from "../../shared/integrationCompletionContracts";
 import type { WorkIntakeBranchBinding } from "../../shared/workIntakeBranchContracts";
 import type { SourceControlResult } from "../../shared/sourceControlContracts";
 import { parseCanonicalMarkdownDocument, serializeCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
 import { integrationPaths } from "../agentHarness/repository/integrationGit";
 import { createSourceControlService } from "../sourceControl/sourceControlService";
 import { createWorkIntakeBranchService } from "../workIntake/workIntakeBranchService";
-import { projectPlanExecution } from "./planExecutor";
 import { createIntegrationRepairController } from "./integrationRepairService";
 import type { IntegrationRepairPolicy } from "../../shared/integrationRepairContracts";
 import { assertIntegrationSourceText } from "../agentHarness/repository/integrationRepairGit";
 
-/** Main-process adapters supply current durable Plan evidence and the required validation policy, never renderer commands. */
+/** Main-process adapters supply current durable completion evidence and the required validation policy, never renderer commands. */
 export interface IntegrationValidationCheck {
   checkId: string;
   run: (candidateRoot: string, context: Readonly<IntegrationValidationContext>) => Promise<Omit<IntegrationValidationEvidence, "checkId">>;
@@ -28,7 +27,7 @@ export interface ResolvedIntegrationValidationPolicy {
 export interface IntegrationCandidateHooks {
   repositoryRoot: string;
   repositoryId: string;
-  load: () => Promise<{ binding: WorkIntakeBranchBinding; plan: PlanExecutionInput }>;
+  load: () => Promise<{ binding: WorkIntakeBranchBinding; completion: IntegrationCompletionEvidence }>;
   /** Direct application hooks remain available for WIR20/WIR21 fixtures; production supplies validationPolicy instead. */
   checks?: IntegrationValidationCheck[];
   validationPolicy?: { resolve: (targetCommit: string) => Promise<ResolvedIntegrationValidationPolicy> };
@@ -36,6 +35,18 @@ export interface IntegrationCandidateHooks {
 }
 const locks = new Set<string>();
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
+const identifierPattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+function validCompletion(value: IntegrationCompletionEvidence): boolean {
+  return !!value && ["plan", "research"].includes(value.kind) && identifierPattern.test(value.routeDecisionId) && identifierPattern.test(value.completionId) &&
+    Number.isSafeInteger(value.revision) && value.revision >= 1 && /^[a-f0-9]{64}$/.test(value.fingerprint) &&
+    typeof value.sourcePath === "string" && value.sourcePath.length > 0 && value.sourcePath.length <= 500 && !value.sourcePath.includes("\\") &&
+    !value.sourcePath.startsWith("/") && path.posix.normalize(value.sourcePath) === value.sourcePath && value.sourcePath !== "." && !value.sourcePath.split("/").includes("..");
+}
+function sameCompletion(left: IntegrationCompletionEvidence, right: IntegrationCompletionEvidence): boolean {
+  return left.kind === right.kind && left.routeDecisionId === right.routeDecisionId && left.completionId === right.completionId && left.revision === right.revision &&
+    left.fingerprint === right.fingerprint && left.sourcePath === right.sourcePath;
+}
+const completionIdentity = (completion: IntegrationCompletionEvidence) => [completion.kind, completion.routeDecisionId, completion.completionId, completion.revision, completion.fingerprint, completion.sourcePath];
 export function createIntegrationCandidateService(hooks: IntegrationCandidateHooks) {
   const root = fs.realpathSync(hooks.repositoryRoot);
   const source = createSourceControlService({ repositoryRoot: root, repositoryId: hooks.repositoryId });
@@ -55,7 +66,7 @@ export function createIntegrationCandidateService(hooks: IntegrationCandidateHoo
     const paths = integrationPaths(root, record.candidateId);
     fs.mkdirSync(paths.base, { recursive: true });
     const text = serializeCanonicalMarkdownDocument({ schemaVersion: 1, artifactType: "integration-candidate", artifactRevision: 1, participationRole: "contextOnly",
-      identity: { candidateId: record.candidateId, intakeId: record.intakeId, planId: record.planId, repositoryId: record.repositoryId }, sourceRevisions: [], workflowData: { record },
+      identity: { candidateId: record.candidateId, intakeId: record.intakeId, completionId: record.completion.completionId, completionKind: record.completion.kind, repositoryId: record.repositoryId }, sourceRevisions: [], workflowData: { record },
       documentDisposition: { status: "Pending", notes: "Machine-owned integration evidence; product acceptance remains separate.", reviewedAt: null } },
     `# Integration Candidate\n\nStatus: ${record.status}\n\n${record.message}\n\nBase: ${record.baseCommit}\nIncoming: ${record.incomingCommit}\nTarget: ${record.targetCommit}\nCandidate: ${record.candidateCommit ?? "pending"}\n`);
     // Same-directory replacement keeps one canonical Markdown receipt and preserves a prior readable state on write failure.
@@ -71,8 +82,9 @@ export function createIntegrationCandidateService(hooks: IntegrationCandidateHoo
     const record = parsed.metadata.workflowData.record as IntegrationCandidateRecord;
     if (parsed.metadata.artifactType !== "integration-candidate" || parsed.metadata.identity.candidateId !== candidateId || !record || record.candidateId !== candidateId || record.repositoryId !== hooks.repositoryId || record.candidateBranch !== paths.branch ||
       !Array.isArray(record.receipts) || !Array.isArray(record.validation) || !Array.isArray(record.requiredChecks) ||
+      !validCompletion(record.completion) || parsed.metadata.identity.completionId !== record.completion.completionId || parsed.metadata.identity.completionKind !== record.completion.kind ||
       (record.validationPolicySha256 !== undefined && !/^[a-f0-9]{64}$/.test(record.validationPolicySha256)) ||
-      digest(JSON.stringify([record.repositoryId, record.intakeId, record.planId, record.planRevision, record.planFingerprint, record.baseCommit, record.incomingCommit, record.targetCommit, record.localTargetCommit, record.targetBranch, ...(record.validationPolicySha256 ? [record.validationPolicySha256] : [])])) !== candidateId) throw Error("Integration receipt identity is invalid.");
+      digest(JSON.stringify([record.repositoryId, record.intakeId, ...completionIdentity(record.completion), record.baseCommit, record.incomingCommit, record.targetCommit, record.localTargetCommit, record.targetBranch, ...(record.validationPolicySha256 ? [record.validationPolicySha256] : [])])) !== candidateId) throw Error("Integration receipt identity is invalid.");
     return record;
   }
   async function exclusive<T>(action: () => Promise<T>) {
@@ -83,14 +95,13 @@ export function createIntegrationCandidateService(hooks: IntegrationCandidateHoo
   async function current(record?: IntegrationCandidateRecord) {
     if (record) await resolveValidation(record.targetCommit, record);
     const loaded = await hooks.load();
-    if (loaded.binding.repositoryId !== hooks.repositoryId) throw Error("Plan completion belongs to another repository.");
+    if (loaded.binding.repositoryId !== hooks.repositoryId) throw Error("Completion evidence belongs to another repository.");
     const binding = await createWorkIntakeBranchService({ repositoryId: hooks.repositoryId, repositoryRoot: root }).verify(loaded.binding);
-    const plan = projectPlanExecution(loaded.plan);
-    if (!plan.complete) throw Error("Integration requires current Plan completion, including all required criteria.");
+    if (!validCompletion(loaded.completion)) throw Error("Integration requires bounded current completion evidence.");
     if (record && (binding.intakeId !== record.intakeId || binding.currentHead !== record.incomingCommit || binding.workBranch !== record.incomingBranch || binding.baseBranch !== record.targetBranch || binding.baseCommit !== record.baseCommit ||
-      plan.planId !== record.planId || plan.planRevision !== record.planRevision || plan.fingerprint !== record.planFingerprint)) throw Error("Plan or Intake evidence changed; construct a fresh candidate.");
+      !sameCompletion(loaded.completion, record.completion))) throw Error("Completion or Intake evidence changed; construct a fresh candidate.");
     if (!unwrap(await source.status(), record).clean) throw Error("Integration requires a clean incoming checkout.");
-    return { binding, plan };
+    return { binding, completion: loaded.completion };
   }
   async function resolveValidation(targetCommit: string, record?: IntegrationCandidateRecord) {
     if (!validationPolicy) {
@@ -151,15 +162,15 @@ export function createIntegrationCandidateService(hooks: IntegrationCandidateHoo
       return validate(record);
     }),
     create: () => exclusive(async () => {
-      const { binding, plan } = await current();
+      const { binding, completion } = await current();
       if (binding.remote) unwrap(await source.fetch(binding.remote.name));
       const refs = unwrap(await source.integrationTarget({ baseCommit: binding.baseCommit, incomingBranch: binding.workBranch, targetBranch: binding.baseBranch, remote: binding.remote?.name }));
       if (refs.incomingCommit !== binding.currentHead) throw Error("Incoming source changed before candidate creation.");
       const resolved = await resolveValidation(refs.targetCommit);
-      const candidateId = digest(JSON.stringify([hooks.repositoryId, binding.intakeId, plan.planId, plan.planRevision, plan.fingerprint, binding.baseCommit, refs.incomingCommit, refs.targetCommit, refs.localTargetCommit, binding.baseBranch, ...(resolved.sha256 ? [resolved.sha256] : [])]));
+      const candidateId = digest(JSON.stringify([hooks.repositoryId, binding.intakeId, ...completionIdentity(completion), binding.baseCommit, refs.incomingCommit, refs.targetCommit, refs.localTargetCommit, binding.baseBranch, ...(resolved.sha256 ? [resolved.sha256] : [])]));
       const paths = integrationPaths(root, candidateId);
       if (fs.existsSync(paths.record)) throw Error("This exact candidate already has a receipt; inspect or abort it before creating another candidate.");
-      const record: IntegrationCandidateRecord = { candidateId, repositoryId: hooks.repositoryId, intakeId: binding.intakeId, planId: plan.planId, planRevision: plan.planRevision, planFingerprint: plan.fingerprint,
+      const record: IntegrationCandidateRecord = { candidateId, repositoryId: hooks.repositoryId, intakeId: binding.intakeId, completion,
         baseCommit: binding.baseCommit, incomingBranch: binding.workBranch, targetBranch: binding.baseBranch, ...refs, candidateBranch: paths.branch, ...(binding.remote ? { remote: binding.remote.name } : {}),
         status: "constructing", conflictingPaths: [], validation: [], requiredChecks: resolved.checks.map((check) => check.checkId), ...(resolved.sha256 ? { validationPolicySha256: resolved.sha256 } : {}), remoteSync: "not-requested", message: "Constructing isolated integration candidate.", receipts: [] };
       persist(record);

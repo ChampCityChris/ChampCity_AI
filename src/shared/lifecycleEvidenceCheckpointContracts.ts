@@ -3,7 +3,8 @@ import type { SourceControlReceipt } from "./sourceControlContracts";
 export type LifecycleEvidenceBoundary =
   | { kind: "work-item"; routeDecisionId: string; planId: string; planRevision: number; workItemId: string; implementationId: string; phaseId?: string }
   | { kind: "phase"; routeDecisionId: string; planId: string; planRevision: number; phaseId: string }
-  | { kind: "plan"; routeDecisionId: string; planId: string; planRevision: number };
+  | { kind: "plan"; routeDecisionId: string; planId: string; planRevision: number }
+  | { kind: "research"; routeDecisionId: string; assessmentId: string; assessmentRevision: number };
 
 export interface LifecycleEvidenceCheckpointArtifact {
   path: string;

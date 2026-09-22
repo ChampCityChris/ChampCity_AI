@@ -16,11 +16,11 @@ test('routed clean and conflict integration preserves completed checkpoint and P
   const integration=createRoutedIntegrationService(root,f.intakeId);
   const ready=await integration.query();assert.equal(ready.status,'ready',ready.reasons.join('\n'));assert.deepEqual(ready.checkpointCommits,[f.checkpointCommit]);
   const planPath=path.join(root,f.planPath),original=fs.readFileSync(planPath);fs.appendFileSync(planPath,'\nChanged accepted intent\n');
-  assert.equal((await integration.query()).status,'not-ready');await assert.rejects(integration.integrate({expectedFingerprint:ready.planFingerprint}),/stale|changed|superseded/i);fs.writeFileSync(planPath,original);
+  assert.equal((await integration.query()).status,'not-ready');await assert.rejects(integration.integrate({expectedFingerprint:ready.completionFingerprint}),/stale|changed|superseded/i);fs.writeFileSync(planPath,original);
   if(conflicted){git('switch','main');fs.writeFileSync(path.join(root,'source.js'),"module.exports = ['target'];\n");fs.writeFileSync(path.join(root,'target.accepted'),'accepted\n');git('add','source.js','target.accepted');git('commit','-m','target advances');git('switch',f.workBranch);}
-  const targetBefore=git('rev-parse','main');let result=await integration.integrate({expectedFingerprint:ready.planFingerprint});
+  const targetBefore=git('rev-parse','main');let result=await integration.integrate({expectedFingerprint:ready.completionFingerprint});
   if(conflicted){assert.equal(result.status,'repair-required',result.reasons.join('\n'));assert.equal(git('rev-parse','main'),targetBefore);
-   const request={expectedFingerprint:result.planFingerprint,candidateId:result.candidate.candidateId};const repair=await integration.prepareRepair(request);assert.deepEqual(repair.policy.editablePaths,['source.js']);
+   const request={expectedFingerprint:result.completionFingerprint,candidateId:result.candidate.candidateId};const repair=await integration.prepareRepair(request);assert.deepEqual(repair.policy.editablePaths,['source.js']);
    await assert.rejects(integration.applyRepair({...request,repairId:repair.repairId,patches:[{path:'unapproved.js',beforeSha256:'deleted',content:'outside'}]}),/source scope/);
    await integration.applyRepair({...request,repairId:repair.repairId,patches:[{path:'source.js',beforeSha256:repair.snapshot.editable['source.js'],content:"module.exports = ['incoming', 'target'];\n"}]});
    result=await integration.completeRepair({...request,repairId:repair.repairId});
@@ -28,4 +28,26 @@ test('routed clean and conflict integration preserves completed checkpoint and P
   assert.equal(result.status,'integration-complete',result.reasons.join('\n'));assert.equal(git('rev-parse','main'),result.candidate.candidateCommit);assert.equal(git('branch','--show-current'),f.workBranch);assert.equal(git('status','--porcelain'),'');
   assert.equal((await createRoutedIntegrationService(root,f.intakeId).query()).status,'integration-complete');assert.equal(fs.existsSync(path.join(root,'planning/phases')),false);
  });
+});
+
+test('approved no-plan Research checkpoints before candidate validation and advances through routed integration',async t=>{
+ const {seedPreparedRoutedWorkIntake}=require('../support/work-intake-fixtures.cjs');
+ const {root,intake,route,git}=seedPreparedRoutedWorkIntake(t,'research-prototype',{workRequest:'Compare bounded approaches',desiredOutcome:'Integrate accepted evidence only',knownConstraints:'No implementation Plan'});
+ const {workPlanningKernel,workPlanningArtifactPath}=require('../../dist/main/workPlanning/workPlanningKernel.js');
+ const {resolveWorkPlanningProfile}=require('../../dist/main/workPlanning/workPlanningProfiles.js');
+ const {routedDevelopmentExecutionBindingPath}=require('../../dist/main/planExecution/routedDevelopmentExecutionBinding.js');
+ const outcome={outcome:'no-implementation-plan-required',prototypeDisposition:'disposable',productionFollowUp:'none',evidence:['Bounded comparison complete'],decisionEnabled:'Stop investigation',successFailureResult:'Evidence threshold met',closureCondition:'Comparison complete'};
+ const block='\n```champcity-research-outcome\n'+JSON.stringify(outcome)+'\n```\n';
+ const sections={Evidence:outcome.evidence[0],Decisions:outcome.decisionEnabled,'Risks and Unresolved Questions':'Prototype remains non-production.','Question Hypothesis and Decision':'Which bounded approach is viable?',Alternatives:'Compare A and B.','Bounded Prototype and Evidence':'Disposable comparison only.','Success Failure and Findings':outcome.successFailureResult,'Output Classification':'Disposable prototype evidence.','Expiration and Closure':outcome.closureCondition,'Research Outcome':block};
+ assert.deepEqual(Object.keys(sections),resolveWorkPlanningProfile('research-prototype').assessmentSections);
+ let model=await workPlanningKernel.prepare(root,intake.intakeId,'assessment');const draft=path.join(root,model.submission.expectedDraftSlots[0].draftRelativePath);fs.mkdirSync(path.dirname(draft),{recursive:true});fs.writeFileSync(draft,'# Route Architect Assessment\n\n'+Object.entries(sections).map(([heading,value])=>`## ${heading}\n${value}`).join('\n\n'));
+ model=await workPlanningKernel.get(root,intake.intakeId,'assessment');model=await workPlanningKernel.review(root,intake.intakeId,'assessment',{expectedRevision:model.artifact.artifactRevision,disposition:'Approved',notes:'Evidence accepted'});
+ const targetBefore=git('rev-parse','main');let validationObserved=false;
+ t.mock.method(policyProvider,'createIntegrationPolicyProvider',()=>({checks:[{checkId:'research-evidence',run:async()=>{validationObserved=true;assert.equal(git('rev-parse','main'),targetBefore,'target remains unchanged until validation passes');return{exitCode:0,summary:'Approved Research evidence retained'};}}]}));
+ const integration=createRoutedIntegrationService(root,intake.intakeId),ready=await integration.query();
+ assert.equal(ready.status,'ready',ready.reasons.join('\n'));assert.equal(ready.completionKind,'research');assert.match(ready.completionFingerprint,/^[a-f0-9]{64}$/);assert.deepEqual(ready.checkpointCommits,[]);assert.equal(ready.candidate,undefined);assert.equal(git('rev-parse','main'),targetBefore);
+ const result=await integration.integrate({expectedFingerprint:ready.completionFingerprint});
+ assert.equal(validationObserved,true);assert.equal(result.status,'integration-complete',result.reasons.join('\n'));assert.equal(result.completionKind,'research');assert.equal(result.candidate.completion.kind,'research');assert.equal(result.candidate.completion.completionId,model.artifact.identity.assessmentId);assert.equal(result.candidate.completion.revision,model.artifact.artifactRevision);assert.equal(result.candidate.completion.fingerprint,ready.completionFingerprint);assert.deepEqual(result.checkpointCommits,[result.candidate.incomingCommit]);
+ assert.equal(git('rev-parse','main'),result.candidate.candidateCommit);assert.equal(git('branch','--show-current'),intake.branchBinding.workBranch);assert.equal(git('status','--porcelain'),'');assert.equal((await createRoutedIntegrationService(root,intake.intakeId).query()).status,'integration-complete');
+ assert.equal(fs.existsSync(path.join(root,workPlanningArtifactPath(intake.intakeId,route.selection.decisionId,'plan'))),false);assert.equal(fs.existsSync(path.join(root,routedDevelopmentExecutionBindingPath(intake.intakeId))),false);assert.equal(fs.existsSync(path.join(root,'planning/phases')),false);assert.equal(fs.existsSync(path.join(root,'planning/work-intake/execution',intake.intakeId)),false);
 });

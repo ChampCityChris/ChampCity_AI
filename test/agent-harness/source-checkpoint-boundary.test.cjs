@@ -137,3 +137,67 @@ test("generic source completion checkpoints only attributed files on the Intake 
   git(root, ["commit", "--allow-empty", "-m", "unexpected external commit"]);
   await assert.rejects(createWorkIntakeBranchService({ repositoryId: intake.branchBinding.repositoryId, repositoryRoot: root }).verify(intake.branchBinding), /outside its recorded checkpoint chain/);
 });
+
+test("research lifecycle checkpoint commits approved no-plan evidence without manufacturing a Plan", async (t) => {
+  const { seedPreparedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
+  const { root, intake, route, git: runGit } = seedPreparedRoutedWorkIntake(t, "research-prototype", {
+    workRequest: "Compare bounded approaches", desiredOutcome: "Close with evidence only", knownConstraints: "No production implementation",
+  });
+  const { workPlanningKernel, workPlanningArtifactPath } = require("../../dist/main/workPlanning/workPlanningKernel.js");
+  const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
+  const { resolveResearchCompletion, checkpointResearchCompletion } = require("../../dist/main/planExecution/researchCompletionService.js");
+  const { readLifecycleCheckpointReceipt } = require("../../dist/main/planExecution/lifecycleEvidenceCheckpointReceipt.js");
+  const { serializeCanonicalMarkdownDocument } = require("../../dist/shared/documents/canonicalMarkdown.js");
+  const kernel = workPlanningKernel;
+  const outcome = { outcome: "no-implementation-plan-required", prototypeDisposition: "disposable", productionFollowUp: "none",
+    evidence: ["Bounded comparison completed"], decisionEnabled: "Stop investigation", successFailureResult: "Evidence threshold met", closureCondition: "Comparison complete" };
+  const block = `\n\`\`\`champcity-research-outcome\n${JSON.stringify(outcome)}\n\`\`\`\n`;
+  const profile = resolveWorkPlanningProfile("research-prototype");
+  const evidence = {
+    "Evidence": outcome.evidence[0], "Decisions": outcome.decisionEnabled, "Risks and Unresolved Questions": "Prototype remains non-production.",
+    "Question Hypothesis and Decision": "Which bounded approach is viable?", "Alternatives": "Compare A and B.",
+    "Bounded Prototype and Evidence": "Disposable comparison only.", "Success Failure and Findings": outcome.successFailureResult,
+    "Output Classification": "Disposable prototype evidence.", "Expiration and Closure": outcome.closureCondition, "Research Outcome": block,
+  };
+  assert.deepEqual(Object.keys(evidence), profile.assessmentSections);
+  let model = await kernel.prepare(root, intake.intakeId, "assessment");
+  const draft = path.join(root, model.submission.expectedDraftSlots[0].draftRelativePath);
+  fs.mkdirSync(path.dirname(draft), { recursive: true });
+  fs.writeFileSync(draft, "# Route Architect Assessment\n\n" + Object.entries(evidence).map(([heading, value]) => `## ${heading}\n${value}`).join("\n\n"));
+  model = await kernel.get(root, intake.intakeId, "assessment");
+  model = await kernel.review(root, intake.intakeId, "assessment", { expectedRevision: model.artifact.artifactRevision, disposition: "Approved", notes: "Evidence accepted" });
+  const assessmentPath = model.artifact.relativePath;
+  const assessmentFile = path.join(root, assessmentPath);
+  const original = fs.readFileSync(assessmentFile);
+  const completion = await resolveResearchCompletion(root, intake.intakeId);
+  assert.equal(completion.completion.kind, "research");
+  assert.equal(completion.completion.completionId, model.artifact.identity.assessmentId);
+
+  fs.writeFileSync(path.join(root, "unrelated.txt"), "unrelated change\n");
+  let blocked = await checkpointResearchCompletion(root, intake.intakeId);
+  assert.equal(blocked.checkpoint.status, "blocked"); assert.match(blocked.checkpoint.message, /Unrelated/);
+  fs.unlinkSync(path.join(root, "unrelated.txt"));
+
+  const rewrite = (metadata) => {
+    const parsed = parseCanonicalMarkdownDocument(original.toString("utf8"));
+    fs.writeFileSync(assessmentFile, serializeCanonicalMarkdownDocument(metadata(parsed.metadata), parsed.bodyMarkdown));
+  };
+  rewrite((metadata) => ({ ...metadata, participationRole: "historical" }));
+  await assert.rejects(checkpointResearchCompletion(root, intake.intakeId), /approved no-Plan Assessment|identity conflicts/);
+  rewrite((metadata) => ({ ...metadata, identity: { ...metadata.identity, routeDecisionId: "decision-00000000-0000-4000-8000-000000000099" } }));
+  await assert.rejects(checkpointResearchCompletion(root, intake.intakeId), /approved no-Plan Assessment|identity conflicts/);
+  fs.writeFileSync(assessmentFile, original.toString("utf8").replaceAll("no-implementation-plan-required", "research-plan-required"));
+  await assert.rejects(checkpointResearchCompletion(root, intake.intakeId), /approved no-Plan Assessment/);
+  fs.writeFileSync(assessmentFile, original);
+
+  const result = await checkpointResearchCompletion(root, intake.intakeId);
+  assert.equal(result.checkpoint.status, "committed", result.checkpoint.message);
+  const receipt = readLifecycleCheckpointReceipt(runGit("show", "--no-patch", "--format=%B", result.checkpoint.commit), result.checkpoint.checkpointId);
+  assert.equal(receipt.boundary.kind, "research");
+  assert.deepEqual(receipt.boundary, completion.boundary);
+  const expected = ["planning/work-intake/PROJECT.md", intake.relativePath, route.relativePath, route.selection.sourceAssessment.path, assessmentPath].sort();
+  assert.deepEqual(receipt.files.map((entry) => entry.path), expected);
+  assert.deepEqual(receipt.files.map((entry) => entry.path), [...receipt.files.map((entry) => entry.path)].sort());
+  assert.equal(fs.existsSync(path.join(root, workPlanningArtifactPath(intake.intakeId, route.selection.decisionId, "plan"))), false);
+  assert.equal(runGit("status", "--porcelain"), "");
+});

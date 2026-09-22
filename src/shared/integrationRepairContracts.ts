@@ -1,7 +1,7 @@
 import type { IntegrationValidationEvidence } from "./integrationCandidateContracts";
 
 export interface IntegrationRepairPolicy {
-  sources: Array<{ role: "intake" | "plan" | "architecture" | "contract"; path: string }>;
+  sources: Array<{ role: "intake" | "completion" | "architecture" | "contract"; path: string }>;
   editablePaths: string[];
   policySha256?: string;
 }

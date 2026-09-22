@@ -53,6 +53,7 @@ export function WorkPlanningPanel({ intakeId, planOnly = false }: { intakeId: st
       <button disabled={!reviewable || !notes.trim()} onClick={() => void act("Rejected")}>Reject</button>
       {stage === "plan" && model.artifact.structure && !model.artifact.stale && model.artifact.disposition === "Approved" ? <WorkItemDecompositionPanel intakeId={intakeId} workItems={model.artifact.structure.workItems} onAccepted={async () => { setModel(await window.champcity.getWorkPlanning(intakeId, "plan")); }} /> : null}
       {stage === "plan" && model.routeId !== "issue-resolution" && model.artifact.structure && !model.artifact.stale && model.artifact.disposition === "Approved" ? <RoutedExecutionPanel key={model.artifact.identity.planId} intakeId={intakeId} /> : null}
+      {stage === "assessment" && model.researchClosed === true ? <RoutedExecutionPanel key={model.artifact.identity.assessmentId} intakeId={intakeId} /> : null}
     </> : null}
   </section>;
 }

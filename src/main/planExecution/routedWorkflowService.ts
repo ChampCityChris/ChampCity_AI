@@ -42,6 +42,13 @@ export async function getRoutedWorkflow(root: string, intakeId: string): Promise
   const intake = readWorkIntake(root, intakeId);
   const model: RoutedWorkflowModel = { intakeId, route: "Awaiting route", workBranch: intake.branchBinding.workBranch, targetBranch: intake.branchBinding.baseBranch, actions: [], reasons: [] };
   try {
+    const assessment = await workPlanningKernel.get(root, intakeId, "assessment");
+    if (assessment.researchClosed === true) {
+      model.route = assessment.routeId;
+      model.reasons.push("Approved Research is complete and awaiting or undergoing integration.");
+      await integrationSummary(root, model);
+      return model;
+    }
     const planning = await workPlanningKernel.get(root, intakeId, "plan");
     model.route = planning.routeId;
     model.planPath = planning.artifact?.relativePath;
@@ -115,14 +122,31 @@ export async function runRoutedWorkflow(root: string, intakeId: string, action: 
   const model = await getRoutedWorkflow(root, intakeId);
   if (action === "status") return { model };
   if (!model.actions.includes(action)) throw Error(model.reasons[0] ?? "This action is not available for the current workflow evidence.");
-  if (!["activate", "cancel", "respond-approval", "respond-input", "respond-elicitation"].includes(action) && input.expectedFingerprint !== model.execution?.fingerprint) throw Error("Presented execution evidence changed; refresh before acting.");
-  const app = createRoutedDevelopmentApplicationService(root, intakeId);
+  const presentedFingerprint = model.execution?.fingerprint ?? model.integration?.completionFingerprint;
+  if (!["activate", "cancel", "respond-approval", "respond-input", "respond-elicitation"].includes(action) && input.expectedFingerprint !== presentedFingerprint) throw Error("Presented execution or completion evidence changed; refresh before acting.");
   const request = { workItemId: input.workItemId ?? "", expectedFingerprint: input.expectedFingerprint ?? "" };
   const notes = input.notes ?? "";
   const integration = { expectedFingerprint: input.expectedFingerprint ?? "", candidateId: input.candidateId };
   const selector = { ownerKind: "routed-development" as const, intakeId, workItemId: request.workItemId };
   let instruction: string | undefined;
   let feedback = "Workflow updated.";
+  const integrationActions: RoutedWorkflowAction[] = ["integrate", "prepare-integration-repair", "apply-integration-repair", "complete-integration-repair", "integration-decision", "retry-integration-validation", "abort-integration"];
+  if (integrationActions.includes(action)) {
+    const routedIntegration = createRoutedIntegrationService(root, intakeId);
+    if (action === "integrate") await routedIntegration.integrate(integration);
+    else if (action === "prepare-integration-repair") {
+      const repair = await routedIntegration.prepareRepair(integration);
+      instruction = `${repair.prompt}\nReturn only a JSON array of {"path":"...","beforeSha256":"...","content":"replacement source or null"} patches for the stated editable files. Paste that response into ChampCity's Integration Repair patch field.\n`;
+      feedback = "Integration Repair handoff copied.";
+    } else if (action === "apply-integration-repair" && input.repairId && input.patches) await routedIntegration.applyRepair({ ...integration, repairId: input.repairId, patches: input.patches });
+    else if (action === "complete-integration-repair" && input.repairId) await routedIntegration.completeRepair({ ...integration, repairId: input.repairId });
+    else if (action === "integration-decision" && input.repairId) await routedIntegration.requestOperatorDecision({ ...integration, repairId: input.repairId, reason: notes });
+    else if (action === "retry-integration-validation") await routedIntegration.retryValidation(integration);
+    else if (action === "abort-integration") await routedIntegration.abort(integration);
+    else throw Error("The integration action requires its current bounded input.");
+    return { model: { ...await getRoutedWorkflow(root, intakeId), feedback }, ...(instruction ? { instruction } : {}) };
+  }
+  const app = createRoutedDevelopmentApplicationService(root, intakeId);
   if (action === "activate") await activateRoutedDevelopmentExecutionBinding(root, intakeId);
   else if (action === "begin") await app.execution.begin(request);
   else if (action === "prepare" || action === "check-draft" || action === "review-contract") {
@@ -155,16 +179,6 @@ export async function runRoutedWorkflow(root: string, intakeId: string, action: 
   else if (action === "close") await app.execution.close(request);
   else if (action === "save-acceptance" && input.acceptance) await app.execution.saveAcceptance(input.acceptance);
   else if (action === "review-acceptance" && input.acceptanceReview) await app.execution.reviewAcceptance(input.acceptanceReview);
-  else if (action === "integrate") await app.integration.integrate(integration);
-  else if (action === "prepare-integration-repair") {
-    const repair = await app.integration.prepareRepair(integration);
-    instruction = `${repair.prompt}\nReturn only a JSON array of {"path":"...","beforeSha256":"...","content":"replacement source or null"} patches for the stated editable files. Paste that response into ChampCity's Integration Repair patch field.\n`;
-    feedback = "Integration Repair handoff copied.";
-  } else if (action === "apply-integration-repair" && input.repairId && input.patches) await app.integration.applyRepair({ ...integration, repairId: input.repairId, patches: input.patches });
-  else if (action === "complete-integration-repair" && input.repairId) await app.integration.completeRepair({ ...integration, repairId: input.repairId });
-  else if (action === "integration-decision" && input.repairId) await app.integration.requestOperatorDecision({ ...integration, repairId: input.repairId, reason: notes });
-  else if (action === "retry-integration-validation") await app.integration.retryValidation(integration);
-  else if (action === "abort-integration") await app.integration.abort(integration);
   else throw Error("The action requires its current bounded input.");
   return { model: { ...await getRoutedWorkflow(root, intakeId), feedback }, ...(instruction ? { instruction } : {}) };
 }

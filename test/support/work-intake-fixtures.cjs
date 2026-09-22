@@ -115,6 +115,14 @@ function seedPreparedRoutedWorkIntake(t, selectedRouteId = "refactor-migration",
       bodyMarkdown: `# Work Intake: Product\n\n## Work request\n\n${intakeData.workRequest}\n\n## Desired outcome\n\n${intakeData.desiredOutcome}\n`,
     },
     {
+      workspaceRoot: root, relativePath: sourceAssessment.path,
+      metadata: { schemaVersion: 1, artifactType: "work-routing-assessment", artifactRevision: 1, participationRole: "contextOnly",
+        identity: { intakeId, projectId, assessmentId }, sourceRevisions: [sourceIntake], workflowData: {
+          recommendedRouteId: selectedRouteId, traits: [], rationale: "Prepared downstream planning fixture.", evidencePaths: [intakePath], evidenceDigests: {},
+        }, documentDisposition: disposition },
+      bodyMarkdown: `# Work Intake Routing Assessment\n## Recommended Route\n${selectedRouteId}\n## Traits\nNone\n## Evidence\n- ${intakePath}\n## Rationale\nPrepared downstream planning fixture.\n## Alternate Route\nNone\n`,
+    },
+    {
       workspaceRoot: root, relativePath: routePath,
       metadata: { schemaVersion: 1, artifactType: "operator-route-decision", artifactRevision: 1, participationRole: "contextOnly",
         identity: { intakeId }, sourceRevisions: [sourceIntake], workflowData: {

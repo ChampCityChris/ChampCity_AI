@@ -11,7 +11,8 @@ export const lifecycleCheckpointIdFor = (evidence: LifecycleEvidenceCheckpointEv
   createHash("sha256").update(JSON.stringify(evidence)).digest("hex");
 
 export function lifecycleCheckpointSubject(boundary: LifecycleEvidenceBoundary, checkpointId: string): string {
-  const label = boundary.kind === "work-item" ? boundary.workItemId : boundary.kind === "phase" ? boundary.phaseId : boundary.planId;
+  const label = boundary.kind === "work-item" ? boundary.workItemId : boundary.kind === "phase" ? boundary.phaseId
+    : boundary.kind === "research" ? boundary.assessmentId : boundary.planId;
   return `${label}: lifecycle checkpoint ${checkpointId}`;
 }
 
@@ -22,7 +23,10 @@ function validIdentifier(value: unknown): value is string {
 function validBoundary(value: unknown): value is LifecycleEvidenceBoundary {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const boundary = value as Record<string, unknown>;
-  if (!validIdentifier(boundary.routeDecisionId) || !validIdentifier(boundary.planId) || !Number.isSafeInteger(boundary.planRevision) || Number(boundary.planRevision) < 1) return false;
+  if (!validIdentifier(boundary.routeDecisionId)) return false;
+  if (boundary.kind === "research") return validIdentifier(boundary.assessmentId) && Number.isSafeInteger(boundary.assessmentRevision) && Number(boundary.assessmentRevision) >= 1 &&
+    Object.keys(boundary).every((key) => ["kind", "routeDecisionId", "assessmentId", "assessmentRevision"].includes(key));
+  if (!validIdentifier(boundary.planId) || !Number.isSafeInteger(boundary.planRevision) || Number(boundary.planRevision) < 1) return false;
   if (boundary.kind === "plan") return Object.keys(boundary).every((key) => ["kind", "routeDecisionId", "planId", "planRevision"].includes(key));
   if (boundary.kind === "phase") return validIdentifier(boundary.phaseId) && Object.keys(boundary).every((key) => ["kind", "routeDecisionId", "planId", "planRevision", "phaseId"].includes(key));
   return boundary.kind === "work-item" && validIdentifier(boundary.workItemId) && validIdentifier(boundary.implementationId) &&

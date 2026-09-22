@@ -27,7 +27,7 @@ export function RoutedExecutionPanel({ intakeId }: { intakeId: string }) {
   async function act(action: RoutedWorkflowAction, input: RoutedWorkflowInput = {}) {
     setBusy(true); setError("");
     try {
-      setModel(await window.champcity.runRoutedWorkflow(intakeId, action, { expectedFingerprint: model?.execution?.fingerprint,
+      setModel(await window.champcity.runRoutedWorkflow(intakeId, action, { expectedFingerprint: model?.execution?.fingerprint ?? model?.integration?.completionFingerprint,
         workItemId: model?.current?.workItemId, candidateId: model?.integration?.candidate?.candidateId, repairId: model?.repair?.repairId, notes, ...input }));
     } catch (failure) { setError(failure instanceof Error ? failure.message : "Workflow action failed."); }
     finally { setBusy(false); }
@@ -36,12 +36,13 @@ export function RoutedExecutionPanel({ intakeId }: { intakeId: string }) {
   const button = (action: RoutedWorkflowAction, label: string, input?: RoutedWorkflowInput) => available(action)
     ? <button type="button" disabled={busy} onClick={() => void act(action, input)}>{label}</button> : null;
   const current = model?.current;
-  return <section className="routed-execution-panel" aria-label="Approved Plan execution" aria-busy={busy}>
-    <h3>Plan execution</h3>
+  const research = !model?.execution && model?.integration?.completionKind === "research";
+  return <section className="routed-execution-panel" aria-label={research ? "Research completion integration" : "Approved Plan execution"} aria-busy={busy}>
+    <h3>{research ? "Research completion" : "Plan execution"}</h3>
     {error ? <p role="alert">{error}</p> : null}
     {model?.feedback ? <p role="status">{model.feedback}</p> : null}
     {busy ? <p role="status">Updating workflow…</p> : null}
-    <button type="button" disabled={busy} onClick={() => void act("status")}>Refresh execution</button>
+    <button type="button" disabled={busy} onClick={() => void act("status")}>{research ? "Refresh integration" : "Refresh execution"}</button>
     {model ? <>
       <p>Route: {workRouteProfileRegistry[model.route as WorkRouteId]?.label ?? model.route}</p>
       <p>Work branch: {model.workBranch} · Integration target: {model.targetBranch}</p>
@@ -94,7 +95,7 @@ export function RoutedExecutionPanel({ intakeId }: { intakeId: string }) {
         {model.integration.reasons.map((message) => <p key={message}>{message}</p>)}
         {model.integration.checkpointCommits.length ? <details><summary>Source checkpoints</summary>{model.integration.checkpointCommits.map((commit) => <p key={commit}>{commit}</p>)}</details> : null}
         {model.integration.candidate?.validation.map((check) => <p key={check.checkId}>{check.checkId}: {check.exitCode === 0 ? "Passed" : "Failed"} — {check.summary}</p>)}
-        {button("integrate", "Integrate completed Plan")}
+        {button("integrate", research ? "Integrate completed research" : "Integrate completed Plan")}
         {button("prepare-integration-repair", "Prepare and copy Integration Repair handoff")}
         {model.repair ? <>
           <p>{model.repair.repairId}: {model.repair.status} · {model.repair.message}</p>

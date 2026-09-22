@@ -1,4 +1,5 @@
 import type { SourceControlReceipt } from "./sourceControlContracts";
+import type { IntegrationCompletionEvidence } from "./integrationCompletionContracts";
 
 export interface IntegrationProfileTelemetry {
   buildDurationMs: number;
@@ -22,9 +23,7 @@ export interface IntegrationCandidateRecord {
   candidateId: string;
   repositoryId: string;
   intakeId: string;
-  planId: string;
-  planRevision: number;
-  planFingerprint: string;
+  completion: IntegrationCompletionEvidence;
   baseCommit: string;
   incomingBranch: string;
   incomingCommit: string;
