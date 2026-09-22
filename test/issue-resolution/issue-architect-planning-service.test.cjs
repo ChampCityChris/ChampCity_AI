@@ -11,7 +11,7 @@ test("routed defect preserves Intake and branch through RCA, phased correction, 
   const { runWorkIssueAction } = require("../../dist/main/workPlanning/workIssueRoutingService.js");
   const { workPlanningKernel: kernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
   const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
-  const { getWorkRouteDecision, decideWorkRoute } = require("../../dist/main/workIntake/workRouteDecisionService.js");
+  const { getWorkRouteDecision, decideWorkRoute, recommendWorkRouteReroute } = require("../../dist/main/workIntake/workRouteDecisionService.js");
   const { parseCanonicalMarkdownDocument } = require("../../dist/shared/documents/canonicalMarkdown.js");
   const { __setCanonicalMarkdownWriterTestHooks } = require("../../dist/main/documents/canonicalMarkdownDocumentWriter.js");
   const { mainPreloadHarness } = require("../support/production-execution.cjs");
@@ -56,11 +56,44 @@ test("routed defect preserves Intake and branch through RCA, phased correction, 
   assert.equal(plan.artifact.structure.topology, "phased");
   assert.equal(plan.artifact.identity.intakeId, intake.intakeId);
   assert.equal(fs.existsSync(path.join(root, "issues", model.issueId, "ISSUE_RESOLUTION_PLAN.md")), false, "No legacy execution Plan is forced by routed RCA");
+  const assessmentBeforeRetainedRoute = await kernel.get(root, intake.intakeId, "assessment");
+  const assessmentPath = path.join(root, assessmentBeforeRetainedRoute.artifact.relativePath);
+  const planPath = path.join(root, plan.artifact.relativePath);
+  const assessmentBytesBeforeRetainedRoute = fs.readFileSync(assessmentPath);
+  const planBytesBeforeRetainedRoute = fs.readFileSync(planPath);
+  const routeBeforeRetainedRoute = await getWorkRouteDecision(root, intake.intakeId);
+  const pendingAssessmentRetainedRoute = await recommendWorkRouteReroute(root, intake.intakeId, {
+    priorDecisionId: routeBeforeRetainedRoute.selection.decisionId,
+    replacementRouteId: "feature-change",
+    rationale: "Reconsider the bounded correction after the phased plan was prepared.",
+    sourceEvidence: [{ path: assessmentBeforeRetainedRoute.artifact.relativePath, revision: assessmentBeforeRetainedRoute.artifact.artifactRevision }],
+  });
+  const resolvedAssessmentRetainedRoute = await decideWorkRoute(root, intake.intakeId, {
+    expectedDecisionRevision: pendingAssessmentRetainedRoute.artifactRevision,
+    sourceAssessment: pendingAssessmentRetainedRoute.sourceAssessment,
+    disposition: "override",
+    selectedRouteId: "issue-resolution",
+    rationale: "Retain the bounded Issue Resolution route and its phased correction plan.",
+  });
+  const retainedPlannedIssue = await api.runWorkIssueAction(intake.intakeId, "status");
+  const assessmentAfterRetainedRoute = await kernel.get(root, intake.intakeId, "assessment");
+  const planAfterRetainedRoute = await kernel.get(root, intake.intakeId, "plan");
+  assert.equal(resolvedAssessmentRetainedRoute.selection.decisionId, routeBeforeRetainedRoute.selection.decisionId);
+  assert.equal(resolvedAssessmentRetainedRoute.selection.selectedRouteId, routeBeforeRetainedRoute.selection.selectedRouteId);
+  assert.equal(retainedPlannedIssue.issueId, model.issueId);
+  assert.equal(retainedPlannedIssue.handoffPath, model.handoffPath);
+  assert.equal(assessmentAfterRetainedRoute.artifact.artifactRevision, assessmentBeforeRetainedRoute.artifact.artifactRevision);
+  assert.equal(planAfterRetainedRoute.artifact.artifactRevision, plan.artifact.artifactRevision);
+  assert.deepEqual(fs.readFileSync(assessmentPath), assessmentBytesBeforeRetainedRoute);
+  assert.deepEqual(fs.readFileSync(planPath), planBytesBeforeRetainedRoute);
+  assert.equal(assessmentAfterRetainedRoute.artifact.stale, false);
+  assert.equal(planAfterRetainedRoute.artifact.stale, false);
   fs.appendFileSync(path.join(root, model.architect.finalInvestigationPath), "\nAdditional lifecycle evidence.\n");
   await assert.rejects(api.runWorkIssueAction(intake.intakeId, "review", { expectedEvidenceDigest: model.reviewEvidenceDigest, review: { disposition: "Approved", operatorNotes: "Stale presented evidence" } }), /Presented RCA evidence is stale/);
   await assert.rejects(kernel.get(root, intake.intakeId, "plan"), /approved route-specific assessment/);
   model = await api.runWorkIssueAction(intake.intakeId, "status");
   assert.equal(model.correctionPlanningReady, false, "An old review cannot silently approve changed RCA bytes");
+  assert.ok(parseCanonicalMarkdownDocument(fs.readFileSync(assessmentPath, "utf8")).metadata.artifactRevision > assessmentBeforeRetainedRoute.artifact.artifactRevision, "Changed RCA evidence revises the Issue Assessment");
   await api.runWorkIssueAction(intake.intakeId, "review", { expectedEvidenceDigest: model.reviewEvidenceDigest, review: { disposition: "RevisionRequested", operatorNotes: "Investigate whether the request is planned expansion" } });
   model = await api.runWorkIssueAction(intake.intakeId, "prepare");
   draftPath = path.join(root, model.architect.activeSubmission.temporaryDraftPath);

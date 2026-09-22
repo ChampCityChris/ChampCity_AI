@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { WorkIssueAction, WorkIssueActionInput, WorkIssueModel } from "../../shared/issueResolutionContracts";
-import { parseCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
+import { parseCanonicalMarkdownDocument, type ParsedCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
 import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
 import { applyIssueArchitectReview, createLightweightIssueRecord, getIssueArchitectPlanningProjection, prepareIssueArchitectPlanningHandoff, resolveIssueArchitectPlanningCopyHandoff } from "../issueResolution/issueResolutionService";
 import { getWorkRouteDecision, recommendWorkRouteReroute } from "../workIntake/workRouteDecisionService";
@@ -9,6 +9,30 @@ import { sourceDigests, workPlanningArtifactPath } from "./workPlanningKernel";
 import { issueEvidenceBytes, issueEvidenceDigest, workIssueContext, workIssueHandoffPath } from "./workIssueContext";
 import { activateRoutedIssueExecutionPlan, issueExecutionPlanPath } from "../planExecution/issueExecutionPlan";
 import { approveIssueCorrectionPhase, getIssueCorrectionExecution } from "../issueResolution/issueResolutionService";
+
+type IssueAssessmentProposal = {
+  bodyMarkdown: string;
+  identity: Record<string, unknown>;
+  sourceRevisions: ParsedCanonicalMarkdownDocument["metadata"]["sourceRevisions"];
+  workflowData: Record<string, unknown>;
+  documentDisposition: ParsedCanonicalMarkdownDocument["metadata"]["documentDisposition"];
+};
+
+function withoutRouteDigest(value: unknown, routePath: string): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  return Object.fromEntries(Object.entries(value).filter(([path]) => path !== routePath));
+}
+
+function issueAssessmentSemanticallyMatches(prior: ParsedCanonicalMarkdownDocument, proposed: IssueAssessmentProposal, routePath: string): boolean {
+  const priorWorkflowData = { ...prior.metadata.workflowData, sourceDigests: withoutRouteDigest(prior.metadata.workflowData.sourceDigests, routePath) };
+  const proposedWorkflowData = { ...proposed.workflowData, sourceDigests: withoutRouteDigest(proposed.workflowData.sourceDigests, routePath) };
+  const normalizedProposedBody = `${proposed.bodyMarkdown.replace(/\r\n?/g, "\n").replace(/\n*$/, "")}\n`;
+  return prior.bodyMarkdown === normalizedProposedBody &&
+    JSON.stringify(prior.metadata.identity) === JSON.stringify(proposed.identity) &&
+    JSON.stringify(prior.metadata.sourceRevisions.filter((source) => source.path !== routePath)) === JSON.stringify(proposed.sourceRevisions.filter((source) => source.path !== routePath)) &&
+    JSON.stringify(priorWorkflowData) === JSON.stringify(proposedWorkflowData) &&
+    JSON.stringify(prior.metadata.documentDisposition) === JSON.stringify(proposed.documentDisposition);
+}
 
 /** Adapt existing Issue RCA mechanics; routing and Git authority remain outside the Architect. */
 export async function runWorkIssueAction(root: string, intakeId: string, action: WorkIssueAction, input: WorkIssueActionInput = {}): Promise<{ model: WorkIssueModel; instruction?: string }> {
@@ -75,10 +99,12 @@ export async function runWorkIssueAction(root: string, intakeId: string, action:
     const workflowData = { sourceDigests: digests, issueId: context.issueId, issueReviewedInvestigationDigest: reviewedDigest ?? null, issueReviewedEvidence: reviewedEvidence ?? null, architectRecommendation: architect.architectRecommendation };
     const bodyMarkdown = `# Route Architect Assessment\n\n## Evidence\nOriginal Work Intake: ${intake.relativePath}\nIssue record: ${context.paths[0]}\nRCA: ${context.paths[1]}\nReview: ${context.paths[2]}\n\n## Decisions\n${architect.architectRecommendation}\n\n## Risks and Unresolved Questions\nPreserve the investigation's bounded correction, preservation rules, risks, and unresolved questions.\n\n${architect.finalInvestigationMarkdown}\n`;
     const documentDisposition = { status: ready ? "Approved" as const : disposition === "Approved" ? "Pending" as const : disposition, notes: architect.operatorReviewNotes ?? "", reviewedAt: action === "review" ? new Date().toISOString() : prior?.metadata.documentDisposition.reviewedAt ?? null };
-    if (!prior || prior.bodyMarkdown !== bodyMarkdown || JSON.stringify(prior.metadata.workflowData) !== JSON.stringify(workflowData) || prior.metadata.documentDisposition.status !== documentDisposition.status || prior.metadata.documentDisposition.notes !== documentDisposition.notes) {
+    const identity = { intakeId, projectId: intake.projectId, routeDecisionId: decisionId, routeId: "issue-resolution", assessmentId: prior?.metadata.identity.assessmentId ?? `assessment-${randomUUID()}`, issueId: context.issueId };
+    const proposal = { bodyMarkdown, identity, sourceRevisions, workflowData, documentDisposition };
+    if (!prior || !issueAssessmentSemanticallyMatches(prior, proposal, route.relativePath)) {
       writeCanonicalMarkdownDocument({ workspaceRoot: root, relativePath: targetPath, bodyMarkdown,
         metadata: { schemaVersion: 1, artifactType: "work-planning-assessment", artifactRevision: (prior?.metadata.artifactRevision ?? 0) + 1, participationRole: "gatingReview",
-          identity: { intakeId, projectId: intake.projectId, routeDecisionId: decisionId, routeId: "issue-resolution", assessmentId: prior?.metadata.identity.assessmentId ?? `assessment-${randomUUID()}`, issueId: context.issueId },
+          identity,
           sourceRevisions, workflowData, documentDisposition } });
     }
     if (architect.architectRecommendation === "Reframe to Development/Feature") {
