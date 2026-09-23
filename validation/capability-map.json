@@ -2985,6 +2985,28 @@
       ]
     },
     {
+      "capabilityId": "project-state-domain",
+      "description": "Canonical Structured Project State entity contracts and bounded type validation.",
+      "sourcePatterns": [
+        "src/shared/projectState/**"
+      ],
+      "dependsOn": [],
+      "behaviors": [
+        {
+          "behaviorId": "all-adopted-project-state-types-have-registered-bounded-schemas-and-application-issued-envelopes",
+          "description": "all adopted Project State types have registered bounded schemas and application-issued envelopes"
+        },
+        {
+          "behaviorId": "registry-enforces-text-list-timestamp-and-total-record-bounds",
+          "description": "registry enforces text, list, timestamp and total record bounds"
+        },
+        {
+          "behaviorId": "registry-rejects-unknown-type-unsupported-fields-and-invalid-envelope-semantics",
+          "description": "registry rejects unknown type, unsupported fields, and invalid envelope semantics"
+        }
+      ]
+    },
+    {
       "capabilityId": "release-and-git-operations",
       "description": "Candidate validation, bounded Git mutations, release actions, and repository-state evidence.",
       "sourcePatterns": [
@@ -12888,6 +12910,69 @@
           "capabilityId": "project-planning-workflow",
           "behaviorId": "project-planning-source-revision-invalidates-prior-handoff-and-outputs",
           "proofLocator": "project planning source revision invalidates prior handoff and outputs",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/domain-contracts.test.cjs",
+      "currentTestCount": {
+        "value": 3,
+        "basis": "Three focused domain tests introduced by SCL01A."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 500,
+        "basis": "Pure in-process validation; estimate pending first supported Windows receipt."
+      },
+      "proposedValidationLane": "fast",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": false,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Pure isolated domain validation with no shared mutable resources.",
+        "ownedResources": [
+          "pure-stateless"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "project-state-domain",
+          "behaviorId": "all-adopted-project-state-types-have-registered-bounded-schemas-and-application-issued-envelopes",
+          "proofLocator": "all adopted Project State types have registered bounded schemas and application-issued envelopes",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-domain",
+          "behaviorId": "registry-enforces-text-list-timestamp-and-total-record-bounds",
+          "proofLocator": "registry enforces text, list, timestamp and total record bounds",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-domain",
+          "behaviorId": "registry-rejects-unknown-type-unsupported-fields-and-invalid-envelope-semantics",
+          "proofLocator": "registry rejects unknown type, unsupported fields, and invalid envelope semantics",
           "proofRole": "primary"
         }
       ]
