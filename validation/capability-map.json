@@ -3122,6 +3122,10 @@
           "description": "issued Decision, Validation and Evidence require typed correction policy"
         },
         {
+          "behaviorId": "markdown-workflow-projections-are-regenerable-and-non-authoritative",
+          "description": "Markdown workflow projections are regenerable without revising canonical state"
+        },
+        {
           "behaviorId": "one-permanent-catalog-reference-proves-multiple-obligations",
           "description": "One permanent catalog reference proves multiple obligations across supersession"
         },
@@ -3164,6 +3168,10 @@
         {
           "behaviorId": "sqlite-history-follows-multiple-supersessions-and-survives-reopen",
           "description": "SQLite history follows multiple supersessions and survives reopen without rewriting versions"
+        },
+        {
+          "behaviorId": "structured-export-preserves-versions-relationships-and-provenance",
+          "description": "Structured export preserves canonical versions, relationships and provenance"
         },
         {
           "behaviorId": "typed-decision-validation-and-evidence-commands-derive-trusted-attribution-and-enforce-relationsh",
@@ -13534,6 +13542,63 @@
           "capabilityId": "project-state-service",
           "behaviorId": "phased-plan-derives-nested-membership-and-milestone-proof",
           "proofLocator": "phased plan derives nested membership and Phase milestone proof",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/projection-export.test.cjs",
+      "currentTestCount": {
+        "value": 4,
+        "basis": "Two projection and export scenarios across in-memory and SQLite adapters introduced by SCL01Q."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 161,
+        "basis": "Observed normal Windows focused SCL01Q test receipt."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Per-test temporary SQLite file and isolated in-memory adapter.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "markdown-workflow-projections-are-regenerable-and-non-authoritative",
+          "proofLocator": "every workflow Markdown projection is regenerable and non-authoritative",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "structured-export-preserves-versions-relationships-and-provenance",
+          "proofLocator": "structured export preserves canonical versions, relationships and provenance",
           "proofRole": "primary"
         }
       ]

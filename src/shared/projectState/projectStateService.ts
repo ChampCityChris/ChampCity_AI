@@ -19,6 +19,10 @@ export interface CurrentProjectStateView {
   sourceCheckpoints: { id: EntityId; workIntakeId: EntityId; state: EntityBodyMap["SourceCheckpoint"]["checkpointState"]; expectedRevisionId: string; resultingRevisionId: string | null }[];
   integrations: { id: EntityId; workIntakeId: EntityId; state: EntityBodyMap["IntegrationRecord"]["integrationState"]; outcome: EntityBodyMap["IntegrationRecord"]["outcome"]; incomingRevisionId: string; resultRevisionId: string | null }[];
 }
+export type ProjectionType = "work-intake" | "work-item" | "repair" | "fix" | "validation" | "implementation-report" | "route-history" | "decision-history" | "project-state-summary";
+export interface ProjectionMetadata { projectionType: ProjectionType; projectionVersion: 1; projectId: ProjectId; sourceEntityIds: EntityId[]; generatedAt: string; authoritative: false }
+export interface RenderedProjectStateView { metadata: ProjectionMetadata; markdown: string }
+export interface StructuredProjectStateExport { exportVersion: 1; projectId: ProjectId; generatedAt: string; authoritative: true; records: ProjectStateEntity[]; history: { entityId: EntityId; versions: ProjectStateEntity[] }[]; relationships: ProjectStateRelationship[]; stateChanges: StateChange[] }
 export interface ProjectStateSummary { projectId: ProjectId; totalRecords: number; activeRecords: number; countsByType: Partial<Record<EntityType, number>> }
 export interface RecordHistory { lineageId: string; records: ProjectStateEntity[] }
 export interface RecordLineage { records: ProjectStateEntity[]; relationships: ProjectStateRelationship[] }
@@ -54,6 +58,19 @@ function validateTestPath(path: string) {
 }
 function canonicalInstant(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
+}
+function markdownValue(value: unknown): string {
+  const text = typeof value === "string" ? value : JSON.stringify(value);
+  return text.replace(/\r?\n/g, " ").replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function markdownRecord(record: ProjectStateEntity): string {
+  const rows = [
+    ["id", record.id], ["type", record.entityType], ["version", record.recordVersion],
+    ["lifecycle", record.lifecycleState], ["lineage", record.lineageId], ["provenance", record.provenance],
+    ...Object.entries(record.body),
+  ];
+  return [`## ${record.entityType} ${record.id}`, "", "| Field | Value |", "| --- | --- |",
+    ...rows.map(([field, value]) => `| ${markdownValue(field)} | ${markdownValue(value)} |`), ""].join("\n");
 }
 function decisionBody(input: DecisionInput, principal: PrincipalRef, decidedAt: string, defaultEffectiveAt = decidedAt): EntityBodyMap["Decision"] {
   const content = exactInput(input, ["decisionType", "outcome", "rationale", "decisionScope", "effectiveAt"]);
@@ -985,6 +1002,86 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         incomingRevisionId: record.body.incomingRevisionId, resultRevisionId: record.body.resultRevisionId ?? null })),
     };
   }
+
+  async function renderView(projectId: ProjectId, request: { projectionType: ProjectionType; sourceEntityId?: EntityId }): Promise<RenderedProjectStateView> {
+    exactInput(request, ["projectionType", "sourceEntityId"]);
+    const types: readonly ProjectionType[] = ["work-intake", "work-item", "repair", "fix", "validation", "implementation-report", "route-history", "decision-history", "project-state-summary"];
+    if (!types.includes(request.projectionType)) fail("Unsupported Project State projection type.");
+    const project = await store.getProject(projectId);
+    if (!project) fail("Projection Project does not exist.");
+    if (request.projectionType === "project-state-summary" && request.sourceEntityId && request.sourceEntityId !== projectId) fail("Project summary must target the Project.");
+    if (request.projectionType !== "project-state-summary" && !request.sourceEntityId) fail("Projection source entity is required.");
+    const target = request.projectionType === "project-state-summary" ? project : await requiredRecord(store, projectId, request.sourceEntityId as EntityId);
+    const expected: Partial<Record<ProjectionType, EntityType>> = {
+      "work-intake": "WorkIntake", "route-history": "WorkIntake", "work-item": "WorkItem", repair: "WorkItem", fix: "WorkItem",
+      validation: "Validation", "implementation-report": "ImplementationRecord",
+    };
+    if (expected[request.projectionType] && target.entityType !== expected[request.projectionType]) fail("Projection source has the wrong entity type.");
+    if (request.projectionType === "repair" && (target.entityType !== "WorkItem" || target.body.workItemKind !== "repair")) fail("Repair projection requires a Repair Work Item.");
+    if (request.projectionType === "fix" && (target.entityType !== "WorkItem" || target.body.workItemKind !== "fix")) fail("Fix projection requires a Fix Work Item.");
+    const records = new Map<EntityId, ProjectStateEntity>([[target.id, target]]);
+    const allEdges = await store.listRelationships(projectId);
+    const linked = allEdges.filter(edge => !edge.endedAt && (edge.fromEntityId === target.id || edge.toEntityId === target.id));
+    const add = async (id: EntityId) => { const record = await store.getEntity(projectId, id); if (record) records.set(id, record); };
+    if (request.projectionType === "work-intake" || request.projectionType === "route-history") {
+      const history = await getWorkRouteHistory(projectId, target.id);
+      for (const item of [...history.assessments, ...history.decisions]) records.set(item.id, item);
+      if (request.projectionType === "work-intake") {
+        for (const edge of linked.filter(edge => ["initiates", "binds_source"].includes(edge.relationshipType))) await add(edge.fromEntityId === target.id ? edge.toEntityId : edge.fromEntityId);
+      }
+    } else if (request.projectionType === "decision-history") {
+      for (const edge of allEdges.filter(edge => edge.relationshipType === "governs" && edge.toEntityId === target.id)) await add(edge.fromEntityId);
+    } else if (request.projectionType !== "project-state-summary") {
+      for (const edge of linked) await add(edge.fromEntityId === target.id ? edge.toEntityId : edge.fromEntityId);
+      if (request.projectionType === "work-item" || request.projectionType === "repair" || request.projectionType === "fix") {
+        for (const edge of allEdges.filter(edge => edge.relationshipType === "evaluates" && edge.toEntityId === target.id)) await add(edge.fromEntityId);
+      }
+    }
+    if (records.size > 1000) fail("Projection exceeds its record bound.");
+    const sourceEntityIds = [...records.keys()].sort();
+    const metadata: ProjectionMetadata = { projectionType: request.projectionType, projectionVersion: 1,
+      projectId, sourceEntityIds, generatedAt: new Date().toISOString(), authoritative: false };
+    const title = request.projectionType.replace(/-/g, " ").replace(/\b\w/g, letter => letter.toUpperCase());
+    const header = [`# ${title}`, "", "> Generated from canonical Project State. This Markdown is non-authoritative; edits do not change Project State.", "",
+      "| Projection metadata | Value |", "| --- | --- |",
+      ...Object.entries(metadata).map(([key, value]) => `| ${key} | ${markdownValue(value)} |`), ""];
+    if (request.projectionType === "project-state-summary") {
+      const summary = await getProjectStateSummary(projectId);
+      header.push("## Current record counts", "", "| Entity type | Count |", "| --- | ---: |",
+        ...Object.entries(summary.countsByType).sort(([a], [b]) => a.localeCompare(b)).map(([type, count]) => `| ${type} | ${count} |`), "",
+        `Active records: ${summary.activeRecords} of ${summary.totalRecords}.`, "");
+    }
+    const recordSections = [...records.values()].sort((a, b) => a.id.localeCompare(b.id)).map(markdownRecord);
+    const edgeRows = allEdges.filter(edge => records.has(edge.fromEntityId) || records.has(edge.toEntityId))
+      .sort((a, b) => a.id.localeCompare(b.id));
+    if (edgeRows.length > 1000) fail("Projection exceeds its relationship bound.");
+    const relationSection = ["## Related relationships", "", "| Predicate | From | To | Ended |", "| --- | --- | --- | --- |",
+      ...edgeRows.map(edge => `| ${edge.relationshipType} | ${edge.fromEntityId} | ${edge.toEntityId} | ${edge.endedAt ?? ""} |`), ""];
+    return { metadata, markdown: [...header, ...recordSections, ...relationSection].join("\n") };
+  }
+
+  async function exportStructuredProjectState(projectId: ProjectId): Promise<StructuredProjectStateExport> {
+    if (!await store.getProject(projectId)) fail("Export Project does not exist.");
+    const records = (await store.listEntities(projectId)).sort((a, b) => a.id.localeCompare(b.id));
+    const relationships = (await store.listRelationships(projectId)).sort((a, b) => a.id.localeCompare(b.id));
+    const stateChanges = (await store.listStateChanges(projectId)).sort((a, b) => a.occurredAt.localeCompare(b.occurredAt) || a.id.localeCompare(b.id));
+    if (records.length > 10_000 || relationships.length > 100_000 || stateChanges.length > 100_000) fail("Structured export exceeds its bound.");
+    const history: StructuredProjectStateExport["history"] = [];
+    let versionCount = 0;
+    for (const record of records) {
+      versionCount += record.recordVersion;
+      if (versionCount > 100_000) fail("Structured export history exceeds its bound.");
+      const versions: ProjectStateEntity[] = [];
+      for (let version = 1; version <= record.recordVersion; version++) {
+        const snapshot = await store.getEntityVersion(projectId, record.id, version);
+        if (!snapshot) fail("Structured export has a missing record version.");
+        versions.push(snapshot);
+      }
+      history.push({ entityId: record.id, versions });
+    }
+    return { exportVersion: 1, projectId, generatedAt: new Date().toISOString(), authoritative: true,
+      records, history, relationships, stateChanges };
+  }
   async function supersessionChain(projectId: ProjectId, identity: EntityId): Promise<ProjectStateEntity[] | null> {
     const record = await store.getEntity(projectId, identity);
     if (!record) return null;
@@ -1384,7 +1481,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     createSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, createIntegrationRecord, advanceIntegrationRecord,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
     reviseRecord, supersedeRecord, createRelationship, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, completeWorkItem, completePhase,
-    getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
+    getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, renderView, exportStructuredProjectState, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
     getEffectiveDisposition, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus,
     getImplementationAttempts, getExecutionPlan, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,
     getWorkRouteHistory, getCurrentWorkRoute, getWorkIntakeSummary, getSourceSemanticView, getRegressionObligationView };
