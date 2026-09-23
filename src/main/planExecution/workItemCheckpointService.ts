@@ -80,6 +80,10 @@ export async function captureWorkItemCheckpoint(root: string, context: WorkItemC
   const contract = parseCanonicalMarkdownDocument(fs.readFileSync(file(root, context.formalWorkCardPath), "utf8"));
   if (contract.metadata.documentDisposition.status !== "Approved") throw Error("Checkpoint requires an approved implementation contract.");
   const sourceControl = createSourceControlService({ repositoryId: binding.repositoryId, repositoryRoot: root });
+  const checkout = unwrap(await sourceControl.branches());
+  if (checkout.currentBranch !== binding.workBranch || checkout.head !== binding.currentHead) {
+    throw Error("Checkpoint capture requires the selected Work Intake source checkout at its recorded head.");
+  }
   const changes = unwrap(await sourceControl.changedFiles());
   if (changes.length > 500 || changes.some((entry) => entry.indexStatus !== " " && entry.indexStatus !== "?" || entry.originalPath)) throw Error("Checkpoint capture requires an empty index and unambiguous changed paths.");
   const baseline = Object.fromEntries(changes.map((entry) => [entry.path, snapshot(root, entry.path)]));
@@ -108,6 +112,10 @@ export async function checkpointWorkItemSource(root: string, capture: WorkItemCh
     const sourceControl = createSourceControlService({ repositoryId: binding.repositoryId, repositoryRoot: root });
     const current = await branch.verify(binding);
     if (current.currentHead !== binding.currentHead) throw Error("Source baseline changed during implementation.");
+    const checkout = unwrap(await sourceControl.branches(), receipts);
+    if (checkout.currentBranch !== binding.workBranch || checkout.head !== binding.currentHead) {
+      throw Error("Source checkpoint requires the selected Work Intake source checkout at its recorded head.");
+    }
     if (snapshot(root, context.formalWorkCardPath) !== capture.contractSha256) throw Error("Implementation contract changed during execution.");
     for (const [source, sha256] of Object.entries(capture.governing)) if (snapshot(root, source) !== sha256) throw Error("Governing evidence changed during implementation.");
     const reportSha256 = snapshot(root, context.implementerReportPath);
@@ -136,6 +144,10 @@ export async function checkpointWorkItemSource(root: string, capture: WorkItemCh
     if (Buffer.byteLength(message, "utf8") > 20_000) throw Error("Checkpoint evidence exceeds the bounded commit receipt size.");
     const paths = files.map((entry) => entry.path);
     await branch.verify(binding);
+    const finalCheckout = unwrap(await sourceControl.branches(), receipts);
+    if (finalCheckout.currentBranch !== binding.workBranch || finalCheckout.head !== binding.currentHead) {
+      throw Error("Source checkpoint checkout changed before staging.");
+    }
     staged = true;
     unwrap(await sourceControl.stage(paths), receipts);
     const stagedChanges = unwrap(await sourceControl.changedFiles(), receipts);

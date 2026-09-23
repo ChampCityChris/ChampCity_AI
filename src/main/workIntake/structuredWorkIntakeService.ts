@@ -45,7 +45,7 @@ function readiness(binding: ProjectStateRecord<"SourceBinding">): SourceReadines
   if (body.preparationState === "blocked") return { state: "blocked", repositoryId: body.repositoryId,
     workIntakeId: body.workIntakeId, code: body.failureCode ?? "SOURCE_PREPARATION_FAILED",
     message: `Source preparation is blocked (${body.failureCode ?? "SOURCE_PREPARATION_FAILED"}). The saved Work Intake can be retried.`,
-    inspectionRequired: body.failureCode === "INSPECTION_REQUIRED" };
+    inspectionRequired: ["INSPECTION_REQUIRED", "BRANCH_COLLISION", "UNKNOWN_SOURCE_OUTCOME"].includes(body.failureCode ?? "") };
   if (body.preparationState === "ready") throw Error("Ready source binding is incomplete.");
   return { state: body.preparationState, repositoryId: body.repositoryId, workIntakeId: body.workIntakeId };
 }
@@ -92,14 +92,14 @@ export async function getStructuredWorkIntakeProjection(root: string, projectId:
     const branches = await source.branches();
     const available = branches.ok ? branches.result.branches : [];
     const currentBranch = branches.ok ? branches.result.currentBranch : null;
-    const suggestedBase = available.find(item => item.name === "dev") ?? available.find(item => item.name === currentBranch) ?? null;
+    const suggestedBase = available.find(item => item.name === "dev") ?? null;
     return { authority: "structured", project: { projectId, repositoryId, name: project.body.name }, suggestedProjectName: project.body.name,
-      branches: available, currentBranch, suggestedBase, intakes: [], currentIntake: null, blockedReason: null,
+      branches: suggestedBase ? [suggestedBase] : [], currentBranch, suggestedBase, intakes: [], currentIntake: null, blockedReason: null,
       capturedIntakes: saved, currentCapturedIntake: saved[0] ?? null };
   } finally { store.close(); }
 }
 
-async function prepare(root: string, projectId: string, intakeId: string, selectedRevision?: string): Promise<CapturedWorkIntake> {
+async function prepare(root: string, projectId: string, intakeId: string): Promise<CapturedWorkIntake> {
   const store = createSQLiteProjectStateStore(path.join(fs.realpathSync(root), ".champcity", "project-state.sqlite"));
   try {
     const state = createProjectStateService(store, principal);
@@ -107,37 +107,42 @@ async function prepare(root: string, projectId: string, intakeId: string, select
     if (intake?.entityType !== "WorkIntake") throw Error("Saved Work Intake is unavailable.");
     let binding = await bindingFor(store, projectId, intakeId);
     if (binding.body.preparationState === "ready") return captured(intake, binding);
+    const priorBase = binding.body.baseRevisionId;
     if (binding.body.preparationState === "preparing") binding = asBinding(await state.updateSourceBinding(projectId, binding.id,
       { preparationState: "blocked", failureCode: "PREPARATION_INTERRUPTED" }, binding.recordVersion));
     binding = asBinding(await state.updateSourceBinding(projectId, binding.id,
       { preparationState: "preparing", failureCode: undefined }, binding.recordVersion));
     const source = createSourceControlService({ repositoryRoot: root, repositoryId: binding.body.repositoryId });
-    const selector = selectedRevision
-      ? { kind: "revision" as const, revisionId: selectedRevision }
-      : { kind: "source-line" as const, sourceLineId: binding.body.integrationTargetSourceLineId };
-    const resolved = await source.resolveSourceRevision(selector);
+    const resolved = await source.resolveSourceRevision({ kind: "source-line", sourceLineId: binding.body.integrationTargetSourceLineId });
     let failure = !resolved.ok ? resolved.error.code : "";
     let inspectionRequired = false;
     let base = resolved.ok ? resolved.result : null;
     let line: string | null = null;
     if (base) {
+      if (priorBase && priorBase !== base.revisionId) { failure = "STALE_SOURCE"; base = null; }
+    }
+    if (base) {
+      binding = asBinding(await state.updateSourceBinding(projectId, binding.id, { baseRevisionId: base.revisionId }, binding.recordVersion));
       const branchName = workIntakeBranchName(intakeId);
       const existing = await source.branches();
       if (!existing.ok) failure = existing.error.code;
       else if (existing.result.branches.some(branch => branch.name === branchName)) {
-        if (existing.result.branches.find(branch => branch.name === branchName)?.commit !== base.revisionId) { failure = "INSPECTION_REQUIRED"; inspectionRequired = true; }
-        else line = branchName;
+        failure = "BRANCH_COLLISION"; inspectionRequired = true;
       } else {
+        const stillCurrent = await source.resolveSourceRevision({ kind: "source-line", sourceLineId: binding.body.integrationTargetSourceLineId });
+        if (!stillCurrent.ok || stillCurrent.result.revisionId !== base.revisionId) failure = "STALE_SOURCE";
+        else {
         const created = await source.createWorkSource({ owner: { kind: "work-intake", workIntakeId: intakeId }, baseRevision: base });
         if (created.ok) line = created.result.sourceLine.sourceLineId;
         else { failure = created.error.code; inspectionRequired = created.error.mutationMayHaveOccurred; }
+        }
       }
     }
     binding = line && base ? asBinding(await state.updateSourceBinding(projectId, binding.id,
       { preparationState: "ready", baseRevisionId: base.revisionId, workSourceLineId: line,
         currentRevisionId: base.revisionId, failureCode: undefined }, binding.recordVersion))
       : asBinding(await state.updateSourceBinding(projectId, binding.id,
-        { preparationState: "blocked", failureCode: inspectionRequired ? "INSPECTION_REQUIRED" : diagnostic(failure) }, binding.recordVersion));
+        { preparationState: "blocked", failureCode: inspectionRequired && failure !== "BRANCH_COLLISION" ? "UNKNOWN_SOURCE_OUTCOME" : diagnostic(failure) }, binding.recordVersion));
     return captured(intake, binding);
   } finally { store.close(); }
 }
@@ -158,7 +163,7 @@ export async function captureStructuredWorkIntake(root: string, projectId: strin
     if (!project || project.body.name !== input.projectName) throw Error("Selected Project changed; refresh Work Intake.");
     const state = createProjectStateService(store, principal);
     const repositoryId = await repositoryIdentity(store, projectId);
-    const target = input.baseBranch.trim() || "dev";
+    const target = "dev";
     const created = await state.createWorkIntake(projectId, { request: input.workRequest.trim(), desiredOutcome: input.desiredOutcome.trim(),
       constraints: input.knownConstraints.trim() ? [input.knownConstraints.trim()] : [],
       evidenceContext: input.repositoryReviewContext.trim() ? [input.repositoryReviewContext.trim()] : [],
@@ -166,7 +171,7 @@ export async function captureStructuredWorkIntake(root: string, projectId: strin
     intakeId = created.intake.id;
     await state.createSourceBinding(projectId, intakeId, { repositoryId, integrationTargetSourceLineId: target });
   } finally { store.close(); }
-  return prepare(root, projectId, intakeId, input.baseCommit);
+  return prepare(root, projectId, intakeId);
 }
 
 export async function retryStructuredWorkIntakeSource(root: string, projectId: string, intakeId: string): Promise<CapturedWorkIntake> {

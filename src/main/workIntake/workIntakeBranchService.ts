@@ -30,13 +30,12 @@ export function createWorkIntakeBranchService(repository: { repositoryId: string
       throw new AgentHarnessError("INVALID_INPUT", "Work Intake binding requires exact commit identities.");
     }
     const state = unwrap(await sourceControl.branches(), []);
-    if (state.currentBranch !== binding.workBranch) {
-      throw new AgentHarnessError("STALE_SOURCE", "Work Intake branch or recorded head is not the current checkout.");
-    }
-    if (state.head !== binding.currentHead) {
+    const workLine = state.branches.find(branch => branch.name === binding.workBranch);
+    if (!workLine) throw new AgentHarnessError("STALE_SOURCE", "Work Intake source line is unavailable.");
+    if (workLine.commit !== binding.currentHead) {
       // Only exact source or lifecycle-evidence checkpoint receipts may advance the bound source head.
-      const lineage = unwrap(await sourceControl.historyWithMessages({ ref: state.head, maxCount: 100 }), []);
-      let current = state.head;
+      const lineage = unwrap(await sourceControl.historyWithMessages({ ref: workLine.commit, maxCount: 100 }), []);
+      let current = workLine.commit;
       for (const commit of lineage.commits) {
         if (current === binding.currentHead) break;
         if (commit.commit !== current || commit.parents.length !== 1) throw new AgentHarnessError("STALE_SOURCE", "Work Intake checkout differs from its recorded head and advanced outside its recorded checkpoint chain.");
@@ -49,12 +48,12 @@ export function createWorkIntakeBranchService(repository: { repositoryId: string
       if (current !== binding.currentHead) throw new AgentHarnessError("STALE_SOURCE", "Work Intake checkpoint lineage is incomplete or exceeds its bound.");
     }
     const history = unwrap(await sourceControl.history({
-      ancestor: binding.baseCommit, descendant: state.head, maxCount: 1,
+      ancestor: binding.baseCommit, descendant: workLine.commit, maxCount: 1,
     }), []);
     if (!history.ancestry?.isAncestor) {
       throw new AgentHarnessError("STALE_SOURCE", "Work Intake head does not descend from its recorded base.");
     }
-    return { ...binding, currentHead: state.head };
+    return { ...binding, currentHead: workLine.commit };
   }
 
   async function establish<T>(

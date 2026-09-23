@@ -1885,6 +1885,24 @@
       ]
     },
     {
+      "capabilityId": "existing-project-dev-work-source",
+      "description": "Existing-project work sources start at the exact local dev ref without switching or cleaning the selected checkout.",
+      "sourcePatterns": [
+        "src/main/planExecution/workItemCheckpointService.ts",
+        "src/main/workIntake/structuredWorkIntakeService.ts",
+        "src/main/workIntake/workIntakeBranchService.ts"
+      ],
+      "dependsOn": [
+        "work-intake-capture-source-preparation"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "dirty-dev-creates-exact-independent-work-source",
+          "description": "two Work Intake source lines use exact successive dev revisions without changing dirty primary checkout"
+        }
+      ]
+    },
+    {
       "capabilityId": "external-provider-integration",
       "description": "External MCP and GitHub provider configuration, transport, and bounded response contracts.",
       "sourcePatterns": [
@@ -19615,13 +19633,13 @@
     {
       "testPath": "test/work-intake/structured-work-intake-capture.test.cjs",
       "currentTestCount": {
-        "value": 3,
-        "basis": "SCL02 dirty checkout, blocked/retry/reload and renderer contract scenarios."
+        "value": 5,
+        "basis": "SCL02 capture and retry plus SCL03 exact dev and collision scenarios."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 4573,
-        "basis": "Observed normal Windows focused SCL02 test receipt."
+        "milliseconds": 12000,
+        "basis": "Normal Windows focused SCL03 receipt, rounded per-file duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -19657,6 +19675,12 @@
         "current-proof-appropriate"
       ],
       "behaviorCoverage": [
+        {
+          "capabilityId": "existing-project-dev-work-source",
+          "behaviorId": "dirty-dev-creates-exact-independent-work-source",
+          "proofLocator": "two Work Intake source lines use exact successive dev revisions without changing dirty primary checkout",
+          "proofRole": "primary"
+        },
         {
           "capabilityId": "work-intake-capture-source-preparation",
           "behaviorId": "dirty-checkout-captures-intake-and-retries-source",

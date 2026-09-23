@@ -93,10 +93,13 @@ test("Work Intake branch binding selects an exact base and fails closed before p
   assert.equal(git(root, ["rev-parse", "dev"]), originalCommit);
   assert.equal(persistenceCalls, 1);
   await assert.rejects(service.verify({ ...established.binding, repositoryId: "other" }), /binding does not match/);
+  execFileSync("git", ["switch", "dev"], { cwd: root, stdio: "ignore" });
+  assert.equal((await service.verify(established.binding)).currentHead, baseCommit, "ownership is independent of the selected checkout");
+  execFileSync("git", ["switch", established.binding.workBranch], { cwd: root, stdio: "ignore" });
   commitAllFixtureState(root, "fixture persistence checkpoint");
   await assert.rejects(service.verify(established.binding), /recorded head/);
   execFileSync("git", ["switch", "dev"], { cwd: root, stdio: "ignore" });
-  await assert.rejects(service.verify(established.binding), /current checkout/);
+  await assert.rejects(service.verify(established.binding), /recorded head/);
   const collision = await service.establish(input, persist);
   assert.equal(collision.ok, false);
   assert.match(collision.error.message, /already exists/);
