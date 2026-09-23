@@ -1,6 +1,7 @@
 import type { WorkIntakeBranchBinding, WorkIntakeBranchResult } from "./workIntakeBranchContracts";
 import type { SourceRevision } from "./documents/planningDocument";
 import type { SourceReadiness } from "./sourceLifecycleContracts";
+import type { SourceCheckpoint } from "./sourceLifecycleContracts";
 
 export interface WorkProjectIdentity {
   projectId: string;
@@ -44,6 +45,7 @@ export interface CapturedWorkIntake {
   knownConstraints: string;
   repositoryReviewContext: string;
   source: SourceReadiness;
+  sourceCheckpoints?: SourceCheckpoint[];
 }
 
 export interface WorkIntakeProjection {

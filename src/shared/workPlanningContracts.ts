@@ -73,6 +73,7 @@ export interface WorkPlanningModel {
   preparedInstruction?: string;
   canPrepare: boolean;
   researchClosed?: boolean;
+  checkpoint?: import("./lifecycleEvidenceCheckpointContracts").LifecycleEvidenceCheckpointResult;
   error?: string;
 }
 export interface WorkPlanningReviewInput {

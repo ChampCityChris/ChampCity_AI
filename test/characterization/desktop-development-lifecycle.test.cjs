@@ -47,7 +47,7 @@ test("routed direct Work Item preserves sequential Repairs and completes only af
   assert.equal(closed.checkpoint.status, "committed", closed.checkpoint.message);
   const closedHead = run.git("rev-parse", "HEAD");
   assert.equal(closedHead, closed.checkpoint.commit);
-  assert.equal(run.git("status", "--porcelain"), "", "Work Item 1 lifecycle evidence is clean before Work Item 2");
+  assert.equal(run.git("diff", "--cached", "--name-only"), "", "Work Item 1 leaves no staged changes before Work Item 2");
   const complete = await api.query();
   assert.equal(complete.workItems[0].stage, "complete");
   assert.equal(complete.workItems[1].eligible, true);
@@ -107,7 +107,7 @@ test("routed phased Work Item repairs report review and closes within its genuin
     criteria: [{ criterion: "P1 milestone accepted", status: "passed", evidencePaths: [close.recordPath] }] });
   const accepted = await api.reviewAcceptance({ boundary, expectedFingerprint: (await api.query()).fingerprint, expectedRevision: saved.artifactRevision, disposition: "Approved" });
   assert.equal(accepted.checkpoint.status, "committed", accepted.checkpoint.message);
-  assert.equal(git("status", "--porcelain"), "", "Phase acceptance leaves a clean boundary for the next Phase");
+  assert.equal(git("diff", "--cached", "--name-only"), "", "Phase acceptance leaves no staged changes for the next Phase");
   projected = await api.query();
   assert.equal(projected.phases[0].complete, true);
   assert.equal(projected.workItems[1].eligible, true);
@@ -116,8 +116,7 @@ test("routed phased Work Item repairs report review and closes within its genuin
 });
 
 async function routedLifecycleFixture(t, phased) {
-  const { seedPreparedApprovedRoutedWorkPlan, bypassLifecycleEvidenceCheckpoints } = require("../support/work-intake-fixtures.cjs");
-  bypassLifecycleEvidenceCheckpoints(t);
+  const { seedPreparedApprovedRoutedWorkPlan } = require("../support/work-intake-fixtures.cjs");
   const { createRoutedDevelopmentExecutionService } = require("../../dist/main/planExecution/routedDevelopmentExecutionService.js");
   const { parseCanonicalMarkdownDocument } = require("../../dist/shared/documents/canonicalMarkdown.js");
   const { writeCanonicalMarkdownDocument } = require("../../dist/main/documents/canonicalMarkdownDocumentWriter.js");

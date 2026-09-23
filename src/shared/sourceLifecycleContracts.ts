@@ -76,6 +76,7 @@ export type CheckpointState = "not-required" | "pending" | "committed" | "blocke
 export interface SourceCheckpoint {
   boundaryId: string;
   state: CheckpointState;
+  kind?: "implementation" | "disposition";
   revision?: SourceRevision;
   emptyLifecycleCheckpoint?: boolean;
 }

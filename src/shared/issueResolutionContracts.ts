@@ -3,6 +3,7 @@ import type { PlanExecutionProjection } from "./planExecutionContracts";
 
 export type WorkIssueAction = "open" | "status" | "prepare" | "copy" | "review" | "activate-execution" | "accept-phase";
 export interface WorkIssueModel {
+  checkpoint?: import("./lifecycleEvidenceCheckpointContracts").LifecycleEvidenceCheckpointResult;
   execution?: PlanExecutionProjection;
   intakeId: string;
   issueId: string | null;

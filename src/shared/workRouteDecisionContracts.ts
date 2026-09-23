@@ -1,5 +1,6 @@
 import type { SourceRevision } from "./documents/planningDocument";
 import type { ArchitectRouteAssessment, OperatorRouteDecision, OperatorRouteSelection, WorkRouteId, WorkRouteRerouteRecommendation, WorkRouteSupersession } from "./workIntakeRoutingContracts";
+import type { LifecycleEvidenceCheckpointResult } from "./lifecycleEvidenceCheckpointContracts";
 
 export interface WorkRouteDecisionInput {
   expectedDecisionRevision: number;
@@ -30,5 +31,6 @@ export interface WorkRouteDecisionModel {
   supersessions: WorkRouteSupersession[];
   recommendation: (ArchitectRouteAssessment | WorkRouteRerouteRecommendation) | null;
   sourceAssessment: SourceRevision | null;
+  checkpoint?: LifecycleEvidenceCheckpointResult;
   error?: string;
 }

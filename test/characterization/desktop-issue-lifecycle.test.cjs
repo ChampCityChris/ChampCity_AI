@@ -182,7 +182,7 @@ test("routed phased correction uses generic barriers and exact Phase evidence be
   assert.equal(fs.readFileSync(path.join(root, model.architect.finalInvestigationPath), "utf8"), investigation, "Generic correction never re-enters or rewrites RCA");
   fs.appendFileSync(path.join(root, plan.artifact.relativePath), "\nChanged Plan bytes.\n");
   assert.throws(() => service.getIssueFixCardProjection(root, issueId), /execution binding is stale/);
-  assert.equal(git("rev-parse", "HEAD"), initialHead, "Correction execution does not checkpoint Git in WIR18");
+  assert.notEqual(git("rev-parse", "HEAD"), initialHead, "routed RCA review checkpoints the Intake source line");
 });
 
 test("Desktop Issue validation and close reject stale reviewed evidence without creating close state", () => {

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { WorkIssueAction, WorkIssueActionInput, WorkIssueModel } from "../../shared/issueResolutionContracts";
 import { parseCanonicalMarkdownDocument, type ParsedCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
 import { writeCanonicalMarkdownDocument } from "../documents/canonicalMarkdownDocumentWriter";
@@ -9,6 +9,8 @@ import { sourceDigests, workPlanningArtifactPath } from "./workPlanningKernel";
 import { issueEvidenceBytes, issueEvidenceDigest, workIssueContext, workIssueHandoffPath } from "./workIssueContext";
 import { activateRoutedIssueExecutionPlan, issueExecutionPlanPath } from "../planExecution/issueExecutionPlan";
 import { approveIssueCorrectionPhase, getIssueCorrectionExecution } from "../issueResolution/issueResolutionService";
+import { checkpointOperatorDisposition } from "../planExecution/operatorDispositionCheckpoint";
+import { createSourceControlService } from "../sourceControl/sourceControlService";
 
 type IssueAssessmentProposal = {
   bodyMarkdown: string;
@@ -96,7 +98,8 @@ export async function runWorkIssueAction(root: string, intakeId: string, action:
     ready = disposition === "Approved" && architect.architectRecommendation === "Proceed in Issue Resolution";
     const sourceRevisions = [...sources, context.source];
     const digests = { ...sourceDigests(root, sourceRevisions), ...context.evidenceDigests };
-    const workflowData = { sourceDigests: digests, issueId: context.issueId, issueReviewedInvestigationDigest: reviewedDigest ?? null, issueReviewedEvidence: reviewedEvidence ?? null, architectRecommendation: architect.architectRecommendation };
+    const workflowData = { sourceDigests: digests, issueId: context.issueId, issueReviewedInvestigationDigest: reviewedDigest ?? null, issueReviewedEvidence: reviewedEvidence ?? null, architectRecommendation: architect.architectRecommendation,
+      sourceCheckpointRequired: action === "review" || prior?.metadata.workflowData.sourceCheckpointRequired === true };
     const bodyMarkdown = `# Route Architect Assessment\n\n## Evidence\nOriginal Work Intake: ${intake.relativePath}\nIssue record: ${context.paths[0]}\nRCA: ${context.paths[1]}\nReview: ${context.paths[2]}\n\n## Decisions\n${architect.architectRecommendation}\n\n## Risks and Unresolved Questions\nPreserve the investigation's bounded correction, preservation rules, risks, and unresolved questions.\n\n${architect.finalInvestigationMarkdown}\n`;
     const documentDisposition = { status: ready ? "Approved" as const : disposition === "Approved" ? "Pending" as const : disposition, notes: architect.operatorReviewNotes ?? "", reviewedAt: action === "review" ? new Date().toISOString() : prior?.metadata.documentDisposition.reviewedAt ?? null };
     const identity = { intakeId, projectId: intake.projectId, routeDecisionId: decisionId, routeId: "issue-resolution", assessmentId: prior?.metadata.identity.assessmentId ?? `assessment-${randomUUID()}`, issueId: context.issueId };
@@ -116,7 +119,23 @@ export async function runWorkIssueAction(root: string, intakeId: string, action:
       }
     }
   }
-  return { model: { intakeId, issueId: context.issueId, handoffPath: context.relativePath, architect, correctionPlanningReady: ready && route.state === "selected", rerouteRecommended: route.recommendation?.kind === "architect-reroute-recommendation",
+  const evidencePaths = [context.relativePath, targetPath, ...context.paths,
+    ...(route.recommendation?.kind === "architect-reroute-recommendation" && route.sourceAssessment ? [route.sourceAssessment.path] : [])];
+  const source = createSourceControlService({ repositoryId: intake.branchBinding.repositoryId, repositoryRoot: root });
+  let checkpoint;
+  if (action === "review") {
+    const dispositionId = `issue-${createHash("sha256").update(JSON.stringify({ intakeId, issueId: context.issueId,
+      evidenceDigest: input.expectedEvidenceDigest, review: input.review })).digest("hex")}`;
+    checkpoint = await checkpointOperatorDisposition(root, intakeId, dispositionId, evidencePaths, context.issueId);
+  }
+  const checkpointCurrent = !(action === "review" || prior?.metadata.workflowData.sourceCheckpointRequired === true) || !ready ||
+    (await Promise.all(evidencePaths.map(async relativePath => {
+    const atHead = await source.isPathAtHead(relativePath);
+    return atHead.ok && atHead.result;
+  }))).every(Boolean);
+  return { model: { intakeId, issueId: context.issueId, handoffPath: context.relativePath, architect, checkpoint,
+    correctionPlanningReady: ready && route.state === "selected" && checkpointCurrent,
+    rerouteRecommended: route.recommendation?.kind === "architect-reroute-recommendation",
     execution: issueEvidenceBytes(root, issueExecutionPlanPath(context.issueId)) ? getIssueCorrectionExecution(root, context.issueId) : undefined,
     reviewEvidenceDigest: architect.finalInvestigationState === "readable" ? issueEvidenceDigest(JSON.stringify(context.evidenceDigests)) : null }, instruction };
 }

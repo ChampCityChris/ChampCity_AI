@@ -6,11 +6,13 @@ const test = require("node:test");
 
 test("Feature planning requires baseline delta and preservation while keeping candidates within the current capability boundary", async (t) => {
   const { seedPreparedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
-  const { root, intake } = seedPreparedRoutedWorkIntake(t, "feature-change", { workRequest: "Add CSV export to existing schedules", desiredOutcome: "Export current schedules without changing scheduling behavior" });
+  const { root, intake } = seedPreparedRoutedWorkIntake(t, "feature-change", { workRequest: "Add CSV export to existing schedules", desiredOutcome: "Export current schedules without changing scheduling behavior" }, {
+    setupRepository(root) { fs.mkdirSync(path.join(root, "planning"), { recursive: true });
+      fs.writeFileSync(path.join(root, "planning", "existing-roadmap.md"), "# Existing roadmap\nExport later; unrelated sharing remains future work.\n"); },
+  });
   const { workPlanningKernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
   const { getWorkRouteDecision, decideWorkRoute, recommendWorkRouteReroute } = require("../../dist/main/workIntake/workRouteDecisionService.js");
   const baselinePath = path.join(root, "planning", "existing-roadmap.md");
-  fs.writeFileSync(baselinePath, "# Existing roadmap\nExport later; unrelated sharing remains future work.\n");
   const baselineBytes = fs.readFileSync(baselinePath, "utf8");
   let prepared = await workPlanningKernel.prepare(root, intake.intakeId, "assessment");
   for (const rule of [/current baseline/, /requested capability delta/, /affected services/i, /state\/UI\/contracts/, /integration points/, /compatibility, rollout, recovery/, /regression boundary/, /demonstrated hard dependencies/, /Do not regenerate the whole product roadmap/, /Every Work Item and Phase candidate must trace/]) assert.match(prepared.preparedInstruction, rule);

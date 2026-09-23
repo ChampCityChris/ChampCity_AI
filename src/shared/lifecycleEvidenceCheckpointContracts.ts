@@ -4,7 +4,8 @@ export type LifecycleEvidenceBoundary =
   | { kind: "work-item"; routeDecisionId: string; planId: string; planRevision: number; workItemId: string; implementationId: string; phaseId?: string }
   | { kind: "phase"; routeDecisionId: string; planId: string; planRevision: number; phaseId: string }
   | { kind: "plan"; routeDecisionId: string; planId: string; planRevision: number }
-  | { kind: "research"; routeDecisionId: string; assessmentId: string; assessmentRevision: number };
+  | { kind: "research"; routeDecisionId: string; assessmentId: string; assessmentRevision: number }
+  | { kind: "operator-disposition"; decisionId: string; issueId?: string };
 
 export interface LifecycleEvidenceCheckpointArtifact {
   path: string;
@@ -20,6 +21,7 @@ export interface LifecycleEvidenceCheckpointEvidence {
   beforeHead: string;
   boundary: LifecycleEvidenceBoundary;
   files: LifecycleEvidenceCheckpointArtifact[];
+  emptyLifecycleCheckpoint?: boolean;
 }
 
 export interface LifecycleEvidenceCheckpointResult {

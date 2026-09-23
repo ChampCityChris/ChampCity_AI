@@ -9,6 +9,7 @@ import { writeCanonicalMarkdownDocuments, type WriteCanonicalMarkdownDocumentInp
 import { assertLegacyCanonicalReadAllowed } from "../documents/legacyCanonicalWriteFence";
 import { listPlanningDocuments } from "../documents/planningDocumentService";
 import { createWorkIntakeBranchService } from "./workIntakeBranchService";
+import { createSourceControlService } from "../sourceControl/sourceControlService";
 import { readWorkIntake } from "./workIntakeService";
 import { readRoutingAssessment } from "./workRoutingAssessmentService";
 import { issueEvidenceBytes, issueEvidenceDigest } from "../workPlanning/workIssueContext";
@@ -78,6 +79,14 @@ export async function getWorkRouteDecision(root: string, intakeId: string): Prom
   if (!selection && latest?.decision.disposition === "request-revision" && latest.decision.sourceAssessment.path === sourceAssessment?.path &&
     latest.decision.sourceAssessment.revision === sourceAssessment.revision) state = "revision-requested";
   if (latest && latest.sourceIntake.revision !== intake.artifactRevision) { state = "stale"; error = "Work Intake changed; a current route decision is required."; }
+  if (latest && document?.metadata.workflowData.sourceCheckpointRequired === true) {
+    const source = createSourceControlService({ repositoryId: intake.branchBinding.repositoryId, repositoryRoot: root });
+    const atHead = await source.isPathAtHead(relativePath);
+    if (!atHead.ok || !atHead.result) {
+      state = "stale";
+      error = "Route decision source checkpoint is pending; retry the same decision after source inspection.";
+    }
+  }
   return { intakeId, relativePath, artifactRevision: document?.metadata.artifactRevision ?? 0, state, selection: selection ?? null, history, supersessions, recommendation, sourceAssessment, error };
 }
 
@@ -86,6 +95,40 @@ function validateDecision(input: WorkRouteDecisionInput) {
     !Number.isInteger(input.expectedDecisionRevision) || input.expectedDecisionRevision < 0 ||
     !["accept", "override", "request-revision"].includes(input.disposition) || typeof input.rationale !== "string" || !input.rationale.trim() || input.rationale.length > 4000 ||
     (input.disposition === "override" ? !isWorkRouteId(input.selectedRouteId) : input.selectedRouteId !== undefined)) throw Error("Invalid Operator route decision. Supply a rationale and a supported override only when overriding.");
+}
+
+async function checkpointRouteDecision(root: string, intakeId: string, model: WorkRouteDecisionModel): Promise<WorkRouteDecisionModel> {
+  const latest = model.history.at(-1)?.decision;
+  if (!latest) throw Error("Route decision checkpoint requires a saved Operator decision.");
+  const intake = readWorkIntake(root, intakeId);
+  const supersession = model.supersessions.find(entry => entry.replacementDecisionId === latest.decisionId);
+  let issueId: string | undefined;
+  let issuePaths: string[] = [];
+  const { workIssueHandoffPath, issueEvidenceBytes } = await import("../workPlanning/workIssueContext");
+  for (const entry of [...model.history].reverse()) {
+    const issueDecision = entry.decision;
+    if (issueDecision.disposition === "request-revision" || issueDecision.selectedRouteId !== "issue-resolution") continue;
+    const handoffPath = workIssueHandoffPath(intakeId, issueDecision.decisionId);
+    const handoff = issueEvidenceBytes(root, handoffPath);
+    if (handoff) {
+      const parsed = parseCanonicalMarkdownDocument(handoff);
+      if (parsed.metadata.identity.intakeId !== intakeId || parsed.metadata.identity.routeDecisionId !== issueDecision.decisionId ||
+        typeof parsed.metadata.identity.issueId !== "string" || !/^ISSUE_\d+$/.test(parsed.metadata.identity.issueId))
+        throw Error("Routed Issue handoff conflicts with the route decision source.");
+      issueId = parsed.metadata.identity.issueId;
+      issuePaths = [handoffPath, ...["ISSUE_RECORD.md", "ARCHITECT_INVESTIGATION.md", "ARCHITECT_REVIEW.md"]
+        .map(name => `issues/${issueId}/${name}`).filter(item => issueEvidenceBytes(root, item) !== null)];
+      break;
+    }
+  }
+  const paths = [...new Set(["planning/work-intake/PROJECT.md", intake.relativePath,
+    ...model.history.map(entry => entry.decision.sourceAssessment.path), model.relativePath,
+    ...downstream(root, intakeId, model.relativePath).map(item => item.path),
+    ...(supersession?.supersededArtifacts.map(item => item.path) ?? []), ...issuePaths])].sort();
+  const { checkpointLifecycleEvidence } = await import("../planExecution/lifecycleEvidenceCheckpointService");
+  const checkpoint = await checkpointLifecycleEvidence(root, { binding: intake.branchBinding,
+    boundary: { kind: "operator-disposition", decisionId: latest.decisionId, ...(issueId ? { issueId } : {}) }, artifacts: { paths } });
+  return { ...await getWorkRouteDecision(root, intakeId), checkpoint };
 }
 
 /** Downstream lineage is explicit; no route is inferred from filenames or legacy workflow IDs. */
@@ -107,6 +150,13 @@ export async function decideWorkRoute(root: string, intakeId: string, input: Wor
   validateDecision(input);
   const model = await getWorkRouteDecision(root, intakeId);
   const intake = readWorkIntake(root, intakeId);
+  const latest = model.history.at(-1)?.decision;
+  if (model.artifactRevision === input.expectedDecisionRevision + 1 && latest &&
+    latest.disposition === input.disposition && latest.rationale === input.rationale.trim() &&
+    latest.sourceAssessment.path === input.sourceAssessment?.path && latest.sourceAssessment.revision === input.sourceAssessment.revision &&
+    (input.disposition !== "override" || latest.disposition === "override" && latest.selectedRouteId === input.selectedRouteId)) {
+    return checkpointRouteDecision(root, intakeId, model);
+  }
   if (model.artifactRevision !== input.expectedDecisionRevision) throw Error("Route decision changed; refresh before deciding.");
   if (!model.recommendation || !model.sourceAssessment || model.sourceAssessment.path !== input.sourceAssessment?.path || model.sourceAssessment.revision !== input.sourceAssessment.revision) throw Error("Presented routing assessment is stale or missing.");
   if (model.state === "revision-requested") throw Error("A revised assessment is required before deciding.");
@@ -141,10 +191,10 @@ export async function decideWorkRoute(root: string, intakeId: string, input: Wor
   if (input.disposition === "request-revision") writes.push({ workspaceRoot: root, relativePath: model.sourceAssessment.path, bodyMarkdown: source.bodyMarkdown,
     metadata: { ...source.metadata, documentDisposition: { status: "RevisionRequested", notes: decision.rationale, reviewedAt: new Date().toISOString() } } });
   writes.push({ workspaceRoot: root, relativePath: model.relativePath,
-    metadata: metadata("operator-route-decision", intakeId, model.artifactRevision + 1, [sourceIntake, model.sourceAssessment], { history, supersessions }),
+    metadata: metadata("operator-route-decision", intakeId, model.artifactRevision + 1, [sourceIntake, model.sourceAssessment], { history, supersessions, sourceCheckpointRequired: true }),
     bodyMarkdown: `# Operator Route Decision\n\n${history.map((entry) => `## ${entry.decision.decisionId}\n\nDisposition: ${entry.decision.disposition}\nRoute: ${entry.decision.disposition === "request-revision" ? "Revision requested" : entry.decision.selectedRouteId}\n\n${entry.decision.rationale}\n`).join("\n")}` });
   writeCanonicalMarkdownDocuments(writes);
-  return getWorkRouteDecision(root, intakeId);
+  return checkpointRouteDecision(root, intakeId, await getWorkRouteDecision(root, intakeId));
 }
 
 export async function recommendWorkRouteReroute(root: string, intakeId: string, input: WorkRouteRerouteInput): Promise<WorkRouteDecisionModel> {

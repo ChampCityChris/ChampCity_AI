@@ -45,6 +45,7 @@ test("routed defect preserves Intake and branch through RCA, phased correction, 
     selectedRouteId: "issue-resolution",
     rationale: "Retain Issue Resolution because the defect remains bounded.",
   });
+  assert.equal(resolvedRetainedRoute.checkpoint?.status, "committed", `${resolvedRetainedRoute.checkpoint?.message}: ${git("ls-files", "--others", "--exclude-standard")}`);
   const retainedIssue = await api.runWorkIssueAction(intake.intakeId, "status");
   assert.equal(resolvedRetainedRoute.selection.decisionId, retainedSelection.decisionId);
   assert.equal(resolvedRetainedRoute.selection.selectedRouteId, retainedSelection.selectedRouteId);
@@ -65,6 +66,7 @@ test("routed defect preserves Intake and branch through RCA, phased correction, 
   assert.equal(model.correctionPlanningReady, false);
   await assert.rejects(kernel.prepare(root, intake.intakeId, "plan"), /approved route-specific assessment/);
   model = await api.runWorkIssueAction(intake.intakeId, "review", { expectedEvidenceDigest: model.reviewEvidenceDigest, review: { disposition: "Approved", operatorNotes: "Root cause requires restore and reconnect proof milestones" } });
+  assert.equal(model.checkpoint?.status, "committed", model.checkpoint?.message);
   assert.equal(model.correctionPlanningReady, true);
   let plan = await kernel.prepare(root, intake.intakeId, "plan");
   assert.match(plan.preparedInstruction, /phased correction/);
@@ -137,7 +139,7 @@ test("routed defect preserves Intake and branch through RCA, phased correction, 
   assert.equal(parseCanonicalMarkdownDocument(fs.readFileSync(path.join(root, model.handoffPath), "utf8")).metadata.participationRole, "historical");
   await assert.rejects(api.runWorkIssueAction(intake.intakeId, "status"), /Operator-selected Issue route/);
   assert.equal(fs.readFileSync(recordPath, "utf8"), recordBytes);
-  assert.equal(git("rev-parse", "HEAD"), initialHead);
+  assert.notEqual(git("rev-parse", "HEAD"), initialHead, "RCA and reroute dispositions advanced the same Intake source line");
 });
 
 const {

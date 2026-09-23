@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { ArchitectOutputDefinition } from "../../shared/architectOutputs/architectOutputContracts";
 import { metadataWithDisposition, parseCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
 import type { WorkItemDecompositionModel, WorkItemDecompositionReview } from "../../shared/workItemDecompositionContracts";
@@ -10,6 +10,7 @@ import { writeCanonicalMarkdownDocument, writeCanonicalMarkdownDocuments } from 
 import { buildMcpWorkspaceBindingPromptBlock, buildWriteMarkdownArtifactJsonBlock } from "../integrations/mcpWorkspacePromptContract";
 import { issueEvidenceBytes, issueEvidenceDigest } from "../workPlanning/workIssueContext";
 import { workPlanningKernel } from "../workPlanning/workPlanningKernel";
+import { checkpointOperatorDisposition } from "../planExecution/operatorDispositionCheckpoint";
 import { applyWorkItemDecomposition, decompositionFromBody, decompositionGuidance } from "./workItemDecomposition";
 
 const outputKind = "work-item-decomposition";
@@ -113,6 +114,7 @@ export const workItemDecompositionService = {
     if (!input || Object.keys(input).some((key) => !["disposition", "expectedProposalRevision", "expectedPlanRevision", "notes"].includes(key)) || !["accept", "request-revision"].includes(input.disposition) || typeof input.notes !== "string" || input.notes.length > 4000 || input.disposition === "request-revision" && !input.notes.trim()) throw Error("Decomposition requires explicit acceptance or revision instructions.");
     const context = await contextFor(root, intakeId, workItemId); const model = project(context); const prior = read(root, context.target);
     if (!prior || model.state !== "pending" || model.revision !== input.expectedProposalRevision || model.planRevision !== input.expectedPlanRevision) throw Error("Presented decomposition or Plan is stale or not pending.");
+    const paths = [context.target];
     if (input.disposition === "request-revision") {
       writeCanonicalMarkdownDocument({ workspaceRoot: root, relativePath: context.target, bodyMarkdown: prior.bodyMarkdown, metadata: metadataWithDisposition(prior.metadata, "RevisionRequested", input.notes, new Date().toISOString()) });
     } else {
@@ -123,6 +125,7 @@ export const workItemDecompositionService = {
       if (history.length > 100) throw Error("Plan decomposition history exceeds its supported bound.");
       const archivePath = context.target.replace(/\.md$/, `/PLAN_REVISION_${context.plan.artifactRevision}.md`);
       if (issueEvidenceBytes(root, archivePath)) throw Error("Prior Plan history target already exists.");
+      paths.push(archivePath, context.plan.relativePath);
       writeCanonicalMarkdownDocuments([
         { workspaceRoot: root, relativePath: archivePath, bodyMarkdown: plan.bodyMarkdown, metadata: { ...plan.metadata, participationRole: "historical" } },
         { workspaceRoot: root, relativePath: context.target, bodyMarkdown: prior.bodyMarkdown, metadata: { ...metadataWithDisposition(prior.metadata, "Approved", input.notes, new Date().toISOString()), workflowData: { ...prior.metadata.workflowData, resumeWorkItemId: result.resumeWorkItemId, acceptedPlanRevision: context.plan.artifactRevision + 1 } } },
@@ -130,6 +133,10 @@ export const workItemDecompositionService = {
           metadata: { ...plan.metadata, artifactRevision: plan.metadata.artifactRevision + 1, workflowData: { ...plan.metadata.workflowData, structure: result.structure, decompositions: history, resumeWorkItemId: result.resumeWorkItemId }, documentDisposition: { status: "Approved", notes: input.notes, reviewedAt: new Date().toISOString() } } },
       ]);
     }
-    return this.get(root, intakeId, workItemId);
+    const decisionId = `decomposition-${createHash("sha256").update(JSON.stringify({ intakeId, workItemId,
+      proposalRevision: model.revision, planRevision: model.planRevision, disposition: input.disposition })).digest("hex")}`;
+    const checkpoint = await checkpointOperatorDisposition(root, intakeId, decisionId, paths);
+    if (checkpoint.status !== "committed") throw Error(`Decomposition disposition was saved but its source checkpoint is pending: ${checkpoint.message}`);
+    return { ...await this.get(root, intakeId, workItemId), checkpoint };
   },
 };

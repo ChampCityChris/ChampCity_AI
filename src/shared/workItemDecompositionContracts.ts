@@ -1,5 +1,6 @@
 import type { ArchitectDraftSubmission } from "./architectOutputs/architectOutputContracts";
 import type { PlanPhaseCandidate, PlanWorkItemCandidate, WorkPlanStructure } from "./workPlanningContracts";
+import type { LifecycleEvidenceCheckpointResult } from "./lifecycleEvidenceCheckpointContracts";
 
 export interface WorkItemDecompositionProposal {
   kind: "siblings" | "direct-to-phased";
@@ -26,6 +27,7 @@ export interface WorkItemDecompositionModel {
   submission?: ArchitectDraftSubmission;
   preparedInstruction?: string;
   error?: string;
+  checkpoint?: LifecycleEvidenceCheckpointResult;
 }
 export interface WorkItemDecompositionReview {
   disposition: "accept" | "request-revision";

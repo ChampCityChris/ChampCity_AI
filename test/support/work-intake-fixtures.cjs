@@ -43,7 +43,8 @@ async function seedApprovedRoutedWorkPlan(t, structure, routeId = "feature-chang
     const target = path.join(root, model.submission.expectedDraftSlots[0].draftRelativePath);
     fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, body);
     model = await kernel.get(root, intake.intakeId, stage);
-    await kernel.review(root, intake.intakeId, stage, { expectedRevision: model.artifact.artifactRevision, disposition: "Approved", notes: "Bounded export approved" });
+    const reviewed = await kernel.review(root, intake.intakeId, stage, { expectedRevision: model.artifact.artifactRevision, disposition: "Approved", notes: "Bounded export approved" });
+    if (reviewed.checkpoint.status !== "committed") throw Error(`Prepared ${stage} checkpoint: ${reviewed.checkpoint.message}`);
   }
   const { activateRoutedDevelopmentExecutionBinding } = require("../../dist/main/planExecution/routedDevelopmentExecutionBinding.js");
   return { ...fixture, binding: await activateRoutedDevelopmentExecutionBinding(root, intake.intakeId) };
@@ -138,20 +139,8 @@ function seedPreparedRoutedWorkIntake(t, selectedRouteId = "refactor-migration",
 
 function bypassWorkIntakeBranchVerification(t) {
   const branchService = require("../../dist/main/workIntake/workIntakeBranchService.js");
-  return t.mock.method(branchService, "createWorkIntakeBranchService", () => ({
-    verify: async (binding) => binding,
-  }));
-}
-
-function bypassLifecycleEvidenceCheckpoints(t) {
-  const checkpoints = require("../../dist/main/planExecution/lifecycleEvidenceCheckpointService.js");
-  return t.mock.method(checkpoints, "checkpointLifecycleEvidence", async (_root, input) => ({
-    status: "committed",
-    message: "Prepared lifecycle fixture checkpoint.",
-    checkpointId: `fixture-${input.boundary.kind}`,
-    commit: input.binding.currentHead,
-    remote: "not-requested",
-    receipts: [],
+  return t.mock.method(branchService, "createWorkIntakeBranchService", ({ repositoryRoot }) => ({
+    verify: async (binding) => ({ ...binding, currentHead: execFileSync("git", ["rev-parse", "HEAD"], { cwd: repositoryRoot, encoding: "utf8" }).trim() }),
   }));
 }
 
@@ -170,7 +159,8 @@ async function seedPreparedApprovedRoutedWorkPlan(t, structure, routeId = "featu
     const target = path.join(root, model.submission.expectedDraftSlots[0].draftRelativePath);
     fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, body);
     model = await kernel.get(root, intake.intakeId, stage);
-    await kernel.review(root, intake.intakeId, stage, { expectedRevision: model.artifact.artifactRevision, disposition: "Approved", notes: "Bounded export approved" });
+    const reviewed = await kernel.review(root, intake.intakeId, stage, { expectedRevision: model.artifact.artifactRevision, disposition: "Approved", notes: "Bounded export approved" });
+    if (reviewed.checkpoint.status !== "committed") throw Error(`Prepared ${stage} checkpoint: ${reviewed.checkpoint.message}`);
   }
   const { activateRoutedDevelopmentExecutionBinding } = require("../../dist/main/planExecution/routedDevelopmentExecutionBinding.js");
   return { ...fixture, binding: await activateRoutedDevelopmentExecutionBinding(root, intake.intakeId), branchVerificationMock };
@@ -182,5 +172,4 @@ module.exports = {
   seedPreparedRoutedWorkIntake,
   seedPreparedApprovedRoutedWorkPlan,
   bypassWorkIntakeBranchVerification,
-  bypassLifecycleEvidenceCheckpoints,
 };

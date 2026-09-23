@@ -195,8 +195,8 @@ test("research lifecycle checkpoint commits approved no-plan evidence without ma
   const receipt = readLifecycleCheckpointReceipt(runGit("show", "--no-patch", "--format=%B", result.checkpoint.commit), result.checkpoint.checkpointId);
   assert.equal(receipt.boundary.kind, "research");
   assert.deepEqual(receipt.boundary, completion.boundary);
-  const expected = ["planning/work-intake/PROJECT.md", intake.relativePath, route.relativePath, route.selection.sourceAssessment.path, assessmentPath].sort();
-  assert.deepEqual(receipt.files.map((entry) => entry.path), expected);
+  assert.deepEqual(receipt.files.map((entry) => entry.path), []);
+  assert.equal(receipt.emptyLifecycleCheckpoint, true, "Planning review already committed the approved source evidence");
   assert.deepEqual(receipt.files.map((entry) => entry.path), [...receipt.files.map((entry) => entry.path)].sort());
   assert.equal(fs.existsSync(path.join(root, workPlanningArtifactPath(intake.intakeId, route.selection.decisionId, "plan"))), false);
   assert.equal(runGit("status", "--porcelain"), "");

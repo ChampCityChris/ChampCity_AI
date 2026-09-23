@@ -284,6 +284,7 @@ test("Work Intake production APIs persist branch-bound intent and reuse Project 
   git("commit", "-m", "historical baseline");
   const { api, invocations } = mainPreloadHarness(["workIntake:projection", "workIntake:read", "workIntake:submit"], {
     ...workIntake, getRequiredWorkspaceRoot: () => root,
+    selectedStructuredProjectId: () => null, isGreenfieldProjectRoot: () => false,
   });
   const before = await api.getWorkIntakeProjection();
   assert.equal(before.currentIntake, null, "historical Project Intake is not active Work Intake");

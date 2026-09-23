@@ -10,6 +10,7 @@ test("Operator route decisions preserve authority, revisions and branch while re
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const git = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
   git("init", "-b", "main"); git("config", "user.name", "Fixture"); git("config", "user.email", "fixture@example.invalid");
+  fs.writeFileSync(path.join(root, ".gitignore"), "planning/route-proof/OTHER.md\n");
   git("add", "--all"); git("commit", "--allow-empty", "-m", "baseline");
   const initialHead = git("rev-parse", "HEAD");
   const { submitWorkIntake } = require("../../dist/main/workIntake/workIntakeService.js");
@@ -90,7 +91,7 @@ test("Operator route decisions preserve authority, revisions and branch while re
   assert.equal(fs.readFileSync(path.join(root, unrelatedPath), "utf8"), unrelated);
   assert.equal(fs.readFileSync(path.join(root, intake.relativePath), "utf8"), originalIntake);
   assert.equal(git("branch", "--show-current"), intake.branchBinding.workBranch);
-  assert.equal(git("rev-parse", "HEAD"), initialHead);
+  assert.notEqual(git("rev-parse", "HEAD"), initialHead, "Operator route reviews advanced the Work Intake source line");
 
   const retainedAssessmentPath = "planning/route-proof/RETAINED_ASSESSMENT.md";
   const retainedPlanPath = "planning/route-proof/RETAINED_PLAN.md";

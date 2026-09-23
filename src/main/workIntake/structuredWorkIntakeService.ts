@@ -75,10 +75,15 @@ function asBinding(record: Awaited<ReturnType<ReturnType<typeof createProjectSta
   return record;
 }
 
-function captured(intake: ProjectStateRecord<"WorkIntake">, binding: ProjectStateRecord<"SourceBinding">): CapturedWorkIntake {
+function captured(intake: ProjectStateRecord<"WorkIntake">, binding: ProjectStateRecord<"SourceBinding">,
+  checkpoints: ProjectStateRecord<"SourceCheckpoint">[] = []): CapturedWorkIntake {
   return { intakeId: intake.id, projectId: intake.projectId, workRequest: intake.body.request,
     desiredOutcome: intake.body.desiredOutcome, knownConstraints: intake.body.constraints[0] ?? "",
-    repositoryReviewContext: intake.body.evidenceContext[0] ?? "", source: readiness(binding) };
+    repositoryReviewContext: intake.body.evidenceContext[0] ?? "", source: readiness(binding),
+    sourceCheckpoints: checkpoints.map(item => ({ boundaryId: item.body.boundaryId, kind: item.body.checkpointKind,
+      state: item.body.checkpointState,
+      ...(item.body.resultingRevisionId ? { revision: { repositoryId: binding.body.repositoryId,
+        revisionId: item.body.resultingRevisionId } } : {}) })) };
 }
 
 async function repositoryIdentity(store: ReturnType<typeof createSQLiteProjectStateStore>, projectId: string): Promise<string> {
@@ -107,7 +112,11 @@ export async function getStructuredWorkIntakeProjection(root: string, projectId:
     const intakes = (await store.listEntities(projectId, "WorkIntake"))
       .filter((item): item is ProjectStateRecord<"WorkIntake"> => item.entityType === "WorkIntake" && item.lifecycleState === "active")
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    const saved = await Promise.all(intakes.map(async item => captured(item, await bindingFor(store, projectId, item.id))));
+    const checkpoints = (await store.listEntities(projectId, "SourceCheckpoint"))
+      .filter((item): item is ProjectStateRecord<"SourceCheckpoint"> => item.entityType === "SourceCheckpoint")
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
+    const saved = await Promise.all(intakes.map(async item => captured(item, await bindingFor(store, projectId, item.id),
+      checkpoints.filter(checkpoint => checkpoint.body.workIntakeId === item.id))));
     const source = createSourceControlService({ repositoryRoot: root, repositoryId });
     const branches = await source.branches();
     const available = branches.ok ? branches.result.branches : [];

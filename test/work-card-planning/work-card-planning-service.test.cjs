@@ -49,7 +49,7 @@ test("routed Work Items reuse Formal planning and report review without legacy P
   assert.equal(conflict.workItems.every((entry) => !entry.eligible), true);
   await assert.rejects(api.prepare({ workItemId: "WI01", expectedFingerprint: conflict.fingerprint }), /eligible/);
   assert.equal(fs.existsSync(path.join(root, "planning/phases")), false);
-  assert.equal(git("rev-parse", "HEAD"), initialHead);
+  assert.notEqual(git("rev-parse", "HEAD"), initialHead, "Operator reviews advance the Work Intake source line");
   fs.appendFileSync(path.join(root, binding.planPath), "\nChanged approved Plan body.\n");
   await assert.rejects(api.query(), /binding|Plan|digest/i);
 });
@@ -173,7 +173,7 @@ test("Work Item decomposition uses explicit Operator review, preserves lineage, 
   plan = (await kernel.get(root, intake.intakeId, "plan")).artifact;
   assert.equal(plan.structure.topology, "phased"); assert.equal(plan.structure.phases.length, 2);
   assert.equal(plan.identity.routeDecisionId, route.selection.decisionId);
-  assert.equal(read(intake.relativePath), originalIntake); assert.equal(git("rev-parse", "HEAD"), initialHead);
+  assert.equal(read(intake.relativePath), originalIntake); assert.notEqual(git("rev-parse", "HEAD"), initialHead);
   assert.equal(fs.existsSync(path.join(root, "planning/phases")), false, "no legacy executor or replacement implementation launched");
   assert.equal((await status("WI01")).state, "accepted", "original decomposition remains inspectable after later correction");
 });

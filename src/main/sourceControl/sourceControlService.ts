@@ -22,6 +22,7 @@ import type {
 } from "../../shared/sourceControlContracts";
 import type { CreateWorkSourceInput, ProjectSourceBootstrap, SourceRevisionSelector, WorkSourceBinding } from "../../shared/sourceLifecycleContracts";
 import { workIntakeBranchName } from "./workSourceNaming";
+import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
 import { bootstrapProjectSource as establishProjectSource } from "./projectSourceBootstrap";
 
 /** Called by trusted main-process services with a selected repository, without MCP/model mediation. */
@@ -197,6 +198,16 @@ export function createSourceControlService(binding: { repositoryId: string; repo
     unstage: (paths: string[]) => run("unstage", true, () => unstageGitChanges(root, paths)),
     restoreFiles: (input: Parameters<typeof restoreGitFiles>[1]) => run("restore-files", true, () => restoreGitFiles(root, input)),
     changedFiles: () => run("changed-files", false, changedFiles),
+    isPathAtHead: (relativePath: string) => run("inspect-path-at-head", false, async () => {
+      const resolved = resolveRepositoryPath(root, relativePath);
+      if (resolved.relativePath !== relativePath) throw new AgentHarnessError("INVALID_INPUT", "Exact repository-relative path required.");
+      const tracked = await runBoundedGit({ cwd: root, args: ["ls-files", "--error-unmatch", "--", relativePath], rejectNonZero: false });
+      if (tracked.exitCode === 1) return false;
+      if (tracked.exitCode !== 0) throw new AgentHarnessError("GIT_EXECUTION_FAILED", "Source path tracking cannot be inspected.");
+      const diff = await runBoundedGit({ cwd: root, args: ["diff", "--quiet", "HEAD", "--", relativePath], rejectNonZero: false });
+      if (diff.exitCode !== 0 && diff.exitCode !== 1) throw new AgentHarnessError("GIT_EXECUTION_FAILED", "Source path revision cannot be inspected.");
+      return diff.exitCode === 0;
+    }),
     readiness: () => run("readiness", false, async () => {
       const status = await gitStatus(root, true);
       return {

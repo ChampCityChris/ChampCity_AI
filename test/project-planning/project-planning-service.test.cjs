@@ -1,12 +1,14 @@
 const assert = require("node:assert/strict");
+const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
 function bypassBranchVerification(t) {
   const branchService = require("../../dist/main/workIntake/workIntakeBranchService.js");
-  return t.mock.method(branchService, "createWorkIntakeBranchService", () => ({
-    verify: async (binding) => binding,
+  return t.mock.method(branchService, "createWorkIntakeBranchService", ({ repositoryRoot }) => ({
+    verify: async (binding) => ({ ...binding, currentHead: execFileSync("git", ["rev-parse", binding.workBranch],
+      { cwd: repositoryRoot, encoding: "utf8" }).trim() }),
   }));
 }
 
@@ -83,7 +85,8 @@ test("research closes durably on reviewed evidence without manufacturing a Plan 
   model = await kernel.review(root, intake.intakeId, "assessment", { expectedRevision: 1, disposition: "RevisionRequested", notes: "Reconsider the bounded comparison evidence" });
   assert.equal(model.researchClosed, false, "Closure follows current review state");
   await assert.rejects(kernel.prepare(root, intake.intakeId, "plan"), /approved route-specific assessment/);
-  assert.equal(git("rev-parse", "HEAD"), checkpointHead);
+  assert.equal(model.checkpoint?.status, "committed", JSON.stringify(model.checkpoint));
+  assert.equal(git("rev-parse", "HEAD"), model.checkpoint.commit);
 });
 
 test("infrastructure planning requires operational recovery evidence and excludes unrelated product features", async (t) => {
@@ -117,14 +120,15 @@ test("infrastructure planning requires operational recovery evidence and exclude
   model = await kernel.prepare(root, intake.intakeId, "assessment");
   writeDraft(root, model.submission.expectedDraftSlots[0].draftRelativePath, body);
   model = await kernel.get(root, intake.intakeId, "assessment");
-  await kernel.review(root, intake.intakeId, "assessment", { expectedRevision: model.artifact.artifactRevision, disposition: "Approved", notes: "Operational boundary accepted" });
+  const review = await kernel.review(root, intake.intakeId, "assessment", { expectedRevision: model.artifact.artifactRevision, disposition: "Approved", notes: "Operational boundary accepted" });
+  assert.equal(review.checkpoint?.status, "committed", JSON.stringify(review.checkpoint));
   model = await kernel.prepare(root, intake.intakeId, "plan");
   assert.match(model.preparedInstruction, /## Rollback and Recovery Proof/);
   assert.match(model.preparedInstruction, /## Operational Acceptance Conditions/);
   assert.match(model.preparedInstruction, /## Compatibility and Excluded Features/);
   assert.match(model.preparedInstruction, /Choose direct topology/);
   assert.match(model.preparedInstruction, /Choose phased only/);
-  assert.equal(git("rev-parse", "HEAD"), initialHead);
+  assert.equal(git("rev-parse", "HEAD"), review.checkpoint.commit);
 });
 
 test("composition planning requires capability dispositions and carries non-code outcomes through the shared kernel", async (t) => {
@@ -160,7 +164,8 @@ test("composition planning requires capability dispositions and carries non-code
   model = await kernel.prepare(root, intake.intakeId, "assessment");
   writeDraft(root, model.submission.expectedDraftSlots[0].draftRelativePath, body);
   model = await kernel.get(root, intake.intakeId, "assessment");
-  await kernel.review(root, intake.intakeId, "assessment", { expectedRevision: model.artifact.artifactRevision, disposition: "Approved", notes: "Characterized contract and bounded adapter accepted" });
+  const assessmentReview = await kernel.review(root, intake.intakeId, "assessment", { expectedRevision: model.artifact.artifactRevision, disposition: "Approved", notes: "Characterized contract and bounded adapter accepted" });
+  assert.equal(assessmentReview.checkpoint?.status, "committed", JSON.stringify(assessmentReview.checkpoint));
   model = await kernel.prepare(root, intake.intakeId, "plan");
   const outcomes = ["characterize", "configure", "integrate", "adapt", "validate", "replace", "reject"];
   const structure = { topology: "direct", topologyRationale: "Bounded composition fits ordered Work Items", acceptanceCriteria: ["Export follows characterized component contract"],
@@ -171,7 +176,7 @@ test("composition planning requires capability dispositions and carries non-code
   assert.equal(model.artifact.identity.routeId, "integration-composition");
   assert.deepEqual(model.artifact.structure.workItems.map((item) => item.title.split(" ")[0]), outcomes);
   assert.match(model.artifact.bodyMarkdown, /no custom CSV generator is authorized/);
-  assert.equal(git("rev-parse", "HEAD"), initialHead);
+  assert.equal(git("rev-parse", "HEAD"), assessmentReview.checkpoint.commit);
 });
 
 test("shared planning kernel reviews direct and phased Plans under the Operator-selected profile with freshness-safe revision", async (t) => {
@@ -249,7 +254,8 @@ test("shared planning kernel reviews direct and phased Plans under the Operator-
   await assert.rejects(api.reviewWorkPlanning(intake.intakeId, "plan", { expectedRevision: 1, disposition: "Approved", notes: "Old review" }), /stale/);
   plan = await api.reviewWorkPlanning(intake.intakeId, "plan", { expectedRevision: 2, disposition: "Approved", notes: "Phased topology approved" });
   assert.equal(plan.artifact.disposition, "Approved");
-  assert.equal(git("rev-parse", "HEAD"), initialHead, "kernel performs no Git mutation");
+  assert.equal(plan.checkpoint?.status, "committed", JSON.stringify(plan.checkpoint));
+  assert.equal(git("rev-parse", "HEAD"), plan.checkpoint.commit, "Operator Plan review owns its source checkpoint");
   assert.equal(fs.existsSync(path.join(root, "planning/phases")), false, "kernel does not run or migrate legacy execution");
 
   // Review metadata on a source changes the prepared/source fingerprint even without a substantive revision.
@@ -296,7 +302,7 @@ test("routed Development binding preserves approved direct and phased sources an
     assert.deepEqual(binding.identity, plan.identity);
     assert.equal(binding.identity.routeDecisionId, route.selection.decisionId);
     assert.deepEqual(binding.structure, plan.structure);
-    assert.deepEqual(binding.branchBinding, intake.branchBinding);
+    assert.deepEqual(binding.branchBinding, { ...intake.branchBinding, currentHead: git("rev-parse", "HEAD") });
     assert.equal(binding.planRevision, plan.artifactRevision);
     assert.equal(binding.planPath, plan.relativePath);
     const planBytes = fs.readFileSync(path.join(root, plan.relativePath), "utf8");
@@ -349,19 +355,20 @@ test("routed Development binding preserves approved direct and phased sources an
     const assessment = (await kernel.get(root, intake.intakeId, "assessment")).artifact;
     const assessmentBytes = fs.readFileSync(path.join(root, assessment.relativePath), "utf8");
     fs.appendFileSync(path.join(root, assessment.relativePath), "\nChanged source without changing revision.\n");
-    await assert.rejects(read(root, intake.intakeId), /approved|stale/);
+    await assert.rejects(read(root, intake.intakeId), /approved|stale|checkpoint/);
     fs.writeFileSync(path.join(root, assessment.relativePath), assessmentBytes);
     const decisions = require("../../dist/main/workIntake/workRouteDecisionService.js");
+    const headBeforeReroute = git("rev-parse", "HEAD");
     await decisions.recommendWorkRouteReroute(root, intake.intakeId, { priorDecisionId: route.selection.decisionId, replacementRouteId: "refactor-migration", rationale: "The export needs transformation planning", sourceEvidence: [{ path: plan.relativePath, revision: 1 }] });
     await assert.rejects(read(root, intake.intakeId), /selected route/);
     const pending = await decisions.getWorkRouteDecision(root, intake.intakeId);
     await decisions.decideWorkRoute(root, intake.intakeId, { expectedDecisionRevision: pending.artifactRevision, sourceAssessment: pending.sourceAssessment, disposition: "accept", rationale: "Accept corrected route" });
     assert.equal(parse(fs.readFileSync(target, "utf8")).metadata.participationRole, "historical", "route supersession includes execution binding");
     await assert.rejects(activate(root, intake.intakeId));
-    assert.equal(git("rev-parse", "HEAD"), initialHead, "binding does not mutate Git");
+    assert.notEqual(git("rev-parse", "HEAD"), headBeforeReroute, "reroute disposition checkpoints the prior source line");
     verifyMock.mock.restore();
-    git("switch", "main");
-    await assert.rejects(read(root, intake.intakeId), /current checkout/);
+    git("switch", "--force", "main");
+    assert.equal(await read(root, intake.intakeId), null, "base branch has no routed execution binding");
   });
   await t.test("Issue route cannot use Development binding", async (t) => {
     const { root, intake } = seedPreparedRoutedWorkIntake(t, "issue-resolution");

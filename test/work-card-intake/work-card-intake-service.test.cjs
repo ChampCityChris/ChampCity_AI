@@ -78,7 +78,7 @@ test("Work Item artifact scopes preserve legacy paths and bind direct or genuine
     if (topology === "phased") assert.throws(() => targets(scope, { ...candidate, candidateId: "WI02" }), /does not belong/);
     assert.equal(fs.existsSync(path.join(root, "planning/phases")), false);
     assert.equal(fs.existsSync(path.join(root, expectedRoot)), false, "addressing creates no workflow artifacts");
-    assert.equal(git("rev-parse", "HEAD"), initialHead);
+    assert.notEqual(git("rev-parse", "HEAD"), initialHead, "approved planning review checkpointed the Intake source line");
     const { workPlanningKernel: kernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
     await kernel.review(root, intake.intakeId, "plan", { expectedRevision: 1, disposition: "RevisionRequested", notes: "Revisit export criteria" });
     await assert.rejects(resolve(root, ref), /current approved/);

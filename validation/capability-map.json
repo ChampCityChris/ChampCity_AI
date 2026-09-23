@@ -4082,9 +4082,24 @@
     },
     {
       "capabilityId": "semantic-source-checkpoints",
-      "description": "Structured implementation and Operator disposition checkpoints with attributable Git receipts and retry safety.",
+      "description": "Structured and routed Work Intake implementation and Operator disposition checkpoints with attributable Git receipts and retry safety.",
       "sourcePatterns": [
-        "src/main/sourceControl/semanticCheckpointService.ts"
+        "src/main/planExecution/lifecycleEvidenceCheckpointReceipt.ts",
+        "src/main/planExecution/lifecycleEvidenceCheckpointService.ts",
+        "src/main/planExecution/operatorDispositionCheckpoint.ts",
+        "src/main/planExecution/routedDevelopmentExecutionService.ts",
+        "src/main/sourceControl/semanticCheckpointService.ts",
+        "src/main/sourceControl/structuredWorkflowCheckpointService.ts",
+        "src/main/workCardPlanning/workItemDecompositionService.ts",
+        "src/main/workIntake/workRouteDecisionService.ts",
+        "src/main/workPlanning/workIssueRoutingService.ts",
+        "src/main/workPlanning/workPlanningKernel.ts",
+        "src/shared/issueResolutionContracts.ts",
+        "src/shared/lifecycleEvidenceCheckpointContracts.ts",
+        "src/shared/workItemDecompositionContracts.ts",
+        "src/shared/workPlanningContracts.ts",
+        "src/shared/workRouteDecisionContracts.ts",
+        "test/support/work-intake-fixtures.cjs"
       ],
       "dependsOn": [
         "greenfield-source-bootstrap"
@@ -4099,12 +4114,20 @@
           "description": "implementation checkpoint commits attributed file and duplicate retry returns exact revision"
         },
         {
+          "behaviorId": "legacy-route-disposition-checkpoints-exact-intake-files",
+          "description": "Operator route selection commits exact canonical Intake evidence and retry reuses its source revision"
+        },
+        {
           "behaviorId": "operator-disposition-creates-empty-lifecycle-revision",
           "description": "operator disposition creates an evidenced empty lifecycle revision"
         },
         {
           "behaviorId": "retry-reconciles-committed-source-after-binding-failure",
           "description": "retry reconciles a committed source revision after a failed binding update"
+        },
+        {
+          "behaviorId": "structured-workflow-dispositions-share-source-line",
+          "description": "typed route, implementation and review mutations checkpoint one Work Intake SourceLine"
         }
       ]
     },
@@ -18273,6 +18296,25 @@
       ]
     },
     {
+      "testPath": "test/source-control/structured-workflow-checkpoint.test.cjs",
+      "currentTestCount": { "value": 1, "basis": "SCL06 focused structured workflow fixture." },
+      "duration": { "kind": "measured", "milliseconds": 12000, "basis": "Observed focused normal Windows SCL06 run." },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": { "electron": false, "filesystem": true, "git": true, "network": false, "process": true, "timing": false },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": ["capability"],
+      "execution": { "requiresBuild": true, "platform": "any", "externalCapabilities": [], "scheduling": "parallel-safe",
+        "schedulingReason": "Each fixture owns an isolated temporary Git and SQLite repository.",
+        "ownedResources": ["bounded-child-process", "isolated-git-fixture", "temp-filesystem-isolated"] },
+      "proofCharacteristics": ["behavioral"],
+      "dispositionReasons": ["current-proof-appropriate"],
+      "behaviorCoverage": [
+        { "capabilityId": "semantic-source-checkpoints", "behaviorId": "structured-workflow-dispositions-share-source-line", "proofLocator": "structured route, implementation and revision review share one SourceLine with exact checkpoint projections", "proofRole": "primary" }
+      ]
+    },
+    {
       "testPath": "test/validation/capability-map.test.cjs",
       "currentTestCount": {
         "value": 5,
@@ -19772,6 +19814,25 @@
           "proofLocator": "greenfield Work Intake persists Project, bootstrap evidence and first work source",
           "proofRole": "primary"
         }
+      ]
+    },
+    {
+      "testPath": "test/work-intake/route-disposition-checkpoint.test.cjs",
+      "currentTestCount": { "value": 1, "basis": "SCL06 route disposition and idempotent retry fixture." },
+      "duration": { "kind": "measured", "milliseconds": 24000, "basis": "Observed focused normal Windows SCL06 run." },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": { "electron": false, "filesystem": true, "git": true, "network": false, "process": true, "timing": false },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": ["capability"],
+      "execution": { "requiresBuild": true, "platform": "any", "externalCapabilities": [], "scheduling": "parallel-safe",
+        "schedulingReason": "Each fixture owns an isolated temporary Git repository.",
+        "ownedResources": ["bounded-child-process", "isolated-git-fixture", "temp-filesystem-isolated"] },
+      "proofCharacteristics": ["behavioral"],
+      "dispositionReasons": ["current-proof-appropriate"],
+      "behaviorCoverage": [
+        { "capabilityId": "semantic-source-checkpoints", "behaviorId": "legacy-route-disposition-checkpoints-exact-intake-files", "proofLocator": "Operator route selection checkpoints its exact Intake source line and retry reuses the commit", "proofRole": "primary" }
       ]
     },
     {
