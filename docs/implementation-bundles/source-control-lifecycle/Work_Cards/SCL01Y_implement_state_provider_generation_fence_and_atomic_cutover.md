@@ -16,12 +16,14 @@ Switch one Project from legacy Markdown authority to Structured Project State ex
 5. Reject stale old-generation writes after the switch.
 6. Recover unknown cutover outcomes from durable provider-generation state.
 7. Permit administrative rollback only under the governing migration rules.
+8. Treat package execution authorization as approval to perform this deterministic cutover once every documented freshness, equivalence, backup, integrity and writer-fence gate passes. Do not request a second card-level Operator approval.
 
 ## Constraints
 
 - UI disablement alone is not a writer fence.
 - No dual-write authority.
 - No cutover with unresolved blocking mismatches.
+- If all deterministic gates pass, perform the cutover and continue; card completion is not an additional human approval checkpoint.
 
 ## Acceptance Criteria
 

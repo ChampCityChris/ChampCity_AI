@@ -44,4 +44,4 @@ Use phase/package-appropriate validation planner profile for the exact package c
 
 ## Post-Implementation
 
-Write the final report and package checkpoint. Return the package to Architect/Operator for integration disposition; do not merge into `dev` automatically.
+Write the final report and package checkpoint. Stop only after SCL10 is complete and return the complete package for final Architect/Operator review. There is no per-card review requirement. If implementation was executed directly on `dev`, no additional branch-integration action is implied by this final review; if executed on another SourceLine, do not advance `dev` until the final package disposition.

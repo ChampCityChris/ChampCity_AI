@@ -14,6 +14,7 @@ Prove staged Structured Project State represents materially equivalent current w
 3. Classify mismatches as blocking/non-blocking with explicit evidence.
 4. Add optional shadow-read comparison that never writes structured authority.
 5. Bind verification result to exact snapshot + importer/schema versions.
+6. Correct deterministic importer/mapping/projection mismatches within this card and rerun verification until the blocking set is empty. Escalate only when a mismatch reflects genuine semantic ambiguity in the legacy source that the governing architecture cannot resolve.
 
 ## Acceptance Criteria
 

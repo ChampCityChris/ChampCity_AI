@@ -3,9 +3,8 @@
 **Package ID:** SCL  
 **Architecture:** `docs/architecture/CHAMPCITY_AGENT_FREE_SOURCE_CONTROL_LIFECYCLE_ARCHITECTURE.md`  
 **Structured-state architecture:** `docs/architecture/CHAMPCITY_STRUCTURED_PROJECT_STATE_DOMAIN_MODEL.md` and `docs/architecture/CHAMPCITY_STRUCTURED_PROJECT_STATE_SQLITE_PERSISTENCE_ARCHITECTURE.md`  
-**Planning baseline:** `dev` at `4d2b2575362e0a81a975d82da104014ed016c237`  
-**Planning branch:** `architecture/agent-free-source-control-lifecycle`  
-**Planning checkout:** managed worktree `source-control-lifecycle`
+**Planning origin:** `architecture/agent-free-source-control-lifecycle` managed worktree  
+**Implementation baseline:** current committed `dev` after this architecture/package is integrated
 
 ## Objective
 
@@ -42,16 +41,18 @@ There is no temporary Work Intake persistence adapter between Markdown and Struc
 
 ## Execution Baseline Rule
 
-This planning branch was created while the WIR UI recovery package was still advancing `dev`.
+This package is intended to be integrated into `dev` before implementation starts.
 
-Before implementation begins, refresh/integrate the latest accepted committed `dev` baseline into this package branch through deterministic source-control mechanics. Do not switch, clean or overwrite the implementer's primary checkout.
-
-The Implementer must verify the exact refreshed execution baseline in the SCL01 report.
+The Implementer begins SCL01 from the exact current committed `dev` revision and records that revision in the SCL01 report. If `dev` advances before SCL01 starts, use the newer committed baseline unless the new history introduces an actual architecture conflict.
 
 ## Execution Rules
 
 - Execute every card sequentially: SCL01 → SCL01A…SCL01Z → SCL02…SCL10.
 - One Implementer Report and one attributable checkpoint commit per card.
+- Do not pause for Architect or Operator review between cards.
+- After a card meets its acceptance criteria, its bounded validation passes, its report is written, and its checkpoint commit is verified, immediately start the next card.
+- Package execution authorization covers the deterministic migration/cutover mechanics in SCL01T–SCL01Z when their gates pass; do not invent a second approval checkpoint.
+- Escalate only genuine unresolved product/architecture decisions, unsupported runtime-binding failure, irreducible semantic migration ambiguity, or actions outside the approved package scope.
 - Do not skip extension cards because later SCL cards compile; each card establishes state required by the next.
 - Use the validation planner/work-item profile with exact changed paths and focused owned proof. Do not make the historical full suite a card-local default.
 - Do not modify unrelated WIR UI repair work.

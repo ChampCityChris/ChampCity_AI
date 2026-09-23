@@ -33,7 +33,7 @@ Add a first-class Source Control workspace/page that visualizes Git-provider top
 
 ## Validation
 
-Focused renderer/component contract tests and UI governance checks plus planner work-item validation. Manual Operator visual validation remains required for graph legibility.
+Focused renderer/component contract tests, UI governance checks, and bounded running-UI/screenshot inspection at supported desktop sizes plus planner work-item validation. Operator dogfooding may occur after the package, but it is not a prerequisite to continue to SCL10.
 
 ## Post-Implementation
 
