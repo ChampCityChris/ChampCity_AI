@@ -1,8 +1,12 @@
 # ChampCity A/I Desktop Architecture
 
+**Status:** V1 implementation baseline / migration evidence. This document describes the current Electron application and does not define the V2 target.
+
 ## Scope
 
-This document describes the current workstation-resident ChampCity A/I Desktop architecture. It does not describe or imply the future ChampCity A/I Server deployment model.
+This document describes the current workstation-resident V1 ChampCity A/I Desktop architecture.
+
+The adopted V2 target is defined by `CHAMPCITY_WEB_CLIENT_AND_SERVICE_HOST_ARCHITECTURE.md`: one web client over a deployable ChampCity Service Host, with Electron retired after migration.
 
 ## Process and trust diagram
 
@@ -167,4 +171,4 @@ The executing agent follows the Operator's current direction and the current tas
 - The Background Agent and worker accept only their bounded local control/process protocols.
 - Codex works within the selected execution policy and explicit approval boundary.
 - Secrets and concrete local paths must not enter governed project artifacts or diagnostics intended for sharing.
-- ChampCity A/I Server is outside this architecture; no server-owned control plane is implied.
+- V2 Service Host/web-client topology is outside this V1 architecture; no V2 target boundary should be inferred from the Electron process model described here.

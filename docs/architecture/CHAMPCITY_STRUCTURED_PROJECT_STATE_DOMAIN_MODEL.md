@@ -2,7 +2,7 @@
 
 **Status:** Adopted V2 logical domain model — September 14, 2026  
 **Scope:** ChampCity A/I Shared Product Core  
-**Persistence assumption:** None. This model is intentionally independent of database engine, ORM, filesystem layout, Git provider, desktop/server topology, and model provider.
+**Persistence assumption:** None. This model is intentionally independent of database engine, ORM, filesystem layout, Git provider, workstation/server hosting location, and model provider.
 
 ## 1. Purpose
 
@@ -12,12 +12,12 @@ It replaces repository Markdown as authoritative application state.
 
 Markdown, reports, Work Cards, validation reports, project summaries, and similar human-readable documents become rendered views, imports, exports, or evidence derived from this model. They are no longer themselves the state machine.
 
-The model must support both:
+The model must support the same logical Project State contract when the ChampCity Service Host is:
 
-- Desktop: Project State persisted locally.
-- Server: Project State persisted centrally.
+- workstation-hosted, with local durable persistence; or
+- server-hosted, with server-managed durable persistence.
 
-Both products consume the same logical domain contracts through the Shared Product Core.
+Both deployments consume the same domain contracts through Product Core. Hosting location does not create a different Project State model.
 
 The model also separates AI reasoning from deterministic application mechanics. Models create or recommend Findings, Root Causes, Bounded Solutions, Decisions, and other semantic content. ChampCity code owns IDs, relationships, revision numbers, lineage, timestamps, schema validation, permissions, hashes, persistence, and state transitions.
 
@@ -1008,8 +1008,7 @@ Project resource bindings
 
 This view can feed:
 
-- Desktop UI,
-- Server UI,
+- ChampCity Web Client,
 - agent context,
 - Architect context,
 - Implementer context,
@@ -1161,18 +1160,18 @@ getCurrentProjectState(...)
 
 The interface expresses domain operations rather than SQL operations.
 
-Desktop could implement:
+A workstation-hosted Service Host could use:
 
 ```text
 LocalProjectStateStore
 ```
 
-while Server could later implement:
+while a server-hosted Service Host could use:
 
 ```text
 ServerProjectStateStore
 ```
 
-without changing the Project State domain itself.
+without changing the Project State domain itself or the web client.
 
 That is the boundary that allows us to choose persistence technology later rather than letting today's database choice define the product architecture.

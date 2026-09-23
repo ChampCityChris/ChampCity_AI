@@ -2,13 +2,15 @@
 
 ## Purpose
 
-This document maps the current `ChampCity_AI/src` Desktop implementation to the semantic services defined in `CHAMPCITY_CLIENT_SERVICE_CONTRACT.md`.
+This document maps the current V1 `ChampCity_AI/src` Electron/Desktop implementation to the semantic services defined in `CHAMPCITY_CLIENT_SERVICE_CONTRACT.md`.
+
+It is a V1 source-extraction map. It does not define a permanent V2 Desktop host. `CHAMPCITY_WEB_CLIENT_AND_SERVICE_HOST_ARCHITECTURE.md` controls the target topology: one web client and one deployable Service Host.
 
 The objective is not to rename current Electron IPC endpoints one-for-one. It is to determine:
 
 1. which current Desktop behavior already implements useful ChampCity semantics;
 2. which behavior should be extracted into Shared Product Core;
-3. which current implementation should become a Desktop/infrastructure adapter;
+3. which current implementation should become a Service Host/provider adapter, web-client behavior, or V1-only retired mechanism;
 4. which behavior is legacy artifact/Markdown compatibility only;
 5. which target service capabilities do not yet exist; and
 6. where current ownership is duplicated, overloaded, or incorrectly located.
@@ -40,11 +42,11 @@ The source baseline already has useful service seams. The principal migration pr
 | Label | Meaning |
 | --- | --- |
 | **Existing — extract** | Useful semantic behavior exists and should move into Shared Product Core behind the target service contract. |
-| **Existing — adapter** | Useful implementation exists but belongs behind a Desktop/infrastructure/provider adapter. |
+| **Existing — adapter** | Useful implementation exists but belongs behind a Service Host/infrastructure/provider adapter. |
 | **Partial** | Some target behavior exists but the target semantic contract is broader or differently bounded. |
 | **Legacy/migration** | Preserve only for migration, import/export, or compatibility; do not make it the new steady-state implementation. |
 | **New** | No meaningful current implementation exists; implement against the new contract. |
-| **Desktop-only** | Legitimate Desktop shell/product infrastructure that should not become a Server/shared service semantic. |
+| **V1-only / retire** | Electron/Desktop shell infrastructure with no independent V2 requirement; extract reusable behavior if any, then retire the mechanism. |
 
 # Executive Findings
 
@@ -67,9 +69,9 @@ The Agent Harness already contains bounded path policy, repository reads/search,
 ## 5. RuntimeService currently consists of two different concerns that must not be conflated
 
 - `codexRuntimeManager`, `codexAppServerTransport`, and `codexImplementerExecutionService` are the current AI worker runtime/provider path.
-- Background Agent/Service Host/MCP lifecycle is Desktop/runtime-host infrastructure that publishes tools and keeps services alive.
+- Background Agent/Service Host/MCP lifecycle is V1 host infrastructure that publishes tools and keeps services alive.
 
-The future `RuntimeService` should abstract AI worker execution. Background Agent process/tray/startup behavior remains a Desktop host implementation concern.
+The future `RuntimeService` should abstract AI worker execution. Reusable service-host lifecycle behavior may move into the V2 Service Host; Electron utility-process, tray, startup, and native-shell mechanics are V1-only unless independently required by the backend deployment.
 
 ## 6. ModelService exists only as a narrow Codex model selector today
 
@@ -79,11 +81,13 @@ Model discovery, supported reasoning effort, saved selection, and selection vali
 
 Current Desktop has no first-class ChampCity Memory subsystem. `knowledge_toolbox` is status-only. Current Skills support is only observed through Codex runtime capability discovery (`skills/list`); ChampCity does not yet own the canonical registry/versioning/assignment model defined in the Skills architecture.
 
-## 8. The current Electron IPC surface should become a Desktop transport adapter
+## 8. The current Electron IPC surface is migration evidence, not a V2 transport
 
-`main.ts` exposes many feature-specific IPC calls such as `documents:*`, `issueResolution:*`, `currentWorkflow:*`, `codexImplementer:*`, `codexRuntime:*`, and Agent Harness endpoints. These are valuable evidence of existing use cases but should not become the Server API contract.
+`main.ts` exposes many feature-specific IPC calls such as `documents:*`, `issueResolution:*`, `currentWorkflow:*`, `codexImplementer:*`, `codexRuntime:*`, and Agent Harness endpoints. These are valuable evidence of existing use cases but must not become the V2 service contract.
 
-The future Desktop preload/IPC layer should adapt the shared client contract to local services. The browser client should adapt the same contract to Server transport.
+The V2 web client consumes the semantic client-service boundary. Workstation-hosted and server-hosted deployments expose that same service contract through web/service transport.
+
+Electron preload/IPC is removed after the web/service cutover; it is not retained as a local V2 adapter.
 
 ## 9. AI Tools remain model-facing façades, not another client service
 
@@ -121,7 +125,7 @@ This current behavior is useful migration input but does not yet implement the f
 | `updateProject(...)` | Project Intake revision/document updates. | **Legacy/partial** | Update structured Project entity with revision checks. |
 | `archiveProject(projectId)` | None. | **New** | Structured lifecycle operation. |
 | `restoreProject(projectId)` | None. | **New** | Structured lifecycle operation. |
-| `selectActiveProject(projectId)` | `workspace:choose` + `SessionActiveWorkspaceSelection.activateFromValidation()` | **Existing semantics — extract** | Keep client-session selection behavior; native folder chooser stays Desktop-only. |
+| `selectActiveProject(projectId)` | `workspace:choose` + `SessionActiveWorkspaceSelection.activateFromValidation()` | **Existing semantics — extract** | Keep client-session selection behavior. V1 native folder selection becomes a web/service-host repository/resource selection flow rather than a permanent Desktop-only capability. |
 | `associateResource(projectId, resourceReference)` | Repository root is currently implicit in Project Intake and MCP registration. | **New explicit relationship** | Use `ProjectResource` relationship; Repository registration is independent. |
 | `removeResourceAssociation(...)` | `unregisterWorkspace` removes registry entry but is not a project-resource relationship operation. | **New** | Separate relationship removal from repository deregistration/deletion. |
 
@@ -313,14 +317,14 @@ The current AI worker implementation is Codex-specific:
 - `CodexImplementerExecutionService` exposes `getStatus`, `start`, environment resolution, user-input/approval/MCP responses, cancellation and shutdown;
 - current execution is Work Card/Issue-oriented rather than a generic `workerId` service.
 
-Separately, `agentHarness/runtime/**` owns the Background Agent, service-host process, MCP HTTP/runtime sessions, OAuth, diagnostics, startup and Desktop lifecycle. Those are runtime-host/platform concerns rather than the generic AI worker contract.
+Separately, `agentHarness/runtime/**` owns the V1 Background Agent, service-host process, MCP HTTP/runtime sessions, OAuth, diagnostics, startup, and Electron/Desktop lifecycle. Reusable backend host behavior is a Service Host migration source; Electron/Desktop lifecycle mechanics are not generic AI worker semantics.
 
 | Target call | Current Desktop equivalent | Coverage | Migration disposition |
 | --- | --- | --- | --- |
 | `listRuntimes()` | One implicit managed Codex runtime. | **New abstraction** | Add runtime registry; Codex adapter becomes first implementation. |
 | `getRuntime(runtimeId)` | `CodexRuntimeManager.getStatus()` exposes current managed runtime/version. | **Partial** | Provider-neutral runtime descriptor. |
 | `getRuntimeCapabilities(runtimeId)` | Codex transport reads capability states including MCP/Skills/apps/plugins; schema probing validates required methods. | **Partial / extract semantics** | Normalize to ChampCity runtime capability model. |
-| `getRuntimeHealth(runtimeId)` | Codex managed status plus Agent Harness operational diagnostics. | **Partial** | Separate AI runtime health from Desktop Background Agent host health. |
+| `getRuntimeHealth(runtimeId)` | Codex managed status plus Agent Harness operational diagnostics. | **Partial** | Separate AI runtime health from Service Host operational health and from V1 Electron Background Agent specifics. |
 | `getWorker(workerId)` | `CodexImplementerExecutionService.getStatus(workspaceRoot, selector?)` | **Existing semantics — extract** | Replace workspace/Issue selector identity with durable `workerId`. |
 | `listWorkers(filter?)` | No generic worker inventory. | **New** | Runtime session registry/history. |
 | `getWorkerEvents(workerId, cursor?)` | Transport streams/internal execution model events; not exposed as generic history API. | **Partial** | Normalize/store bounded event stream. |
@@ -340,12 +344,12 @@ The following should **not** become generic `RuntimeService` semantics:
 - tray presentation;
 - Windows login startup;
 - installed-scope metadata;
-- Desktop lifecycle lease;
+- V1 Desktop lifecycle lease;
 - Electron utility process mechanics;
 - sibling executable launch details; and
 - Background Agent relaunch behavior.
 
-Those stay in Desktop host infrastructure while implementing/hosting the same higher-level services.
+Extract backend lifecycle semantics that remain required by the V2 Service Host. Electron/tray/native-shell mechanics with no independent backend requirement are retired rather than preserved as a Desktop host.
 
 ---
 
@@ -407,12 +411,12 @@ The current preflight service reads a formal Work Card Markdown file and parses 
 | `getEnvironmentHealth(environmentId)` | Preflight result approximates readiness for a task. | **Partial** | Separate general health from task preflight. |
 | `preflightEnvironment(...)` | `DevelopmentEnvironmentPreflightService.runPreflight()` / provisioner preflight. | **Existing — extract** | Accept structured requirements rather than Work Card Markdown path. |
 | `inspectRepositoryRequirements(...)` | `detectRepositoryEcosystemProviders()` and managed requirements. | **Existing — extract** | Repository ID + adapter access. |
-| `createEnvironment(...)` | None; Desktop uses existing machine. | **New** | Server containers/VMs/remote workers later. |
-| `provisionEnvironment(...)` | Windows provisioner/package resolver. | **Existing — adapter** | Windows Desktop adapter; Server gets its own adapters. |
+| `createEnvironment(...)` | None; V1 Desktop uses the existing machine. | **New** | Add explicit environments for local, container/VM, or remote execution as required. |
+| `provisionEnvironment(...)` | Windows provisioner/package resolver. | **Existing — adapter** | Workstation-hosted Service Host may use a Windows adapter; server-hosted deployments select appropriate server/container/remote adapters. |
 | `refreshEnvironment(...)` | `refreshWindowsProcessEnvironment()` and repeated preflight. | **Partial / adapter** | Provider-neutral refresh contract. |
 | `repairEnvironment(...)` | Provisioning can resolve missing requirements, but no general repair service. | **Partial** | Formalize deterministic repair operation. |
 | `executeCommand(...)` | `NodeCommandRunner.run()` / runtime shell execution. | **Existing implementation — adapter** | Centralize environment command execution policy; avoid competing shell owners. |
-| `destroyEnvironment(...)` | None. | **New** | Applies to disposable Server environments. |
+| `destroyEnvironment(...)` | None. | **New** | Applies to disposable execution environments regardless of Service Host deployment location. |
 
 ---
 
@@ -486,15 +490,15 @@ The Brain Dump Skills Engine design, not current Desktop behavior, is therefore 
 
 ---
 
-# Current Desktop Source That Does Not Belong in the Nine Semantic Services
+# Current V1 Source That Does Not Belong in the Nine Semantic Services
 
 Not every current function should be forced into the shared client-service contract.
 
-## Desktop shell / host infrastructure
+## Electron shell / host infrastructure
 
-Keep Desktop-specific:
+Classify the following as extract / replace / retire rather than preserving them as a V2 application host:
 
-- `main.ts` Electron composition after domain calls are removed;
+- `main.ts` Electron composition;
 - `bootstrap.ts`;
 - preload/context bridge transport;
 - native folder/file dialogs;
@@ -507,11 +511,11 @@ Keep Desktop-specific:
 - relaunch/single-instance behavior; and
 - native browser-window bounds/lifecycle.
 
-These are mechanisms used by the Electron shell, not product-domain services.
+Reusable product behavior may move to Product Core, the web client, or Service Host adapters. Electron shell mechanics with no independent V2 requirement are retired.
 
-## Background Agent host infrastructure
+## Background Agent / V1 host infrastructure
 
-The Background Agent remains valuable for Desktop, but these details are not generic `RuntimeService` API semantics:
+Reusable backend lifecycle and service supervision may contribute to the V2 Service Host, but these details are not generic `RuntimeService` API semantics:
 
 - Service Host descriptor files;
 - Electron utility/sibling process launch;
@@ -521,13 +525,13 @@ The Background Agent remains valuable for Desktop, but these details are not gen
 - tray lifecycle; and
 - Desktop process fencing.
 
-Extract reusable health/lifecycle interfaces where useful, but keep host implementation in Desktop.
+Extract reusable health/lifecycle interfaces where useful. Do not retain Electron process/tray topology as a V2 host boundary.
 
 ## Architect embedded browser
 
-`architectBrowserService.ts` primarily implements an Electron-hosted browser surface and sign-in/presentation lifecycle. It should remain a Desktop/browser-shell adapter.
+`architectBrowserService.ts` is an Electron-hosted V1 presentation implementation. It is not a V2 browser-shell adapter.
 
-Future model-facing browser tools belong under AI Tools and should invoke a browser capability provider. They are not the same thing as the current embedded ChatGPT presentation surface.
+If the Architect capability remains in the V2 product, it must be delivered through the web-client/service architecture. Future model-facing browser tools belong under AI Tools and should invoke a browser capability provider.
 
 ## Legacy Markdown compatibility
 
@@ -540,7 +544,7 @@ The following should not survive as steady-state Shared Product Core persistence
 - repository planning paths as identity; and
 - canonical-Markdown migration code after supported repositories are converted.
 
-Retain import/export/projection functionality as required by the Desktop migration design.
+Retain import/export/projection functionality only where required by V2 migration or explicit export behavior.
 
 ---
 
@@ -550,9 +554,9 @@ The existing Electron IPC surface should be treated as a compatibility source, n
 
 | Current IPC family | Future owner | Notes |
 | --- | --- | --- |
-| `workspace:get/choose/clear` | `ProjectService` + Desktop shell + `RepositoryService` | Native folder choice stays Desktop; active selection becomes Project selection; repository registration is separate. |
+| `workspace:get/choose/clear` | `ProjectService` + Web Client + `RepositoryService` | Current native folder choice is V1 shell behavior. V2 uses web/client requests plus Service Host repository/resource selection; active Project selection and repository registration remain separate. |
 | `agentHarness:listRegisteredWorkspaces`, register/unregister | `RepositoryService` | These “workspaces” are registered repository roots. Rename during migration. |
-| `agentHarness:status/start/stop/restart`, Background Agent lifecycle/settings | Desktop host infrastructure | Not generic AI worker runtime semantics. |
+| `agentHarness:status/start/stop/restart`, Background Agent lifecycle/settings | Service Host migration source / V1 host infrastructure | Extract reusable backend lifecycle/status semantics; do not preserve Electron Background Agent topology as a V2 client boundary. |
 | `documents:list/read/setDisposition/resolveCurrent` | `ProjectStateService` + `WorkflowService` | Current document APIs become structured queries/commands/projections. |
 | `workspaceMigration:*` | Project State migration adapter | Legacy-only after structured-state conversion. |
 | `projectIntake:submit` | `ProjectService` + `WorkflowService` + `ProjectStateService` | Create/open Project and start Project Intake are separate semantic operations. |
@@ -561,7 +565,7 @@ The existing Electron IPC surface should be treated as a compatibility source, n
 | `issueResolution:*` | `WorkflowService` + `ProjectStateService` | Decompose monolithic Issue service into commands/queries over structured Issue aggregate. |
 | `codexRuntime:getStatus/setSelection` | `RuntimeService` + `ModelService` | Split runtime health/identity from model selection. |
 | `codexImplementer:*` and Issue Codex execution endpoints | `RuntimeService` | Replace Codex/Work Card-specific methods with generic worker operations. |
-| `architectBrowser:*` | Desktop shell/browser adapter | Presentation-specific. |
+| `architectBrowser:*` | V1 Electron presentation implementation | Use as migration evidence for the Architect experience; V2 presentation must be web-compatible. |
 
 ---
 
@@ -658,7 +662,7 @@ Examples include:
 - Architect browser foundation-status subscription; and
 - `rendererPollingPolicy` polling Background Agent/Codex execution state according to foreground Workspace.
 
-Target architecture should introduce service-scoped event subscriptions. The Desktop local adapter may initially translate events into current renderer refresh mechanisms while Server transports them over the selected remote event channel.
+Target architecture should introduce service-scoped event subscriptions consumed by the one web client. During migration, V1 Electron/renderer compatibility may translate those events temporarily; the V2 transport may differ between local and remote connections without changing event semantics.
 
 Migration rule:
 
@@ -714,7 +718,7 @@ Preserve current working Codex execution while making workflow logic consume pro
 
 ## 6. Refactor EnvironmentService preflight inputs
 
-Replace “read environment requirements from Work Card Markdown path” with structured Work Item/Skill requirements. Keep Windows provisioning as a Desktop adapter.
+Replace “read environment requirements from Work Card Markdown path” with structured Work Item/Skill requirements. Keep Windows provisioning, where still needed, as a workstation-hosted Service Host adapter.
 
 ## 7. Introduce MemoryService
 
@@ -724,15 +728,19 @@ Build retrieval/context packets over structured Project State. Do not wait for s
 
 Use UI Engineering as the proving Skill, as already defined in the Skills Engine design. Runtime-native Skills support becomes an adapter capability, not the canonical registry.
 
-## 9. Adapt Desktop IPC to the semantic service boundary
+## 9. Extract the web client against the semantic service boundary
 
-Do not rewrite the UI simultaneously with every core extraction. A Desktop adapter can preserve current `window.champcity` calls temporarily while progressively routing them through the semantic services.
+Do not rewrite every screen simultaneously with every core extraction. Existing renderer behavior may be migrated incrementally, but authoritative decisions must move out of renderer/Electron helpers first.
 
-Once shared client calls are stable, collapse the compatibility API and make the renderer consume the shared client-service interfaces directly.
+Build the one web client against the semantic service interfaces. Temporary V1 `window.champcity` compatibility may exist only during extraction and is removed at cutover.
 
-## 10. Implement Server against the same contracts
+## 10. Establish the deployable Service Host
 
-Server is then a second host over the Product Core rather than a fork of Desktop source.
+Compose Product Core and backend adapters in one Service Host that can run locally on a workstation or on a server.
+
+The local deployment is not a Desktop host; it is the same backend architecture deployed on the workstation.
+
+After required workstation-hosted browser/service parity is proven, retire Electron.
 
 ---
 
@@ -749,13 +757,13 @@ Server is then a second host over the Product Core rather than a fork of Desktop
 | MCP tool catalog/access/containment principles | **Retain; dispatch through owning services** |
 | Codex worker behavior | **Retain as first Runtime adapter** |
 | Codex model selection | **Retain as first Model/provider adapter** |
-| Windows environment provisioner | **Retain as Desktop Environment adapter** |
-| Electron main/preload/tray/startup | **Desktop-only** |
+| Windows environment provisioner | **Retain as workstation-hosted Service Host Environment adapter where needed** |
+| Electron main/preload/tray/startup | **V1-only: extract any surviving backend/product semantics, then retire** |
 | Project catalog/Project resources | **New structured implementation** |
 | Memory | **New implementation over structured state** |
 | Skills Engine | **New ChampCity-owned implementation** |
 | Context/token/cost management | **New/expanded ModelService capability** |
-| Server event delivery | **New transport over semantic events** |
+| Web/service event delivery | **New transport over semantic events; same client semantics for local and server-hosted Service Host** |
 
 ---
 
@@ -769,32 +777,32 @@ However, implementation design must explicitly account for the following support
 2. **Transaction boundary / Unit of Work** — Workflow and Project State commands will frequently require atomic multi-record changes.
 3. **Blob/Evidence storage port** — screenshots and binary evidence should not be forced through repository files or database rows.
 4. **Secrets/configuration port** — model/provider/runtime credentials must remain separate from ordinary project state.
-5. **Event publisher/subscriber abstraction** — shared semantic events need local Desktop and remote Server implementations.
+5. **Event publisher/subscriber abstraction** — shared semantic events need one service/event contract with deployment-appropriate local or remote transport, consumed by the same web client.
 6. **Clock/ID/hash providers** — deterministic mechanics should be code-owned and testable rather than generated by agents.
 
 These are supporting architectural ports, not additional product capabilities or user-facing services.
 
 # Final Assessment
 
-The current Desktop implementation should be treated as a **proven behavioral source and selective code donor**, not as the Server codebase.
+The current V1 Desktop implementation should be treated as a **proven behavioral source and selective code donor**, not as the V2 host architecture.
 
 The client-service contract gives us the extraction boundary:
 
 ```text
-Current Desktop source
-        |
-        | extract domain behavior
-        v
+Current V1 Electron source
+          |
+          | extract required behavior
+          v
 Shared Product Core + semantic services
-        |
-        +---------------------+
-        |                     |
-        v                     v
-Desktop adapters         Server adapters
-Electron/Windows         network/server host
-local state DB           server state DB
-local repository/env     remote/local execution resources
-Codex adapter            Codex/local/future runtime adapters
+          |
+          +----------------------+
+          |                      |
+          v                      v
+ChampCity Service Host      ChampCity Web Client
+          |
+     deployment adapters
+      /            \
+ workstation      server
 ```
 
 The highest-risk migration is Project State because current V1 workflow state, dispositions, freshness, and completion are deeply coupled to Markdown/filesystem layout. The highest-value reusable body is Workflow/Governance. The strongest existing infrastructure foundation is Repository/AI Tool safety, now including bounded Git mutation. Runtime/Model can be evolved from the current Codex path. Memory and Skills should be implemented directly against the new architecture rather than reverse-engineered from legacy artifacts.

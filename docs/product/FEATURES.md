@@ -1,6 +1,8 @@
 # ChampCity A/I Desktop Feature Reference
 
-This reference describes capabilities implemented in the current Desktop source and tests. It is organized by product capability, not by historical Work Card chronology.
+**Status:** V1 implementation feature reference / migration evidence.
+
+This reference describes capabilities implemented in the current Electron/Desktop source and tests. It is organized by product capability, not by historical Work Card chronology. It does not define the V2 target architecture; see [Product Deployment: Web Client and Service Host](PRODUCT_DEPLOYMENT_WEB_CLIENT_AND_SERVICE_HOST.md).
 
 ## Project entry and control
 
@@ -133,7 +135,7 @@ See [Installation and Uninstall](../user/INSTALLATION_AND_UNINSTALL.md) for deta
 
 - Windows x64 is the documented distribution target; no cross-platform release is claimed.
 - The installer is currently unsigned and no in-app automatic updater is configured.
-- ChampCity A/I Server capabilities are not part of Desktop.
+- This V1 Desktop build does not implement the V2 Web Client / deployable Service Host architecture.
 - Embedded ChatGPT and managed Codex capabilities depend on their respective services, network access, and user authorization.
 - Architect handoff submission remains an explicit copy/paste action; ChampCity observes drafts submitted through the scoped MCP path rather than controlling the ChatGPT page as a privileged repository client.
 - Project workflow documents and MCP registrations remain local to the workstation and Windows user; they are not synchronized by a ChampCity cloud service.

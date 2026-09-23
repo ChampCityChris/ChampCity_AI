@@ -1,7 +1,7 @@
 # ChampCity Agent Runtime Interface Contract
 
 **Status:** Architecture Contract — V2 implementation baseline v1 — September 14, 2026  
-**Scope:** ChampCity V2 shared Product Core, Desktop runtime hosts, Server runtime hosts, and runtime adapters  
+**Scope:** ChampCity V2 Product Core, deployable Service Host, execution Hosts/environments, and runtime adapters  
 **Purpose:** Define the portable semantic contract through which ChampCity executes AI workers without allowing Codex/App Server, another external runtime, or a specific model provider to define ChampCity architecture.
 
 ---

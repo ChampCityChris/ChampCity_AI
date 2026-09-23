@@ -1,12 +1,12 @@
 # ChampCity A/I Product Capability Model
 
-**Status:** Adopted V2 product-capability baseline — September 14, 2026
+**Status:** Adopted V2 product-capability baseline — September 14, 2026; deployment interpretation revised September 22, 2026
 
 ## Purpose
 
 This document defines ChampCity A/I from the perspective of the capabilities the product provides rather than the technologies used to implement those capabilities.
 
-The purpose of this model is to establish the top-level product outline before dividing responsibility between ChampCity A/I Desktop and ChampCity A/I Server.
+The purpose of this model is to establish the top-level product outline before assigning responsibility across the one web client, Product Core/services, and deployment-specific Service Host adapters.
 
 Technologies and implementation mechanisms such as Electron, MCP, Codex, SQLite, Git, OAuth, Docker, or specific model providers belong beneath these capability domains. They should not define the product taxonomy themselves.
 
@@ -18,7 +18,7 @@ ChampCity A/I is a governed AI software-development platform.
 
 It coordinates Operator-directed product decisions, AI workers, development workflows, project state, tools, repositories, development environments, reusable skills, model/runtime behavior, and durable project knowledge.
 
-Desktop and Server should be treated as two deployment models for this shared product capability set rather than as unrelated products.
+Local workstation hosting and server hosting are deployment profiles for the same ChampCity service architecture and the same web client. They are not separate product implementations.
 
 ## Top-Level Capabilities
 
@@ -121,7 +121,7 @@ Structured Project State
     -> rendered as Markdown, cards, timelines, reports, or task packets when needed
 ```
 
-Structured Project State is the common target architecture for both ChampCity A/I Desktop and ChampCity A/I Server. Desktop should keep its durable project-state database locally; Server should provide server-owned durable project state.
+Structured Project State is the common target architecture for all V2 deployments. A workstation-hosted Service Host may keep its durable Project State locally; a server-hosted Service Host uses server-managed durable persistence. The domain model and web client do not fork by hosting location.
 
 Documents should become views or exports of structured project state rather than the storage format defining the domain model.
 
@@ -310,19 +310,20 @@ ChampCity A/I
 10. Development Environments
 ```
 
-## Desktop and Server Implication
+## Web Client and Service-Host Implication
 
-This capability model should be defined before assigning entire features to Desktop or Server.
+This capability model should be defined before assigning entire features to the web client, Product Core, or deployment adapters.
 
-For each capability, later architecture work should separately determine:
+For each capability, architecture work should separately determine:
 
-- where presentation occurs;
+- what presentation belongs in the one web client;
 - where genuine Operator Decision boundaries and canonical state/write ownership reside;
-- where durable state resides; and
-- where execution occurs.
+- where durable state resides;
+- where execution occurs; and
+- which deployment adapters are required for workstation-hosted versus server-hosted operation.
 
-A capability does not need to be wholly client-side or wholly server-side. For example, a Desktop client may present AI Memory while a Server owns its durable storage and retrieval services.
+A capability does not need to be wholly client-side or wholly backend-side. The client presents and requests capabilities; backend services own authoritative product behavior and durable mechanics.
 
-Desktop and Server should therefore implement or consume the same conceptual ChampCity capabilities while differing in deployment, canonical state location/ownership, access/security policy, and execution location.
+Workstation-hosted and server-hosted deployments therefore consume the same conceptual ChampCity capabilities and service contracts while differing only where deployment, resource location, access/security policy, persistence, or execution placement genuinely require different adapters.
 
-The foundational rules for that shared implementation—including the Shared Product Core, shared client/multiple-shell model, structured project-state direction, deterministic-mechanics principle, runtime independence, canonical domain vocabulary, and Control Plane/Execution Plane separation—are defined in `CHAMPCITY_FOUNDATIONAL_ARCHITECTURE_PRINCIPLES.md`.
+The foundational rules for that shared implementation—including the Shared Product Core, one-web-client model, deployable Service Host, structured project-state direction, deterministic-mechanics principle, runtime independence, canonical domain vocabulary, and Control Plane/Execution Plane separation—are defined in `CHAMPCITY_FOUNDATIONAL_ARCHITECTURE_PRINCIPLES.md` and `CHAMPCITY_WEB_CLIENT_AND_SERVICE_HOST_ARCHITECTURE.md`.

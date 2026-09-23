@@ -109,16 +109,22 @@ Target duration: several minutes is acceptable when the lane is deliberately inv
 
 Integration tests must use isolated temporary roots, controlled fixtures, bounded processes, and explicit cleanup. They must not depend on a developer's installed application state, active background agent, personal repositories, network access, or historical local artifacts.
 
-### Desktop platform lane
+### Desktop platform lane — V1 transition / retirement lane
 
 Purpose:
 
 - real Electron startup and shutdown;
 - main/preload/renderer vertical paths;
 - Windows process, tray, startup, lifecycle, and platform behavior;
-- supported desktop environment compatibility.
+- supported V1 Desktop environment compatibility while Electron remains in the migration source.
 
-This lane is run when a Work Item changes the Desktop host or at a defined phase boundary. Platform-specific tests must declare their supported platform and skip clearly elsewhere; they must not fail ambiguously on an unsupported host.
+This lane exists to preserve and qualify the frozen V1 Electron baseline while V2 behavior is extracted and cut over. It is run when a migration Work Item changes V1 Electron/native-host behavior that still requires characterization or when a defined migration/release boundary explicitly requires V1 Desktop proof.
+
+It is **not** the target V2 workstation-host lane. Workstation-hosted V2 uses the same browser Web Client and ChampCity Service Host architecture as server-hosted V2. New V2 Service Host/browser contracts belong in the ordinary fast, affected-capability, integration, packaging, or other applicable deployment-neutral lanes rather than being assigned to this lane merely because the Service Host runs on a workstation.
+
+As Electron/native Desktop infrastructure is retired, tests whose only contract is the removed V1 host should be retired or archived according to the test-lifecycle architecture rather than carried forward as permanent V2 platform requirements.
+
+Platform-specific tests must declare their supported platform and skip clearly elsewhere; they must not fail ambiguously on an unsupported host.
 
 ### Packaging lane
 

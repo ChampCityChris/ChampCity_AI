@@ -1,297 +1,130 @@
 # ChampCity A/I Repository and Product Source Layout Decision
 
-**Status:** Adopted architecture decision — September 14, 2026  
-**Date:** 2026-09-13  
-**Scope:** ChampCity A/I Product Core, Desktop, Server, Web client, shared client application, and extraction source layout
-
-This is the V2 production-source layout decision. The [corpus index](CHAMPCITY_V2_ARCHITECTURE_CORPUS_INDEX.md) records precedence and source/identity/version-compatibility dependencies. In package dependency diagrams, arrows mean **importer -> dependency**. Deployment/composition illustrations are labeled separately and do not reverse that import convention.
+**Status:** Adopted V2 production-source layout — revised September 22, 2026  
+**Scope:** Product Core, Service Host, Web Client, shared packages, V1 extraction, and deployment-neutral backend composition  
+**Supersedes:** the former `apps/desktop + apps/server + apps/web` V2 layout
 
 ## 1. Decision Summary
 
-ChampCity A/I should evolve toward a **single product-source monorepo** in the existing `ChampCity_AI` Git repository.
+ChampCity A/I V2 remains in the existing `ChampCity_AI` repository as a product monorepo.
 
-Desktop, Server, and Web should be independently buildable and independently releasable applications inside that repository. Shared Product Core, the shared client application, Project State, runtime contracts, repository management, and service contracts should be private workspace packages consumed by those applications.
+The V2 target contains:
 
-The recommended target is therefore conceptually:
+- one browser-delivered web client;
+- one deployable ChampCity Service Host that may run on a workstation or on a server;
+- private shared packages for Product Core, client code, service contracts, runtime contracts, Project State, and repository management.
 
-```text
-ChampCity_AI/
-├── apps/
-│   ├── desktop/
-│   ├── server/
-│   └── web/
-├── packages/
-│   ├── product-core/
-│   ├── client/
-│   ├── service-contracts/
-│   ├── runtime-contracts/
-│   ├── project-state/
-│   └── repository-management/
-├── tools/
-├── test/
-├── docs/
-├── package.json
-├── package-lock.json
-└── tsconfig.json
-```
+Electron is not part of the V2 target layout.
 
-This is a **source-control and dependency-layout decision**, not a requirement to move all current files immediately.
-
-The key rule is:
-
-> One Git repository should contain the ChampCity product family while package and application boundaries enforce architecture. Git repository boundaries should not be used as a substitute for Product Core boundaries.
-
-Separate product versions do **not** require separate Git repositories. Desktop and Server may have independent release/version lifecycles while consuming the same source revision of private shared packages.
-
-Brain_Dump remains a separate architecture/design repository. This decision concerns the production product source in `ChampCity_AI`.
-
----
-
-## 2. Why This Decision Fits the Existing Architecture
-
-This decision follows directly from the architecture already established in Brain_Dump.
-
-### 2.1 The Foundational Architecture already defines one product family
-
-`CHAMPCITY_FOUNDATIONAL_ARCHITECTURE_PRINCIPLES.md` defines the deployment composition:
+The preferred target shape is:
 
 ```text
-                    ChampCity Product Core
-                       /             \
-                      /               \
-             Desktop Host          Server Host
+apps/
+    web/
+    service-host/
+
+packages/
+    product-core/
+    client/
+    service-contracts/
+    runtime-contracts/
+    project-state/
+    repository-management/
 ```
 
-It also defines one shared client application with multiple shells:
+The exact package boundaries may be introduced incrementally as extraction requires them. This document does not require a mass source move before behavior extraction begins.
+
+The critical rule is:
+
+> Hosting location is a deployment property of the backend, not a reason to create another client or another Product Core.
+
+## 2. Why This Fits the V2 Architecture
+
+### 2.1 One product architecture
+
+`CHAMPCITY_WEB_CLIENT_AND_SERVICE_HOST_ARCHITECTURE.md` establishes the controlling V2 topology:
 
 ```text
-                Shared ChampCity Client
-                        |
-             +----------+----------+
-             |                     |
-       Desktop Shell            Web Shell
-         Electron                Browser
+ChampCity Web Client
+        |
+        v
+ChampCity Service Host
+        |
+        v
+Shared Product Core / Services
 ```
 
-A source layout should reinforce those decisions. A repository-per-product layout would make the shared Core and shared client cross-repository dependencies exactly while they are undergoing the most rapid extraction and change.
+The Service Host can be workstation-hosted or server-hosted.
 
-### 2.2 The Source Extraction Map requires extraction, not duplication
+There is no permanent V2 Desktop/Electron application.
 
-`SOURCE_EXTRACTION_MAP.md` explicitly establishes:
+### 2.2 Extraction, not duplication
 
-- extract shared behavior on contact;
-- do not copy Desktop services into Server;
-- classify behavior by product semantics rather than current Electron process location;
-- Desktop and Server must share domain/application behavior;
-- platform-specific implementations belong behind adapters;
-- Server must not inherit the Desktop repository artifact tree as its database.
+The V1 Electron application remains the source and behavior baseline.
 
-The map also identifies the first extraction units as identity/resource boundaries, workflow state, work-product/evidence state, provider-neutral execution contracts, tool/access-policy core, and repository/source-control ports.
+V2 extracts:
 
-Those are high-churn boundaries during the migration. Keeping them in the same Git repository allows a single change to extract a behavior, update Desktop to consume it, add conformance tests, and later add Server consumption without package publication or cross-repository synchronization.
+- workflow semantics;
+- Project State;
+- repository/source-control mechanics;
+- runtime/model abstractions;
+- tool/access policy;
+- reusable UI behavior.
 
-### 2.3 The Client-Service Contract requires the same client API in two hosts
+Electron process topology, preload IPC, native window/tray mechanics, and other V1 shell details are not automatically migrated.
 
-`CHAMPCITY_CLIENT_SERVICE_CONTRACT.md` and `CHAMPCITY_CLIENT_SERVICE_DESKTOP_SOURCE_MAPPING.md` define a deployment-neutral service surface used by both local Desktop and Server-backed clients.
+### 2.3 One client contract
 
-The shared client therefore needs to compile against a stable ChampCity service contract, not against Electron IPC and not directly against Server HTTP endpoints.
+The web client consumes the semantic Client-Service Contract.
 
-That relationship is easiest to enforce with this import direction:
+It must not import backend implementation or vary its product behavior because the endpoint is local versus remote.
 
-```text
-packages/client       -> packages/service-contracts
-packages/product-core -> packages/service-contracts
-```
+Transport may be configured differently, but client semantics remain one.
 
-The host composition supplies the concrete transport/implementation.
+### 2.4 One backend implementation
 
-### 2.4 Structured Project State is explicitly shared
+The Service Host composes the same Product Core and service implementations for both local and server deployment.
 
-`CHAMPCITY_STRUCTURED_PROJECT_STATE_DOMAIN_MODEL.md` defines one logical state model for both products:
+Deployment-specific adapters may differ for:
 
-- Desktop persists Project State locally;
-- Server persists Project State centrally;
-- both consume the same logical domain contracts.
+- persistence;
+- filesystem/repository resources;
+- execution-environment placement;
+- authentication/security;
+- process supervision;
+- secret/configuration storage;
+- network exposure.
 
-That argues for one `project-state` package containing the canonical domain model and persistence ports, with local/server persistence adapters kept outside the package.
-
-### 2.5 Runtime abstraction is explicitly provider-neutral
-
-`CHAMPCITY_AGENT_RUNTIME_INTERFACE_CONTRACT.md` defines a portable Agent Runtime Interface consumed by ChampCity orchestration and implemented by Codex or future runtimes.
-
-That contract should therefore be its own environment-neutral package rather than remain under the Desktop Electron source tree.
-
-### 2.6 Deterministic mechanics favor one product source graph
-
-`CHAMPCITY_DETERMINISTIC_AUTOMATION_BOUNDARIES.md` requires Git operations, IDs, hashes, serialization, state calculations, token accounting, and other mechanical work to be owned by ChampCity code.
-
-Creating several product repositories during extraction would add mechanical version coordination, package publication, dependency bumps, cross-repository branch management, and compatibility bookkeeping before those boundaries are stable.
-
-That is the opposite of the stated direction. The architecture should reduce repository mechanics, not manufacture more of them.
-
----
+Those adapters do not fork workflow logic.
 
 ## 3. Current Repository Evidence
 
-The recorded `ChampCity_AI` source audit describes a single Desktop-oriented npm package:
+The current repository is a V1 single-package Electron application.
 
-- root package is private;
-- one `package-lock.json` is authoritative;
-- Electron, React, MCP, and Codex dependencies live in one package;
-- one root `tsconfig.json` compiles all `src/**/*.ts` and `src/**/*.tsx`;
-- that TypeScript configuration exposes both `ES2022`/Node and DOM types across the entire source tree;
-- Vite treats `src/renderer` as the renderer application root;
-- production code is organized under `src/main`, `src/preload`, `src/renderer`, and `src/shared`.
+It contains:
 
-The Source Extraction Map inventories 177 source files and demonstrates that the current folders are process boundaries, not future product-domain boundaries.
+- Electron foreground/main/preload code;
+- renderer React UI;
+- main-process workflow/domain services;
+- Background Agent/service-host mechanics;
+- Agent Harness/MCP;
+- deterministic repository/Git operations;
+- Codex runtime integration;
+- V1 Markdown-backed workflow state.
 
-This is an appropriate starting point for a workspace conversion. It is not evidence that the Electron topology should survive as the architecture.
+That is the extraction baseline, not the permanent target topology.
 
-The current root configuration also illustrates why package boundaries are valuable: a single compiler environment makes Node, DOM, and Electron assumptions easier to leak into code that is supposed to become portable. Separate workspace packages can use separate TypeScript configurations and make those dependencies explicit.
+The current layout should be treated as a source map to decompose rather than a package structure to preserve.
 
-These are prior audit statements, not a new production-source inspection performed during document reconciliation. A reproducible source snapshot, dirty-file manifest, and criterion-to-characterization-test/report trace remain F21 dependencies. Document hashes alone do not prove source or test coverage.
-
----
-
-## 4. Options Considered
-
-### Option A — Separate repositories for Desktop, Server, Core, and Client
-
-Example:
-
-```text
-ChampCity_Desktop
-ChampCity_Server
-ChampCity_Core
-ChampCity_Client
-```
-
-#### Benefits
-
-- strong source-control isolation;
-- independent repository permissions;
-- independent CI and release histories;
-- useful if different organizations eventually own the products.
-
-#### Costs in the current migration
-
-- extraction of one Desktop behavior would commonly require coordinated changes in two or more repositories;
-- shared packages would need publishing, artifact feeds, Git dependencies, or another cross-repository dependency mechanism;
-- contract evolution would require version coordination before contracts are stable;
-- shared client changes could require synchronized Desktop and Server dependency upgrades;
-- characterization tests would be split across repositories;
-- repository/tooling/agent context would be fragmented;
-- the migration would spend more effort maintaining package versions and compatibility than proving the architectural boundaries.
-
-#### Assessment
-
-Not recommended for the current phase.
-
-This would turn a source-extraction problem into a distributed version-management problem.
-
----
-
-### Option B — Keep the current single-package repository
-
-Example:
-
-```text
-src/main
-src/preload
-src/renderer
-src/shared
-```
-
-#### Benefits
-
-- lowest immediate change;
-- current build continues unchanged;
-- no workspace tooling required.
-
-#### Costs
-
-- Electron process topology continues to masquerade as product architecture;
-- Product Core has no mechanically enforceable boundary;
-- Node/Electron/DOM dependency leakage remains easy;
-- shared client and host shell remain mixed;
-- Server additions would either enter `src/main` or create ad hoc parallel folders;
-- the Source Extraction Map would not have a clear destination for extracted behavior.
-
-#### Assessment
-
-Not acceptable as the target architecture.
-
-It is suitable only as the migration source.
-
----
-
-### Option C — One product monorepo with independently buildable apps and private shared packages
-
-Example:
-
-```text
-apps/
-packages/
-```
-
-#### Benefits
-
-- atomic extraction changes across donor Desktop code and new shared packages;
-- one source revision proves Desktop/Core/Server compatibility;
-- shared client and service contracts can evolve together;
-- package boundaries still enforce platform separation;
-- independent app builds and release versions remain possible;
-- shared package publication is unnecessary while packages remain internal;
-- characterization and conformance tests can cover multiple implementations in one repository;
-- future repository separation remains possible because package boundaries already define extraction seams.
-
-#### Costs
-
-- root build/test tooling must become workspace-aware;
-- package dependency direction must be governed explicitly;
-- CI should eventually become path/workspace aware;
-- careless package creation can produce a fragmented pseudo-microservice architecture inside one repository.
-
-#### Assessment
-
-**Recommended.**
-
-It best matches the architecture and minimizes migration coordination cost without sacrificing deployment or release independence.
-
----
-
-## 5. Recommended Target Layout
-
-The target should begin with a small number of meaningful boundaries rather than one package per Product Capability.
+## 4. Target Layout
 
 ```text
 ChampCity_AI/
-│
 ├── apps/
-│   ├── desktop/
-│   │   ├── src/
-│   │   │   ├── main/
-│   │   │   ├── preload/
-│   │   │   ├── renderer/
-│   │   │   ├── adapters/
-│   │   │   └── composition/
-│   │   ├── assets/
-│   │   ├── packaging/
-│   │   └── package.json
-│   │
-│   ├── server/
-│   │   ├── src/
-│   │   │   ├── api/
-│   │   │   ├── adapters/
-│   │   │   ├── composition/
-│   │   │   └── host/
-│   │   └── package.json
-│   │
-│   └── web/
-│       ├── src/
-│       │   ├── bootstrap/
-│       │   └── adapters/
-│       └── package.json
+│   ├── web/
+│   │   └── browser bootstrap, web transport, client delivery
+│   └── service-host/
+│       └── backend composition, deployment/bootstrap, host adapters
 │
 ├── packages/
 │   ├── product-core/
@@ -301,511 +134,350 @@ ChampCity_AI/
 │   ├── project-state/
 │   └── repository-management/
 │
-├── tools/
-│   └── migration/
-│
-├── test/
-│   ├── contract/
-│   ├── integration/
-│   └── migration/
-│
 ├── docs/
-├── scripts/
-├── package.json
-├── package-lock.json
-└── tsconfig.json
+├── test/
+└── validation/
 ```
 
-This is a target ownership model. Exact subordinate folders may change as implementation proves the boundaries.
+Do not create a generic `packages/shared` package.
 
----
+Do not create `apps/desktop`.
 
-## 6. Package Responsibilities
+Do not create separate local and server workflow applications.
 
-### 6.1 `packages/product-core`
+## 5. Package Responsibilities
 
-Owns portable ChampCity product behavior.
+### 5.1 `packages/product-core`
 
-Expected contents include:
+Owns deployment-neutral product semantics:
 
-- Workflows & Governance state machines and application services;
-- Project and Project Management semantics;
-- Operator Decision/disposition policy;
-- AI Memory orchestration/policy;
-- Skills orchestration/policy;
-- model/context/usage policy;
-- AI tool authorization semantics;
-- environment capability/preflight policy;
-- cross-capability orchestration;
-- application commands/queries that implement the semantic service contract.
+- workflows and governance;
+- eligibility and transition rules;
+- Operator Decision semantics;
+- repair/validation/close behavior;
+- application orchestration;
+- capability/access policy where it is product-semantic.
 
-It MUST NOT import:
+It must not import:
 
 - Electron;
-- React;
-- browser globals;
-- direct `node:fs`;
-- Windows APIs;
-- Codex-specific protocols;
-- HTTP/server framework APIs;
-- SQLite/Postgres/ORM implementations.
+- browser UI;
+- Node filesystem implementation;
+- Codex implementation;
+- HTTP/WebSocket frameworks;
+- Windows-specific host implementation.
 
-`product-core` should be internally organized by capability, but ChampCity should **not** immediately create a package for every capability. A package boundary is justified when it enforces a real dependency/runtime boundary, not merely because a heading exists in the Product Capability Model.
+### 5.2 `packages/client`
 
-### 6.2 `packages/client`
+Owns reusable web-client application code:
 
-Owns the shared ChampCity React application experience.
+- React/UI state and presentation;
+- client-side navigation;
+- presentation models;
+- semantic service invocation;
+- browser-compatible interaction behavior.
 
-Expected contents include:
+It may import service contracts and client-facing shared types.
 
-- common Workspaces;
-- navigation and workflow presentation;
-- project/phase/work-item/issue views;
-- design system and reusable UI components;
-- shared view-state logic;
-- service-driven query/command interaction;
-- semantic event handling.
+It must not import Product Core implementation, repository mechanics, runtime implementations, or server/host adapters.
 
-It MUST NOT:
+### 5.3 `packages/service-contracts`
 
-- import Electron;
-- import Node filesystem/process APIs;
-- import `product-core` directly;
-- know whether a request is satisfied through Electron IPC or HTTP/WebSocket;
-- own authoritative workflow transitions.
+Owns deployment-neutral semantic client/service types:
 
-The client consumes `service-contracts` through an injected client/service gateway.
+- request/response DTOs;
+- query/command semantics;
+- event contracts;
+- RequestContext/resource-scope types;
+- typed service errors and revision/operation identities.
 
-### 6.3 `packages/service-contracts`
+It is not an HTTP route definition and not an Electron IPC contract.
 
-Owns the deployment-neutral application service surface defined by `CHAMPCITY_CLIENT_SERVICE_CONTRACT.md`.
+### 5.4 `packages/project-state`
 
-This includes service interfaces, command/query DTOs, semantic events, revision expectations, error/result shapes, and stable identifiers required at the client/service boundary.
+Owns Structured Project State domain types, invariants, revisions, lineage, relationships, Decisions, Validation/Evidence relationships, and persistence ports.
 
-It exists so both of these can conform to the same semantic API:
+Persistence engines remain adapters.
 
-```text
-Desktop renderer -> local Desktop transport -> local ChampCity services
-Web client       -> Server transport        -> Server ChampCity services
-```
+### 5.5 `packages/runtime-contracts`
 
-The contract is semantic. It is not an Electron IPC contract and not an HTTP route definition. The diagram above depicts request flow, not package imports.
+Owns portable AI/worker runtime contracts:
 
-### 6.4 `packages/project-state`
+- execution requests;
+- runtime/model capability description;
+- context envelopes;
+- events/continuation;
+- usage/accounting contracts.
 
-Owns the canonical Structured Project State domain model and storage-facing ports.
+Codex and future runtimes are adapters.
 
-Expected contents include:
+### 5.6 `packages/repository-management`
 
-- Project;
-- Project Resource;
-- Finding;
-- Root Cause;
-- Bounded Solution;
-- Work Item;
-- Validation;
-- Evidence metadata;
-- Decision;
-- Relationship;
-- lineage/supersession/revision semantics;
-- domain validation/invariants;
-- persistence repository interfaces;
-- transaction/unit-of-work contracts where appropriate.
+Owns provider-neutral repository/source-control semantics and contracts:
 
-It MUST NOT contain SQLite- or Server-database-specific persistence.
+- Repository;
+- RepositoryCheckout;
+- SourceLine;
+- SourceRevision;
+- integration/checkout semantics;
+- bounded repository operations.
 
-Desktop and Server persistence implementations remain adapters.
+Git is the first provider/adapter, not the product vocabulary.
 
-### 6.5 `packages/runtime-contracts`
+## 6. Application Responsibilities
 
-Owns the ChampCity Agent Runtime Interface.
+### 6.1 `apps/web`
 
-Expected contents include:
-
-- runtime discovery/capability contracts;
-- worker/thread/turn lifecycle;
-- normalized events;
-- interruption/steering;
-- approvals/user-input suspension;
-- tool-call interaction contracts;
-- sandbox/capability declarations;
-- usage telemetry contracts;
-- normalized runtime failures;
-- conformance types.
-
-It MUST NOT contain Codex App Server transport, process launch, Electron service-host lifecycle, tray behavior, or Server process-host implementation.
-
-### 6.6 `packages/repository-management`
-
-Owns semantic Repository & Source Control Management behavior and the ports through which deterministic mechanics execute.
-
-Expected contents include:
-
-- repository identity/resource semantics;
-- bounded task-scope/access/policy enforcement;
-- path/containment policy independent of concrete filesystem APIs;
-- change-set/patch semantics;
-- source-control operation policy;
-- readiness/pre-commit semantics;
-- diff/history/status models;
-- deterministic operation receipts;
-- interfaces implemented by local Git/filesystem or future remote repository adapters.
-
-It MUST NOT become the new home for Markdown Project State.
-
-The future rule remains:
-
-> Repository state is not Project State.
-
----
-
-## 7. Application Responsibilities
-
-“Desktop host” and “Server host” below name application composition responsibilities. Canonical `Host` identity still means a physical or virtual machine under the Foundational Architecture Principles; a process or service composition module is not a new machine identity. Detailed service-instance/Host identity mapping remains open.
-
-### 7.1 `apps/desktop`
-
-`apps/desktop` is the ChampCity A/I Desktop host, not the shared product implementation.
+`apps/web` is the only V2 client host.
 
 It owns:
-
-- Electron `main` process;
-- preload/context bridge;
-- Electron IPC transport implementation;
-- tray and background-agent presentation;
-- Windows login/startup/install behavior;
-- native menus, dialogs, clipboard, notifications, and browser-window behavior;
-- local composition root;
-- local Project State persistence adapter;
-- local repository/filesystem adapter wiring;
-- local secrets/configuration adapter;
-- Windows environment adapters;
-- Desktop packaging and branding integration;
-- thin renderer bootstrap that loads `packages/client`.
-
-Desktop standalone mode is achieved by composing the shared Product Core with local adapters. It does not require a duplicate Desktop-only Core.
-
-### 7.2 `apps/server`
-
-`apps/server` is the ChampCity A/I Server host.
-
-It owns:
-
-- Server process composition;
-- authentication/principal establishment;
-- authorization enforcement at the host/trust boundary;
-- remote API/event transports;
-- server-owned durable persistence adapters;
-- server configuration/secrets;
-- server lifecycle/health;
-- worker/resource coordination specific to server deployment;
-- server-grade security, isolation, and multi-user concerns.
-
-It imports the same Product Core and semantic contracts used by Desktop.
-
-It MUST NOT copy Desktop workflow services or reuse Desktop Electron/Windows assumptions.
-
-### 7.3 `apps/web`
-
-`apps/web` is the browser shell for `packages/client`.
-
-It should remain thin:
 
 - browser bootstrap;
-- Server transport adapter;
-- browser-only host capabilities;
-- browser build/deployment configuration.
+- delivery of `packages/client`;
+- service endpoint/transport wiring;
+- browser-specific host integration where required.
 
-The Web app should not become a second independently implemented ChampCity UI.
+It must not:
 
-Server may serve the resulting Web assets, but the Web source remains a distinct application entry point from the Server process.
+- own workflow transitions;
+- directly read/write repositories;
+- launch agent runtimes;
+- import Node/Electron infrastructure;
+- contain a local-only alternative product flow.
 
----
+### 6.2 `apps/service-host`
 
-## 8. Dependency Direction
+`apps/service-host` is the backend composition root.
 
-Package arrows mean **importer -> dependency**:
+It owns:
+
+- service bootstrap;
+- Product Core composition;
+- Project State persistence adapter selection;
+- RepositoryService adapter selection;
+- Runtime/Model adapter selection;
+- Environment/tool adapters;
+- service transport;
+- process lifecycle;
+- deployment configuration.
+
+The same Service Host application is deployable on:
+
+- a user's workstation; or
+- a server.
+
+Deployment profiles may configure different adapters and exposure/security policy.
+
+The Service Host must not fork into separate local and server workflow implementations.
+
+## 7. Dependency Direction
+
+Conceptual import direction:
 
 ```text
-client       -> service-contracts
-product-core -> service-contracts
-product-core -> project-state
-product-core -> runtime-contracts
-product-core -> repository-management
+apps/web
+    -> packages/client
+    -> packages/service-contracts
+
+apps/service-host
+    -> packages/product-core
+    -> packages/service-contracts
+    -> packages/project-state
+    -> packages/runtime-contracts
+    -> packages/repository-management
 ```
 
-Applications compose those pieces:
+Additional public-type dependencies must remain acyclic.
 
-```text
-Desktop = product-core + client + local/Desktop adapters + Electron host
-Server  = product-core + server adapters + server host/transports
-Web     = client + Server transport + browser host
-```
+Rules:
 
-The exact import graph may require `service-contracts` to reference public types from lower-level domain packages. That public-type ownership and the complete acyclic allowed-import matrix remain design work; this diagram does not authorize a reverse import from a domain package into its application orchestrator or a new package split.
+1. shared packages never import from `apps/**`;
+2. `packages/client` never imports Product Core implementation;
+3. Product Core never imports browser or deployment framework implementations;
+4. Project State never imports a concrete persistence engine;
+5. runtime contracts never import Codex/provider implementations;
+6. repository management never imports legacy Markdown workflow persistence;
+7. host adapters point inward toward contracts;
+8. V1 Electron source is migration input, not an allowed V2 dependency.
 
-The critical architectural rules are:
+## 8. Adapter Placement Rule
 
-1. `client` never imports `product-core` implementation;
-2. shared packages never import Desktop or Server apps;
-3. Product Core never imports Electron/React/Windows/server framework implementations;
-4. provider/storage/OS implementations point inward toward contracts;
-5. hosts compose dependencies; hosts do not define shared product semantics.
+Do not create a generic adapter dumping ground.
 
----
+An adapter belongs initially with the Service Host when it is deployment-specific.
 
-## 9. Adapter Placement Rule
+Promote it to a shared package only when:
 
-Do not create a giant `packages/adapters` dumping ground on day one.
-
-Use this rule:
-
-> An adapter remains inside its owning app while it is host-specific. Promote it to a shared package only when at least two hosts need the same implementation or when independent conformance/testing materially benefits from the package boundary.
+- multiple backend compositions genuinely reuse it; or
+- independent conformance/testing materially benefits from the boundary.
 
 Examples:
 
-- Electron IPC adapter -> `apps/desktop`;
-- Windows startup/tray adapter -> `apps/desktop`;
-- Server HTTP/WebSocket transport -> `apps/server`;
-- browser transport adapter -> `apps/web`;
-- Codex runtime adapter -> likely future shared package if both Desktop and Server use it;
-- local Git/filesystem repository adapter -> likely future shared package if both Desktop and Server/local workers use it;
-- SQLite Project State adapter -> shared only if both deployment models genuinely use the same persistence implementation.
+- local Git/filesystem implementation -> Service Host adapter initially;
+- server/remote repository provider -> Service Host adapter;
+- Codex runtime -> Service Host adapter or later shared runtime adapter if justified;
+- SQLite/other Project State persistence -> host adapter/shared persistence package only when reuse warrants it;
+- HTTP/WebSocket transport -> Service Host;
+- browser transport -> Web app.
 
-These arrows denote placement, not dependency direction. This prevents package proliferation while preserving a clean promotion path.
+Electron IPC and preload are V1-only migration surfaces and are not adapter targets.
 
----
+## 9. Current Source to Target Ownership
 
-## 10. Current Source to Target Ownership
-
-The Source Extraction Map already provides the semantic classification. The repository layout should realize it as follows.
-
-| Current source | Target ownership |
+| Current V1 source | V2 target |
 | --- | --- |
-| `src/main/currentWorkflow`, Project/Phase/Work Card/Issue lifecycle services | `packages/product-core` after filesystem/Markdown workflow-state ownership is removed |
-| correctness-sensitive workflow transition/eligibility logic currently in renderer orchestration helpers | move decision logic to `packages/product-core`; leave presentation coordination in `packages/client` |
-| `src/shared` | **do not move wholesale**; split each type/contract by ownership into service contracts, Project State, runtime contracts, repository management, client presentation, or legacy migration |
-| `src/main/documents` domain disposition/transaction semantics | Product Core / Project State as appropriate |
-| canonical Markdown writers, repository snapshots/projections, old document compatibility | migration/import/export tooling, not steady-state Core |
-| `src/main/agentHarness/repository` bounded repository/Git semantics | `packages/repository-management` plus concrete local adapter |
-| controlled Markdown/text projection inside Agent Harness repository code | legacy migration/export adapter |
-| `src/main/agentHarness/tools/toolRegistry.ts` | shared tool/access/scope/policy semantics in Product Core; MCP publication remains transport/host adapter |
-| `src/main/workCardBuilding/codex*` | provider-neutral semantics to `runtime-contracts`; Codex implementation becomes runtime adapter |
-| Agent Harness service/controller/process-host/tray/Windows lifecycle | `apps/desktop` where Desktop-specific; reusable runtime semantics extracted first |
-| future durable Server runtime host | `apps/server` |
-| `src/main/developmentEnvironment` capability/preflight rules | `packages/product-core`; Windows provisioning stays Desktop adapter; future container/VM/remote implementations stay deployment adapters |
-| `src/main/browser/architectBrowserService.ts` | Desktop adapter; future server/browser implementations satisfy a shared semantic port |
-| `src/main/main.ts`, `bootstrap.ts`, `contextMenu` | `apps/desktop` composition/shell |
-| `src/preload/index.ts` | `apps/desktop` transport adapter |
-| most `src/renderer/app/*.tsx` | `packages/client` after correctness-sensitive workflow sequencing is extracted |
-| renderer Electron bridge declarations/bootstrap/assets specific to native delivery | `apps/desktop` |
-| browser bootstrap and remote service transport | `apps/web` |
+| `src/main/currentWorkflow`, Project/Phase/Work/Issue lifecycle services | `packages/product-core` after filesystem/Markdown state ownership is removed |
+| renderer helpers containing eligibility/transition decisions | decisions -> Product Core; presentation -> `packages/client` |
+| reusable renderer UI | `packages/client` / `apps/web` |
+| `src/shared` | split by actual ownership; do not move wholesale |
+| document disposition/transaction semantics | Product Core / Project State as appropriate |
+| canonical Markdown workflow writers and snapshots | migration/export/projection; not steady-state Core |
+| `src/main/agentHarness/repository` bounded repository/Git semantics | repository-management + backend adapter |
+| tool registry semantic authorization/dispatch | Product Core/service/tool policy; MCP remains an external transport adapter |
+| Codex-specific execution source | runtime-contracts + Codex backend adapter |
+| reusable Agent Harness service behavior | Service Host/backend services |
+| Windows/Electron tray/startup/window lifecycle | V1-only unless a distinct backend host requirement survives Electron removal |
+| `src/main/main.ts`, Electron bootstrap/context menus | V1 shell; extract reusable behavior only, then retire |
+| `src/preload/index.ts` | retire after web/service cutover |
+| Electron bridge declarations | retire |
+| embedded Electron Architect browser | V1 presentation implementation; replace with web-compatible V2 capability if retained |
+| browser-compatible presentation/client behavior | `packages/client` / `apps/web` |
 
-A generic future `packages/shared` folder should **not** be created. The existing `src/shared` name is an implementation-era convenience and already contains multiple kinds of ownership. The migration should resolve that ambiguity instead of preserving it.
+## 10. Versioning and Release Model
 
----
+V2 has one client implementation and one backend service-host implementation.
 
-## 11. Versioning and Release Model
+Release packaging may differ by deployment:
 
-Source repository boundaries and product version boundaries should remain separate concepts.
+- workstation installer/package for the Service Host;
+- server deployment/package for the Service Host;
+- web client assets.
 
-Recommended model:
+Compatibility between web client and Service Host must be explicit.
 
-- `ChampCity_AI` has one Git history;
-- Desktop carries its own product version/release artifact;
-- Server carries its own product version/release artifact;
-- Web ships with Server while remaining a distinct build target/source entry point;
-- internal shared packages remain private and are not published merely to simulate repository separation;
-- compatibility is proved by build, type, contract, conformance, and integration tests against the same source revision.
+A deployment must not silently pair an incompatible client/service contract.
 
-Desktop and Server may release at different cadences because they are alternative deployment products rather than two halves of one concurrently installed client/host pair for the same Project.
+Separate release artifacts do not imply separate source architectures.
 
-If a future external SDK, plugin ecosystem, or independently distributed contract requires published packages, those packages can acquire explicit semantic versions then. Internal package publishing is not needed now.
+## 11. Migration Strategy
 
-For Server deployment, the browser client is built and deployed with the Server and MUST be updated atomically with the compatible service-contract implementation. The product updater must not leave an old web client paired with a newly incompatible Server service or vice versa.
+### Stage 0 — Preserve the V1 baseline
 
-Desktop standalone updates its local client/services as one coordinated product update for the same reason.
+Keep reproducible V1 source/characterization evidence while extraction proceeds.
 
-ChampCity does not need to support arbitrary client/server version skew between these normal deployment modes. If a future separately installed remote client is introduced, it MUST use coordinated auto-update/version negotiation that prevents operation against an incompatible host. An incompatible peer is blocked with an explicit required-update state rather than allowed to continue on best effort.
-
-This makes update coordination, not a long-lived compatibility matrix, the normal solution to F20.
-
----
-
-## 12. Tooling Recommendation
-
-The current repository already uses npm and a root `package-lock.json`.
-
-Therefore the lowest-risk workspace transition is:
-
-1. retain npm;
-2. make the root package a private workspace root;
-3. use npm workspaces for `apps/*` and `packages/*`;
-4. use separate TypeScript configurations/project references for apps and packages;
-5. centralize shared compiler defaults in a base TypeScript configuration;
-6. add a heavier monorepo task orchestrator only if build/test scale later creates a measurable need.
-
-Do **not** switch package managers merely to obtain monorepo support.
-
-Separate TypeScript projects are particularly valuable because they can enforce different runtime environments:
-
-- Product Core/contracts: platform-neutral TypeScript;
-- Client/Web: DOM/React;
-- Desktop: Node + Electron + renderer boundary;
-- Server: Node/server runtime;
-- adapters: only the environment they actually require.
-
-This directly addresses the current single `tsconfig` problem where Node and DOM capabilities are visible across the whole codebase.
-
----
-
-## 13. Migration Strategy
-
-Do not perform a mass folder move before semantic extraction.
-
-The source layout should be introduced incrementally.
-
-### Stage 0 — Preserve the Desktop baseline
-
-Retain the current Desktop release/baseline history before structural migration. The prior product-line decision that Desktop must not be destructively transformed remains valid.
-
-A monorepo conversion is acceptable because it preserves Desktop as a first-class application rather than replacing it with Server.
+Do not interpret preservation as a requirement to preserve Electron in V2.
 
 ### Stage 1 — Establish workspace/build boundaries
 
-Create the workspace root and TypeScript project boundaries when the first extraction Work Card requires them.
+Introduce monorepo/workspace structure only as the first extraction needs it.
 
-Do not create empty packages solely to make the tree look complete.
+Avoid a mass move with no semantic extraction.
 
-### Stage 2 — Extract foundational contracts first
+### Stage 2 — Extract foundational contracts
 
-Follow the Source Extraction Map order:
+Recommended dependency order:
 
 1. identity/resource model;
 2. Structured Project State;
-3. provider-neutral runtime contract;
-4. repository/source-control semantic ports;
+3. provider-neutral runtime contracts;
+4. repository/source-control ports;
 5. service contracts.
 
-Make current Desktop consume each extracted package as it is introduced.
+### Stage 3 — Extract Product Core
 
-### Stage 3 — Extract workflow Product Core
+Move lifecycle, Decisions/dispositions, eligibility, repair, validation, and close/next semantics behind Structured Project State and services.
 
-Move lifecycle, effective Decisions/dispositions, eligibility, repair, validation, and close/next semantics behind structured state and shared application services.
+### Stage 4 — Establish Service Host
 
-Characterization tests must continue proving current Desktop behavior during extraction. Their mappings must distinguish preserved behavior from known defects and V2 changes explicitly directed by the Operator or adopted architecture; undocumented test assumptions do not create new product decisions or constraints.
+Move reusable backend mechanics behind deployable services and adapters.
 
-### Stage 4 — Extract the shared client
+Make workstation-hosted execution a first-class Service Host deployment profile.
 
-Move reusable renderer UI into `packages/client` only after authoritative transitions have been removed from renderer helpers.
+### Stage 5 — Extract the web client
 
-Desktop keeps a thin renderer bootstrap and Electron host-capability adapter.
+Move reusable renderer presentation into `packages/client` / `apps/web`.
 
-### Stage 5 — Add Server and Web hosts
+Remove authoritative workflow sequencing from UI code.
 
-Build `apps/server` against the same Product Core and service contracts.
+Connect the web client to the Service Host contract.
 
-Build `apps/web` as a thin host for `packages/client` using Server transport.
+### Stage 6 — Workstation cutover
 
-### Stage 6 — Promote reusable adapters only when proven
+Reach functional parity for required workstation-hosted behavior using:
 
-If Desktop and Server both use Codex, local Git, SQLite, or another adapter implementation, promote that adapter from an app into a shared package then.
+```text
+browser -> web client -> local Service Host
+```
 
----
+Once required parity is demonstrated, retire Electron/preload/native shell dependencies.
 
-## 14. Boundary Enforcement Rules
+### Stage 7 — Server deployment
 
-The target layout is only useful if imports enforce it.
+Deploy the same Service Host architecture on server infrastructure with server-appropriate persistence, authentication, isolation, and resource adapters.
 
-The following should become architecture rules:
+No client rewrite is required.
 
-1. `packages/product-core` may not import from `apps/**`.
-2. `packages/client` may not import from `apps/**` or `packages/product-core`.
-3. `packages/project-state` may not import persistence engines.
-4. `packages/runtime-contracts` may not import Codex or process-host implementations.
-5. `packages/repository-management` may not import Project State Markdown compatibility code.
-6. `apps/desktop` may import shared packages and local adapters, but Desktop-specific code must not be imported by Server.
-7. `apps/server` may import shared packages and server adapters, but Server-specific code must not be imported by Desktop/Core.
-8. `apps/web` may import Client/service contracts but not Node/Electron infrastructure.
-9. legacy Markdown migration code may depend on old artifact formats; Product Core must not depend on it.
-10. package boundaries should be validated by compile/test automation rather than maintained by convention alone.
+## 12. Boundary Enforcement Rules
 
----
+The target layout must enforce:
 
-## 15. Why Separate Repositories May Still Make Sense Later
+1. no Product Core imports from `apps/**`;
+2. no Client imports from Product Core implementation;
+3. no Electron imports anywhere in V2 packages/apps;
+4. no browser imports in backend packages;
+5. no concrete filesystem/Git/runtime implementation in Product Core;
+6. no duplicated local/server workflow service implementations;
+7. no legacy Markdown state dependency from Product Core;
+8. package/import boundaries validated by automation.
 
-This decision should not be interpreted as “ChampCity must always be a monorepo.”
+## 13. Rejected Layout Smells
 
-A later repository split becomes reasonable if one or more concrete pressures appear:
+### Permanent `apps/desktop`
 
-- different teams require independent repository ownership;
-- security or customer-delivery rules require source isolation;
-- a shared package becomes a separately distributed public SDK;
-- technology stacks diverge enough that the common toolchain is harmful;
-- repository/CI scale becomes materially problematic;
-- release governance requires independently controlled source histories rather than merely independent app versions.
+Rejected. It recreates a second V2 client/host architecture after the decision to use one web client.
 
-None of those conditions currently outweigh the extraction cost.
+### Separate local and server Product Core implementations
 
-Importantly, good package boundaries make a later split easier. The monorepo should therefore be designed so shared packages **could** be published or moved later, while remaining private and source-local now.
+Rejected. Hosting location does not justify duplicated workflow semantics.
 
----
+### Electron wrapper around the web client as a required V2 product
 
-## 16. Rejected Layout Smells
-
-The following target shapes should be rejected:
-
-### `apps/desktop` containing the Product Core
-
-This would preserve Desktop as the architecture and make Server depend on Desktop implementation details.
-
-### `apps/server` copying Desktop workflow services
-
-This directly violates the Shared Product Core and Source Extraction Map decisions.
+Rejected as a target architecture. A temporary migration wrapper does not become the permanent product.
 
 ### `packages/shared`
 
-A generic shared package would recreate the ambiguity already present in `src/shared` and become a dumping ground for unrelated contracts.
+Rejected. Ownership must be explicit.
 
-### `packages/core` importing `node:fs`, Electron, Codex, SQLite, or HTTP frameworks
+### Product Core importing host frameworks
 
-That would make the package shared in name only.
+Rejected. Product Core is deployment-neutral.
 
-### `packages/client` importing Product Core directly
+### Client importing Product Core directly
 
-That would prevent the same client from operating cleanly over local Desktop services and remote Server services.
+Rejected. The web client operates through semantic services.
 
-### separate repositories merely to obtain independent version numbers
+## 14. Final Recommendation
 
-Versioning is a release concern. It does not justify cross-repository dependency management by itself.
-
----
-
-## 17. Final Recommendation
-
-Adopt the following architecture decision before extraction begins:
-
-> **ChampCity A/I will use the existing `ChampCity_AI` repository as a product monorepo containing independently buildable Desktop, Server, and Web applications plus private shared packages. Shared Product Core and the shared client will not live in separate Git repositories. Desktop and Server may version and release independently.**
-
-Use this initial permanent package set:
+ChampCity A/I V2 will use the existing `ChampCity_AI` repository as a monorepo with:
 
 ```text
-packages/
-    product-core
-    client
-    service-contracts
-    runtime-contracts
-    project-state
-    repository-management
-
 apps/
-    desktop
-    server
-    web
+    web/
+    service-host/
+
+packages/
+    product-core/
+    client/
+    service-contracts/
+    runtime-contracts/
+    project-state/
+    repository-management/
 ```
 
-Treat adapter packages as **promotions based on proven reuse**, not mandatory initial structure.
+The Service Host is installed wherever ChampCity backend services should run.
 
-Do not mass-migrate the current tree. Introduce the workspace structure as the first extraction units move, and make Desktop consume the extracted packages immediately. This preserves the proven Desktop behavior while ensuring Server is built from shared ChampCity semantics instead of a copy of the Electron application.
+The Web Client is the one user-facing V2 application.
 
-This layout best satisfies the Product Capability Model, Foundational Architecture Principles, Client-Service Contract, Structured Project State model, Agent Runtime Interface, Deterministic Automation Boundaries, and Source Extraction Map while minimizing unnecessary repository/version-management work during the migration. This repository/source-layout decision was adopted for the V2 implementation baseline on September 14, 2026.
+Do not mass-migrate the tree. Extract behavior in dependency order, prove workstation-hosted web/service parity, then remove Electron.
+
+This decision is governed by `CHAMPCITY_WEB_CLIENT_AND_SERVICE_HOST_ARCHITECTURE.md` and supersedes the September 14 multiple-host/multiple-shell V2 layout.

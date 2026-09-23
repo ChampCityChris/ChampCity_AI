@@ -4,19 +4,21 @@
 
 ## Purpose
 
-This document records the foundational architectural principles governing the ChampCity A/I product family as ChampCity A/I Desktop and ChampCity A/I Server develop in parallel.
+This document records the foundational architectural principles governing ChampCity A/I V2 as one web client over deployable ChampCity backend services.
 
 The companion `CHAMPCITY_PRODUCT_CAPABILITY_MODEL.md` answers the product question, **What does ChampCity A/I provide?**
 
-This document answers the architectural question, **What rules govern how those capabilities are built, shared, hosted, and evolved across Desktop and Server?**
+This document answers the architectural question, **What rules govern how those capabilities are built, shared, hosted, and evolved when the same backend can run on a local workstation or on a server?**
 
-These principles are intended to prevent current Desktop implementation details from becoming accidental permanent architecture and to prevent Desktop and Server from diverging into independently implemented products.
+These principles are intended to prevent V1 Electron implementation details from becoming accidental permanent architecture and to prevent local/server deployments from diverging into independently implemented products.
+
+`CHAMPCITY_WEB_CLIENT_AND_SERVICE_HOST_ARCHITECTURE.md` is the controlling V2 client/hosting decision and supersedes the former shared-client/multiple-shell interpretation in earlier versions of this document.
 
 ---
 
 ## 1. Shared ChampCity Product Core
 
-ChampCity A/I Desktop and ChampCity A/I Server are two deployment models of one product family.
+ChampCity A/I V2 is one product architecture. Its Service Host may be deployed locally on a workstation or remotely on a server.
 
 They should share the same core product semantics for capabilities such as:
 
@@ -33,83 +35,92 @@ They should share the same core product semantics for capabilities such as:
 The architecture must reject both of these failure modes:
 
 ```text
-Desktop
-   -> copied and modified into Server
+V1 Electron application
+   -> copied and modified into a server application
 ```
 
 and:
 
 ```text
-Desktop implementation
-Server independent reimplementation
+local backend implementation
+server backend reimplementation
 ```
 
 The intended direction is:
 
 ```text
-                    ChampCity Product Core
-                       /             \
-                      /               \
-             Desktop Host          Server Host
+                ChampCity Web Client
+                        |
+                        v
+                ChampCity Services
+                        |
+                        v
+                ChampCity Product Core
+                     /       \
+                    /         \
+          local adapters   server/remote adapters
 ```
 
-Desktop-specific and Server-specific infrastructure may differ, but shared ChampCity behavior should be extracted and consumed rather than duplicated.
+Deployment-specific infrastructure may differ, but shared ChampCity behavior and service contracts must not be duplicated.
 
 ### Extraction principle
 
-The current Desktop implementation is both the proven reference implementation and a source donor for shared behavior.
+The current V1 Desktop implementation is both proven behavior evidence and a source donor for V2.
 
-Server development should use **extraction on contact**:
+V2 migration should use **extraction on contact**:
 
-1. identify the proven Desktop behavior needed by Server;
-2. separate portable ChampCity semantics from workstation-specific assumptions;
-3. establish a shared contract or core implementation;
-4. make Desktop consume the shared behavior where practical; and
-5. implement Server-specific infrastructure behind the same semantic boundary.
+1. identify proven V1 behavior that remains required;
+2. separate portable ChampCity semantics from Electron/Windows/workstation assumptions;
+3. establish shared Product Core/service contracts;
+4. move reusable presentation into the one web client;
+5. move reusable backend behavior into the deployable Service Host; and
+6. retire Electron-only mechanics that are not independently required by V2.
 
-A broad rewrite of Desktop solely for architectural cleanliness is not required before Server work begins.
+The migration may be incremental, but the target is not a permanent Electron client alongside the web client.
 
 ---
 
-## 2. Shared Client Application, Multiple Shells
+## 2. One Web Client, Deployable Service Host
 
-ChampCity should have one shared client application experience rather than independently developed Desktop and Server user interfaces.
+ChampCity A/I V2 has one client implementation: the browser-delivered web client.
 
-The client should not define itself as an Electron application. Electron is the native host for ChampCity A/I Desktop.
+Electron is a V1 implementation technology and is not a V2 host.
 
 The intended model is:
 
 ```text
-                Shared ChampCity Client
-                        |
-             +----------+----------+
-             |                     |
-       Desktop Shell            Web Shell
-         Electron                Browser
-             |                     |
-     Local ChampCity         ChampCity Server
-        Services             Service Interfaces
-
+                 ChampCity Web Client
+                         |
+                         v
+                 Service Contract
+                         |
+                         v
+                ChampCity Service Host
+                    /           \
+                   /             \
+         workstation-hosted   server-hosted
 ```
 
-### Desktop
+The Service Host is the same backend architecture in both deployment models. Hosting location changes deployment adapters and policy, not Product Core semantics or client implementation.
 
-ChampCity A/I Desktop may operate in standalone mode using local ChampCity services.
+### Workstation-hosted
 
-Desktop standalone and Server deployment are alternative operating modes. A Project has one canonical writable Project State location at a time; Desktop is not a writable offline/online peer of Server and no live bidirectional Project State synchronization is required.
+A user may run the Service Host locally on a workstation and connect to it with the web client.
 
-### Server
+Local hosting may provide access to local repositories, local execution environments, and other workstation resources through backend adapters. It does not create a separate Desktop application or UI architecture.
 
-ChampCity A/I Server should support a browser-delivered client and must not require Electron merely to use server-backed ChampCity capabilities.
+### Server-hosted
+
+The Service Host may run on an actual server and expose the same semantic services to the same web client through the deployment's configured network/security boundary.
 
 ### Client-service boundary
 
-The shared UI should consume ChampCity service contracts instead of directly owning product decisions, workflow transitions, or depending on Electron-specific mechanisms.
+The web UI consumes ChampCity service contracts instead of owning product decisions, workflow transitions, filesystem/Git/process mechanics, or host-specific implementation details.
 
 Conceptually:
 
 ```text
-UI
+Web Client
   -> Project Service
   -> Workflow Service
   -> Repository Service
@@ -117,9 +128,9 @@ UI
   -> Project State Service
 ```
 
-A Desktop adapter satisfies those services through local IPC/local services. The Server browser client satisfies them through remote service interfaces. A future separately installed remote client is optional and must not create a second canonical writable Project State location for the Project.
+The client must not need separate code paths for "Desktop mode" and "Server mode." Transport configuration may differ, but the semantic client remains one.
 
-Shell-specific functionality such as tray behavior, native file pickers, local notifications, clipboard integration, native context menus, or similar host capabilities should remain behind explicit client/host capability boundaries.
+Browser capabilities and backend service capabilities should be explicit. V1 Electron conveniences such as tray behavior, preload bridges, embedded BrowserWindow/WebContentsView surfaces, or native context menus are not V2 requirements unless separately justified as product capabilities.
 
 ---
 
@@ -127,18 +138,18 @@ Shell-specific functionality such as tray behavior, native file pickers, local n
 
 ChampCity should move away from Markdown documents as the authoritative project-state model.
 
-This is not a Server-only change. Desktop and Server should converge on the same structured project-state domain model during Server development.
+This is a V2-wide change. Workstation-hosted and server-hosted Service Host deployments use the same Structured Project State domain model.
 
 The deployment difference is primarily where the state is stored:
 
 ```text
-ChampCity A/I Desktop
+Workstation-hosted Service Host
     Structured Project State
-        -> local durable database
+        -> local durable persistence
 
-ChampCity A/I Server
+Server-hosted Service Host
     Structured Project State
-        -> server-owned durable database
+        -> server-managed durable persistence
 ```
 
 The target relationship is:
@@ -337,7 +348,7 @@ A Workspace is therefore not synonymous with:
 
 ### Legacy `workspaceId` terminology
 
-The current Desktop/MCP harness uses `workspaceId` for a concept that is effectively a registered repository identity and authorization boundary.
+The current V1 Desktop/MCP harness uses `workspaceId` for a concept that is effectively a registered repository identity and authorization boundary.
 
 For example:
 
@@ -348,7 +359,7 @@ repository = ChampCity_AI
 
 This legacy name must not establish the future semantic meaning of Workspace.
 
-Existing Desktop APIs may retain the legacy identifier temporarily for compatibility during migration, but new shared architecture should move toward explicit identities such as:
+Existing V1 APIs may retain the legacy identifier temporarily for compatibility during migration, but new shared architecture should move toward explicit identities such as:
 
 ```text
 projectId
@@ -358,7 +369,7 @@ hostId
 executionEnvironmentId
 ```
 
-Compatibility adapters may translate legacy `workspaceId` behavior while Desktop is migrated.
+Compatibility adapters may translate legacy `workspaceId` behavior while the V1 implementation is migrated.
 
 ---
 
@@ -392,14 +403,14 @@ The Execution Plane provides the places and workers that perform actions such as
 - other AI worker execution requiring engineering resources; and
 - future isolated or disposable development environments.
 
-Desktop may colocate the Control Plane and Execution Plane on one local Host.
+A workstation-hosted Service Host may colocate the Control Plane and Execution Plane on one local Host.
 
-Server architecture must not require them to be colocated.
+The V2 architecture must not require them to be colocated. A server-hosted Service Host may coordinate execution on the same machine or on separate execution Hosts/environments.
 
 This preserves a future topology such as:
 
 ```text
-ChampCity Server / Control Plane
+ChampCity Service Host / Control Plane
             |
       +-----+------+------------+
       |            |            |
@@ -415,19 +426,19 @@ The immediate architecture does not need to implement distributed workers. It on
 
 ## Architectural Consequences
 
-These principles imply several constraints for ongoing Desktop and Server development.
+These principles imply several constraints for V2 migration and ongoing local/server deployment development.
 
 ### Shared behavior should not be duplicated
 
-When Server requires a behavior already proven in Desktop, portable domain logic should be extracted or shared rather than copied.
+When V2 requires behavior already proven in V1 Desktop, portable domain logic should be extracted into shared services rather than copied into another deployment implementation.
 
-### Desktop remains a first-class product
+### Workstation hosting remains first-class without a Desktop client
 
-Desktop should migrate toward the same structured project-state and shared-core architecture rather than remain indefinitely on a legacy Markdown-authoritative path.
+V2 must remain fully usable when its Service Host runs on the user's workstation. That requirement is satisfied through the same backend architecture and the same web client, not through a permanent Electron application.
 
-### Server should not inherit workstation assumptions by default
+### Server hosting should not inherit workstation assumptions by default
 
-Local filesystem paths, Windows-specific lifecycle behavior, Electron process topology, local `userData`, tray behavior, or other Desktop infrastructure must not be promoted into shared product semantics merely because the current implementation uses them.
+Local filesystem paths, Windows-specific lifecycle behavior, Electron process topology, local `userData`, tray behavior, or other V1 Desktop infrastructure must not be promoted into shared product semantics merely because the current implementation uses them.
 
 ### The client should not own product decisions or workflow transitions
 
@@ -443,6 +454,6 @@ Repository and source-control operations should continue moving toward determini
 
 `CHAMPCITY_PRODUCT_CAPABILITY_MODEL.md` remains the canonical high-level definition of what ChampCity provides.
 
-This document governs the architectural interpretation of those capabilities across Desktop and Server.
+This document governs the architectural interpretation of those capabilities across the web client and locally/server-hosted ChampCity services.
 
 Future detailed architecture documents may define individual capabilities, service contracts, persistence models, runtime adapters, client interfaces, execution environments, or migration plans, but they should remain consistent with these foundational principles unless an explicit architecture decision supersedes one of them.

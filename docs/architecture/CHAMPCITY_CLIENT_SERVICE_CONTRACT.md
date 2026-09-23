@@ -1,12 +1,12 @@
 # ChampCity A/I Client-Service Contract
 
-**Status:** Adopted V2 semantic service-contract baseline — September 14, 2026
+**Status:** Adopted V2 semantic service-contract baseline — September 14, 2026; deployment topology aligned September 22, 2026
 
 ## Purpose
 
 This document defines the semantic service boundary between the shared ChampCity client and the capabilities that implement ChampCity A/I.
 
-The contract defines **what ChampCity can be asked to do**, not how those requests are transported or persisted. Desktop standalone may satisfy the contracts through local services. Server-backed clients may satisfy the same contracts remotely.
+The contract defines **what ChampCity can be asked to do**, not how those requests are transported or persisted. The same web client consumes these contracts whether the ChampCity Service Host runs locally on a workstation or remotely on a server.
 
 This document is governed by:
 
@@ -14,7 +14,7 @@ This document is governed by:
 - `CHAMPCITY_FOUNDATIONAL_ARCHITECTURE_PRINCIPLES.md`
 - `CHAMPCITY_STRUCTURED_PROJECT_STATE_DOMAIN_MODEL.md`
 
-It is complemented by `CHAMPCITY_CLIENT_SERVICE_DESKTOP_SOURCE_MAPPING.md`, which maps the current Desktop implementation to this target contract.
+It is complemented by `CHAMPCITY_CLIENT_SERVICE_DESKTOP_SOURCE_MAPPING.md`, which maps the V1 Electron/Desktop implementation into this target service architecture. That mapping is migration evidence, not a V2 Desktop-host requirement.
 
 Document status and unresolved dependencies are recorded in the [corpus index](CHAMPCITY_V2_ARCHITECTURE_CORPUS_INDEX.md). The named methods are semantic design targets, not proof of implementation or complete executable schemas. The unresolved contracts listed under Implementation Design Gates below remain required before their dependent features are implemented.
 
@@ -36,27 +36,29 @@ AI Tools are intentionally not modeled as a tenth client service. AI Tools are m
 
 ## Deployment-Neutral Client Rule
 
-Desktop standalone:
+Workstation-hosted deployment:
 
 ```text
-Shared Client
-    -> Local Service Adapter
-    -> Local ChampCity Services
+ChampCity Web Client
+    -> Web/Service Transport
+    -> ChampCity Service Host on workstation
 ```
 
-Server browser client:
+Server-hosted deployment:
 
 ```text
-Shared Client
-    -> Remote Service Adapter
-    -> ChampCity Server
+ChampCity Web Client
+    -> Web/Service Transport
+    -> ChampCity Service Host on server
 ```
 
-The shared client should not need to know whether Project State came from a local database or Server database, whether repository work occurred locally or on a remote execution Host, or whether an AI worker ran through Codex, another hosted runtime, or a future local runtime.
+There is one web client implementation. It should not need product-specific branches based on whether the Service Host is local or remote.
 
-Desktop standalone and Server deployment are alternative operating modes. A Project has exactly one canonical writable Project State location at a time. There is no live local/remote writable synchronization, offline writable replica, automatic write-location failover, or merge protocol.
+The web client should not need to know whether Project State came from workstation-local persistence or server-managed persistence, whether repository work occurred on the service host or another execution Host, or whether an AI worker ran through Codex, another hosted runtime, or a future local runtime.
 
-If a future explicit transfer feature is implemented, it is a bounded export/import operation that moves Repository content and Structured Project State to the destination deployment and establishes the destination as the new canonical writable Project State location. If that cannot remain simple, transfer may be unsupported. A future separately installed remote client is optional and does not alter this single-writer rule.
+Workstation-hosted and server-hosted deployments are alternative placements of the same backend architecture. A Project has exactly one canonical writable Project State location at a time. There is no live local/remote writable synchronization, offline writable replica, automatic write-location failover, or merge protocol.
+
+If a future explicit transfer feature is implemented, it is a bounded export/import operation that moves Repository content and Structured Project State to the destination deployment and establishes the destination as the new canonical writable Project State location. If that cannot remain simple, transfer may be unsupported.
 
 ## Contract Conventions
 
@@ -222,12 +224,12 @@ A Project is the durable thing being developed.
 - associate repositories, execution environments, integrations, and future resources with a Project;
 - expose project capability and availability information;
 - enforce project isolation where applicable; and
-- support future Server ownership/access semantics.
+- support deployment-appropriate ownership/access semantics for workstation-hosted and server-hosted Service Host deployments.
 
 ## Queries
 
 ### `listProjects(filter?)`
-Returns Projects visible to the current user or Desktop installation.
+Returns Projects visible to the current user/session under the active Service Host deployment and access scope.
 
 ### `getProject(projectId)`
 Returns the canonical Project definition and current project-level status.
@@ -379,7 +381,7 @@ workflow.cancelled
 
 `ProjectStateService` owns authoritative structured Project State and historical record.
 
-Structured Project State is the common canonical state model for Desktop and Server. Desktop stores it locally; Server stores it through Server-managed durable persistence. Markdown is a view/export/import format, not the steady-state workflow source.
+Structured Project State is the common canonical state model for all V2 deployments. A workstation-hosted Service Host may store it locally; a server-hosted Service Host uses its configured durable persistence. Markdown is a view/export/import format, not the steady-state workflow source.
 
 The contract aligns with `CHAMPCITY_STRUCTURED_PROJECT_STATE_DOMAIN_MODEL.md` and should expose domain operations rather than SQL/storage operations.
 
@@ -1081,7 +1083,7 @@ This contract intentionally does not define:
 - REST endpoints;
 - HTTP verbs;
 - WebSocket message formats;
-- Electron IPC channels;
+- V1 Electron IPC channels;
 - database schemas;
 - database technology;
 - serialization format;
@@ -1094,4 +1096,4 @@ Those mechanisms should implement the semantic contract rather than define it.
 
 ## Governing Principle
 
-> The shared ChampCity client asks for product capabilities. Deployment-specific adapters determine how those requests reach the service that owns them.
+> The ChampCity web client asks for product capabilities. Deployment-specific transport and host adapters determine how those requests reach the same service architecture whether it is workstation-hosted or server-hosted.

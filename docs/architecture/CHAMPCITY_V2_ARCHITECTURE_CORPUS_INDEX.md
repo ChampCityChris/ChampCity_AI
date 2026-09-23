@@ -6,7 +6,7 @@ This index defines the reconciled architecture/governance corpus published into 
 
 The corpus is now the **V2 implementation architecture baseline**. It does not claim that the frozen V1 source already implements V2. Current V1 source and characterization tests are implementation evidence and behavior baselines; the V2 documents define which behavior is preserved, extracted, replaced, or deliberately changed.
 
-The September 13 Brain_Dump review remains pre-publication historical reconciliation evidence and is not part of the active production corpus. The final comparison and uplift are recorded in the [September 14 final reconciliation](../design-notes/history/CHAMPCITY_V2_ARCHITECTURE_FINAL_RECONCILIATION_2026-09-14.md). This index and that September 14 reconciliation supersede the older review's unresolved-status framing.
+The September 13 Brain_Dump review remains pre-publication historical reconciliation evidence and is not part of the active production corpus. The final comparison and uplift are recorded in the [September 14 final reconciliation](../design-notes/history/CHAMPCITY_V2_ARCHITECTURE_FINAL_RECONCILIATION_2026-09-14.md). The September 22 web-client/service-host decision is a later adopted architecture change and supersedes the September 14 corpus wherever the older corpus preserved a permanent Electron/Desktop host or multiple-shell model.
 
 ## Canonical precedence
 
@@ -20,7 +20,8 @@ When documents overlap, use this precedence:
    - `CHAMPCITY_UI_DESIGN_GOVERNANCE_STANDARD.md` (`CCAI-UI-001`) for UI work.
 3. **Adopted V2 product/foundational architecture:**
    - `CHAMPCITY_PRODUCT_CAPABILITY_MODEL.md`;
-   - `CHAMPCITY_FOUNDATIONAL_ARCHITECTURE_PRINCIPLES.md`.
+   - `CHAMPCITY_FOUNDATIONAL_ARCHITECTURE_PRINCIPLES.md`;
+   - `CHAMPCITY_WEB_CLIENT_AND_SERVICE_HOST_ARCHITECTURE.md` for the controlling one-web-client / deployable-backend topology.
 4. **Topic-specific adopted architecture/contracts**, including `CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md` for executable validation planning/lane execution, `CHAMPCITY_TESTER_AND_TEST_LIFECYCLE_ARCHITECTURE.md` for Tester ownership and permanent-test lifecycle, Structured Project State, Client-Service, Repository/Source Layout, Runtime Recovery, Agent Runtime Interface, Deterministic Automation Boundaries, the Architectural Review Cycle, `CHAMPCITY_SOURCE_CONTROL_PROVIDER_ARCHITECTURE.md` for the provider-neutral source-control model, `CHAMPCITY_CONCURRENT_REPOSITORY_CHECKOUT_ARCHITECTURE.md` for concurrent writable source execution, and `CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md` for Work Intake routing, Plan topology, generic execution, and application-owned source-control lifecycle.
 5. **Current migration/source mappings** such as `SOURCE_EXTRACTION_MAP.md`, the Desktop Source Mapping, and Vocabulary Migration Plan.
 6. **Historical/design-discussion documents**, which may explain rationale but may not override the adopted contracts above.
@@ -31,12 +32,14 @@ When documents overlap, use this precedence:
 
 `V1` and `V2` describe architecture generations, not deployment names.
 
-- **ChampCity A/I Desktop** is the standalone workstation deployment.
-- **ChampCity A/I Server** is the server-backed deployment.
-- **V1** is the frozen Desktop architecture/source baseline from which V2 extracts proven behavior.
-- **V2** is the shared-product architecture generation being implemented across Product Core and the applicable Desktop/Server hosts.
+- **V1 Desktop** is the frozen Electron architecture/source baseline from which V2 extracts proven behavior.
+- **ChampCity Web Client** is the one V2 user-facing client implementation.
+- **ChampCity Service Host** is the V2 backend application/service composition.
+- **Workstation-hosted V2** means the Service Host runs on the user's workstation and is reached through the web client.
+- **Server-hosted V2** means the same Service Host architecture runs on a server and is reached through the same web client.
+- **V2** is the architecture generation that replaces the permanent Electron/Desktop client model.
 
-Server is **not** synonymous with V2. V2 may change Desktop internals while Desktop remains a first-class independently usable product.
+Local versus server deployment is a hosting choice, not a different client or Product Core.
 
 When frozen V1 documentation and V2 target architecture coexist in the same repository, the current Work Item must identify the applicable generation/scope. A V2 target document is not proof that the behavior is already implemented. A V1 implementation detail does not constrain V2 when an adopted V2 architecture decision explicitly replaces it.
 
@@ -62,7 +65,8 @@ Legacy MCP `workspaceId` is a Repository-routing compatibility identity. It must
 | Document | Status / semantic owner | Governing use | Publication class |
 | --- | --- | --- | --- |
 | `CHAMPCITY_PRODUCT_CAPABILITY_MODEL.md` | **Adopted V2 baseline** | Top-level capability taxonomy | Architecture |
-| `CHAMPCITY_FOUNDATIONAL_ARCHITECTURE_PRINCIPLES.md` | **Adopted V2 baseline** | Shared Product Core, client/host, structured state, deterministic mechanics, vocabulary, control/execution planes | Architecture |
+| `CHAMPCITY_FOUNDATIONAL_ARCHITECTURE_PRINCIPLES.md` | **Adopted V2 baseline** | Shared Product Core, one web client, deployable Service Host, structured state, deterministic mechanics, vocabulary, control/execution planes | Architecture |
+| `CHAMPCITY_WEB_CLIENT_AND_SERVICE_HOST_ARCHITECTURE.md` | **Adopted V2 topology decision — 2026-09-22** | One web client; Electron retirement; workstation/server Service Host deployment | Architecture |
 | `CHAMPCITY_GOVERNANCE_VOCABULARY.md` | **Adopted normative standard** | Canonical governance terminology; overrides legacy false-principal vocabulary elsewhere | Governance |
 | `CHAMPCITY_AUTHORITY_AND_DELEGATION_GOVERNANCE.md` | **Adopted standard `CCAI-AUTH-001`** | Operator decision role, delegation, scope, constraints, escalation boundaries | Governance |
 | `CHAMPCITY_GOVERNANCE_WITHOUT_BUREAUCRACY_STANDARD.md` | **Adopted standard `CCAI-GOV-001`** | Minimum useful governance and autonomous execution rules | Governance |
@@ -114,7 +118,11 @@ The following are intentional architecture changes, not regressions to be “fix
 - Git/source-control mechanics become deterministic RepositoryService responsibilities rather than a separate permission hierarchy or routine inference work.
 - Git becomes the first source-control provider beneath ChampCity-owned SourceLine/SourceRevision/RepositoryCheckout/Integration semantics rather than the workflow-defining API.
 - Codex becomes the first Agent Runtime adapter rather than an architecture-defining dependency.
-- Desktop and Server consume shared Product Core/client/service semantics without becoming writable peers for one Project State instance.
+- Electron is retired from the V2 target architecture.
+- V2 has one browser-delivered web client, not separate Desktop and Web clients.
+- The same ChampCity Service Host architecture may run on a workstation or on a server.
+- Local and server deployments do not fork Product Core or workflow services.
+- A Project still has one canonical writable Project State deployment at a time.
 
 Characterization tests must distinguish these **explicit V2 changes** from accidental regressions.
 
@@ -129,6 +137,7 @@ docs/
 ├── architecture/
 │   ├── CHAMPCITY_PRODUCT_CAPABILITY_MODEL.md
 │   ├── CHAMPCITY_FOUNDATIONAL_ARCHITECTURE_PRINCIPLES.md
+│   ├── CHAMPCITY_WEB_CLIENT_AND_SERVICE_HOST_ARCHITECTURE.md
 │   ├── CHAMPCITY_STRUCTURED_PROJECT_STATE_DOMAIN_MODEL.md
 │   ├── CHAMPCITY_CLIENT_SERVICE_CONTRACT.md
 │   ├── CHAMPCITY_DETERMINISTIC_AUTOMATION_BOUNDARIES.md
@@ -167,7 +176,7 @@ Production documents must use production-relative references rather than Brain_D
 
 No unresolved corpus contradiction requires another architecture hold before V2 engineering begins. Implementation still has normal dependency ordering:
 
-- establish monorepo/package/build boundaries when the first extraction requires them;
+- establish the `apps/web` + `apps/service-host` monorepo/package/build boundaries when the first extraction requires them;
 - implement the Structured Project State contracts before extracted workflow logic depends on them;
 - extract repository/source-control services from the proven V1 containment/Git mechanics;
 - implement Agent Runtime adapters against the portable runtime contract and conformance suite;
@@ -175,10 +184,12 @@ No unresolved corpus contradiction requires another architecture hold before V2 
 - add Design Reviewer, Tester, and Validator orchestration with the exact bounded semantics defined in their architecture;
 - build AI visual-validation tooling before relying on AI as the sole visual verifier for criteria that currently require the running product;
 - implement isolated writable checkouts/leases and cost/time/attempt guardrails before parallel autonomous Implementers; and
-- preserve a reproducible V1 source/characterization baseline per extraction Work Item.
+- preserve a reproducible V1 source/characterization baseline per extraction Work Item;
+- reach workstation-hosted browser/service parity before Electron is removed;
+- treat Electron/preload/native-shell code as V1 migration source, not a V2 host boundary.
 
 These are engineering dependencies. They do not create new approval owners or require repeated Operator permission to perform already directed V2 work.
 
 ## Final migration-readiness rule
 
-The September 14 final reconciliation report is present, staging duplicates were excluded from publication, and the repository contains the narrow documentation/test compatibility changes needed to host the V2 corpus without confusing V1 implementation evidence with V2 target architecture. **The corpus is published and is the controlling V2 architecture baseline.**
+The September 14 reconciliation remains the historical publication baseline, and the September 22 web-client/service-host decision has now been reconciled into the active corpus. **The active corpus is the controlling V2 architecture baseline: one web client, one deployable Service Host architecture, no permanent Electron/Desktop V2 product.**

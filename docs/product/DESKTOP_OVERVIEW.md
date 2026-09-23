@@ -1,5 +1,7 @@
 # ChampCity A/I Desktop Overview
 
+**Status:** V1 implementation baseline / migration evidence. This document describes the current Electron application; it does not define the V2 target architecture. For V2, see [Product Deployment: Web Client and Service Host](PRODUCT_DEPLOYMENT_WEB_CLIENT_AND_SERVICE_HOST.md).
+
 ## What Desktop is
 
 **ChampCity A/I Desktop** is a Windows workstation application for governing software work in a user-selected project directory. It combines project and phase planning, Work Card and Issue lifecycles, repository-backed evidence, an embedded Architect workspace, Codex-assisted implementation, and Operator-controlled validation.
@@ -46,9 +48,19 @@ The default HTTP host is loopback-only, the default port is selected automatical
 
 ChampCity manages a verified Codex runtime in per-user application state, obtains the runtime's model catalog, and requires an explicit **Model** and **Reasoning** selection before implementation. Execution uses Codex App Server over a local stdio boundary. Runtime update or catalog failures surface as unavailable or degraded states instead of silently selecting a different model.
 
-## Desktop and Server
+## V2 migration direction
 
-**ChampCity A/I Desktop** remains independently installable and usable without a ChampCity server. **ChampCity A/I Server** is the working name for a future server-backed deployment model that may supply durable services or portable execution environments. Server is not implemented by this Desktop repository baseline and must not be inferred from Desktop features. See [Product Line: Desktop and Server](PRODUCT_LINE_DESKTOP_AND_SERVER.md).
+The Electron application described above is the V1 baseline.
+
+The adopted V2 architecture replaces the permanent Desktop/Server product split with:
+
+- one ChampCity Web Client;
+- one ChampCity Service Host/backend architecture;
+- workstation-hosted or server-hosted deployment of that Service Host.
+
+The V2 workstation experience remains local-capable, but it is delivered through the web client connected to locally hosted ChampCity services rather than through Electron.
+
+See [Product Deployment: Web Client and Service Host](PRODUCT_DEPLOYMENT_WEB_CLIENT_AND_SERVICE_HOST.md) and [V2 Web Client and Service Host Architecture](../architecture/CHAMPCITY_WEB_CLIENT_AND_SERVICE_HOST_ARCHITECTURE.md).
 
 ## Platform and non-goals
 
@@ -56,6 +68,6 @@ ChampCity manages a verified Codex runtime in per-user application state, obtain
 - The Desktop product does not provide shared server-owned project state or a multi-user ChampCity control plane.
 - Windows users on the same machine do not share ChampCity application data, OAuth material, registered projects, or preferences.
 - The renderer does not have general filesystem access; selected-project operations pass through constrained preload and main-process services.
-- Archived development experiments and future Server designs are not current Desktop behavior.
+- V2 web/service-host architecture is not current V1 Desktop behavior; this document intentionally remains an implementation baseline rather than a target-architecture description.
 
 Continue with the [Feature Reference](FEATURES.md), [User Manual](../user/USER_MANUAL.md), or [Desktop Architecture](../architecture/DESKTOP_ARCHITECTURE.md).

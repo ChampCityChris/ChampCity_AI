@@ -3,17 +3,17 @@
 | Document control | Value |
 | --- | --- |
 | Standard ID | `CCAI-UI-001` |
-| Version | `1.0` |
-| Status | **Adopted by Operator — September 13, 2026**; adoption governs future in-scope UI work but is not evidence that existing UI already conforms |
+| Version | `1.1` |
+| Status | **Adopted by Operator — September 13, 2026; topology alignment revised September 22, 2026**; adoption governs future in-scope UI work but is not evidence that existing UI already conforms |
 | Prepared / research reviewed | September 13, 2026 |
 | Intended location | `docs/governance/CHAMPCITY_UI_DESIGN_GOVERNANCE_STANDARD.md` |
-| Scope | ChampCity-owned interfaces in Desktop standalone and the browser client shipped with ChampCity Server |
+| Scope | The one ChampCity Web Client across workstation-hosted and server-hosted Service Host deployments |
 | Accountable owner | ChampCity Product Owner / Operator |
 | Application | Human designers, Architects, Implementers, reviewers, and AI coding agents |
 
 ## 1. Purpose, governance, and use
 
-ChampCity shall provide one coherent, legible, predictable working environment across Desktop and Server. Users must be able to understand the current task, identify the next meaningful action, retain control over AI activity, and complete work without fighting the layout.
+ChampCity shall provide one coherent, legible, predictable web-client working environment regardless of whether the Service Host runs locally on a workstation or remotely on a server. Users must be able to understand the current task, identify the next meaningful action, retain control over AI activity, and complete work without fighting the layout.
 
 This standard governs **what acceptable interface work looks like**. The UI Engineering Skill governs **how an agent performs that work**. Shared components and design tokens implement the standard. A project UI profile supplies product-specific configuration. None of these substitutes for observing the rendered product.
 
@@ -27,7 +27,7 @@ Numeric layout, typography, density, performance-test, and sampling defaults ide
 
 ### UI-GOV-02 — Operator decision boundaries, bounded context
 
-Maintain one canonical, versioned standard. Desktop and Server must not maintain independently edited copies. Work Cards, Skills, and UI profiles reference the standard ID, version, and applicable rule IDs.
+Maintain one canonical, versioned standard for the one web client. Workstation-hosted and server-hosted deployments must not maintain independently edited UI standards or client implementations. Work Cards, Skills, and UI profiles reference the standard ID, version, and applicable rule IDs.
 
 Agents should receive the mandatory cross-cutting rules and the sections relevant to the task, not a fresh copy of the entire standard in every prompt. Generated excerpts must retain their source version and rule IDs. They cannot weaken the canonical requirements.
 
@@ -75,22 +75,22 @@ This document is an adopted governance standard, not a live visual audit of the 
 
 ### UI-PAR-01 — Shared design system and shared task semantics
 
-Desktop and browser clients MUST consume the same governed tokens, reusable components, Workspace patterns, interaction vocabulary, and status meanings wherever the capability is shared. Separate implementations of the same button, validation panel, form field, or workflow rail require a concrete platform justification.
+The ChampCity Web Client MUST use the same governed tokens, reusable components, Workspace patterns, interaction vocabulary, and status meanings in workstation-hosted and server-hosted deployments.
 
-Given the same Project, task state, capabilities, viewport, theme, and density, users MUST encounter equivalent hierarchy, labels, available actions, and outcomes. Pixel-identical operating-system chrome and font rasterization are not required.
+Given the same Project, task state, capabilities, viewport, theme, and density, users MUST encounter equivalent hierarchy, labels, available actions, and outcomes regardless of backend hosting location.
 
-A Server screen must not become a separate “admin dashboard” solely because its services run remotely. Shared behavior belongs in the shared client; deployment adapters supply services and native integration.
+A server-hosted deployment must not become a separate “admin dashboard” solely because its services run remotely. Deployment adapters supply services; the client implementation remains one.
 
 ### UI-PAR-02 — Explicit, legitimate differences
 
 | Surface | Shared requirement | Permitted difference |
 | --- | --- | --- |
 | Workspaces and workflow actions | Same meaning, hierarchy, eligibility, and outcomes. | Pane arrangement adapts to available space. |
-| Files and attachments | Clear selection, validation, progress, and failure states. | Native picker on Desktop; supported browser interaction remotely. |
-| Local versus remote services | Clearly identify the active connection and affected resource. | Server connection/reconnection controls versus local-agent controls. |
-| Notifications | Equivalent persistent in-app record for consequential events. | Native notification delivery where available and permitted. |
-| Embedded Architect surface | Preserve the underlying user task and handoff. | A Desktop-only embedded surface may need a different browser-client route; do not promise unsupported embedding. |
-| Keyboard and native chrome | Consistent task behavior and discoverable shortcuts. | Platform conventions for title bars, menus, and modifier keys. |
+| Files and attachments | Clear selection, validation, progress, and failure states. | Browser-supported file interaction; backend resource selection may differ by deployment. |
+| Local versus remote services | Clearly identify the active connection and affected resource. | Connection/reconnection and resource-scope details may differ by deployment. |
+| Notifications | Equivalent persistent in-app record for consequential events. | Browser/OS notification delivery where available and permitted. |
+| Architect surface | Preserve the underlying user task and handoff. | Use web-compatible presentation/integration; V1 Electron embedding is not a V2 requirement. |
+| Keyboard and browser/OS chrome | Consistent task behavior and discoverable shortcuts. | Platform/browser conventions for modifier keys and browser chrome. |
 
 Unavailable capabilities MUST be distinguished from permission denial, disconnection, and temporary failure. A disabled control must not pretend that a feature is implemented. Client capability discovery must determine actual availability.
 
@@ -342,7 +342,7 @@ Long identifiers and file paths must wrap, truncate with an accessible full-valu
 
 Motion SHOULD explain a user-triggered change, not decorate every row or compete with reading. Honor reduced-motion preferences and avoid flashing effects. Focus, layout, and essential status must not depend on an animation completing.
 
-Provide visible acknowledgement promptly even when a backend action is slow. For browser telemetry, target field INP at or below 200 ms at the 75th percentile where measured; this is an interaction responsiveness measure, not an AI completion-time promise. For Desktop and synthetic tests, measure comparable input-to-feedback behavior and label it accurately rather than calling it field INP. [S27]
+Provide visible acknowledgement promptly even when a backend action is slow. For browser telemetry, target field INP at or below 200 ms at the 75th percentile where measured; this is an interaction responsiveness measure, not an AI completion-time promise. For synthetic/non-field tests, measure comparable input-to-feedback behavior and label it accurately rather than calling it field INP. [S27]
 
 Long operations need truthful stage, elapsed-time, and interruption information where available. Never invent a percentage, countdown, heartbeat, or completion estimate to fill a progress component.
 
@@ -350,7 +350,7 @@ Long operations need truthful stage, elapsed-time, and interruption information 
 
 ### UI-ACC-01 — WCAG 2.2 AA target and honest scope
 
-ChampCity-owned web content, including the web-rendered Desktop client, MUST target WCAG 2.2 Level AA. The checks below are a priority checklist, **not an exhaustive substitute for all applicable A and AA success criteria**. Native shell surfaces require corresponding platform accessibility assessment. [S01]
+ChampCity-owned web content in the one V2 web client MUST target WCAG 2.2 Level AA. The checks below are a priority checklist, **not an exhaustive substitute for all applicable A and AA success criteria**. Any deployment-specific browser/OS integration surface requires corresponding platform accessibility assessment. [S01]
 
 No document, component library, automated scan, or dark theme by itself establishes conformance. Third-party embedded content must be identified; supply an alternative task route where practical and disclose unassessed limitations. Do not claim full-product conformance from a partial screen audit.
 
@@ -571,7 +571,7 @@ Introduce automated checks and golden fixtures incrementally. Correct the highes
 
 ### UI-GOV-06 — Review triggers
 
-Review the standard and support profile when the shared shell changes, Server connectivity is introduced, a component/token change affects many Workspaces, supported displays or browsers change, repeated UI defects expose a missing rule, or accessibility guidance materially changes.
+Review the standard and support profile when the web-client shell changes, a new Service Host deployment/connection mode is introduced, a component/token change affects many Workspaces, supported displays or browsers change, repeated UI defects expose a missing rule, or accessibility guidance materially changes.
 
 Record material revisions and the migration expectations for affected components. A UI Engineering Skill may improve its execution procedure without silently changing the standard's acceptance requirements.
 
@@ -582,7 +582,7 @@ Keep this profile small. It configures the canonical standard; it must not dupli
 ```text
 Profile ID / version:
 Canonical standard: CCAI-UI-001 @ <adopted version>
-Product family: ChampCity A/I Desktop and Server
+Product: ChampCity A/I V2 — one Web Client / deployable Service Host
 Owner / disposition:
 
 Shared design system:
@@ -593,16 +593,16 @@ Shared design system:
   Density modes actually supported:
 
 Deployment modes:
-  Desktop standalone:
-  Desktop Server-connected:
-  Server browser client:
-  Supported native integration differences:
+  Workstation-hosted Service Host:
+  Server-hosted Service Host:
+  Service endpoint / connection differences:
+  Supported browser/host capability differences:
 
 Viewport / platform profile:
   Comfortable desktop working size:
   Required compact and reflow behavior:
   Actual layout breakpoints and width budgets:
-  Browser / Electron / OS versions tested:
+  Browser / OS versions tested:
   OS scale and browser zoom coverage:
   Keyboard / assistive-technology coverage:
 
@@ -642,8 +642,8 @@ Design:
 
 Architecture:
   Service that owns each authoritative change:
-  Local / Server scope shown to the user:
-  Shell-specific capabilities and fallback:
+  Workstation-hosted / server-hosted scope shown to the user:
+  Browser/service-host capability differences and fallback:
 
 Acceptance:
   Applicable standard rule IDs:

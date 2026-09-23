@@ -7,7 +7,7 @@ This document is the migration map from the current `ChampCity_AI/src` implement
 The map exists to prevent two failure modes:
 
 1. treating the current Electron folder topology as the future architecture; and
-2. rebuilding Desktop behavior independently inside Server instead of extracting one shared Product Core.
+2. rebuilding local and server backend behavior independently instead of extracting one shared Product Core and Service Host architecture.
 
 The classification describes the **future architectural ownership of the behavior**, not whether the current file is already portable. A source area classified as Shared Product Core may still require substantial separation from Electron, direct filesystem access, Markdown state, Windows behavior, Codex, or the legacy `workspaceId` model before it can move.
 
@@ -19,7 +19,7 @@ The classification describes the **future architectural ownership of the behavio
 - Files inventoried: 185
 - Current topology: `src/main`, `src/preload`, `src/renderer`, and `src/shared`
 - Future rule: classify by product semantics, not by current Electron process location
-- Migration rule: extract shared behavior on contact; do not copy Desktop services into Server
+- Migration rule: extract shared behavior on contact; do not copy V1 Desktop services into a second server implementation
 
 The inventory was refreshed against the frozen ChampCity A/I Desktop V1 working tree after the September 14 governance-vocabulary, bounded Git, Background Agent, packaging, and characterization cleanup. Generated assets are classified but are not treated as behavioral source. This remains a dated architectural inventory rather than a substitute for the exact Git revision/dirty-state evidence each V2 implementation Work Item must capture.
 
@@ -28,7 +28,7 @@ The inventory was refreshed against the frozen ChampCity A/I Desktop V1 working 
 This map is subordinate to:
 
 - `CHAMPCITY_PRODUCT_CAPABILITY_MODEL.md` for the ten capability definitions;
-- `CHAMPCITY_FOUNDATIONAL_ARCHITECTURE_PRINCIPLES.md` for Shared Product Core, shared client/multiple shells, structured state, deterministic mechanics, runtime independence, canonical vocabulary, and Control Plane/Execution Plane separation;
+- `CHAMPCITY_FOUNDATIONAL_ARCHITECTURE_PRINCIPLES.md` and `CHAMPCITY_WEB_CLIENT_AND_SERVICE_HOST_ARCHITECTURE.md` for Shared Product Core, one web client, deployable Service Host, structured state, deterministic mechanics, runtime independence, canonical vocabulary, and Control Plane/Execution Plane separation;
 - `CHAMPCITY_PROJECT_MEMORY_AND_AUTONOMOUS_WORKBENCH_ARCHITECTURE.md` for historical rationale around demand-loaded context, bounded workers, and repository separation, subject to the current Project State/AI Memory canonical-source boundaries in the Foundational Architecture Principles and Structured Project State Domain Model; and
 - `CHAMPCITY_MODEL_AGNOSTIC_CAPABILITY_PACK_ARCHITECTURE.md` for ChampCity-owned tool semantics, capability packs, runtime compatibility, context budgeting, and conformance testing.
 
@@ -38,10 +38,10 @@ This document does not redefine those decisions. It maps the current source into
 
 | Classification | Meaning | Default migration treatment |
 | --- | --- | --- |
-| Shared Product Core | Product rules, Operator Decision semantics, contracts, state transitions, orchestration, validation, eligibility, or policy used by both Desktop and Server | Extract behind platform-neutral ports; preserve intended behavior with characterization tests while explicitly changing V1 behavior where V2 architecture says so |
-| Shared Client | Reusable task-oriented Workspace presentation, components, visual assets/tokens, and non-authoritative view state across Desktop and Web shells | Extract to the shared client after removing native/transport coupling; Product Core owns legal transitions, not React presentation |
-| Desktop-specific | Electron shell, native desktop UX, tray, preload/IPC, foreground/background process ownership, or packaged Windows desktop behavior | Retain in Desktop client/host; consume Product Core through application services |
-| Server-specific future replacement | Current local runtime behavior that will be replaced by a durable server implementation rather than moved intact | Preserve contract and observable behavior; reimplement against server transport, persistence, security, and lifecycle |
+| Shared Product Core | Product rules, Operator Decision semantics, contracts, state transitions, orchestration, validation, eligibility, or policy shared by all V2 deployments | Extract behind deployment-neutral ports; preserve intended behavior with characterization tests while explicitly changing V1 behavior where V2 architecture says so |
+| Web Client | Reusable task-oriented Workspace presentation, components, visual assets/tokens, and non-authoritative view state for the one browser client | Extract to `packages/client` / `apps/web` after removing Electron/native transport coupling; Product Core owns legal transitions, not React presentation |
+| V1 Electron-only | Electron shell, native desktop UX, tray, preload/IPC, foreground/background process ownership, or packaged Windows desktop behavior | Extract reusable semantics where they remain required; otherwise replace with web/Service Host behavior or retire |
+| Deployment-specific host adapter | Behavior that differs because the Service Host runs on a workstation versus a server | Preserve the semantic contract and implement deployment-specific persistence/security/resource/lifecycle adapters without forking Product Core |
 | Infrastructure adapter | Filesystem, Git, MCP, HTTP, OAuth, provider runtime, browser, OS package manager, image storage, or other external-system integration | Put behind a Product Core port and select an adapter per deployment |
 | Legacy/migration-only | Markdown-canonical V1 workflow state, paired-artifact conversion, repository planning projection, legacy identifier translation, or compatibility bridge | Use only for optional import/export/cutover compatibility; remove from steady-state V2 workflow-state ownership after migration |
 
@@ -52,7 +52,7 @@ Some rows have a primary classification plus a secondary extraction because a cu
 | # | Product capability | Current source concentration | Current condition | Future owner | Migration decision |
 | --- | --- | --- | --- | --- | --- |
 | 1 | Workflows & Governance | `currentWorkflow`, `projectIntake`, `projectPlanning`, `phaseMap`, `phaseInterview`, `phasePlanning`, `phaseClose`, `projectClose`, `workCardIntake`, `workCardPlanning`, `workCardBuilding`, `workCardValidation`, `workCardRepair`, `workCardLoop`, `issueResolution`; related shared contracts and renderer orchestration helpers | Strong domain behavior exists, but orchestration reads/writes repository Markdown directly and some correctness-sensitive sequencing remains in renderer helpers | Shared Product Core | Extract lifecycle state machines, commands, policies, eligibility rules, Operator Decision boundaries, Design Reviewer/Validator transitions, and deterministic completion. Replace document-path inputs with structured project/work-item IDs and repositories. |
-| 2 | AI Runtime & Execution | `agentHarness/runtime`, `workCardBuilding/codex*`, `browser/architectBrowserService`, `bootstrap`, `main.ts` | Agent Harness has useful service, session, diagnostics, and process contracts; execution is split between MCP runtime, Electron utility/service processes, embedded Browser ChatGPT, and a Codex-specific implementer path | Shared Product Core plus Server-specific future replacement and runtime adapters | Preserve runtime/session/capability semantics. Replace Electron process hosting and Codex app-server assumptions with deployment-neutral runtime and provider ports. Server owns durable remote execution; Desktop may host a local implementation of the same contracts. |
+| 2 | AI Runtime & Execution | `agentHarness/runtime`, `workCardBuilding/codex*`, `browser/architectBrowserService`, `bootstrap`, `main.ts` | Agent Harness has useful service, session, diagnostics, and process contracts; execution is split between MCP runtime, Electron utility/service processes, embedded Browser ChatGPT, and a Codex-specific implementer path | Shared Product Core plus Service Host/runtime adapters | Preserve runtime/session/capability semantics. Replace Electron process hosting and Codex app-server assumptions with deployment-neutral runtime/provider ports. The same Service Host architecture may use local, remote, or server execution resources without forking workflow behavior. |
 | 3 | AI Tools | `agentHarness/tools/toolRegistry`, `agentHarness/repository`, `agentHarness/workspace`, `agentHarness/core/errors`, MCP publication in `agentHarness/runtime/mcpServer` | ChampCity-owned tool semantics, bounded access/containment, and deterministic Git mutation already exist, but tool calls are keyed by legacy `workspaceId` and repository/Markdown operations are embedded in tool implementations | Shared Product Core plus infrastructure adapters | Retain semantic tool definitions, access/scope policy, bounded operations, diagnostics, Git mechanics, and error taxonomy. Separate product-level tool contracts from MCP transport and filesystem/Git implementations. Re-key resource routing to durable identities. |
 | 4 | Project State & History | `documents`, workflow services, `shared/documents`, `workspaceSettings`, `sessionActiveWorkspaceSelection`, repository planning files | Repository Markdown and filesystem layout are both storage and state machine; status is repeatedly reconstructed by scanning files | Shared Product Core plus optional legacy importer/exporter | Define structured entities, Decisions, dispositions, validations, evidence, relationships, and projections. Keep Markdown as optional human-readable export/evidence, never steady-state V2 workflow state. A V1 importer is optional future work rather than a V2 dependency. |
 | 5 | AI Memory | No dedicated bounded context/memory subsystem; partial behavior in planning documents, architect outputs, repository snapshots, context builders, and prompts | Memory is implicit in Markdown artifacts and reconstructed context, creating high token cost and weak retrieval boundaries | Shared Product Core; new implementation required | Extract reusable context-selection and provenance rules where present. Build structured project memory, bounded solution records, retrieval policy, and evidence links in the database. Do not migrate Markdown-as-memory intact. |
@@ -94,29 +94,29 @@ Some rows have a primary classification plus a secondary extraction because a cu
 | `src/main/agentHarness/repository/boundedGit.ts`, `gitMutations.ts`, `pathPolicy.ts`, `repositoryOperations.ts`, `patches.ts` | Repository & Source Control | Infrastructure adapter | Bounded paths, safe read/write/patch, deterministic Git inspection and mutation mechanics | Direct `fs`, platform path rules, Markdown-specific operations, legacy `workspaceId` routing | Filesystem and Git adapters behind RepositoryService ports |
 | `src/main/agentHarness/repository/attachedImages.ts`, `issueScreenshotEvidence.ts` | Repository & Source Control; Project State & History | Infrastructure adapter | Image validation, bounded evidence attachment, provenance | Direct filesystem and repository-relative evidence location | Evidence/blob storage port with local and server adapters |
 | `src/main/agentHarness/repository/controlledMarkdownDrafts.ts`, `textProjection.ts` | Project State & History | Legacy/migration-only | Safe import/export and controlled compatibility writes | Markdown and repository files as the primary artifact system | Migration/import/export adapter; not a Product Core persistence path |
-| `src/main/agentHarness/runtime/agentHarnessService.ts`, `httpRuntime.ts`, `mcpServer.ts`, `operationalDiagnostics.ts` | AI Runtime & Execution; AI Tools | Server-specific future replacement plus reusable contracts | Service lifecycle, MCP sessions, tool-contract publication, diagnostics | Local user-data root, in-process registry, HTTP host assumptions, `workspaceId` | Server runtime/application host; local Desktop host implements same service contracts |
-| `src/main/agentHarness/runtime/agentHarnessController.ts`, worker/process/service-host protocols and clients | AI Runtime & Execution | Desktop-specific transport | Restart/recovery semantics, heartbeat and process-boundary contracts | Electron utility process, sibling-process launch, local IPC/socket/files | Desktop runtime host adapter; shared lifecycle interfaces extracted first |
-| `src/main/agentHarness/runtime/*Tray*`, install/startup/relaunch/lease/installed-scope/Windows observation | AI Runtime & Execution | Desktop-specific | Explicit lifecycle intent and safe maintenance exclusion | Electron app/tray/power APIs, Windows login items/registry/process rules, local files | Windows Desktop host only |
+| `src/main/agentHarness/runtime/agentHarnessService.ts`, `httpRuntime.ts`, `mcpServer.ts`, `operationalDiagnostics.ts` | AI Runtime & Execution; AI Tools | Service Host extraction plus reusable contracts | Service lifecycle, MCP sessions, tool-contract publication, diagnostics | Local user-data root, in-process registry, HTTP host assumptions, `workspaceId` | V2 Service Host/runtime services with deployment-specific configuration |
+| `src/main/agentHarness/runtime/agentHarnessController.ts`, worker/process/service-host protocols and clients | AI Runtime & Execution | V1 host transport / partial Service Host donor | Restart/recovery semantics, heartbeat and process-boundary contracts | Electron utility process, sibling-process launch, local IPC/socket/files | Extract reusable Service Host lifecycle/process contracts; retire Electron-specific transport |
+| `src/main/agentHarness/runtime/*Tray*`, install/startup/relaunch/lease/installed-scope/Windows observation | AI Runtime & Execution | V1-only / selective workstation-host donor | Explicit lifecycle intent and safe maintenance exclusion | Electron app/tray/power APIs, Windows login items/registry/process rules, local files | Extract only backend lifecycle behavior still needed by workstation-hosted Service Host; retire tray/Electron shell mechanics |
 | `src/main/agentHarness/runtime/agentHarnessSettings.ts`, `oauthStore.ts`, build identity/environment | AI Runtime & Execution | Infrastructure adapter | Configuration validation, credential-store intent, build compatibility | Direct `fs`, local user-data layout, legacy OAuth import | Configuration, secrets, and deployment metadata ports |
-| `src/main/browser/architectBrowserService.ts` | AI Runtime & Execution | Desktop-specific infrastructure adapter | Browser session/handoff intent | Electron `BrowserWindow` and desktop bounds/lifecycle | Desktop browser adapter; future remote/browser providers implement a common port |
+| `src/main/browser/architectBrowserService.ts` | AI Runtime & Execution | V1 presentation implementation | Browser session/handoff intent | Electron `BrowserWindow` and desktop bounds/lifecycle | Re-express retained Architect capability through web-client/service architecture; retire Electron browser host |
 | `src/main/developmentEnvironment` shared registry/preflight/contracts | Development Environments | Shared Product Core | Capability requirements, detection, preflight, repository ecosystem semantics | Direct `fs` and local process/package assumptions | Environment capability service and provider interfaces |
 | `src/main/developmentEnvironment/windows*` | Development Environments | Infrastructure adapter | Provisioning flow and refresh semantics | Windows commands, package providers and environment refresh | Windows environment adapter alongside container/VM/remote adapters |
 | `src/main/integrations` | AI Tools; Workflows & Governance | Infrastructure adapter | Handoff boundaries and prompt contract intent | MCP transport, repository-root prompts, `workspaceId`, direct `fs` | MCP adapter and legacy prompt/ID compatibility layer |
 | `src/main/sessionActiveWorkspaceSelection.ts`, `workspaceSettings.ts`, `workspaceEvidence` | Project Management; Project State & History | Shared selection semantics plus infrastructure adapter | Explicit session selection and evidence-notification semantics | Direct `fs`, local settings, legacy workspace terminology | Project/session selection service with client-local settings adapter |
 | `src/main/supportedImageValidation.ts` | Project State & History | Shared Product Core | Supported-image and evidence validation policy | Current storage/path assumptions | Product evidence policy used by all storage adapters |
 | `src/main/validation` | Development Environments; Workflows & Governance | Shared Product Core | Validation-scope guidance and relevance policy | Any command/runtime-specific assumptions | Validation planning policy plus executor adapters |
-| `src/main/main.ts`, `bootstrap.ts`, `contextMenu` | Desktop shell | Desktop-specific | Desktop use-case composition only | Electron, IPC, native dialogs/clipboard/menu, filesystem, Windows packaging/lifecycle | Thin Desktop composition root; no domain decisions |
-| `src/preload/index.ts` | Desktop shell | Desktop-specific | Typed client API boundary | Electron context bridge/IPC and Codex-specific endpoints | Desktop transport adapter generated or mapped from application contracts |
-| `src/renderer/app/*.tsx` | Shared client plus Desktop-shell exceptions | Shared Client with Product Core extraction and Desktop adapter seams | Reusable presentation, user intent capture, bounded view state, task-oriented Workspaces and shared interaction patterns | Electron bridge APIs; correctness-sensitive workflow sequencing embedded in some helpers; Markdown-shaped view models; Codex-specific controls; native-only surfaces | `packages/client` for reusable presentation; Product Core for extracted decisions; `apps/desktop` only for Electron/native integration |
+| `src/main/main.ts`, `bootstrap.ts`, `contextMenu` | V1 Electron shell | V1-only / extraction source | Current use-case composition and shell behavior | Electron, IPC, native dialogs/clipboard/menu, filesystem, Windows packaging/lifecycle | Extract reusable product/backend behavior; retire Electron composition after web/service cutover |
+| `src/preload/index.ts` | V1 Electron shell | V1-only / retire | Current typed client-use-case evidence | Electron context bridge/IPC and Codex-specific endpoints | Use as migration inventory only; web client uses semantic service transport |
+| `src/renderer/app/*.tsx` | Web client migration source | Shared Client with Product Core extraction | Reusable presentation, user intent capture, bounded view state, task-oriented Workspaces and shared interaction patterns | Electron bridge APIs; correctness-sensitive workflow sequencing embedded in some helpers; Markdown-shaped view models; Codex-specific controls; native-only surfaces | `packages/client` / `apps/web` for reusable presentation; Product Core for extracted decisions; Electron-only UI glue retired |
 | Renderer orchestration helpers (`closeReturn*`, `phaseValidation*`, `evidenceDriven*`, `architectBrowserBounds*`, `rendererPollingPolicy`) | Workflows & Governance | Shared Product Core extraction required from Desktop code | Sequencing, refresh, close-return and evidence rules that affect correctness | Renderer lifecycle, polling, `workspaceId`, browser bounds, Codex state | Move decisions to application services; leave only presentation coordination in renderer |
 | `src/shared/architect*`, `issueResolutionContracts`, `lifecycle`, `projectIntake`, `workflowHubContracts`, `workspaces` | Multiple Product Core capabilities | Shared Product Core | Existing cross-process contracts and deterministic presentation policies | Markdown paths/revisions, `workspaceId`, Electron-era workspace concepts | Split into domain, application API DTOs, and compatibility DTOs |
 | `src/shared/codexRuntimeContracts.ts` | Model, Context & Usage Management | Infrastructure adapter | Execution-event concepts that generalize | Codex naming and protocol-specific fields | Provider-neutral execution contracts plus Codex translation DTO |
-| `src/shared/productIdentity.ts` | Desktop shell | Desktop-specific | Product naming constants | Electron application interface | Desktop branding module |
-| `src/renderer/assets*`, `index.html`, `main.tsx`, `styles.css` | Shared client presentation plus shell bootstrap | Shared Client with Desktop-shell exceptions | Reusable design assets/tokens/styles and shared client presentation | Current renderer bootstrap/bundler and Electron delivery assumptions | Shared assets/tokens/client styles move with `packages/client` where reusable; Desktop renderer bootstrap/delivery remains in `apps/desktop` |
+| `src/shared/productIdentity.ts` | Product identity / V1 shell coupling | Partial | Product naming constants | Electron application interface | Split product identity from Electron application identity; reuse in web/service artifacts as appropriate |
+| `src/renderer/assets*`, `index.html`, `main.tsx`, `styles.css` | Web-client presentation source | Shared Client migration source | Reusable design assets/tokens/styles and shared client presentation | Current renderer bootstrap/bundler and Electron delivery assumptions | Shared assets/tokens/client styles move with `packages/client` / `apps/web`; Electron-specific bootstrap is replaced |
 
 ## Cross-Cutting Coupling Register
 
-The following register identifies direct code references and semantically coupled areas. A filename appearing here is not automatically discarded; it marks a required seam before the behavior can enter Shared Product Core.
+The following register identifies direct code references and semantically coupled areas. A filename appearing here is not automatically discarded; it marks a required seam before behavior can enter Product Core, the web client, or the Service Host. Electron-specific source is evaluated for extract / replace / retire rather than assumed to survive as a V2 host adapter.
 
 ### Electron coupling
 
@@ -136,7 +136,9 @@ Direct Electron coupling is concentrated in:
 - `src/preload/index.ts`
 - `src/shared/productIdentity.ts`
 
-`projectPlanningPreflight.ts` also knows about `electron-builder.yml`; this is repository/tooling detection, not a reason for planning policy to depend on Electron.
+`projectPlanningPreflight.ts` also knows about `electron-builder.yml`; this is V1 repository/tooling detection, not a reason for planning policy to depend on Electron.
+
+**V2 disposition:** Electron coupling is a migration-removal boundary. Portable behavior is extracted; web/service-host equivalents are replaced; Electron-only shell/process behavior with no independent V2 requirement is retired. Do not move this coupling wholesale into an `apps/desktop` target.
 
 ### Direct filesystem coupling
 
@@ -145,13 +147,13 @@ Direct `node:fs` use occurs across 58 files. The required seams are best managed
 | Filesystem-coupled family | Files | Required seam |
 | --- | ---: | --- |
 | Agent Harness repository and workspace access | `controlledMarkdownDrafts`, `issueScreenshotEvidence`, `attachedImages`, `patches`, `pathPolicy`, `repositoryOperations`, `gitMutations`, `textProjection`, `registeredWorkspaceRegistry`, `workspaceAccess` | Repository, Git, blob/evidence, registry, and migration ports |
-| Agent Harness runtime/configuration | build identity, service host/descriptor/settings/server, background intent, installed scope, lifecycle lease, settings, OAuth store | Configuration, secret store, deployment identity and Desktop-host adapters |
+| Agent Harness runtime/configuration | build identity, service host/descriptor/settings/server, background intent, installed scope, lifecycle lease, settings, OAuth store | Configuration, secret store, deployment identity and Service Host adapters; Electron-specific lifecycle is retired/replaced |
 | Workflow and planning services | architect interview/output services; issue resolution; phase/project/work-card services and draft bundles | Structured aggregate repositories and transaction boundary |
 | Document subsystem | artifact transaction, canonical writer, disposition writer, planning service/context/snapshot, repository binding | Structured persistence plus Markdown import/export/projection adapter |
 | Development environment and execution | environment preflight/ecosystem/provisioner; Codex runtime/implementer services | Environment/executor ports |
-| Shell/settings/evidence | `main.ts`, `workspaceSettings.ts`, `selectedWorkspaceEvidenceNotifier.ts` | Desktop settings, native shell and notification adapters |
+| Shell/settings/evidence | `main.ts`, `workspaceSettings.ts`, `selectedWorkspaceEvidenceNotifier.ts` | extract reusable settings/evidence behavior; V1 native shell mechanics are retired or replaced by web/service-host behavior |
 
-The direct filesystem list must be treated as an extraction checklist. Product Core code must not call `node:fs`; filesystem access belongs in adapters selected by Desktop or Server.
+The direct filesystem list must be treated as an extraction checklist. Product Core code must not call `node:fs`; filesystem access belongs in Service Host adapters selected by the deployment profile.
 
 ### Markdown-state coupling
 
@@ -177,7 +179,7 @@ Future rule: Markdown may be an import, export, prompt payload, evidence renditi
 
 ### Windows coupling
 
-Windows-specific behavior is legitimate in a Desktop adapter but must not leak into Shared Product Core. Current concentrations are:
+Windows-specific behavior may be legitimate in a workstation-hosted Service Host adapter, but it must not leak into Product Core or require a separate V2 Desktop client. Current V1 concentrations are:
 
 - Agent Harness lifecycle/install/service host, startup registration, tray, sibling-process launch, installed-scope/lease, and `windowsRunObservation`
 - `agentHarness/repository/boundedGit.ts` and `pathPolicy.ts` platform handling
@@ -185,7 +187,7 @@ Windows-specific behavior is legitimate in a Desktop adapter but must not leak i
 - `developmentEnvironment/windowsEnvironmentRefresh.ts`
 - `developmentEnvironment/windowsPackageProviderResolver.ts`
 - Windows-sensitive path handling in planning repository snapshot/context and selected architect-output paths
-- Desktop composition in `main.ts`
+- V1 Electron composition in `main.ts`
 
 ### Codex coupling
 
@@ -240,8 +242,9 @@ The migration should proceed by dependency direction, not by screen or current f
 4. **Replace Markdown as the live workflow-state source.** Implement structured state; retain deterministic Markdown export/evidence views. V1 legacy import remains optional future work.
 5. **Separate AI runtime/provider contracts.** Generalize execution session, model profile, capability negotiation, context envelope and usage telemetry; move Codex behind an adapter.
 6. **Separate tool semantics from transport.** Product Core owns tool definitions and authorization; MCP and HTTP publish them; filesystem/Git/blob adapters perform the work.
-7. **Split deployment hosts.** Keep Electron/preload/tray/Windows behavior in Desktop. Build the Server host against the same Product Core application contracts and server-grade persistence/security.
-8. **Retire compatibility layers.** Remove `workspaceId` from Product Core, stop reconstructing state from repository Markdown, and delete migration-only code after supported repositories are converted.
+7. **Establish one deployable Service Host and one web client.** Extract backend mechanics into the Service Host, move reusable presentation to the web client, and support workstation/server deployment through adapters rather than separate products.
+8. **Cut over and retire Electron.** Prove required workstation-hosted behavior through browser -> web client -> local Service Host, then remove Electron/preload/native-shell dependencies.
+9. **Retire compatibility layers.** Remove `workspaceId` from Product Core, stop reconstructing state from repository Markdown, and delete migration-only code after supported repositories are converted.
 
 ## First Extraction Units
 
@@ -250,7 +253,7 @@ The migration should proceed by dependency direction, not by screen or current f
 | 1 | Identity and resource-boundary model | Every other seam is distorted while `workspaceId` means project, repository, root and session | Product Core APIs use explicit durable IDs; legacy ID exists only in an adapter |
 | 2 | Workflow state/disposition model | Highest-value shared behavior; currently drives most filesystem and Markdown reads | Current lifecycle/repair/validation characterization tests pass against an in-memory structured repository |
 | 3 | Work-product and evidence model | Replaces Markdown-as-memory and enables bounded Architect-to-Implementer handoff | Architect output, bounded solution, implementation report, validation and evidence are structured records with provenance |
-| 4 | Provider-neutral execution contract | Prevents Server from inheriting the Codex path as architecture | Same execution request can be served by a Codex adapter and a test/local adapter without workflow changes |
+| 4 | Provider-neutral execution contract | Prevents the Service Host from inheriting the Codex path as architecture | Same execution request can be served by a Codex adapter and a test/local adapter without workflow changes |
 | 5 | Tool/access-policy core | Existing Agent Harness work is a strong seed but currently bound to MCP and repository workspaces | Tool registry, access/scope policy, and contract tests run without MCP, Electron, filesystem or Git |
 | 6 | Repository/source-control ports | Mechanical operations should remain deterministic code capabilities | Local filesystem/Git adapter passes conformance tests; workflows depend only on ports |
 
@@ -258,12 +261,14 @@ The migration should proceed by dependency direction, not by screen or current f
 
 - Do not move a service merely because it is under `src/shared`; several shared contracts encode Markdown paths, Codex, or `workspaceId`.
 - Do not leave lifecycle/disposition/eligibility decisions in renderer helpers. The client may sequence presentation, but the application service decides whether a transition is valid.
-- Do not make Server read the Desktop repository artifact tree as its database.
+- Do not make the Service Host read the V1 Desktop repository artifact tree as its database.
 - Do not replace direct `fs` calls with a generic remote filesystem service and call that Product Core. The core needs semantic repositories, not remotely callable file operations.
 - Do not rename `workspaceId` to `projectId` without separating project, repository, environment, session and resource-root identities.
 - Do not generalize Codex by wrapping its current protocol in a provider-named interface. Define the ChampCity execution contract first, then adapt Codex to it.
 - Preserve fail-closed access/policy/containment, genuine Operator Decision boundaries, validation evidence, repair causality, and deterministic Git mechanics.
-- Desktop and Server must share domain and application behavior while keeping independent deployment adapters and persistence configurations.
+- Workstation-hosted and server-hosted deployments must use the same Product Core and Service Host semantics. Only deployment adapters/persistence/security/resource placement may differ.
+- Do not preserve Electron, preload, tray, or native-shell topology as a V2 boundary merely because it exists in V1.
+- Do not create a second local-only client; all V2 user interaction goes through the web client.
 
 ## Appendix A: Exact Direct-Coupling File Register
 
@@ -499,10 +504,10 @@ src/shared/workspaceContracts.ts
 All 185 inventoried frozen-V1 `src/**` files are covered by either an exact row or a directory/family row in the Source-Area Extraction Matrix:
 
 - all `src/main/**` behavior is mapped by service/domain family;
-- all `src/preload/**` behavior is Desktop-specific transport;
-- all `src/renderer/**` behavior is classified as a candidate for Shared Client presentation, Product Core extraction where it currently owns correctness-sensitive lifecycle/sequencing, or Desktop-only shell/bridge behavior; current Electron location does not decide future ownership;
+- all `src/preload/**` behavior is V1 Electron transport and is retired after equivalent web/service calls are available;
+- all `src/renderer/**` behavior is classified as a candidate for Web Client presentation, Product Core extraction where it currently owns correctness-sensitive lifecycle/sequencing, or V1-only shell/bridge retirement; current Electron location does not decide future ownership;
 - all `src/shared/**` behavior is reviewed as candidate Product Core rather than assumed portable; and
-- renderer assets are classified individually: reusable branding/design-system/client assets may belong to the Shared Client, while Electron/native-delivery assets remain Desktop-specific.
+- renderer assets are classified individually: reusable branding/design-system/client assets may belong to the Web Client, while Electron/native-delivery assets are migration-only unless independently required by browser delivery.
 
 Future source added after the baseline date must be classified when introduced rather than silently inheriting its current folder's classification.
 
@@ -513,5 +518,5 @@ This map is complete enough to drive implementation planning when:
 - every new V2 work card names a row or extraction unit from this document;
 - each extracted behavior has a declared Product Capability owner;
 - every Electron, filesystem, Markdown, Windows, Codex, and legacy `workspaceId` dependency is either removed from Product Core or assigned to a named adapter/compatibility layer;
-- Server work consumes shared contracts instead of porting Desktop services wholesale; and
+- workstation-hosted and server-hosted work consumes the same Product Core and Service Host contracts instead of porting V1 Desktop services into a second implementation; and
 - the remaining V1-only source can be identified without re-evaluating the architecture by intuition.

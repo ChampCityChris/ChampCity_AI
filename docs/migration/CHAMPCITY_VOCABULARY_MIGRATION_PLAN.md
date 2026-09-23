@@ -27,7 +27,7 @@ This plan follows [Foundational Architecture Principles §6](../architecture/CHA
 | **Repository** | A durable source/code or content repository identity associated with a Project. Repository identity is independent of its current filesystem path, checkout, branch, or Host. |
 | **Host** | A physical or virtual machine running one or more ChampCity components or services. A service composition boundary is not itself a Host; an address or hostname is a locator, not canonical Host identity. |
 | **Execution Environment** | The bounded environment in which implementation commands, builds, tests, tools, or related engineering execution occur. It is distinct from the Host, Repository, and Runtime; its capabilities and execution policy are explicit. |
-| **Client** | A user-facing ChampCity application that presents the product and communicates with ChampCity services. Desktop UI and browser interfaces are Clients. Standalone Desktop can colocate its Client and local services on one Host. |
+| **Client** | The user-facing ChampCity Web Client that presents the V2 product and communicates with ChampCity services. V1 Electron/Desktop UI is migration-source terminology only and does not define a second V2 Client. |
 | **Runtime** | The agent execution system used to run an AI worker through the Agent Runtime Interface. Codex is the first adapter; a future runtime may use hosted or local inference providers. A model-provider connection alone is not an agent Runtime. |
 
 The conceptual relationships are:
@@ -299,19 +299,21 @@ The [Agent Runtime Interface §4](../architecture/CHAMPCITY_AGENT_RUNTIME_INTERF
 
 ## 11. Host and Client Vocabulary
 
-The Desktop/Server split makes these terms particularly important.
+The adopted V2 topology makes these terms particularly important.
 
-A **Host** is the physical or virtual machine running components. ChampCity services own and expose Product Core capabilities; that service/composition boundary must be described explicitly rather than substituted for Host identity.
+A **Host** is the physical or virtual machine running ChampCity components. The deployable **ChampCity Service Host** is the backend application/service composition that exposes Product Core capabilities. Host identity and Service Host identity are therefore related but not interchangeable concepts.
 
-Standalone Desktop is conceptually:
+Workstation-hosted V2 is conceptually:
 
-`Desktop Client + local ChampCity services, colocated on a Host`
+`ChampCity Web Client -> locally deployed ChampCity Service Host -> Product Core/services`
 
-Server-backed operation is:
+Server-hosted V2 is:
 
-`Desktop/Web Client -> ChampCity Server services running on one or more Hosts`
+`ChampCity Web Client -> server-deployed ChampCity Service Host -> Product Core/services`
 
-The existing Background Agent `ServiceHost` is a narrower process implementation. Keep it qualified; it does not define the architectural meaning of Host.
+The client implementation is the same in both cases. Local versus server deployment is backend placement, not a Desktop-versus-Web product split.
+
+The existing V1 Background Agent `ServiceHost` is a narrower process implementation and migration source. Keep historical references qualified; it does not define the V2 Service Host architecture.
 
 Likewise, networking fields named simply `host` should migrate toward `bindAddress` or `listenAddress` where they mean network configuration rather than machine identity.
 
@@ -323,7 +325,7 @@ Protocol-specific concepts remain qualified:
 
 `McpClient`
 
-Bare `Client` is reserved for a ChampCity product client. Source-layout phrases such as Desktop host and Server host describe deployment composition responsibilities; they do not create a second canonical definition of Host.
+Bare `Client` is reserved for the ChampCity Web Client in V2 architecture. Terms such as Desktop client, Desktop host, Electron client, or native shell may remain in V1 implementation/migration evidence, but they do not define a second V2 client or backend architecture.
 
 ---
 
