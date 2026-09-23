@@ -48,7 +48,7 @@ export interface RecordEnvelope<T extends EntityType = EntityType> {
 export interface EntityBodyMap {
   Project: { name: string; description: string };
   ProjectResource: { resourceType: string; provider: string; logicalName: string; locator: string; role: string; sourceRevisionId?: string };
-  WorkIntake: { request: string; desiredOutcome: string; constraints: string[]; evidenceContext: string[]; intakeState: WorkIntakeState; requestedIntegrationTarget: string };
+  WorkIntake: { request: string; desiredOutcome: string; constraints: string[]; evidenceContext: string[]; intakeState: WorkIntakeState; requestedIntegrationTarget: string; hasExistingSourceOrPlanning?: boolean };
   RouteAssessment: { workIntakeId: EntityId; recommendation: WorkRoute; traits: string[]; rationale: string; alternate?: WorkRoute; evidenceIds: EvidenceId[] };
   Workflow: { workflowType: string; workspace: string; governingEntityId: EntityId; workflowState: WorkflowState };
   Phase: { title: string; objective: string; phaseState: PhaseState; sequence: number };

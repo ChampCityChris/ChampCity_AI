@@ -207,7 +207,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   async function createWorkIntake(projectId: ProjectId, input: Omit<EntityBodyMap["WorkIntake"], "intakeState">, context?: MutationContext) {
-    exactInput(input, ["request", "desiredOutcome", "constraints", "evidenceContext", "requestedIntegrationTarget"]);
+    exactInput(input, ["request", "desiredOutcome", "constraints", "evidenceContext", "requestedIntegrationTarget", "hasExistingSourceOrPlanning"]);
     return store.transaction(projectId, async unit => {
       if (!await unit.getProject(projectId)) fail("Owning Project does not exist.");
       const intake = createProjectStateEntity({ entityType: "WorkIntake", projectId,

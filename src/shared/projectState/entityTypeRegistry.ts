@@ -1,6 +1,6 @@
 import { PROJECT_STATE_SCHEMA_VERSION, type EntityBodyMap, type EntityType, type PrincipalRef, type ProjectId, type ProjectStateEntity, type ProjectStateRecord, type Provenance, type RecordEnvelope } from "./domainContracts";
 
-type FieldKind = "text" | "source-ref" | "id" | "instant" | "number" | "version" | "text-list" | "id-list" | "principal" | "digest";
+type FieldKind = "text" | "source-ref" | "id" | "instant" | "number" | "boolean" | "version" | "text-list" | "id-list" | "principal" | "digest";
 type FieldRule = FieldKind | readonly string[];
 interface EntityDefinition { schemaVersion: typeof PROJECT_STATE_SCHEMA_VERSION; required: Readonly<Record<string, FieldRule>>; optional?: Readonly<Record<string, FieldRule>>; immutableAfterCreation: boolean }
 
@@ -14,7 +14,7 @@ const idList = "id-list" as const;
 export const ENTITY_TYPE_REGISTRY: Readonly<Record<EntityType, EntityDefinition>> = Object.freeze({
   Project: { schemaVersion: 1, required: { name: text, description: text }, immutableAfterCreation: false },
   ProjectResource: { schemaVersion: 1, required: { resourceType: text, provider: text, logicalName: text, locator: text, role: text }, optional: { sourceRevisionId: "source-ref" }, immutableAfterCreation: false },
-  WorkIntake: { schemaVersion: 1, required: { request: text, desiredOutcome: text, constraints: textList, evidenceContext: textList, intakeState: ["captured", "assessing", "routed", "active", "closed", "cancelled"], requestedIntegrationTarget: text }, immutableAfterCreation: false },
+  WorkIntake: { schemaVersion: 1, required: { request: text, desiredOutcome: text, constraints: textList, evidenceContext: textList, intakeState: ["captured", "assessing", "routed", "active", "closed", "cancelled"], requestedIntegrationTarget: text }, optional: { hasExistingSourceOrPlanning: "boolean" }, immutableAfterCreation: false },
   RouteAssessment: { schemaVersion: 1, required: { workIntakeId: id, recommendation: ["greenfield", "feature-change", "refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype", "issue-resolution"], traits: textList, rationale: text, evidenceIds: idList }, optional: { alternate: ["greenfield", "feature-change", "refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype", "issue-resolution"] }, immutableAfterCreation: true },
   Workflow: { schemaVersion: 1, required: { workflowType: text, workspace: text, governingEntityId: id, workflowState: ["planned", "active", "blocked", "closed", "cancelled"] }, immutableAfterCreation: false },
   Phase: { schemaVersion: 1, required: { title: text, objective: text, phaseState: ["planned", "active", "blocked", "closed", "cancelled"], sequence: "version" }, immutableAfterCreation: false },
@@ -76,6 +76,7 @@ function checkField(value: unknown, rule: FieldRule, label: string) {
     case "id": canonicalId(value, label); return;
     case "instant": canonicalInstant(value, label); return;
     case "number": if (typeof value !== "number" || !Number.isFinite(value) || value < 0) fail(`${label} must be a nonnegative finite number.`); return;
+    case "boolean": if (typeof value !== "boolean") fail(`${label} must be a boolean.`); return;
     case "source-ref": if (typeof value !== "string" || value.length < 1 || value.length > 512 || /\s|[\u0000-\u001f]/.test(value)) fail(`${label} must be an opaque RepositoryService reference.`); return;
     case "version": if (!Number.isSafeInteger(value) || (value as number) < 1) fail(`${label} must be a positive record version.`); return;
     case "digest": if (typeof value !== "string" || !/^[a-f0-9]{64}$/i.test(value)) fail(`${label} must be a SHA-256 digest.`); return;

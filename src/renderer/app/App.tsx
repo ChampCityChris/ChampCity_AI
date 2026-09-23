@@ -2754,6 +2754,15 @@ export function App(): JSX.Element {
       setSelectedRoutedWorkItemId(null);
       setActiveRoutedExecutionStepId("map");
       const projection = await window.champcity.getWorkIntakeProjection();
+      if (projection.authority === "structured") {
+        setWorkIntakeProjection(projection);
+        setWorkIntakeNavigation(null);
+        setSelectedWorkIntakeId(null);
+        setActiveWorkIntakeStageId("intake");
+        setActiveWorkflowId(null);
+        setShellView("work-intake");
+        return;
+      }
       const navigation = await window.champcity.getWorkIntakeNavigation(projection.currentIntake?.intakeId);
       setWorkIntakeProjection(projection);
       setWorkIntakeNavigation(navigation);
@@ -2767,11 +2776,15 @@ export function App(): JSX.Element {
   }
 
   async function refreshWorkIntakeNavigation(intakeId = selectedWorkIntakeId, advance = false): Promise<void> {
-    const [projection, navigation] = await Promise.all([
-      window.champcity.getWorkIntakeProjection(),
-      window.champcity.getWorkIntakeNavigation(intakeId ?? undefined),
-    ]);
+    const projection = await window.champcity.getWorkIntakeProjection();
     setWorkIntakeProjection(projection);
+    if (projection.authority === "structured") {
+      setWorkIntakeNavigation(null);
+      setSelectedWorkIntakeId(null);
+      setActiveWorkIntakeStageId("intake");
+      return;
+    }
+    const navigation = await window.champcity.getWorkIntakeNavigation(intakeId ?? undefined);
     setWorkIntakeNavigation(navigation);
     setSelectedWorkIntakeId(navigation.intakeId);
     setActiveWorkIntakeStageId((current) => !advance && navigation.stages.some((stage) => stage.stageId === current && stage.available)
@@ -4106,7 +4119,7 @@ export function App(): JSX.Element {
               <WorkIntakeWorkspace key={workspace.workspaceRoot} projection={workIntakeProjection}
                 onReturn={returnToWorkflowHub} onSaved={async (intakeId) => {
                   await refreshWorkIntakeNavigation(intakeId);
-                  setActiveWorkIntakeStageId("routing");
+                  if (workIntakeProjection.authority !== "structured") setActiveWorkIntakeStageId("routing");
                 }} />
             ) : activeWorkIntakeStageId === "routing" && workIntakeNavigation?.issueAssessmentExternallyOwned && workIntakeNavigation.selectedRouteId === "issue-resolution" ? (
               <RoutedIssueBridge intakeId={selectedWorkIntakeId} onOpenIssue={openRoutedIssueResolution} />

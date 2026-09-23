@@ -19,6 +19,7 @@ const api: ChampCityApi = {
   getWorkIntakeProjection: () => ipcRenderer.invoke("workIntake:projection"),
   readWorkIntake: (intakeId) => ipcRenderer.invoke("workIntake:read", intakeId),
   submitWorkIntake: (submission) => ipcRenderer.invoke("workIntake:submit", submission),
+  retryWorkIntakeSourcePreparation: (intakeId) => ipcRenderer.invoke("workIntake:retry-source", intakeId),
   prepareWorkRoutingAssessment: (intakeId) => ipcRenderer.invoke("workRouting:prepare", intakeId),
   getWorkRoutingAssessment: (intakeId) => ipcRenderer.invoke("workRouting:status", intakeId),
   copyWorkRoutingAssessment: (intakeId) => ipcRenderer.invoke("workRouting:copy", intakeId),

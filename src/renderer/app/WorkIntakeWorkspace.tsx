@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { WorkIntakeProjection, WorkIntakeRecord, WorkIntakeSubmission } from "../../shared/workIntakeContracts";
+import type { CapturedWorkIntake, WorkIntakeProjection, WorkIntakeRecord, WorkIntakeSubmission } from "../../shared/workIntakeContracts";
 
 export function WorkIntakeWorkspace({ projection, onReturn, onSaved }: {
   projection: WorkIntakeProjection;
@@ -14,7 +14,7 @@ export function WorkIntakeWorkspace({ projection, onReturn, onSaved }: {
       repositoryReviewContext: "", baseBranch: base?.name ?? "", baseCommit: base?.commit ?? "",
     };
   });
-  const [saved, setSaved] = useState<WorkIntakeRecord | null>(null);
+  const [saved, setSaved] = useState<WorkIntakeRecord | CapturedWorkIntake | null>(projection.currentCapturedIntake ?? null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const update = <K extends keyof WorkIntakeSubmission>(key: K, next: WorkIntakeSubmission[K]) => setValue((current) => ({ ...current, [key]: next }));
@@ -33,21 +33,39 @@ export function WorkIntakeWorkspace({ projection, onReturn, onSaved }: {
       setError(failure instanceof Error ? failure.message : "Work Intake could not be saved.");
     } finally { setBusy(false); }
   }
+  async function retrySource(intakeId: string) {
+    setBusy(true);
+    setError("");
+    try {
+      const next = await window.champcity.retryWorkIntakeSourcePreparation(intakeId);
+      setSaved(next);
+      await onSaved(intakeId);
+    } catch (failure) { setError(failure instanceof Error ? failure.message : "Source preparation could not be retried."); }
+    finally { setBusy(false); }
+  }
+  const formValid = !!saved || !!value.projectName.trim() && !!value.workRequest.trim() && !!value.desiredOutcome.trim() &&
+    (projection.authority === "structured" || !!value.baseBranch.trim());
   return <section className="figma-intake-workspace work-intake-workspace" aria-label="Work Intake">
     <div className="work-intake-content">
     <header className="work-intake-header">
       <div><h1 id="workspace-heading">Work Intake</h1>
-        <p>Describe the work and the outcome you need. Saving creates a dedicated work branch.</p></div>
+        <p>Describe the work and the outcome you need. Source preparation follows the saved intake.</p></div>
       <button className="icon-button" type="button" onClick={onReturn} disabled={busy}>Back to workflows</button>
     </header>
     {saved ? <section className="intake-confirmation" role="status" aria-label="Work Intake submission confirmation">
       <h2>Work Intake saved</h2>
       <p>{saved.workRequest}</p>
-      <p>Work branch: {saved.branchBinding.workBranch}</p>
-      <p>Base branch: {saved.branchBinding.baseBranch}</p>
+      {"source" in saved ? <>
+        <p>Source preparation: {saved.source.state}</p>
+        {saved.source.state === "blocked" ? <p>{saved.source.message}</p> : null}
+        {saved.source.state === "ready" ? <p>Work source: {saved.source.binding.sourceLine.sourceLineId}</p> : null}
+        {saved.source.state === "blocked" ? <button type="button" disabled={busy}
+          onClick={() => void retrySource(saved.intakeId)}>Retry source preparation</button> : null}
+        <button type="button" disabled={busy} onClick={() => setSaved(null)}>New Work Intake</button>
+      </> : <><p>Work branch: {saved.branchBinding.workBranch}</p><p>Base branch: {saved.branchBinding.baseBranch}</p></>}
     </section> : <form className="intake-form" aria-busy={busy} onSubmit={(event) => { event.preventDefault(); void submit(); }}>
       <label>Project name<input value={value.projectName} readOnly={!!projection.project} required onChange={(event) => update("projectName", event.target.value)} /></label>
-      <label>Integrate into branch<select value={value.baseBranch} required onChange={(event) => {
+      <label>Integrate into branch<select value={value.baseBranch} required={projection.authority !== "structured"} onChange={(event) => {
         const base = projection.branches.find(({ name }) => name === event.target.value);
         if (base) setValue((current) => ({ ...current, baseBranch: base.name, baseCommit: base.commit }));
       }}>
@@ -62,7 +80,7 @@ export function WorkIntakeWorkspace({ projection, onReturn, onSaved }: {
       <div className="figma-intake-full work-intake-actions">
         {projection.blockedReason ? <p role="status">{projection.blockedReason}</p> : null}
         {error ? <p role="alert">{error}</p> : null}
-        <button className="apply-button" type="submit" disabled={busy || !!projection.blockedReason}>{busy ? "Saving…" : "Save Work Intake"}</button>
+        <button className="apply-button" type="submit" disabled={busy || !formValid}>{busy ? "Saving…" : "Save Work Intake"}</button>
       </div>
     </form>}
     {saved && error ? <p role="alert">{error}</p> : null}

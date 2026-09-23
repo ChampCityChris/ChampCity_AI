@@ -4750,6 +4750,31 @@
       ]
     },
     {
+      "capabilityId": "work-intake-capture-source-preparation",
+      "description": "Structured Work Intake capture, separate SourceBinding preparation, blocked retry and renderer Save eligibility.",
+      "sourcePatterns": [
+        "src/main/main.ts",
+        "src/main/workIntake/structuredWorkIntakeService.ts",
+        "src/preload/index.ts",
+        "src/renderer/app/App.tsx",
+        "src/renderer/app/WorkIntakeWorkspace.tsx",
+        "src/shared/projectState/domainContracts.ts",
+        "src/shared/projectState/entityTypeRegistry.ts",
+        "src/shared/projectState/projectStateService.ts",
+        "src/shared/workIntakeContracts.ts",
+        "src/shared/workspaceContracts.ts"
+      ],
+      "dependsOn": [
+        "project-state-service"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "dirty-checkout-captures-intake-and-retries-source",
+          "description": "dirty primary checkout does not block structured Work Intake capture or source creation"
+        }
+      ]
+    },
+    {
       "capabilityId": "workflow-lifecycle-resolution",
       "description": "Repository-derived lifecycle, current-workflow, freshness, resolver, and close-return decisions.",
       "sourcePatterns": [
@@ -19583,6 +19608,59 @@
           "capabilityId": "work-card-workflow",
           "behaviorId": "work-card-validation-creates-markdown-only-validation-record-and-closes-on-approval",
           "proofLocator": "work card validation creates Markdown-only validation record and closes on approval",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/work-intake/structured-work-intake-capture.test.cjs",
+      "currentTestCount": {
+        "value": 3,
+        "basis": "SCL02 dirty checkout, blocked/retry/reload and renderer contract scenarios."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 4573,
+        "basis": "Observed normal Windows focused SCL02 test receipt."
+      },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Each case owns an isolated temporary Git and SQLite repository.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "work-intake-capture-source-preparation",
+          "behaviorId": "dirty-checkout-captures-intake-and-retries-source",
+          "proofLocator": "dirty primary checkout does not block structured Work Intake capture or source creation",
           "proofRole": "primary"
         }
       ]

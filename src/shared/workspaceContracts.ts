@@ -1399,6 +1399,7 @@ export interface ChampCityApi {
   reviewWorkPlanning: (intakeId: string, stage: import("./workPlanningContracts").WorkPlanningStage, input: import("./workPlanningContracts").WorkPlanningReviewInput) => Promise<import("./workPlanningContracts").WorkPlanningModel>;
   readWorkIntake: (intakeId: string) => Promise<import("./workIntakeContracts").WorkIntakeRecord>;
   submitWorkIntake: (submission: import("./workIntakeContracts").WorkIntakeSubmission) => Promise<import("./workIntakeContracts").WorkIntakeSubmissionResult>;
+  retryWorkIntakeSourcePreparation: (intakeId: string) => Promise<import("./workIntakeContracts").CapturedWorkIntake>;
   getGithubProviderStatus: () => Promise<GithubProviderStatus>;
   connectGithubProvider: () => Promise<GithubProviderStatus>;
   restartGithubProvider: () => Promise<GithubProviderStatus>;

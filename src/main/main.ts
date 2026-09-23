@@ -54,6 +54,7 @@ import {
 import { resolveFirstNonApprovedDocument } from "./documents/firstNonApprovedResolver";
 import { submitProjectIntakeForRepository } from "./projectIntake/projectIntakeService";
 import { getWorkIntakeProjection, readWorkIntake, submitWorkIntake } from "./workIntake/workIntakeService";
+import { captureStructuredWorkIntake, getStructuredWorkIntakeProjection, retryStructuredWorkIntakeSource, selectedStructuredProjectId } from "./workIntake/structuredWorkIntakeService";
 import { getWorkIntakeNavigation } from "./workIntake/workIntakeNavigationService";
 import { runRoutedWorkflow } from "./planExecution/routedWorkflowService";
 import type { RoutedWorkflowAction, RoutedWorkflowInput } from "../shared/routedWorkflowContracts";
@@ -759,7 +760,11 @@ ipcMain.handle(
   },
 );
 
-ipcMain.handle("workIntake:projection", () => getWorkIntakeProjection(getRequiredWorkspaceRoot()));
+ipcMain.handle("workIntake:projection", () => {
+  const root = getRequiredWorkspaceRoot();
+  const projectId = selectedStructuredProjectId(root);
+  return projectId ? getStructuredWorkIntakeProjection(root, projectId) : getWorkIntakeProjection(root);
+});
 ipcMain.handle("workIntake:navigation", (_event, intakeId?: string) => getWorkIntakeNavigation(getRequiredWorkspaceRoot(), intakeId));
 ipcMain.handle("routedWorkflow:action", async (_event, intakeId: string, action: RoutedWorkflowAction, input?: RoutedWorkflowInput) => {
   const result = await runRoutedWorkflow(getRequiredWorkspaceRoot(), intakeId, action, input);
@@ -767,7 +772,18 @@ ipcMain.handle("routedWorkflow:action", async (_event, intakeId: string, action:
   return result.model;
 });
 ipcMain.handle("workIntake:read", (_event, intakeId: string) => readWorkIntake(getRequiredWorkspaceRoot(), intakeId));
-ipcMain.handle("workIntake:submit", (_event, submission: WorkIntakeSubmission) => submitWorkIntake(getRequiredWorkspaceRoot(), submission));
+ipcMain.handle("workIntake:submit", async (_event, submission: WorkIntakeSubmission) => {
+  const root = getRequiredWorkspaceRoot();
+  const projectId = selectedStructuredProjectId(root);
+  return projectId ? { ok: true as const, value: await captureStructuredWorkIntake(root, projectId, submission), receipts: [] as [] }
+    : submitWorkIntake(root, submission);
+});
+ipcMain.handle("workIntake:retry-source", (_event, intakeId: string) => {
+  const root = getRequiredWorkspaceRoot();
+  const projectId = selectedStructuredProjectId(root);
+  if (!projectId) throw Error("Structured Work Intake source preparation is unavailable.");
+  return retryStructuredWorkIntakeSource(root, projectId, intakeId);
+});
 ipcMain.handle("workRouting:prepare", (_event, intakeId: string) => prepareWorkRoutingAssessment(getRequiredWorkspaceRoot(), intakeId));
 ipcMain.handle("workRoute:status", (_event, intakeId: string) => getWorkRouteDecision(getRequiredWorkspaceRoot(), intakeId));
 ipcMain.handle("workIssue:action", async (_event, intakeId: string, action: WorkIssueAction, input?: WorkIssueActionInput) => {

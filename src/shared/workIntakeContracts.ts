@@ -1,5 +1,6 @@
 import type { WorkIntakeBranchBinding, WorkIntakeBranchResult } from "./workIntakeBranchContracts";
 import type { SourceRevision } from "./documents/planningDocument";
+import type { SourceReadiness } from "./sourceLifecycleContracts";
 
 export interface WorkProjectIdentity {
   projectId: string;
@@ -35,7 +36,18 @@ export interface WorkIntakeRecord {
   sourceRevisions: SourceRevision[];
 }
 
+export interface CapturedWorkIntake {
+  intakeId: string;
+  projectId: string;
+  workRequest: string;
+  desiredOutcome: string;
+  knownConstraints: string;
+  repositoryReviewContext: string;
+  source: SourceReadiness;
+}
+
 export interface WorkIntakeProjection {
+  authority?: "structured" | "legacy";
   project: WorkProjectIdentity | null;
   suggestedProjectName: string;
   branches: Array<{ name: string; commit: string }>;
@@ -44,6 +56,9 @@ export interface WorkIntakeProjection {
   intakes: WorkIntakeRecord[];
   currentIntake: WorkIntakeRecord | null;
   blockedReason: string | null;
+  capturedIntakes?: CapturedWorkIntake[];
+  currentCapturedIntake?: CapturedWorkIntake | null;
 }
 
-export type WorkIntakeSubmissionResult = WorkIntakeBranchResult<WorkIntakeRecord>;
+export type WorkIntakeSubmissionResult = WorkIntakeBranchResult<WorkIntakeRecord> |
+  { ok: true; value: CapturedWorkIntake; receipts: [] };
