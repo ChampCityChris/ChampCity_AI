@@ -1,6 +1,6 @@
 # SCL02 — Persist Work Intake Independently from Source Preparation
 
-**Depends on:** SCL01  
+**Depends on:** SCL01Z  
 **Report:** `docs/implementation-bundles/source-control-lifecycle/Implementer_Reports/SCL02_IMPLEMENTER_REPORT.md`
 
 ## Verified Evidence
@@ -13,12 +13,12 @@ Make Save Work Intake capture Operator intent first and represent source prepara
 
 ## Required Changes
 
-1. Add a bounded Work Intake semantic-state port and V1 host adapter consistent with existing application-state persistence patterns.
-2. Persist Work Intake identity/content before source preparation.
-3. Represent source preparation as `unprepared | preparing | ready | blocked` with bounded diagnostic evidence.
+1. Persist Work Intake identity/content through canonical ProjectStateService `WorkIntake` state before source preparation.
+2. Persist source preparation through canonical `SourceBinding` state as `unprepared | preparing | ready | blocked` with bounded diagnostic evidence.
+3. Use the SCL01 RepositoryService semantic boundary for source operations and SCL01A–SCL01Z Project State for workflow authority.
 4. Remove primary-checkout cleanliness from Save eligibility.
 5. Preserve entered/saved Intake state when source preparation fails.
-6. Keep repository Markdown as a migration artifact/projection rather than the sole admission authority.
+6. Keep repository Markdown as generated projection/export only; it is no longer an admission authority after SCL01Z.
 7. Update UI projection/contracts so Save is disabled only by actual intake-form validity/busy state, not unrelated repository dirtiness.
 
 ## Constraints
@@ -26,6 +26,7 @@ Make Save Work Intake capture Operator intent first and represent source prepara
 - Do not implement branch creation policy beyond invoking the SCL01 semantic boundary.
 - Do not silently mutate or clean the primary checkout.
 - Do not introduce Electron-specific concepts into the semantic contracts.
+- Do not create another V1 persistence adapter or dual-write Project State.
 
 ## Acceptance Criteria
 

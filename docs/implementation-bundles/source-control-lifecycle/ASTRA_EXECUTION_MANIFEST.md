@@ -1,6 +1,6 @@
 # Astra Execution Manifest — Source-Control Lifecycle
 
-Execute `SCL01` through `SCL10` sequentially from the package branch/checkpoint chain.
+Execute `SCL01`, then `SCL01A` through `SCL01Z`, then `SCL02` through `SCL10` sequentially from the package branch/checkpoint chain.
 
 For every card:
 

@@ -84,7 +84,7 @@ The first implementation does not work directly on `dev`.
 
 The current repository Markdown implementation cannot remain the only authority for newly captured Work Intake state because it forces persistence to depend on a particular checked-out branch.
 
-During V1-to-V2 migration ChampCity must introduce a bounded semantic Work Intake state port with a host-local adapter. The adapter may use the existing application-state persistence conventions, but the port and data model must not depend on Electron, filesystem paths, Git branches, or Markdown.
+Before SCL02 is implemented, ChampCity must implement Structured Project State and make ProjectStateService the authoritative state boundary. Work Intake therefore persists directly as a canonical `WorkIntake` record; source readiness persists through its canonical `SourceBinding`/related Project State records.
 
 Conceptual state:
 
@@ -109,9 +109,9 @@ SourcePreparationState
   lastFailure?
 ```
 
-Repository Markdown remains a portable/generated workflow artifact during migration. It may be materialized after source preparation is ready, but failure to materialize it must not erase the Work Intake.
+Repository Markdown remains a portable/generated workflow artifact after structured-state cutover. It may be materialized after source preparation is ready, but failure to materialize it must not erase or mutate the canonical Work Intake.
 
-Structured Project State remains the permanent V2 destination for this semantic state.
+The temporary V1 host-local Work Intake persistence adapter previously contemplated by this architecture is rejected. The Source-Control Lifecycle implementation package inserts SCL01A–SCL01Z between SCL01 and SCL02 to establish ProjectStateService first.
 
 ## 5. Branch / SourceLine Policy
 

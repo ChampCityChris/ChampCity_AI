@@ -385,6 +385,8 @@ Structured Project State is the common canonical state model for all V2 deployme
 
 The contract aligns with `CHAMPCITY_STRUCTURED_PROJECT_STATE_DOMAIN_MODEL.md` and should expose domain operations rather than SQL/storage operations.
 
+The first ProjectStateStore adapter is SQLite as governed by `CHAMPCITY_STRUCTURED_PROJECT_STATE_SQLITE_PERSISTENCE_ARCHITECTURE.md`. SQLite remains an implementation adapter; this service contract does not expose SQL or database-engine semantics.
+
 ## Responsibilities
 
 - create, query, revise, and supersede structured entities;

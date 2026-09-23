@@ -41,4 +41,4 @@ Use validation planner preview/work-item profile for changed paths and focused s
 
 ## Post-Implementation
 
-Write the report, create the single SCL01 checkpoint commit, then continue to SCL02.
+Write the report, create the single SCL01 checkpoint commit, then continue to SCL01A.

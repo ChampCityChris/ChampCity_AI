@@ -691,7 +691,7 @@ Stop introducing new Product Core APIs that accept legacy `workspaceId` as an al
 
 ## 2. Implement ProjectStateService port with an in-memory/test implementation
 
-Use the existing Structured Project State domain model. This allows workflow extraction before final database technology is selected.
+Use the existing Structured Project State domain model plus the September 23 Work Intake/Tester/source-control uplift. The first durable adapter is SQLite under `CHAMPCITY_STRUCTURED_PROJECT_STATE_SQLITE_PERSISTENCE_ARCHITECTURE.md`; retain the in-memory adapter as the fast conformance/test implementation.
 
 ## 3. Extract WorkflowService decisions against structured state
 
