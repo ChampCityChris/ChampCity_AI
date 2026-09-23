@@ -59,7 +59,7 @@ export interface ProjectStateStore extends ProjectStateReadPort {
 }
 
 export class ProjectStateStoreError extends Error {
-  constructor(readonly code: "STALE_STATE" | "PROJECT_MISMATCH" | "ENTITY_NOT_FOUND" | "DUPLICATE_ID" | "INVALID_STATE", message: string) {
+  constructor(readonly code: "STALE_STATE" | "PROJECT_MISMATCH" | "ENTITY_NOT_FOUND" | "DUPLICATE_ID" | "INVALID_STATE" | "STORE_BUSY" | "STORE_CORRUPT" | "PERSISTENCE_FAILURE", message: string) {
     super(message);
     this.name = "ProjectStateStoreError";
   }

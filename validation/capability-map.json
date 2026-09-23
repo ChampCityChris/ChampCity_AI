@@ -3087,6 +3087,51 @@
       ]
     },
     {
+      "capabilityId": "project-state-sqlite-store",
+      "description": "Durable SQLite ProjectStateStore transactions, reads and concurrency.",
+      "sourcePatterns": [
+        "src/main/projectState/sqliteProjectStateStore.ts"
+      ],
+      "dependsOn": [
+        "project-state-sqlite-schema",
+        "project-state-store"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "sqlite-audit-outbox-and-generation-commit-atomically",
+          "description": "SQLite audit, outbox and generation commit atomically"
+        },
+        {
+          "behaviorId": "sqlite-committed-records-survive-reopen-and-units-close",
+          "description": "SQLite committed records survive reopen and units close"
+        },
+        {
+          "behaviorId": "sqlite-concurrent-writers-serialize-and-readers-see-committed-state",
+          "description": "SQLite concurrent writers serialize and readers see committed state"
+        },
+        {
+          "behaviorId": "sqlite-lock-contention-has-typed-store-error",
+          "description": "SQLite lock contention has a typed store error"
+        },
+        {
+          "behaviorId": "sqlite-relationship-rules-and-project-isolation",
+          "description": "SQLite relationship rules and Project isolation"
+        },
+        {
+          "behaviorId": "sqlite-stale-mutation-rolls-back-version-audit-and-outbox",
+          "description": "SQLite stale mutation rolls back version, audit and outbox"
+        },
+        {
+          "behaviorId": "sqlite-store-rejects-untracked-schema-through-typed-boundary",
+          "description": "SQLite store rejects untracked schema through typed boundary"
+        },
+        {
+          "behaviorId": "sqlite-versions-and-optimistic-writes",
+          "description": "SQLite versions and optimistic writes"
+        }
+      ]
+    },
+    {
       "capabilityId": "project-state-store",
       "description": "Asynchronous Project State store semantics and cross-adapter conformance.",
       "sourcePatterns": [
@@ -13288,6 +13333,100 @@
           "capabilityId": "project-state-sqlite-schema",
           "behaviorId": "version-body-serialization-validates-domain-shape-and-sorts-json-keys",
           "proofLocator": "version body serialization validates domain shape and sorts JSON keys",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/sqlite-store-conformance.test.cjs",
+      "currentTestCount": {
+        "value": 8,
+        "basis": "Four shared adapter conformance scenarios and four SQLite-specific scenarios introduced by SCL01G."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 1420,
+        "basis": "Observed normal Windows focused test receipt for SCL01G including a 1000 ms lock timeout."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": true
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Each test uses a unique temporary SQLite database and one bounded local lock timeout.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "project-state-sqlite-store",
+          "behaviorId": "sqlite-audit-outbox-and-generation-commit-atomically",
+          "proofLocator": "SQLite ProjectStateStore: audit, outbox and provider generation commit or roll back together",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-sqlite-store",
+          "behaviorId": "sqlite-committed-records-survive-reopen-and-units-close",
+          "proofLocator": "SQLite committed records persist across store reconstruction and closed units reject access",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-sqlite-store",
+          "behaviorId": "sqlite-concurrent-writers-serialize-and-readers-see-committed-state",
+          "proofLocator": "SQLite ProjectStateStore: concurrent writers serialize while readers see committed state",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-sqlite-store",
+          "behaviorId": "sqlite-lock-contention-has-typed-store-error",
+          "proofLocator": "SQLite lock contention maps to a typed store error without a retry loop",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-sqlite-store",
+          "behaviorId": "sqlite-relationship-rules-and-project-isolation",
+          "proofLocator": "SQLite ProjectStateStore: relationship rules and Project isolation",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-sqlite-store",
+          "behaviorId": "sqlite-stale-mutation-rolls-back-version-audit-and-outbox",
+          "proofLocator": "SQLite transaction rolls back versions, audit and outbox after a stale mutation",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-sqlite-store",
+          "behaviorId": "sqlite-store-rejects-untracked-schema-through-typed-boundary",
+          "proofLocator": "SQLite store rejects an untracked schema through a typed boundary",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-sqlite-store",
+          "behaviorId": "sqlite-versions-and-optimistic-writes",
+          "proofLocator": "SQLite ProjectStateStore: atomic Project/entity versions and optimistic writes",
           "proofRole": "primary"
         }
       ]

@@ -10,8 +10,8 @@ const workBody = { workItemKind: "feature", title: "Work", objective: "Objective
 
 /** Run this unchanged against each ProjectStateStore implementation. */
 function registerProjectStateStoreConformance(name, factory) {
-  test(`${name}: atomic Project/entity versions and optimistic writes`, async () => {
-    const store = await factory();
+  test(`${name}: atomic Project/entity versions and optimistic writes`, async context => {
+    const store = await factory(context);
     const project = createProjectStateEntity({ entityType: "Project", body: projectBody, principal });
     const item = createProjectStateEntity({ entityType: "WorkItem", projectId: project.id, body: workBody, principal });
     await assert.rejects(store.transaction(project.id, async unit => {
@@ -36,8 +36,8 @@ function registerProjectStateStoreConformance(name, factory) {
     assert.equal((await store.getEntity(project.id, item.id)).body.objective, "Revised");
   });
 
-  test(`${name}: relationship rules and Project isolation`, async () => {
-    const store = await factory();
+  test(`${name}: relationship rules and Project isolation`, async context => {
+    const store = await factory(context);
     const project = createProjectStateEntity({ entityType: "Project", body: projectBody, principal });
     const otherProject = createProjectStateEntity({ entityType: "Project", body: projectBody, principal });
     const item = createProjectStateEntity({ entityType: "WorkItem", projectId: project.id, body: workBody, principal });
@@ -60,8 +60,8 @@ function registerProjectStateStoreConformance(name, factory) {
     assert.ok((await store.listRelationships(project.id))[0].endedAt);
   });
 
-  test(`${name}: audit, outbox and provider generation commit or roll back together`, async () => {
-    const store = await factory();
+  test(`${name}: audit, outbox and provider generation commit or roll back together`, async context => {
+    const store = await factory(context);
     const project = createProjectStateEntity({ entityType: "Project", body: projectBody, principal });
     const occurredAt = new Date().toISOString();
     const change = { id: randomUUID(), projectId: project.id, entityId: project.id, fromRecordVersion: null, toRecordVersion: 1, operation: "create", principal, occurredAt, changedFields: ["name"], reason: "conformance" };
@@ -88,8 +88,8 @@ function registerProjectStateStoreConformance(name, factory) {
     await assert.rejects(store.transaction(project.id, unit => unit.advanceProviderGeneration({ projectId: project.id, generation: 2, authority: "structured", updatedAt: occurredAt }, null)), error => error.code === "STALE_STATE");
   });
 
-  test(`${name}: concurrent writers serialize while readers see committed state`, async () => {
-    const store = await factory();
+  test(`${name}: concurrent writers serialize while readers see committed state`, async context => {
+    const store = await factory(context);
     const project = createProjectStateEntity({ entityType: "Project", body: projectBody, principal });
     const item = createProjectStateEntity({ entityType: "WorkItem", projectId: project.id, body: workBody, principal });
     await store.transaction(project.id, async unit => { await unit.saveEntity(project, null); await unit.saveEntity(item, null); });
