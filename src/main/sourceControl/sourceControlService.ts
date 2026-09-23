@@ -20,8 +20,9 @@ import type {
   SourceControlOperation, SourceControlPosition,
   SourceControlReceipt, SourceControlResult,
 } from "../../shared/sourceControlContracts";
-import type { CreateWorkSourceInput, SourceRevisionSelector, WorkSourceBinding } from "../../shared/sourceLifecycleContracts";
+import type { CreateWorkSourceInput, ProjectSourceBootstrap, SourceRevisionSelector, WorkSourceBinding } from "../../shared/sourceLifecycleContracts";
 import { workIntakeBranchName } from "./workSourceNaming";
+import { bootstrapProjectSource as establishProjectSource } from "./projectSourceBootstrap";
 
 /** Called by trusted main-process services with a selected repository, without MCP/model mediation. */
 export function createSourceControlService(binding: { repositoryId: string; repositoryRoot: string; managedWorkspaces?: ManagedWorkspaceStore }) {
@@ -108,6 +109,23 @@ export function createSourceControlService(binding: { repositoryId: string; repo
   const changedFiles = () => inspectGitChangedFiles(root);
 
   return {
+    bootstrapProjectSource: async (): Promise<SourceControlResult<ProjectSourceBootstrap>> => {
+      const receipt: SourceControlReceipt = { repositoryId, operation: "bootstrap-project-source", startedAt: new Date().toISOString(),
+        completedAt: "", before: null, after: null };
+      try {
+        const result = await establishProjectSource(root, repositoryId);
+        receipt.after = await position();
+        receipt.completedAt = new Date().toISOString();
+        return { ok: true, receipt, result };
+      } catch (error) {
+        receipt.completedAt = new Date().toISOString();
+        return { ok: false, receipt, error: { code: error instanceof AgentHarnessError ? error.code : "RUNTIME_ERROR",
+          message: error instanceof AgentHarnessError
+            ? error.message.replaceAll(root, "<PROJECT_REPO>").replace(/[\r\n]+/g, " ").slice(0, 1000)
+            : "Project source bootstrap could not complete.",
+          phase: "operation", mutationMayHaveOccurred: true } };
+      }
+    },
     resolveSourceRevision: (selector: SourceRevisionSelector) => run("resolve-source-revision", false, async () => {
       if (selector.kind === "source-line") {
         const state = await inspectGitBranchState(root, selector.sourceLineId);

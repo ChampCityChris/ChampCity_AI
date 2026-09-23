@@ -2036,6 +2036,28 @@
       ]
     },
     {
+      "capabilityId": "greenfield-source-bootstrap",
+      "description": "Empty Project semantic source bootstrap with durable main/dev topology, first Work Intake source and retry proof.",
+      "sourcePatterns": [
+        "src/main/agentHarness/repository/boundedGit.ts",
+        "src/main/main.ts",
+        "src/main/sourceControl/projectSourceBootstrap.ts",
+        "src/main/sourceControl/sourceControlService.ts",
+        "src/main/workIntake/structuredWorkIntakeService.ts",
+        "src/shared/sourceControlContracts.ts",
+        "src/shared/sourceLifecycleContracts.ts"
+      ],
+      "dependsOn": [
+        "existing-project-dev-work-source"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "new-project-creates-main-dev-and-first-work-source",
+          "description": "greenfield Work Intake persists Project, bootstrap evidence and first work source"
+        }
+      ]
+    },
+    {
       "capabilityId": "ipc-preload-contracts",
       "description": "Constrained main-process IPC and preload API routing without unrestricted renderer-native access.",
       "sourcePatterns": [
@@ -19626,6 +19648,59 @@
           "capabilityId": "work-card-workflow",
           "behaviorId": "work-card-validation-creates-markdown-only-validation-record-and-closes-on-approval",
           "proofLocator": "work card validation creates Markdown-only validation record and closes on approval",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/work-intake/greenfield-source-bootstrap.test.cjs",
+      "currentTestCount": {
+        "value": 3,
+        "basis": "SCL04 bootstrap, first Intake and incompatible partial retry fixtures."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 8602,
+        "basis": "Observed normal Windows focused SCL04 test receipt."
+      },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Each fixture owns an isolated temporary repository and Project State store.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "greenfield-source-bootstrap",
+          "behaviorId": "new-project-creates-main-dev-and-first-work-source",
+          "proofLocator": "greenfield Work Intake persists Project, bootstrap evidence and first work source",
           "proofRole": "primary"
         }
       ]

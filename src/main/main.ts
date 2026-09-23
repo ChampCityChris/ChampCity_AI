@@ -54,7 +54,7 @@ import {
 import { resolveFirstNonApprovedDocument } from "./documents/firstNonApprovedResolver";
 import { submitProjectIntakeForRepository } from "./projectIntake/projectIntakeService";
 import { getWorkIntakeProjection, readWorkIntake, submitWorkIntake } from "./workIntake/workIntakeService";
-import { captureStructuredWorkIntake, getStructuredWorkIntakeProjection, retryStructuredWorkIntakeSource, selectedStructuredProjectId } from "./workIntake/structuredWorkIntakeService";
+import { captureGreenfieldWorkIntake, captureStructuredWorkIntake, getGreenfieldWorkIntakeProjection, getStructuredWorkIntakeProjection, isGreenfieldProjectRoot, retryStructuredWorkIntakeSource, selectedStructuredProjectId } from "./workIntake/structuredWorkIntakeService";
 import { getWorkIntakeNavigation } from "./workIntake/workIntakeNavigationService";
 import { runRoutedWorkflow } from "./planExecution/routedWorkflowService";
 import type { RoutedWorkflowAction, RoutedWorkflowInput } from "../shared/routedWorkflowContracts";
@@ -763,7 +763,8 @@ ipcMain.handle(
 ipcMain.handle("workIntake:projection", () => {
   const root = getRequiredWorkspaceRoot();
   const projectId = selectedStructuredProjectId(root);
-  return projectId ? getStructuredWorkIntakeProjection(root, projectId) : getWorkIntakeProjection(root);
+  return projectId ? getStructuredWorkIntakeProjection(root, projectId)
+    : isGreenfieldProjectRoot(root) ? getGreenfieldWorkIntakeProjection(root) : getWorkIntakeProjection(root);
 });
 ipcMain.handle("workIntake:navigation", (_event, intakeId?: string) => getWorkIntakeNavigation(getRequiredWorkspaceRoot(), intakeId));
 ipcMain.handle("routedWorkflow:action", async (_event, intakeId: string, action: RoutedWorkflowAction, input?: RoutedWorkflowInput) => {
@@ -776,6 +777,7 @@ ipcMain.handle("workIntake:submit", async (_event, submission: WorkIntakeSubmiss
   const root = getRequiredWorkspaceRoot();
   const projectId = selectedStructuredProjectId(root);
   return projectId ? { ok: true as const, value: await captureStructuredWorkIntake(root, projectId, submission), receipts: [] as [] }
+    : isGreenfieldProjectRoot(root) ? { ok: true as const, value: await captureGreenfieldWorkIntake(root, submission), receipts: [] as [] }
     : submitWorkIntake(root, submission);
 });
 ipcMain.handle("workIntake:retry-source", (_event, intakeId: string) => {

@@ -37,6 +37,14 @@ export interface WorkSourceBinding {
   repositoryCheckoutId?: string;
 }
 
+export interface ProjectSourceBootstrap {
+  repositoryId: string;
+  initialRevision: SourceRevision;
+  initialCommitDigest: string;
+  stableLine: SourceLine;
+  integrationTarget: IntegrationTarget;
+}
+
 /** Workflow state is persisted independently; this reports only source preparation. */
 export type SourceReadiness =
   | { state: "unprepared" | "preparing"; repositoryId: string; workIntakeId: string }
@@ -87,6 +95,7 @@ export interface SourceGraph {
 
 /** Operations become available incrementally as their package cards implement them. */
 export interface RepositoryLifecycleFoundation {
+  bootstrapProjectSource(): Promise<SourceControlResult<ProjectSourceBootstrap>>;
   resolveSourceRevision(selector: SourceRevisionSelector): Promise<SourceControlResult<SourceRevision>>;
   createWorkSource(input: CreateWorkSourceInput): Promise<SourceControlResult<WorkSourceBinding>>;
 }

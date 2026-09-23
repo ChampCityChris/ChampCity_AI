@@ -8,6 +8,8 @@ export const GIT_STDERR_LIMIT_BYTES = 65_536;
 interface GitExecutionOptions {
   cwd: string;
   args: string[];
+  /** Only bootstrap uses fixed commit dates to make an interrupted initial revision reproducible. */
+  commitDates?: { author: string; committer: string };
   timeoutMs?: number;
   stdoutLimitBytes?: number;
   stderrLimitBytes?: number;
@@ -60,6 +62,7 @@ export function runBoundedGit(options: GitExecutionOptions): Promise<GitExecutio
         stdio: ["ignore", "pipe", "pipe"],
         env: {
           ...process.env,
+          ...(options.commitDates ? { GIT_AUTHOR_DATE: options.commitDates.author, GIT_COMMITTER_DATE: options.commitDates.committer } : {}),
           GIT_OPTIONAL_LOCKS: "0",
           GIT_TERMINAL_PROMPT: "0",
           GIT_MERGE_AUTOEDIT: "no",
