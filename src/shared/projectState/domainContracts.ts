@@ -15,6 +15,11 @@ export type LifecycleState = "active" | "closed" | "archived" | "superseded" | "
 export type DispositionState = "none" | "advisory" | "proposed" | "approved" | "revision_requested" | "accepted" | "rejected" | "revoked";
 export type ValidationPolicyClass = "deterministic" | "semantic_ai" | "visual_human" | "deferred_visual_phase" | "operator_decision";
 export type ValidationMode = "deterministic" | "semantic_ai" | "visual_human";
+export type WorkflowState = "planned" | "active" | "blocked" | "closed" | "cancelled";
+export type PhaseState = WorkflowState;
+export type WorkItemKind = "feature" | "fix" | "repair" | "migration" | "maintenance";
+export type WorkState = "planned" | "ready" | "in_progress" | "implemented" | "blocked" | "validation_pending" | "closed" | "cancelled";
+export type ImplementationOutcome = "implemented" | "partial" | "blocked" | "failed" | "abandoned";
 export const PROJECT_STATE_SCHEMA_VERSION = 1 as const;
 
 export interface RecordEnvelope<T extends EntityType = EntityType> {
@@ -42,14 +47,14 @@ export interface EntityBodyMap {
   ProjectResource: { resourceType: string; provider: string; logicalName: string; locator: string; role: string };
   WorkIntake: { request: string; desiredOutcome: string; constraints: string[]; evidenceContext: string[]; intakeState: string; requestedIntegrationTarget: string };
   RouteAssessment: { workIntakeId: EntityId; recommendation: string; traits: string[]; rationale: string; alternate?: string; evidenceIds: EvidenceId[] };
-  Workflow: { workflowType: string; workspace: string; governingEntityId: EntityId; workflowState: string };
-  Phase: { title: string; objective: string; phaseState: string; sequence: number };
+  Workflow: { workflowType: string; workspace: string; governingEntityId: EntityId; workflowState: WorkflowState };
+  Phase: { title: string; objective: string; phaseState: PhaseState; sequence: number };
   Finding: { title: string; statement: string; category: string; impact: string; observedAt: string; findingState: string; confidence?: number };
   RootCause: { title: string; statement: string; rationale: string; confidence?: number; rootCauseState: string };
   BoundedSolution: { title: string; objective: string; scopeIn: string[]; scopeOut: string[]; constraints: string[]; assumptions: string[]; risks: string[]; solutionState: string };
   Criterion: { statement: string; criticality: "required" | "optional" | "informational"; verificationIntent: string; validationPolicy: ValidationPolicyClass; criterionState: string };
-  WorkItem: { workItemKind: string; title: string; objective: string; workState: string; startedAt?: string; implementedAt?: string };
-  ImplementationRecord: { workItemId: EntityId; summary: string; deviations: string[]; blockers: string[]; residualRisks: string[]; outcome: string; executionRef?: string };
+  WorkItem: { workItemKind: WorkItemKind; title: string; objective: string; workState: WorkState; startedAt?: string; implementedAt?: string };
+  ImplementationRecord: { workItemId: EntityId; summary: string; deviations: string[]; blockers: string[]; residualRisks: string[]; outcome: ImplementationOutcome; executionRef?: string };
   Validation: { validationType: string; method: string; validationMode: ValidationMode; outcome: "pass" | "fail" | "blocked" | "inconclusive"; targetEntityId: EntityId; targetRecordVersion: number; sourceBaselineRef?: string; performedBy: PrincipalRef; performedAt: string; summary: string };
   Evidence: { evidenceType: string; description: string; capturedAt: string; capturedBy: PrincipalRef; mediaType: string; payloadRef: string; digest: string; size?: number };
   Decision: { decisionType: string; outcome: string; rationale: string; decisionRole: string; decisionScope: string; decidedBy: PrincipalRef; decidedAt: string; effectiveAt: string };

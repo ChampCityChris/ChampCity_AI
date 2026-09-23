@@ -89,7 +89,7 @@ function register(name, factory) {
     const project = await service.createRecord(null, "Project", { name: "Synthetic", description: "Project" });
     const criterion = await service.createRecord(project.id, "Criterion", criterionBody("deferred_visual_phase"));
     assert.equal((await service.getCriterionValidationStatus(project.id, criterion.id)).reason, "deferred-to-phase");
-    const phase = await service.createRecord(project.id, "Phase", { title: "Phase", objective: "Complete", phaseState: "open", sequence: 1 });
+    const phase = await service.createRecord(project.id, "Phase", { title: "Phase", objective: "Complete", phaseState: "active", sequence: 1 });
     await service.createRelationship(project.id, phase.id, "defines_criterion", criterion.id);
     await service.recordValidation(project.id, criterion.id, { ...validationInput, validationMode: "visual_human" });
     assert.equal((await service.getCriterionValidationStatus(project.id, criterion.id)).satisfied, true);

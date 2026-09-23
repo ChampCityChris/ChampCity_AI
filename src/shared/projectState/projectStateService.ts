@@ -1,4 +1,4 @@
-import type { DispositionState, EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef, ProjectId, ProjectStateEntity, ProjectStateRecord, ValidationMode } from "./domainContracts";
+import type { DispositionState, EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef, ProjectId, ProjectStateEntity, ProjectStateRecord, ValidationMode, WorkflowState } from "./domainContracts";
 import { assertSupersession } from "./domainInvariants";
 import { createProjectStateEntity, ENTITY_TYPE_REGISTRY, ProjectStateDomainError, validateProjectStateEntity } from "./entityTypeRegistry";
 import { createRelationship as createDomainRelationship, type ProjectStateRelationship, type RelationshipType } from "./relationshipRegistry";
@@ -15,6 +15,8 @@ export interface RequiredOperatorDecision { criterionId: EntityId; targetId: Ent
 export type ValidationStaleReason = "target-version-changed" | "target-superseded" | "source-baseline-changed";
 export interface ValidationFreshness { validationId: EntityId; targetEntityId: EntityId; targetRecordVersion: number; current: boolean; staleReason: ValidationStaleReason | null }
 export interface CriterionValidationStatus { criterionId: EntityId; policy: EntityBodyMap["Criterion"]["validationPolicy"]; satisfied: boolean; validationId: EntityId | null; reason: "current-pass" | "no-current-validation" | "latest-validation-not-pass" | "deferred-to-phase" | "operator-decision-required" }
+export interface CompletionEligibility { entityId: EntityId; eligible: boolean; blockers: string[] }
+export interface ExecutionPlanView { phases: { phaseId: EntityId; sequence: number; workItemIds: EntityId[]; criterionIds: EntityId[] }[]; directWorkItemIds: EntityId[]; dependencyIds: { from: EntityId; to: EntityId }[]; repairIds: { from: EntityId; to: EntityId }[] }
 export const PROJECT_STATE_EVENT_TYPES = Object.freeze({
   create: "project-state.record-created",
   revise: "project-state.record-revised",
@@ -88,6 +90,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
 
   async function createRecord<T extends EntityType>(projectId: ProjectId | null, entityType: T, content: EntityBodyMap[T], context?: MutationContext) {
     if (restrictedGenericTypes.has(entityType)) fail("Decision, Validation and Evidence require typed commands.");
+    if (entityType === "ImplementationRecord" || entityType === "Workflow") fail("ImplementationRecord and Workflow require typed commands.");
     if (entityType === "Project" && projectId !== null) fail("A new Project cannot borrow another Project identity.");
     if (entityType !== "Project" && !projectId) fail("Project identity is required.");
     const record = createProjectStateEntity({ entityType, ...(projectId ? { projectId } : {}), body: content, principal: trustedPrincipal });
@@ -101,12 +104,29 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return record;
   }
 
+  async function createWorkflow(projectId: ProjectId, input: { workflowType: string; workspace: string; governingEntityId: EntityId; workflowState?: WorkflowState }, context?: MutationContext) {
+    exactInput(input, ["workflowType", "workspace", "governingEntityId", "workflowState"]);
+    return store.transaction(projectId, async unit => {
+      if (!await unit.getProject(projectId)) fail("Owning Project does not exist.");
+      await requiredRecord(unit, projectId, input.governingEntityId);
+      const record = createProjectStateEntity({ entityType: "Workflow", projectId,
+        body: { workflowType: input.workflowType, workspace: input.workspace, governingEntityId: input.governingEntityId,
+          workflowState: input.workflowState ?? "active" }, principal: trustedPrincipal });
+      await unit.saveEntity(record, null);
+      await recordMutation(unit, { projectId, entityId: record.id, fromVersion: null, toVersion: 1,
+        operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: record.createdAt,
+        changedFields: Object.keys(record.body), defaultReason: "Create Workflow", context });
+      return record;
+    });
+  }
+
   async function reviseRecord(projectId: ProjectId, entityId: EntityId, changes: Record<string, unknown>, expectedRevision: number, context?: MutationContext) {
     const patch = exactInput(changes, Object.keys(changes));
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) fail("An exact expected revision is required.");
     return store.transaction(projectId, async unit => {
       const current = await requiredRecord(unit, projectId, entityId);
       if (restrictedGenericTypes.has(current.entityType)) fail("Immutable semantic records require typed correction or supersession.");
+      if ((current.entityType === "WorkItem" && patch.workState === "closed") || (current.entityType === "Phase" && patch.phaseState === "closed")) fail("Completion requires a typed eligibility command.");
       if (current.recordVersion !== expectedRevision) fail("Expected Project State revision is stale.");
       const next = validateProjectStateEntity({ ...current, recordVersion: current.recordVersion + 1, updatedAt: new Date().toISOString(), updatedBy: trustedPrincipal, body: { ...current.body, ...patch } });
       await unit.saveEntity(next, expectedRevision);
@@ -125,6 +145,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       if (previous.entityType === "Project" || previous.recordVersion !== expectedRevision) fail("Supersession target is unavailable or stale.");
       if (previous.lifecycleState !== "active" && previous.lifecycleState !== "closed") fail("Only a current active or closed record can be superseded.");
       if (restrictedGenericTypes.has(previous.entityType)) fail("Issued Decision, Validation and Evidence require a typed correction policy.");
+      if (previous.entityType === "ImplementationRecord") fail("Implementation attempts are immutable; record a new attempt.");
       const currentFamily = (await unit.listEntities(projectId, previous.entityType)).filter(candidate => candidate.lineageId === previous.lineageId && candidate.lifecycleState !== "superseded");
       if (currentFamily.length !== 1 || currentFamily[0].id !== previous.id) fail("Supersession target is not the unique current record in its lineage.");
       const now = new Date().toISOString();
@@ -150,9 +171,23 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
 
   async function createRelationship(projectId: ProjectId, fromEntityId: EntityId, relationshipType: RelationshipType, toEntityId: EntityId, context?: MutationContext) {
     if (relationshipType === "governs") fail("Decision governance requires a typed Decision command.");
+    if (relationshipType === "implements_work_item") fail("Implementation attempts require a typed command.");
     return store.transaction(projectId, async unit => {
       const from = await requiredRecord(unit, projectId, fromEntityId);
       const to = await requiredRecord(unit, projectId, toEntityId);
+      const active = (await unit.listRelationships(projectId, relationshipType)).filter(edge => !edge.endedAt);
+      if (active.some(edge => edge.fromEntityId === fromEntityId && edge.toEntityId === toEntityId)) fail("Relationship already exists.");
+      if (relationshipType === "repairs" && (from.entityType !== "WorkItem" || !["repair", "fix"].includes(from.body.workItemKind))) fail("Only a Repair or Fix Work Item can repair another Work Item.");
+      if (relationshipType === "part_of" && active.some(edge => edge.fromEntityId === fromEntityId)) fail("A Work Item already has an active parent.");
+      if (["depends_on", "part_of", "repairs"].includes(relationshipType)) {
+        const visited = new Set<EntityId>([toEntityId]);
+        for (let pass = 0; pass < active.length + 1; pass++) {
+          const size = visited.size;
+          for (const edge of active) if (visited.has(edge.fromEntityId)) visited.add(edge.toEntityId);
+          if (visited.size === size) break;
+        }
+        if (visited.has(fromEntityId)) fail("Execution relationship would form a cycle.");
+      }
       const edge = createDomainRelationship({ projectId, fromEntityId, relationshipType, toEntityId, createdBy: trustedPrincipal }, id => id === fromEntityId ? from : id === toEntityId ? to : undefined);
       await unit.saveRelationship(edge);
       await recordMutation(unit, { projectId, entityId: from.id, fromVersion: from.recordVersion, toVersion: from.recordVersion,
@@ -175,7 +210,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     });
   }
 
-  async function recordLinked(projectId: ProjectId, targetId: EntityId, entityType: "Decision" | "Validation" | "Evidence", body: Record<string, unknown> | ((target: ProjectStateEntity) => Record<string, unknown>), relationshipType: "governs" | "evaluates" | "supports", context?: MutationContext) {
+  async function recordLinked(projectId: ProjectId, targetId: EntityId, entityType: "Decision" | "Validation" | "Evidence" | "ImplementationRecord", body: Record<string, unknown> | ((target: ProjectStateEntity) => Record<string, unknown>), relationshipType: "governs" | "evaluates" | "supports" | "implements_work_item", context?: MutationContext) {
     return store.transaction(projectId, async unit => {
       const target = await requiredRecord(unit, projectId, targetId);
       const resolvedBody = typeof body === "function" ? body(target) : body;
@@ -269,6 +304,14 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (typeof input.payloadRef !== "string" || !/^[a-z][a-z0-9+.-]*:[^\s]+$/i.test(input.payloadRef) || /^data:/i.test(input.payloadRef)) fail("Evidence payload must use an external reference, not inline bytes.");
     if (input.size !== undefined && (!Number.isSafeInteger(input.size) || input.size < 0)) fail("Evidence size must be a nonnegative integer.");
     return recordLinked(projectId, targetId, "Evidence", { ...content, capturedBy: trustedPrincipal, capturedAt: new Date().toISOString() }, "supports", context);
+  }
+
+  async function recordImplementation(projectId: ProjectId, workItemId: EntityId, input: Omit<EntityBodyMap["ImplementationRecord"], "workItemId">, context?: MutationContext) {
+    exactInput(input, ["summary", "deviations", "blockers", "residualRisks", "outcome", "executionRef"]);
+    return recordLinked(projectId, workItemId, "ImplementationRecord", target => {
+      if (target.entityType !== "WorkItem") fail("Implementation target must be a Work Item.");
+      return { ...input, workItemId: target.id };
+    }, "implements_work_item", context);
   }
 
   async function getRecord(projectId: ProjectId, entityId: EntityId) { return store.getEntity(projectId, entityId); }
@@ -405,6 +448,171 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       reason: latest.body.outcome === "pass" ? "current-pass" : "latest-validation-not-pass" };
   }
 
+  async function getImplementationAttempts(projectId: ProjectId, workItemId: EntityId) {
+    const workItem = await requiredRecord(store, projectId, workItemId);
+    if (workItem.entityType !== "WorkItem") fail("Work Item identity is required.");
+    const linked = new Set((await store.listRelationships(projectId, "implements_work_item"))
+      .filter(edge => edge.toEntityId === workItemId && !edge.endedAt).map(edge => edge.fromEntityId));
+    const sequence = new Map((await store.listOutbox(projectId))
+      .filter(event => event.entityId && event.payload.operation === "create").map(event => [event.entityId as string, event.sequence]));
+    return (await store.listEntities(projectId, "ImplementationRecord"))
+      .filter((record): record is ProjectStateRecord<"ImplementationRecord"> => record.entityType === "ImplementationRecord")
+      .filter(record => linked.has(record.id) && record.body.workItemId === workItemId)
+      .sort((a, b) => (sequence.get(a.id) ?? 0) - (sequence.get(b.id) ?? 0) || a.id.localeCompare(b.id));
+  }
+
+  async function getExecutionPlan(projectId: ProjectId): Promise<ExecutionPlanView> {
+    const phases = (await store.listEntities(projectId, "Phase"))
+      .filter((record): record is ProjectStateRecord<"Phase"> => record.entityType === "Phase" && record.lifecycleState !== "superseded" && record.lifecycleState !== "voided")
+      .sort((a, b) => a.body.sequence - b.body.sequence || a.id.localeCompare(b.id));
+    const workItems = (await store.listEntities(projectId, "WorkItem"))
+      .filter((record): record is ProjectStateRecord<"WorkItem"> => record.entityType === "WorkItem" && record.lifecycleState !== "superseded" && record.lifecycleState !== "voided");
+    const active = (await store.listRelationships(projectId)).filter(edge => !edge.endedAt);
+    const parentByWork = new Map(active.filter(edge => edge.relationshipType === "part_of").map(edge => [edge.fromEntityId, edge.toEntityId]));
+    const phaseIds = new Set(phases.map(phase => phase.id));
+    const phaseFor = (workId: EntityId) => {
+      let id: EntityId | undefined = parentByWork.get(workId);
+      const visited = new Set<EntityId>([workId]);
+      while (id && !visited.has(id)) {
+        if (phaseIds.has(id)) return id;
+        visited.add(id);
+        id = parentByWork.get(id);
+      }
+      if (id) fail("Work Item membership cycle exists.");
+      return null;
+    };
+    const assigned = new Map(workItems.map(item => [item.id, phaseFor(item.id)]));
+    return {
+      phases: phases.map(phase => ({ phaseId: phase.id, sequence: phase.body.sequence,
+        workItemIds: workItems.filter(item => assigned.get(item.id) === phase.id).map(item => item.id).sort(),
+        criterionIds: active.filter(edge => edge.relationshipType === "defines_criterion" && edge.fromEntityId === phase.id).map(edge => edge.toEntityId).sort() })),
+      directWorkItemIds: workItems.filter(item => assigned.get(item.id) === null).map(item => item.id).sort(),
+      dependencyIds: active.filter(edge => edge.relationshipType === "depends_on").map(edge => ({ from: edge.fromEntityId, to: edge.toEntityId }))
+        .sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to)),
+      repairIds: active.filter(edge => edge.relationshipType === "repairs").map(edge => ({ from: edge.fromEntityId, to: edge.toEntityId }))
+        .sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to)),
+    };
+  }
+
+  async function getWorkItemCompletionEligibility(projectId: ProjectId, workItemId: EntityId, currentSourceBaselineRef?: string): Promise<CompletionEligibility> {
+    const workItem = await requiredRecord(store, projectId, workItemId);
+    if (workItem.entityType !== "WorkItem") fail("Work Item identity is required.");
+    const blockers: string[] = [];
+    if (["superseded", "voided"].includes(workItem.lifecycleState) || workItem.body.workState === "cancelled") blockers.push("work-item-terminal");
+    const latestAttempt = (await getImplementationAttempts(projectId, workItemId)).at(-1);
+    if (!latestAttempt || latestAttempt.body.outcome !== "implemented" || latestAttempt.body.blockers.length > 0) blockers.push("implementation-incomplete");
+    const edges = (await store.listRelationships(projectId)).filter(edge => !edge.endedAt);
+    const dependencyIds = edges.filter(edge => edge.relationshipType === "depends_on" && edge.fromEntityId === workItemId).map(edge => edge.toEntityId);
+    for (const id of dependencyIds) {
+      const dependency = await requiredRecord(store, projectId, id);
+      if (dependency.entityType !== "WorkItem" || dependency.body.workState !== "closed") blockers.push(`dependency:${id}`);
+    }
+    for (const edge of edges.filter(edge => edge.relationshipType === "part_of" && edge.toEntityId === workItemId)) {
+      const child = await requiredRecord(store, projectId, edge.fromEntityId);
+      if (child.entityType !== "WorkItem" || child.body.workState !== "closed") blockers.push(`open-child:${child.id}`);
+    }
+    const repairIds = new Set<EntityId>([workItemId]);
+    for (let pass = 0; pass < edges.length + 1; pass++) {
+      const size = repairIds.size;
+      for (const edge of edges) if (edge.relationshipType === "repairs" && repairIds.has(edge.toEntityId)) repairIds.add(edge.fromEntityId);
+      if (repairIds.size === size) break;
+    }
+    repairIds.delete(workItemId);
+    for (const id of repairIds) {
+      const repair = await requiredRecord(store, projectId, id);
+      if (repair.entityType !== "WorkItem" || repair.body.workState !== "closed") blockers.push(`open-repair:${id}`);
+    }
+    const solutionIds = edges.filter(edge => edge.relationshipType === "implements" && edge.fromEntityId === workItemId).map(edge => edge.toEntityId);
+    const criterionIds = new Set(edges.filter(edge => edge.relationshipType === "defines_criterion" && [workItemId, ...solutionIds].includes(edge.fromEntityId)).map(edge => edge.toEntityId));
+    for (const id of criterionIds) {
+      const criterion = await requiredRecord(store, projectId, id);
+      if (criterion.entityType !== "Criterion" || criterion.lifecycleState !== "active" || criterion.body.criticality !== "required" || criterion.body.validationPolicy === "deferred_visual_phase") continue;
+      if (criterion.body.validationPolicy === "operator_decision") {
+        const disposition = await getEffectiveDisposition(projectId, workItemId);
+        if (!["approved", "accepted"].includes(disposition.state)) blockers.push(`operator-decision:${id}`);
+      } else {
+        const proof = await getCriterionValidationStatus(projectId, id, currentSourceBaselineRef);
+        if (!proof.satisfied) blockers.push(`criterion:${id}`);
+        else if (criterion.body.validationPolicy === "semantic_ai" && proof.validationId && latestAttempt) {
+          const review = await requiredRecord(store, projectId, proof.validationId);
+          if (review.entityType !== "Validation" || review.body.performedBy.principalId === latestAttempt.createdBy.principalId) blockers.push(`independent-review:${id}`);
+        }
+      }
+    }
+    const disposition = await getEffectiveDisposition(projectId, workItemId);
+    if (["proposed", "revision_requested", "rejected", "revoked"].includes(disposition.state)) blockers.push("blocking-disposition");
+    for (const edge of edges.filter(edge => edge.relationshipType === "blocks" && edge.toEntityId === workItemId)) {
+      const source = await requiredRecord(store, projectId, edge.fromEntityId);
+      if (source.lifecycleState === "active") blockers.push(`blocking-record:${source.id}`);
+    }
+    return { entityId: workItemId, eligible: blockers.length === 0, blockers: [...new Set(blockers)].sort() };
+  }
+
+  async function getPhaseCompletionEligibility(projectId: ProjectId, phaseId: EntityId, currentSourceBaselineRef?: string): Promise<CompletionEligibility> {
+    const phase = await requiredRecord(store, projectId, phaseId);
+    if (phase.entityType !== "Phase") fail("Phase identity is required.");
+    const blockers: string[] = [];
+    if (["superseded", "voided"].includes(phase.lifecycleState) || phase.body.phaseState === "cancelled") blockers.push("phase-terminal");
+    const plan = await getExecutionPlan(projectId);
+    const membership = plan.phases.find(item => item.phaseId === phaseId);
+    for (const id of membership?.workItemIds ?? []) {
+      const workItem = await requiredRecord(store, projectId, id);
+      if (workItem.entityType !== "WorkItem" || workItem.body.workState !== "closed") blockers.push(`open-work-item:${id}`);
+    }
+    for (const id of membership?.criterionIds ?? []) {
+      const criterion = await requiredRecord(store, projectId, id);
+      if (criterion.entityType !== "Criterion" || criterion.lifecycleState !== "active" || criterion.body.criticality !== "required") continue;
+      if (criterion.body.validationPolicy === "operator_decision") {
+        const disposition = await getEffectiveDisposition(projectId, phaseId);
+        if (!["approved", "accepted"].includes(disposition.state)) blockers.push(`operator-decision:${id}`);
+      } else if (!(await getCriterionValidationStatus(projectId, id, currentSourceBaselineRef)).satisfied) blockers.push(`criterion:${id}`);
+    }
+    const disposition = await getEffectiveDisposition(projectId, phaseId);
+    if (["proposed", "revision_requested", "rejected", "revoked"].includes(disposition.state)) blockers.push("blocking-disposition");
+    const edges = (await store.listRelationships(projectId, "blocks")).filter(edge => edge.toEntityId === phaseId && !edge.endedAt);
+    for (const edge of edges) {
+      const source = await requiredRecord(store, projectId, edge.fromEntityId);
+      if (source.lifecycleState === "active") blockers.push(`blocking-record:${source.id}`);
+    }
+    return { entityId: phaseId, eligible: blockers.length === 0, blockers: [...new Set(blockers)].sort() };
+  }
+
+  async function completeWorkItem(projectId: ProjectId, workItemId: EntityId, expectedRevision: number, currentSourceBaselineRef?: string, context?: MutationContext) {
+    return store.transaction(projectId, async unit => {
+      const current = await requiredRecord(unit, projectId, workItemId);
+      if (current.entityType !== "WorkItem" || current.recordVersion !== expectedRevision || current.body.workState === "closed") fail("Work Item completion target is unavailable or stale.");
+      const eligibility = await getWorkItemCompletionEligibility(projectId, workItemId, currentSourceBaselineRef);
+      if (!eligibility.eligible) fail(`Work Item completion is blocked: ${eligibility.blockers.join(", ")}.`);
+      const now = new Date().toISOString();
+      const next = validateProjectStateEntity({ ...current, recordVersion: expectedRevision + 1,
+        lifecycleState: "closed", closedAt: now, updatedAt: now, updatedBy: trustedPrincipal,
+        body: { ...current.body, workState: "closed" } });
+      await unit.saveEntity(next, expectedRevision);
+      await recordMutation(unit, { projectId, entityId: workItemId, fromVersion: expectedRevision, toVersion: next.recordVersion,
+        operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now,
+        changedFields: ["closedAt", "lifecycleState", "workState"], defaultReason: "Complete Work Item", context });
+      return next;
+    });
+  }
+
+  async function completePhase(projectId: ProjectId, phaseId: EntityId, expectedRevision: number, currentSourceBaselineRef?: string, context?: MutationContext) {
+    return store.transaction(projectId, async unit => {
+      const current = await requiredRecord(unit, projectId, phaseId);
+      if (current.entityType !== "Phase" || current.recordVersion !== expectedRevision || current.body.phaseState === "closed") fail("Phase completion target is unavailable or stale.");
+      const eligibility = await getPhaseCompletionEligibility(projectId, phaseId, currentSourceBaselineRef);
+      if (!eligibility.eligible) fail(`Phase completion is blocked: ${eligibility.blockers.join(", ")}.`);
+      const now = new Date().toISOString();
+      const next = validateProjectStateEntity({ ...current, recordVersion: expectedRevision + 1,
+        lifecycleState: "closed", closedAt: now, updatedAt: now, updatedBy: trustedPrincipal,
+        body: { ...current.body, phaseState: "closed" } });
+      await unit.saveEntity(next, expectedRevision);
+      await recordMutation(unit, { projectId, entityId: phaseId, fromVersion: expectedRevision, toVersion: next.recordVersion,
+        operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now,
+        changedFields: ["closedAt", "lifecycleState", "phaseState"], defaultReason: "Complete Phase", context });
+      return next;
+    });
+  }
+
   async function getEffectiveDisposition(projectId: ProjectId, targetId: EntityId, asOf = new Date().toISOString()): Promise<EffectiveDisposition> {
     if (!canonicalInstant(asOf)) fail("Disposition query time must be canonical UTC.");
     if (!await store.getEntity(projectId, targetId)) fail("Disposition target does not exist in this Project.");
@@ -450,7 +658,8 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return pending.sort((a, b) => a.targetId.localeCompare(b.targetId) || a.criterionId.localeCompare(b.criterionId));
   }
 
-  return { createRecord, reviseRecord, supersedeRecord, createRelationship, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence,
+  return { createRecord, createWorkflow, reviseRecord, supersedeRecord, createRelationship, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, completeWorkItem, completePhase,
     getRecord, queryRecords, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
-    getEffectiveDisposition, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus };
+    getEffectiveDisposition, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus,
+    getImplementationAttempts, getExecutionPlan, getWorkItemCompletionEligibility, getPhaseCompletionEligibility };
 }

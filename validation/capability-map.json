@@ -3078,12 +3078,20 @@
           "description": "Decision correction preserves history and governance while later Decisions remain distinct"
         },
         {
+          "behaviorId": "direct-workflow-and-work-item-completion-use-attempts-and-current-proof",
+          "description": "direct Workflow and Work Item completion use immutable attempts and current Criterion proof"
+        },
+        {
           "behaviorId": "effective-disposition-requires-a-current-human-operator-decision",
           "description": "effective disposition requires a current human Operator Decision"
         },
         {
           "behaviorId": "evidence-identity-provenance-and-immutable-external-payload-metadata",
           "description": "Evidence identity, provenance and immutable external payload metadata remain queryable"
+        },
+        {
+          "behaviorId": "execution-dependencies-repair-ancestry-attempts-and-decisions-determine-eligibility",
+          "description": "execution dependencies, Repair ancestry, attempts and Decisions determine eligibility"
         },
         {
           "behaviorId": "history-orders-same-timestamp-successor-by-explicit-edge",
@@ -3096,6 +3104,10 @@
         {
           "behaviorId": "operator-decision-query-follows-explicit-criterion-policy",
           "description": "Operator Decision query follows explicit Criterion policy"
+        },
+        {
+          "behaviorId": "phased-plan-derives-nested-membership-and-milestone-proof",
+          "description": "phased Plan view derives nested membership and milestone proof"
         },
         {
           "behaviorId": "policy-class-and-latest-fresh-validation-control-criterion-proof",
@@ -13354,6 +13366,69 @@
           "capabilityId": "project-state-service",
           "behaviorId": "validation-target-version-and-source-baseline-determine-freshness",
           "proofLocator": "exact target version and source baseline determine historical proof freshness",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/execution-completion.test.cjs",
+      "currentTestCount": {
+        "value": 6,
+        "basis": "Three direct, phased and Repair execution scenarios across in-memory and SQLite adapters introduced by SCL01L."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 340,
+        "basis": "Observed normal Windows focused SCL01L test receipt."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Per-test temporary SQLite file and isolated in-memory adapter.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "direct-workflow-and-work-item-completion-use-attempts-and-current-proof",
+          "proofLocator": "direct Workflow and Work Item completion uses attempts and current Criterion proof",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "execution-dependencies-repair-ancestry-attempts-and-decisions-determine-eligibility",
+          "proofLocator": "dependencies, Repair ancestry, attempts and Decisions determine eligibility",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "phased-plan-derives-nested-membership-and-milestone-proof",
+          "proofLocator": "phased plan derives nested membership and Phase milestone proof",
           "proofRole": "primary"
         }
       ]

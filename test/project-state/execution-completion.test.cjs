@@ -1,0 +1,119 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const test = require("node:test");
+const { createInMemoryProjectStateStore } = require("../../dist/shared/projectState/inMemoryProjectStateStore.js");
+const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
+const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
+
+const operator = { principalId: "operator", principalType: "human", role: "Operator" };
+const reviewer = { principalId: "reviewer", principalType: "agent", role: "Reviewer" };
+const workBody = (title, workItemKind = "feature") => ({ workItemKind, title, objective: `Complete ${title}`, workState: "ready" });
+const attempt = outcome => ({ summary: `Attempt ${outcome}`, deviations: [], blockers: outcome === "blocked" ? ["Unresolved"] : [], residualRisks: [], outcome, executionRef: "runtime:attempt" });
+const criterion = policy => ({ statement: "Prove completion", criticality: "required", verificationIntent: "Show the result", validationPolicy: policy, criterionState: "open" });
+const validation = mode => ({ validationType: "review", method: "inspection", validationMode: mode, outcome: "pass", summary: "Observed" });
+
+function sqliteFixture(context) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-execution-test-"));
+  const store = createSQLiteProjectStateStore(path.join(root, "project-state.sqlite"));
+  context.after(() => { store.close(); fs.rmSync(root, { recursive: true, force: true }); });
+  return store;
+}
+
+function register(name, factory) {
+  test(`${name}: direct Workflow and Work Item completion uses attempts and current Criterion proof`, async context => {
+    const store = factory(context);
+    const service = createProjectStateService(store, operator);
+    const project = await service.createRecord(null, "Project", { name: "Synthetic", description: "Project" });
+    const work = await service.createRecord(project.id, "WorkItem", workBody("Direct"));
+    await assert.rejects(service.createRecord(project.id, "Workflow", { workflowType: "development", workspace: "work", governingEntityId: work.id, workflowState: "active" }), /typed commands/);
+    const workflow = await service.createWorkflow(project.id, { workflowType: "development", workspace: "work", governingEntityId: work.id });
+    assert.equal(workflow.body.workflowState, "active");
+    assert.equal((await service.getExecutionPlan(project.id)).directWorkItemIds[0], work.id);
+    const required = await service.createRecord(project.id, "Criterion", criterion("deterministic"));
+    await service.createRelationship(project.id, work.id, "defines_criterion", required.id);
+    await assert.rejects(service.createRecord(project.id, "ImplementationRecord", { ...attempt("implemented"), workItemId: work.id }), /typed commands/);
+    const implementation = await service.recordImplementation(project.id, work.id, attempt("implemented"));
+    assert.equal(implementation.body.workItemId, work.id);
+    await assert.rejects(service.createRelationship(project.id, implementation.id, "implements_work_item", work.id), /typed command/);
+    assert.equal((await service.getImplementationAttempts(project.id, work.id))[0].id, implementation.id);
+    assert.ok((await service.getWorkItemCompletionEligibility(project.id, work.id)).blockers.some(code => code.startsWith("criterion:")));
+    await assert.rejects(service.reviseRecord(project.id, work.id, { workState: "closed" }, 1), /typed eligibility command/);
+    await assert.rejects(service.completeWorkItem(project.id, work.id, 1), /completion is blocked/);
+    await service.recordValidation(project.id, required.id, validation("deterministic"));
+    const semantic = await service.createRecord(project.id, "Criterion", criterion("semantic_ai"));
+    await service.createRelationship(project.id, work.id, "defines_criterion", semantic.id);
+    await service.recordValidation(project.id, semantic.id, validation("semantic_ai"));
+    assert.ok((await service.getWorkItemCompletionEligibility(project.id, work.id)).blockers.some(code => code.startsWith("independent-review:")));
+    await createProjectStateService(store, reviewer).recordValidation(project.id, semantic.id, validation("semantic_ai"));
+    assert.equal((await service.getWorkItemCompletionEligibility(project.id, work.id)).eligible, true);
+    const closed = await service.completeWorkItem(project.id, work.id, 1);
+    assert.equal(closed.body.workState, "closed");
+    assert.equal(closed.lifecycleState, "closed");
+    assert.ok(closed.closedAt);
+    assert.equal((await store.listStateChanges(project.id)).length, (await store.listOutbox(project.id)).length);
+  });
+
+  test(`${name}: phased plan derives nested membership and Phase milestone proof`, async context => {
+    const store = factory(context);
+    const service = createProjectStateService(store, operator);
+    const project = await service.createRecord(null, "Project", { name: "Synthetic", description: "Project" });
+    const phase = await service.createRecord(project.id, "Phase", { title: "Milestone", objective: "Finish", phaseState: "active", sequence: 1 });
+    const parent = await service.createRecord(project.id, "WorkItem", workBody("Parent"));
+    const child = await service.createRecord(project.id, "WorkItem", workBody("Child"));
+    const direct = await service.createRecord(project.id, "WorkItem", workBody("Direct"));
+    await service.createRelationship(project.id, parent.id, "part_of", phase.id);
+    await service.createRelationship(project.id, child.id, "part_of", parent.id);
+    const plan = await service.getExecutionPlan(project.id);
+    assert.deepEqual(plan.phases[0].workItemIds, [child.id, parent.id].sort());
+    assert.deepEqual(plan.directWorkItemIds, [direct.id]);
+    await assert.rejects(service.createRelationship(project.id, parent.id, "part_of", child.id), /already has an active parent|cycle/);
+    const visual = await service.createRecord(project.id, "Criterion", criterion("deferred_visual_phase"));
+    await service.createRelationship(project.id, phase.id, "defines_criterion", visual.id);
+    await service.recordImplementation(project.id, parent.id, attempt("implemented"));
+    await service.recordImplementation(project.id, child.id, attempt("implemented"));
+    assert.ok((await service.getWorkItemCompletionEligibility(project.id, parent.id)).blockers.some(code => code.startsWith("open-child:")));
+    await service.completeWorkItem(project.id, child.id, 1);
+    await service.completeWorkItem(project.id, parent.id, 1);
+    assert.ok((await service.getPhaseCompletionEligibility(project.id, phase.id)).blockers.some(code => code.startsWith("criterion:")));
+    await assert.rejects(service.reviseRecord(project.id, phase.id, { phaseState: "closed" }, 1), /typed eligibility command/);
+    await service.recordValidation(project.id, visual.id, validation("visual_human"));
+    assert.equal((await service.getPhaseCompletionEligibility(project.id, phase.id)).eligible, true);
+    const closed = await service.completePhase(project.id, phase.id, 1);
+    assert.equal(closed.body.phaseState, "closed");
+    assert.equal(closed.lifecycleState, "closed");
+  });
+
+  test(`${name}: dependencies, Repair ancestry, attempts and Decisions determine eligibility`, async context => {
+    const store = factory(context);
+    const service = createProjectStateService(store, operator);
+    const project = await service.createRecord(null, "Project", { name: "Synthetic", description: "Project" });
+    const parent = await service.createRecord(project.id, "WorkItem", workBody("Parent"));
+    const dependency = await service.createRecord(project.id, "WorkItem", workBody("Dependency"));
+    const repair = await service.createRecord(project.id, "WorkItem", workBody("Repair", "repair"));
+    await service.createRelationship(project.id, parent.id, "depends_on", dependency.id);
+    await service.createRelationship(project.id, repair.id, "repairs", parent.id);
+    await assert.rejects(service.createRelationship(project.id, dependency.id, "depends_on", parent.id), /cycle/);
+    await assert.rejects(service.createRelationship(project.id, parent.id, "repairs", dependency.id), /Only a Repair/);
+    await service.recordImplementation(project.id, parent.id, attempt("implemented"));
+    const initial = await service.getWorkItemCompletionEligibility(project.id, parent.id);
+    assert.ok(initial.blockers.some(code => code.startsWith("dependency:")));
+    assert.ok(initial.blockers.some(code => code.startsWith("open-repair:")));
+    await service.recordImplementation(project.id, dependency.id, attempt("implemented"));
+    await service.completeWorkItem(project.id, dependency.id, 1);
+    await service.recordImplementation(project.id, repair.id, attempt("implemented"));
+    await service.completeWorkItem(project.id, repair.id, 1);
+    assert.equal((await service.getWorkItemCompletionEligibility(project.id, parent.id)).eligible, true);
+    await service.recordImplementation(project.id, parent.id, attempt("blocked"));
+    assert.ok((await service.getWorkItemCompletionEligibility(project.id, parent.id)).blockers.includes("implementation-incomplete"));
+    await service.recordImplementation(project.id, parent.id, attempt("implemented"));
+    await service.recordDecision(project.id, parent.id, { decisionType: "review", outcome: "revision_requested", decisionScope: "work" });
+    assert.ok((await service.getWorkItemCompletionEligibility(project.id, parent.id)).blockers.includes("blocking-disposition"));
+    await service.recordDecision(project.id, parent.id, { decisionType: "review", outcome: "accepted", decisionScope: "work" });
+    assert.equal((await service.getWorkItemCompletionEligibility(project.id, parent.id)).eligible, true);
+  });
+}
+
+register("in-memory Project State", () => createInMemoryProjectStateStore());
+register("SQLite Project State", sqliteFixture);
