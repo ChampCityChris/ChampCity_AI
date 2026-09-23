@@ -3015,6 +3015,31 @@
       ]
     },
     {
+      "capabilityId": "project-state-service",
+      "description": "Deployment-neutral semantic Project State queries and typed commands.",
+      "sourcePatterns": [
+        "src/shared/projectState/projectStateService.ts"
+      ],
+      "dependsOn": [
+        "project-state-domain",
+        "project-state-store"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "projectstateservice-creates-revises-and-supersedes-with-mechanical-identity-and-history",
+          "description": "ProjectStateService creates, revises and supersedes with mechanical identity and history"
+        },
+        {
+          "behaviorId": "service-rejects-unregistered-fields-and-keeps-query-results-bounded",
+          "description": "service rejects unregistered fields and keeps query results bounded"
+        },
+        {
+          "behaviorId": "typed-decision-validation-and-evidence-commands-derive-trusted-attribution-and-enforce-relationsh",
+          "description": "typed Decision, Validation and Evidence commands derive trusted attribution and enforce relationships"
+        }
+      ]
+    },
+    {
       "capabilityId": "project-state-store",
       "description": "Asynchronous Project State store semantics and cross-adapter conformance.",
       "sourcePatterns": [
@@ -13023,6 +13048,69 @@
           "capabilityId": "project-state-domain",
           "behaviorId": "revision-and-supersession-invariants-retain-identity-lineage-and-immutable-history",
           "proofLocator": "revision and supersession invariants retain identity, lineage and immutable history",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/service-boundary.test.cjs",
+      "currentTestCount": {
+        "value": 3,
+        "basis": "Three semantic service scenarios introduced by SCL01D."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 500,
+        "basis": "Synthetic in-memory Project State; estimate pending supported Windows receipt."
+      },
+      "proposedValidationLane": "fast",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": false,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Synthetic in-memory state per test with no shared mutable resources.",
+        "ownedResources": [
+          "pure-stateless"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "projectstateservice-creates-revises-and-supersedes-with-mechanical-identity-and-history",
+          "proofLocator": "ProjectStateService creates, revises and supersedes with mechanical identity and history",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "service-rejects-unregistered-fields-and-keeps-query-results-bounded",
+          "proofLocator": "service rejects unregistered fields and keeps query results bounded",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "typed-decision-validation-and-evidence-commands-derive-trusted-attribution-and-enforce-relationsh",
+          "proofLocator": "typed Decision, Validation and Evidence commands derive trusted attribution and enforce relationships",
           "proofRole": "primary"
         }
       ]
