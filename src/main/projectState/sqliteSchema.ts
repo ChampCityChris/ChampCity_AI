@@ -2,7 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import { validateProjectStateEntity } from "../../shared/projectState/entityTypeRegistry";
 
 /** Database schema versions are independent of the semantic record schema version. */
-export const PROJECT_STATE_DATABASE_SCHEMA_VERSION = 1;
+export const PROJECT_STATE_DATABASE_SCHEMA_VERSION = 2;
 export const PROJECT_STATE_BUSY_TIMEOUT_MS = 1_000;
 
 function sortedJson(value: unknown): unknown {
@@ -186,12 +186,34 @@ const MIGRATIONS: readonly Migration[] = [
         BEGIN SELECT RAISE(ABORT, 'entity versions are immutable'); END;
     `,
   },
+  {
+    version: 2,
+    id: "002_outbox_acknowledgments",
+    sql: `
+      CREATE UNIQUE INDEX idx_outbox_events_event_project ON outbox_events (event_id, project_id);
+      CREATE TABLE outbox_acknowledgments (
+        event_id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        acknowledged_at TEXT NOT NULL,
+        FOREIGN KEY (event_id, project_id) REFERENCES outbox_events (event_id, project_id) ON DELETE RESTRICT
+      ) STRICT;
+      CREATE INDEX idx_outbox_acknowledgments_project ON outbox_acknowledgments (project_id, event_id);
+      CREATE TRIGGER state_changes_immutable_update BEFORE UPDATE ON state_changes
+        BEGIN SELECT RAISE(ABORT, 'StateChange audit is immutable'); END;
+      CREATE TRIGGER state_changes_immutable_delete BEFORE DELETE ON state_changes
+        BEGIN SELECT RAISE(ABORT, 'StateChange audit is immutable'); END;
+      CREATE TRIGGER outbox_events_immutable_update BEFORE UPDATE ON outbox_events
+        BEGIN SELECT RAISE(ABORT, 'outbox event is immutable'); END;
+      CREATE TRIGGER outbox_events_immutable_delete BEFORE DELETE ON outbox_events
+        BEGIN SELECT RAISE(ABORT, 'outbox event is immutable'); END;
+    `,
+  },
 ];
 
 const REQUIRED_SCHEMA_OBJECTS: Readonly<Record<string, readonly string[]>> = {
-  table: ["schema_migrations", "projects", "project_versions", "state_entities", "state_entity_versions", "relationships", "state_changes", "outbox_events", "project_state_authority"],
-  index: ["idx_state_entities_project_type", "idx_state_entities_project_lineage", "idx_state_entity_versions_project_time", "idx_relationships_project_from", "idx_relationships_project_to", "idx_state_changes_project_time", "idx_outbox_events_project_sequence"],
-  trigger: ["relationships_insert_endpoints", "relationships_fixed_endpoints", "project_versions_immutable_update", "project_versions_immutable_delete", "state_entity_versions_immutable_update", "state_entity_versions_immutable_delete"],
+  table: ["schema_migrations", "projects", "project_versions", "state_entities", "state_entity_versions", "relationships", "state_changes", "outbox_events", "project_state_authority", "outbox_acknowledgments"],
+  index: ["idx_state_entities_project_type", "idx_state_entities_project_lineage", "idx_state_entity_versions_project_time", "idx_relationships_project_from", "idx_relationships_project_to", "idx_state_changes_project_time", "idx_outbox_events_project_sequence", "idx_outbox_events_event_project", "idx_outbox_acknowledgments_project"],
+  trigger: ["relationships_insert_endpoints", "relationships_fixed_endpoints", "project_versions_immutable_update", "project_versions_immutable_delete", "state_entity_versions_immutable_update", "state_entity_versions_immutable_delete", "state_changes_immutable_update", "state_changes_immutable_delete", "outbox_events_immutable_update", "outbox_events_immutable_delete"],
 };
 
 function requireSafeWalVersion(version: string): void {

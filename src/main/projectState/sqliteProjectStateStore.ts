@@ -74,6 +74,14 @@ function hydrateRelationship(row: Row): ProjectStateRelationship {
   };
 }
 
+function hydrateOutbox(row: Row): ProjectStateOutboxEvent {
+  return {
+    id: String(row.event_id), projectId: String(row.project_id), sequence: Number(row.sequence),
+    eventType: String(row.event_type), ...(row.entity_id === null ? {} : { entityId: String(row.entity_id) }),
+    occurredAt: String(row.occurred_at), payload: parsed(row.payload_json),
+  };
+}
+
 function readPort(database: DatabaseSync, assertOpen: () => void, useSnapshot = false): ProjectStateReadPort {
   const read = <T>(work: () => T): T => execute(() => {
     if (!useSnapshot) return work();
@@ -153,11 +161,7 @@ function readPort(database: DatabaseSync, assertOpen: () => void, useSnapshot = 
     },
     async listOutbox(projectId, afterSequence = 0) {
       assertOpen();
-      return read(() => all(database, "SELECT * FROM outbox_events WHERE project_id = ? AND sequence > ? ORDER BY sequence", projectId, afterSequence).map(row => ({
-        id: String(row.event_id), projectId: String(row.project_id), sequence: Number(row.sequence),
-        eventType: String(row.event_type), ...(row.entity_id === null ? {} : { entityId: String(row.entity_id) }),
-        occurredAt: String(row.occurred_at), payload: parsed(row.payload_json),
-      })));
+      return read(() => all(database, "SELECT * FROM outbox_events WHERE project_id = ? AND sequence > ? ORDER BY sequence", projectId, afterSequence).map(hydrateOutbox));
     },
     async getProviderGeneration(projectId) {
       assertOpen();
@@ -207,6 +211,49 @@ export function createSQLiteProjectStateStore(databasePath: string): ProjectStat
   const assertOpen = () => { if (closed) throw new ProjectStateStoreError("INVALID_STATE", "Project State store is closed."); };
   return {
     ...readPort(reader, assertOpen, true),
+    async listPendingOutbox(projectId, limit) {
+      assertOpen();
+      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new ProjectStateStoreError("INVALID_STATE", "Outbox batch limit must be between 1 and 100.");
+      return execute(() => {
+        reader.exec("BEGIN");
+        try {
+          const events = all(reader, `SELECT e.* FROM outbox_events e LEFT JOIN outbox_acknowledgments a ON a.event_id = e.event_id
+            WHERE e.project_id = ? AND a.event_id IS NULL ORDER BY e.sequence LIMIT ?`, projectId, limit).map(hydrateOutbox);
+          reader.exec("COMMIT");
+          return events;
+        } catch (error) {
+          if (reader.isTransaction) reader.exec("ROLLBACK");
+          throw error;
+        }
+      });
+    },
+    async acknowledgeOutbox(projectId, eventId) {
+      assertOpen();
+      let release!: () => void;
+      const prior = writerTail;
+      writerTail = new Promise<void>(resolve => { release = resolve; });
+      await prior;
+      try {
+        assertOpen();
+        writing = true;
+        return execute(() => {
+          writer.exec("BEGIN IMMEDIATE");
+          try {
+            if (!one(writer, "SELECT event_id FROM outbox_events WHERE project_id = ? AND event_id = ?", projectId, eventId)) {
+              writer.exec("ROLLBACK");
+              return false;
+            }
+            writer.prepare("INSERT INTO outbox_acknowledgments(event_id,project_id,acknowledged_at) VALUES (?,?,?) ON CONFLICT(event_id) DO NOTHING")
+              .run(eventId, projectId, new Date().toISOString());
+            writer.exec("COMMIT");
+            return true;
+          } catch (error) {
+            if (writer.isTransaction) writer.exec("ROLLBACK");
+            throw error;
+          }
+        });
+      } finally { writing = false; release(); }
+    },
     async transaction<T>(projectId: ProjectId, work: (unit: ProjectStateUnitOfWork) => Promise<T>): Promise<T> {
       assertOpen();
       let release!: () => void;

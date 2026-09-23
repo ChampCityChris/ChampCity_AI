@@ -44,6 +44,12 @@ export interface ProjectStateReadPort {
   getProviderGeneration(projectId: ProjectId): Promise<StateProviderGeneration | null>;
 }
 
+/** Delivery metadata is separate from immutable canonical outbox rows. */
+export interface ProjectStateOutboxDeliveryPort {
+  listPendingOutbox(projectId: ProjectId, limit: number): Promise<ProjectStateOutboxEvent[]>;
+  acknowledgeOutbox(projectId: ProjectId, eventId: string): Promise<boolean>;
+}
+
 /** A unit of work exists only inside a serialized transaction for one Project. */
 export interface ProjectStateUnitOfWork extends ProjectStateReadPort {
   saveEntity(entity: ProjectStateEntity, expectedVersion: number | null, policy?: { evidenceReliedUpon?: boolean; terminalSupersession?: boolean }): Promise<void>;
@@ -54,7 +60,7 @@ export interface ProjectStateUnitOfWork extends ProjectStateReadPort {
   advanceProviderGeneration(next: StateProviderGeneration, expectedGeneration: number | null): Promise<void>;
 }
 
-export interface ProjectStateStore extends ProjectStateReadPort {
+export interface ProjectStateStore extends ProjectStateReadPort, ProjectStateOutboxDeliveryPort {
   transaction<T>(projectId: ProjectId, work: (unit: ProjectStateUnitOfWork) => Promise<T>): Promise<T>;
 }
 

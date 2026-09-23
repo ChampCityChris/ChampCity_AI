@@ -2,12 +2,20 @@ import type { EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef,
 import { assertSupersession } from "./domainInvariants";
 import { createProjectStateEntity, ENTITY_TYPE_REGISTRY, ProjectStateDomainError, validateProjectStateEntity } from "./entityTypeRegistry";
 import { createRelationship as createDomainRelationship, type ProjectStateRelationship, type RelationshipType } from "./relationshipRegistry";
-import type { ProjectStateStore, ProjectStateUnitOfWork } from "./projectStateStore";
+import type { ProjectStateStore, ProjectStateUnitOfWork, StateChange } from "./projectStateStore";
 
 export interface RecordQuery { entityType?: EntityType; lifecycleState?: LifecycleState; limit?: number }
 export interface ProjectStateSummary { projectId: ProjectId; totalRecords: number; activeRecords: number; countsByType: Partial<Record<EntityType, number>> }
 export interface RecordHistory { lineageId: string; records: ProjectStateEntity[] }
 export interface RecordLineage { records: ProjectStateEntity[]; relationships: ProjectStateRelationship[] }
+export interface MutationContext { reason?: string; causationId?: string; correlationId?: string }
+export const PROJECT_STATE_EVENT_TYPES = Object.freeze({
+  create: "project-state.record-created",
+  revise: "project-state.record-revised",
+  supersede: "project-state.record-superseded",
+  relationshipCreate: "project-state.relationship-created",
+  relationshipEnd: "project-state.relationship-ended",
+});
 
 const restrictedGenericTypes = new Set<EntityType>(["Decision", "Validation", "Evidence"]);
 function fail(message: string): never { throw new ProjectStateDomainError(message); }
@@ -16,6 +24,15 @@ function exactInput(value: unknown, allowed: readonly string[]): Record<string, 
   const input = value as Record<string, unknown>;
   for (const field of Object.keys(input)) if (!allowed.includes(field)) fail(`Unsupported semantic input field: ${field}.`);
   return input;
+}
+function checkedContext(context: MutationContext | undefined, defaultReason: string): Required<Pick<MutationContext, "reason">> & MutationContext {
+  if (context === undefined) return { reason: defaultReason };
+  const input = exactInput(context, ["reason", "causationId", "correlationId"]);
+  for (const field of ["reason", "causationId", "correlationId"] as const) {
+    const value = input[field];
+    if (value !== undefined && (typeof value !== "string" || value.length < 1 || value.length > 4096 || /[\u0000-\u001f]/.test(value))) fail(`Invalid mutation ${field}.`);
+  }
+  return { ...context, reason: context.reason ?? defaultReason };
 }
 async function requiredRecord(unit: ProjectStateUnitOfWork, projectId: ProjectId, entityId: EntityId): Promise<ProjectStateEntity> {
   const record = await unit.getEntity(projectId, entityId);
@@ -29,7 +46,29 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   exactInput(trustedPrincipal, ["principalId", "principalType", "role"]);
   if (!trustedPrincipal.principalId || !trustedPrincipal.role || !["human", "agent", "system", "tool"].includes(trustedPrincipal.principalType)) fail("A trusted PrincipalRef is required.");
 
-  async function createRecord<T extends EntityType>(projectId: ProjectId | null, entityType: T, content: EntityBodyMap[T]) {
+  async function recordMutation(unit: ProjectStateUnitOfWork, input: {
+    projectId: ProjectId; entityId: EntityId; fromVersion: number | null; toVersion: number;
+    operation: StateChange["operation"]; eventType: string; occurredAt: string; changedFields: string[];
+    defaultReason: string; context?: MutationContext; relationshipId?: string;
+  }) {
+    const context = checkedContext(input.context, input.defaultReason);
+    const id = globalThis.crypto.randomUUID();
+    await unit.appendStateChange({
+      id, projectId: input.projectId, entityId: input.entityId, fromRecordVersion: input.fromVersion,
+      toRecordVersion: input.toVersion, operation: input.operation, principal: trustedPrincipal,
+      occurredAt: input.occurredAt, changedFields: [...input.changedFields].sort(), reason: context.reason,
+      ...(context.causationId ? { causationId: context.causationId } : {}),
+      ...(context.correlationId ? { correlationId: context.correlationId } : {}),
+    });
+    await unit.appendOutbox({
+      id, projectId: input.projectId, entityId: input.entityId, eventType: input.eventType,
+      occurredAt: input.occurredAt,
+      payload: { changeId: id, operation: input.operation, fromRecordVersion: input.fromVersion,
+        toRecordVersion: input.toVersion, ...(input.relationshipId ? { relationshipId: input.relationshipId } : {}) },
+    });
+  }
+
+  async function createRecord<T extends EntityType>(projectId: ProjectId | null, entityType: T, content: EntityBodyMap[T], context?: MutationContext) {
     if (restrictedGenericTypes.has(entityType)) fail("Decision, Validation and Evidence require typed commands.");
     if (entityType === "Project" && projectId !== null) fail("A new Project cannot borrow another Project identity.");
     if (entityType !== "Project" && !projectId) fail("Project identity is required.");
@@ -37,11 +76,14 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     await store.transaction(record.projectId, async unit => {
       if (entityType !== "Project" && !await unit.getProject(record.projectId)) fail("Owning Project does not exist.");
       await unit.saveEntity(record as unknown as ProjectStateEntity, null);
+      await recordMutation(unit, { projectId: record.projectId, entityId: record.id, fromVersion: null, toVersion: 1,
+        operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: record.createdAt,
+        changedFields: Object.keys(record.body), defaultReason: `Create ${entityType}`, context });
     });
     return record;
   }
 
-  async function reviseRecord(projectId: ProjectId, entityId: EntityId, changes: Record<string, unknown>, expectedRevision: number) {
+  async function reviseRecord(projectId: ProjectId, entityId: EntityId, changes: Record<string, unknown>, expectedRevision: number, context?: MutationContext) {
     const patch = exactInput(changes, Object.keys(changes));
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) fail("An exact expected revision is required.");
     return store.transaction(projectId, async unit => {
@@ -50,11 +92,14 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       if (current.recordVersion !== expectedRevision) fail("Expected Project State revision is stale.");
       const next = validateProjectStateEntity({ ...current, recordVersion: current.recordVersion + 1, updatedAt: new Date().toISOString(), updatedBy: trustedPrincipal, body: { ...current.body, ...patch } });
       await unit.saveEntity(next, expectedRevision);
+      await recordMutation(unit, { projectId, entityId, fromVersion: expectedRevision, toVersion: next.recordVersion,
+        operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: next.updatedAt,
+        changedFields: Object.keys(patch), defaultReason: `Revise ${current.entityType}`, context });
       return next;
     });
   }
 
-  async function supersedeRecord(projectId: ProjectId, entityId: EntityId, replacement: Record<string, unknown>, expectedRevision: number) {
+  async function supersedeRecord(projectId: ProjectId, entityId: EntityId, replacement: Record<string, unknown>, expectedRevision: number, context?: MutationContext) {
     const content = exactInput(replacement, Object.keys(replacement));
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) fail("An exact expected revision is required.");
     return store.transaction(projectId, async unit => {
@@ -69,53 +114,80 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const successor = validateProjectStateEntity({ ...createProjectStateEntity({ entityType: previous.entityType as EntityType, projectId, body: content as EntityBodyMap[EntityType], principal: trustedPrincipal }), lineageId: previous.lineageId });
       assertSupersession(previous, terminal, successor);
       await unit.saveEntity(terminal, expectedRevision, { terminalSupersession: true, evidenceReliedUpon: true });
+      await recordMutation(unit, { projectId, entityId, fromVersion: expectedRevision, toVersion: terminal.recordVersion,
+        operation: "supersede", eventType: PROJECT_STATE_EVENT_TYPES.supersede, occurredAt: now,
+        changedFields: ["lifecycleState", "supersededAt"], defaultReason: `Supersede ${previous.entityType}`, context });
       await unit.saveEntity(successor, null);
+      await recordMutation(unit, { projectId, entityId: successor.id, fromVersion: null, toVersion: 1,
+        operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: successor.createdAt,
+        changedFields: Object.keys(successor.body), defaultReason: `Create successor ${successor.entityType}`, context });
       const edge = createDomainRelationship({ projectId, fromEntityId: successor.id, relationshipType: "supersedes", toEntityId: previous.id, createdBy: trustedPrincipal }, id => id === successor.id ? successor : id === previous.id ? terminal : undefined);
       await unit.saveRelationship(edge);
+      await recordMutation(unit, { projectId, entityId: successor.id, fromVersion: 1, toVersion: 1,
+        operation: "relationship-create", eventType: PROJECT_STATE_EVENT_TYPES.relationshipCreate, occurredAt: edge.createdAt,
+        changedFields: ["relationship:supersedes"], defaultReason: "Link supersession", context, relationshipId: edge.id });
       return { predecessor: terminal, successor, relationship: edge };
     });
   }
 
-  async function createRelationship(projectId: ProjectId, fromEntityId: EntityId, relationshipType: RelationshipType, toEntityId: EntityId) {
+  async function createRelationship(projectId: ProjectId, fromEntityId: EntityId, relationshipType: RelationshipType, toEntityId: EntityId, context?: MutationContext) {
     return store.transaction(projectId, async unit => {
       const from = await requiredRecord(unit, projectId, fromEntityId);
       const to = await requiredRecord(unit, projectId, toEntityId);
       const edge = createDomainRelationship({ projectId, fromEntityId, relationshipType, toEntityId, createdBy: trustedPrincipal }, id => id === fromEntityId ? from : id === toEntityId ? to : undefined);
       await unit.saveRelationship(edge);
+      await recordMutation(unit, { projectId, entityId: from.id, fromVersion: from.recordVersion, toVersion: from.recordVersion,
+        operation: "relationship-create", eventType: PROJECT_STATE_EVENT_TYPES.relationshipCreate, occurredAt: edge.createdAt,
+        changedFields: [`relationship:${relationshipType}`], defaultReason: `Create ${relationshipType} relationship`, context, relationshipId: edge.id });
       return edge;
     });
   }
 
-  async function endRelationship(projectId: ProjectId, relationshipId: string) {
-    await store.transaction(projectId, unit => unit.endRelationship(relationshipId, new Date().toISOString()));
+  async function endRelationship(projectId: ProjectId, relationshipId: string, context?: MutationContext) {
+    await store.transaction(projectId, async unit => {
+      const edge = (await unit.listRelationships(projectId)).find(candidate => candidate.id === relationshipId);
+      if (!edge) fail("Relationship does not exist in this Project.");
+      const from = await requiredRecord(unit, projectId, edge.fromEntityId);
+      const endedAt = new Date().toISOString();
+      await unit.endRelationship(relationshipId, endedAt);
+      await recordMutation(unit, { projectId, entityId: from.id, fromVersion: from.recordVersion, toVersion: from.recordVersion,
+        operation: "relationship-end", eventType: PROJECT_STATE_EVENT_TYPES.relationshipEnd, occurredAt: endedAt,
+        changedFields: [`relationship:${edge.relationshipType}`], defaultReason: `End ${edge.relationshipType} relationship`, context, relationshipId });
+    });
   }
 
-  async function recordLinked(projectId: ProjectId, targetId: EntityId, entityType: "Decision" | "Validation" | "Evidence", body: Record<string, unknown>, relationshipType: "governs" | "evaluates" | "supports") {
+  async function recordLinked(projectId: ProjectId, targetId: EntityId, entityType: "Decision" | "Validation" | "Evidence", body: Record<string, unknown>, relationshipType: "governs" | "evaluates" | "supports", context?: MutationContext) {
     return store.transaction(projectId, async unit => {
       const target = await requiredRecord(unit, projectId, targetId);
       const record = createProjectStateEntity({ entityType, projectId, body: body as EntityBodyMap[typeof entityType], principal: trustedPrincipal });
       await unit.saveEntity(record as unknown as ProjectStateEntity, null);
+      await recordMutation(unit, { projectId, entityId: record.id, fromVersion: null, toVersion: 1,
+        operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: record.createdAt,
+        changedFields: Object.keys(record.body), defaultReason: `Record ${entityType}`, context });
       const fromEntityId = record.id;
       const edge = createDomainRelationship({ projectId, fromEntityId, relationshipType, toEntityId: target.id, createdBy: trustedPrincipal }, id => id === record.id ? record as unknown as ProjectStateEntity : id === target.id ? target : undefined);
       await unit.saveRelationship(edge);
+      await recordMutation(unit, { projectId, entityId: record.id, fromVersion: 1, toVersion: 1,
+        operation: "relationship-create", eventType: PROJECT_STATE_EVENT_TYPES.relationshipCreate, occurredAt: edge.createdAt,
+        changedFields: [`relationship:${relationshipType}`], defaultReason: `Link ${entityType}`, context, relationshipId: edge.id });
       return record;
     });
   }
 
-  async function recordDecision(projectId: ProjectId, targetId: EntityId, input: { decisionType: string; outcome: string; rationale: string; decisionScope: string }) {
+  async function recordDecision(projectId: ProjectId, targetId: EntityId, input: { decisionType: string; outcome: string; rationale: string; decisionScope: string }, context?: MutationContext) {
     const content = exactInput(input, ["decisionType", "outcome", "rationale", "decisionScope"]);
     const now = new Date().toISOString();
-    return recordLinked(projectId, targetId, "Decision", { ...content, decisionRole: trustedPrincipal.role, decidedBy: trustedPrincipal, decidedAt: now, effectiveAt: now }, "governs");
+    return recordLinked(projectId, targetId, "Decision", { ...content, decisionRole: trustedPrincipal.role, decidedBy: trustedPrincipal, decidedAt: now, effectiveAt: now }, "governs", context);
   }
 
-  async function recordValidation(projectId: ProjectId, targetId: EntityId, input: { validationType: string; method: string; outcome: "pass" | "fail" | "blocked" | "inconclusive"; summary: string }) {
+  async function recordValidation(projectId: ProjectId, targetId: EntityId, input: { validationType: string; method: string; outcome: "pass" | "fail" | "blocked" | "inconclusive"; summary: string }, context?: MutationContext) {
     const content = exactInput(input, ["validationType", "method", "outcome", "summary"]);
-    return recordLinked(projectId, targetId, "Validation", { ...content, performedBy: trustedPrincipal, performedAt: new Date().toISOString() }, "evaluates");
+    return recordLinked(projectId, targetId, "Validation", { ...content, performedBy: trustedPrincipal, performedAt: new Date().toISOString() }, "evaluates", context);
   }
 
-  async function recordEvidence(projectId: ProjectId, targetId: EntityId, input: { evidenceType: string; description: string; mediaType: string; payloadRef: string; digest: string; size?: number }) {
+  async function recordEvidence(projectId: ProjectId, targetId: EntityId, input: { evidenceType: string; description: string; mediaType: string; payloadRef: string; digest: string; size?: number }, context?: MutationContext) {
     const content = exactInput(input, ["evidenceType", "description", "mediaType", "payloadRef", "digest", "size"]);
-    return recordLinked(projectId, targetId, "Evidence", { ...content, capturedBy: trustedPrincipal, capturedAt: new Date().toISOString() }, "supports");
+    return recordLinked(projectId, targetId, "Evidence", { ...content, capturedBy: trustedPrincipal, capturedAt: new Date().toISOString() }, "supports", context);
   }
 
   async function getRecord(projectId: ProjectId, entityId: EntityId) { return store.getEntity(projectId, entityId); }

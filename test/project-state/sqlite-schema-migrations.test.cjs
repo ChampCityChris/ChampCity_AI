@@ -34,14 +34,15 @@ test("fresh SQLite schema migrates once and verifies configuration on reopen", (
     });
     assert.deepEqual(database.prepare("SELECT version, migration_id FROM schema_migrations ORDER BY version").all().map(row => ({ ...row })), [
       { version: 1, migration_id: "001_initial_project_state" },
+      { version: 2, migration_id: "002_outbox_acknowledgments" },
     ]);
     const tables = database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(row => row.name);
-    assert.deepEqual(tables, ["outbox_events", "project_state_authority", "project_versions", "projects", "relationships", "schema_migrations", "state_changes", "state_entities", "state_entity_versions"]);
+    assert.deepEqual(tables, ["outbox_acknowledgments", "outbox_events", "project_state_authority", "project_versions", "projects", "relationships", "schema_migrations", "state_changes", "state_entities", "state_entity_versions"]);
     assert.throws(() => database.enableLoadExtension(true), /extension|disabled/i);
   } finally { database.close(); }
   database = openProjectStateDatabase(file);
   try {
-    assert.equal(database.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count, 1);
+    assert.equal(database.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count, 2);
     assert.deepEqual(configuration(database), {
       foreignKeys: 1, journalMode: "wal", synchronous: 2,
       busyTimeout: PROJECT_STATE_BUSY_TIMEOUT_MS, userVersion: PROJECT_STATE_DATABASE_SCHEMA_VERSION,
@@ -113,6 +114,25 @@ test("future, unknown and untracked migration states fail closed without rewriti
     assert.throws(() => openProjectStateDatabase(file), /schema object is missing/);
   });
 });
+
+test("known version-one schema advances to outbox acknowledgment migration once", () => tempDatabase(file => {
+  let database = openProjectStateDatabase(file);
+  database.exec(`DROP TABLE outbox_acknowledgments;
+    DROP INDEX idx_outbox_events_event_project;
+    DROP TRIGGER state_changes_immutable_update;
+    DROP TRIGGER state_changes_immutable_delete;
+    DROP TRIGGER outbox_events_immutable_update;
+    DROP TRIGGER outbox_events_immutable_delete;
+    DELETE FROM schema_migrations WHERE version = 2;
+    PRAGMA user_version = 1;`);
+  database.close();
+  database = openProjectStateDatabase(file);
+  try {
+    assert.equal(database.prepare("PRAGMA user_version").get().user_version, 2);
+    assert.equal(database.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count, 2);
+    assert.equal(database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'outbox_acknowledgments'").get().name, "outbox_acknowledgments");
+  } finally { database.close(); }
+}));
 
 test("version body serialization validates domain shape and sorts JSON keys", () => {
   const principal = { principalId: "system", principalType: "system", role: "state-service" };

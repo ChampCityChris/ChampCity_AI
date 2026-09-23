@@ -2985,6 +2985,54 @@
       ]
     },
     {
+      "capabilityId": "project-state-audit-outbox",
+      "description": "Atomic StateChange evidence and adapter-neutral committed event delivery.",
+      "sourcePatterns": [
+        "src/main/projectState/sqliteProjectStateStore.ts",
+        "src/main/projectState/sqliteSchema.ts",
+        "src/shared/projectState/inMemoryProjectStateStore.ts",
+        "src/shared/projectState/projectStateEventDispatcher.ts",
+        "src/shared/projectState/projectStateService.ts",
+        "src/shared/projectState/projectStateStore.ts"
+      ],
+      "dependsOn": [
+        "project-state-service",
+        "project-state-sqlite-schema",
+        "project-state-sqlite-store",
+        "project-state-store"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "in-memory-canonical-mutations-append-exact-statechange-and-event-pairs",
+          "description": "in-memory Project State: canonical mutations append exact StateChange and event pairs"
+        },
+        {
+          "behaviorId": "in-memory-event-append-failure-rolls-back-canonical-state-and-audit",
+          "description": "in-memory Project State: event append failure rolls back canonical state and audit"
+        },
+        {
+          "behaviorId": "in-memory-ordered-dispatch-acknowledges-committed-ids-and-replay-is-idempotent",
+          "description": "in-memory Project State: ordered dispatch acknowledges committed IDs and replay is idempotent"
+        },
+        {
+          "behaviorId": "sqlite-audit-and-event-rows-reject-edits-while-acknowledgments-remain-separate",
+          "description": "SQLite audit and event rows reject edits while acknowledgments remain separate"
+        },
+        {
+          "behaviorId": "sqlite-canonical-mutations-append-exact-statechange-and-event-pairs",
+          "description": "SQLite Project State: canonical mutations append exact StateChange and event pairs"
+        },
+        {
+          "behaviorId": "sqlite-event-append-failure-rolls-back-canonical-state-and-audit",
+          "description": "SQLite Project State: event append failure rolls back canonical state and audit"
+        },
+        {
+          "behaviorId": "sqlite-ordered-dispatch-acknowledges-committed-ids-and-replay-is-idempotent",
+          "description": "SQLite Project State: ordered dispatch acknowledges committed IDs and replay is idempotent"
+        }
+      ]
+    },
+    {
       "capabilityId": "project-state-domain",
       "description": "Canonical Structured Project State entity contracts and bounded type validation.",
       "sourcePatterns": [
@@ -3087,6 +3135,10 @@
         {
           "behaviorId": "future-unknown-and-untracked-migration-states-fail-closed-without-rewriting-the-ledger",
           "description": "future, unknown and untracked migration states fail closed without rewriting the ledger"
+        },
+        {
+          "behaviorId": "known-version-one-schema-advances-to-outbox-acknowledgment-migration-once",
+          "description": "known version-one schema advances to outbox acknowledgment migration once"
         },
         {
           "behaviorId": "schema-enforces-project-ownership-json-shape-version-history-and-relation-endpoints",
@@ -13347,13 +13399,13 @@
     {
       "testPath": "test/project-state/sqlite-schema-migrations.test.cjs",
       "currentTestCount": {
-        "value": 4,
-        "basis": "Four temporary-file schema and migration scenarios introduced by SCL01F."
+        "value": 5,
+        "basis": "Four SCL01F schema scenarios and one SCL01I forward-migration scenario."
       },
       "duration": {
-        "kind": "measured",
-        "milliseconds": 187,
-        "basis": "Observed normal Windows focused test receipt for SCL01F."
+        "kind": "estimated",
+        "milliseconds": 300,
+        "basis": "Estimated from the normal Windows focused SCL01I migration receipt."
       },
       "proposedValidationLane": "fast",
       "platformDependency": "none",
@@ -13397,6 +13449,12 @@
           "capabilityId": "project-state-sqlite-schema",
           "behaviorId": "future-unknown-and-untracked-migration-states-fail-closed-without-rewriting-the-ledger",
           "proofLocator": "future, unknown and untracked migration states fail closed without rewriting the ledger",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-sqlite-schema",
+          "behaviorId": "known-version-one-schema-advances-to-outbox-acknowledgment-migration-once",
+          "proofLocator": "known version-one schema advances to outbox acknowledgment migration once",
           "proofRole": "primary"
         },
         {
@@ -13503,6 +13561,94 @@
           "capabilityId": "project-state-sqlite-store",
           "behaviorId": "sqlite-versions-and-optimistic-writes",
           "proofLocator": "SQLite ProjectStateStore: atomic Project/entity versions and optimistic writes",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/state-change-outbox.test.cjs",
+      "currentTestCount": {
+        "value": 7,
+        "basis": "Six cross-adapter audit and delivery scenarios plus one SQLite immutability scenario introduced by SCL01I."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 500,
+        "basis": "Temporary-file SQLite and in-memory scenarios; pending isolated supported Windows file receipt."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Each SQLite scenario owns an isolated temporary database and in-memory scenarios are independent.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "project-state-audit-outbox",
+          "behaviorId": "in-memory-canonical-mutations-append-exact-statechange-and-event-pairs",
+          "proofLocator": "in-memory Project State: canonical mutations append exact StateChange and event pairs",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-audit-outbox",
+          "behaviorId": "in-memory-event-append-failure-rolls-back-canonical-state-and-audit",
+          "proofLocator": "in-memory Project State: event append failure rolls back canonical state and audit",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-audit-outbox",
+          "behaviorId": "in-memory-ordered-dispatch-acknowledges-committed-ids-and-replay-is-idempotent",
+          "proofLocator": "in-memory Project State: ordered dispatch acknowledges committed IDs and replay is idempotent",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-audit-outbox",
+          "behaviorId": "sqlite-audit-and-event-rows-reject-edits-while-acknowledgments-remain-separate",
+          "proofLocator": "SQLite audit and event rows reject edits while acknowledgments remain separate",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-audit-outbox",
+          "behaviorId": "sqlite-canonical-mutations-append-exact-statechange-and-event-pairs",
+          "proofLocator": "SQLite Project State: canonical mutations append exact StateChange and event pairs",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-audit-outbox",
+          "behaviorId": "sqlite-event-append-failure-rolls-back-canonical-state-and-audit",
+          "proofLocator": "SQLite Project State: event append failure rolls back canonical state and audit",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-audit-outbox",
+          "behaviorId": "sqlite-ordered-dispatch-acknowledges-committed-ids-and-replay-is-idempotent",
+          "proofLocator": "SQLite Project State: ordered dispatch acknowledges committed IDs and replay is idempotent",
           "proofRole": "primary"
         }
       ]

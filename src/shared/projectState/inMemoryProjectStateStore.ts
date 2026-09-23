@@ -12,10 +12,11 @@ interface MemoryState {
   relationships: Map<string, ProjectStateRelationship>;
   changes: Map<string, StateChange>;
   outbox: Map<string, ProjectStateOutboxEvent>;
+  acknowledged: Set<string>;
   generations: Map<ProjectId, StateProviderGeneration>;
 }
 
-function initialState(): MemoryState { return { entities: new Map(), relationships: new Map(), changes: new Map(), outbox: new Map(), generations: new Map() }; }
+function initialState(): MemoryState { return { entities: new Map(), relationships: new Map(), changes: new Map(), outbox: new Map(), acknowledged: new Set(), generations: new Map() }; }
 const copy = <T>(value: T): T => structuredClone(value);
 function mismatch(): never { throw new ProjectStateStoreError("PROJECT_MISMATCH", "Record belongs to a different Project."); }
 function stale(): never { throw new ProjectStateStoreError("STALE_STATE", "Expected Project State version or generation is stale."); }
@@ -63,6 +64,23 @@ export function createInMemoryProjectStateStore(): ProjectStateStore {
   let writerTail: Promise<void> = Promise.resolve();
   return {
     ...readPort(() => committed),
+    async listPendingOutbox(projectId, limit) {
+      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new ProjectStateStoreError("INVALID_STATE", "Outbox batch limit must be between 1 and 100.");
+      return [...committed.outbox.values()].filter(event => event.projectId === projectId && !committed.acknowledged.has(event.id))
+        .sort((a, b) => a.sequence - b.sequence).slice(0, limit).map(copy);
+    },
+    async acknowledgeOutbox(projectId, eventId) {
+      let release!: () => void;
+      const prior = writerTail;
+      writerTail = new Promise<void>(resolve => { release = resolve; });
+      await prior;
+      try {
+        const event = committed.outbox.get(eventId);
+        if (!event || event.projectId !== projectId) return false;
+        committed.acknowledged.add(eventId);
+        return true;
+      } finally { release(); }
+    },
     async transaction<T>(projectId: ProjectId, work: (unit: ProjectStateUnitOfWork) => Promise<T>): Promise<T> {
       let release!: () => void;
       const prior = writerTail;
