@@ -18,7 +18,7 @@ Implement immutable proof records and version/source-baseline-aware validation f
 
 ## Acceptance Criteria
 
-Changing a target semantic version/source baseline makes prior proof historical but stale without deleting it.
+Changing a target semantic version/source baseline makes prior proof historical but stale without deleting it. Acceptance/validation UI can bind evidence by canonical Evidence identity rather than raw repository path entry.
 
 ## Validation
 

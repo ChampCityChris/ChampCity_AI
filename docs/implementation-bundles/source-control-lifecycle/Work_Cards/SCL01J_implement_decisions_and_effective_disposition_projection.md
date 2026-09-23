@@ -18,7 +18,7 @@ Move discretionary decisions/dispositions from mutable Markdown status fields in
 
 ## Acceptance Criteria
 
-A validation or model recommendation alone cannot create an Operator disposition; historical Decisions remain queryable and current state is deterministic.
+A validation or model recommendation alone cannot create an Operator disposition; historical Decisions remain queryable and current state is deterministic. A simple Operator acceptance is not blocked merely because no free-text rationale was entered.
 
 ## Validation
 
