@@ -2995,6 +2995,8 @@
         "src/main/sourceControl/**",
         "src/main/workIntake/workIntakeBranchService.ts",
         "src/shared/integration*",
+        "src/shared/sourceControlContracts.ts",
+        "src/shared/sourceLifecycleContracts.ts",
         "test/fixtures/routed-completed/**",
         "test/support/completed-routed-plan.cjs",
         "test/support/git-mutation-fixtures.cjs",

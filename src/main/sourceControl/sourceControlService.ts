@@ -20,6 +20,8 @@ import type {
   SourceControlOperation, SourceControlPosition,
   SourceControlReceipt, SourceControlResult,
 } from "../../shared/sourceControlContracts";
+import type { CreateWorkSourceInput, SourceRevisionSelector, WorkSourceBinding } from "../../shared/sourceLifecycleContracts";
+import { workIntakeBranchName } from "./workSourceNaming";
 
 /** Called by trusted main-process services with a selected repository, without MCP/model mediation. */
 export function createSourceControlService(binding: { repositoryId: string; repositoryRoot: string; managedWorkspaces?: ManagedWorkspaceStore }) {
@@ -106,6 +108,31 @@ export function createSourceControlService(binding: { repositoryId: string; repo
   const changedFiles = () => inspectGitChangedFiles(root);
 
   return {
+    resolveSourceRevision: (selector: SourceRevisionSelector) => run("resolve-source-revision", false, async () => {
+      if (selector.kind === "source-line") {
+        const state = await inspectGitBranchState(root, selector.sourceLineId);
+        if (!state.selectedBranch) throw new AgentHarnessError("STALE_SOURCE", "Source line is unavailable.");
+        return { repositoryId, revisionId: state.selectedBranch.commit };
+      }
+      if (selector.kind === "revision" && /^[a-f0-9]{40,64}$/.test(selector.revisionId)) {
+        const commit = await inspectGitCommit(root, { ref: selector.revisionId });
+        return { repositoryId, revisionId: commit.commit };
+      }
+      throw new AgentHarnessError("INVALID_INPUT", "An exact source revision or source line is required.");
+    }),
+    createWorkSource: (input: CreateWorkSourceInput) => run<WorkSourceBinding>("create-work-source", true, async () => {
+      if (input.baseRevision.repositoryId !== repositoryId || !/^[a-f0-9]{40,64}$/.test(input.baseRevision.revisionId)) {
+        throw new AgentHarnessError("INVALID_INPUT", "An exact source revision in the selected repository is required.");
+      }
+      if (input.owner.kind !== "work-intake") throw new AgentHarnessError("INVALID_INPUT", "A Work Intake source owner is required.");
+      const sourceLineId = workIntakeBranchName(input.owner.workIntakeId);
+      const created = await createGitBranchFromRef(root, { branchName: sourceLineId, sourceRef: input.baseRevision.revisionId });
+      return {
+        owner: input.owner,
+        baseRevision: input.baseRevision,
+        sourceLine: { repositoryId, sourceLineId, providerBranchName: created.branchName, headRevisionId: created.sourceCommit },
+      };
+    }),
     inspectReflog: (input: Parameters<typeof inspectGitReflog>[1] = {}) => run("inspect-reflog", false, () => inspectGitReflog(root, input)),
     replaceBranchRef: (input: Parameters<typeof replaceGitBranchRef>[1]) => run("replace-branch-ref", true, () => replaceGitBranchRef(root, input)),
     pushWithLease: (input: Parameters<typeof pushGitWithLease>[1]) => run("push-with-lease", true, () => pushGitWithLease(root, input)),

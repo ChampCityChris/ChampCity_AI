@@ -77,6 +77,12 @@ test("application source control returns attributable receipts and preserves Git
   assert.deepEqual(branchInventory.remotes, []);
   assert.deepEqual(branchInventory.branches, [{ name: "dev", commit: baseline }]);
   assert.deepEqual(branchInventory.selectedBranch, { name: "dev", commit: baseline, upstream: null, ahead: null, behind: null });
+  const baseRevision = (await success(service.resolveSourceRevision({ kind: "source-line", sourceLineId: "dev" }), "resolve-source-revision")).result;
+  assert.deepEqual(baseRevision, { repositoryId: "repository-alpha", revisionId: baseline });
+  assert.deepEqual((await success(service.resolveSourceRevision({ kind: "revision", revisionId: baseline }), "resolve-source-revision")).result, baseRevision);
+  const invalidRevision = await service.resolveSourceRevision({ kind: "revision", revisionId: "dev" });
+  assert.equal(invalidRevision.ok, false);
+  assert.equal(invalidRevision.error.code, "INVALID_INPUT");
   const createdRef = await success(service.createBranchFromRef({ branchName: "non-checkout", sourceRef: "dev" }), "create-branch-from-ref");
   assert.equal(createdRef.result.sourceCommit, baseline);
   assert.deepEqual(createdRef.receipt.before, createdRef.receipt.after);
@@ -88,6 +94,21 @@ test("application source control returns attributable receipts and preserves Git
 
   const dirtyPath = 'file with spaces.txt';
   fs.writeFileSync(path.join(root, dirtyPath), "service content\n");
+  const workSource = (await success(service.createWorkSource({ baseRevision, owner: { kind: "work-intake", workIntakeId: "WI.01" } }), "create-work-source")).result;
+  assert.equal(workSource.sourceLine.sourceLineId, workIntakeBranchName("WI.01"));
+  assert.equal(workSource.sourceLine.headRevisionId, baseline);
+  assert.equal(workSource.repositoryCheckoutId, undefined);
+  assert.equal(git(root, ["rev-parse", workSource.sourceLine.providerBranchName]), baseline);
+  assert.equal(git(root, ["branch", "--show-current"]), "work/service");
+  assert.equal(fs.readFileSync(path.join(root, dirtyPath), "utf8"), "service content\n");
+  const collision = await service.createWorkSource({ baseRevision, owner: { kind: "work-intake", workIntakeId: "WI.01" } });
+  assert.equal(collision.ok, false);
+  assert.equal(collision.error.mutationMayHaveOccurred, true);
+  assert.equal(git(root, ["rev-parse", workSource.sourceLine.providerBranchName]), baseline);
+  const wrongRepository = await service.createWorkSource({ baseRevision: { ...baseRevision, repositoryId: "another" }, owner: { kind: "work-intake", workIntakeId: "WI.02" } });
+  assert.equal(wrongRepository.ok, false);
+  assert.equal(wrongRepository.error.code, "INVALID_INPUT");
+  assert.equal(git(root, ["branch", "--list", workIntakeBranchName("WI.02")]), "");
   const dirty = await service.switchBranch("dev");
   assert.equal(dirty.ok, false);
   assert.equal(dirty.error.code, "GIT_EXECUTION_FAILED");
