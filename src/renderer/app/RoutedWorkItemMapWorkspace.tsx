@@ -1,5 +1,11 @@
 import type { RoutedWorkflowModel } from "../../shared/routedWorkflowContracts";
 import type { WorkPlanningModel, PlanWorkItemCandidate } from "../../shared/workPlanningContracts";
+import type { WorkItemExecutionStage } from "../../shared/planExecutionContracts";
+
+const workItemStageLabels: Record<WorkItemExecutionStage, string> = {
+  ready: "Ready to begin", implement: "Implementation", "review-validate": "Review & Validation",
+  repair: "Repair requested", close: "Ready to close", complete: "Complete",
+};
 
 export function RoutedWorkItemMapWorkspace({ model, plan, selectedWorkItemId, busy, error, onSelect, onActivate, onBegin, onContinue, onDecompose }: {
   model: RoutedWorkflowModel | null;
@@ -16,7 +22,7 @@ export function RoutedWorkItemMapWorkspace({ model, plan, selectedWorkItemId, bu
   const planned = plan?.artifact?.structure?.workItems ?? [];
   const evidence = model?.execution?.workItems ?? [];
   const items: Array<{ candidate: PlanWorkItemCandidate; status: string; eligible: boolean; reasons: string[]; active: boolean }> =
-    evidence.length ? evidence.map((item) => ({ candidate: item.candidate, status: item.stage, eligible: item.eligible,
+    evidence.length ? evidence.map((item) => ({ candidate: item.candidate, status: workItemStageLabels[item.stage], eligible: item.eligible,
       reasons: item.reasons, active: item.candidate.workItemId === model?.execution?.nextWorkItemId }))
       : planned.map((candidate) => ({ candidate, status: "Awaiting Plan activation", eligible: false, reasons: [], active: false }));
   const selected = items.find((item) => item.candidate.workItemId === selectedWorkItemId) ?? items.find((item) => item.active) ?? items[0];

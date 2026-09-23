@@ -118,11 +118,16 @@ export function RoutedPlanningWorkspace({ intakeId, intake, stage, browserPanel,
   const shown = selectedDocument === "assessment" && hasSupportingAssessment ? supportingAssessment!.artifact : artifact;
   const reviewable = !!artifact && !artifact.stale && !busy;
   const title = stage === "assessment" ? "Architect Assessment" : "Work Plan";
+  const workRequest = intake?.workRequest ?? "Current routed work";
+  const routeLabel = model?.routeId ? workRouteProfileRegistry[model.routeId].label : "Loading route";
   return <DocumentChatWorkspaceShell
     bodyClassName="work-intake-doc-chat-workspace" browserColumnClassName="work-intake-browser-column"
     className="work-intake-stage-workspace work-routed-planning-workspace" documentColumnClassName="work-intake-document-column"
     eyebrow="Work Intake" heading={title}
-    summary={`${intake?.workRequest ?? "Current routed work"} · ${model?.routeId ? workRouteProfileRegistry[model.routeId].label : "Loading route"}`}
+    summary={workRequest.length > 180 ? <details className="work-intake-request-details">
+      <summary>{routeLabel} · {workRequest.slice(0, 150)}… Read full work request</summary>
+      <p>{workRequest}</p>
+    </details> : `${workRequest} · ${routeLabel}`}
     browserPanel={browserPanel}
     browserActions={<section className="figma-browser-actions-panel" aria-label={`${title} browser actions`}>
       <header><span>Browser Actions</span></header>

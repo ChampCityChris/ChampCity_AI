@@ -3383,6 +3383,10 @@
           "description": "Repair-required Integration exposes Codex execution without an Operator JSON patch field"
         },
         {
+          "behaviorId": "integration-repair-run-action-carries-exact-candidate-and-repair",
+          "description": "The in-product Integration Repair action sends the current candidate, repair, fingerprint, and model selection to the application"
+        },
+        {
           "behaviorId": "issue-evidence-waits-for-a-pre-existing-app-refresh-and-then-performs-exactly-one-fresh-read",
           "description": "Issue evidence waits for a pre-existing App refresh and then performs exactly one fresh read"
         },
@@ -3473,6 +3477,10 @@
         {
           "behaviorId": "routed-issue-lineage-is-queryable-from-canonical-handoff",
           "description": "Routed Issue source lineage remains queryable from canonical handoff after UI reset or route supersession"
+        },
+        {
+          "behaviorId": "routed-long-request-keeps-full-text-accessible",
+          "description": "Long routed Assessment requests preserve a concise task header with a keyboard-accessible full request"
         },
         {
           "behaviorId": "routed-navigation-unlocks-only-evidenced-stages",
@@ -14838,85 +14846,6 @@
       ]
     },
     {
-      "testPath": "test/renderer/research-routed-integration.test.cjs",
-      "currentTestCount": {
-        "value": 4,
-        "basis": "Observed WIR-UX06 focused Windows run."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 371,
-        "basis": "Measured by the WIR23-REPAIR03C supported-Windows renderer proof; wall-clock file-process duration."
-      },
-      "proposedValidationLane": "affected-capability",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability"
-      ],
-      "execution": {
-        "requiresBuild": false,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe renderer proof with repository-readonly source bundling.",
-        "ownedResources": [
-          "repository-readonly"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "integration-repair-renders-codex-without-json-patch-transfer",
-          "proofLocator": "Integration preserves an explicit Operator decision state",
-          "proofRole": "supporting",
-          "relationshipToPrimary": "complementary",
-          "primaryProof": {
-            "testPath": "test/renderer/research-routed-integration.test.cjs",
-            "proofLocator": "repair-required Integration presents Codex execution without JSON patch transfer"
-          }
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "integration-repair-renders-codex-without-json-patch-transfer",
-          "proofLocator": "repair-required Integration presents Codex execution without JSON patch transfer",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "research-completion-renders-dedicated-integration-without-plan-controls",
-          "proofLocator": "approved Research assessment navigates directly to Integration without Plan or Execution",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "research-completion-renders-dedicated-integration-without-plan-controls",
-          "proofLocator": "dedicated Integration workspace presents Research wording without Plan or Work Item controls",
-          "proofRole": "supporting",
-          "relationshipToPrimary": "complementary",
-          "primaryProof": {
-            "testPath": "test/renderer/research-routed-integration.test.cjs",
-            "proofLocator": "approved Research assessment navigates directly to Integration without Plan or Execution"
-          }
-        }
-      ]
-    },
-    {
       "testPath": "test/renderer/work-card-building-review-workspace.test.cjs",
       "currentTestCount": {
         "value": 4,
@@ -15415,8 +15344,8 @@
     {
       "testPath": "test/renderer/work-intake-routed-workspaces.test.cjs",
       "currentTestCount": {
-        "value": 24,
-        "basis": "Observed WIR-UX05B focused Windows run."
+        "value": 30,
+        "basis": "Observed WIR-UX07 focused Windows run."
       },
       "duration": {
         "kind": "measured",
@@ -15479,6 +15408,29 @@
         },
         {
           "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "integration-repair-renders-codex-without-json-patch-transfer",
+          "proofLocator": "Integration displays an explicit Operator decision for incompatible accepted intent",
+          "proofRole": "supporting",
+          "relationshipToPrimary": "complementary",
+          "primaryProof": {
+            "testPath": "test/renderer/work-intake-routed-workspaces.test.cjs",
+            "proofLocator": "repair-required Integration exposes in-product Codex without JSON patch transfer"
+          }
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "integration-repair-renders-codex-without-json-patch-transfer",
+          "proofLocator": "repair-required Integration exposes in-product Codex without JSON patch transfer",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "integration-repair-run-action-carries-exact-candidate-and-repair",
+          "proofLocator": "Integration Repair action sends exact candidate and repair identity to the application",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "issue-reframe-offers-return-to-work-intake-routing-without-selecting-route",
           "proofLocator": "Issue reframe offers return to Work Intake Routing without selecting a replacement route",
           "proofRole": "primary"
@@ -15493,6 +15445,23 @@
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "issue-route-transition-selects-existing-architect-planning-workflow",
           "proofLocator": "routed Issue transition selects existing Architect Planning and Issue workflow",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "research-completion-renders-dedicated-integration-without-plan-controls",
+          "proofLocator": "Research Integration keeps Research language and the direct integrate action",
+          "proofRole": "supporting",
+          "relationshipToPrimary": "complementary",
+          "primaryProof": {
+            "testPath": "test/renderer/work-intake-routed-workspaces.test.cjs",
+            "proofLocator": "approved Research assessment advances directly to Integration"
+          }
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "research-completion-renders-dedicated-integration-without-plan-controls",
+          "proofLocator": "approved Research assessment advances directly to Integration",
           "proofRole": "primary"
         },
         {
@@ -15516,7 +15485,7 @@
         {
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "routed-execution-opens-work-item-map-with-seven-task-loop",
-          "proofLocator": "routed Execution opens Work Item Map with seven nested tasks",
+          "proofLocator": "routed Execution opens Work Item Map with seven task destinations",
           "proofRole": "primary"
         },
         {
@@ -15529,6 +15498,12 @@
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "routed-issue-lineage-is-queryable-from-canonical-handoff",
           "proofLocator": "routed Issue lineage remains queryable from canonical handoff after UI state is lost",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "routed-long-request-keeps-full-text-accessible",
+          "proofLocator": "long Assessment request collapses to a keyboard-accessible full-text detail",
           "proofRole": "primary"
         },
         {

@@ -8533,6 +8533,26 @@ body {
   min-height: 220px;
 }
 
+.work-intake-request-details {
+  max-width: 100%;
+  color: var(--muted-foreground);
+}
+
+.work-intake-request-details summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.work-intake-request-details p {
+  max-height: 180px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+
+.routed-work-item-file-detail p {
+  overflow-wrap: anywhere;
+}
+
 .work-plan-structure,
 .work-research-outcome {
   padding: 14px;
@@ -8673,12 +8693,25 @@ body {
   overflow-wrap: anywhere;
 }
 
+.routed-integration-workspace .figma-disposition-row {
+  flex-wrap: wrap;
+}
+
+.routed-integration-workspace .figma-disposition-row button.primary-action {
+  padding: 8px 12px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
+  border-radius: 6px;
+}
+
 .routed-integration-repair {
   display: grid;
   gap: 14px;
   padding: 16px;
   border: 1px solid var(--border);
   border-radius: 10px;
+  scroll-margin-top: 16px;
 }
 
 .routed-integration-repair pre {

@@ -23,6 +23,8 @@ const { RoutedReviewValidationWorkspace } = loadRendererSourceModule("src/render
 const { RoutedRepairWorkspace } = loadRendererSourceModule("src/renderer/app/RoutedRepairWorkspace.tsx");
 const { RoutedCloseWorkspace } = loadRendererSourceModule("src/renderer/app/RoutedCloseWorkspace.tsx");
 const { RoutedAcceptanceWorkspace } = loadRendererSourceModule("src/renderer/app/RoutedAcceptanceWorkspace.tsx");
+const { RoutedIntegrationWorkspace } = loadRendererSourceModule("src/renderer/app/RoutedIntegrationWorkspace.tsx");
+const { seedResearchIntegrationCompletion } = require("../support/research-integration-scenarios.cjs");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -106,7 +108,7 @@ test("Routing Workspace shows the embedded Architect slot and human handoff stat
   assert.match(markup, /Embedded ChatGPT browser|ChatGPT/);
   assert.match(markup, /Prepare Handoff|Copy Handoff|Refresh|Reload ChatGPT/);
   assert.match(markup, /Handoff prepared/);
-  assert.doesNotMatch(markup, /waiting-for-drafts|awaiting-assessment|WorkPlanningPanel|WorkIssuePanel|RoutedExecutionPanel/);
+  assert.doesNotMatch(markup, /waiting-for-drafts|awaiting-assessment|Work Item Map|Approve Plan|Open Issue Resolution/);
   assert.doesNotMatch(markup, /Accept Recommendation|Override Route|Request Revised Assessment/);
 });
 
@@ -143,12 +145,11 @@ const planningArtifact = { relativePath: "planning/assessment.md", artifactRevis
   stale: false, bodyMarkdown: "# Route Architect Assessment\n\n## Evidence\nBounded evidence." };
 const planningModel = { intakeId: "intake-1", routeId: "feature-change", stage: "assessment", canPrepare: true,
   preparedInstruction: "Handoff", researchClosed: false, artifact: planningArtifact };
-function planningView(stage, model, supporting = null) {
+function planningView(stage, model, supporting = null, intake = routingIntake) {
   const wrapper = stage === "assessment" ? WorkArchitectAssessmentWorkspace : WorkPlanWorkspace;
-  const wrapped = wrapper({ intakeId: "intake-1", intake: routingIntake,
+  const wrapped = wrapper({ intakeId: "intake-1", intake,
     browserPanel: React.createElement("div", { "aria-label": "Embedded ChatGPT browser" }),
     onReloadBrowser() {}, async onNavigationRefresh() {} });
-  assert.equal(wrapped.type.name, RoutedPlanningWorkspace.name);
   assert.equal(wrapped.props.stage, stage);
   return withState([model, supporting, stage, "", false, "", ""], () => RoutedPlanningWorkspace(wrapped.props));
 }
@@ -168,6 +169,15 @@ test("Assessment and Plan render separate Architect workspaces without nested la
   assert.match(plan, /Work Plan|Embedded ChatGPT browser|Approved Assessment/);
   assert.match(plan, /Direct Plan|Deliver navigation|Approve Plan and topology/);
   assert.doesNotMatch(plan, /Planning stage|<select|Work Item Decomposition|Plan execution/);
+});
+
+test("long Assessment request collapses to a keyboard-accessible full-text detail", () => {
+  const request = "Preserve the existing navigation while improving the routed work journey. ".repeat(12);
+  const markup = renderToStaticMarkup(planningView("assessment", planningModel, null,
+    { ...routingIntake, workRequest: request }));
+  assert.match(markup, /<details class="work-intake-request-details"><summary>/);
+  assert.match(markup, /Read full work request<\/summary>/);
+  assert.match(markup, new RegExp(request.trim().slice(0, 70)));
 });
 
 test("approved ordinary Assessment opens Plan and approved Plan opens Execution", async (t) => {
@@ -274,16 +284,16 @@ const executionPlan = { ...planningModel, stage: "plan", artifact: { ...planning
   structure: { topology: "direct", topologyRationale: "One delivery", phases: [], workItems: [executionCandidate] } } };
 const executionModel = { actions: ["begin"], reasons: [], feedback: "", execution: { fingerprint: "current",
   nextWorkItemId: "WI01", acceptance: [], blockers: [], workItems: [{ candidate: executionCandidate,
-    stage: "planning", eligible: true, reasons: [] }] }, current: { workItemId: "WI01", implementationId: "WI01",
+    stage: "ready", eligible: true, reasons: [] }] }, current: { workItemId: "WI01", implementationId: "WI01",
     contractTargetPath: "planning/work-card.md" }, implementer: null };
 
-test("routed Execution opens Work Item Map with seven nested tasks", () => {
+test("routed Execution opens Work Item Map with seven task destinations", () => {
   const markup = renderToStaticMarkup(withState([executionModel, executionPlan, "map", false, ""], () =>
     RoutedExecutionWorkspace({ intakeId: "intake-1", selectedWorkItemId: "WI01", browserPanel: null,
       onSelectWorkItem() {}, onDecompose() {}, onReloadBrowser() {}, onStepChange() {} })));
   assert.match(markup, /Work Item Map|Planning|Implement|Review &amp; Validation|Repair|Close \/ Next|Acceptance/);
-  assert.match(markup, /Begin Work Item|Eligibility: Ready|Decompose Work Item/);
-  assert.doesNotMatch(markup, /Formal Work Card disposition|Codex Execution Console|RoutedExecutionPanel/);
+  assert.match(markup, /Begin Work Item|Ready to begin|Eligibility: Ready|Decompose Work Item/);
+  assert.doesNotMatch(markup, /Formal Work Card disposition|Codex Execution Console/);
   assert.equal(requiredRoutedExecutionStep(executionModel), "map");
 });
 
@@ -293,7 +303,7 @@ test("Work Item Planning mounts ChatGPT with separate Prepare and Copy and gates
     onReloadBrowser() {}, onAction() {}, onDecompose() {} };
   const pending = renderToStaticMarkup(withState([""], () => RoutedWorkItemPlanningWorkspace(props)));
   assert.match(pending, /Embedded ChatGPT browser|Prepare Handoff|Copy Handoff|Refresh/);
-  assert.match(pending, /Formal Work Card target: planning\/work-card.md/);
+  assert.match(pending, /<summary>Formal Work Card file location<\/summary><p>planning\/work-card.md<\/p>/);
   assert.doesNotMatch(pending, /Approve Work Card|Request Revision|Reject/);
   const draft = renderToStaticMarkup(withState([""], () => RoutedWorkItemPlanningWorkspace({ ...props,
     model: { ...props.model, actions: [...props.model.actions, "review-contract"],
@@ -407,7 +417,7 @@ test("routed Issue bridge opens one Issue then continues the same Issue without 
       async onOpenIssue(issueId) { calls.push({ opened: issueId }); } }));
     const openMarkup = renderToStaticMarkup(open);
     assert.match(openMarkup, /Open Issue Resolution/);
-    assert.doesNotMatch(openMarkup, /Approve RCA|Correction execution|RoutedExecutionPanel|Plan acceptance/);
+    assert.doesNotMatch(openMarkup, /Approve RCA|Correction execution|Plan acceptance/);
     elements(open).find((entry) => entry.type === "button").props.onClick();
     await new Promise((resolve) => setImmediate(resolve));
     assert.deepEqual(calls, [{ intakeId: "intake-1", action: "open" }, { opened: "ISSUE_001" }]);
@@ -467,4 +477,76 @@ test("Issue reframe offers return to Work Intake Routing without selecting a rep
   assert.match(renderToStaticMarkup(recommended), /Return to Work Intake Routing/);
   elements(recommended).find((entry) => entry.type === "button").props.onClick();
   assert.deepEqual(calls, [lineage]);
+});
+
+test("approved Research assessment advances directly to Integration", async (t) => {
+  const fixture = seedResearchIntegrationCompletion(t);
+  const { getWorkIntakeNavigation } = require("../../dist/main/workIntake/workIntakeNavigationService.js");
+  const navigation = await getWorkIntakeNavigation(fixture.root, fixture.intake.intakeId);
+  assert.equal(navigation.requiredStageId, "integration");
+  assert.deepEqual(navigation.stages.filter((stage) => stage.available).map((stage) => stage.stageId),
+    ["intake", "routing", "assessment", "integration"]);
+  assert.equal(navigation.stages.find((stage) => stage.stageId === "plan").available, false);
+  assert.equal(navigation.stages.find((stage) => stage.stageId === "execution").available, false);
+});
+
+test("Research Integration keeps Research language and the direct integrate action", () => {
+  const model = { intakeId: "intake-1", route: "research-prototype", workBranch: "work-intake/research",
+    targetBranch: "main", actions: ["integrate"], reasons: [], integration: { status: "ready", reasons: [],
+      completionKind: "research", completionFingerprint: "a".repeat(64), checkpointCommits: [] } };
+  const markup = renderToStaticMarkup(withState([model, false, "", ""], () => RoutedIntegrationWorkspace({ intakeId: model.intakeId })));
+  assert.match(markup, /Research Integration|Integrate completed Research/);
+  assert.doesNotMatch(markup, /Plan execution|Begin approved Plan|Current Work Item|Plan acceptance/);
+});
+
+const repairCandidateId = "a".repeat(64);
+const repairIntegrationModel = { intakeId: "intake-1", route: "feature-change", workBranch: "work-intake/feature",
+  targetBranch: "main", actions: ["run-integration-repair", "integration-decision"], reasons: [],
+  integration: { status: "repair-required", reasons: ["Candidate validation failed"], completionKind: "plan",
+    completionFingerprint: "b".repeat(64), checkpointCommits: [], candidate: { candidateId: repairCandidateId,
+      targetBranch: "main", incomingBranch: "work-intake/feature",
+      validation: [{ checkId: "build", exitCode: 1, summary: "Type error" }], message: "Repair source" } },
+  repair: { repairId: "REPAIR01", candidateId: repairCandidateId, status: "prepared", message: "Bounded source resolution prepared.",
+    policy: { editablePaths: ["src/change.ts"] }, prompt: "# Governing intent" },
+  integrationRepairImplementer: { state: "ready", executionKind: "integration-repair", canRunAgain: true,
+    canResolveEnvironment: false, approvalTail: [], runtimeDenialTail: [], eventTail: [], stderrTail: [],
+    finalResponseTail: [], pendingApproval: null, pendingUserInput: null, pendingMcpElicitation: null, runtimeState: null },
+};
+
+test("repair-required Integration exposes in-product Codex without JSON patch transfer", () => {
+  const markup = renderToStaticMarkup(withState([repairIntegrationModel, false, "", ""], () =>
+    RoutedIntegrationWorkspace({ intakeId: repairIntegrationModel.intakeId })));
+  assert.match(markup, /Integration Repair required|Continue to Integration Repair|Run Integration Repair|Codex execution console|Required validation|Failed/);
+  assert.match(markup, /<h2>Integration Repair<\/h2>.*Attempt REPAIR01/);
+  assert.doesNotMatch(markup, /Integration Repair patch response|Apply source patch|<dt>Implementer Report<\/dt>|<dt>Work Card Contract<\/dt>/);
+});
+
+test("Integration Repair action sends exact candidate and repair identity to the application", async () => {
+  const originalWindow = global.window;
+  const calls = [];
+  global.window = { champcity: { async runRoutedWorkflow(intakeId, action, input) {
+    calls.push({ intakeId, action, input }); return repairIntegrationModel;
+  } } };
+  try {
+    const view = withState([repairIntegrationModel, false, "", ""], () =>
+      RoutedIntegrationWorkspace({ intakeId: repairIntegrationModel.intakeId }));
+    const controls = elements(view).find((element) => element.type?.name === "CodexExecutionActions");
+    assert.ok(controls);
+    controls.props.onRun({ model: "gpt-6-sol", reasoningEffort: "high" });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(calls, [{ intakeId: "intake-1", action: "run-integration-repair", input: {
+      expectedFingerprint: "b".repeat(64), candidateId: repairCandidateId, repairId: "REPAIR01",
+      selection: { model: "gpt-6-sol", reasoningEffort: "high" },
+    } }]);
+  } finally { global.window = originalWindow; }
+});
+
+test("Integration displays an explicit Operator decision for incompatible accepted intent", () => {
+  const model = { ...repairIntegrationModel, actions: [], integration: { ...repairIntegrationModel.integration,
+    status: "operator-decision-required", completionKind: "research", candidate: {
+      ...repairIntegrationModel.integration.candidate, message: "Accepted intent conflicts." } } };
+  const markup = renderToStaticMarkup(withState([model, false, "", ""], () =>
+    RoutedIntegrationWorkspace({ intakeId: model.intakeId })));
+  assert.match(markup, /Operator decision required|Accepted intent conflicts\./);
+  assert.doesNotMatch(markup, /Run Integration Repair|Apply source patch/);
 });

@@ -77,12 +77,15 @@ export function RoutedIntegrationWorkspace({ intakeId }: { intakeId: string }): 
       {available("retry-integration-validation") ? <button type="button" disabled={busy} onClick={() => void run("retry-integration-validation")}>Retry Validation</button> : null}
       {available("abort-integration") ? <button type="button" disabled={busy} onClick={() => void run("abort-integration")}>Abort Candidate</button> : null}
       {available("prepare-integration-repair") && repair?.status !== "prepared" ? <button type="button" disabled={busy} onClick={() => void run("prepare-integration-repair")}>Prepare Integration Repair</button> : null}
+      {repair && integration?.status === "repair-required" ? <button type="button" className="primary-action"
+        onClick={() => document.getElementById("integration-repair-execution")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+        Continue to Integration Repair</button> : null}
     </div>
     {integration?.status === "operator-decision-required" ? <section className="figma-document-card" aria-label="Operator decision required">
       <div className="figma-document-card-body"><h2>Operator decision required</h2><p>{candidate?.message}</p>
         <p>Resolve the incompatible accepted intent before another integration attempt.</p></div></section> : null}
-    {repair && integration?.status === "repair-required" ? <section className="routed-integration-repair" aria-label="Integration Repair Implementer">
-      <header><h2>Integration Repair {repair.repairId}</h2><p>{repair.message}</p>
+    {repair && integration?.status === "repair-required" ? <section id="integration-repair-execution" className="routed-integration-repair" aria-label="Integration Repair Implementer">
+      <header><h2>Integration Repair</h2><p>{repair.message}</p><p>Attempt {repair.repairId}</p>
         <p>Editable source: {repair.policy.editablePaths.length} declared {repair.policy.editablePaths.length === 1 ? "file" : "files"}.</p></header>
       <CodexExecutionActions execution={execution} isActionRunning={busy} canRunOverride={available("run-integration-repair")}
         runLabel="Run Integration Repair" onRun={(selection) => void run("run-integration-repair", { selection })}

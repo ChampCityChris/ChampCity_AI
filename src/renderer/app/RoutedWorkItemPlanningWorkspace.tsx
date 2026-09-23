@@ -39,8 +39,10 @@ export function RoutedWorkItemPlanningWorkspace({ model, browserPanel, busy, err
         <div className="figma-document-card-body">{candidate ? <>
           <p>{candidate.purpose}</p>{candidate.phaseId ? <p>Phase: {candidate.phaseId}</p> : null}
           {candidate.dependsOn.length ? <p>After: {candidate.dependsOn.join(", ")}</p> : null}
-          <p>Formal Work Card target: {current?.contractTargetPath ?? "Pending Work Item start"}</p>
           <button type="button" disabled={busy} onClick={() => onDecompose(candidate.workItemId)}>Decompose Work Item</button>
+          {current?.contractTargetPath ? <details className="routed-work-item-file-detail">
+            <summary>Formal Work Card file location</summary><p>{current.contractTargetPath}</p>
+          </details> : null}
         </> : <p>Begin an eligible Work Item from the map.</p>}</div>
       </article>
       <article className="figma-document-card" aria-label="Formal Work Card document">
