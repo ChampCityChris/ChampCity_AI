@@ -28,7 +28,7 @@ const bodies = {
   RegressionObligation: { ...common, obligationState: "open" },
   SourceBinding: { workIntakeId: linkedId, repositoryId: "repo", integrationTargetSourceLineId: "dev", preparationState: "unprepared" },
   SourceCheckpoint: { boundaryId: "boundary", workIntakeId: linkedId, sourceLineId: "work", expectedRevisionId: "revision", checkpointKind: "implementation", checkpointState: "pending" },
-  IntegrationRecord: { workIntakeId: linkedId, incomingRevisionId: "incoming", targetSourceLineId: "dev", targetBeforeRevisionId: "before", integrationState: "prepared" },
+  IntegrationRecord: { workIntakeId: linkedId, incomingRevisionId: "incoming", targetSourceLineId: "dev", targetBeforeRevisionId: "before", integrationState: "prepared", outcome: "pending", validationIds: [], repairWorkItemIds: [] },
 };
 
 test("all adopted Project State types have registered bounded schemas and application-issued envelopes", () => {

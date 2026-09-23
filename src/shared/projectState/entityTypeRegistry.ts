@@ -1,6 +1,6 @@
 import { PROJECT_STATE_SCHEMA_VERSION, type EntityBodyMap, type EntityType, type PrincipalRef, type ProjectId, type ProjectStateEntity, type ProjectStateRecord, type Provenance, type RecordEnvelope } from "./domainContracts";
 
-type FieldKind = "text" | "id" | "instant" | "number" | "version" | "text-list" | "id-list" | "principal" | "digest";
+type FieldKind = "text" | "source-ref" | "id" | "instant" | "number" | "version" | "text-list" | "id-list" | "principal" | "digest";
 type FieldRule = FieldKind | readonly string[];
 interface EntityDefinition { schemaVersion: typeof PROJECT_STATE_SCHEMA_VERSION; required: Readonly<Record<string, FieldRule>>; optional?: Readonly<Record<string, FieldRule>>; immutableAfterCreation: boolean }
 
@@ -28,9 +28,9 @@ export const ENTITY_TYPE_REGISTRY: Readonly<Record<EntityType, EntityDefinition>
   Evidence: { schemaVersion: 1, required: { evidenceType: text, description: text, capturedAt: instant, capturedBy: "principal", mediaType: text, payloadRef: text, digest: "digest" }, optional: { size: "number" }, immutableAfterCreation: true },
   Decision: { schemaVersion: 1, required: { decisionType: text, outcome: text, rationale: text, decisionRole: text, decisionScope: text, decidedBy: "principal", decidedAt: instant, effectiveAt: instant }, immutableAfterCreation: true },
   RegressionObligation: { schemaVersion: 1, required: { title: text, statement: text, obligationState: text }, optional: { testReferenceId: id, sourceWorkItemId: id }, immutableAfterCreation: false },
-  SourceBinding: { schemaVersion: 1, required: { workIntakeId: id, repositoryId: text, integrationTargetSourceLineId: text, preparationState: ["unprepared", "preparing", "ready", "blocked"] }, optional: { baseRevisionId: text, workSourceLineId: text, currentRevisionId: text, repositoryCheckoutId: text, failureCode: text }, immutableAfterCreation: false },
-  SourceCheckpoint: { schemaVersion: 1, required: { boundaryId: text, workIntakeId: id, sourceLineId: text, expectedRevisionId: text, checkpointKind: ["implementation", "disposition"], checkpointState: ["not-required", "pending", "committed", "blocked", "inspection-required"] }, optional: { resultingRevisionId: text }, immutableAfterCreation: false },
-  IntegrationRecord: { schemaVersion: 1, required: { workIntakeId: id, incomingRevisionId: text, targetSourceLineId: text, targetBeforeRevisionId: text, integrationState: text }, optional: { candidateRevisionId: text, targetAfterRevisionId: text }, immutableAfterCreation: false },
+  SourceBinding: { schemaVersion: 1, required: { workIntakeId: id, repositoryId: "source-ref", integrationTargetSourceLineId: "source-ref", preparationState: ["unprepared", "preparing", "ready", "blocked"] }, optional: { baseRevisionId: "source-ref", workSourceLineId: "source-ref", currentRevisionId: "source-ref", repositoryCheckoutId: "source-ref", failureCode: text }, immutableAfterCreation: false },
+  SourceCheckpoint: { schemaVersion: 1, required: { boundaryId: "source-ref", workIntakeId: id, sourceLineId: "source-ref", expectedRevisionId: "source-ref", checkpointKind: ["implementation", "disposition"], checkpointState: ["not-required", "pending", "committed", "blocked", "inspection-required"] }, optional: { resultingRevisionId: "source-ref" }, immutableAfterCreation: false },
+  IntegrationRecord: { schemaVersion: 1, required: { workIntakeId: id, incomingRevisionId: "source-ref", targetSourceLineId: "source-ref", targetBeforeRevisionId: "source-ref", integrationState: ["prepared", "validating", "repairing", "ready", "integrated", "blocked", "failed"], outcome: ["pending", "integrated", "blocked", "failed"], validationIds: idList, repairWorkItemIds: idList }, optional: { candidateRevisionId: "source-ref", targetAfterRevisionId: "source-ref", resultRevisionId: "source-ref" }, immutableAfterCreation: false },
 });
 
 export class ProjectStateDomainError extends Error {
@@ -76,6 +76,7 @@ function checkField(value: unknown, rule: FieldRule, label: string) {
     case "id": canonicalId(value, label); return;
     case "instant": canonicalInstant(value, label); return;
     case "number": if (typeof value !== "number" || !Number.isFinite(value) || value < 0) fail(`${label} must be a nonnegative finite number.`); return;
+    case "source-ref": if (typeof value !== "string" || value.length < 1 || value.length > 512 || /\s|[\u0000-\u001f]/.test(value)) fail(`${label} must be an opaque RepositoryService reference.`); return;
     case "version": if (!Number.isSafeInteger(value) || (value as number) < 1) fail(`${label} must be a positive record version.`); return;
     case "digest": if (typeof value !== "string" || !/^[a-f0-9]{64}$/i.test(value)) fail(`${label} must be a SHA-256 digest.`); return;
     case "principal": principal(value, label); return;

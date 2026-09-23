@@ -63,7 +63,7 @@ export interface EntityBodyMap {
   RegressionObligation: { title: string; statement: string; obligationState: string; testReferenceId?: EntityId; sourceWorkItemId?: EntityId };
   SourceBinding: { workIntakeId: EntityId; repositoryId: string; integrationTargetSourceLineId: string; baseRevisionId?: string; workSourceLineId?: string; currentRevisionId?: string; repositoryCheckoutId?: string; preparationState: "unprepared" | "preparing" | "ready" | "blocked"; failureCode?: string };
   SourceCheckpoint: { boundaryId: string; workIntakeId: EntityId; sourceLineId: string; expectedRevisionId: string; resultingRevisionId?: string; checkpointKind: "implementation" | "disposition"; checkpointState: "not-required" | "pending" | "committed" | "blocked" | "inspection-required" };
-  IntegrationRecord: { workIntakeId: EntityId; incomingRevisionId: string; targetSourceLineId: string; targetBeforeRevisionId: string; candidateRevisionId?: string; targetAfterRevisionId?: string; integrationState: string };
+  IntegrationRecord: { workIntakeId: EntityId; incomingRevisionId: string; targetSourceLineId: string; targetBeforeRevisionId: string; candidateRevisionId?: string; targetAfterRevisionId?: string; resultRevisionId?: string; integrationState: "prepared" | "validating" | "repairing" | "ready" | "integrated" | "blocked" | "failed"; outcome: "pending" | "integrated" | "blocked" | "failed"; validationIds: EntityId[]; repairWorkItemIds: EntityId[] };
 }
 
 export type EntityType = keyof EntityBodyMap;

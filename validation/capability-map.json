@@ -3102,6 +3102,10 @@
           "description": "history orders a same-timestamp successor by the explicit edge rather than lexical identity"
         },
         {
+          "behaviorId": "integration-record-links-incoming-validation-repair-and-result-revisions",
+          "description": "IntegrationRecord links incoming, Validation, Repair and result revisions"
+        },
+        {
           "behaviorId": "issued-decision-validation-and-evidence-require-typed-correction-policy",
           "description": "issued Decision, Validation and Evidence require typed correction policy"
         },
@@ -3128,6 +3132,14 @@
         {
           "behaviorId": "service-rejects-unregistered-fields-and-keeps-query-results-bounded",
           "description": "service rejects unregistered fields and keeps query results bounded"
+        },
+        {
+          "behaviorId": "source-binding-retains-opaque-references-and-preparation-history",
+          "description": "SourceBinding retains opaque RepositoryService references and preparation history"
+        },
+        {
+          "behaviorId": "source-checkpoints-retain-exact-revisions-and-semantic-targets",
+          "description": "SourceCheckpoint retains exact revisions and semantic targets"
         },
         {
           "behaviorId": "sqlite-history-follows-multiple-supersessions-and-survives-reopen",
@@ -13568,6 +13580,69 @@
           "capabilityId": "project-state-service",
           "behaviorId": "typed-decision-validation-and-evidence-commands-derive-trusted-attribution-and-enforce-relationsh",
           "proofLocator": "typed Decision, Validation and Evidence commands derive trusted attribution and enforce relationships",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/source-semantic-references.test.cjs",
+      "currentTestCount": {
+        "value": 6,
+        "basis": "Three source semantic scenarios across in-memory and SQLite adapters introduced by SCL01N."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 216,
+        "basis": "Observed normal Windows focused SCL01N test receipt."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Per-test temporary SQLite file and isolated in-memory adapter.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "integration-record-links-incoming-validation-repair-and-result-revisions",
+          "proofLocator": "IntegrationRecord links incoming, validation, repair and result revisions without Git inspection",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "source-binding-retains-opaque-references-and-preparation-history",
+          "proofLocator": "SourceBinding retains opaque RepositoryService references and preparation history",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "source-checkpoints-retain-exact-revisions-and-semantic-targets",
+          "proofLocator": "implementation and disposition checkpoints retain exact revisions and semantic targets",
           "proofRole": "primary"
         }
       ]

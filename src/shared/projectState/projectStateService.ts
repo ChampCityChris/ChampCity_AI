@@ -20,6 +20,7 @@ export interface ExecutionPlanView { phases: { phaseId: EntityId; sequence: numb
 export interface CurrentWorkRoute { route: WorkRoute; decisionId: EntityId; assessmentId: EntityId | null; effectiveAt: string }
 export interface WorkIntakeSummary { intakeId: EntityId; request: string; desiredOutcome: string; constraints: string[]; evidenceContext: string[]; intakeState: WorkIntakeState; requestedIntegrationTarget: string; workflowId: EntityId; currentRoute: CurrentWorkRoute | null; assessmentIds: EntityId[]; routeDecisionIds: EntityId[] }
 export interface WorkRouteHistory { assessments: ProjectStateRecord<"RouteAssessment">[]; decisions: ProjectStateRecord<"Decision">[]; relationships: ProjectStateRelationship[] }
+export interface SourceSemanticView { repositoryId: string; bindings: ProjectStateRecord<"SourceBinding">[]; checkpoints: ProjectStateRecord<"SourceCheckpoint">[]; integrations: ProjectStateRecord<"IntegrationRecord">[]; relationships: ProjectStateRelationship[] }
 export const PROJECT_STATE_EVENT_TYPES = Object.freeze({
   create: "project-state.record-created",
   revise: "project-state.record-revised",
@@ -42,6 +43,20 @@ function decisionBody(input: DecisionInput, principal: PrincipalRef, decidedAt: 
   return { decisionType: input.decisionType, outcome: input.outcome, decisionScope: input.decisionScope,
     rationale: input.rationale ?? "", decisionRole: principal.role, decidedBy: principal,
     decidedAt, effectiveAt: input.effectiveAt ?? defaultEffectiveAt };
+}
+function assertSourceBindingBody(body: EntityBodyMap["SourceBinding"]) {
+  if (body.currentRevisionId && !body.workSourceLineId) fail("Current revision requires a work SourceLine.");
+  if (body.preparationState === "ready" && (!body.baseRevisionId || !body.workSourceLineId || !body.currentRevisionId || body.failureCode)) fail("Ready SourceBinding requires base, work line and current revision without failure.");
+  if (body.preparationState === "blocked" && !body.failureCode) fail("Blocked SourceBinding requires a failure code.");
+}
+function assertSourceCheckpointBody(body: EntityBodyMap["SourceCheckpoint"]) {
+  if (body.checkpointState === "committed" && !body.resultingRevisionId) fail("Committed checkpoint requires a resulting revision.");
+  if (body.checkpointState !== "committed" && body.resultingRevisionId) fail("Only committed checkpoint can carry a resulting revision.");
+}
+function assertIntegrationBody(body: EntityBodyMap["IntegrationRecord"]) {
+  if (body.outcome === "integrated" && (!body.resultRevisionId || body.integrationState !== "integrated" || body.targetAfterRevisionId !== body.resultRevisionId)) fail("Integrated record requires matching target and result revisions.");
+  if (body.integrationState === "integrated" && body.outcome !== "integrated") fail("Integrated state requires integrated outcome.");
+  if (body.outcome === "pending" && ["integrated", "blocked", "failed"].includes(body.integrationState)) fail("Terminal integration state requires a terminal outcome.");
 }
 function exactInput(value: unknown, allowed: readonly string[]): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype) fail("A bounded semantic input is required.");
@@ -92,10 +107,22 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     });
   }
 
+  async function linkSemantic(unit: ProjectStateUnitOfWork, projectId: ProjectId, from: ProjectStateEntity, to: ProjectStateEntity,
+    relationshipType: RelationshipType, context?: MutationContext) {
+    const edge = createDomainRelationship({ projectId, fromEntityId: from.id, relationshipType,
+      toEntityId: to.id, createdBy: trustedPrincipal }, id => id === from.id ? from : id === to.id ? to : undefined);
+    await unit.saveRelationship(edge);
+    await recordMutation(unit, { projectId, entityId: from.id, fromVersion: from.recordVersion, toVersion: from.recordVersion,
+      operation: "relationship-create", eventType: PROJECT_STATE_EVENT_TYPES.relationshipCreate, occurredAt: edge.createdAt,
+      changedFields: [`relationship:${relationshipType}`], defaultReason: `Link ${relationshipType}`, context, relationshipId: edge.id });
+    return edge;
+  }
+
   async function createRecord<T extends EntityType>(projectId: ProjectId | null, entityType: T, content: EntityBodyMap[T], context?: MutationContext) {
     if (restrictedGenericTypes.has(entityType)) fail("Decision, Validation and Evidence require typed commands.");
     if (entityType === "ImplementationRecord" || entityType === "Workflow") fail("ImplementationRecord and Workflow require typed commands.");
     if (entityType === "WorkIntake" || entityType === "RouteAssessment") fail("Work Intake and Route Assessment require typed commands.");
+    if (["SourceBinding", "SourceCheckpoint", "IntegrationRecord"].includes(entityType)) fail("Source semantic records require typed commands.");
     if (entityType === "Project" && projectId !== null) fail("A new Project cannot borrow another Project identity.");
     if (entityType !== "Project" && !projectId) fail("Project identity is required.");
     const record = createProjectStateEntity({ entityType, ...(projectId ? { projectId } : {}), body: content, principal: trustedPrincipal });
@@ -217,6 +244,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const current = await requiredRecord(unit, projectId, entityId);
       if (restrictedGenericTypes.has(current.entityType)) fail("Immutable semantic records require typed correction or supersession.");
       if (current.entityType === "WorkIntake") fail("Work Intake revision requires a typed command.");
+      if (["SourceBinding", "SourceCheckpoint", "IntegrationRecord"].includes(current.entityType)) fail("Source semantic revision requires a typed command.");
       if ((current.entityType === "WorkItem" && patch.workState === "closed") || (current.entityType === "Phase" && patch.phaseState === "closed")) fail("Completion requires a typed eligibility command.");
       if (current.recordVersion !== expectedRevision) fail("Expected Project State revision is stale.");
       const next = validateProjectStateEntity({ ...current, recordVersion: current.recordVersion + 1, updatedAt: new Date().toISOString(), updatedBy: trustedPrincipal, body: { ...current.body, ...patch } });
@@ -238,6 +266,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       if (restrictedGenericTypes.has(previous.entityType)) fail("Issued Decision, Validation and Evidence require a typed correction policy.");
       if (previous.entityType === "ImplementationRecord") fail("Implementation attempts are immutable; record a new attempt.");
       if (previous.entityType === "WorkIntake" || previous.entityType === "RouteAssessment") fail("Work Intake retains identity and Route Assessments remain historical records.");
+      if (["SourceBinding", "SourceCheckpoint", "IntegrationRecord"].includes(previous.entityType)) fail("Source semantic records retain their identity and revision history.");
       const currentFamily = (await unit.listEntities(projectId, previous.entityType)).filter(candidate => candidate.lineageId === previous.lineageId && candidate.lifecycleState !== "superseded");
       if (currentFamily.length !== 1 || currentFamily[0].id !== previous.id) fail("Supersession target is not the unique current record in its lineage.");
       const now = new Date().toISOString();
@@ -265,6 +294,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (relationshipType === "governs") fail("Decision governance requires a typed Decision command.");
     if (relationshipType === "implements_work_item") fail("Implementation attempts require a typed command.");
     if (relationshipType === "initiates" || relationshipType === "assesses_route") fail("Work Intake ownership and route assessment require typed commands.");
+    if (["binds_source", "checkpoints", "integrates"].includes(relationshipType)) fail("Source semantic relationships require typed commands.");
     return store.transaction(projectId, async unit => {
       const from = await requiredRecord(unit, projectId, fromEntityId);
       const to = await requiredRecord(unit, projectId, toEntityId);
@@ -491,6 +521,186 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       }
       return decision;
     });
+  }
+
+  async function createSourceBinding(projectId: ProjectId, intakeId: EntityId, input: { repositoryId: string; integrationTargetSourceLineId: string }, context?: MutationContext) {
+    exactInput(input, ["repositoryId", "integrationTargetSourceLineId"]);
+    return store.transaction(projectId, async unit => {
+      const intake = await requiredRecord(unit, projectId, intakeId);
+      if (intake.entityType !== "WorkIntake") fail("SourceBinding requires Work Intake.");
+      const prior = (await unit.listEntities(projectId, "SourceBinding"))
+        .filter(record => record.entityType === "SourceBinding" && record.body.workIntakeId === intakeId && record.lifecycleState === "active");
+      if (prior.length) fail("Work Intake already has an active SourceBinding.");
+      const body: EntityBodyMap["SourceBinding"] = { workIntakeId: intakeId, ...input, preparationState: "unprepared" };
+      assertSourceBindingBody(body);
+      const binding = createProjectStateEntity({ entityType: "SourceBinding", projectId, body, principal: trustedPrincipal });
+      await unit.saveEntity(binding, null);
+      await recordMutation(unit, { projectId, entityId: binding.id, fromVersion: null, toVersion: 1,
+        operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: binding.createdAt,
+        changedFields: Object.keys(binding.body), defaultReason: "Create SourceBinding", context });
+      await linkSemantic(unit, projectId, binding, intake, "binds_source", context);
+      return binding;
+    });
+  }
+
+  async function updateSourceBinding(projectId: ProjectId, bindingId: EntityId, changes: Partial<Pick<EntityBodyMap["SourceBinding"], "preparationState" | "baseRevisionId" | "workSourceLineId" | "currentRevisionId" | "repositoryCheckoutId" | "failureCode">>, expectedRevision: number, context?: MutationContext) {
+    const patch = exactInput(changes, ["preparationState", "baseRevisionId", "workSourceLineId", "currentRevisionId", "repositoryCheckoutId", "failureCode"]);
+    if (Object.keys(patch).length === 0) fail("SourceBinding update requires a change.");
+    const transitions: Record<EntityBodyMap["SourceBinding"]["preparationState"], readonly EntityBodyMap["SourceBinding"]["preparationState"][]> = {
+      unprepared: ["unprepared", "preparing", "blocked"], preparing: ["preparing", "ready", "blocked"],
+      ready: ["ready", "blocked"], blocked: ["blocked", "preparing"],
+    };
+    return store.transaction(projectId, async unit => {
+      const current = await requiredRecord(unit, projectId, bindingId);
+      if (current.entityType !== "SourceBinding" || current.recordVersion !== expectedRevision || current.lifecycleState !== "active") fail("SourceBinding update target is unavailable or stale.");
+      const body = { ...current.body, ...patch } as EntityBodyMap["SourceBinding"];
+      for (const key of Object.keys(patch) as (keyof typeof body)[]) if (patch[key] === undefined) delete body[key];
+      if (!transitions[current.body.preparationState].includes(body.preparationState)) fail("Invalid source preparation transition.");
+      assertSourceBindingBody(body);
+      const now = new Date().toISOString();
+      const next = validateProjectStateEntity({ ...current, recordVersion: expectedRevision + 1,
+        updatedAt: now, updatedBy: trustedPrincipal, body });
+      await unit.saveEntity(next, expectedRevision);
+      await recordMutation(unit, { projectId, entityId: bindingId, fromVersion: expectedRevision, toVersion: next.recordVersion,
+        operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now,
+        changedFields: Object.keys(patch), defaultReason: "Update SourceBinding", context });
+      return next;
+    });
+  }
+
+  async function createSourceCheckpoint(projectId: ProjectId, bindingId: EntityId, targetId: EntityId,
+    input: Pick<EntityBodyMap["SourceCheckpoint"], "boundaryId" | "expectedRevisionId" | "checkpointKind" | "checkpointState"> & { resultingRevisionId?: string }, context?: MutationContext) {
+    exactInput(input, ["boundaryId", "expectedRevisionId", "checkpointKind", "checkpointState", "resultingRevisionId"]);
+    return store.transaction(projectId, async unit => {
+      const binding = await requiredRecord(unit, projectId, bindingId);
+      const target = await requiredRecord(unit, projectId, targetId);
+      if (binding.entityType !== "SourceBinding" || binding.body.preparationState !== "ready" || !binding.body.workSourceLineId) fail("Checkpoint requires a ready SourceBinding.");
+      if (!["WorkIntake", "WorkItem", "ImplementationRecord"].includes(target.entityType)) fail("Unsupported checkpoint target.");
+      if ((await unit.listEntities(projectId, "SourceCheckpoint")).some(record => record.entityType === "SourceCheckpoint" && record.body.boundaryId === input.boundaryId)) fail("Checkpoint boundary already exists.");
+      const body: EntityBodyMap["SourceCheckpoint"] = { ...input, workIntakeId: binding.body.workIntakeId,
+        sourceLineId: binding.body.workSourceLineId };
+      if (target.entityType === "WorkIntake" && target.id !== body.workIntakeId) fail("Checkpoint Work Intake does not match SourceBinding.");
+      if (binding.body.currentRevisionId !== body.expectedRevisionId) fail("Checkpoint expected revision differs from SourceBinding current revision.");
+      assertSourceCheckpointBody(body);
+      const checkpoint = createProjectStateEntity({ entityType: "SourceCheckpoint", projectId, body, principal: trustedPrincipal });
+      await unit.saveEntity(checkpoint, null);
+      await recordMutation(unit, { projectId, entityId: checkpoint.id, fromVersion: null, toVersion: 1,
+        operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: checkpoint.createdAt,
+        changedFields: Object.keys(checkpoint.body), defaultReason: "Create SourceCheckpoint", context });
+      const intake = await requiredRecord(unit, projectId, body.workIntakeId);
+      for (const related of new Map([binding, intake, target].map(record => [record.id, record])).values()) {
+        await linkSemantic(unit, projectId, checkpoint, related, "checkpoints", context);
+      }
+      return checkpoint;
+    });
+  }
+
+  async function advanceSourceCheckpoint(projectId: ProjectId, checkpointId: EntityId, input: { checkpointState: EntityBodyMap["SourceCheckpoint"]["checkpointState"]; resultingRevisionId?: string }, expectedRevision: number, context?: MutationContext) {
+    exactInput(input, ["checkpointState", "resultingRevisionId"]);
+    const transitions: Record<EntityBodyMap["SourceCheckpoint"]["checkpointState"], readonly EntityBodyMap["SourceCheckpoint"]["checkpointState"][]> = {
+      "not-required": [], pending: ["committed", "blocked", "inspection-required"],
+      blocked: ["pending", "inspection-required"], "inspection-required": ["pending", "committed"], committed: [],
+    };
+    return store.transaction(projectId, async unit => {
+      const current = await requiredRecord(unit, projectId, checkpointId);
+      if (current.entityType !== "SourceCheckpoint" || current.recordVersion !== expectedRevision) fail("SourceCheckpoint update target is unavailable or stale.");
+      if (!transitions[current.body.checkpointState].includes(input.checkpointState)) fail("Invalid checkpoint transition.");
+      const body: EntityBodyMap["SourceCheckpoint"] = { ...current.body, checkpointState: input.checkpointState,
+        ...(input.resultingRevisionId ? { resultingRevisionId: input.resultingRevisionId } : {}) };
+      assertSourceCheckpointBody(body);
+      const now = new Date().toISOString();
+      const next = validateProjectStateEntity({ ...current, recordVersion: expectedRevision + 1,
+        updatedAt: now, updatedBy: trustedPrincipal, body });
+      await unit.saveEntity(next, expectedRevision);
+      await recordMutation(unit, { projectId, entityId: checkpointId, fromVersion: expectedRevision, toVersion: next.recordVersion,
+        operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now,
+        changedFields: ["checkpointState", ...(input.resultingRevisionId ? ["resultingRevisionId"] : [])],
+        defaultReason: "Advance SourceCheckpoint", context });
+      return next;
+    });
+  }
+
+  async function createIntegrationRecord(projectId: ProjectId, bindingId: EntityId,
+    input: { targetBeforeRevisionId: string; candidateRevisionId?: string; targetEntityId?: EntityId }, context?: MutationContext) {
+    exactInput(input, ["targetBeforeRevisionId", "candidateRevisionId", "targetEntityId"]);
+    return store.transaction(projectId, async unit => {
+      const binding = await requiredRecord(unit, projectId, bindingId);
+      if (binding.entityType !== "SourceBinding" || binding.body.preparationState !== "ready" || !binding.body.currentRevisionId) fail("Integration requires a ready SourceBinding with current revision.");
+      const intake = await requiredRecord(unit, projectId, binding.body.workIntakeId);
+      if (intake.entityType !== "WorkIntake") fail("Integration SourceBinding has no Work Intake.");
+      const target = input.targetEntityId ? await requiredRecord(unit, projectId, input.targetEntityId) : null;
+      if (target && !["WorkItem", "ImplementationRecord"].includes(target.entityType)) fail("Integration target must be a Work Item or ImplementationRecord.");
+      const body: EntityBodyMap["IntegrationRecord"] = { workIntakeId: intake.id,
+        incomingRevisionId: binding.body.currentRevisionId, targetSourceLineId: binding.body.integrationTargetSourceLineId,
+        targetBeforeRevisionId: input.targetBeforeRevisionId,
+        ...(input.candidateRevisionId ? { candidateRevisionId: input.candidateRevisionId } : {}),
+        integrationState: "prepared", outcome: "pending", validationIds: [], repairWorkItemIds: [] };
+      assertIntegrationBody(body);
+      const record = createProjectStateEntity({ entityType: "IntegrationRecord", projectId, body, principal: trustedPrincipal });
+      await unit.saveEntity(record, null);
+      await recordMutation(unit, { projectId, entityId: record.id, fromVersion: null, toVersion: 1,
+        operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: record.createdAt,
+        changedFields: Object.keys(record.body), defaultReason: "Create IntegrationRecord", context });
+      for (const related of [binding, intake, ...(target ? [target] : [])]) await linkSemantic(unit, projectId, record, related, "integrates", context);
+      return record;
+    });
+  }
+
+  async function advanceIntegrationRecord(projectId: ProjectId, integrationId: EntityId,
+    input: Partial<Pick<EntityBodyMap["IntegrationRecord"], "candidateRevisionId" | "targetAfterRevisionId" | "resultRevisionId" | "integrationState" | "outcome" | "validationIds" | "repairWorkItemIds">>, expectedRevision: number, context?: MutationContext) {
+    const patch = exactInput(input, ["candidateRevisionId", "targetAfterRevisionId", "resultRevisionId", "integrationState", "outcome", "validationIds", "repairWorkItemIds"]);
+    if (Object.keys(patch).length === 0) fail("Integration update requires a change.");
+    const transitions: Record<EntityBodyMap["IntegrationRecord"]["integrationState"], readonly EntityBodyMap["IntegrationRecord"]["integrationState"][]> = {
+      prepared: ["prepared", "validating", "blocked"], validating: ["validating", "repairing", "ready", "blocked"],
+      repairing: ["repairing", "validating", "ready", "blocked"], ready: ["ready", "integrated", "blocked"],
+      blocked: ["blocked", "validating", "repairing", "failed"], failed: [], integrated: [],
+    };
+    return store.transaction(projectId, async unit => {
+      const current = await requiredRecord(unit, projectId, integrationId);
+      if (current.entityType !== "IntegrationRecord" || current.recordVersion !== expectedRevision) fail("Integration update target is unavailable or stale.");
+      const body = { ...current.body, ...patch } as EntityBodyMap["IntegrationRecord"];
+      if (!transitions[current.body.integrationState].includes(body.integrationState)) fail("Invalid IntegrationRecord transition.");
+      assertIntegrationBody(body);
+      for (const id of body.validationIds) {
+        const validation = await requiredRecord(unit, projectId, id);
+        if (validation.entityType !== "Validation" || validation.body.targetEntityId !== integrationId) fail("Integration validation must evaluate this IntegrationRecord.");
+        if (!(await unit.listRelationships(projectId, "evaluates")).some(edge => edge.fromEntityId === id && edge.toEntityId === integrationId && !edge.endedAt)) fail("Integration Validation relationship is missing.");
+      }
+      const existingLinks = (await unit.listRelationships(projectId, "integrates")).filter(edge => edge.fromEntityId === integrationId && !edge.endedAt);
+      for (const id of body.repairWorkItemIds) {
+        const repair = await requiredRecord(unit, projectId, id);
+        if (repair.entityType !== "WorkItem" || !["repair", "fix"].includes(repair.body.workItemKind)) fail("Integration repair must be a Repair or Fix Work Item.");
+        if (!existingLinks.some(edge => edge.toEntityId === id)) await linkSemantic(unit, projectId, current, repair, "integrates", context);
+      }
+      const now = new Date().toISOString();
+      const next = validateProjectStateEntity({ ...current, recordVersion: expectedRevision + 1,
+        updatedAt: now, updatedBy: trustedPrincipal, body });
+      await unit.saveEntity(next, expectedRevision);
+      await recordMutation(unit, { projectId, entityId: integrationId, fromVersion: expectedRevision, toVersion: next.recordVersion,
+        operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now,
+        changedFields: Object.keys(patch), defaultReason: "Advance IntegrationRecord", context });
+      return next;
+    });
+  }
+
+  async function getSourceSemanticView(projectId: ProjectId, repositoryId: string): Promise<SourceSemanticView> {
+    if (typeof repositoryId !== "string" || repositoryId.length < 1 || repositoryId.length > 512 || /\s/.test(repositoryId)) fail("Opaque RepositoryService identity is required.");
+    const bindings = (await store.listEntities(projectId, "SourceBinding"))
+      .filter((record): record is ProjectStateRecord<"SourceBinding"> => record.entityType === "SourceBinding")
+      .filter(record => record.body.repositoryId === repositoryId);
+    const bindingIds = new Set(bindings.map(record => record.id));
+    const edges = await store.listRelationships(projectId);
+    const checkpointIds = new Set(edges.filter(edge => edge.relationshipType === "checkpoints" && bindingIds.has(edge.toEntityId)).map(edge => edge.fromEntityId));
+    const integrationIds = new Set(edges.filter(edge => edge.relationshipType === "integrates" && bindingIds.has(edge.toEntityId)).map(edge => edge.fromEntityId));
+    const checkpoints = (await store.listEntities(projectId, "SourceCheckpoint"))
+      .filter((record): record is ProjectStateRecord<"SourceCheckpoint"> => record.entityType === "SourceCheckpoint")
+      .filter(record => checkpointIds.has(record.id));
+    const integrations = (await store.listEntities(projectId, "IntegrationRecord"))
+      .filter((record): record is ProjectStateRecord<"IntegrationRecord"> => record.entityType === "IntegrationRecord")
+      .filter(record => integrationIds.has(record.id));
+    const ids = new Set([...bindingIds, ...checkpointIds, ...integrationIds]);
+    return { repositoryId, bindings, checkpoints, integrations,
+      relationships: edges.filter(edge => ids.has(edge.fromEntityId) || ids.has(edge.toEntityId)) };
   }
 
   async function getRecord(projectId: ProjectId, entityId: EntityId) { return store.getEntity(projectId, entityId); }
@@ -898,9 +1108,10 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   return { createRecord, createWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision,
+    createSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, createIntegrationRecord, advanceIntegrationRecord,
     reviseRecord, supersedeRecord, createRelationship, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, completeWorkItem, completePhase,
     getRecord, queryRecords, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
     getEffectiveDisposition, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus,
     getImplementationAttempts, getExecutionPlan, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,
-    getWorkRouteHistory, getCurrentWorkRoute, getWorkIntakeSummary };
+    getWorkRouteHistory, getCurrentWorkRoute, getWorkIntakeSummary, getSourceSemanticView };
 }
