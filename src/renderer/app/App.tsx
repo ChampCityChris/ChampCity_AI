@@ -4130,6 +4130,7 @@ export function App(): JSX.Element {
               <RoutedExecutionWorkspace intakeId={selectedWorkIntakeId} selectedWorkItemId={selectedRoutedWorkItemId}
                 browserPanel={routedArchitectBrowserPanel} onReloadBrowser={() => void reloadArchitectBrowser()}
                 onSelectWorkItem={setSelectedRoutedWorkItemId} onStepChange={setActiveRoutedExecutionStepId}
+                onIntegration={() => void refreshWorkIntakeNavigation(selectedWorkIntakeId, true)}
                 onDecompose={(workItemId) => {
                   setDecompositionReturnFeedback("");
                   setDecompositionContext({ intakeId: selectedWorkIntakeId, workItemId, returnTarget: "work-item-map" });

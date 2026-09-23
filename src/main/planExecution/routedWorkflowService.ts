@@ -75,6 +75,7 @@ export async function getRoutedWorkflow(root: string, intakeId: string): Promise
     if (!entry || !item?.eligible) return model;
     const contract = entry.repairContext ? entry.repairContext.existing : entry.formal;
     model.current = { workItemId: entry.candidate.workItemId, implementationId: entry.executionWorkCardId, phaseId: entry.candidate.phaseId,
+      ...(entry.repairContext ? { repairId: entry.repairContext.repairId } : {}),
       contractTargetPath: entry.repairContext?.targetPath ?? entry.targets.formalWorkCardMarkdownPath,
       ...(contract ? { contract: document(root, contract.markdownPath) } : {}) };
     if (!entry.handoff) model.actions.push("begin");
@@ -115,8 +116,9 @@ export async function getRoutedWorkflow(root: string, intakeId: string): Promise
 }
 
 export async function runRoutedWorkflow(root: string, intakeId: string, action: RoutedWorkflowAction, input: RoutedWorkflowInput = {}): Promise<{ model: RoutedWorkflowModel; instruction?: string }> {
-  if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).some((key) => !["expectedFingerprint", "workItemId", "expectedRevision", "disposition", "notes", "selection", "validation", "acceptance", "acceptanceReview", "candidateId", "repairId", "patches", "approval", "userInput", "elicitation"].includes(key))) throw Error("Invalid routed workflow input.");
+  if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).some((key) => !["expectedFingerprint", "workItemId", "expectedRevision", "disposition", "notes", "repairDefectText", "selection", "validation", "acceptance", "acceptanceReview", "candidateId", "repairId", "patches", "approval", "userInput", "elicitation"].includes(key))) throw Error("Invalid routed workflow input.");
   if (input.notes !== undefined && (typeof input.notes !== "string" || input.notes.length > 4000)) throw Error("Workflow notes must be bounded text.");
+  if (input.repairDefectText !== undefined && (typeof input.repairDefectText !== "string" || input.repairDefectText.length > 4000)) throw Error("Repair defect text must be bounded text.");
   // Runtime control remains available even if governing files change during a run.
   if (runtimeActions.includes(action)) {
     const running = worker.getRunningRoutedSession(root, intakeId);
@@ -184,7 +186,7 @@ export async function runRoutedWorkflow(root: string, intakeId: string, action: 
   } else if (action === "advisory-review") { instruction = (await app.execution.advisoryReview(request)).instruction; feedback = "Advisory review handoff copied."; }
   else if (action === "validate") {
     if (!input.validation) throw Error("Explicit validation decision is required.");
-    await app.execution.validate({ ...request, decision: { decision: input.validation, operatorNotes: notes, ...(input.validation === "RequestRepair" ? { repairDefectText: notes } : {}) } });
+    await app.execution.validate({ ...request, decision: { decision: input.validation, operatorNotes: notes, ...(input.validation === "RequestRepair" ? { repairDefectText: input.repairDefectText ?? notes } : {}) } });
   } else if (action === "create-repair") await app.execution.createRepair({ ...request, defect: notes });
   else if (action === "close") await app.execution.close(request);
   else if (action === "save-acceptance" && input.acceptance) await app.execution.saveAcceptance(input.acceptance);

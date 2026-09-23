@@ -15,6 +15,7 @@ export interface RoutedWorkflowInput {
   expectedRevision?: number;
   disposition?: DocumentDispositionStatus;
   notes?: string;
+  repairDefectText?: string;
   selection?: CodexModelSelection;
   validation?: "ValidatePassed" | "RequestRepair";
   acceptance?: RoutedAcceptanceInput;
@@ -38,7 +39,7 @@ export interface RoutedWorkflowModel {
   execution?: RoutedDevelopmentExecutionProjection;
   integration?: RoutedIntegrationProjection;
   repair?: IntegrationRepairAttempt;
-  current?: { workItemId: string; implementationId: string; phaseId?: string; contractTargetPath?: string; contract?: RoutedWorkflowDocument; report?: RoutedWorkflowDocument; reportTargetPath?: string };
+  current?: { workItemId: string; implementationId: string; phaseId?: string; repairId?: string; contractTargetPath?: string; contract?: RoutedWorkflowDocument; report?: RoutedWorkflowDocument; reportTargetPath?: string };
   implementer?: CodexImplementerExecutionModel;
   feedback?: string;
 }

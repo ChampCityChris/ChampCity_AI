@@ -3435,8 +3435,16 @@
           "description": "Approved Research assessment navigates directly to Integration without Plan or Execution; integration retains Research wording"
         },
         {
+          "behaviorId": "routed-acceptance-opens-boundary-evidence-workspace",
+          "description": "Eligible Phase and Plan acceptance use a dedicated evidence workspace with explicit disposition"
+        },
+        {
           "behaviorId": "routed-architect-attachment-follows-stage-evidence-and-preserves-peer-workflows",
           "description": "Architect attachment follows routed availability and preserves existing Development and Issue attachment"
+        },
+        {
+          "behaviorId": "routed-close-returns-to-work-item-map",
+          "description": "Routed Close presents current evidence and returns to the Work Item Map"
         },
         {
           "behaviorId": "routed-execution-opens-work-item-map-with-seven-task-loop",
@@ -3461,6 +3469,14 @@
         {
           "behaviorId": "routed-rail-presents-six-ordered-stages-and-blockers",
           "description": "Routed rail presents six ordered stages and accessible blockers"
+        },
+        {
+          "behaviorId": "routed-repair-is-separate-architect-step",
+          "description": "Routed Repair has its own Architect workspace with governing evidence and Work Card disposition"
+        },
+        {
+          "behaviorId": "routed-review-selects-evidence-and-operator-validation",
+          "description": "Routed Review selects Work Card and report evidence and offers explicit Operator validation"
         },
         {
           "behaviorId": "routed-work-card-prepare-and-copy-are-separate-actions",
@@ -15291,8 +15307,8 @@
     {
       "testPath": "test/renderer/work-intake-routed-workspaces.test.cjs",
       "currentTestCount": {
-        "value": 20,
-        "basis": "Observed WIR-UX05A focused Windows run."
+        "value": 24,
+        "basis": "Observed WIR-UX05B focused Windows run."
       },
       "duration": {
         "kind": "measured",
@@ -15373,8 +15389,20 @@
         },
         {
           "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "routed-acceptance-opens-boundary-evidence-workspace",
+          "proofLocator": "eligible Phase and Plan acceptance use their own evidence workspace",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "routed-architect-attachment-follows-stage-evidence-and-preserves-peer-workflows",
           "proofLocator": "Architect attachment follows available routed stages and preserves Development and Issue cases",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "routed-close-returns-to-work-item-map",
+          "proofLocator": "routed Close presents its evidence and returns to the Work Item Map",
           "proofRole": "primary"
         },
         {
@@ -15411,6 +15439,18 @@
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "routed-rail-presents-six-ordered-stages-and-blockers",
           "proofLocator": "routed rail has exact stage order and explains blocked stages",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "routed-repair-is-separate-architect-step",
+          "proofLocator": "routed Repair is a separate Architect step with Prepare Copy Refresh and disposition",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "routed-review-selects-evidence-and-operator-validation",
+          "proofLocator": "routed Review selects evidence and offers explicit Operator validation",
           "proofRole": "primary"
         },
         {

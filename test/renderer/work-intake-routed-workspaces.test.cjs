@@ -19,6 +19,10 @@ const { RoutedExecutionWorkspace, requiredRoutedExecutionStep } = loadRendererSo
 const { RoutedWorkItemMapWorkspace } = loadRendererSourceModule("src/renderer/app/RoutedWorkItemMapWorkspace.tsx");
 const { RoutedWorkItemPlanningWorkspace } = loadRendererSourceModule("src/renderer/app/RoutedWorkItemPlanningWorkspace.tsx");
 const { RoutedImplementWorkspace } = loadRendererSourceModule("src/renderer/app/RoutedImplementWorkspace.tsx");
+const { RoutedReviewValidationWorkspace } = loadRendererSourceModule("src/renderer/app/RoutedReviewValidationWorkspace.tsx");
+const { RoutedRepairWorkspace } = loadRendererSourceModule("src/renderer/app/RoutedRepairWorkspace.tsx");
+const { RoutedCloseWorkspace } = loadRendererSourceModule("src/renderer/app/RoutedCloseWorkspace.tsx");
+const { RoutedAcceptanceWorkspace } = loadRendererSourceModule("src/renderer/app/RoutedAcceptanceWorkspace.tsx");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -328,6 +332,68 @@ test("routed Work Card Prepare and Copy are separate service actions", async (t)
   const copied = await runRoutedWorkflow(fixture.root, fixture.intake.intakeId, "copy", {
     workItemId: "WI01", expectedFingerprint: prepared.model.execution.fingerprint });
   assert.match(copied.instruction, /Formal Work Card|Work Card/);
+});
+
+const reviewedModel = { ...executionModel, actions: ["review-report", "advisory-review", "validate"],
+  current: { ...executionModel.current, contract: { path: "planning/work-card.md", body: "# Approved card", revision: 1, disposition: "Approved" },
+    report: { path: "planning/implementer-report.md", body: "# Delivered work", revision: 1, disposition: "Approved" } } };
+
+test("routed Review selects evidence and offers explicit Operator validation", () => {
+  const markup = renderToStaticMarkup(withState(["report", "", "", ""], () => RoutedReviewValidationWorkspace({
+    model: reviewedModel, browserPanel: React.createElement("div", null, "Embedded ChatGPT browser"), busy: false, error: "",
+    onAction() {}, onReloadBrowser() {} })));
+  assert.match(markup, /Approved Work Card|Implementer Report|Delivered work|Validate Passed|Request Repair/);
+  assert.match(markup, /Copy advisory review handoff|Embedded ChatGPT browser|Report review/);
+  assert.doesNotMatch(markup, /Begin bounded Repair|Close Work Item|Save Plan evidence/);
+});
+
+test("routed Repair is a separate Architect step with Prepare Copy Refresh and disposition", () => {
+  const model = { ...reviewedModel, actions: ["prepare", "copy", "check-draft", "review-contract"],
+    current: { ...reviewedModel.current, repairId: "R01", implementationId: "R01",
+      contractTargetPath: "planning/repair-card.md",
+      contract: { path: "planning/repair-card.md", body: "# Repair Work Card", revision: 1, disposition: "Pending" } } };
+  const markup = renderToStaticMarkup(withState(["repair-card", ""], () => RoutedRepairWorkspace({ model,
+    browserPanel: React.createElement("div", null, "Embedded ChatGPT browser"), busy: false, error: "",
+    onAction() {}, onReloadBrowser() {} })));
+  assert.match(markup, /Repair Work Card|Governing Implementer Report|Embedded ChatGPT browser/);
+  assert.match(markup, /Prepare Handoff|Copy Handoff|Refresh|Approve Repair Work Card|Request Revision/);
+  assert.doesNotMatch(markup, /Close Work Item|Save Plan evidence|Integrate completed/);
+  assert.equal(requiredRoutedExecutionStep(model), "repair");
+});
+
+test("routed Close presents its evidence and returns to the Work Item Map", async () => {
+  const model = { ...reviewedModel, actions: ["close"], execution: { ...executionModel.execution,
+    workItems: [{ ...executionModel.execution.workItems[0], stage: "close" }] } };
+  const markup = renderToStaticMarkup(RoutedCloseWorkspace({ model, busy: false, error: "", onAction() {}, onReturnMap() {} }));
+  assert.match(markup, /Close Evidence|Close Work Item|Return to Work Item Map|Next eligible Work Item/);
+  assert.doesNotMatch(markup, /Validate Passed|Prepare Handoff|Integrate completed/);
+  const originalWindow = global.window;
+  const steps = [];
+  global.window = { champcity: { async runRoutedWorkflow() { return { ...model, actions: [], current: null }; } } };
+  try {
+    const parent = withState([model, executionPlan, "close-next", false, ""], () => RoutedExecutionWorkspace({
+      intakeId: "intake-1", selectedWorkItemId: "WI01", browserPanel: null, onSelectWorkItem() {}, onDecompose() {},
+      onReloadBrowser() {}, onStepChange: (step) => steps.push(step), onIntegration() {} }));
+    const close = elements(parent).find((entry) => entry.type?.name === "RoutedCloseWorkspace");
+    assert.ok(close);
+    close.props.onAction("close");
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(steps, ["map"]);
+  } finally { global.window = originalWindow; }
+});
+
+test("eligible Phase and Plan acceptance use their own evidence workspace", () => {
+  const boundary = { boundary: { kind: "phase", phaseId: "P01" }, relativePath: "planning/phase-acceptance.md",
+    acceptanceCriteria: ["Navigation works"], eligible: true, fresh: true, reasons: [], artifactRevision: 1,
+    disposition: "Pending", criteria: [{ criterion: "Navigation works", status: "passed", evidencePaths: ["planning/report.md"] }] };
+  const model = { ...reviewedModel, current: null, actions: ["save-acceptance", "review-acceptance"],
+    execution: { ...executionModel.execution, acceptance: [boundary] } };
+  const markup = renderToStaticMarkup(withState(["", "Ready", []], () => RoutedAcceptanceWorkspace({ model,
+    busy: false, error: "", onAction() {}, onReturnMap() {}, onIntegration() {} })));
+  assert.match(markup, /Phase P01 acceptance|Navigation works|Save Phase P01 evidence|Approve Phase P01 acceptance|Request Revision/);
+  assert.match(markup, /Return to Work Item Map|Acceptance document details/);
+  assert.doesNotMatch(markup, /Validate Passed|Prepare Handoff|Close Work Item/);
+  assert.equal(requiredRoutedExecutionStep(model), "acceptance");
 });
 
 test("routed Issue bridge opens one Issue then continues the same Issue without duplicate RCA controls", async () => {

@@ -5,7 +5,10 @@ import { ContextLoopBar, type ContextLoopItem } from "./ContextLoopBar";
 import { RoutedWorkItemMapWorkspace } from "./RoutedWorkItemMapWorkspace";
 import { RoutedWorkItemPlanningWorkspace } from "./RoutedWorkItemPlanningWorkspace";
 import { RoutedImplementWorkspace } from "./RoutedImplementWorkspace";
-import { RoutedExecutionPanel } from "./RoutedExecutionPanel";
+import { RoutedReviewValidationWorkspace } from "./RoutedReviewValidationWorkspace";
+import { RoutedRepairWorkspace } from "./RoutedRepairWorkspace";
+import { RoutedCloseWorkspace } from "./RoutedCloseWorkspace";
+import { RoutedAcceptanceWorkspace } from "./RoutedAcceptanceWorkspace";
 
 export type RoutedExecutionStepId = "map" | "planning" | "implement" | "review-validation" | "repair" | "close-next" | "acceptance";
 
@@ -19,6 +22,7 @@ const stepDefinitions: readonly { id: RoutedExecutionStepId; label: string }[] =
 export function requiredRoutedExecutionStep(model: RoutedWorkflowModel | null): RoutedExecutionStepId {
   if (!model?.execution || !model.current) return model?.execution?.acceptance.some((entry) => entry.eligible) ? "acceptance" : "map";
   if (model.actions.includes("begin")) return "map";
+  if (model.current.repairId && model.actions.some((action) => ["prepare", "copy", "check-draft", "review-contract"].includes(action))) return "repair";
   if (model.actions.some((action) => ["prepare", "copy", "check-draft", "review-contract"].includes(action))) return "planning";
   if (model.implementer?.state === "running" || model.actions.includes("implement") || model.actions.includes("resolve-environment")) return "implement";
   if (model.actions.includes("create-repair")) return "repair";
@@ -27,7 +31,7 @@ export function requiredRoutedExecutionStep(model: RoutedWorkflowModel | null): 
   return "map";
 }
 
-export function RoutedExecutionWorkspace({ intakeId, selectedWorkItemId, browserPanel, onSelectWorkItem, onDecompose, onReloadBrowser, onStepChange }: {
+export function RoutedExecutionWorkspace({ intakeId, selectedWorkItemId, browserPanel, onSelectWorkItem, onDecompose, onReloadBrowser, onStepChange, onIntegration }: {
   intakeId: string;
   selectedWorkItemId: string | null;
   browserPanel: ReactNode;
@@ -35,6 +39,7 @@ export function RoutedExecutionWorkspace({ intakeId, selectedWorkItemId, browser
   onDecompose: (workItemId: string) => void;
   onReloadBrowser: () => void;
   onStepChange: (step: RoutedExecutionStepId) => void;
+  onIntegration: () => void;
 }): JSX.Element {
   const [model, setModel] = useState<RoutedWorkflowModel | null>(null);
   const [plan, setPlan] = useState<WorkPlanningModel | null>(null);
@@ -75,7 +80,8 @@ export function RoutedExecutionWorkspace({ intakeId, selectedWorkItemId, browser
       });
       setModel(next);
       if (next.execution?.nextWorkItemId && next.execution.nextWorkItemId !== selectedWorkItemId) onSelectWorkItem(next.execution.nextWorkItemId);
-      changeStep(action === "activate" || action === "close" ? "map" : requiredRoutedExecutionStep(next));
+      if (action === "review-acceptance" && next.integration && next.execution?.complete) onIntegration();
+      else changeStep(action === "activate" || action === "close" ? "map" : action === "save-acceptance" ? "acceptance" : requiredRoutedExecutionStep(next));
     } catch (failure) { setError(failure instanceof Error ? failure.message : "Routed Work Item action failed."); }
     finally { setBusy(false); }
   }
@@ -88,9 +94,9 @@ export function RoutedExecutionWorkspace({ intakeId, selectedWorkItemId, browser
     const available = definition.id === "map" || definition.id === "planning" && Boolean(current && !model?.actions.includes("begin"))
       || definition.id === "implement" && Boolean(model?.implementer)
       || definition.id === "review-validation" && Boolean(current?.report)
-      || definition.id === "repair" && Boolean(model?.actions.includes("create-repair"))
+      || definition.id === "repair" && Boolean(current?.repairId || model?.actions.includes("create-repair"))
       || definition.id === "close-next" && Boolean(model?.actions.includes("close"))
-      || definition.id === "acceptance" && Boolean(model?.execution?.acceptance.some((entry) => entry.eligible));
+      || definition.id === "acceptance" && Boolean(model?.execution?.acceptance.some((entry) => entry.eligible || entry.artifactRevision));
     return { id: definition.id, label: definition.label, fullLabel: definition.label, destination: definition.id,
       available, reason: "Complete the preceding Work Item task first.",
       stateFor: (active) => active === definition.id ? "exact" : "available" };
@@ -107,6 +113,14 @@ export function RoutedExecutionWorkspace({ intakeId, selectedWorkItemId, browser
         onReloadBrowser={onReloadBrowser} onAction={(action, input) => void run(action, input)} onDecompose={onDecompose} />
         : step === "implement" ? <RoutedImplementWorkspace model={model} busy={busy} error={error}
           onAction={(action, input) => void run(action, input)} />
-          : <RoutedExecutionPanel intakeId={intakeId} />}
+          : step === "review-validation" ? <RoutedReviewValidationWorkspace model={model} browserPanel={browserPanel}
+            busy={busy} error={error} onReloadBrowser={onReloadBrowser} onAction={(action, input) => void run(action, input)} />
+            : step === "repair" ? <RoutedRepairWorkspace model={model} browserPanel={browserPanel}
+              busy={busy} error={error} onReloadBrowser={onReloadBrowser} onAction={(action, input) => void run(action, input)} />
+              : step === "close-next" ? <RoutedCloseWorkspace model={model} busy={busy} error={error}
+                onReturnMap={() => changeStep("map")} onAction={(action, input) => void run(action, input)} />
+                : <RoutedAcceptanceWorkspace model={model} busy={busy} error={error}
+                  onReturnMap={() => changeStep("map")} onIntegration={onIntegration}
+                  onAction={(action, input) => void run(action, input)} />}
   </section>;
 }

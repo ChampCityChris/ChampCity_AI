@@ -8599,6 +8599,56 @@ body {
   min-width: 0;
 }
 
+.routed-review-workspace,
+.routed-repair-workspace,
+.routed-close-workspace,
+.routed-acceptance-workspace {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-width: 0;
+  padding: 16px;
+}
+
+.routed-review-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+  gap: 16px;
+  min-width: 0;
+}
+
+.routed-review-layout > div,
+.routed-review-architect {
+  min-width: 0;
+}
+
+.routed-review-architect {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+}
+
+.routed-acceptance-body {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.35fr) minmax(0, 1fr);
+  gap: 16px;
+  min-width: 0;
+}
+
+.routed-acceptance-body nav {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.routed-acceptance-criterion {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+
 @media (max-width: 900px) {
   .work-routing-workspace .work-intake-doc-chat-workspace,
   .work-routed-planning-workspace .work-intake-doc-chat-workspace,
@@ -8607,7 +8657,9 @@ body {
     overflow-y: auto;
   }
 
-  .routed-work-item-map-body {
+  .routed-work-item-map-body,
+  .routed-review-layout,
+  .routed-acceptance-body {
     grid-template-columns: minmax(0, 1fr);
   }
 }
