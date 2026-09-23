@@ -133,13 +133,14 @@ test("Operator route decisions preserve authority, revisions and branch while re
   const React = require("react");
   const { renderToStaticMarkup } = require("react-dom/server");
   const { loadRendererSourceModule } = require("../renderer/renderer-source-loader.cjs");
-  const { WorkRouteDecisionControls } = loadRendererSourceModule("src/renderer/app/WorkRouteDecisionPanel.tsx");
-  const renderControls = (routeModel) => renderToStaticMarkup(React.createElement(WorkRouteDecisionControls, {
-    model: routeModel, selected: routeModel.selection?.selectedRouteId ?? "feature-change", rationale: "Operator rationale", busy: false,
-    onRationaleChange() {}, onSelectedChange() {}, onDecide() {},
+  const { WorkRoutingDecisionControls } = loadRendererSourceModule("src/renderer/app/WorkRoutingWorkspace.tsx");
+  const renderControls = (routeModel) => renderToStaticMarkup(React.createElement(WorkRoutingDecisionControls, {
+    assessment: { assessment: routeModel.recommendation ?? { recommendedRouteId: "feature-change" } },
+    model: routeModel, selectedRoute: routeModel.selection?.selectedRouteId ?? "feature-change", rationale: "Operator rationale", busy: false,
+    onRationaleChange() {}, onSelectedRouteChange() {}, onDecide() {},
   }));
-  for (const pendingModel of [initialPendingModel, retainedPendingModel, revisionPendingModel]) assert.match(renderControls(pendingModel), /Accept recommendation/);
-  for (const resolvedModel of [sameRouteResolvedModel, model, { ...revisionPendingModel, state: "stale" }]) assert.doesNotMatch(renderControls(resolvedModel), /Accept recommendation|Decision rationale|Override with route/);
+  for (const pendingModel of [initialPendingModel, retainedPendingModel, revisionPendingModel]) assert.match(renderControls(pendingModel), /Accept Recommendation/);
+  for (const resolvedModel of [sameRouteResolvedModel, model, { ...revisionPendingModel, state: "stale" }]) assert.doesNotMatch(renderControls(resolvedModel), /Accept Recommendation|Decision rationale|Override Route/);
 
   const restored = await api.getWorkRouteDecision(intake.intakeId);
   assert.deepEqual(restored.selection, model.selection);

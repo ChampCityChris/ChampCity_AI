@@ -8489,3 +8489,37 @@ body {
   min-width: 0;
   padding: 8px 12px;
 }
+
+.work-routing-workspace .work-intake-doc-chat-workspace {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  overflow: hidden;
+  padding: 12px;
+}
+
+.work-routing-workspace .work-intake-document-column,
+.work-routing-workspace .work-intake-browser-column {
+  min-height: 0;
+}
+
+.work-routing-workspace .figma-browser-actions-row {
+  flex-wrap: wrap;
+}
+
+.work-routing-decision .figma-disposition-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 10px;
+}
+
+.work-routing-decision textarea,
+.work-routing-decision select {
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .work-routing-workspace .work-intake-doc-chat-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-y: auto;
+  }
+}

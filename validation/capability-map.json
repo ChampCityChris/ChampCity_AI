@@ -3416,6 +3416,18 @@
           "description": "Routed rail presents six ordered stages and accessible blockers"
         },
         {
+          "behaviorId": "routing-workspace-decision-refreshes-navigation",
+          "description": "A current Operator route decision requests routed navigation refresh"
+        },
+        {
+          "behaviorId": "routing-workspace-hides-disposition-before-assessment",
+          "description": "Routing shows human handoff state and embedded Architect without premature route disposition"
+        },
+        {
+          "behaviorId": "routing-workspace-presents-current-recommendation-and-decision",
+          "description": "Current Routing assessment presents a readable recommendation and explicit route decision"
+        },
+        {
           "behaviorId": "saved-work-intake-does-not-nest-routing-lifecycle",
           "description": "Saved Work Intake confirms capture without nesting the later routing lifecycle"
         },
@@ -15222,8 +15234,8 @@
     {
       "testPath": "test/renderer/work-intake-routed-workspaces.test.cjs",
       "currentTestCount": {
-        "value": 4,
-        "basis": "Observed WIR-UX01 focused Windows run."
+        "value": 7,
+        "basis": "Observed WIR-UX02 focused Windows run."
       },
       "duration": {
         "kind": "measured",
@@ -15282,6 +15294,24 @@
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "routed-rail-presents-six-ordered-stages-and-blockers",
           "proofLocator": "routed rail has exact stage order and explains blocked stages",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "routing-workspace-decision-refreshes-navigation",
+          "proofLocator": "route decision completion refreshes and advances routed navigation",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "routing-workspace-hides-disposition-before-assessment",
+          "proofLocator": "Routing Workspace shows the embedded Architect slot and human handoff state without nested lifecycle",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "routing-workspace-presents-current-recommendation-and-decision",
+          "proofLocator": "current assessment exposes recommendation and explicit route disposition",
           "proofRole": "primary"
         },
         {

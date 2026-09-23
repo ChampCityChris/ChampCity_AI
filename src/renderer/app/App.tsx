@@ -140,7 +140,7 @@ import { LandingWorkspace } from "./LandingWorkspace";
 import { WorkflowHubWorkspace } from "./WorkflowHubWorkspace";
 import { WorkIntakeWorkspace } from "./WorkIntakeWorkspace";
 import { WorkIntakeRoutingRail } from "./WorkIntakeRoutingRail";
-import { WorkRoutingAssessmentPanel } from "./WorkRoutingAssessmentPanel";
+import { WorkRoutingWorkspace } from "./WorkRoutingWorkspace";
 import { WorkPlanningPanel } from "./WorkPlanningPanel";
 import { RoutedExecutionPanel } from "./RoutedExecutionPanel";
 import { DocumentChatWorkspaceShell } from "./DocumentChatWorkspaceShell";
@@ -2730,7 +2730,7 @@ export function App(): JSX.Element {
     }
   }
 
-  async function refreshWorkIntakeNavigation(intakeId = selectedWorkIntakeId): Promise<void> {
+  async function refreshWorkIntakeNavigation(intakeId = selectedWorkIntakeId, advance = false): Promise<void> {
     const [projection, navigation] = await Promise.all([
       window.champcity.getWorkIntakeProjection(),
       window.champcity.getWorkIntakeNavigation(intakeId ?? undefined),
@@ -2738,7 +2738,7 @@ export function App(): JSX.Element {
     setWorkIntakeProjection(projection);
     setWorkIntakeNavigation(navigation);
     setSelectedWorkIntakeId(navigation.intakeId);
-    setActiveWorkIntakeStageId((current) => navigation.stages.some((stage) => stage.stageId === current && stage.available)
+    setActiveWorkIntakeStageId((current) => !advance && navigation.stages.some((stage) => stage.stageId === current && stage.available)
       ? current : navigation.requiredStageId);
   }
 
@@ -4013,7 +4013,15 @@ export function App(): JSX.Element {
                   await refreshWorkIntakeNavigation(intakeId);
                   setActiveWorkIntakeStageId("routing");
                 }} />
-            ) : ["routing", "assessment", "plan"].includes(activeWorkIntakeStageId) ? (
+            ) : activeWorkIntakeStageId === "routing" ? (
+              <WorkRoutingWorkspace intake={workIntakeProjection.intakes.find((entry) => entry.intakeId === selectedWorkIntakeId)!}
+                browserPanel={isArchitectPaneVisible ? <FigmaBrowserPanel hostRef={architectHostRef}
+                  onReload={() => void reloadArchitectBrowser()} onRetry={() => void retryArchitectBrowser()}
+                  retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
+                  statusLabel={architectBrowserPresentation(architectStatus).label} /> : null}
+                onReloadBrowser={() => void reloadArchitectBrowser()}
+                onNavigationRefresh={(advance) => refreshWorkIntakeNavigation(selectedWorkIntakeId, advance)} />
+            ) : ["assessment", "plan"].includes(activeWorkIntakeStageId) ? (
               <DocumentChatWorkspaceShell
                 bodyClassName="work-intake-doc-chat-workspace" browserColumnClassName="work-intake-browser-column"
                 className="work-intake-stage-workspace" documentColumnClassName="work-intake-document-column"
@@ -4024,10 +4032,7 @@ export function App(): JSX.Element {
                   retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
                   statusLabel={architectBrowserPresentation(architectStatus).label} /> : null}
                 browserActions={null}
-                documentColumn={activeWorkIntakeStageId === "routing" ? (
-                  <WorkRoutingAssessmentPanel intakeId={selectedWorkIntakeId} showNextStages={false}
-                    onNavigationChange={() => void refreshWorkIntakeNavigation()} />
-                ) : <WorkPlanningPanel key={`${selectedWorkIntakeId}:${activeWorkIntakeStageId}`}
+                documentColumn={<WorkPlanningPanel key={`${selectedWorkIntakeId}:${activeWorkIntakeStageId}`}
                   intakeId={selectedWorkIntakeId} fixedStage={activeWorkIntakeStageId === "plan" ? "plan" : "assessment"}
                   onNavigationChange={() => void refreshWorkIntakeNavigation()} />}
               />
