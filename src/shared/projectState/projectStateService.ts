@@ -1,10 +1,24 @@
 import type { DispositionState, EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef, ProjectId, ProjectStateEntity, ProjectStateRecord, TestLifecycleAssessmentStatus, ValidationMode, WorkflowState, WorkIntakeState, WorkRoute } from "./domainContracts";
 import { assertSupersession } from "./domainInvariants";
 import { createProjectStateEntity, ENTITY_TYPE_REGISTRY, ProjectStateDomainError, validateProjectStateEntity } from "./entityTypeRegistry";
-import { createRelationship as createDomainRelationship, type ProjectStateRelationship, type RelationshipType } from "./relationshipRegistry";
+import { createRelationship as createDomainRelationship, RELATIONSHIP_REGISTRY, type ProjectStateRelationship, type RelationshipType } from "./relationshipRegistry";
 import type { ProjectStateStore, ProjectStateUnitOfWork, StateChange } from "./projectStateStore";
 
-export interface RecordQuery { entityType?: EntityType; lifecycleState?: LifecycleState; limit?: number }
+export interface RecordQuery { entityType?: EntityType; lifecycleState?: LifecycleState; workflowId?: EntityId; workItemId?: EntityId; decisionId?: EntityId; decisionOutcome?: string; dispositionState?: DispositionState; updatedFrom?: string; updatedThrough?: string; relatedTo?: EntityId; relationshipType?: RelationshipType; relationshipDirection?: "from" | "to" | "either"; current?: boolean; offset?: number; limit?: number }
+export interface RecordQueryPage { records: ProjectStateEntity[]; offset: number; limit: number; totalMatches: number; truncated: boolean; nextOffset: number | null }
+export interface CurrentProjectStateView {
+  project: ProjectStateRecord<"Project">;
+  sections: Record<string, { offset: number; limit: number; total: number; truncated: boolean; nextOffset: number | null }>;
+  workIntakes: { id: EntityId; state: WorkIntakeState; workflowId: EntityId | null; route: CurrentWorkRoute | null }[];
+  workflows: { id: EntityId; state: WorkflowState; governingEntityId: EntityId }[];
+  phases: { id: EntityId; state: EntityBodyMap["Phase"]["phaseState"]; sequence: number; workItemIds: EntityId[] }[];
+  workItems: { id: EntityId; state: EntityBodyMap["WorkItem"]["workState"]; kind: EntityBodyMap["WorkItem"]["workItemKind"]; repairTargetIds: EntityId[]; latestImplementationId: EntityId | null; latestValidationId: EntityId | null }[];
+  decisions: { id: EntityId; outcome: string; targetIds: EntityId[]; effectiveAt: string }[];
+  validations: { id: EntityId; targetId: EntityId; targetVersion: number; outcome: EntityBodyMap["Validation"]["outcome"]; sourceBaselineRef: string | null }[];
+  sourceBindings: { id: EntityId; workIntakeId: EntityId; preparationState: EntityBodyMap["SourceBinding"]["preparationState"]; repositoryId: string; currentRevisionId: string | null }[];
+  sourceCheckpoints: { id: EntityId; workIntakeId: EntityId; state: EntityBodyMap["SourceCheckpoint"]["checkpointState"]; expectedRevisionId: string; resultingRevisionId: string | null }[];
+  integrations: { id: EntityId; workIntakeId: EntityId; state: EntityBodyMap["IntegrationRecord"]["integrationState"]; outcome: EntityBodyMap["IntegrationRecord"]["outcome"]; incomingRevisionId: string; resultRevisionId: string | null }[];
+}
 export interface ProjectStateSummary { projectId: ProjectId; totalRecords: number; activeRecords: number; countsByType: Partial<Record<EntityType, number>> }
 export interface RecordHistory { lineageId: string; records: ProjectStateEntity[] }
 export interface RecordLineage { records: ProjectStateEntity[]; relationships: ProjectStateRelationship[] }
@@ -849,13 +863,127 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   async function getRecord(projectId: ProjectId, entityId: EntityId) { return store.getEntity(projectId, entityId); }
-  async function queryRecords(projectId: ProjectId, query: RecordQuery = {}) {
-    exactInput(query, ["entityType", "lifecycleState", "limit"]);
+  async function queryRecordsPage(projectId: ProjectId, query: RecordQuery = {}): Promise<RecordQueryPage> {
+    exactInput(query, ["entityType", "lifecycleState", "workflowId", "workItemId", "decisionId", "decisionOutcome", "dispositionState", "updatedFrom", "updatedThrough", "relatedTo", "relationshipType", "relationshipDirection", "current", "offset", "limit"]);
     if (query.entityType !== undefined && !Object.hasOwn(ENTITY_TYPE_REGISTRY, query.entityType)) fail("Unregistered Project State entity type.");
     if (query.lifecycleState !== undefined && !["active", "closed", "archived", "superseded", "voided"].includes(query.lifecycleState)) fail("Unsupported lifecycle state.");
+    if (query.relationshipType !== undefined && !Object.hasOwn(RELATIONSHIP_REGISTRY, query.relationshipType)) fail("Unregistered relationship type.");
+    if (query.relationshipDirection !== undefined && !["from", "to", "either"].includes(query.relationshipDirection)) fail("Unsupported relationship direction.");
+    if (query.current !== undefined && typeof query.current !== "boolean") fail("Current filter must be boolean.");
+    if (query.current === true && query.lifecycleState === "superseded") fail("Current and superseded filters conflict.");
+    if (query.decisionOutcome !== undefined && (typeof query.decisionOutcome !== "string" || !query.decisionOutcome)) fail("Decision outcome filter must be text.");
+    if (query.dispositionState !== undefined && !dispositionOutcomes.has(query.dispositionState) && query.dispositionState !== "none") fail("Unsupported disposition state.");
+    for (const time of [query.updatedFrom, query.updatedThrough]) if (time !== undefined && !canonicalInstant(time)) fail("Query time must be canonical UTC.");
+    if (query.updatedFrom && query.updatedThrough && query.updatedFrom > query.updatedThrough) fail("Query time range is reversed.");
     const limit = query.limit ?? 100;
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) fail("Query limit must be between 1 and 100.");
-    return (await store.listEntities(projectId, query.entityType)).filter(record => !query.lifecycleState || record.lifecycleState === query.lifecycleState).slice(0, limit);
+    const offset = query.offset ?? 0;
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset > 10_000) fail("Query offset must be between 0 and 10000.");
+    const idFilters = [query.workflowId, query.workItemId, query.decisionId, query.relatedTo].filter((id): id is EntityId => id !== undefined);
+    for (const id of idFilters) if (typeof id !== "string" || !await store.getEntity(projectId, id)) fail("Query filter identity does not exist in this Project.");
+    for (const [id, type] of [[query.workflowId, "Workflow"], [query.workItemId, "WorkItem"], [query.decisionId, "Decision"]] as const) {
+      if (id && (await store.getEntity(projectId, id))?.entityType !== type) fail(`Query ${type} filter has the wrong entity type.`);
+    }
+    const edges = idFilters.length || query.relationshipType ? (await store.listRelationships(projectId)).filter(edge => !edge.endedAt) : [];
+    const connected = (id: EntityId, target: EntityId) => id === target || edges.some(edge => (edge.fromEntityId === id && edge.toEntityId === target) || (edge.toEntityId === id && edge.fromEntityId === target));
+    const workflowMembers = new Set<EntityId>([query.workflowId].filter((id): id is EntityId => !!id));
+    if (query.workflowId) for (const edge of edges) if ((edge.relationshipType === "initiates" || edge.relationshipType === "owns_workflow") && edge.toEntityId === query.workflowId) workflowMembers.add(edge.fromEntityId);
+    if (query.workflowId) for (let pass = 0; pass < edges.length + 1; pass++) {
+      const size = workflowMembers.size;
+      for (const edge of edges) if (edge.relationshipType === "part_of" && workflowMembers.has(edge.toEntityId)) workflowMembers.add(edge.fromEntityId);
+      if (workflowMembers.size === size) break;
+    }
+    const decisionMembers = new Set<EntityId>([query.decisionId].filter((id): id is EntityId => !!id));
+    if (query.decisionId) for (const edge of edges) if (edge.relationshipType === "governs" && edge.fromEntityId === query.decisionId) decisionMembers.add(edge.toEntityId);
+    const relationshipMatches = (recordId: EntityId) => !query.relatedTo && !query.relationshipType ? true : edges.some(edge => {
+      if (query.relationshipType && edge.relationshipType !== query.relationshipType) return false;
+      const outbound = edge.fromEntityId === recordId && (!query.relatedTo || edge.toEntityId === query.relatedTo);
+      const inbound = edge.toEntityId === recordId && (!query.relatedTo || edge.fromEntityId === query.relatedTo);
+      return query.relationshipDirection === "from" ? outbound : query.relationshipDirection === "to" ? inbound : outbound || inbound;
+    });
+    let matches = (await store.listEntities(projectId, query.entityType)).filter(record =>
+      (!query.lifecycleState || record.lifecycleState === query.lifecycleState)
+      && (query.current === undefined || (query.current ? record.lifecycleState !== "superseded" && record.lifecycleState !== "voided" : record.lifecycleState === "superseded"))
+      && (!query.updatedFrom || record.updatedAt >= query.updatedFrom)
+      && (!query.updatedThrough || record.updatedAt <= query.updatedThrough)
+      && (!query.workflowId || workflowMembers.has(record.id) || edges.some(edge => workflowMembers.has(edge.fromEntityId) && edge.toEntityId === record.id || workflowMembers.has(edge.toEntityId) && edge.fromEntityId === record.id))
+      && (!query.workItemId || connected(record.id, query.workItemId) || record.entityType === "ImplementationRecord" && record.body.workItemId === query.workItemId || record.entityType === "RegressionObligation" && record.body.sourceWorkItemId === query.workItemId)
+      && (!query.decisionId || decisionMembers.has(record.id))
+      && (!query.decisionOutcome || record.entityType === "Decision" && record.body.outcome === query.decisionOutcome)
+      && relationshipMatches(record.id));
+    if (query.dispositionState) {
+      const filtered: ProjectStateEntity[] = [];
+      for (const record of matches) if ((await getEffectiveDisposition(projectId, record.id)).state === query.dispositionState) filtered.push(record);
+      matches = filtered;
+    }
+    matches.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt) || a.id.localeCompare(b.id));
+    const totalMatches = matches.length;
+    const records = matches.slice(offset, offset + limit);
+    const nextOffset = offset + records.length < totalMatches ? offset + records.length : null;
+    return { records, offset, limit, totalMatches, truncated: nextOffset !== null, nextOffset };
+  }
+  async function queryRecords(projectId: ProjectId, query: RecordQuery = {}) { return (await queryRecordsPage(projectId, query)).records; }
+
+  async function getCurrentProjectStateView(projectId: ProjectId, options: { limitPerSection?: number; offset?: number } = {}): Promise<CurrentProjectStateView> {
+    exactInput(options, ["limitPerSection", "offset"]);
+    const limit = options.limitPerSection ?? 50;
+    const offset = options.offset ?? 0;
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) fail("View section limit must be between 1 and 100.");
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset > 10_000) fail("View offset must be between 0 and 10000.");
+    const project = await store.getProject(projectId);
+    if (!project) fail("Project does not exist.");
+    const all = (await store.listEntities(projectId)).filter(record => record.lifecycleState !== "superseded" && record.lifecycleState !== "voided")
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+    const edges = (await store.listRelationships(projectId)).filter(edge => !edge.endedAt);
+    const sections: CurrentProjectStateView["sections"] = {};
+    const section = <T extends EntityType>(type: T): ProjectStateRecord<T>[] => {
+      const matching = all.filter(record => record.entityType === type);
+      const items = matching.slice(offset, offset + limit) as ProjectStateRecord<T>[];
+      const nextOffset = offset + items.length < matching.length ? offset + items.length : null;
+      sections[type] = { offset, limit, total: matching.length, truncated: nextOffset !== null, nextOffset };
+      return items;
+    };
+    const intakes = section("WorkIntake");
+    const workflows = section("Workflow");
+    const phases = section("Phase");
+    const workItems = section("WorkItem");
+    const decisions = section("Decision");
+    const validations = section("Validation");
+    const bindings = section("SourceBinding");
+    const checkpoints = section("SourceCheckpoint");
+    const integrations = section("IntegrationRecord");
+    const implementations = all.filter((record): record is ProjectStateRecord<"ImplementationRecord"> => record.entityType === "ImplementationRecord");
+    const allValidations = all.filter((record): record is ProjectStateRecord<"Validation"> => record.entityType === "Validation");
+    const latest = <T extends { id: string; createdAt: string }>(records: T[]) => records.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)).at(-1)?.id ?? null;
+    const intakeViews = [] as CurrentProjectStateView["workIntakes"];
+    for (const intake of intakes) {
+      intakeViews.push({ id: intake.id, state: intake.body.intakeState,
+        workflowId: edges.find(edge => edge.relationshipType === "initiates" && edge.fromEntityId === intake.id)?.toEntityId ?? null,
+        route: await getCurrentWorkRoute(projectId, intake.id) });
+    }
+    return {
+      project, sections, workIntakes: intakeViews,
+      workflows: workflows.map(record => ({ id: record.id, state: record.body.workflowState, governingEntityId: record.body.governingEntityId })),
+      phases: phases.map(record => ({ id: record.id, state: record.body.phaseState, sequence: record.body.sequence,
+        workItemIds: edges.filter(edge => edge.relationshipType === "part_of" && edge.toEntityId === record.id).map(edge => edge.fromEntityId).sort() })),
+      workItems: workItems.map(record => ({ id: record.id, state: record.body.workState, kind: record.body.workItemKind,
+        repairTargetIds: edges.filter(edge => edge.relationshipType === "repairs" && edge.fromEntityId === record.id).map(edge => edge.toEntityId).sort(),
+        latestImplementationId: latest(implementations.filter(item => item.body.workItemId === record.id)),
+        latestValidationId: latest(allValidations.filter(item => item.body.targetEntityId === record.id)) })),
+      decisions: decisions.map(record => ({ id: record.id, outcome: record.body.outcome, effectiveAt: record.body.effectiveAt,
+        targetIds: edges.filter(edge => edge.relationshipType === "governs" && edge.fromEntityId === record.id).map(edge => edge.toEntityId).sort() })),
+      validations: validations.map(record => ({ id: record.id, targetId: record.body.targetEntityId,
+        targetVersion: record.body.targetRecordVersion, outcome: record.body.outcome, sourceBaselineRef: record.body.sourceBaselineRef ?? null })),
+      sourceBindings: bindings.map(record => ({ id: record.id, workIntakeId: record.body.workIntakeId,
+        preparationState: record.body.preparationState, repositoryId: record.body.repositoryId,
+        currentRevisionId: record.body.currentRevisionId ?? null })),
+      sourceCheckpoints: checkpoints.map(record => ({ id: record.id, workIntakeId: record.body.workIntakeId,
+        state: record.body.checkpointState, expectedRevisionId: record.body.expectedRevisionId,
+        resultingRevisionId: record.body.resultingRevisionId ?? null })),
+      integrations: integrations.map(record => ({ id: record.id, workIntakeId: record.body.workIntakeId,
+        state: record.body.integrationState, outcome: record.body.outcome,
+        incomingRevisionId: record.body.incomingRevisionId, resultRevisionId: record.body.resultRevisionId ?? null })),
+    };
   }
   async function supersessionChain(projectId: ProjectId, identity: EntityId): Promise<ProjectStateEntity[] | null> {
     const record = await store.getEntity(projectId, identity);
@@ -1256,7 +1384,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     createSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, createIntegrationRecord, advanceIntegrationRecord,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
     reviseRecord, supersedeRecord, createRelationship, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, completeWorkItem, completePhase,
-    getRecord, queryRecords, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
+    getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
     getEffectiveDisposition, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus,
     getImplementationAttempts, getExecutionPlan, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,
     getWorkRouteHistory, getCurrentWorkRoute, getWorkIntakeSummary, getSourceSemanticView, getRegressionObligationView };

@@ -35,6 +35,7 @@ test("fresh SQLite schema migrates once and verifies configuration on reopen", (
     assert.deepEqual(database.prepare("SELECT version, migration_id FROM schema_migrations ORDER BY version").all().map(row => ({ ...row })), [
       { version: 1, migration_id: "001_initial_project_state" },
       { version: 2, migration_id: "002_outbox_acknowledgments" },
+      { version: 3, migration_id: "003_current_state_query_indexes" },
     ]);
     const tables = database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(row => row.name);
     assert.deepEqual(tables, ["outbox_acknowledgments", "outbox_events", "project_state_authority", "project_versions", "projects", "relationships", "schema_migrations", "state_changes", "state_entities", "state_entity_versions"]);
@@ -42,7 +43,7 @@ test("fresh SQLite schema migrates once and verifies configuration on reopen", (
   } finally { database.close(); }
   database = openProjectStateDatabase(file);
   try {
-    assert.equal(database.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count, 2);
+    assert.equal(database.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count, 3);
     assert.deepEqual(configuration(database), {
       foreignKeys: 1, journalMode: "wal", synchronous: 2,
       busyTimeout: PROJECT_STATE_BUSY_TIMEOUT_MS, userVersion: PROJECT_STATE_DATABASE_SCHEMA_VERSION,
@@ -115,22 +116,47 @@ test("future, unknown and untracked migration states fail closed without rewriti
   });
 });
 
-test("known version-one schema advances to outbox acknowledgment migration once", () => tempDatabase(file => {
+test("known version-one schema advances through outbox and query-index migrations once", () => tempDatabase(file => {
   let database = openProjectStateDatabase(file);
   database.exec(`DROP TABLE outbox_acknowledgments;
     DROP INDEX idx_outbox_events_event_project;
+    DROP INDEX idx_state_entities_project_lifecycle_time;
+    DROP INDEX idx_state_entities_project_lineage_version;
+    DROP INDEX idx_state_entity_versions_project_type_time;
+    DROP INDEX idx_relationships_project_type_from_to;
+    DROP INDEX idx_relationships_project_type_to_from;
     DROP TRIGGER state_changes_immutable_update;
     DROP TRIGGER state_changes_immutable_delete;
     DROP TRIGGER outbox_events_immutable_update;
     DROP TRIGGER outbox_events_immutable_delete;
-    DELETE FROM schema_migrations WHERE version = 2;
+    DELETE FROM schema_migrations WHERE version >= 2;
     PRAGMA user_version = 1;`);
   database.close();
   database = openProjectStateDatabase(file);
   try {
-    assert.equal(database.prepare("PRAGMA user_version").get().user_version, 2);
-    assert.equal(database.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count, 2);
+    assert.equal(database.prepare("PRAGMA user_version").get().user_version, 3);
+    assert.equal(database.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count, 3);
     assert.equal(database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'outbox_acknowledgments'").get().name, "outbox_acknowledgments");
+    assert.equal(database.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_relationships_project_type_to_from'").get().name, "idx_relationships_project_type_to_from");
+  } finally { database.close(); }
+}));
+
+test("known version-two schema receives current-state query indexes without rewriting records", () => tempDatabase(file => {
+  let database = openProjectStateDatabase(file);
+  database.exec(`DROP INDEX idx_state_entities_project_lifecycle_time;
+    DROP INDEX idx_state_entities_project_lineage_version;
+    DROP INDEX idx_state_entity_versions_project_type_time;
+    DROP INDEX idx_relationships_project_type_from_to;
+    DROP INDEX idx_relationships_project_type_to_from;
+    DELETE FROM schema_migrations WHERE version = 3;
+    PRAGMA user_version = 2;`);
+  database.close();
+  database = openProjectStateDatabase(file);
+  try {
+    assert.equal(database.prepare("PRAGMA user_version").get().user_version, 3);
+    assert.equal(database.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count, 3);
+    assert.equal(database.prepare("SELECT COUNT(*) AS count FROM state_entities").get().count, 0);
+    assert.equal(database.prepare("SELECT COUNT(*) AS count FROM relationships").get().count, 0);
   } finally { database.close(); }
 }));
 

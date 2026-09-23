@@ -40,7 +40,7 @@ export const RELATIONSHIP_REGISTRY = Object.freeze({
   initiates: rule(["WorkIntake"], ["Workflow"], true),
   integrates: rule(["IntegrationRecord"], ["WorkIntake", "SourceBinding", "WorkItem", "ImplementationRecord"], true),
   owns_workflow: rule(["WorkIntake"], ["Workflow"], true),
-  part_of: rule(["WorkItem"], ["WorkItem", "Phase"]),
+  part_of: rule(["WorkItem", "Phase"], ["WorkItem", "Phase", "Workflow"]),
   proves: rule(["ProjectResource"], ["RegressionObligation"], true),
   relates_to: rule(all, all),
   repairs: rule(["WorkItem"], ["WorkItem"], true),
@@ -73,6 +73,7 @@ export function validateRelationship(
   if (!from || !to) fail("Relationship endpoint does not exist.");
   if (from.projectId !== relationship.projectId || to.projectId !== relationship.projectId) fail("Relationship endpoints must belong to one Project.");
   if (!definition.from.includes(from.entityType) || !definition.to.includes(to.entityType)) fail("Relationship direction or endpoint type is invalid.");
+  if (relationship.relationshipType === "part_of" && from.entityType === "Phase" && to.entityType !== "Workflow") fail("Phase membership must target a Workflow.");
   if (relationship.relationshipType === "derived_from" && from.lineageId === to.lineageId) fail("Derivation must retain a distinct lineage.");
   if (relationship.relationshipType === "supersedes") {
     if (from.entityType !== to.entityType || from.lineageId !== to.lineageId) fail("Supersession requires one entity type and shared lineage.");

@@ -3078,6 +3078,14 @@
           "description": "advisory assessments and Operator reroutes preserve history and current route"
         },
         {
+          "behaviorId": "bounded-record-filters-and-pagination-expose-current-and-historical-results",
+          "description": "Bounded record filters and pagination expose deterministic current and historical results"
+        },
+        {
+          "behaviorId": "current-project-state-view-derives-route-work-repair-validation-and-source",
+          "description": "Current Project State view derives route, work, repair, validation and source summaries with section bounds"
+        },
+        {
           "behaviorId": "decision-correction-preserves-history-and-governance-while-later-decisions-remain-distinct",
           "description": "Decision correction preserves history and governance while later Decisions remain distinct"
         },
@@ -3210,7 +3218,11 @@
         },
         {
           "behaviorId": "known-version-one-schema-advances-to-outbox-acknowledgment-migration-once",
-          "description": "known version-one schema advances to outbox acknowledgment migration once"
+          "description": "Known version-one schema advances through outbox and query-index migrations once"
+        },
+        {
+          "behaviorId": "known-version-two-schema-receives-current-state-query-indexes-without-rewriting-records",
+          "description": "Known version-two schema receives current-state query indexes without rewriting records"
         },
         {
           "behaviorId": "schema-enforces-project-ownership-json-shape-version-history-and-relation-endpoints",
@@ -13206,6 +13218,63 @@
       ]
     },
     {
+      "testPath": "test/project-state/current-state-queries.test.cjs",
+      "currentTestCount": {
+        "value": 4,
+        "basis": "Two bounded query and current-view scenarios across in-memory and SQLite adapters introduced by SCL01P."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 172,
+        "basis": "Observed normal Windows focused SCL01P test receipt."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Per-test temporary SQLite file and isolated in-memory adapter.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "bounded-record-filters-and-pagination-expose-current-and-historical-results",
+          "proofLocator": "record filters and pagination expose deterministic current and historical results",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "current-project-state-view-derives-route-work-repair-validation-and-source",
+          "proofLocator": "current view derives route, work, repair, validation and source summaries with section bounds",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
       "testPath": "test/project-state/decision-disposition.test.cjs",
       "currentTestCount": {
         "value": 6,
@@ -13723,13 +13792,13 @@
     {
       "testPath": "test/project-state/sqlite-schema-migrations.test.cjs",
       "currentTestCount": {
-        "value": 5,
-        "basis": "Four SCL01F schema scenarios and one SCL01I forward-migration scenario."
+        "value": 6,
+        "basis": "Five existing schema scenarios plus one SCL01P version-two forward-migration scenario."
       },
       "duration": {
-        "kind": "estimated",
-        "milliseconds": 300,
-        "basis": "Estimated from the normal Windows focused SCL01I migration receipt."
+        "kind": "measured",
+        "milliseconds": 267,
+        "basis": "Observed normal Windows focused SCL01P migration receipt."
       },
       "proposedValidationLane": "fast",
       "platformDependency": "none",
@@ -13778,7 +13847,13 @@
         {
           "capabilityId": "project-state-sqlite-schema",
           "behaviorId": "known-version-one-schema-advances-to-outbox-acknowledgment-migration-once",
-          "proofLocator": "known version-one schema advances to outbox acknowledgment migration once",
+          "proofLocator": "known version-one schema advances through outbox and query-index migrations once",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-sqlite-schema",
+          "behaviorId": "known-version-two-schema-receives-current-state-query-indexes-without-rewriting-records",
+          "proofLocator": "known version-two schema receives current-state query indexes without rewriting records",
           "proofRole": "primary"
         },
         {

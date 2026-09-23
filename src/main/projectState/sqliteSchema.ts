@@ -2,7 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import { validateProjectStateEntity } from "../../shared/projectState/entityTypeRegistry";
 
 /** Database schema versions are independent of the semantic record schema version. */
-export const PROJECT_STATE_DATABASE_SCHEMA_VERSION = 2;
+export const PROJECT_STATE_DATABASE_SCHEMA_VERSION = 3;
 export const PROJECT_STATE_BUSY_TIMEOUT_MS = 1_000;
 
 function sortedJson(value: unknown): unknown {
@@ -208,11 +208,22 @@ const MIGRATIONS: readonly Migration[] = [
         BEGIN SELECT RAISE(ABORT, 'outbox event is immutable'); END;
     `,
   },
+  {
+    version: 3,
+    id: "003_current_state_query_indexes",
+    sql: `
+      CREATE INDEX idx_state_entities_project_lifecycle_time ON state_entities (project_id, lifecycle_state, updated_at, entity_id);
+      CREATE INDEX idx_state_entities_project_lineage_version ON state_entities (project_id, lineage_id, current_record_version);
+      CREATE INDEX idx_state_entity_versions_project_type_time ON state_entity_versions (project_id, entity_type, updated_at, entity_id, record_version);
+      CREATE INDEX idx_relationships_project_type_from_to ON relationships (project_id, relationship_type, from_entity_id, to_entity_id, ended_at);
+      CREATE INDEX idx_relationships_project_type_to_from ON relationships (project_id, relationship_type, to_entity_id, from_entity_id, ended_at);
+    `,
+  },
 ];
 
 const REQUIRED_SCHEMA_OBJECTS: Readonly<Record<string, readonly string[]>> = {
   table: ["schema_migrations", "projects", "project_versions", "state_entities", "state_entity_versions", "relationships", "state_changes", "outbox_events", "project_state_authority", "outbox_acknowledgments"],
-  index: ["idx_state_entities_project_type", "idx_state_entities_project_lineage", "idx_state_entity_versions_project_time", "idx_relationships_project_from", "idx_relationships_project_to", "idx_state_changes_project_time", "idx_outbox_events_project_sequence", "idx_outbox_events_event_project", "idx_outbox_acknowledgments_project"],
+  index: ["idx_state_entities_project_type", "idx_state_entities_project_lineage", "idx_state_entity_versions_project_time", "idx_relationships_project_from", "idx_relationships_project_to", "idx_state_changes_project_time", "idx_outbox_events_project_sequence", "idx_outbox_events_event_project", "idx_outbox_acknowledgments_project", "idx_state_entities_project_lifecycle_time", "idx_state_entities_project_lineage_version", "idx_state_entity_versions_project_type_time", "idx_relationships_project_type_from_to", "idx_relationships_project_type_to_from"],
   trigger: ["relationships_insert_endpoints", "relationships_fixed_endpoints", "project_versions_immutable_update", "project_versions_immutable_delete", "state_entity_versions_immutable_update", "state_entity_versions_immutable_delete", "state_changes_immutable_update", "state_changes_immutable_delete", "outbox_events_immutable_update", "outbox_events_immutable_delete"],
 };
 
