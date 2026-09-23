@@ -17,15 +17,15 @@ test('routed clean and conflict integration preserves completed checkpoint and P
   const ready=await integration.query();assert.equal(ready.status,'ready',ready.reasons.join('\n'));assert.deepEqual(ready.checkpointCommits,[f.checkpointCommit]);
   const planPath=path.join(root,f.planPath),original=fs.readFileSync(planPath);fs.appendFileSync(planPath,'\nChanged accepted intent\n');
   assert.equal((await integration.query()).status,'not-ready');await assert.rejects(integration.integrate({expectedFingerprint:ready.completionFingerprint}),/stale|changed|superseded/i);fs.writeFileSync(planPath,original);
-  if(conflicted){git('switch','main');fs.writeFileSync(path.join(root,'source.js'),"module.exports = ['target'];\n");fs.writeFileSync(path.join(root,'target.accepted'),'accepted\n');git('add','source.js','target.accepted');git('commit','-m','target advances');git('switch',f.workBranch);}
-  const targetBefore=git('rev-parse','main');let result=await integration.integrate({expectedFingerprint:ready.completionFingerprint});
-  if(conflicted){assert.equal(result.status,'repair-required',result.reasons.join('\n'));assert.equal(git('rev-parse','main'),targetBefore);
+  if(conflicted){git('switch','dev');fs.writeFileSync(path.join(root,'source.js'),"module.exports = ['target'];\n");fs.writeFileSync(path.join(root,'target.accepted'),'accepted\n');git('add','source.js','target.accepted');git('commit','-m','target advances');git('switch',f.workBranch);}
+  const targetBefore=git('rev-parse','dev');let result=await integration.integrate({expectedFingerprint:ready.completionFingerprint});
+  if(conflicted){assert.equal(result.status,'repair-required',result.reasons.join('\n'));assert.equal(git('rev-parse','dev'),targetBefore);
    const request={expectedFingerprint:result.completionFingerprint,candidateId:result.candidate.candidateId};const repair=await integration.prepareRepair(request);assert.deepEqual(repair.policy.editablePaths,['source.js']);
    await assert.rejects(integration.applyRepair({...request,repairId:repair.repairId,patches:[{path:'unapproved.js',beforeSha256:'deleted',content:'outside'}]}),/source scope/);
    await integration.applyRepair({...request,repairId:repair.repairId,patches:[{path:'source.js',beforeSha256:repair.snapshot.editable['source.js'],content:"module.exports = ['incoming', 'target'];\n"}]});
    result=await integration.completeRepair({...request,repairId:repair.repairId});
   }
-  assert.equal(result.status,'integration-complete',result.reasons.join('\n'));assert.equal(git('rev-parse','main'),result.candidate.candidateCommit);assert.equal(git('branch','--show-current'),f.workBranch);assert.equal(git('status','--porcelain'),'');
+  assert.equal(result.status,'integration-complete',result.reasons.join('\n'));assert.equal(git('rev-parse','dev'),result.candidate.candidateCommit);assert.equal(result.candidate.targetAfterRevisionId,result.candidate.candidateCommit);assert.equal(git('branch','--show-current'),f.workBranch);assert.equal(git('status','--porcelain'),'');
   assert.equal((await createRoutedIntegrationService(root,f.intakeId).query()).status,'integration-complete');assert.equal(fs.existsSync(path.join(root,'planning/phases')),false);
  });
 });

@@ -63,7 +63,7 @@ function seedPreparedRoutedWorkIntake(t, selectedRouteId = "refactor-migration",
   const root = tempWorkspace("champcity-prepared-routed-work-");
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const git = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
-  git("init", "-b", "main"); git("config", "user.name", "Fixture"); git("config", "user.email", "fixture@example.invalid");
+  git("init", "-b", "dev"); git("config", "user.name", "Fixture"); git("config", "user.email", "fixture@example.invalid");
   options.setupRepository?.(root, git);
   git("add", "--all"); git("commit", "--allow-empty", "-m", "baseline");
   const initialHead = git("rev-parse", "HEAD");
@@ -81,7 +81,7 @@ function seedPreparedRoutedWorkIntake(t, selectedRouteId = "refactor-migration",
   const workBranch = workIntakeBranchName(intakeId);
   git("switch", "-c", workBranch);
 
-  const branchBinding = { intakeId, repositoryId, baseBranch: "main", baseCommit: initialHead, workBranch, currentHead: initialHead };
+  const branchBinding = { intakeId, repositoryId, baseBranch: "dev", baseCommit: initialHead, workBranch, currentHead: initialHead };
   const intakeData = {
     intakeId, projectId,
     workRequest: intent.workRequest ?? "A bounded architecture change",

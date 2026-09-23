@@ -3743,6 +3743,10 @@
           "description": "routed clean and conflict integration preserves completed checkpoint and Plan lineage from the nearest durable boundary"
         },
         {
+          "behaviorId": "routed-issue-completion-checkpoints-owned-evidence",
+          "description": "Issue completion commits only exact routed Issue evidence before integration"
+        },
+        {
           "behaviorId": "semver-and-set-version-are-bounded-to-a-validated-version-and-npm-owned-version-files",
           "description": "SemVer and set_version are bounded to a validated version and npm-owned version files"
         },
@@ -3757,6 +3761,10 @@
         {
           "behaviorId": "status-reports-bounded-prerequisites-without-returning-raw-github-authentication-output",
           "description": "status reports bounded prerequisites without returning raw GitHub authentication output"
+        },
+        {
+          "behaviorId": "structured-completion-integrates-exact-dev",
+          "description": "completed structured Work Intake integrates a validated candidate into dev and records the resulting target revision"
         },
         {
           "behaviorId": "temporary-candidate-workspace-is-cleaned-when-validation-throws",
@@ -6795,6 +6803,25 @@
           "proofLocator": "Integration Repair source boundaries retain validation retries Operator decisions and worker index rejection",
           "proofRole": "primary"
         }
+      ]
+    },
+    {
+      "testPath": "test/agent-harness/issue-completion-checkpoint.test.cjs",
+      "currentTestCount": { "value": 1, "basis": "SCL07 focused Issue completion fixture." },
+      "duration": { "kind": "measured", "milliseconds": 13000, "basis": "Observed focused normal Windows SCL07 run." },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": { "electron": false, "filesystem": true, "git": true, "network": false, "process": true, "timing": false },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": ["capability"],
+      "execution": { "requiresBuild": true, "platform": "any", "externalCapabilities": [], "scheduling": "parallel-safe",
+        "schedulingReason": "Each fixture owns an isolated temporary Git repository.",
+        "ownedResources": ["bounded-child-process", "isolated-git-fixture", "temp-filesystem-isolated"] },
+      "proofCharacteristics": ["behavioral"],
+      "dispositionReasons": ["current-proof-appropriate"],
+      "behaviorCoverage": [
+        { "capabilityId": "release-and-git-operations", "behaviorId": "routed-issue-completion-checkpoints-owned-evidence", "proofLocator": "routed Issue completion commits only its bounded Markdown evidence on the Intake source line", "proofRole": "primary" }
       ]
     },
     {
@@ -18293,6 +18320,25 @@
         { "capabilityId": "semantic-source-checkpoints", "behaviorId": "implementation-checkpoint-attribution-and-idempotence", "proofLocator": "implementation checkpoint commits attributed file and duplicate retry returns exact revision", "proofRole": "primary" },
         { "capabilityId": "semantic-source-checkpoints", "behaviorId": "operator-disposition-creates-empty-lifecycle-revision", "proofLocator": "operator disposition creates an evidenced empty lifecycle revision", "proofRole": "primary" },
         { "capabilityId": "semantic-source-checkpoints", "behaviorId": "retry-reconciles-committed-source-after-binding-failure", "proofLocator": "retry reconciles a committed source revision after a failed binding update", "proofRole": "primary" }
+      ]
+    },
+    {
+      "testPath": "test/source-control/structured-integration.test.cjs",
+      "currentTestCount": { "value": 2, "basis": "SCL07 focused structured clean and conflict fixtures." },
+      "duration": { "kind": "measured", "milliseconds": 37000, "basis": "Observed focused normal Windows SCL07 run." },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": { "electron": false, "filesystem": true, "git": true, "network": false, "process": true, "timing": false },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": ["capability"],
+      "execution": { "requiresBuild": true, "platform": "any", "externalCapabilities": [], "scheduling": "parallel-safe",
+        "schedulingReason": "Each fixture owns an isolated temporary Git and SQLite repository.",
+        "ownedResources": ["bounded-child-process", "isolated-git-fixture", "temp-filesystem-isolated"] },
+      "proofCharacteristics": ["behavioral"],
+      "dispositionReasons": ["current-proof-appropriate"],
+      "behaviorCoverage": [
+        { "capabilityId": "release-and-git-operations", "behaviorId": "structured-completion-integrates-exact-dev", "proofLocator": "completed structured Work Intake integrates exact validated source into dev without switching the primary checkout", "proofRole": "primary" }
       ]
     },
     {

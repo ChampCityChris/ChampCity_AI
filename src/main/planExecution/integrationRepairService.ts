@@ -17,6 +17,7 @@ interface IntegrationRepairOwner {
   validate: (record: IntegrationCandidateRecord) => Promise<IntegrationCandidateRecord>;
   exclusive: <T>(action: () => Promise<T>) => Promise<T>;
   policy?: (record: IntegrationCandidateRecord) => Promise<IntegrationRepairPolicy>;
+  context?: (record: IntegrationCandidateRecord, policy: IntegrationRepairPolicy) => Promise<{ sourceDigests: Record<string, string>; context: string }>;
 }
 const safeText = (value: string) => value.replaceAll("<!-- CHAMPCITY-METADATA", "[canonical metadata begins]").replaceAll("CHAMPCITY-METADATA -->", "[canonical metadata ends]");
 export function createIntegrationRepairController(owner: IntegrationRepairOwner) {
@@ -45,7 +46,14 @@ export function createIntegrationRepairController(owner: IntegrationRepairOwner)
     if (parsed.metadata.artifactType !== "integration-repair" || parsed.metadata.identity.candidateId !== candidateId || parsed.metadata.identity.repairId !== repairId || record?.candidateId !== candidateId || record.repairId !== repairId || !record.policy || !record.snapshot) throw Error("Integration Repair identity is invalid.");
     return { ...record, prompt: parsed.bodyMarkdown };
   }
-  function sourceContext(record: IntegrationCandidateRecord, policy: IntegrationRepairPolicy) {
+  async function sourceContext(record: IntegrationCandidateRecord, policy: IntegrationRepairPolicy) {
+    if (owner.context) {
+      const semantic = await owner.context(record, policy);
+      if (!semantic || !semantic.sourceDigests || typeof semantic.context !== "string" || semantic.context.length > 80_000)
+        throw Error("Integration Repair governing context exceeds its bound.");
+      assertIntegrationSourceText(semantic.context);
+      return semantic;
+    }
     if (!Array.isArray(policy.sources) || policy.sources.length < 2 || policy.sources.length > 16 || policy.sources.filter((entry) => entry.role === "intake").length !== 1 || policy.sources.filter((entry) => entry.role === "completion").length !== 1 || new Set(policy.sources.map((entry) => entry.path)).size !== policy.sources.length) throw Error("Integration Repair requires exact Intake, completion evidence and bounded relevant contracts.");
     const sourceDigests: Record<string, string> = {}; const context: string[] = [];
     for (const source of policy.sources) {
@@ -84,7 +92,7 @@ export function createIntegrationRepairController(owner: IntegrationRepairOwner)
       const resolved = await owner.policy?.(record);
       if (JSON.stringify(resolved) !== JSON.stringify(attempt.policy)) throw Error("Integration Repair scope policy changed; Operator/replanning is required.");
     }
-    const current = sourceContext(record, attempt.policy);
+    const current = await sourceContext(record, attempt.policy);
     if (JSON.stringify(current.sourceDigests) !== JSON.stringify(attempt.sourceDigests)) throw Error("Integration Repair governing intent changed; no Git continuation is allowed.");
     return { record, attempt };
   }
@@ -97,7 +105,7 @@ export function createIntegrationRepairController(owner: IntegrationRepairOwner)
       if (!owner.policy) throw Error("Application integration policy has not supplied bounded repair source evidence.");
       const policy = await owner.policy(record); const attemptNumber = (record.repairAttemptCount ?? 0) + 1;
       if (attemptNumber > 10) throw Error("Integration Repair attempt bound reached; Operator disposition is required.");
-      const { sourceDigests, context } = sourceContext(record, policy);
+      const { sourceDigests, context } = await sourceContext(record, policy);
       if (policy.editablePaths.some((entry) => Object.hasOwn(sourceDigests, entry))) throw Error("Integration Repair may not edit its governing intent or contracts.");
       const snapshot = unwrap(await owner.source.snapshotIntegrationRepair(candidateId, policy.editablePaths), record);
       if (snapshot.head !== record.candidateCommit || snapshot.unmerged.some((entry) => !policy.editablePaths.includes(entry))) throw Error("Integration Repair source/head is outside the bounded candidate context.");

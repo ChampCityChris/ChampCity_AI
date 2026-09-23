@@ -32,6 +32,10 @@ export interface IntegrationCandidateHooks {
   checks?: IntegrationValidationCheck[];
   validationPolicy?: { resolve: (targetCommit: string) => Promise<ResolvedIntegrationValidationPolicy> };
   repairPolicy?: (record: IntegrationCandidateRecord) => Promise<IntegrationRepairPolicy>;
+  repairContext?: (record: IntegrationCandidateRecord, policy: IntegrationRepairPolicy) => Promise<{ sourceDigests: Record<string, string>; context: string }>;
+  /** Structured authority supplies its own durable SourceBinding verifier. */
+  verifyBinding?: (binding: WorkIntakeBranchBinding) => Promise<WorkIntakeBranchBinding>;
+  requiredTargetBranch?: "dev";
 }
 const locks = new Set<string>();
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
@@ -96,11 +100,17 @@ export function createIntegrationCandidateService(hooks: IntegrationCandidateHoo
     if (record) await resolveValidation(record.targetCommit, record);
     const loaded = await hooks.load();
     if (loaded.binding.repositoryId !== hooks.repositoryId) throw Error("Completion evidence belongs to another repository.");
-    const binding = await createWorkIntakeBranchService({ repositoryId: hooks.repositoryId, repositoryRoot: root }).verify(loaded.binding);
+    const binding = await (hooks.verifyBinding ?? createWorkIntakeBranchService({ repositoryId: hooks.repositoryId, repositoryRoot: root }).verify)(loaded.binding);
+    if (hooks.requiredTargetBranch && binding.baseBranch !== hooks.requiredTargetBranch) throw Error("Work Intake integration target must be dev.");
     if (!validCompletion(loaded.completion)) throw Error("Integration requires bounded current completion evidence.");
     if (record && (binding.intakeId !== record.intakeId || binding.currentHead !== record.incomingCommit || binding.workBranch !== record.incomingBranch || binding.baseBranch !== record.targetBranch || binding.baseCommit !== record.baseCommit ||
       !sameCompletion(loaded.completion, record.completion))) throw Error("Completion or Intake evidence changed; construct a fresh candidate.");
-    if (!unwrap(await source.status(), record).clean) throw Error("Integration requires a clean incoming checkout.");
+    if (hooks.verifyBinding) {
+      const changed = unwrap(await source.changedFiles(), record);
+      if (changed.some(item => item.originalPath || item.indexStatus !== "?" || item.worktreeStatus !== "?" ||
+        !/^\.champcity\/project-state\.sqlite(?:-(?:wal|shm))?$/.test(item.path)))
+        throw Error("Integration requires no pending source changes outside application-owned Project State.");
+    } else if (!unwrap(await source.status(), record).clean) throw Error("Integration requires a clean incoming checkout.");
     return { binding, completion: loaded.completion };
   }
   async function resolveValidation(targetCommit: string, record?: IntegrationCandidateRecord) {
@@ -145,7 +155,7 @@ export function createIntegrationCandidateService(hooks: IntegrationCandidateHoo
     return record;
   }
   return {
-    ...createIntegrationRepairController({ root, source, read, persist, current, validate, exclusive, policy: hooks.repairPolicy }),
+    ...createIntegrationRepairController({ root, source, read, persist, current, validate, exclusive, policy: hooks.repairPolicy, context: hooks.repairContext }),
     read,
     list: (intakeId: string) => {
       const directory = path.dirname(integrationPaths(root, "0".repeat(64)).base);
@@ -197,8 +207,19 @@ export function createIntegrationCandidateService(hooks: IntegrationCandidateHoo
       await resolved.assertCandidate(integrationPaths(root, record.candidateId).checkout);
       const result = await source.advanceIntegration({ candidateId, candidateCommit: record.candidateCommit, targetBranch: record.targetBranch, localTargetCommit: record.localTargetCommit, incomingBranch: record.incomingBranch, incomingCommit: record.incomingCommit });
       record.receipts.push(result.receipt);
-      if (!result.ok && !result.completedResult) { record.status = "failed"; record.message = `${result.error.message} Target advancement was not confirmed; inspect refs before retry.`; persist(record); return record; }
-      record.status = "integrated"; record.message = "Validated candidate advanced the local target. Publication remains separate.";
+      const target = await source.branches(record.targetBranch);
+      const targetAfter = target.ok ? target.result.selectedBranch?.commit : null;
+      const returned = result.ok ? result.result.commit : result.completedResult?.commit;
+      if (targetAfter !== record.candidateCommit || returned && returned !== record.candidateCommit) {
+        record.status = "failed"; record.message = result.ok
+          ? "Target advancement requires exact ref inspection; retained candidate remains available."
+          : `${result.error.message} Target advancement requires exact ref inspection; retained candidate remains available.`;
+        persist(record); return record;
+      }
+      record.targetAfterRevisionId = targetAfter;
+      record.status = "integrated"; record.message = result.ok
+        ? "Validated candidate advanced the local target. Publication remains separate."
+        : "Exact target ref confirms integration after an uncertain operation receipt. Publication remains separate.";
       persist(record);
       if (synchronize && record.remote) {
         const pushed = await source.push({ remote: record.remote, branch: record.targetBranch, expectedCommit: record.candidateCommit }); record.receipts.push(pushed.receipt);

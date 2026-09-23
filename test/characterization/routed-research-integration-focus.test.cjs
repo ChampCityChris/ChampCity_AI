@@ -11,7 +11,7 @@ test('Research completion retains real candidate history and advances only the c
   const policyProvider = require('../../dist/main/planExecution/integrationPolicyProvider.js');
   const fixture = seedResearchIntegrationCompletion(t);
   const { root, intake, route, git, assessmentId, assessmentPath } = fixture;
-  const targetBefore = git('rev-parse', 'main');
+  const targetBefore = git('rev-parse', 'dev');
   const incomingBefore = git('rev-parse', 'HEAD');
   installSemanticSourceFixture(t, { allowCheckpointChain: true });
   let validationPasses = false;
@@ -28,7 +28,7 @@ test('Research completion retains real candidate history and advances only the c
   assert.deepEqual(initial.checkpointCommits, []);
   assert.equal(initial.candidate, undefined);
   assert.equal(git('rev-parse', 'HEAD'), incomingBefore, 'query is read-only before integration');
-  assert.equal(git('rev-parse', 'main'), targetBefore, 'query does not advance the target');
+  assert.equal(git('rev-parse', 'dev'), targetBefore, 'query does not advance the target');
   await assert.rejects(integration.integrate({ expectedFingerprint: '0'.repeat(64) }));
   assert.equal(git('rev-parse', 'HEAD'), incomingBefore, 'stale fingerprint creates no checkpoint or candidate');
 
@@ -37,7 +37,7 @@ test('Research completion retains real candidate history and advances only the c
   assert.equal(firstFailed.candidate.status, 'validation-failed');
   assert.equal(firstFailed.candidate.completion.completionId, assessmentId);
   assert.deepEqual(firstFailed.checkpointCommits, [firstFailed.candidate.incomingCommit], 'Research checkpoint precedes candidate construction');
-  assert.equal(git('rev-parse', 'main'), targetBefore, 'deterministic validation failure leaves target unchanged');
+  assert.equal(git('rev-parse', 'dev'), targetBefore, 'deterministic validation failure leaves target unchanged');
 
   const exactAborted = await integration.abort({ expectedFingerprint: firstFailed.completionFingerprint, candidateId: firstFailed.candidate.candidateId });
   assert.equal(exactAborted.status, 'not-ready');
@@ -73,7 +73,7 @@ test('Research completion retains real candidate history and advances only the c
   assert.equal(recovered.status, 'ready', recovered.reasons.join('\n'));
   assert.equal(recovered.candidate, undefined);
   assert.deepEqual(recovered.checkpointCommits, []);
-  assert.equal(git('rev-parse', 'main'), targetBefore, 'abort recovery preserves target');
+  assert.equal(git('rev-parse', 'dev'), targetBefore, 'abort recovery preserves target');
 
   validationPasses = true;
   const integrated = await integration.integrate({ expectedFingerprint: recovered.completionFingerprint });
@@ -83,7 +83,7 @@ test('Research completion retains real candidate history and advances only the c
   assert.equal(integrated.candidate.completion.revision, 4);
   assert.equal(integrated.candidate.completion.fingerprint, recovered.completionFingerprint);
   assert.deepEqual(integrated.checkpointCommits, [integrated.candidate.incomingCommit]);
-  assert.equal(git('rev-parse', 'main'), integrated.candidate.candidateCommit);
+  assert.equal(git('rev-parse', 'dev'), integrated.candidate.candidateCommit);
   assert.equal(git('branch', '--show-current'), intake.branchBinding.workBranch);
   assert.equal(git('status', '--porcelain'), '');
 

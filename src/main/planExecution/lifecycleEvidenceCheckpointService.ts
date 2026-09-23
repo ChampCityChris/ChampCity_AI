@@ -47,8 +47,11 @@ function artifact(root: string, relativePath: string, allowHistorical = false): 
 function dispositionArtifact(root: string, relativePath: string, binding: WorkIntakeBranchBinding,
   issueId?: string): CanonicalArtifact {
   if (!relativePath.startsWith("issues/")) return artifact(root, relativePath, true);
-  if (!issueId || !/^ISSUE_\d+$/.test(issueId) ||
-    !["ISSUE_RECORD.md", "ARCHITECT_INVESTIGATION.md", "ARCHITECT_REVIEW.md"].some(name => relativePath === `issues/${issueId}/${name}`))
+  const issuePrefix = issueId && /^ISSUE_\d+$/.test(issueId) ? `issues/${issueId}/` : "";
+  const issueLeaf = issuePrefix && relativePath.startsWith(issuePrefix) ? relativePath.slice(issuePrefix.length) : "";
+  const rootEvidence = /^(?:ISSUE_RECORD|ARCHITECT_INVESTIGATION|ARCHITECT_REVIEW|ISSUE_RESOLUTION_PLAN|FIX_CARD_PLAN|ISSUE_PLANNING_REVIEW|EXECUTION_PLAN)\.md$/.test(issueLeaf);
+  const ownedEvidence = /^(?:Fix_Cards|Repairs|Implementer_Reports|Architect_Reviews|Close_Records|Phase_Acceptance|Validation_Records|Issue_Planning_History|Architect_History)\/[A-Za-z0-9][A-Za-z0-9._-]{0,180}\.md$/.test(issueLeaf);
+  if (!issuePrefix || !(rootEvidence || ownedEvidence))
     throw Error("Issue disposition path is outside the exact routed Issue evidence.");
   const resolved = resolveRepositoryPath(root, relativePath);
   if (resolved.relativePath !== relativePath) throw Error("Issue evidence path must be exact and repository-relative.");

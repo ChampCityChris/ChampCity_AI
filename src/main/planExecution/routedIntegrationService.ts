@@ -16,9 +16,10 @@ import type { WorkItemCheckpointEvidence } from "../../shared/workItemCheckpoint
 import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
 import { workPlanningKernel } from "../workPlanning/workPlanningKernel";
 import { workIssueContext } from "../workPlanning/workIssueContext";
-import { getIssueCorrectionIntegrationEvidence } from "../issueResolution/issueResolutionService";
+import { getIssueCloseProjection, getIssueCorrectionIntegrationEvidence } from "../issueResolution/issueResolutionService";
 import { projectPlanExecution } from "./planExecutor";
 import { checkpointResearchCompletion, resolveResearchCompletion } from "./researchCompletionService";
+import { checkpointOperatorDisposition } from "./operatorDispositionCheckpoint";
 
 const sha = (text: Buffer) => createHash("sha256").update(text).digest("hex");
 const message = (error: unknown) => error instanceof Error && !/(?:[A-Za-z]:[\\/]|\/(?:Users|home|tmp)\/)/.test(error.message)
@@ -48,12 +49,13 @@ export function createRoutedIntegrationService(root: string, intakeId: string) {
       if (!plan || plan.stale || plan.disposition !== "Approved" || !plan.identity.planId) throw Error("Current approved correction Plan is required.");
       const issue = workIssueContext(root, intakeId, plan.identity.routeDecisionId);
       if (!issue) throw Error("Current routed Issue identity is required.");
+      if (getIssueCloseProjection(root, issue.issueId).status !== "closed") throw Error("Current routed Issue close evidence is required for integration.");
       const state = getIssueCorrectionIntegrationEvidence(root, issue.issueId);
       const projection = projectPlanExecution(state.input);
       const completion: IntegrationCompletionEvidence = { kind: "plan", routeDecisionId: plan.identity.routeDecisionId, completionId: state.input.planId,
         revision: state.input.planRevision, fingerprint: projection.fingerprint, sourcePath: plan.relativePath };
       return { kind: "plan" as const, branchBinding: intake.branchBinding, completion, projection,
-        planId: state.input.planId, entries: state.checkpoints.map((entry) => ({ executionWorkCardId: entry.implementationId, workItemId: entry.workItemId, contractPath: entry.contractPath, issueId: issue.issueId })) };
+        planId: state.input.planId, issueId: issue.issueId, entries: state.checkpoints.map((entry) => ({ executionWorkCardId: entry.implementationId, workItemId: entry.workItemId, contractPath: entry.contractPath, issueId: issue.issueId })) };
     }
     const state = await loadRoutedDevelopmentExecution(root, intakeId);
     const completion: IntegrationCompletionEvidence = { kind: "plan", routeDecisionId: state.binding.identity.routeDecisionId,
@@ -67,7 +69,7 @@ export function createRoutedIntegrationService(root: string, intakeId: string) {
     const state = await completionState();
     return { binding: state.branchBinding, completion: state.completion, intakePath: readWorkIntake(root, intakeId).relativePath };
   }
-  const candidate = createIntegrationCandidateService({ repositoryRoot: root, repositoryId, load,
+  const candidate = createIntegrationCandidateService({ repositoryRoot: root, repositoryId, load, requiredTargetBranch: "dev",
     ...createIntegrationPolicyProvider(root), ...createIntegrationRepairPolicyProvider({ repositoryRoot: root, repositoryId, load }) });
 
   async function planCheckpoints(state: Extract<Awaited<ReturnType<typeof completionState>>, { kind: "plan" }>) {
@@ -164,6 +166,22 @@ export function createRoutedIntegrationService(root: string, intakeId: string) {
         const refreshed = await query();
         if (refreshed.completionKind !== "research" || refreshed.completionFingerprint !== request.expectedFingerprint || !refreshed.checkpointCommits.length) throw Error("Current Research checkpoint evidence changed before candidate construction.");
         current = refreshed;
+      }
+      if (current.completionKind === "plan" && !current.candidate) {
+        const state = await completionState();
+        if (state.kind === "plan" && "issueId" in state && state.issueId) {
+          const changed = await source.changedFiles();
+          if (!changed.ok) throw Error(changed.error.message);
+          const issuePrefix = `issues/${state.issueId}/`;
+          const paths = changed.result.filter(entry => entry.path.startsWith(issuePrefix)).map(entry => entry.path);
+          const checkpoint = await checkpointOperatorDisposition(root, intakeId,
+            `issue-completion-${state.issueId}-${state.completion.fingerprint.slice(0, 12)}`, paths, state.issueId);
+          if (checkpoint.status !== "committed") throw Error(checkpoint.message);
+          const refreshed = await query();
+          if (refreshed.status !== "ready" || refreshed.completionFingerprint !== request.expectedFingerprint)
+            throw Error("Routed Issue completion changed before candidate construction.");
+          current = refreshed;
+        }
       }
       const record = current.candidate ?? await candidate.create();
       if (record.status === "validated") await candidate.advance(record.candidateId);
