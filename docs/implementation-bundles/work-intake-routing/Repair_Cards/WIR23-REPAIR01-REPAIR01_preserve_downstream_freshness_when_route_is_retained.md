@@ -1,201 +1,200 @@
 # WIR23-REPAIR01-REPAIR01 — Preserve Downstream Freshness When the Effective Route Is Retained
 
-**Parent Repair Card:** `WIR23-REPAIR01 — Enforce Route Decision State and Non-Destructive Reroute Retention`  
-**Failed review evidence:** Architect code review of the implemented WIR23-REPAIR01 on 2026-09-21  
-**Parent Implementer Report:** `docs/implementation-bundles/work-intake-routing/Implementer_Reports/WIR23-REPAIR01_IMPLEMENTER_REPORT.md`  
-**Repair Implementer Report:** `docs/implementation-bundles/work-intake-routing/Implementer_Reports/WIR23-REPAIR01-REPAIR01_IMPLEMENTER_REPORT.md`
+**Type:** Repair Work Card  
+**Parent:** WIR23-REPAIR01  
+**Experiment:** Implementer Reasoning Reduction  
+**Implementer target:** GPT-5.6 Luna Medium
 
-## Confirmed Defect
+## A. Objective
 
-WIR23-REPAIR01 correctly prevents ordinary selected routes from being decided again, suppresses downstream supersession when a reroute is dispositioned back to the already-effective route, and retains the prior authoritative route-selection `decisionId`.
+Preserve already-valid route-scoped planning when a reroute recommendation is resolved without changing the effective Operator-selected route.
 
-However, a same-route reroute disposition still rewrites the canonical Operator route-decision document and increments its `artifactRevision`.
+A same-route disposition may append route-decision history and advance the canonical route-decision document revision. That history change must not make an approved Assessment or Plan stale when all of the following remain unchanged:
 
-Production planning currently treats that mutable route-decision document revision and full-file digest as a freshness dependency:
+- `route.selection.decisionId`;
+- `route.selection.selectedRouteId`;
+- the Work Intake revision/content;
+- the Assessment/Plan's other semantic source revisions and digests.
 
-- `workPlanningKernel.ts` constructs `routeSource` from `route.relativePath` plus the current `route.artifactRevision`;
-- planning artifacts persist that exact source revision and digest;
-- `sourcesCurrent()` and `readArtifact()` reject the artifact as stale when the route-decision document revision/digest changes.
+A genuine route change must continue to supersede prior route-scoped work.
 
-Therefore the following sequence is still destructive at the semantic level:
+## B. Verified Repository Preconditions
 
-1. Route decision revision N selects route A.
-2. Valid route-scoped Assessment/Plan artifacts are created against revision N.
-3. A reroute recommendation proposes route B.
-4. The Operator rejects the reroute by overriding back to route A, or requests revised reroute advice while retaining route A.
-5. The route-decision history document advances to revision N+1.
-6. Existing Assessment/Plan files remain byte-identical and are not marked historical, but production planning now considers them stale because their route source still references revision N.
+### Production
 
-The parent repair's preservation requirement is therefore not satisfied. The files survive, but valid planning cannot remain current solely because decision history changed without an effective route change.
+`src/main/workIntake/workRouteDecisionService.ts` already:
+- restricts decision mutation to `awaiting-decision` and `reroute-required`;
+- keeps the previous authoritative `selection` when a reroute is overridden back to the already-selected route;
+- increments the route-decision document revision for the new history entry;
+- supersedes explicit downstream lineage only when the selected route actually changes.
 
-The same coupling must be checked for the Issue Resolution path because `workIssueRoutingService.ts` also records the mutable route-decision artifact revision as source evidence for routed Issue handoff state.
+Do not change those semantics in this card.
 
-## Root Cause
+`src/main/workPlanning/workPlanningKernel.ts` currently:
+- identifies planning artifacts by stable `routeDecisionId + routeId`;
+- includes the route-decision document in `sourceRevisions` and `sourceDigests`;
+- uses exact source revision/digest equality in `readArtifact()` freshness;
+- uses the route decision as `sourceHandoff`;
+- therefore treats a history-only route-document revision/hash change as semantic staleness.
 
-The current design conflates two different kinds of change:
+The route-decision source edge is still required for explicit downstream provenance/supersession. It must not be removed from persisted `sourceRevisions`.
 
-1. **decision-history mutation** — recording a reroute disposition, revision request, rationale, or other audit history; and
-2. **effective route-selection change** — changing the authoritative selected route and therefore the route-scoped planning identity.
+`src/main/workPlanning/workIssueContext.ts` resolves routed Issue identity from stable `routeDecisionId + routeId`; it does not independently require the route-decision document revision.
 
-The canonical route-decision document's `artifactRevision` correctly changes when its history changes, but downstream planning interprets every such document mutation as though the effective route selection changed.
+### Existing proof surfaces
 
-WIR23-REPAIR01 preserved the authoritative `decisionId` for same-route reroute dispositions, but downstream freshness is still bound to the mutable document revision rather than that stable effective-selection identity.
+Reuse:
+- `test/architect-outputs/architect-output-prompt-contracts.test.cjs` — existing Feature planning owner;
+- `test/architect-outputs/architect-output-workspace-repair.test.cjs` — existing route-decision/supersession owner;
+- `test/issue-resolution/issue-architect-planning-service.test.cjs` — routed Issue identity/RCA owner.
 
-## Architectural Decision
+Do not create a new permanent test file.
 
-### Decision history and effective selection are separate freshness domains
+## C. Exact Implementation Delta
 
-The route-decision document remains an auditable canonical record and MUST continue to revise when decision history is materially updated.
+### 1. Distinguish route provenance from semantic freshness in `workPlanningKernel.ts`
 
-Downstream route-scoped planning/execution MUST NOT become stale merely because that history document changed while the effective selection remained the same.
+Modify only the planning freshness implementation; do not change artifact identity or persisted lineage.
 
-The effective route dependency is the authoritative selection identity and semantics, including at minimum:
+Add an internal planning-context field naming the route-decision provenance path, e.g. `provenanceOnlySourcePaths: string[]`. For current route-scoped planning this contains exactly `route.relativePath`.
 
-- Intake identity;
-- authoritative route-selection `decisionId`;
-- effective `selectedRouteId`;
-- any selection traits that materially define the selected planning profile.
+Keep all of the following unchanged in newly written planning artifacts:
+- the full route source in `sourceRevisions`;
+- the full route source digest in `workflowData.sourceDigests`;
+- `sourceHandoff`;
+- `routeDecisionId` and `routeId` identity.
 
-The existing route-scoped planning identity already carries `routeDecisionId` and `routeId`. The repair should use that stable selection boundary rather than treating every route-decision document byte/revision change as a route transition.
+Add a helper that evaluates semantic freshness after excluding only the context-declared provenance-only path(s) from:
+- source revision equality; and
+- source digest currency/equality.
 
-A real route change remains destructive to the superseded route lineage: it creates a new authoritative selection identity and continues to historicalize/invalidate affected downstream artifacts exactly as required by WIR23-REPAIR01.
+Use that semantic comparison only when `readArtifact()` decides whether an already-promoted Assessment/Plan is stale.
 
-Do not solve this by falsifying or suppressing canonical route-decision `artifactRevision` changes. Do not mass-rewrite otherwise-valid downstream artifacts solely to roll their source revision forward after a no-op reroute disposition.
+Do **not** weaken preparation/promotion concurrency checks. `sameContext()` and `resolvePromotionContext()` must remain strict for an in-flight temporary draft. A route-history change while a draft is being prepared may still require a fresh draft.
 
-## Repair Objective
+All non-route sources remain exact freshness dependencies. In particular:
+- Work Intake revision/content change still stales Assessment and Plan;
+- Assessment revision/content change still stales Plan;
+- Issue/RCA source change still stales routed Issue Plan;
+- missing or unreadable source still fails closed.
 
-Complete WIR23-REPAIR01's non-destructive reroute contract by separating mutable route-decision history freshness from stable effective-selection freshness.
+A real route change needs no special stale exception because it changes the effective route identity and current artifact path/participation semantics.
 
-When the Operator retains the current route, valid downstream route-scoped work must remain semantically current without being rewritten. When the effective route actually changes, existing supersession/invalidation behavior must remain intact.
+### 2. Add retained-route planning regression proof
 
-## Required Correction
+Extend the existing top-level Feature planning test in:
+`test/architect-outputs/architect-output-prompt-contracts.test.cjs`.
 
-1. Inspect and correct the production planning dependency in `workPlanningKernel.ts` so route-scoped Assessment/Plan validity is governed by the effective selection identity rather than every mutation to the route-decision history document.
-2. Preserve exact stale-input protection for Work Intake changes, planning-source changes, route changes, changed Issue evidence, and other genuine source mutations.
-3. Preserve the canonical route-decision history document as an auditable revisioned artifact. Same-route reroute dispositions and reroute revision requests may still advance its artifact revision.
-4. Do not rewrite valid Assessment/Plan artifacts merely because the route-decision history revision advanced while the effective selection remained unchanged.
-5. Ensure a resolved same-route reroute returns the existing route-scoped planning artifacts to ordinary current use without requiring the Architect or Operator to recreate them.
-6. While a reroute is genuinely pending or in `revision-requested` state, preserve the current rule that new route-scoped planning actions do not proceed as though routing were resolved.
-7. After revised reroute advice is dispositioned while retaining the same effective route, previously valid downstream planning must remain current.
-8. Inspect `workIssueRoutingService.ts` and `workIssueContext.ts` for the same mutable-document freshness coupling. A no-op reroute disposition must not invalidate an otherwise-current routed Issue handoff solely because route-decision history changed.
-9. Preserve actual route-change behavior: a different selected route must still create the new authoritative selection identity, historicalize explicit downstream lineage, and prevent the superseded route's artifacts from being treated as current.
-10. Keep the parent WIR23-REPAIR01 service-state and renderer legality fixes intact.
+After its Assessment and Plan have been promoted:
+1. capture the complete Assessment and Plan file bytes;
+2. read the current route decision and retain the current `selection`;
+3. create a reroute recommendation to a **different** supported route using the current Plan as bounded source evidence;
+4. dispose that reroute with `override` back to the currently selected `feature-change` route;
+5. prove:
+   - resulting `selection.decisionId` is unchanged;
+   - resulting selected route is unchanged;
+   - route-decision artifact revision advanced;
+   - no downstream supersession was added for the retained route;
+   - `workPlanningKernel.get(..., "assessment")` returns the original Assessment as not stale;
+   - `workPlanningKernel.get(..., "plan")` returns the original Plan as not stale;
+   - Assessment and Plan bytes are unchanged.
 
-## Preserve
+### 3. Add retained-route Issue identity proof
 
-- Ordinary `selected` state rejects Accept, Override, and Request Revision until a real pending recommendation exists.
-- `awaiting-decision` and `reroute-required` remain the only legal decision boundaries.
-- Same-route reroute Override retains the prior authoritative selection `decisionId`.
-- Request Revision retains the current authoritative selection.
-- Real route changes create supersession evidence and historicalize only explicit affected downstream lineage.
-- Stale assessment/reroute evidence fails closed.
-- Work Intake identity and branch binding remain unchanged across reroute.
-- Renderer decision controls remain capability/state-driven and non-authoritative.
-- Issue Resolution reframe behavior.
-- Canonical decision history remains complete and revisioned.
+Extend the existing top-level routed Issue test in:
+`test/issue-resolution/issue-architect-planning-service.test.cjs`.
 
-## In-Scope Surface to Inspect
+Immediately after the canonical routed Issue handoff is created:
+1. retain the handoff bytes and current route `selection`;
+2. recommend a reroute to a distinct route using the handoff as source evidence;
+3. dispose that reroute with `override` back to `issue-resolution`;
+4. call routed Issue `status`;
+5. prove:
+   - effective selection ID and route remain unchanged;
+   - the same Issue ID and handoff path are returned;
+   - handoff bytes are unchanged;
+   - the handoff is still non-historical.
 
-- `src/main/workIntake/workRouteDecisionService.ts`
+Do not redesign Issue/RCA persistence in this card. If this exact proof requires production changes outside `workPlanningKernel.ts`, stop under the mismatch policy rather than widening scope.
+
+## D. Expected Change Boundary
+
+Expected modified files:
 - `src/main/workPlanning/workPlanningKernel.ts`
+- `test/architect-outputs/architect-output-prompt-contracts.test.cjs`
+- `test/issue-resolution/issue-architect-planning-service.test.cjs`
+
+Expected unchanged:
+- `src/main/workIntake/workRouteDecisionService.ts`
 - `src/main/workPlanning/workIssueRoutingService.ts`
 - `src/main/workPlanning/workIssueContext.ts`
-- `src/shared/workRouteDecisionContracts.ts` only if a narrowly required contract clarification is necessary
-- `src/shared/workPlanningContracts.ts` only if a narrowly required semantic selection reference is necessary
-- `test/architect-outputs/architect-output-workspace-repair.test.cjs`
-- existing routed Issue Resolution proof under `test/issue-resolution/`
+- shared schemas/contracts
+- integration services
+- validation catalog unless measured test metadata is mechanically required by existing test governance
 
-Only modify additional files when required to implement this exact freshness boundary.
+The required Implementer Report is the only expected additional artifact.
 
-## Forbidden Changes
+## E. Architectural Decisions Already Made
 
-- No new route taxonomy.
-- No new routing workflow or alternate route-selection authority.
-- No automatic route selection.
-- No renderer-owned freshness or route authority.
-- No suppression/falsification of canonical artifact revisions.
-- No mass metadata rewrite of valid downstream artifacts merely to match the newest decision-history revision.
-- No deletion/recreation of valid planning as the repair mechanism.
-- No new Work Intake identity or branch.
-- No broad planning-kernel redesign.
-- No source-control, lifecycle-checkpoint, integration, or Research-closure work from WIR23-REPAIR02/03/04.
-- No unrelated test-suite repair or full-suite execution requirement.
-- No stage, commit, push, merge, tag, release, or publication unless separately directed by the Operator.
+1. Effective route identity is `routeDecisionId + selectedRouteId`, not the mutable route-history document revision.
+2. The route-decision document remains explicit provenance.
+3. Provenance-only exemption applies only to already-promoted artifact freshness.
+4. Draft promotion remains strict against any source/context change.
+5. Real route changes continue to historicalize/supersede prior route-scoped work.
+6. No migration or rewrite of existing valid planning artifacts is permitted.
 
-## Acceptance Criteria
+## F. Test and Validation Contract
 
-1. A route-scoped Assessment/Plan created under authoritative selection A remains current after a pending reroute is overridden back to selection A.
-2. The same scenario preserves the existing selection `decisionId`, produces no route supersession, leaves downstream artifacts byte-identical, and does not require reauthoring/re-review merely because route-decision history advanced.
-3. Request Revision of a pending reroute retains selection A and does not historicalize or semantically stale valid downstream artifacts solely because the route-decision history document changed.
-4. While reroute advice is pending or revision is requested, production planning still refuses to proceed as though routing were resolved.
-5. After revised advice is resolved while retaining selection A, the previously valid Assessment/Plan is immediately recognized as current by the production planning service.
-6. Accepting or overriding to route B still creates a genuinely new effective selection and leaves the prior route's affected Assessment/Plan historical/stale as required by the parent repair.
-7. A Work Intake revision, changed planning source, changed Issue evidence, or changed effective route still fails the applicable freshness check; this repair must not weaken genuine stale-evidence protection.
-8. A routed Issue Resolution handoff remains valid through a no-op reroute disposition when the authoritative Issue route selection is unchanged, but does not survive a genuine route change as current evidence.
-9. Ordinary selected-state duplicate decisions remain rejected.
-10. Renderer decision controls remain absent outside legal pending decision states.
+Modify existing tests only; no new permanent file.
 
-## Regression Proof
+Run:
+1. `npm run typecheck`
+2. `node --test --test-reporter=tap --test-concurrency=1 --test-name-pattern="Feature planning requires baseline delta" test/architect-outputs/architect-output-prompt-contracts.test.cjs`
+3. `node --test --test-reporter=tap --test-concurrency=1 --test-name-pattern="Operator route decisions preserve authority" test/architect-outputs/architect-output-workspace-repair.test.cjs`
+4. `node --test --test-reporter=tap --test-concurrency=1 --test-name-pattern="routed defect preserves Intake and branch" test/issue-resolution/issue-architect-planning-service.test.cjs`
 
-Use the existing production-path route lifecycle proof rather than creating a parallel permanent suite.
+Acceptance:
+- retained-route Planning proof passes with unchanged Assessment/Plan bytes;
+- existing real-route supersession proof still passes;
+- retained-route Issue handoff proof passes;
+- typecheck passes.
 
-Extend `test/architect-outputs/architect-output-workspace-repair.test.cjs` so the same-route retention scenarios prove not only byte preservation and supersession count, but also production planning freshness after disposition.
+Do not run the full suite, full-supported-platform, packaging, performance/soak, or unrelated validation profiles.
 
-The proof must exercise the actual planning service/kernel after:
+## G. Forbidden Changes
 
-- same-route reroute Override;
-- reroute Request Revision;
-- revised reroute advice followed by same-route retention;
-- real route change as the negative control.
+Do not:
+- suppress route-decision revision increments;
+- remove route-decision provenance from persisted planning source revisions;
+- rewrite current Assessment/Plan merely to refresh route-history metadata;
+- weaken Work Intake, Assessment, RCA, or other source freshness;
+- alter reroute authority semantics;
+- create fallback compatibility artifacts;
+- add a new test file;
+- broaden into Research or sequential-Intake repair.
 
-Reuse the existing Issue Resolution production-path test where possible to prove the equivalent no-op reroute retention boundary. Extend that existing test only if its present assertions do not establish current Issue-route evidence after the route-history mutation.
+## H. Mismatch Policy
 
-Do not add a new permanent test merely to isolate this repair unless the existing stable proof boundaries cannot express the scenario. If a new test is unavoidable, the Implementer Report must identify the specific coverage gap.
+Implementer-local:
+- naming of the internal provenance-path helper;
+- assertion wording;
+- trivial TypeScript narrowing/import corrections.
 
-Required focused validation:
+Stop with `CARD_REPOSITORY_MISMATCH` if:
+- preserving retained-route Issue identity requires changing Issue persistence/service semantics;
+- current route selection identity changes during same-route override;
+- real-route supersession depends on removing the route source edge;
+- another source must be exempted from freshness;
+- shared schema or persistence migration becomes necessary.
 
-- `node --test --test-concurrency=1 --test-name-pattern="Operator route decisions" test/architect-outputs/architect-output-workspace-repair.test.cjs`
-- the existing focused routed Issue/reroute production-path test under `test/issue-resolution/issue-architect-planning-service.test.cjs`
-- `node --check test/architect-outputs/architect-output-workspace-repair.test.cjs`
-- `git diff --check`
+## I. Completion Evidence
 
-Run `npm run typecheck` only as a compile sanity check if the current shared branch baseline permits it. Unrelated pre-existing diagnostics are to be recorded, not repaired under this card.
-
-Do not run `npm test` or the full regression suite for this child repair. Bundle-wide acceptance remains WIR23 ownership.
-
-## Repair Implementer Report
-
-Write:
-
-`docs/implementation-bundles/work-intake-routing/Implementer_Reports/WIR23-REPAIR01-REPAIR01_IMPLEMENTER_REPORT.md`
-
-Include:
-
-- confirmed defect and root cause;
-- exact effective-selection freshness mechanism implemented;
-- production files changed;
-- how canonical route history remains revisioned without invalidating unchanged effective selection;
-- proof that retained planning remains current, not merely byte-identical;
-- Issue Resolution impact/proof;
-- focused command results;
-- existing tests reused or extended;
-- any new permanent test and its specific coverage-gap justification;
-- deviations, blockers, and residual code-level risk.
-
-Do not claim the parent WIR23-REPAIR01 complete if same-route history mutation can still invalidate otherwise-valid downstream work.
-
-## Source-Control Scope
-
-Do not create a checkpoint commit unless the Operator separately directs Git after Architect review.
-
-This card does not authorize merge, push, branch cleanup, tag, release, or publication.
-
-## Manual Validation
-
-None expected. This is a deterministic state/freshness repair. Product-level WIR23 acceptance remains outside this child repair.
-
-## Return to Workflow
-
-After implementation, stop for Architect code review of WIR23-REPAIR01-REPAIR01.
-
-If this child repair passes, return to closure review of parent WIR23-REPAIR01 and then the remaining WIR23 repair packet.
+Report:
+- exact files changed;
+- exact freshness rule implemented;
+- confirmation full route provenance is still persisted;
+- confirmation real-route supersession test still passes;
+- confirmation retained-route Assessment/Plan bytes remain unchanged;
+- confirmation routed Issue handoff remains current;
+- exact four validation commands/results;
+- any local correction, deviation, or mismatch.

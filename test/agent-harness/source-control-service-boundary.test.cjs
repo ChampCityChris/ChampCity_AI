@@ -47,6 +47,7 @@ const {
 } = require("../support/git-mutation-fixtures.cjs");
 
 test("application source control returns attributable receipts and preserves Git safety without MCP", async (t) => {
+  const metrics = require("../support/execution-metrics.cjs").measureExecution(t, "source-control-service-boundary");
   const root = createBoundWorkspace("champcity-application-source-control-", true);
   t.after(() => fs.rmSync(path.dirname(root), { recursive: true, force: true }));
   commitAllFixtureState(root, "service baseline");
@@ -65,9 +66,17 @@ test("application source control returns attributable receipts and preserves Git
     assert.equal("workspaceId" in value, false);
     return value;
   }
+  const beforeFirstStatus = metrics.boundedGit;
   assert.equal((await success(service.status(), "status")).result.clean, true);
+  assert.equal(metrics.boundedGit - beforeFirstStatus, 6, "First status verifies the root once and uses lightweight receipt positions");
+  const beforeCachedStatus = metrics.boundedGit;
+  assert.equal((await success(service.status(), "status")).result.clean, true);
+  assert.equal(metrics.boundedGit - beforeCachedStatus, 5, "Later operations reuse instance-bound root verification");
   assert.equal((await success(service.readiness(), "readiness")).result.clean, true);
-  assert.deepEqual((await success(service.branches(), "branches")).result.remotes, []);
+  const branchInventory = (await success(service.branches(), "branches")).result;
+  assert.deepEqual(branchInventory.remotes, []);
+  assert.deepEqual(branchInventory.branches, [{ name: "dev", commit: baseline }]);
+  assert.deepEqual(branchInventory.selectedBranch, { name: "dev", commit: baseline, upstream: null, ahead: null, behind: null });
   const createdRef = await success(service.createBranchFromRef({ branchName: "non-checkout", sourceRef: "dev" }), "create-branch-from-ref");
   assert.equal(createdRef.result.sourceCommit, baseline);
   assert.deepEqual(createdRef.receipt.before, createdRef.receipt.after);
@@ -98,6 +107,9 @@ test("application source control returns attributable receipts and preserves Git
   const history = await success(service.history({ ancestor: baseline, descendant: "work/service", maxCount: 2 }), "history");
   assert.equal(history.result.ancestry.isAncestor, true);
   assert.deepEqual(history.result.commits.map(({ subject }) => subject), ["application checkpoint", "service baseline"]);
+  const historyWithMessages = await success(service.historyWithMessages({ ref: "work/service", maxCount: 2 }), "history-with-messages");
+  assert.deepEqual(historyWithMessages.result.commits.map(({ subject }) => subject), ["application checkpoint", "service baseline"]);
+  assert.match(historyWithMessages.result.commits[0].message, /^application checkpoint/m);
   const invalidRef = await service.history({ ref: "--all" });
   assert.equal(invalidRef.ok, false);
   assert.equal(invalidRef.error.code, "INVALID_INPUT");

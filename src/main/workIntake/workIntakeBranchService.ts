@@ -42,13 +42,13 @@ export function createWorkIntakeBranchService(repository: { repositoryId: string
     }
     if (state.head !== binding.currentHead) {
       // Only exact source or lifecycle-evidence checkpoint receipts may advance the bound source head.
-      const lineage = unwrap(await sourceControl.history({ ref: state.head, maxCount: 100 }), []);
+      const lineage = unwrap(await sourceControl.historyWithMessages({ ref: state.head, maxCount: 100 }), []);
       let current = state.head;
       for (const commit of lineage.commits) {
         if (current === binding.currentHead) break;
         if (commit.commit !== current || commit.parents.length !== 1) throw new AgentHarnessError("STALE_SOURCE", "Work Intake checkout differs from its recorded head and advanced outside its recorded checkpoint chain.");
         let evidence;
-        try { evidence = readApplicationCheckpointReceipt(commit.subject, unwrap(await sourceControl.readCommitMessage(commit.commit), [])).evidence; }
+        try { evidence = readApplicationCheckpointReceipt(commit.subject, commit.message).evidence; }
         catch { throw new AgentHarnessError("STALE_SOURCE", "Work Intake checkout differs from its recorded head and advanced outside its recorded checkpoint chain."); }
         if (evidence.intakeId !== binding.intakeId || evidence.repositoryId !== binding.repositoryId || evidence.workBranch !== binding.workBranch || evidence.beforeHead !== commit.parents[0]) throw new AgentHarnessError("STALE_SOURCE", "Checkpoint does not match the Work Intake branch lineage.");
         current = commit.parents[0];

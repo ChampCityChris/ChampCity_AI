@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process'),test=require('node:test');
-const {validationFixture}=require('../support/validation-fixture.cjs');
+const {applyValidationLaneFixtureContract,validationFixture}=require('../support/validation-fixture.cjs');
 const {createIntegrationPolicyProvider}=require('../../dist/main/planExecution/integrationPolicyProvider.js');
 const {integrationPaths}=require('../../dist/main/agentHarness/repository/integrationGit.js');
 const {parseIntegrationPolicy}=require('../../dist/shared/integrationPolicyContracts.js');
@@ -29,7 +29,7 @@ test('candidate profile uses immutable target toolkit ownership and revisions th
  // Incoming edits can propose future policy/catalog changes but cannot replace their current judge.
  fs.writeFileSync(path.join(paths.checkout,'scripts/validation/profile-runner.cjs'),"throw Error('incoming runner must never execute');");
  const futureProfiles=structuredClone(fixtureProfiles);futureProfiles.profiles['integration-gate'].lanes=['static'];futureProfiles.profiles['integration-gate'].requiresBuild=false;fs.writeFileSync(path.join(paths.checkout,'validation/profiles.json'),JSON.stringify(futureProfiles));
- const weakened=structuredClone(catalog);weakened.tests[0].proposedValidationLane='performance-soak';weakened.tests[0].execution.requiresBuild=false;fs.writeFileSync(path.join(paths.checkout,'validation/capability-map.json'),JSON.stringify(weakened));
+ const weakened=structuredClone(catalog);applyValidationLaneFixtureContract(weakened.tests[0],'performance-soak');weakened.tests[0].execution.requiresBuild=false;fs.writeFileSync(path.join(paths.checkout,'validation/capability-map.json'),JSON.stringify(weakened));
  candidateGit('add','.');candidateGit('commit','-m','proposed weaker future configuration');
  const still=await run();assert.equal(still.exitCode,0,still.summary);assert.deepEqual(still.profileEvidence.selectedTests,first.profileEvidence.selectedTests);assert.equal(still.profileEvidence.authoritySha256,first.profileEvidence.authoritySha256);assert.equal(fs.readFileSync(path.join(paths.checkout,'build-count.txt'),'utf8'),'xx');
  fs.writeFileSync(path.join(paths.checkout,'src/value.js'),'module.exports=2;');candidateGit('add','.');candidateGit('commit','-m','invalid repair source');
@@ -51,7 +51,7 @@ require('../support/integration-scenarios.cjs').registerIntegrationScenarios('ac
   const template=loadCatalog().tests.find(t=>t.testPath==='test/validation/capability-map.test.cjs');
   const files=[['integration','test/gate.test.cjs'],['desktop-platform','test/desktop.test.cjs'],['packaging','test/packaging.test.cjs'],['performance-soak','test/performance.test.cjs']];
   fs.mkdirSync(path.join(root,'test'));fs.mkdirSync(path.join(root,'validation'));fs.mkdirSync(path.join(root,'scripts/validation'),{recursive:true});
-  const tests=files.map(([lane,testPath],index)=>{fs.writeFileSync(path.join(root,testPath),"require('node:test')('candidate bytes',()=>{const assert=require('node:assert/strict');assert.match(require('node:fs').readFileSync('dist/source.txt','utf8'),/accepted/);"+(scenario==='validation-profile-fails'?"assert.fail('fixture regression');":"")+"});");return {...structuredClone(template),testPath,proposedValidationLane:lane,behaviorCoverage:[{capabilityId:'fixture',behaviorId:'case-'+index,proofRole:'primary',proofLocator:'candidate bytes'}],execution:{...template.execution,requiresBuild:true,ownedResources:['temp-filesystem-isolated'],schedulingReason:'Candidate fixture owns only its isolated repository.'}};}).sort((a,b)=>a.testPath.localeCompare(b.testPath));
+  const tests=files.map(([lane,testPath],index)=>{fs.writeFileSync(path.join(root,testPath),"require('node:test')('candidate bytes',()=>{const assert=require('node:assert/strict');assert.match(require('node:fs').readFileSync('dist/source.txt','utf8'),/accepted/);"+(scenario==='validation-profile-fails'?"assert.fail('fixture regression');":"")+"});");const record={...structuredClone(template),testPath,behaviorCoverage:[{capabilityId:'fixture',behaviorId:'case-'+index,proofRole:'primary',proofLocator:'candidate bytes'}]};applyValidationLaneFixtureContract(record,lane);record.execution.requiresBuild=true;return record;}).sort((a,b)=>a.testPath.localeCompare(b.testPath));
   const catalog={schemaVersion:4,capabilities:[{capabilityId:'fixture',description:'candidate fixture',sourcePatterns:['*.txt'],dependsOn:[],behaviors:files.map((_,i)=>({behaviorId:'case-'+i,description:'owned fixture proof'}))}],tests};
   fs.writeFileSync(path.join(root,'validation/capability-map.json'),JSON.stringify(catalog));
   const profiles=structuredClone(require('../../validation/profiles.json'));for(const profile of Object.values(profiles.profiles))profile.requiredCapabilities=['fixture'];fs.writeFileSync(path.join(root,'validation/profiles.json'),JSON.stringify(profiles));

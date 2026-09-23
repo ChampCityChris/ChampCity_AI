@@ -8,6 +8,7 @@ test("Feature planning requires baseline delta and preservation while keeping ca
   const { seedPreparedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
   const { root, intake } = seedPreparedRoutedWorkIntake(t, "feature-change", { workRequest: "Add CSV export to existing schedules", desiredOutcome: "Export current schedules without changing scheduling behavior" });
   const { workPlanningKernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
+  const { getWorkRouteDecision, decideWorkRoute, recommendWorkRouteReroute } = require("../../dist/main/workIntake/workRouteDecisionService.js");
   const baselinePath = path.join(root, "planning", "existing-roadmap.md");
   fs.writeFileSync(baselinePath, "# Existing roadmap\nExport later; unrelated sharing remains future work.\n");
   const baselineBytes = fs.readFileSync(baselinePath, "utf8");
@@ -35,6 +36,36 @@ test("Feature planning requires baseline delta and preservation while keeping ca
   assert.equal(promoted.artifact.structure.workItems[0].workItemId, "WI_EXPORT");
   assert.equal(promoted.artifact.structure.phases, undefined);
   assert.equal(fs.readFileSync(baselinePath, "utf8"), baselineBytes, "existing roadmap remains untouched");
+  const assessment = await workPlanningKernel.get(root, intake.intakeId, "assessment");
+  const assessmentPath = path.join(root, assessment.artifact.relativePath);
+  const planPath = path.join(root, promoted.artifact.relativePath);
+  const assessmentBytes = fs.readFileSync(assessmentPath);
+  const planBytes = fs.readFileSync(planPath);
+  const retainedRoute = await getWorkRouteDecision(root, intake.intakeId);
+  const retainedSelection = retainedRoute.selection;
+  const pendingReroute = await recommendWorkRouteReroute(root, intake.intakeId, {
+    priorDecisionId: retainedSelection.decisionId,
+    replacementRouteId: "refactor-migration",
+    rationale: "Consider whether export should be handled as a migration.",
+    sourceEvidence: [{ path: promoted.artifact.relativePath, revision: promoted.artifact.artifactRevision }],
+  });
+  const resolvedRoute = await decideWorkRoute(root, intake.intakeId, {
+    expectedDecisionRevision: pendingReroute.artifactRevision,
+    sourceAssessment: pendingReroute.sourceAssessment,
+    disposition: "override",
+    selectedRouteId: "feature-change",
+    rationale: "Retain the bounded feature route and its approved planning.",
+  });
+  assert.equal(resolvedRoute.selection.decisionId, retainedSelection.decisionId);
+  assert.equal(resolvedRoute.selection.selectedRouteId, retainedSelection.selectedRouteId);
+  assert.ok(resolvedRoute.artifactRevision > retainedRoute.artifactRevision);
+  assert.deepEqual(resolvedRoute.supersessions, retainedRoute.supersessions);
+  const retainedAssessment = await workPlanningKernel.get(root, intake.intakeId, "assessment");
+  const retainedPlan = await workPlanningKernel.get(root, intake.intakeId, "plan");
+  assert.equal(retainedAssessment.artifact.stale, false);
+  assert.equal(retainedPlan.artifact.stale, false);
+  assert.deepEqual(fs.readFileSync(assessmentPath), assessmentBytes);
+  assert.deepEqual(fs.readFileSync(planPath), planBytes);
 });
 
 test("routing handoff constrains advisory work and its body rejects route-control or ambiguous primary values", () => {

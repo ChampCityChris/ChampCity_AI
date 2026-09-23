@@ -1,4 +1,4 @@
-const assert=require("node:assert/strict"),fs=require("node:fs"),os=require("node:os"),path=require("node:path"),test=require("node:test"),{execFileSync}=require("node:child_process");
+const assert=require("node:assert/strict"),fs=require("node:fs"),os=require("node:os"),path=require("node:path"),test=require("node:test"),childProcess=require("node:child_process");
 const {writeDoc}=require("./canonical-markdown-fixtures.cjs");
 const repositoryRoot=path.resolve(__dirname,"../..");
 function registerIntegrationScenarios(title, scenarios, options = {}) {
@@ -14,7 +14,7 @@ function registerIntegrationScenarios(title, scenarios, options = {}) {
     const semanticPolicy = scenario.startsWith("policy");
     const semanticRepair = ["operator-decision", "worker-git", "validation-failed"].includes(scenario);
     if (semanticPolicy || semanticRepair || options.sourceFixture) require("../support/integration-semantics.cjs").installSemanticSourceFixture(t, options.sourceFixture ? { allowCheckpointChain: true } : undefined);
-    const root = createBoundWorkspace(`champcity-integration-${scenario}-`, true);
+    const root = createBoundWorkspace("cc-int-", true);
     t.after(() => fs.rmSync(path.dirname(root), { recursive: true, force: true }));
     git(root, ["branch", "-m", "product-target"]);
     fs.writeFileSync(path.join(root, ".gitignore"), "/planning/\n");
@@ -333,24 +333,29 @@ function createBoundWorkspace(prefix, gitBacked) {
     gitBacked,
   }, null, 2), "utf8");
   if (gitBacked) {
-    execFileSync("git", ["init", "-b", "dev"], { cwd: root, stdio: "ignore" });
+    fixtureGit(root, ["init", "-b", "dev"], { stdio: "ignore" });
+    fixtureGit(root, ["config", "core.longpaths", "true"], { stdio: "ignore" });
     configureGitIdentity(root);
   }
   fs.writeFileSync(path.join(root, "README.md"), "temporary repository\n", "utf8");
   return root;
 }
 
+function fixtureGit(root, args, options = {}) {
+  return childProcess.execFileSync("git", ["-c", "core.longpaths=true", ...args], { ...options, cwd: root });
+}
+
 function configureGitIdentity(root) {
-  execFileSync("git", ["config", "user.name", "ChampCity Test"], { cwd: root, stdio: "ignore" });
-  execFileSync("git", ["config", "user.email", "champcity-test@example.invalid"], { cwd: root, stdio: "ignore" });
+  fixtureGit(root, ["config", "user.name", "ChampCity Test"], { stdio: "ignore" });
+  fixtureGit(root, ["config", "user.email", "champcity-test@example.invalid"], { stdio: "ignore" });
 }
 
 function commitAllFixtureState(root, message) {
-  execFileSync("git", ["add", "--all", "--", "."], { cwd: root, stdio: "ignore" });
-  execFileSync("git", ["commit", "-m", message], { cwd: root, stdio: "ignore" });
+  fixtureGit(root, ["add", "--all", "--", "."], { stdio: "ignore" });
+  fixtureGit(root, ["commit", "-m", message], { stdio: "ignore" });
 }
 
 function git(root, args) {
-  return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
+  return fixtureGit(root, args, { encoding: "utf8" }).trim();
 }
 module.exports={registerIntegrationScenarios};

@@ -40,6 +40,7 @@ export interface WorkIntakeProjection {
   suggestedProjectName: string;
   branches: Array<{ name: string; commit: string }>;
   currentBranch: string | null;
+  suggestedBase: { name: string; commit: string } | null;
   intakes: WorkIntakeRecord[];
   currentIntake: WorkIntakeRecord | null;
   blockedReason: string | null;

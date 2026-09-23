@@ -1,33 +1,39 @@
 # Work Intake Routing — Architect Review Repair Index
 
-**Source review:** `ARCHITECT_CODE_REVIEW_2026-09-20.md`
+**Original review:** `ARCHITECT_CODE_REVIEW_2026-09-20.md`  
+**Post-recovery review:** `ARCHITECT_REVIEW_2026-09-21_POST_RECOVERY.md`  
+**Combined WIR review:** `ARCHITECT_REVIEW_2026-09-22_WIR_REPAIRS.md`  
+**Candidate/history review:** `ARCHITECT_REVIEW_2026-09-22_WIR_LATEST_REPAIRS.md`  
+**Research/Git amplification review:** `ARCHITECT_REVIEW_2026-09-22_WIR_RESEARCH_GIT_AMPLIFICATION.md`  
+**Latest follow-up review:** `ARCHITECT_REVIEW_2026-09-22_WIR_FINAL_FOLLOWUP_GROUP.md`
 
-## Repair Packet
+## Closed / conforming
 
-1. `Repair_Cards/WIR23-REPAIR01_enforce_route_decision_state_and_non_destructive_reroute.md`
-   - Enforce route-decision state legality.
-   - Prevent same-route or duplicate decisions from superseding valid downstream artifacts.
-   - Architect review identified one child repair before closure:
-     - `Repair_Cards/WIR23-REPAIR01-REPAIR01_preserve_downstream_freshness_when_route_is_retained.md`
-     - Separate mutable route-decision history freshness from stable effective-selection freshness so same-route reroute dispositions do not stale valid downstream planning.
+- WIR23-REPAIR01
+- WIR23-REPAIR01-REPAIR01
+- WIR23-REPAIR01-REPAIR02
+- WIR23-REPAIR02
+- WIR23-REPAIR03A
+- WIR23-REPAIR03B
+- core WIR23-REPAIR03C Research completion/integration behavior
+- WIR23-REPAIR03C-REPAIR01
+- WIR23-REPAIR03C-REPAIR02 production candidate-selection behavior
+- WIR23-REPAIR03C-REPAIR04 source-control amplification reduction
+- WIR23-REPAIR03C-REPAIR05 Research semantic regression ownership
+- WIR23-REPAIR04
 
-2. `Repair_Cards/WIR23-REPAIR02_checkpoint_post_implementation_workflow_evidence.md`
-   - Add application-owned lifecycle-evidence checkpoints after source checkpointing.
-   - Keep Work Intake source clean across Work Items, Phase acceptance, Plan acceptance, and integration.
+## Remaining open item
 
-3. `Repair_Cards/WIR23-REPAIR03_complete_planning_only_research_intakes_through_shared_integration.md`
-   - Depends on REPAIR02.
-   - Give planning-only Research closure a durable terminal checkpoint and shared integration path without fabricating a Plan.
+`Repair_Cards/WIR23-REPAIR03C-REPAIR02-REPAIR02_restore_candidate_owner_through_actual_toolbox_runner.md`
 
-4. `Repair_Cards/WIR23-REPAIR04_preserve_sequential_intake_target_baseline.md`
-   - Resolve the suggested next-Intake base from service-owned target semantics rather than the currently checked-out Work Intake branch.
+Reason:
+- production build passes;
+- direct/manual candidate owner may pass;
+- ChampCity's actual `test_toolbox.run_test_file` still returns 4/8 on the current source;
+- the prior REPAIR01 corrected telemetry visibility but did not correct this authoritative-runner discrepancy.
 
-## Execution Dependencies
+## Final closure condition
 
-`WIR23-REPAIR01` and `WIR23-REPAIR04` are independent.
+WIR product architecture currently has no additional identified production defect.
 
-`WIR23-REPAIR02 → WIR23-REPAIR03` is the required lifecycle dependency.
-
-`WIR23-REPAIR01-REPAIR01` must pass Architect review before parent `WIR23-REPAIR01` is considered closed.
-
-Do not combine these cards. Each corrects a distinct state/ownership seam and should return to Architect code review before the package is declared complete.
+Perform final WIR architecture closure review after the candidate semantics owner passes the actual authoritative test-toolbox path twice consecutively with stable source context and no cleanup leak.

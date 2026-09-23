@@ -49,6 +49,7 @@ interface PlanningContext {
   targetPath: string;
   sourceHandoff: SourceRevision;
   sourceRevisions: SourceRevision[];
+  provenanceOnlySourcePaths: string[];
   digests: Record<string, string>;
   targetDigest: string;
   prior: ReturnType<typeof read>;
@@ -56,6 +57,16 @@ interface PlanningContext {
 function sourcesCurrent(root: string, sources: SourceRevision[], digests: Record<string, string>): boolean {
   try { return sources.every((source) => read(root, source.path)?.metadata.artifactRevision === source.revision && hash(bytes(root, source.path)) === digests[source.path]) && Object.entries(digests).every(([filePath, digest]) => hash(bytes(root, filePath)) === digest); }
   catch { return false; }
+}
+function semanticSourcesCurrent(root: string, sources: SourceRevision[], digests: Record<string, string>, context: PlanningContext): boolean {
+  const provenanceOnly = new Set(context.provenanceOnlySourcePaths);
+  const semanticSources = sources.filter((source) => !provenanceOnly.has(source.path));
+  const semanticContextSources = context.sourceRevisions.filter((source) => !provenanceOnly.has(source.path));
+  const semanticDigests = Object.fromEntries(Object.entries(digests).filter(([filePath]) => !provenanceOnly.has(filePath)));
+  const semanticContextDigests = Object.fromEntries(Object.entries(context.digests).filter(([filePath]) => !provenanceOnly.has(filePath)));
+  return sourcesCurrent(root, semanticSources, semanticDigests) &&
+    JSON.stringify(semanticSources) === JSON.stringify(semanticContextSources) &&
+    JSON.stringify(semanticDigests) === JSON.stringify(semanticContextDigests);
 }
 function readArtifact(root: string, context: PlanningContext): WorkPlanningArtifact | null {
   const document = read(root, context.targetPath);
@@ -65,8 +76,8 @@ function readArtifact(root: string, context: PlanningContext): WorkPlanningArtif
     identity.routeId !== context.identity.routeId || identity.routeDecisionId !== context.identity.routeDecisionId || identity.projectId !== context.identity.projectId ||
     typeof (context.stage === "assessment" ? identity.assessmentId : identity.planId) !== "string") throw Error("Planning artifact identity conflicts with the selected route.");
   const digests = document.metadata.workflowData.sourceDigests as Record<string, string> | undefined;
-  const stale = !digests || document.metadata.participationRole === "historical" || !sourcesCurrent(root, document.metadata.sourceRevisions, digests) ||
-    JSON.stringify(document.metadata.sourceRevisions) !== JSON.stringify(context.sourceRevisions);
+  const stale = !digests || document.metadata.participationRole === "historical" ||
+    !semanticSourcesCurrent(root, document.metadata.sourceRevisions, digests, context);
   return { identity, relativePath: context.targetPath, artifactRevision: document.metadata.artifactRevision, sourceRevisions: document.metadata.sourceRevisions,
     disposition: document.metadata.documentDisposition.status, reviewNotes: document.metadata.documentDisposition.notes, stale, bodyMarkdown: document.bodyMarkdown,
     ...(context.stage === "plan" ? { structure: workPlanStructureFromBody(document.bodyMarkdown) } : {}),
@@ -90,7 +101,8 @@ function contextFor(root: string, route: WorkRouteDecisionModel, stage: WorkPlan
     sourceHandoff = { path: assessment.relativePath, revision: assessment.artifactRevision };
     sourceRevisions.push(sourceHandoff);
   }
-  return { identity, profile, stage, targetPath, sourceHandoff, sourceRevisions, digests: { ...sourceDigests(root, sourceRevisions), ...issueContext?.evidenceDigests },
+  return { identity, profile, stage, targetPath, sourceHandoff, sourceRevisions, provenanceOnlySourcePaths: [route.relativePath],
+    digests: { ...sourceDigests(root, sourceRevisions), ...issueContext?.evidenceDigests },
     targetDigest: hash(bytes(root, targetPath)), prior: read(root, targetPath) };
 }
 function sameContext(left: PlanningContext, right: PlanningContext) { return JSON.stringify(left) === JSON.stringify(right); }

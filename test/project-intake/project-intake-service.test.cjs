@@ -288,10 +288,13 @@ test("Work Intake production APIs persist branch-bound intent and reuse Project 
   const before = await api.getWorkIntakeProjection();
   assert.equal(before.currentIntake, null, "historical Project Intake is not active Work Intake");
   assert.deepEqual(before.intakes, []);
+  assert.deepEqual(before.suggestedBase, {
+    name: "integration-target", commit: git("rev-parse", "integration-target"),
+  });
   const input = {
     projectId: null, projectName: "Existing Product", workRequest: "Add export", desiredOutcome: "Users can export their work",
     knownConstraints: "Preserve existing behavior", hasExistingSourceOrPlanning: true, repositoryReviewContext: "README.md",
-    baseBranch: "integration-target", baseCommit: git("rev-parse", "HEAD"),
+    baseBranch: before.suggestedBase.name, baseCommit: before.suggestedBase.commit,
   };
   await assert.rejects(api.submitWorkIntake({ ...input, projectRepository: root }), /unsupported fields/);
   const result = await api.submitWorkIntake(input);
@@ -300,8 +303,13 @@ test("Work Intake production APIs persist branch-bound intent and reuse Project 
   assert.deepEqual(persisted.branchBinding, result.binding);
   assert.equal(persisted.branchBinding.currentHead, input.baseCommit);
   assert.equal(git("branch", "--show-current"), result.binding.workBranch);
-  assert.equal(persisted.projectId, (await api.getWorkIntakeProjection()).project.projectId);
-  assert.equal((await api.getWorkIntakeProjection()).currentIntake.intakeId, persisted.intakeId);
+  const afterFirst = await api.getWorkIntakeProjection();
+  assert.equal(persisted.projectId, afterFirst.project.projectId);
+  assert.equal(afterFirst.currentIntake.intakeId, persisted.intakeId);
+  assert.deepEqual(afterFirst.suggestedBase, {
+    name: input.baseBranch, commit: input.baseCommit,
+  });
+  assert.notEqual(afterFirst.suggestedBase.name, result.binding.workBranch);
   assert.equal(fs.readFileSync(path.join(root, historical.projectIntakeMarkdownPath), "utf8"), originalIntake);
   assert.equal(fs.readFileSync(path.join(root, historical.architectPromptMarkdownPath), "utf8"), originalPrompt);
   const createdPaths = git("ls-files", "--others", "--exclude-standard").split(/\r?\n/).sort();
@@ -311,21 +319,63 @@ test("Work Intake production APIs persist branch-bound intent and reuse Project 
   assert.equal(canonical.metadata.sourceRevisions[0].revision, 1);
   assert.equal(JSON.stringify(canonical).includes(root), false);
 
-  // Fixture checkpoint simulates a clean committed baseline for the next bounded body of work.
+  // Advance the recorded integration target without moving the checked-out Work Intake branch.
   git("add", "--all");
-  git("commit", "-m", "first intake fixture baseline");
+  const integrationTree = git("write-tree");
+  const advancedTarget = git("commit-tree", integrationTree, "-p", input.baseCommit, "-m", "advanced integration target fixture");
+  git("update-ref", "refs/heads/integration-target", advancedTarget, input.baseCommit);
+  const advancedProjection = await api.getWorkIntakeProjection();
+  assert.deepEqual(advancedProjection.suggestedBase, {
+    name: input.baseBranch, commit: advancedTarget,
+  });
+  assert.notEqual(advancedProjection.suggestedBase.commit, persisted.branchBinding.baseCommit);
+
+  // Switching to the advanced target makes the fixture clean while retaining the projected commit for stale-source proof.
+  git("switch", "integration-target");
+  assert.equal(git("status", "--porcelain"), "");
   const identityBytes = fs.readFileSync(path.join(root, "planning/work-intake/PROJECT.md"), "utf8");
+  git("commit", "--allow-empty", "-m", "move target after Work Intake projection");
+  const movedTarget = git("rev-parse", "integration-target");
+  const stale = await api.submitWorkIntake({
+    ...input, projectId: persisted.projectId, workRequest: "Reject stale target",
+    baseBranch: advancedProjection.suggestedBase.name, baseCommit: advancedProjection.suggestedBase.commit,
+  });
+  assert.equal(stale.ok, false);
+  assert.equal(stale.error.code, "STALE_SOURCE");
+  assert.equal(git("branch", "--show-current"), "integration-target");
+
+  const refreshed = await api.getWorkIntakeProjection();
+  assert.deepEqual(refreshed.suggestedBase, { name: "integration-target", commit: movedTarget });
   const second = await api.submitWorkIntake({
-    ...input, projectId: persisted.projectId, workRequest: "Improve import", baseBranch: result.binding.workBranch,
-    baseCommit: git("rev-parse", "HEAD"),
+    ...input, projectId: persisted.projectId, workRequest: "Improve import",
+    baseBranch: refreshed.suggestedBase.name, baseCommit: refreshed.suggestedBase.commit,
   });
   assert.equal(second.ok, true, JSON.stringify(second));
   assert.equal(second.value.projectId, persisted.projectId);
   assert.notEqual(second.value.intakeId, persisted.intakeId);
   assert.notEqual(second.binding.workBranch, result.binding.workBranch);
+  assert.equal(second.binding.baseBranch, "integration-target");
+  assert.notEqual(second.binding.baseBranch, result.binding.workBranch);
   assert.equal(fs.readFileSync(path.join(root, "planning/work-intake/PROJECT.md"), "utf8"), identityBytes);
   assert.equal(fs.readFileSync(path.join(root, historical.projectIntakeMarkdownPath), "utf8"), originalIntake);
   assert.equal((await api.getWorkIntakeProjection()).intakes.length, 2);
+
+  // An explicitly supplied prior Work Intake branch remains a legal exact base.
+  git("add", "--all");
+  git("commit", "-m", "second intake fixture baseline");
+  const explicitPrior = await api.submitWorkIntake({
+    ...input, projectId: persisted.projectId, workRequest: "Use an explicit prior Intake branch",
+    baseBranch: result.binding.workBranch, baseCommit: git("rev-parse", result.binding.workBranch),
+  });
+  assert.equal(explicitPrior.ok, true, JSON.stringify(explicitPrior));
+  assert.equal(explicitPrior.binding.baseBranch, result.binding.workBranch);
+  assert.equal(explicitPrior.binding.baseCommit, input.baseCommit);
+
+  // Missing recorded targets fail closed instead of falling back to another branch.
+  git("branch", "-D", result.binding.workBranch);
+  const missingTarget = await api.getWorkIntakeProjection();
+  assert.equal(missingTarget.suggestedBase, null);
+  assert.match(missingTarget.blockedReason, /recorded integration target branch is unavailable/i);
   assert.ok(invocations.some(({ channel }) => channel === "workIntake:submit"));
   await assert.rejects(api.readWorkIntake("../outside"), /identity/);
 });

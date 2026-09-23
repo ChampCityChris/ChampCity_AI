@@ -3199,6 +3199,10 @@
           "description": "release_toolbox publishes exact read/write-scoped actions with no raw command surface"
         },
         {
+          "behaviorId": "research-routed-integration-candidate-lifecycle",
+          "description": "approved no-Plan Research completion checkpoints before real candidate validation, retains active state across changed completion and terminal history, and advances only current accepted evidence"
+        },
+        {
           "behaviorId": "routed-checkpoint-integration-composition",
           "description": "routed clean and conflict integration preserves completed checkpoint and Plan lineage from the nearest durable boundary"
         },
@@ -7276,9 +7280,9 @@
         "basis": "WIR23-REPAIR03A added one focused Research lifecycle-checkpoint owner to the previously measured file."
       },
       "duration": {
-        "kind": "estimated",
-        "milliseconds": 140000,
-        "basis": "Prior measured owner plus the final WIR23-REPAIR03A focused supported-Windows result; pending the next full-file measurement refresh."
+        "kind": "measured",
+        "milliseconds": 63532,
+        "basis": "Measured by the WIR23-REPAIR03C-REPAIR05 supported-Windows full-file run; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -7337,8 +7341,8 @@
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 20178,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
+        "milliseconds": 12076,
+        "basis": "Measured by the WIR23-REPAIR03C-REPAIR04 supported-Windows full-file run; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -7684,8 +7688,8 @@
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 29164,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
+        "milliseconds": 17805,
+        "basis": "Measured by the WIR23-REPAIR03C-REPAIR04 supported-Windows full-file run; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -8909,13 +8913,13 @@
     {
       "testPath": "test/characterization/routed-integration-focus.test.cjs",
       "currentTestCount": {
-        "value": 4,
-        "basis": "Observed TAP summary after WIR23-REPAIR03C added the Research routed-integration owner."
+        "value": 1,
+        "basis": "One top-level Plan integration scenario after WIR23-REPAIR03C-REPAIR03 moved Research ownership to its dedicated owner."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 172026,
-        "basis": "Measured by the final WIR23-REPAIR03C supported-Windows full-file run; wall-clock file-process duration."
+        "milliseconds": 17738,
+        "basis": "Measured by the WIR23-REPAIR03C-REPAIR05 supported-Windows full-file run; wall-clock file-process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -8955,6 +8959,59 @@
           "capabilityId": "release-and-git-operations",
           "behaviorId": "routed-checkpoint-integration-composition",
           "proofLocator": "routed clean and conflict integration preserves completed checkpoint and Plan lineage from the nearest durable boundary",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/characterization/routed-research-integration-focus.test.cjs",
+      "currentTestCount": {
+        "value": 1,
+        "basis": "One consolidated top-level Research integration scenario introduced by WIR23-REPAIR03C-REPAIR03."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 7823,
+        "basis": "Measured by the WIR23-REPAIR03C-REPAIR05 supported-Windows semantic regression run; wall-clock file-process duration."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, temp-filesystem-isolated.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "research-routed-integration-candidate-lifecycle",
+          "proofLocator": "Research completion retains real candidate history and advances only the current accepted evidence",
           "proofRole": "primary"
         }
       ]

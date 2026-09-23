@@ -102,6 +102,33 @@ test("inventory fields and allowed values fail closed, including required negati
     mutate(candidate);
     assert.throws(() => validateInventoryFields(candidate), undefined, label);
   }
+
+  const dedicatedCases = [
+    { lane: "desktop-platform", resource: "electron-desktop", scheduling: "exclusive-desktop" },
+    { lane: "packaging", resource: "packaging", scheduling: "exclusive-packaging" },
+    { lane: "performance-soak", resource: "performance-soak", scheduling: "exclusive-performance" },
+  ];
+  for (const contract of dedicatedCases) {
+    const dedicated = capabilityMap.tests.find((record) => record.proposedValidationLane === contract.lane);
+    assert.ok(dedicated, `catalog must include a ${contract.lane} fixture`);
+    const hiddenExclusive = structuredClone(dedicated);
+    hiddenExclusive.proposedValidationLane = "integration";
+    assert.throws(() => validateInventoryFields(hiddenExclusive), undefined, `${contract.lane} resource/mode cannot use an ordinary lane`);
+
+    const ordinary = capabilityMap.tests.find((record) =>
+      !dedicatedCases.some((candidate) => candidate.lane === record.proposedValidationLane)
+      && !record.execution.ownedResources.includes(contract.resource)
+      && record.execution.scheduling !== contract.scheduling);
+    assert.ok(ordinary, `catalog must include a non-${contract.lane} fixture`);
+    const misplacedLane = structuredClone(ordinary);
+    misplacedLane.proposedValidationLane = contract.lane;
+    assert.throws(() => validateInventoryFields(misplacedLane), undefined, `${contract.lane} lane requires its resource/mode`);
+  }
+
+  const desktop = structuredClone(capabilityMap.tests.find((record) => record.proposedValidationLane === "desktop-platform"));
+  desktop.platformDependency = "none";
+  desktop.execution.platform = "any";
+  assert.throws(() => validateInventoryFields(desktop), undefined, "Desktop exclusivity independently requires Windows");
 });
 
 test("capability, behavior, dependency, and test identities resolve in deterministic order", () => {

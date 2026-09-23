@@ -28,6 +28,7 @@ const sameLogicalCompletion = (left: IntegrationCompletionEvidence, right: Integ
 const sameCompletion = (left: IntegrationCompletionEvidence, right: IntegrationCompletionEvidence) =>
   left.kind === right.kind && left.routeDecisionId === right.routeDecisionId && left.completionId === right.completionId && left.revision === right.revision &&
   left.fingerprint === right.fingerprint && left.sourcePath === right.sourcePath;
+const activeCandidateStatuses = new Set(["constructing", "conflicted", "validation-failed", "validated", "failed", "operator-decision"]);
 
 /** Production composition of existing execution, checkpoint and candidate/Repair owners. */
 export function createRoutedIntegrationService(root: string, intakeId: string) {
@@ -71,14 +72,12 @@ export function createRoutedIntegrationService(root: string, intakeId: string) {
 
   async function planCheckpoints(state: Extract<Awaited<ReturnType<typeof completionState>>, { kind: "plan" }>) {
     const current = await createWorkIntakeBranchService({ repositoryRoot: root, repositoryId }).verify(state.branchBinding);
-    const history = await source.history({ ref: current.currentHead, maxCount: 100 });
+    const history = await source.historyWithMessages({ ref: current.currentHead, maxCount: 100 });
     if (!history.ok) throw Error(history.error.message);
     const commits = new Map<string, { commit: string; evidence: WorkItemCheckpointEvidence }>();
     for (const commit of history.result.commits) {
       if (commit.commit === intake.branchBinding.currentHead) break;
-      const receipt = await source.readCommitMessage(commit.commit);
-      if (!receipt.ok) throw Error(receipt.error.message);
-      const parsed = readApplicationCheckpointReceipt(commit.subject, receipt.result);
+      const parsed = readApplicationCheckpointReceipt(commit.subject, commit.message);
       const checkpointEvidence = parsed.evidence;
       if (commit.parents.length !== 1 || checkpointEvidence.beforeHead !== commit.parents[0] || checkpointEvidence.intakeId !== intakeId || checkpointEvidence.repositoryId !== repositoryId || checkpointEvidence.workBranch !== current.workBranch) throw Error("Checkpoint belongs to different routed work.");
       if (parsed.kind === "lifecycle") continue;
@@ -98,14 +97,12 @@ export function createRoutedIntegrationService(root: string, intakeId: string) {
   }
 
   async function researchCheckpoints(state: Extract<Awaited<ReturnType<typeof completionState>>, { kind: "research" }>) {
-    const current = await createWorkIntakeBranchService({ repositoryRoot: root, repositoryId }).verify(state.branchBinding);
-    const history = await source.history({ ref: current.currentHead, maxCount: 100 });
+    const current = state.branchBinding;
+    const history = await source.historyWithMessages({ ref: current.currentHead, maxCount: 100 });
     if (!history.ok) throw Error(history.error.message);
     for (const commit of history.result.commits) {
       if (commit.commit === intake.branchBinding.currentHead) break;
-      const receipt = await source.readCommitMessage(commit.commit);
-      if (!receipt.ok) throw Error(receipt.error.message);
-      const parsed = readApplicationCheckpointReceipt(commit.subject, receipt.result);
+      const parsed = readApplicationCheckpointReceipt(commit.subject, commit.message);
       const evidence = parsed.evidence;
       if (commit.parents.length !== 1 || evidence.beforeHead !== commit.parents[0] || evidence.intakeId !== intakeId || evidence.repositoryId !== repositoryId || evidence.workBranch !== current.workBranch) throw Error("Checkpoint belongs to different routed work.");
       if (parsed.kind !== "lifecycle" || parsed.evidence.boundary.kind !== "research") continue;
@@ -124,7 +121,8 @@ export function createRoutedIntegrationService(root: string, intakeId: string) {
         completionKind: "plan", completionFingerprint: state.completion.fingerprint, checkpointCommits: [] };
       const checkpointCommits = state.kind === "plan" ? await planCheckpoints(state) : await researchCheckpoints(state);
       const records = candidate.list(intakeId).filter((entry) => sameLogicalCompletion(entry.completion, state.completion));
-      let record = records.at(0);
+      const activeRecord = records.find((entry) => activeCandidateStatuses.has(entry.status));
+      let record = activeRecord ?? records.find((entry) => ["aborted", "integrated"].includes(entry.status) && sameCompletion(entry.completion, state.completion));
       if (record?.status === "aborted") {
         const target = await source.integrationTarget({ baseCommit: state.branchBinding.baseCommit, incomingBranch: state.branchBinding.workBranch, targetBranch: state.branchBinding.baseBranch, remote: state.branchBinding.remote?.name });
         if (!target.ok) throw Error(target.error.message);

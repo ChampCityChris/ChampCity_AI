@@ -183,10 +183,31 @@ function validateInventoryFields(record) {
     "exclusive-performance": "performance-soak",
     "exclusive-process": "shared-global-state-exclusive",
   };
+  const dedicatedLaneContracts = [
+    { lane: "desktop-platform", resource: "electron-desktop", scheduling: "exclusive-desktop", platform: "windows" },
+    { lane: "packaging", resource: "packaging", scheduling: "exclusive-packaging" },
+    { lane: "performance-soak", resource: "performance-soak", scheduling: "exclusive-performance" },
+  ];
   const requiredSchedulingResource = schedulingResources[record.execution.scheduling];
   if (requiredSchedulingResource) assert.ok(ownedResources.has(requiredSchedulingResource), `${record.testPath} scheduling resource mismatch`);
   for (const [mode, exclusiveResource] of Object.entries(schedulingResources)) {
     if (ownedResources.has(exclusiveResource)) assert.equal(record.execution.scheduling, mode, `${record.testPath} exclusive resource scheduling mismatch`);
+  }
+  for (const contract of dedicatedLaneContracts) {
+    if (record.proposedValidationLane === contract.lane) {
+      assert.ok(ownedResources.has(contract.resource), `${record.testPath} ${contract.lane} lane requires ${contract.resource}`);
+      assert.equal(record.execution.scheduling, contract.scheduling, `${record.testPath} ${contract.lane} lane requires ${contract.scheduling}`);
+    }
+    if (ownedResources.has(contract.resource)) {
+      assert.equal(record.proposedValidationLane, contract.lane, `${record.testPath} ${contract.resource} requires ${contract.lane} lane`);
+    }
+    if (record.execution.scheduling === contract.scheduling) {
+      assert.equal(record.proposedValidationLane, contract.lane, `${record.testPath} ${contract.scheduling} requires ${contract.lane} lane`);
+    }
+    if (contract.platform && record.proposedValidationLane === contract.lane) {
+      assert.equal(record.platformDependency, contract.platform, `${record.testPath} ${contract.lane} requires ${contract.platform} platform dependency`);
+      assert.equal(record.execution.platform, contract.platform, `${record.testPath} ${contract.lane} requires ${contract.platform} execution platform`);
+    }
   }
   if (record.execution.scheduling === "parallel-safe") {
     for (const exclusiveResource of Object.values(schedulingResources)) {

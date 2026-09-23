@@ -29,6 +29,29 @@ test("routed defect preserves Intake and branch through RCA, phased correction, 
   assert.equal(handoff.metadata.identity.intakeId, intake.intakeId);
   assert.equal(handoff.metadata.identity.routeDecisionId, route.selection.decisionId);
   assert.deepEqual(handoff.metadata.workflowData.branchBinding, intake.branchBinding);
+  const handoffPath = path.join(root, model.handoffPath);
+  const handoffBytes = fs.readFileSync(handoffPath);
+  const retainedSelection = route.selection;
+  const pendingRetainedRoute = await recommendWorkRouteReroute(root, intake.intakeId, {
+    priorDecisionId: retainedSelection.decisionId,
+    replacementRouteId: "feature-change",
+    rationale: "Consider whether the defect should instead become feature work.",
+    sourceEvidence: [{ path: model.handoffPath, revision: handoff.metadata.artifactRevision }],
+  });
+  const resolvedRetainedRoute = await decideWorkRoute(root, intake.intakeId, {
+    expectedDecisionRevision: pendingRetainedRoute.artifactRevision,
+    sourceAssessment: pendingRetainedRoute.sourceAssessment,
+    disposition: "override",
+    selectedRouteId: "issue-resolution",
+    rationale: "Retain Issue Resolution because the defect remains bounded.",
+  });
+  const retainedIssue = await api.runWorkIssueAction(intake.intakeId, "status");
+  assert.equal(resolvedRetainedRoute.selection.decisionId, retainedSelection.decisionId);
+  assert.equal(resolvedRetainedRoute.selection.selectedRouteId, retainedSelection.selectedRouteId);
+  assert.equal(retainedIssue.issueId, model.issueId);
+  assert.equal(retainedIssue.handoffPath, model.handoffPath);
+  assert.deepEqual(fs.readFileSync(handoffPath), handoffBytes);
+  assert.notEqual(parseCanonicalMarkdownDocument(fs.readFileSync(handoffPath, "utf8")).metadata.participationRole, "historical");
   const recordPath = path.join(root, "issues", model.issueId, "ISSUE_RECORD.md");
   const recordBytes = fs.readFileSync(recordPath, "utf8");
   model = await api.runWorkIssueAction(intake.intakeId, "prepare");

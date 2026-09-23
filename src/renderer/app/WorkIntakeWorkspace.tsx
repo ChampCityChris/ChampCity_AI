@@ -9,7 +9,7 @@ export function WorkIntakeWorkspace({ projection, onReturn, onRefresh, onOpenIss
   onOpenIssue: (issueId: string) => void;
 }) {
   const [value, setValue] = useState<WorkIntakeSubmission>(() => {
-    const base = projection.branches.find(({ name }) => name === projection.currentBranch) ?? projection.branches[0];
+    const base = projection.suggestedBase;
     return {
       projectId: projection.project?.projectId ?? null, projectName: projection.suggestedProjectName,
       workRequest: "", desiredOutcome: "", knownConstraints: "", hasExistingSourceOrPlanning: !!projection.project,

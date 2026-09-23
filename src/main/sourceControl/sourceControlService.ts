@@ -10,7 +10,7 @@ import {
   createGitBranchFromRef, advanceGitBranchRef, renameGitBranch, setGitBranchUpstream, unsetGitBranchUpstream, deleteGitRemoteBranch,
   amendGitCommit, revertGitCommit, cherryPickGitCommit,
   commitGitChanges, deleteGitBranch, fastForwardGitBranch, fetchGitRemote,
-  inspectGitBranchState, inspectGitHistory, prepareGitBranch, pushGitBranch,
+  inspectGitBranchState, inspectGitHistory, inspectGitHistoryWithMessages, inspectGitPosition, prepareGitBranch, pushGitBranch,
   stageGitChanges, switchGitBranch,
 } from "../agentHarness/repository/gitMutations";
 import { gitDiff, gitStatus, preCommitSafetyScan } from "../agentHarness/repository/repositoryOperations";
@@ -25,26 +25,36 @@ import type {
 export function createSourceControlService(binding: { repositoryId: string; repositoryRoot: string; managedWorkspaces?: ManagedWorkspaceStore }) {
   const repositoryId = binding.repositoryId;
   const root = path.resolve(binding.repositoryRoot);
+  let repositoryVerification: Promise<void> | undefined;
 
   async function verifyRepository(): Promise<void> {
-    if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(repositoryId)) {
-      throw new AgentHarnessError("INVALID_INPUT", "A bounded repository identity is required.");
+    if (!repositoryVerification) {
+      repositoryVerification = (async () => {
+        if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(repositoryId)) {
+          throw new AgentHarnessError("INVALID_INPUT", "A bounded repository identity is required.");
+        }
+        if (!await isGitWorkTree(root)) {
+          throw new AgentHarnessError("GIT_CAPABILITY_UNAVAILABLE", "The selected repository is not Git-backed.");
+        }
+        const topLevel = (await runBoundedGit({ cwd: root, args: ["rev-parse", "--show-toplevel"] })).stdout.trim();
+        const [selected, actual] = await Promise.all([
+          fs.promises.realpath(root), fs.promises.realpath(topLevel),
+        ]);
+        if (selected !== actual) {
+          throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "Source control requires the exact selected repository root.");
+        }
+      })();
     }
-    if (!await isGitWorkTree(root)) {
-      throw new AgentHarnessError("GIT_CAPABILITY_UNAVAILABLE", "The selected repository is not Git-backed.");
-    }
-    const topLevel = (await runBoundedGit({ cwd: root, args: ["rev-parse", "--show-toplevel"] })).stdout.trim();
-    const [selected, actual] = await Promise.all([
-      fs.promises.realpath(root), fs.promises.realpath(topLevel),
-    ]);
-    if (selected !== actual) {
-      throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "Source control requires the exact selected repository root.");
+    try {
+      await repositoryVerification;
+    } catch (error) {
+      repositoryVerification = undefined;
+      throw error;
     }
   }
 
   async function position(): Promise<SourceControlPosition> {
-    const state = await inspectGitBranchState(root);
-    return { branch: state.currentBranch, commit: state.head };
+    return inspectGitPosition(root);
   }
 
   async function run<T>(
@@ -128,6 +138,8 @@ export function createSourceControlService(binding: { repositoryId: string; repo
     branches: (branchName?: string) => run("branches", false, () => inspectGitBranchState(root, branchName)),
     history: (input: Parameters<typeof inspectGitHistory>[1] = {}) =>
       run("history", false, () => inspectGitHistory(root, input)),
+    historyWithMessages: (input: Parameters<typeof inspectGitHistoryWithMessages>[1] = {}) =>
+      run("history-with-messages", false, () => inspectGitHistoryWithMessages(root, input)),
     diff: () => run("diff", false, async () => ({
       unstaged: (await gitDiff(root, true)).diff,
       staged: (await inspectGitDiff(root, { view: "staged" })).diff,

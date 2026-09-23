@@ -91,13 +91,20 @@ export async function getWorkIntakeProjection(root: string): Promise<WorkIntakeP
   if (matching.length > 1) throw Error("Multiple Work Intakes claim the selected branch.");
   if (matching[0]) matching[0].branchBinding = await createWorkIntakeBranchService({ repositoryRoot: root, repositoryId: matching[0].branchBinding.repositoryId }).verify(matching[0].branchBinding);
   const status = state.ok ? await sourceControl.status() : null;
+  const branches = state.ok ? state.result.branches : [];
+  const suggestedBranchName = matching[0]?.branchBinding.baseBranch ?? currentBranch;
+  const suggestedBase = branches.find(({ name }) => name === suggestedBranchName) ?? null;
+  const baseBlockedReason = !state.ok ? "Work Intake requires a Git repository with a committed baseline."
+    : !currentBranch ? "Select a branch before starting Work Intake."
+    : !status?.ok || !status.result.clean ? "Commit or resolve existing changes before starting another Work Intake." : null;
+  const missingTargetReason = matching[0] && !suggestedBase
+    ? "The recorded integration target branch is unavailable. Refresh Work Intake or resolve the missing target before starting another Work Intake."
+    : null;
   return {
     project, suggestedProjectName: project?.name ?? path.basename(root),
-    branches: state.ok ? state.result.branches : [], currentBranch,
+    branches, currentBranch, suggestedBase,
     intakes, currentIntake: matching[0] ?? null,
-    blockedReason: !state.ok ? "Work Intake requires a Git repository with a committed baseline."
-      : !currentBranch ? "Select a branch before starting Work Intake."
-      : !status?.ok || !status.result.clean ? "Commit or resolve existing changes before starting another Work Intake." : null,
+    blockedReason: [baseBlockedReason, missingTargetReason].filter(Boolean).join(" ") || null,
   };
 }
 

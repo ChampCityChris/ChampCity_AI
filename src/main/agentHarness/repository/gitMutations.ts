@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { AgentHarnessError } from "../core/errors";
+import type { SourceControlPosition } from "../../../shared/sourceControlContracts";
 import { assertSafeRelativePath, resolveRepositoryPath } from "./pathPolicy";
 import { runBoundedGit } from "./boundedGit";
 
@@ -9,6 +10,7 @@ const MAX_STAGING_PATHS = 256;
 const MAX_STAGING_PATH_BYTES = 4_096;
 const MAX_STAGING_PATH_BYTES_TOTAL = 32_768;
 const MAX_HISTORY_COUNT = 100;
+const MAX_HISTORY_WITH_MESSAGES_BYTES = 500_000;
 const MAX_REVISION_BYTES = 1_024;
 
 export async function inspectGitBranchState(root: string, requestedBranch?: string): Promise<{
@@ -77,6 +79,11 @@ export async function inspectGitBranchState(root: string, requestedBranch?: stri
     selectedBranch,
     remotes: await configuredRemoteNames(root),
   };
+}
+
+/** Receipt observation only: deliberately excludes branch inventory, upstream, divergence and remotes. */
+export async function inspectGitPosition(root: string): Promise<SourceControlPosition> {
+  return { branch: await currentBranchOrNull(root), commit: await readHead(root) };
 }
 
 export async function inspectGitHistory(root: string, input: {
@@ -165,6 +172,39 @@ export async function inspectGitHistory(root: string, input: {
   }
 
   return { ref, resolvedCommit, commits, ancestry };
+}
+
+export async function inspectGitHistoryWithMessages(root: string, input: {
+  ref?: string;
+  maxCount?: number;
+} = {}): Promise<{
+  ref: string;
+  resolvedCommit: string;
+  commits: Array<{ commit: string; parents: string[]; subject: string; message: string }>;
+}> {
+  const ref = validateRevision(input.ref ?? "HEAD", "ref");
+  const maxCount = validateHistoryCount(input.maxCount);
+  const resolvedCommit = await resolveCommit(root, ref);
+  const output = (await runBoundedGit({
+    cwd: root,
+    args: ["--no-pager", "log", `--max-count=${maxCount}`, "-z", "--pretty=format:%H%x00%P%x00%s%x00%B", "--end-of-options", resolvedCommit],
+    stdoutLimitBytes: MAX_HISTORY_WITH_MESSAGES_BYTES,
+  })).stdout;
+  const fields = output.split("\0");
+  if (fields.at(-1) === "") fields.pop();
+  const commits: Array<{ commit: string; parents: string[]; subject: string; message: string }> = [];
+  for (let index = 0; index < fields.length; index += 4) {
+    if (index + 3 >= fields.length) throw gitPrecondition("Git returned malformed bounded checkpoint history.");
+    const commit = exactRefCommit(fields[index] ?? "");
+    const parents = (fields[index + 1] ?? "").split(" ").filter(Boolean).map(exactRefCommit);
+    const subject = fields[index + 2] ?? "";
+    const message = fields[index + 3] ?? "";
+    if (Buffer.byteLength(message, "utf8") > MAX_COMMIT_MESSAGE_BYTES) {
+      throw gitPrecondition("A checkpoint commit message exceeds the supported bound.");
+    }
+    commits.push({ commit, parents, subject, message });
+  }
+  return { ref, resolvedCommit, commits };
 }
 
 /** Ref operations never borrow the selected checkout's index or working files. */
