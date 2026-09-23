@@ -739,8 +739,8 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   async function createSourceCheckpoint(projectId: ProjectId, bindingId: EntityId, targetId: EntityId,
-    input: Pick<EntityBodyMap["SourceCheckpoint"], "boundaryId" | "expectedRevisionId" | "checkpointKind" | "checkpointState"> & { resultingRevisionId?: string }, context?: MutationContext) {
-    exactInput(input, ["boundaryId", "expectedRevisionId", "checkpointKind", "checkpointState", "resultingRevisionId"]);
+    input: Pick<EntityBodyMap["SourceCheckpoint"], "boundaryId" | "expectedRevisionId" | "checkpointKind" | "checkpointState"> & { resultingRevisionId?: string; receiptDigest?: string }, context?: MutationContext) {
+    exactInput(input, ["boundaryId", "expectedRevisionId", "checkpointKind", "checkpointState", "resultingRevisionId", "receiptDigest"]);
     return store.transaction(projectId, async unit => {
       const binding = await requiredRecord(unit, projectId, bindingId);
       const target = await requiredRecord(unit, projectId, targetId);

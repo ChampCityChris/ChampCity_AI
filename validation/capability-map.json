@@ -4081,6 +4081,34 @@
       ]
     },
     {
+      "capabilityId": "semantic-source-checkpoints",
+      "description": "Structured implementation and Operator disposition checkpoints with attributable Git receipts and retry safety.",
+      "sourcePatterns": [
+        "src/main/sourceControl/semanticCheckpointService.ts"
+      ],
+      "dependsOn": [
+        "greenfield-source-bootstrap"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "checkpoint-blocks-wrong-line-and-unrelated-files",
+          "description": "wrong source line and unrelated file block without staging or source mutation"
+        },
+        {
+          "behaviorId": "implementation-checkpoint-attribution-and-idempotence",
+          "description": "implementation checkpoint commits attributed file and duplicate retry returns exact revision"
+        },
+        {
+          "behaviorId": "operator-disposition-creates-empty-lifecycle-revision",
+          "description": "operator disposition creates an evidenced empty lifecycle revision"
+        },
+        {
+          "behaviorId": "retry-reconciles-committed-source-after-binding-failure",
+          "description": "retry reconciles a committed source revision after a failed binding update"
+        }
+      ]
+    },
+    {
       "capabilityId": "staged-legacy-import",
       "description": "Deterministic isolated import of one exact legacy authority snapshot into Structured Project State.",
       "sourcePatterns": [
@@ -18201,6 +18229,47 @@
           "proofLocator": "pending canonical Architect Interview becomes current review document",
           "proofRole": "primary"
         }
+      ]
+    },
+    {
+      "testPath": "test/source-control/semantic-checkpoint-service.test.cjs",
+      "currentTestCount": {
+        "value": 4,
+        "basis": "SCL05 focused source checkpoint fixtures."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 20000,
+        "basis": "Observed normal Windows focused SCL05 test run."
+      },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": ["capability"],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Each fixture owns an isolated temporary Git and SQLite repository.",
+        "ownedResources": ["bounded-child-process", "isolated-git-fixture", "temp-filesystem-isolated"]
+      },
+      "proofCharacteristics": ["behavioral"],
+      "dispositionReasons": ["current-proof-appropriate"],
+      "behaviorCoverage": [
+        { "capabilityId": "semantic-source-checkpoints", "behaviorId": "checkpoint-blocks-wrong-line-and-unrelated-files", "proofLocator": "wrong source line and unrelated file block without staging or source mutation", "proofRole": "primary" },
+        { "capabilityId": "semantic-source-checkpoints", "behaviorId": "implementation-checkpoint-attribution-and-idempotence", "proofLocator": "implementation checkpoint commits attributed file and duplicate retry returns exact revision", "proofRole": "primary" },
+        { "capabilityId": "semantic-source-checkpoints", "behaviorId": "operator-disposition-creates-empty-lifecycle-revision", "proofLocator": "operator disposition creates an evidenced empty lifecycle revision", "proofRole": "primary" },
+        { "capabilityId": "semantic-source-checkpoints", "behaviorId": "retry-reconciles-committed-source-after-binding-failure", "proofLocator": "retry reconciles a committed source revision after a failed binding update", "proofRole": "primary" }
       ]
     },
     {

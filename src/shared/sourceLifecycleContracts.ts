@@ -54,6 +54,7 @@ export type SourceReadiness =
 export interface ImplementationCheckpointRequest {
   boundaryId: string;
   workIntakeId: string;
+  targetEntityId: string;
   sourceLineId: string;
   expectedRevisionId: string;
   repositoryCheckoutId?: string;
@@ -63,6 +64,7 @@ export interface ImplementationCheckpointRequest {
 export interface DispositionCheckpointRequest {
   boundaryId: string;
   workIntakeId: string;
+  targetEntityId: string;
   sourceLineId: string;
   expectedRevisionId: string;
   repositoryCheckoutId?: string;
@@ -76,6 +78,13 @@ export interface SourceCheckpoint {
   state: CheckpointState;
   revision?: SourceRevision;
   emptyLifecycleCheckpoint?: boolean;
+}
+
+export interface CheckpointResult {
+  state: "committed" | "blocked" | "inspection-required";
+  checkpointId: string | null;
+  revision: SourceRevision | null;
+  message: string;
 }
 
 export interface IntegrationCandidateRequest {

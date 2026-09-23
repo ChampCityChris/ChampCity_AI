@@ -1041,7 +1041,7 @@ export async function transformGitCommit(root: string, operation: "revert" | "ch
 export const revertGitCommit = (root: string, input: Parameters<typeof transformGitCommit>[2]) => transformGitCommit(root, "revert", input);
 export const cherryPickGitCommit = (root: string, input: Parameters<typeof transformGitCommit>[2]) => transformGitCommit(root, "cherry-pick", input);
 
-export async function commitGitChanges(root: string, message: string, expectedHead?: string): Promise<{
+export async function commitGitChanges(root: string, message: string, expectedHead?: string, allowEmpty = false, machineOwned = false): Promise<{
   commit: string;
   message: string;
 }> {
@@ -1052,14 +1052,15 @@ export async function commitGitChanges(root: string, message: string, expectedHe
     args: ["diff", "--cached", "--quiet", "--"],
     rejectNonZero: false,
   });
-  if (staged.exitCode === 0) {
+  if (staged.exitCode === 0 && !allowEmpty) {
     throw gitPrecondition("commit requires an existing staged diff.");
   }
-  if (staged.exitCode !== 1) {
+  if (staged.exitCode !== 0 && staged.exitCode !== 1) {
     throw gitPrecondition("Git could not verify the staged diff.");
   }
   if (expectedHead !== undefined) await assertExpectedGitHead(root, expectedHead);
-  await runBoundedGit({ cwd: root, args: ["commit", "--message", commitMessage] });
+  await runBoundedGit({ cwd: root, args: [...(machineOwned ? ["-c", "user.name=ChampCity", "-c", "user.email=champcity@invalid.local"] : []),
+    "commit", ...(allowEmpty && staged.exitCode === 0 ? ["--allow-empty"] : []), "--message", commitMessage] });
   return { commit: await readHead(root), message: commitMessage };
 }
 

@@ -17,7 +17,7 @@ export type SourceControlOperation =
   | "unset-branch-upstream"
   | "delete-remote-branch"
   | "status" | "branches" | "history" | "history-with-messages" | "diff" | "changed-files" | "readiness" | "commit-message"
-  | "prepare-branch" | "switch-branch" | "stage" | "commit" | "fetch" | "push"
+  | "prepare-branch" | "switch-branch" | "stage" | "commit" | "checkpoint-commit" | "fetch" | "push"
   | "fast-forward" | "delete-branch" | "integration-target" | "integration-create"
   | "integration-inspect" | "integration-merge" | "integration-advance" | "integration-abort"
   | "integration-repair-snapshot" | "integration-repair-diffs" | "integration-repair-commit";

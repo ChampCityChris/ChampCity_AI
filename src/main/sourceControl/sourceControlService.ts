@@ -216,6 +216,8 @@ export function createSourceControlService(binding: { repositoryId: string; repo
     switchBranch: (branchName: string) => run("switch-branch", true, () => switchGitBranch(root, branchName)),
     stage: (paths: string[], options?: { includeIgnored?: boolean }) => run("stage", true, () => stageGitChanges(root, paths, options)),
     commit: (message: string, expectedHead?: string) => run("commit", true, () => commitGitChanges(root, message, expectedHead)),
+    checkpointCommit: (message: string, expectedHead: string, allowEmpty = false) =>
+      run("checkpoint-commit", true, () => commitGitChanges(root, message, expectedHead, allowEmpty, true)),
     amendCommit: (input: Parameters<typeof amendGitCommit>[1]) => run("amend-commit", true, () => amendGitCommit(root, input)),
     revertCommit: (input: Parameters<typeof revertGitCommit>[1]) => run("revert-commit", true, () => revertGitCommit(root, input)),
     cherryPickCommit: (input: Parameters<typeof cherryPickGitCommit>[1]) => run("cherry-pick-commit", true, () => cherryPickGitCommit(root, input)),
