@@ -3074,12 +3074,24 @@
       ],
       "behaviors": [
         {
+          "behaviorId": "decision-correction-preserves-history-and-governance-while-later-decisions-remain-distinct",
+          "description": "Decision correction preserves history and governance while later Decisions remain distinct"
+        },
+        {
+          "behaviorId": "effective-disposition-requires-a-current-human-operator-decision",
+          "description": "effective disposition requires a current human Operator Decision"
+        },
+        {
           "behaviorId": "history-orders-same-timestamp-successor-by-explicit-edge",
           "description": "history orders a same-timestamp successor by the explicit edge rather than lexical identity"
         },
         {
           "behaviorId": "issued-decision-validation-and-evidence-require-typed-correction-policy",
           "description": "issued Decision, Validation and Evidence require typed correction policy"
+        },
+        {
+          "behaviorId": "operator-decision-query-follows-explicit-criterion-policy",
+          "description": "Operator Decision query follows explicit Criterion policy"
         },
         {
           "behaviorId": "projectstateservice-creates-revises-and-supersedes-with-mechanical-identity-and-history",
@@ -13129,6 +13141,69 @@
           "capabilityId": "project-planning-workflow",
           "behaviorId": "project-planning-source-revision-invalidates-prior-handoff-and-outputs",
           "proofLocator": "project planning source revision invalidates prior handoff and outputs",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/decision-disposition.test.cjs",
+      "currentTestCount": {
+        "value": 6,
+        "basis": "Three Decision/disposition scenarios across in-memory and SQLite adapters introduced by SCL01J."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 270,
+        "basis": "Observed normal Windows focused SCL01J test receipt."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Per-test temporary SQLite file and isolated in-memory adapter.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "decision-correction-preserves-history-and-governance-while-later-decisions-remain-distinct",
+          "proofLocator": "later Decisions and corrections have distinct chronology and immutable history",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "effective-disposition-requires-a-current-human-operator-decision",
+          "proofLocator": "only an effective human Operator Decision produces disposition",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "operator-decision-query-follows-explicit-criterion-policy",
+          "proofLocator": "only explicitly marked active criteria require an Operator Decision",
           "proofRole": "primary"
         }
       ]

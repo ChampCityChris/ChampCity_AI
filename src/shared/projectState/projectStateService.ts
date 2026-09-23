@@ -1,4 +1,4 @@
-import type { EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef, ProjectId, ProjectStateEntity } from "./domainContracts";
+import type { DispositionState, EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef, ProjectId, ProjectStateEntity, ProjectStateRecord } from "./domainContracts";
 import { assertSupersession } from "./domainInvariants";
 import { createProjectStateEntity, ENTITY_TYPE_REGISTRY, ProjectStateDomainError, validateProjectStateEntity } from "./entityTypeRegistry";
 import { createRelationship as createDomainRelationship, type ProjectStateRelationship, type RelationshipType } from "./relationshipRegistry";
@@ -9,6 +9,9 @@ export interface ProjectStateSummary { projectId: ProjectId; totalRecords: numbe
 export interface RecordHistory { lineageId: string; records: ProjectStateEntity[] }
 export interface RecordLineage { records: ProjectStateEntity[]; relationships: ProjectStateRelationship[] }
 export interface MutationContext { reason?: string; causationId?: string; correlationId?: string }
+export interface DecisionInput { decisionType: string; outcome: string; decisionScope: string; rationale?: string; effectiveAt?: string }
+export interface EffectiveDisposition { state: DispositionState; decisionId: EntityId | null; effectiveAt: string | null }
+export interface RequiredOperatorDecision { criterionId: EntityId; targetId: EntityId; currentDisposition: DispositionState }
 export const PROJECT_STATE_EVENT_TYPES = Object.freeze({
   create: "project-state.record-created",
   revise: "project-state.record-revised",
@@ -19,6 +22,18 @@ export const PROJECT_STATE_EVENT_TYPES = Object.freeze({
 
 const restrictedGenericTypes = new Set<EntityType>(["Decision", "Validation", "Evidence"]);
 function fail(message: string): never { throw new ProjectStateDomainError(message); }
+const dispositionOutcomes = new Set<DispositionState>(["advisory", "proposed", "approved", "revision_requested", "accepted", "rejected", "revoked"]);
+function canonicalInstant(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
+}
+function decisionBody(input: DecisionInput, principal: PrincipalRef, decidedAt: string, defaultEffectiveAt = decidedAt): EntityBodyMap["Decision"] {
+  const content = exactInput(input, ["decisionType", "outcome", "rationale", "decisionScope", "effectiveAt"]);
+  if (content.rationale !== undefined && typeof content.rationale !== "string") fail("Decision rationale must be text.");
+  if (content.effectiveAt !== undefined && (typeof content.effectiveAt !== "string" || !canonicalInstant(content.effectiveAt))) fail("Decision effective time must be canonical UTC.");
+  return { decisionType: input.decisionType, outcome: input.outcome, decisionScope: input.decisionScope,
+    rationale: input.rationale ?? "", decisionRole: principal.role, decidedBy: principal,
+    decidedAt, effectiveAt: input.effectiveAt ?? defaultEffectiveAt };
+}
 function exactInput(value: unknown, allowed: readonly string[]): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype) fail("A bounded semantic input is required.");
   const input = value as Record<string, unknown>;
@@ -131,6 +146,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   async function createRelationship(projectId: ProjectId, fromEntityId: EntityId, relationshipType: RelationshipType, toEntityId: EntityId, context?: MutationContext) {
+    if (relationshipType === "governs") fail("Decision governance requires a typed Decision command.");
     return store.transaction(projectId, async unit => {
       const from = await requiredRecord(unit, projectId, fromEntityId);
       const to = await requiredRecord(unit, projectId, toEntityId);
@@ -174,10 +190,54 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     });
   }
 
-  async function recordDecision(projectId: ProjectId, targetId: EntityId, input: { decisionType: string; outcome: string; rationale: string; decisionScope: string }, context?: MutationContext) {
-    const content = exactInput(input, ["decisionType", "outcome", "rationale", "decisionScope"]);
+  async function recordDecision(projectId: ProjectId, targetId: EntityId, input: DecisionInput, context?: MutationContext) {
     const now = new Date().toISOString();
-    return recordLinked(projectId, targetId, "Decision", { ...content, decisionRole: trustedPrincipal.role, decidedBy: trustedPrincipal, decidedAt: now, effectiveAt: now }, "governs", context);
+    return recordLinked(projectId, targetId, "Decision", decisionBody(input, trustedPrincipal, now), "governs", context);
+  }
+
+  async function supersedeDecision(projectId: ProjectId, decisionId: EntityId, input: DecisionInput, expectedRevision: number, context?: MutationContext) {
+    if (expectedRevision !== 1) fail("An exact issued Decision revision is required.");
+    return store.transaction(projectId, async unit => {
+      const prior = await requiredRecord(unit, projectId, decisionId);
+      if (prior.entityType !== "Decision" || prior.recordVersion !== expectedRevision || prior.lifecycleState !== "active") fail("Decision correction target is unavailable or stale.");
+      const family = (await unit.listEntities(projectId, "Decision")).filter(candidate => candidate.lineageId === prior.lineageId && candidate.lifecycleState !== "superseded");
+      if (family.length !== 1 || family[0].id !== prior.id) fail("Decision is not the current member of its correction lineage.");
+      const governs = (await unit.listRelationships(projectId, "governs")).filter(edge => edge.fromEntityId === prior.id && !edge.endedAt);
+      if (governs.length === 0) fail("Decision correction requires a governed target.");
+      const now = new Date().toISOString();
+      const terminal = validateProjectStateEntity({ ...prior, recordVersion: prior.recordVersion + 1,
+        lifecycleState: "superseded", supersededAt: now, updatedAt: now, updatedBy: trustedPrincipal }) as ProjectStateRecord<"Decision">;
+      const successor = validateProjectStateEntity({ ...createProjectStateEntity({ entityType: "Decision", projectId,
+        body: decisionBody(input, trustedPrincipal, now, prior.body.effectiveAt), principal: trustedPrincipal }),
+        lineageId: prior.lineageId }) as ProjectStateRecord<"Decision">;
+      assertSupersession(prior, terminal, successor);
+      await unit.saveEntity(terminal, expectedRevision, { terminalSupersession: true });
+      await recordMutation(unit, { projectId, entityId: prior.id, fromVersion: expectedRevision, toVersion: terminal.recordVersion,
+        operation: "supersede", eventType: PROJECT_STATE_EVENT_TYPES.supersede, occurredAt: now,
+        changedFields: ["lifecycleState", "supersededAt"], defaultReason: "Correct Decision", context });
+      await unit.saveEntity(successor, null);
+      await recordMutation(unit, { projectId, entityId: successor.id, fromVersion: null, toVersion: 1,
+        operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: successor.createdAt,
+        changedFields: Object.keys(successor.body), defaultReason: "Record corrected Decision", context });
+      const supersedes = createDomainRelationship({ projectId, fromEntityId: successor.id, relationshipType: "supersedes",
+        toEntityId: prior.id, createdBy: trustedPrincipal }, id => id === successor.id ? successor : id === prior.id ? terminal : undefined);
+      await unit.saveRelationship(supersedes);
+      await recordMutation(unit, { projectId, entityId: successor.id, fromVersion: 1, toVersion: 1,
+        operation: "relationship-create", eventType: PROJECT_STATE_EVENT_TYPES.relationshipCreate, occurredAt: supersedes.createdAt,
+        changedFields: ["relationship:supersedes"], defaultReason: "Link Decision correction", context, relationshipId: supersedes.id });
+      const governed = [];
+      for (const priorEdge of governs) {
+        const target = await requiredRecord(unit, projectId, priorEdge.toEntityId);
+        const edge = createDomainRelationship({ projectId, fromEntityId: successor.id, relationshipType: "governs",
+          toEntityId: target.id, createdBy: trustedPrincipal }, id => id === successor.id ? successor : id === target.id ? target : undefined);
+        await unit.saveRelationship(edge);
+        await recordMutation(unit, { projectId, entityId: successor.id, fromVersion: 1, toVersion: 1,
+          operation: "relationship-create", eventType: PROJECT_STATE_EVENT_TYPES.relationshipCreate, occurredAt: edge.createdAt,
+          changedFields: ["relationship:governs"], defaultReason: "Link corrected Decision", context, relationshipId: edge.id });
+        governed.push(edge);
+      }
+      return { predecessor: terminal, successor, supersedes, governs: governed };
+    });
   }
 
   async function recordValidation(projectId: ProjectId, targetId: EntityId, input: { validationType: string; method: string; outcome: "pass" | "fail" | "blocked" | "inconclusive"; summary: string }, context?: MutationContext) {
@@ -278,6 +338,52 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return evidence.filter((record): record is ProjectStateEntity => record?.entityType === "Evidence");
   }
 
-  return { createRecord, reviseRecord, supersedeRecord, createRelationship, endRelationship, recordDecision, recordValidation, recordEvidence,
-    getRecord, queryRecords, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence };
+  async function getEffectiveDisposition(projectId: ProjectId, targetId: EntityId, asOf = new Date().toISOString()): Promise<EffectiveDisposition> {
+    if (!canonicalInstant(asOf)) fail("Disposition query time must be canonical UTC.");
+    if (!await store.getEntity(projectId, targetId)) fail("Disposition target does not exist in this Project.");
+    const governingIds = new Set((await store.listRelationships(projectId, "governs"))
+      .filter(edge => edge.toEntityId === targetId && !edge.endedAt).map(edge => edge.fromEntityId));
+    const decisions = (await store.listEntities(projectId, "Decision"))
+      .filter((record): record is ProjectStateRecord<"Decision"> => record.entityType === "Decision");
+    const lineageById = new Map(decisions.map(record => [record.id, record.lineageId]));
+    const firstSequenceByLineage = new Map<string, number>();
+    for (const event of await store.listOutbox(projectId)) {
+      const lineageId = event.entityId ? lineageById.get(event.entityId) : undefined;
+      if (lineageId && event.payload.operation === "create" && !firstSequenceByLineage.has(lineageId)) {
+        firstSequenceByLineage.set(lineageId, event.sequence);
+      }
+    }
+    const applicable = decisions
+      .filter(record => governingIds.has(record.id) && record.lifecycleState === "active"
+        && record.body.decidedBy.principalType === "human" && record.body.decisionRole === "Operator"
+        && dispositionOutcomes.has(record.body.outcome as DispositionState) && record.body.effectiveAt <= asOf)
+      .sort((a, b) => a.body.effectiveAt.localeCompare(b.body.effectiveAt)
+        || (firstSequenceByLineage.get(a.lineageId) ?? 0) - (firstSequenceByLineage.get(b.lineageId) ?? 0)
+        || a.id.localeCompare(b.id));
+    const current = applicable.at(-1);
+    return current ? { state: current.body.outcome as DispositionState, decisionId: current.id,
+      effectiveAt: current.body.effectiveAt } : { state: "none", decisionId: null, effectiveAt: null };
+  }
+
+  async function getRequiredOperatorDecisions(projectId: ProjectId): Promise<RequiredOperatorDecision[]> {
+    const criteria = (await store.listEntities(projectId, "Criterion"))
+      .filter((record): record is ProjectStateRecord<"Criterion"> => record.entityType === "Criterion")
+      .filter(record => record.lifecycleState === "active" && record.body.verificationIntent === "operator_decision");
+    const definitions = (await store.listRelationships(projectId, "defines_criterion")).filter(edge => !edge.endedAt);
+    const pending: RequiredOperatorDecision[] = [];
+    for (const criterion of criteria) {
+      const targets = definitions.filter(edge => edge.toEntityId === criterion.id).map(edge => edge.fromEntityId);
+      for (const targetId of targets.length ? targets : [criterion.id]) {
+        const disposition = await getEffectiveDisposition(projectId, targetId);
+        if (["none", "advisory", "proposed", "revoked"].includes(disposition.state)) {
+          pending.push({ criterionId: criterion.id, targetId, currentDisposition: disposition.state });
+        }
+      }
+    }
+    return pending.sort((a, b) => a.targetId.localeCompare(b.targetId) || a.criterionId.localeCompare(b.criterionId));
+  }
+
+  return { createRecord, reviseRecord, supersedeRecord, createRelationship, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence,
+    getRecord, queryRecords, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
+    getEffectiveDisposition, getRequiredOperatorDecisions };
 }

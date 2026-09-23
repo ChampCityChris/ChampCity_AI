@@ -110,7 +110,11 @@ export function validateProjectStateEntity(value: unknown): ProjectStateEntity {
   const body = object(record.body, "record.body");
   const allowed = new Set([...Object.keys(definition.required), ...Object.keys(definition.optional ?? {})]);
   exactFields(body, Object.keys(definition.required), allowed, "record.body");
-  for (const [key, rule] of Object.entries({ ...definition.required, ...definition.optional })) if (body[key] !== undefined) checkField(body[key], rule, `record.body.${key}`);
+  for (const [key, rule] of Object.entries({ ...definition.required, ...definition.optional })) {
+    // An Operator may record a simple acceptance without entering free-text reasoning.
+    if (type === "Decision" && key === "rationale" && body[key] === "") continue;
+    if (body[key] !== undefined) checkField(body[key], rule, `record.body.${key}`);
+  }
   let bytes: number;
   try { bytes = encoder.encode(JSON.stringify(record)).length; } catch { return fail("Record cannot be serialized."); }
   if (bytes > MAX_RECORD_BYTES) fail("Record exceeds its byte bound.");
