@@ -25,7 +25,7 @@ const bodies = {
   Validation: { validationType: "test", method: "automated", validationMode: "deterministic", outcome: "pass", targetEntityId: linkedId, targetRecordVersion: 1, performedBy: principal, performedAt: now, summary: "Passed" },
   Evidence: { evidenceType: "test-output", description: "Output", capturedAt: now, capturedBy: principal, mediaType: "text/plain", payloadRef: "sha256:payload", digest: "a".repeat(64) },
   Decision: { decisionType: "proceed", outcome: "approved", rationale: "Reason", decisionRole: "Operator", decisionScope: "project", decidedBy: principal, decidedAt: now, effectiveAt: now },
-  RegressionObligation: { ...common, obligationState: "open" },
+  RegressionObligation: { ...common, capabilityId: "sample-capability", riskCategory: "functional", obligationState: "active" },
   SourceBinding: { workIntakeId: linkedId, repositoryId: "repo", integrationTargetSourceLineId: "dev", preparationState: "unprepared" },
   SourceCheckpoint: { boundaryId: "boundary", workIntakeId: linkedId, sourceLineId: "work", expectedRevisionId: "revision", checkpointKind: "implementation", checkpointState: "pending" },
   IntegrationRecord: { workIntakeId: linkedId, incomingRevisionId: "incoming", targetSourceLineId: "dev", targetBeforeRevisionId: "before", integrationState: "prepared", outcome: "pending", validationIds: [], repairWorkItemIds: [] },

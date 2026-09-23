@@ -3102,12 +3102,20 @@
           "description": "history orders a same-timestamp successor by the explicit edge rather than lexical identity"
         },
         {
+          "behaviorId": "implementation-proof-retains-source-baseline-after-transient-test-removal",
+          "description": "Implementation proof retains immutable evidence and exact source baseline after transient tests are removed"
+        },
+        {
           "behaviorId": "integration-record-links-incoming-validation-repair-and-result-revisions",
           "description": "IntegrationRecord links incoming, Validation, Repair and result revisions"
         },
         {
           "behaviorId": "issued-decision-validation-and-evidence-require-typed-correction-policy",
           "description": "issued Decision, Validation and Evidence require typed correction policy"
+        },
+        {
+          "behaviorId": "one-permanent-catalog-reference-proves-multiple-obligations",
+          "description": "One permanent catalog reference proves multiple obligations across supersession"
         },
         {
           "behaviorId": "operator-decision-query-follows-explicit-criterion-policy",
@@ -3124,6 +3132,10 @@
         {
           "behaviorId": "projectstateservice-creates-revises-and-supersedes-with-mechanical-identity-and-history",
           "description": "ProjectStateService creates, revises and supersedes with mechanical identity and history"
+        },
+        {
+          "behaviorId": "regression-obligation-lifecycle-and-typed-assessment-remain-historical",
+          "description": "Regression obligation lifecycle and typed test assessment remain historical"
         },
         {
           "behaviorId": "route-assessment-validates-evidence-ownership-and-vocabulary-atomically",
@@ -14030,6 +14042,69 @@
           "capabilityId": "project-state-store",
           "behaviorId": "in-memory-projectstatestore-relationship-rules-and-project-isolation",
           "proofLocator": "in-memory ProjectStateStore: relationship rules and Project isolation",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/tester-state-mapping.test.cjs",
+      "currentTestCount": {
+        "value": 6,
+        "basis": "Three Tester state mapping scenarios across in-memory and SQLite adapters introduced by SCL01O."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 172,
+        "basis": "Observed normal Windows focused SCL01O test receipt."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Per-test temporary SQLite file and isolated in-memory adapter.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "implementation-proof-retains-source-baseline-after-transient-test-removal",
+          "proofLocator": "immutable implementation proof survives transient executable removal",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "one-permanent-catalog-reference-proves-multiple-obligations",
+          "proofLocator": "one catalog reference proves multiple obligations across supersession",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "regression-obligation-lifecycle-and-typed-assessment-remain-historical",
+          "proofLocator": "obligation lifecycle and typed assessment remain historical",
           "proofRole": "primary"
         }
       ]

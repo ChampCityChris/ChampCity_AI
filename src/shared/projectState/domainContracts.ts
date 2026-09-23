@@ -22,6 +22,7 @@ export type WorkState = "planned" | "ready" | "in_progress" | "implemented" | "b
 export type ImplementationOutcome = "implemented" | "partial" | "blocked" | "failed" | "abandoned";
 export type WorkIntakeState = "captured" | "assessing" | "routed" | "active" | "closed" | "cancelled";
 export type WorkRoute = "greenfield" | "feature-change" | "refactor-migration" | "integration-composition" | "infrastructure-platform" | "research-prototype" | "issue-resolution";
+export type TestLifecycleAssessmentStatus = "PRESERVE" | "REWRITE_CANDIDATE" | "SPLIT_CANDIDATE" | "CONSOLIDATE_CANDIDATE" | "MIGRATE_CANDIDATE" | "RETIRE_CANDIDATE" | "QUARANTINE_CANDIDATE" | "NEEDS_TESTER_REVIEW";
 export const PROJECT_STATE_SCHEMA_VERSION = 1 as const;
 
 export interface RecordEnvelope<T extends EntityType = EntityType> {
@@ -46,7 +47,7 @@ export interface RecordEnvelope<T extends EntityType = EntityType> {
 
 export interface EntityBodyMap {
   Project: { name: string; description: string };
-  ProjectResource: { resourceType: string; provider: string; logicalName: string; locator: string; role: string };
+  ProjectResource: { resourceType: string; provider: string; logicalName: string; locator: string; role: string; sourceRevisionId?: string };
   WorkIntake: { request: string; desiredOutcome: string; constraints: string[]; evidenceContext: string[]; intakeState: WorkIntakeState; requestedIntegrationTarget: string };
   RouteAssessment: { workIntakeId: EntityId; recommendation: WorkRoute; traits: string[]; rationale: string; alternate?: WorkRoute; evidenceIds: EvidenceId[] };
   Workflow: { workflowType: string; workspace: string; governingEntityId: EntityId; workflowState: WorkflowState };
@@ -57,10 +58,10 @@ export interface EntityBodyMap {
   Criterion: { statement: string; criticality: "required" | "optional" | "informational"; verificationIntent: string; validationPolicy: ValidationPolicyClass; criterionState: string };
   WorkItem: { workItemKind: WorkItemKind; title: string; objective: string; workState: WorkState; startedAt?: string; implementedAt?: string };
   ImplementationRecord: { workItemId: EntityId; summary: string; deviations: string[]; blockers: string[]; residualRisks: string[]; outcome: ImplementationOutcome; executionRef?: string };
-  Validation: { validationType: string; method: string; validationMode: ValidationMode; outcome: "pass" | "fail" | "blocked" | "inconclusive"; targetEntityId: EntityId; targetRecordVersion: number; sourceBaselineRef?: string; performedBy: PrincipalRef; performedAt: string; summary: string };
-  Evidence: { evidenceType: string; description: string; capturedAt: string; capturedBy: PrincipalRef; mediaType: string; payloadRef: string; digest: string; size?: number };
+  Validation: { validationType: string; method: string; validationMode: ValidationMode; outcome: "pass" | "fail" | "blocked" | "inconclusive"; targetEntityId: EntityId; targetRecordVersion: number; sourceBaselineRef?: string; assessmentStatus?: TestLifecycleAssessmentStatus; performedBy: PrincipalRef; performedAt: string; summary: string };
+  Evidence: { evidenceType: string; description: string; capturedAt: string; capturedBy: PrincipalRef; mediaType: string; payloadRef: string; digest: string; size?: number; sourceBaselineRef?: string };
   Decision: { decisionType: string; outcome: string; rationale: string; decisionRole: string; decisionScope: string; decidedBy: PrincipalRef; decidedAt: string; effectiveAt: string };
-  RegressionObligation: { title: string; statement: string; obligationState: string; testReferenceId?: EntityId; sourceWorkItemId?: EntityId };
+  RegressionObligation: { title: string; statement: string; capabilityId: string; riskCategory: string; obligationState: "active" | "quarantined" | "retired"; sourceWorkItemId?: EntityId };
   SourceBinding: { workIntakeId: EntityId; repositoryId: string; integrationTargetSourceLineId: string; baseRevisionId?: string; workSourceLineId?: string; currentRevisionId?: string; repositoryCheckoutId?: string; preparationState: "unprepared" | "preparing" | "ready" | "blocked"; failureCode?: string };
   SourceCheckpoint: { boundaryId: string; workIntakeId: EntityId; sourceLineId: string; expectedRevisionId: string; resultingRevisionId?: string; checkpointKind: "implementation" | "disposition"; checkpointState: "not-required" | "pending" | "committed" | "blocked" | "inspection-required" };
   IntegrationRecord: { workIntakeId: EntityId; incomingRevisionId: string; targetSourceLineId: string; targetBeforeRevisionId: string; candidateRevisionId?: string; targetAfterRevisionId?: string; resultRevisionId?: string; integrationState: "prepared" | "validating" | "repairing" | "ready" | "integrated" | "blocked" | "failed"; outcome: "pending" | "integrated" | "blocked" | "failed"; validationIds: EntityId[]; repairWorkItemIds: EntityId[] };

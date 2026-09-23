@@ -1,4 +1,4 @@
-import type { DispositionState, EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef, ProjectId, ProjectStateEntity, ProjectStateRecord, ValidationMode, WorkflowState, WorkIntakeState, WorkRoute } from "./domainContracts";
+import type { DispositionState, EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef, ProjectId, ProjectStateEntity, ProjectStateRecord, TestLifecycleAssessmentStatus, ValidationMode, WorkflowState, WorkIntakeState, WorkRoute } from "./domainContracts";
 import { assertSupersession } from "./domainInvariants";
 import { createProjectStateEntity, ENTITY_TYPE_REGISTRY, ProjectStateDomainError, validateProjectStateEntity } from "./entityTypeRegistry";
 import { createRelationship as createDomainRelationship, type ProjectStateRelationship, type RelationshipType } from "./relationshipRegistry";
@@ -21,6 +21,7 @@ export interface CurrentWorkRoute { route: WorkRoute; decisionId: EntityId; asse
 export interface WorkIntakeSummary { intakeId: EntityId; request: string; desiredOutcome: string; constraints: string[]; evidenceContext: string[]; intakeState: WorkIntakeState; requestedIntegrationTarget: string; workflowId: EntityId; currentRoute: CurrentWorkRoute | null; assessmentIds: EntityId[]; routeDecisionIds: EntityId[] }
 export interface WorkRouteHistory { assessments: ProjectStateRecord<"RouteAssessment">[]; decisions: ProjectStateRecord<"Decision">[]; relationships: ProjectStateRelationship[] }
 export interface SourceSemanticView { repositoryId: string; bindings: ProjectStateRecord<"SourceBinding">[]; checkpoints: ProjectStateRecord<"SourceCheckpoint">[]; integrations: ProjectStateRecord<"IntegrationRecord">[]; relationships: ProjectStateRelationship[] }
+export interface RegressionObligationView { obligation: ProjectStateRecord<"RegressionObligation">; assessments: ProjectStateRecord<"Validation">[]; permanentReferences: ProjectStateRecord<"ProjectResource">[]; implementationProof: ProjectStateRecord<"Evidence">[]; relationships: ProjectStateRelationship[] }
 export const PROJECT_STATE_EVENT_TYPES = Object.freeze({
   create: "project-state.record-created",
   revise: "project-state.record-revised",
@@ -33,6 +34,10 @@ const restrictedGenericTypes = new Set<EntityType>(["Decision", "Validation", "E
 function fail(message: string): never { throw new ProjectStateDomainError(message); }
 const dispositionOutcomes = new Set<DispositionState>(["advisory", "proposed", "approved", "revision_requested", "accepted", "rejected", "revoked"]);
 const workRoutes = new Set<WorkRoute>(["greenfield", "feature-change", "refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype", "issue-resolution"]);
+const lifecycleAssessmentStatuses = new Set<TestLifecycleAssessmentStatus>(["PRESERVE", "REWRITE_CANDIDATE", "SPLIT_CANDIDATE", "CONSOLIDATE_CANDIDATE", "MIGRATE_CANDIDATE", "RETIRE_CANDIDATE", "QUARANTINE_CANDIDATE", "NEEDS_TESTER_REVIEW"]);
+function validateTestPath(path: string) {
+  if (typeof path !== "string" || path.length > 512 || !/^test\/(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+\.test\.cjs$/.test(path) || path.split("/").includes("..")) fail("Permanent test locator must be a repository-relative test path.");
+}
 function canonicalInstant(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
 }
@@ -123,6 +128,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (entityType === "ImplementationRecord" || entityType === "Workflow") fail("ImplementationRecord and Workflow require typed commands.");
     if (entityType === "WorkIntake" || entityType === "RouteAssessment") fail("Work Intake and Route Assessment require typed commands.");
     if (["SourceBinding", "SourceCheckpoint", "IntegrationRecord"].includes(entityType)) fail("Source semantic records require typed commands.");
+    if (entityType === "RegressionObligation" || (entityType === "ProjectResource" && (content as EntityBodyMap["ProjectResource"]).resourceType === "permanent-test-reference")) fail("Tester semantic records require typed commands.");
     if (entityType === "Project" && projectId !== null) fail("A new Project cannot borrow another Project identity.");
     if (entityType !== "Project" && !projectId) fail("Project identity is required.");
     const record = createProjectStateEntity({ entityType, ...(projectId ? { projectId } : {}), body: content, principal: trustedPrincipal });
@@ -244,6 +250,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const current = await requiredRecord(unit, projectId, entityId);
       if (restrictedGenericTypes.has(current.entityType)) fail("Immutable semantic records require typed correction or supersession.");
       if (current.entityType === "WorkIntake") fail("Work Intake revision requires a typed command.");
+      if (current.entityType === "RegressionObligation" || (current.entityType === "ProjectResource" && current.body.resourceType === "permanent-test-reference")) fail("Tester semantic revision requires a typed command.");
       if (["SourceBinding", "SourceCheckpoint", "IntegrationRecord"].includes(current.entityType)) fail("Source semantic revision requires a typed command.");
       if ((current.entityType === "WorkItem" && patch.workState === "closed") || (current.entityType === "Phase" && patch.phaseState === "closed")) fail("Completion requires a typed eligibility command.");
       if (current.recordVersion !== expectedRevision) fail("Expected Project State revision is stale.");
@@ -267,6 +274,12 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       if (previous.entityType === "ImplementationRecord") fail("Implementation attempts are immutable; record a new attempt.");
       if (previous.entityType === "WorkIntake" || previous.entityType === "RouteAssessment") fail("Work Intake retains identity and Route Assessments remain historical records.");
       if (["SourceBinding", "SourceCheckpoint", "IntegrationRecord"].includes(previous.entityType)) fail("Source semantic records retain their identity and revision history.");
+      if (previous.entityType === "RegressionObligation") {
+        if (content.obligationState !== "active") fail("A successor obligation must start active.");
+        const sourceId = content.sourceWorkItemId;
+        if (sourceId !== undefined && (await requiredRecord(unit, projectId, sourceId as EntityId)).entityType !== "WorkItem") fail("Obligation source must be a Work Item.");
+      }
+      if (previous.entityType === "ProjectResource" && previous.body.resourceType === "permanent-test-reference") fail("Permanent test references retain immutable catalog identity.");
       const currentFamily = (await unit.listEntities(projectId, previous.entityType)).filter(candidate => candidate.lineageId === previous.lineageId && candidate.lifecycleState !== "superseded");
       if (currentFamily.length !== 1 || currentFamily[0].id !== previous.id) fail("Supersession target is not the unique current record in its lineage.");
       const now = new Date().toISOString();
@@ -286,6 +299,10 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       await recordMutation(unit, { projectId, entityId: successor.id, fromVersion: 1, toVersion: 1,
         operation: "relationship-create", eventType: PROJECT_STATE_EVENT_TYPES.relationshipCreate, occurredAt: edge.createdAt,
         changedFields: ["relationship:supersedes"], defaultReason: "Link supersession", context, relationshipId: edge.id });
+      if (successor.entityType === "RegressionObligation" && successor.body.sourceWorkItemId) {
+        const source = await requiredRecord(unit, projectId, successor.body.sourceWorkItemId);
+        await linkSemantic(unit, projectId, successor, source, "derived_from", context);
+      }
       return { predecessor: terminal, successor, relationship: edge };
     });
   }
@@ -295,6 +312,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (relationshipType === "implements_work_item") fail("Implementation attempts require a typed command.");
     if (relationshipType === "initiates" || relationshipType === "assesses_route") fail("Work Intake ownership and route assessment require typed commands.");
     if (["binds_source", "checkpoints", "integrates"].includes(relationshipType)) fail("Source semantic relationships require typed commands.");
+    if (relationshipType === "proves") fail("Permanent proof links require a typed command.");
     return store.transaction(projectId, async unit => {
       const from = await requiredRecord(unit, projectId, fromEntityId);
       const to = await requiredRecord(unit, projectId, toEntityId);
@@ -415,6 +433,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
 
   async function recordValidation(projectId: ProjectId, targetId: EntityId, input: { validationType: string; method: string; validationMode?: ValidationMode; outcome: "pass" | "fail" | "blocked" | "inconclusive"; summary: string; targetRecordVersion?: number; sourceBaselineRef?: string }, context?: MutationContext) {
     exactInput(input, ["validationType", "method", "validationMode", "outcome", "summary", "targetRecordVersion", "sourceBaselineRef"]);
+    if (input.validationType === "test-lifecycle-assessment") fail("Test lifecycle assessment requires a typed command.");
     return recordLinked(projectId, targetId, "Validation", target => {
       if (input.targetRecordVersion !== undefined && input.targetRecordVersion !== target.recordVersion) fail("Validation target version is stale.");
       const mode = input.validationMode ?? "deterministic";
@@ -435,9 +454,113 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
 
   async function recordEvidence(projectId: ProjectId, targetId: EntityId, input: { evidenceType: string; description: string; mediaType: string; payloadRef: string; digest: string; size?: number }, context?: MutationContext) {
     const content = exactInput(input, ["evidenceType", "description", "mediaType", "payloadRef", "digest", "size"]);
+    if (input.evidenceType === "implementation-proof") fail("Implementation proof requires a typed command.");
     if (typeof input.payloadRef !== "string" || !/^[a-z][a-z0-9+.-]*:[^\s]+$/i.test(input.payloadRef) || /^data:/i.test(input.payloadRef)) fail("Evidence payload must use an external reference, not inline bytes.");
     if (input.size !== undefined && (!Number.isSafeInteger(input.size) || input.size < 0)) fail("Evidence size must be a nonnegative integer.");
     return recordLinked(projectId, targetId, "Evidence", { ...content, capturedBy: trustedPrincipal, capturedAt: new Date().toISOString() }, "supports", context);
+  }
+
+  async function createRegressionObligation(projectId: ProjectId, input: Omit<EntityBodyMap["RegressionObligation"], "obligationState">, context?: MutationContext) {
+    exactInput(input, ["title", "statement", "capabilityId", "riskCategory", "sourceWorkItemId"]);
+    return store.transaction(projectId, async unit => {
+      const source = input.sourceWorkItemId ? await requiredRecord(unit, projectId, input.sourceWorkItemId) : null;
+      if (source && source.entityType !== "WorkItem") fail("Obligation source must be a Work Item.");
+      const obligation = createProjectStateEntity({ entityType: "RegressionObligation", projectId,
+        body: { ...input, obligationState: "active" }, principal: trustedPrincipal });
+      await unit.saveEntity(obligation, null);
+      await recordMutation(unit, { projectId, entityId: obligation.id, fromVersion: null, toVersion: 1,
+        operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: obligation.createdAt,
+        changedFields: Object.keys(obligation.body), defaultReason: "Create RegressionObligation", context });
+      if (source) await linkSemantic(unit, projectId, obligation, source, "derived_from", context);
+      return obligation;
+    });
+  }
+
+  async function setRegressionObligationState(projectId: ProjectId, obligationId: EntityId,
+    state: "active" | "quarantined" | "retired", expectedRevision: number, context?: MutationContext) {
+    return store.transaction(projectId, async unit => {
+      const current = await requiredRecord(unit, projectId, obligationId);
+      if (current.entityType !== "RegressionObligation" || current.recordVersion !== expectedRevision || current.lifecycleState !== "active") fail("Obligation target is unavailable or stale.");
+      if (current.body.obligationState === "retired" || state === current.body.obligationState) fail("Invalid obligation transition.");
+      const now = new Date().toISOString();
+      const next = validateProjectStateEntity({ ...current, recordVersion: expectedRevision + 1,
+        lifecycleState: state === "retired" ? "closed" : "active", ...(state === "retired" ? { closedAt: now } : {}),
+        updatedAt: now, updatedBy: trustedPrincipal, body: { ...current.body, obligationState: state } });
+      await unit.saveEntity(next, expectedRevision);
+      await recordMutation(unit, { projectId, entityId: obligationId, fromVersion: expectedRevision, toVersion: next.recordVersion,
+        operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now,
+        changedFields: ["obligationState", ...(state === "retired" ? ["lifecycleState", "closedAt"] : [])],
+        defaultReason: `Set RegressionObligation ${state}`, context });
+      return next;
+    });
+  }
+
+  async function recordTestLifecycleAssessment(projectId: ProjectId, targetId: EntityId,
+    input: { status: TestLifecycleAssessmentStatus; summary: string; method: string }, context?: MutationContext) {
+    exactInput(input, ["status", "summary", "method"]);
+    if (!lifecycleAssessmentStatuses.has(input.status)) fail("Unsupported test lifecycle assessment status.");
+    return recordLinked(projectId, targetId, "Validation", target => {
+      if (target.entityType !== "RegressionObligation" && !(target.entityType === "ProjectResource" && target.body.resourceType === "permanent-test-reference")) fail("Assessment target must be an obligation or permanent test reference.");
+      return { validationType: "test-lifecycle-assessment", method: input.method, validationMode: "deterministic",
+        outcome: "inconclusive", assessmentStatus: input.status, summary: input.summary,
+        targetEntityId: target.id, targetRecordVersion: target.recordVersion,
+        performedBy: trustedPrincipal, performedAt: new Date().toISOString() };
+    }, "evaluates", context);
+  }
+
+  async function recordImplementationProof(projectId: ProjectId, targetId: EntityId,
+    input: { description: string; mediaType: string; payloadRef: string; digest: string; size?: number; sourceBaselineRef: string }, context?: MutationContext) {
+    exactInput(input, ["description", "mediaType", "payloadRef", "digest", "size", "sourceBaselineRef"]);
+    if (typeof input.payloadRef !== "string" || !/^[a-z][a-z0-9+.-]*:[^\s]+$/i.test(input.payloadRef) || /^data:/i.test(input.payloadRef)) fail("Evidence payload must use an external reference, not inline bytes.");
+    if (input.size !== undefined && (!Number.isSafeInteger(input.size) || input.size < 0)) fail("Evidence size must be a nonnegative integer.");
+    return store.transaction(projectId, async unit => {
+      const target = await requiredRecord(unit, projectId, targetId);
+      if (target.entityType !== "WorkItem" && target.entityType !== "ImplementationRecord") fail("Implementation proof target must be a Work Item or ImplementationRecord.");
+      const evidence = createProjectStateEntity({ entityType: "Evidence", projectId,
+        body: { ...input, evidenceType: "implementation-proof", capturedBy: trustedPrincipal, capturedAt: new Date().toISOString() }, principal: trustedPrincipal });
+      await unit.saveEntity(evidence, null);
+      await recordMutation(unit, { projectId, entityId: evidence.id, fromVersion: null, toVersion: 1,
+        operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: evidence.createdAt,
+        changedFields: Object.keys(evidence.body), defaultReason: "Record implementation proof", context });
+      await linkSemantic(unit, projectId, evidence, target, "supports", context);
+      if (target.entityType === "ImplementationRecord") {
+        const workItem = await requiredRecord(unit, projectId, target.body.workItemId);
+        if (workItem.entityType !== "WorkItem") fail("Implementation proof Work Item is missing.");
+        await linkSemantic(unit, projectId, evidence, workItem, "supports", context);
+      }
+      return evidence;
+    });
+  }
+
+  async function recordPermanentTestReference(projectId: ProjectId,
+    input: { catalogTestId: string; testPath: string; sourceRevisionId?: string }, obligationIds: EntityId[], context?: MutationContext) {
+    exactInput(input, ["catalogTestId", "testPath", "sourceRevisionId"]);
+    validateTestPath(input.testPath);
+    if (!Array.isArray(obligationIds) || obligationIds.length === 0 || new Set(obligationIds).size !== obligationIds.length) fail("Distinct proof obligations are required.");
+    return store.transaction(projectId, async unit => {
+      const obligations = await Promise.all(obligationIds.map(id => requiredRecord(unit, projectId, id)));
+      if (obligations.some(record => record.entityType !== "RegressionObligation" || record.body.obligationState === "retired")) fail("Permanent proof requires current obligations.");
+      if ((await unit.listEntities(projectId, "ProjectResource")).some(record => record.entityType === "ProjectResource" && record.body.resourceType === "permanent-test-reference" && record.body.logicalName === input.catalogTestId && record.lifecycleState === "active")) fail("Permanent test catalog identity already exists.");
+      const resource = createProjectStateEntity({ entityType: "ProjectResource", projectId,
+        body: { resourceType: "permanent-test-reference", provider: "ValidationCatalog", logicalName: input.catalogTestId,
+          locator: input.testPath, role: "regression-proof", ...(input.sourceRevisionId ? { sourceRevisionId: input.sourceRevisionId } : {}) }, principal: trustedPrincipal });
+      await unit.saveEntity(resource, null);
+      await recordMutation(unit, { projectId, entityId: resource.id, fromVersion: null, toVersion: 1,
+        operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: resource.createdAt,
+        changedFields: Object.keys(resource.body), defaultReason: "Record permanent test reference", context });
+      for (const obligation of obligations) await linkSemantic(unit, projectId, resource, obligation, "proves", context);
+      return resource;
+    });
+  }
+
+  async function linkPermanentTestReference(projectId: ProjectId, referenceId: EntityId, obligationId: EntityId, context?: MutationContext) {
+    return store.transaction(projectId, async unit => {
+      const reference = await requiredRecord(unit, projectId, referenceId);
+      const obligation = await requiredRecord(unit, projectId, obligationId);
+      if (reference.entityType !== "ProjectResource" || reference.body.resourceType !== "permanent-test-reference" || obligation.entityType !== "RegressionObligation" || obligation.body.obligationState === "retired") fail("Permanent proof link requires a reference and current obligation.");
+      if ((await unit.listRelationships(projectId, "proves")).some(edge => edge.fromEntityId === referenceId && edge.toEntityId === obligationId)) fail("Permanent proof link already exists.");
+      return linkSemantic(unit, projectId, reference, obligation, "proves", context);
+    });
   }
 
   async function recordImplementation(projectId: ProjectId, workItemId: EntityId, input: Omit<EntityBodyMap["ImplementationRecord"], "workItemId">, context?: MutationContext) {
@@ -700,6 +823,28 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       .filter(record => integrationIds.has(record.id));
     const ids = new Set([...bindingIds, ...checkpointIds, ...integrationIds]);
     return { repositoryId, bindings, checkpoints, integrations,
+      relationships: edges.filter(edge => ids.has(edge.fromEntityId) || ids.has(edge.toEntityId)) };
+  }
+
+  async function getRegressionObligationView(projectId: ProjectId, obligationId: EntityId): Promise<RegressionObligationView> {
+    const obligation = await store.getEntity(projectId, obligationId);
+    if (!obligation || obligation.entityType !== "RegressionObligation") fail("RegressionObligation does not exist in this Project.");
+    const edges = await store.listRelationships(projectId);
+    const assessmentIds = new Set(edges.filter(edge => edge.relationshipType === "evaluates" && edge.toEntityId === obligationId).map(edge => edge.fromEntityId));
+    const referenceIds = new Set(edges.filter(edge => edge.relationshipType === "proves" && edge.toEntityId === obligationId).map(edge => edge.fromEntityId));
+    const assessments = (await store.listEntities(projectId, "Validation"))
+      .filter((record): record is ProjectStateRecord<"Validation"> => record.entityType === "Validation")
+      .filter(record => assessmentIds.has(record.id) && record.body.validationType === "test-lifecycle-assessment");
+    const permanentReferences = (await store.listEntities(projectId, "ProjectResource"))
+      .filter((record): record is ProjectStateRecord<"ProjectResource"> => record.entityType === "ProjectResource")
+      .filter(record => referenceIds.has(record.id) && record.body.resourceType === "permanent-test-reference");
+    const workIds = new Set([obligation.body.sourceWorkItemId].filter((id): id is EntityId => !!id));
+    const implementationIds = new Set(edges.filter(edge => edge.relationshipType === "implements_work_item" && workIds.has(edge.toEntityId)).map(edge => edge.fromEntityId));
+    const implementationProof = (await store.listEntities(projectId, "Evidence"))
+      .filter((record): record is ProjectStateRecord<"Evidence"> => record.entityType === "Evidence")
+      .filter(record => record.body.evidenceType === "implementation-proof" && edges.some(edge => edge.relationshipType === "supports" && edge.fromEntityId === record.id && (workIds.has(edge.toEntityId) || implementationIds.has(edge.toEntityId))));
+    const ids = new Set([obligationId, ...assessmentIds, ...referenceIds, ...implementationProof.map(record => record.id)]);
+    return { obligation, assessments, permanentReferences, implementationProof,
       relationships: edges.filter(edge => ids.has(edge.fromEntityId) || ids.has(edge.toEntityId)) };
   }
 
@@ -1109,9 +1254,10 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
 
   return { createRecord, createWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision,
     createSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, createIntegrationRecord, advanceIntegrationRecord,
+    createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
     reviseRecord, supersedeRecord, createRelationship, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, completeWorkItem, completePhase,
     getRecord, queryRecords, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
     getEffectiveDisposition, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus,
     getImplementationAttempts, getExecutionPlan, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,
-    getWorkRouteHistory, getCurrentWorkRoute, getWorkIntakeSummary, getSourceSemanticView };
+    getWorkRouteHistory, getCurrentWorkRoute, getWorkIntakeSummary, getSourceSemanticView, getRegressionObligationView };
 }
