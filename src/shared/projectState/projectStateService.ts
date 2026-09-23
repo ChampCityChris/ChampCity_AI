@@ -60,6 +60,10 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return store.transaction(projectId, async unit => {
       const previous = await requiredRecord(unit, projectId, entityId);
       if (previous.entityType === "Project" || previous.recordVersion !== expectedRevision) fail("Supersession target is unavailable or stale.");
+      if (previous.lifecycleState !== "active" && previous.lifecycleState !== "closed") fail("Only a current active or closed record can be superseded.");
+      if (restrictedGenericTypes.has(previous.entityType)) fail("Issued Decision, Validation and Evidence require a typed correction policy.");
+      const currentFamily = (await unit.listEntities(projectId, previous.entityType)).filter(candidate => candidate.lineageId === previous.lineageId && candidate.lifecycleState !== "superseded");
+      if (currentFamily.length !== 1 || currentFamily[0].id !== previous.id) fail("Supersession target is not the unique current record in its lineage.");
       const now = new Date().toISOString();
       const terminal = validateProjectStateEntity({ ...previous, recordVersion: previous.recordVersion + 1, lifecycleState: "superseded", supersededAt: now, updatedAt: now, updatedBy: trustedPrincipal });
       const successor = validateProjectStateEntity({ ...createProjectStateEntity({ entityType: previous.entityType as EntityType, projectId, body: content as EntityBodyMap[EntityType], principal: trustedPrincipal }), lineageId: previous.lineageId });
@@ -123,19 +127,53 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) fail("Query limit must be between 1 and 100.");
     return (await store.listEntities(projectId, query.entityType)).filter(record => !query.lifecycleState || record.lifecycleState === query.lifecycleState).slice(0, limit);
   }
-  async function getCurrentRecord(projectId: ProjectId, identity: EntityId) {
+  async function supersessionChain(projectId: ProjectId, identity: EntityId): Promise<ProjectStateEntity[] | null> {
     const record = await store.getEntity(projectId, identity);
     if (!record) return null;
-    const family = (await store.listEntities(projectId, record.entityType)).filter(candidate => candidate.lineageId === record.lineageId && candidate.lifecycleState !== "superseded");
-    if (family.length > 1) fail("Multiple current records share one lineage.");
-    return family[0] ?? null;
+    const allFamily = (await store.listEntities(projectId, record.entityType)).filter(candidate => candidate.lineageId === record.lineageId);
+    const family = allFamily.filter(candidate => candidate.lifecycleState !== "superseded");
+    const identities = new Set(allFamily.map(candidate => candidate.id));
+    const edges = (await store.listRelationships(projectId, "supersedes")).filter(edge => identities.has(edge.fromEntityId) || identities.has(edge.toEntityId));
+    if (edges.some(edge => !identities.has(edge.fromEntityId) || !identities.has(edge.toEntityId))) fail("Supersession relationship escapes its lineage.");
+    const successorByPredecessor = new Map<EntityId, EntityId>();
+    const successorIds = new Set<EntityId>();
+    for (const edge of edges) {
+      if (edge.endedAt || successorByPredecessor.has(edge.toEntityId) || successorIds.has(edge.fromEntityId)) fail("Supersession lineage branches or contains an ended edge.");
+      successorByPredecessor.set(edge.toEntityId, edge.fromEntityId);
+      successorIds.add(edge.fromEntityId);
+    }
+    const roots = allFamily.filter(candidate => !successorIds.has(candidate.id));
+    if (roots.length !== 1 || edges.length !== allFamily.length - 1) fail("Supersession lineage is incomplete or cyclic.");
+    const byId = new Map(allFamily.map(candidate => [candidate.id, candidate]));
+    const chain: ProjectStateEntity[] = [];
+    let nextId: EntityId | undefined = roots[0].id;
+    while (nextId) {
+      const next = byId.get(nextId);
+      if (!next || chain.some(candidate => candidate.id === nextId)) fail("Supersession lineage is cyclic.");
+      chain.push(next);
+      nextId = successorByPredecessor.get(next.id);
+    }
+    if (chain.length !== allFamily.length || family.length !== 1 || chain.at(-1)?.id !== family[0].id || chain.slice(0, -1).some(candidate => candidate.lifecycleState !== "superseded")) {
+      fail("Supersession lineage has no unique current successor.");
+    }
+    return chain;
+  }
+  async function getCurrentRecord(projectId: ProjectId, identity: EntityId) {
+    const chain = await supersessionChain(projectId, identity);
+    return chain?.at(-1) ?? null;
   }
   async function getRecordHistory(projectId: ProjectId, entityId: EntityId): Promise<RecordHistory | null> {
-    const record = await store.getEntity(projectId, entityId);
-    if (!record) return null;
-    const family = (await store.listEntities(projectId, record.entityType)).filter(candidate => candidate.lineageId === record.lineageId);
-    const versions = (await Promise.all(family.flatMap(candidate => Array.from({ length: candidate.recordVersion }, (_, index) => store.getEntityVersion(projectId, candidate.id, index + 1))))).filter((candidate): candidate is ProjectStateEntity => candidate !== null);
-    return { lineageId: record.lineageId, records: versions.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id) || a.recordVersion - b.recordVersion) };
+    const chain = await supersessionChain(projectId, entityId);
+    if (!chain) return null;
+    const versions: ProjectStateEntity[] = [];
+    for (const identity of chain) {
+      for (let version = 1; version <= identity.recordVersion; version++) {
+        const record = await store.getEntityVersion(projectId, identity.id, version);
+        if (!record || record.lineageId !== identity.lineageId) fail("Record history has a missing or inconsistent version.");
+        versions.push(record);
+      }
+    }
+    return { lineageId: chain[0].lineageId, records: versions };
   }
   async function getRelationships(projectId: ProjectId, entityId: EntityId) {
     if (!await store.getEntity(projectId, entityId)) return [];

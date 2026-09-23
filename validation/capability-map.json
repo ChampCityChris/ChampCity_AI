@@ -3026,12 +3026,24 @@
       ],
       "behaviors": [
         {
+          "behaviorId": "history-orders-same-timestamp-successor-by-explicit-edge",
+          "description": "history orders a same-timestamp successor by the explicit edge rather than lexical identity"
+        },
+        {
+          "behaviorId": "issued-decision-validation-and-evidence-require-typed-correction-policy",
+          "description": "issued Decision, Validation and Evidence require typed correction policy"
+        },
+        {
           "behaviorId": "projectstateservice-creates-revises-and-supersedes-with-mechanical-identity-and-history",
           "description": "ProjectStateService creates, revises and supersedes with mechanical identity and history"
         },
         {
           "behaviorId": "service-rejects-unregistered-fields-and-keeps-query-results-bounded",
           "description": "service rejects unregistered fields and keeps query results bounded"
+        },
+        {
+          "behaviorId": "sqlite-history-follows-multiple-supersessions-and-survives-reopen",
+          "description": "SQLite history follows multiple supersessions and survives reopen without rewriting versions"
         },
         {
           "behaviorId": "typed-decision-validation-and-evidence-commands-derive-trusted-attribution-and-enforce-relationsh",
@@ -13140,6 +13152,70 @@
           "capabilityId": "project-state-domain",
           "behaviorId": "revision-and-supersession-invariants-retain-identity-lineage-and-immutable-history",
           "proofLocator": "revision and supersession invariants retain identity, lineage and immutable history",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/revision-history-lineage.test.cjs",
+      "currentTestCount": {
+        "value": 3,
+        "basis": "Three durable revision, history and immutable-correction scenarios introduced by SCL01H."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 169,
+        "basis": "Observed normal Windows focused test receipt for SCL01H."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Each scenario owns a separate temporary SQLite Project State database.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "history-orders-same-timestamp-successor-by-explicit-edge",
+          "proofLocator": "history orders a same-timestamp successor by the explicit edge rather than lexical identity",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "issued-decision-validation-and-evidence-require-typed-correction-policy",
+          "proofLocator": "issued Decision, Validation and Evidence require typed correction policy",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "sqlite-history-follows-multiple-supersessions-and-survives-reopen",
+          "proofLocator": "SQLite history follows multiple supersessions and survives reopen without rewriting versions",
           "proofRole": "primary"
         }
       ]
