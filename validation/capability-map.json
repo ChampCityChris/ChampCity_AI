@@ -3040,6 +3040,24 @@
       ]
     },
     {
+      "capabilityId": "project-state-sqlite-binding",
+      "description": "Built-in SQLite binding qualification in supported Node and Electron runtimes.",
+      "sourcePatterns": [
+        "scripts/probe-node-sqlite.cjs"
+      ],
+      "dependsOn": [],
+      "behaviors": [
+        {
+          "behaviorId": "electron-main-loads-built-in-sqlite-with-the-same-required-capabilities",
+          "description": "Electron main loads built-in SQLite with the same required capabilities"
+        },
+        {
+          "behaviorId": "node-built-in-sqlite-passes-the-wal-fix-gate-and-file-backed-capability-probe",
+          "description": "Node built-in SQLite passes the WAL fix gate and file-backed capability probe"
+        }
+      ]
+    },
+    {
       "capabilityId": "project-state-store",
       "description": "Asynchronous Project State store semantics and cross-adapter conformance.",
       "sourcePatterns": [
@@ -13111,6 +13129,67 @@
           "capabilityId": "project-state-service",
           "behaviorId": "typed-decision-validation-and-evidence-commands-derive-trusted-attribution-and-enforce-relationsh",
           "proofLocator": "typed Decision, Validation and Evidence commands derive trusted attribution and enforce relationships",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/sqlite-runtime-binding.test.cjs",
+      "currentTestCount": {
+        "value": 2,
+        "basis": "Two supported-runtime capability scenarios introduced by SCL01E."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 245,
+        "basis": "Observed normal Windows focused test receipt for SCL01E."
+      },
+      "proposedValidationLane": "desktop-platform",
+      "platformDependency": "windows",
+      "dependencies": {
+        "electron": true,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "desktop-platform"
+      ],
+      "execution": {
+        "requiresBuild": false,
+        "platform": "windows",
+        "externalCapabilities": [],
+        "scheduling": "exclusive-desktop",
+        "schedulingReason": "Launches the installed Electron executable and owns isolated SQLite temp files.",
+        "ownedResources": [
+          "bounded-child-process",
+          "electron-desktop",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "environment-bound"
+      ],
+      "dispositionReasons": [
+        "environment-coupled"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "project-state-sqlite-binding",
+          "behaviorId": "electron-main-loads-built-in-sqlite-with-the-same-required-capabilities",
+          "proofLocator": "Electron main loads built-in SQLite with the same required capabilities",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-sqlite-binding",
+          "behaviorId": "node-built-in-sqlite-passes-the-wal-fix-gate-and-file-backed-capability-probe",
+          "proofLocator": "Node built-in SQLite passes the WAL fix gate and file-backed capability probe",
           "proofRole": "primary"
         }
       ]
