@@ -139,7 +139,14 @@ import { FigmaSidebar, type FigmaThemeMode } from "./figma/FigmaSidebar";
 import { LandingWorkspace } from "./LandingWorkspace";
 import { WorkflowHubWorkspace } from "./WorkflowHubWorkspace";
 import { WorkIntakeWorkspace } from "./WorkIntakeWorkspace";
+import { WorkIntakeRoutingRail } from "./WorkIntakeRoutingRail";
+import { WorkRoutingAssessmentPanel } from "./WorkRoutingAssessmentPanel";
+import { WorkPlanningPanel } from "./WorkPlanningPanel";
+import { RoutedExecutionPanel } from "./RoutedExecutionPanel";
+import { DocumentChatWorkspaceShell } from "./DocumentChatWorkspaceShell";
+import { shouldAttachArchitectSurface } from "./architectSurfaceEligibility";
 import type { WorkIntakeProjection } from "../../shared/workIntakeContracts";
+import type { WorkIntakeNavigationProjection, WorkIntakeStageId } from "../../shared/workIntakeNavigationContracts";
 import { isWorkflowReviewDocument } from "./workflowReviewDocuments";
 import type { WorkflowId } from "../../shared/workflowHubContracts";
 import type {
@@ -277,6 +284,9 @@ export function App(): JSX.Element {
   );
   const [shellView, setShellView] = useState<ShellView>("landing");
   const [workIntakeProjection, setWorkIntakeProjection] = useState<WorkIntakeProjection | null>(null);
+  const [workIntakeNavigation, setWorkIntakeNavigation] = useState<WorkIntakeNavigationProjection | null>(null);
+  const [selectedWorkIntakeId, setSelectedWorkIntakeId] = useState<string | null>(null);
+  const [activeWorkIntakeStageId, setActiveWorkIntakeStageId] = useState<WorkIntakeStageId>("intake");
   const [activeWorkflowId, setActiveWorkflowId] = useState<WorkflowId | null>(null);
   const [settingsReturnShellView, setSettingsReturnShellView] =
     useState<SettingsReturnShellView>("workflow-hub");
@@ -455,16 +465,10 @@ export function App(): JSX.Element {
   const isWorkflowHubForeground = shellView === "workflow-hub";
   const isWorkIntakeForeground = shellView === "work-intake";
   const shouldAttachEmbeddedArchitectSurface =
-    ((isDevelopmentForeground &&
-      (architectBrowserWorkspaceAvailable || isWorkCardRepair)) ||
-      (isIssueResolutionForeground &&
-        (
-          activeIssueStageId === "architect-planning" ||
-          activeIssueStageId === "issue-planning" ||
-          (activeIssueStageId === "fix-cards" &&
-            (activeIssueFixCardStepId === "planning" || activeIssueFixCardStepId === "review-validation" || activeIssueFixCardStepId === "repair"))
-        ))) &&
-    isArchitectPaneVisible;
+    shouldAttachArchitectSurface({ paneVisible: isArchitectPaneVisible, developmentForeground: isDevelopmentForeground,
+      developmentBrowserAvailable: architectBrowserWorkspaceAvailable, workCardRepair: isWorkCardRepair,
+      issueForeground: isIssueResolutionForeground, issueStageId: activeIssueStageId, issueFixCardStepId: activeIssueFixCardStepId,
+      workIntakeForeground: isWorkIntakeForeground, workIntakeStageId: activeWorkIntakeStageId, workIntakeNavigation });
   const isSettingsWorkspace = shellView === "settings";
   const currentIssue = useMemo(
     () => issueInventory?.issues.find((issue) => issue.issueId === selectedIssueId) ?? null,
@@ -2491,6 +2495,9 @@ export function App(): JSX.Element {
 
   function clearRepositoryDerivedState(): void {
     setWorkIntakeProjection(null);
+    setWorkIntakeNavigation(null);
+    setSelectedWorkIntakeId(null);
+    setActiveWorkIntakeStageId("intake");
     const clearedPostSubmitState = clearProjectIntakePostSubmitReviewState({
       confirmation: projectIntakeConfirmation,
       viewedWorkspaceId: activeWorkspaceId,
@@ -2710,12 +2717,29 @@ export function App(): JSX.Element {
 
   async function openWorkIntake(): Promise<void> {
     try {
-      setWorkIntakeProjection(await window.champcity.getWorkIntakeProjection());
+      const projection = await window.champcity.getWorkIntakeProjection();
+      const navigation = await window.champcity.getWorkIntakeNavigation(projection.currentIntake?.intakeId);
+      setWorkIntakeProjection(projection);
+      setWorkIntakeNavigation(navigation);
+      setSelectedWorkIntakeId(navigation.intakeId);
+      setActiveWorkIntakeStageId(navigation.requiredStageId);
       setActiveWorkflowId(null);
       setShellView("work-intake");
     } catch (error) {
       setDocumentError(error instanceof Error ? error.message : "Work Intake could not be opened.");
     }
+  }
+
+  async function refreshWorkIntakeNavigation(intakeId = selectedWorkIntakeId): Promise<void> {
+    const [projection, navigation] = await Promise.all([
+      window.champcity.getWorkIntakeProjection(),
+      window.champcity.getWorkIntakeNavigation(intakeId ?? undefined),
+    ]);
+    setWorkIntakeProjection(projection);
+    setWorkIntakeNavigation(navigation);
+    setSelectedWorkIntakeId(navigation.intakeId);
+    setActiveWorkIntakeStageId((current) => navigation.stages.some((stage) => stage.stageId === current && stage.available)
+      ? current : navigation.requiredStageId);
   }
 
   function returnToWorkflowHub(): void {
@@ -3766,6 +3790,7 @@ export function App(): JSX.Element {
     !isWorkCardClose &&
     !isWorkCardMap;
   const usesFigmaWorkspaceBody =
+    isWorkIntakeForeground ||
     isWorkflowHubForeground ||
     activeWorkspaceId === "project-intake-capture" ||
     isVisibleArchitectOutputWorkspace ||
@@ -3914,6 +3939,10 @@ export function App(): JSX.Element {
           onStageChange={setActiveIssueStageId}
         />
       ) : null}
+      {isWorkIntakeForeground && workIntakeNavigation?.intakeId ? (
+        <WorkIntakeRoutingRail projection={workIntakeNavigation} activeStageId={activeWorkIntakeStageId}
+          onStageChange={setActiveWorkIntakeStageId} />
+      ) : null}
 
       <div className={isLandingForeground ? "app-body landing-app-body" : "app-body"}>
           {!isSettingsWorkspace && (agentHarnessServiceHostLifecycleStatus?.restartRequired || agentHarnessActionError) ? (
@@ -3978,16 +4007,31 @@ export function App(): JSX.Element {
               onStartNewProject={() => void startNewProjectFromLanding()}
             />
           ) : isWorkIntakeForeground && workIntakeProjection ? (
-            <WorkIntakeWorkspace
-              key={workspace.workspaceRoot}
-              projection={workIntakeProjection}
-              onReturn={returnToWorkflowHub}
-              onRefresh={async () => setWorkIntakeProjection(await window.champcity.getWorkIntakeProjection())}
-              onOpenIssue={(issueId) => {
-                setShellView("workflow"); setActiveWorkflowId("issue-resolution");
-                void refreshIssueInventory(issueId, true);
-              }}
-            />
+            activeWorkIntakeStageId === "intake" || !selectedWorkIntakeId ? (
+              <WorkIntakeWorkspace key={workspace.workspaceRoot} projection={workIntakeProjection}
+                onReturn={returnToWorkflowHub} onSaved={async (intakeId) => {
+                  await refreshWorkIntakeNavigation(intakeId);
+                  setActiveWorkIntakeStageId("routing");
+                }} />
+            ) : ["routing", "assessment", "plan"].includes(activeWorkIntakeStageId) ? (
+              <DocumentChatWorkspaceShell
+                bodyClassName="work-intake-doc-chat-workspace" browserColumnClassName="work-intake-browser-column"
+                className="work-intake-stage-workspace" documentColumnClassName="work-intake-document-column"
+                eyebrow="Work Intake" heading={workIntakeNavigation?.stages.find((stage) => stage.stageId === activeWorkIntakeStageId)?.label ?? "Routed work"}
+                summary="Review current evidence and continue the selected work."
+                browserPanel={isArchitectPaneVisible ? <FigmaBrowserPanel hostRef={architectHostRef}
+                  onReload={() => void reloadArchitectBrowser()} onRetry={() => void retryArchitectBrowser()}
+                  retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
+                  statusLabel={architectBrowserPresentation(architectStatus).label} /> : null}
+                browserActions={null}
+                documentColumn={activeWorkIntakeStageId === "routing" ? (
+                  <WorkRoutingAssessmentPanel intakeId={selectedWorkIntakeId} showNextStages={false}
+                    onNavigationChange={() => void refreshWorkIntakeNavigation()} />
+                ) : <WorkPlanningPanel key={`${selectedWorkIntakeId}:${activeWorkIntakeStageId}`}
+                  intakeId={selectedWorkIntakeId} fixedStage={activeWorkIntakeStageId === "plan" ? "plan" : "assessment"}
+                  onNavigationChange={() => void refreshWorkIntakeNavigation()} />}
+              />
+            ) : <RoutedExecutionPanel intakeId={selectedWorkIntakeId} />
           ) : isWorkflowHubForeground ? (
             <>
               {issueCloseActionFeedback ? (

@@ -3,7 +3,7 @@ import type { WorkRoutingAssessmentModel } from "../../shared/workRoutingAssessm
 import { workRouteProfileRegistry } from "../../shared/workIntakeRoutingContracts";
 import { WorkRouteDecisionPanel } from "./WorkRouteDecisionPanel";
 
-export function WorkRoutingAssessmentPanel({ intakeId, onOpenIssue }: { intakeId: string; onOpenIssue?: (issueId: string) => void }) {
+export function WorkRoutingAssessmentPanel({ intakeId, onOpenIssue, onNavigationChange, showNextStages = true }: { intakeId: string; onOpenIssue?: (issueId: string) => void; onNavigationChange?: () => void; showNextStages?: boolean }) {
   const [model, setModel] = useState<WorkRoutingAssessmentModel | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -21,6 +21,7 @@ export function WorkRoutingAssessmentPanel({ intakeId, onOpenIssue }: { intakeId
       if (action === "copy") { await window.champcity.copyWorkRoutingAssessment(intakeId); setCopied(true); }
       setModel(await (action === "prepare" ? window.champcity.prepareWorkRoutingAssessment(intakeId) : window.champcity.getWorkRoutingAssessment(intakeId)));
       setRouteRefresh((current) => current + 1);
+      onNavigationChange?.();
     } catch (failure) { setError(failure instanceof Error ? failure.message : "Routing assessment action failed."); }
     finally { setBusy(false); }
   }
@@ -41,6 +42,6 @@ export function WorkRoutingAssessmentPanel({ intakeId, onOpenIssue }: { intakeId
       {model.assessment.alternate ? <p>Alternate: {workRouteProfileRegistry[model.assessment.alternate.routeId].label}. {model.assessment.alternate.rationale}</p> : null}
       <p>The recommendation is advisory; your decision below controls the selected route.</p>
     </article> : null}
-    <WorkRouteDecisionPanel intakeId={intakeId} assessmentRevision={routeRefresh + (model?.assessment?.artifactRevision ?? 0)} onOpenIssue={onOpenIssue} />
+    <WorkRouteDecisionPanel intakeId={intakeId} assessmentRevision={routeRefresh + (model?.assessment?.artifactRevision ?? 0)} onOpenIssue={onOpenIssue} onNavigationChange={onNavigationChange} showNextStages={showNextStages} />
   </section>;
 }

@@ -5301,6 +5301,20 @@ body {
   padding: 0;
 }
 
+.work-intake-stage-workspace .work-intake-document-column {
+  overflow-y: auto;
+}
+
+.work-intake-stage-workspace .work-intake-browser-column {
+  overflow: hidden;
+}
+
+.work-intake-route-context {
+  margin: 0;
+  padding: 0 16px 10px;
+  color: var(--muted-foreground);
+}
+
 .issue-architect-workspace,
 .issue-planning-workspace {
   display: grid;

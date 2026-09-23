@@ -1,12 +1,10 @@
 import { useState } from "react";
 import type { WorkIntakeProjection, WorkIntakeRecord, WorkIntakeSubmission } from "../../shared/workIntakeContracts";
-import { WorkRoutingAssessmentPanel } from "./WorkRoutingAssessmentPanel";
 
-export function WorkIntakeWorkspace({ projection, onReturn, onRefresh, onOpenIssue }: {
+export function WorkIntakeWorkspace({ projection, onReturn, onSaved }: {
   projection: WorkIntakeProjection;
   onReturn: () => void;
-  onRefresh: () => Promise<void>;
-  onOpenIssue: (issueId: string) => void;
+  onSaved: (intakeId: string) => Promise<void>;
 }) {
   const [value, setValue] = useState<WorkIntakeSubmission>(() => {
     const base = projection.suggestedBase;
@@ -30,7 +28,7 @@ export function WorkIntakeWorkspace({ projection, onReturn, onRefresh, onOpenIss
         return;
       }
       setSaved(result.value);
-      await onRefresh();
+      await onSaved(result.value.intakeId);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Work Intake could not be saved.");
     } finally { setBusy(false); }
@@ -69,7 +67,6 @@ export function WorkIntakeWorkspace({ projection, onReturn, onRefresh, onOpenIss
     </form>}
     {saved && error ? <p role="alert">{error}</p> : null}
     {!saved && projection.currentIntake ? <p>Current Work Intake: {projection.currentIntake.workRequest}</p> : null}
-    {saved || projection.currentIntake ? <WorkRoutingAssessmentPanel key={(saved ?? projection.currentIntake)!.intakeId} intakeId={(saved ?? projection.currentIntake)!.intakeId} onOpenIssue={onOpenIssue} /> : null}
     </div>
   </section>;
 }

@@ -3,8 +3,8 @@ import type { WorkPlanningModel, WorkPlanningReviewInput, WorkPlanningStage } fr
 import { WorkItemDecompositionPanel } from "./WorkItemDecompositionPanel";
 import { RoutedExecutionPanel } from "./RoutedExecutionPanel";
 
-export function WorkPlanningPanel({ intakeId, planOnly = false }: { intakeId: string; planOnly?: boolean }) {
-  const [stage, setStage] = useState<WorkPlanningStage>(planOnly ? "plan" : "assessment");
+export function WorkPlanningPanel({ intakeId, planOnly = false, fixedStage, onNavigationChange }: { intakeId: string; planOnly?: boolean; fixedStage?: WorkPlanningStage; onNavigationChange?: () => void }) {
+  const [stage, setStage] = useState<WorkPlanningStage>(fixedStage ?? (planOnly ? "plan" : "assessment"));
   const [model, setModel] = useState<WorkPlanningModel | null>(null);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
@@ -24,15 +24,16 @@ export function WorkPlanningPanel({ intakeId, planOnly = false }: { intakeId: st
         : action === "refresh" ? await window.champcity.getWorkPlanning(intakeId, stage)
         : await window.champcity.reviewWorkPlanning(intakeId, stage, { expectedRevision: model!.artifact!.artifactRevision, disposition: action, notes });
       setModel(next);
+      onNavigationChange?.();
     } catch (failure) { setError(failure instanceof Error ? failure.message : "Planning action failed."); }
     finally { setBusy(false); }
   }
   const reviewable = !!model?.artifact && !model.artifact.stale && !busy;
   return <section aria-label="Route planning">
     <h3>Route planning</h3>
-    <label>Planning stage<select disabled={busy || planOnly} value={stage} onChange={(event) => setStage(event.target.value as WorkPlanningStage)}>
+    {!fixedStage ? <label>Planning stage<select disabled={busy || planOnly} value={stage} onChange={(event) => setStage(event.target.value as WorkPlanningStage)}>
       <option value="assessment">Architect assessment</option><option value="plan" disabled={model?.researchClosed}>Work Plan</option>
-    </select></label>
+    </select></label> : null}
     {error || model?.error ? <p role="alert">{error || model?.error}</p> : null}
     {copied ? <p role="status">Planning handoff copied.</p> : null}
     <button disabled={busy || !model?.canPrepare} onClick={() => void act("prepare")}>Prepare handoff</button>
@@ -51,9 +52,9 @@ export function WorkPlanningPanel({ intakeId, planOnly = false }: { intakeId: st
       <button disabled={!reviewable} onClick={() => void act("Approved")}>Approve {stage === "plan" ? "Plan and topology" : model?.artifact?.researchOutcome ? "research outcome" : "assessment"}</button>
       <button disabled={!reviewable || !notes.trim()} onClick={() => void act("RevisionRequested")}>Request revision</button>
       <button disabled={!reviewable || !notes.trim()} onClick={() => void act("Rejected")}>Reject</button>
-      {stage === "plan" && model.artifact.structure && !model.artifact.stale && model.artifact.disposition === "Approved" ? <WorkItemDecompositionPanel intakeId={intakeId} workItems={model.artifact.structure.workItems} onAccepted={async () => { setModel(await window.champcity.getWorkPlanning(intakeId, "plan")); }} /> : null}
-      {stage === "plan" && model.routeId !== "issue-resolution" && model.artifact.structure && !model.artifact.stale && model.artifact.disposition === "Approved" ? <RoutedExecutionPanel key={model.artifact.identity.planId} intakeId={intakeId} /> : null}
-      {stage === "assessment" && model.researchClosed === true ? <RoutedExecutionPanel key={model.artifact.identity.assessmentId} intakeId={intakeId} /> : null}
+      {!fixedStage && stage === "plan" && model.artifact.structure && !model.artifact.stale && model.artifact.disposition === "Approved" ? <WorkItemDecompositionPanel intakeId={intakeId} workItems={model.artifact.structure.workItems} onAccepted={async () => { setModel(await window.champcity.getWorkPlanning(intakeId, "plan")); }} /> : null}
+      {!fixedStage && stage === "plan" && model.routeId !== "issue-resolution" && model.artifact.structure && !model.artifact.stale && model.artifact.disposition === "Approved" ? <RoutedExecutionPanel key={model.artifact.identity.planId} intakeId={intakeId} /> : null}
+      {!fixedStage && stage === "assessment" && model.researchClosed === true ? <RoutedExecutionPanel key={model.artifact.identity.assessmentId} intakeId={intakeId} /> : null}
     </> : null}
   </section>;
 }

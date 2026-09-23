@@ -26,7 +26,7 @@ export function WorkRouteDecisionControls({ model, selected, rationale, busy, on
   </>;
 }
 
-export function WorkRouteDecisionPanel({ intakeId, assessmentRevision, onOpenIssue }: { intakeId: string; assessmentRevision: number; onOpenIssue?: (issueId: string) => void }) {
+export function WorkRouteDecisionPanel({ intakeId, assessmentRevision, onOpenIssue, onNavigationChange, showNextStages = true }: { intakeId: string; assessmentRevision: number; onOpenIssue?: (issueId: string) => void; onNavigationChange?: () => void; showNextStages?: boolean }) {
   const [model, setModel] = useState<WorkRouteDecisionModel | null>(null);
   const [selected, setSelected] = useState<WorkRouteId>("greenfield");
   const [rationale, setRationale] = useState("");
@@ -45,6 +45,7 @@ export function WorkRouteDecisionPanel({ intakeId, assessmentRevision, onOpenIss
       setModel(await window.champcity.decideWorkRoute(intakeId, { expectedDecisionRevision: model.artifactRevision,
         sourceAssessment: model.sourceAssessment, disposition, rationale, ...(disposition === "override" ? { selectedRouteId: selected } : {}) }));
       setRationale("");
+      onNavigationChange?.();
     } catch (failure) { setError(failure instanceof Error ? failure.message : "Route decision failed."); }
     finally { setBusy(false); }
   }
@@ -57,8 +58,8 @@ export function WorkRouteDecisionPanel({ intakeId, assessmentRevision, onOpenIss
     {model ? <WorkRouteDecisionControls model={model} selected={selected} rationale={rationale} busy={busy}
       onRationaleChange={setRationale} onSelectedChange={setSelected} onDecide={(disposition) => void decide(disposition)} /> : null}
     {model?.history.length ? <details><summary>Decision history</summary><ol>{model.history.map((entry) => <li key={entry.decision.decisionId}>{entry.decision.disposition}: {entry.decision.rationale}</li>)}</ol></details> : null}
-    {model?.selection?.selectedRouteId === "issue-resolution" && ["selected", "reroute-required", "revision-requested", "stale"].includes(model.state)
+    {showNextStages && model?.selection?.selectedRouteId === "issue-resolution" && ["selected", "reroute-required", "revision-requested", "stale"].includes(model.state)
       ? <WorkIssuePanel key={model.selection.decisionId} intakeId={intakeId} onOpenIssue={onOpenIssue} onRoutingChanged={async () => { setModel(await window.champcity.getWorkRouteDecision(intakeId)); }} />
-      : model?.state === "selected" && model.selection ? <WorkPlanningPanel key={model.selection.decisionId} intakeId={intakeId} /> : null}
+      : showNextStages && model?.state === "selected" && model.selection ? <WorkPlanningPanel key={model.selection.decisionId} intakeId={intakeId} /> : null}
   </section>;
 }

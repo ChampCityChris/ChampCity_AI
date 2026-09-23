@@ -14,6 +14,7 @@ import type {
 } from "../shared/workspaceContracts";
 
 const api: ChampCityApi = {
+  getWorkIntakeNavigation: (intakeId) => ipcRenderer.invoke("workIntake:navigation", intakeId),
   runRoutedWorkflow: (intakeId, action, input) => ipcRenderer.invoke("routedWorkflow:action", intakeId, action, input),
   getWorkIntakeProjection: () => ipcRenderer.invoke("workIntake:projection"),
   readWorkIntake: (intakeId) => ipcRenderer.invoke("workIntake:read", intakeId),

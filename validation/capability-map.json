@@ -3256,7 +3256,10 @@
       "capabilityId": "renderer-navigation-and-presentation",
       "description": "Evidence-driven renderer navigation, document review, rails, dashboards, and workflow shell presentation.",
       "sourcePatterns": [
+        "src/main/workIntake/workIntakeNavigationService.ts",
         "src/renderer/app/**",
+        "src/renderer/styles.css",
+        "src/shared/workIntakeNavigationContracts.ts",
         "src/shared/workspaces/**"
       ],
       "dependsOn": [
@@ -3399,6 +3402,22 @@
         {
           "behaviorId": "research-completion-renders-shared-integration-without-plan-controls",
           "description": "Research closure renders shared routed integration with Research wording and without Plan execution controls"
+        },
+        {
+          "behaviorId": "routed-architect-attachment-follows-stage-evidence-and-preserves-peer-workflows",
+          "description": "Architect attachment follows routed availability and preserves existing Development and Issue attachment"
+        },
+        {
+          "behaviorId": "routed-navigation-unlocks-only-evidenced-stages",
+          "description": "Routed navigation unlocks only stages supported by current workflow owner evidence"
+        },
+        {
+          "behaviorId": "routed-rail-presents-six-ordered-stages-and-blockers",
+          "description": "Routed rail presents six ordered stages and accessible blockers"
+        },
+        {
+          "behaviorId": "saved-work-intake-does-not-nest-routing-lifecycle",
+          "description": "Saved Work Intake confirms capture without nesting the later routing lifecycle"
         },
         {
           "behaviorId": "selected-project-hub-renders-exactly-development-and-issue-resolution-workflow-cards",
@@ -15196,6 +15215,79 @@
           "capabilityId": "work-card-workflow",
           "behaviorId": "review-validation-renders-implementer-report-by-default-in-a-compact-document-pane",
           "proofLocator": "Review & Validation renders Implementer Report by default in a compact document pane",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/renderer/work-intake-routed-workspaces.test.cjs",
+      "currentTestCount": {
+        "value": 4,
+        "basis": "Observed WIR-UX01 focused Windows run."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 3966,
+        "basis": "Observed WIR-UX01 focused Windows run; slowest fixture assertion."
+      },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "production-path"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Isolated Git fixture and read-only renderer source bundling.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "repository-readonly"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "rendered-output"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "routed-architect-attachment-follows-stage-evidence-and-preserves-peer-workflows",
+          "proofLocator": "Architect attachment follows available routed stages and preserves Development and Issue cases",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "routed-navigation-unlocks-only-evidenced-stages",
+          "proofLocator": "navigation service unlocks only stages backed by current owner evidence",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "routed-rail-presents-six-ordered-stages-and-blockers",
+          "proofLocator": "routed rail has exact stage order and explains blocked stages",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "saved-work-intake-does-not-nest-routing-lifecycle",
+          "proofLocator": "saved Intake is a capture confirmation without a child routing lifecycle",
           "proofRole": "primary"
         }
       ]
