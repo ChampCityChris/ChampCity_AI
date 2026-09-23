@@ -1864,6 +1864,27 @@
       ]
     },
     {
+      "capabilityId": "engineering-workflow-state-facade",
+      "description": "Structured Development, Issue Resolution, routed execution and Tester semantic adapter.",
+      "sourcePatterns": [
+        "src/main/projectState/engineeringWorkflowStateFacade.ts"
+      ],
+      "dependsOn": [
+        "project-state-service",
+        "project-state-store"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "development-and-routed-work-complete-from-typed-state",
+          "description": "Development phases, routed decomposition, review, repair and close derive from structured state"
+        },
+        {
+          "behaviorId": "issue-fix-and-tester-proof-use-typed-state",
+          "description": "Issue analysis, Fix, validation and Tester obligation use typed records without Markdown"
+        }
+      ]
+    },
+    {
       "capabilityId": "external-provider-integration",
       "description": "External MCP and GitHub provider configuration, transport, and bounded response contracts.",
       "sourcePatterns": [
@@ -13764,6 +13785,64 @@
           "capabilityId": "project-state-domain",
           "behaviorId": "revision-and-supersession-invariants-retain-identity-lineage-and-immutable-history",
           "proofLocator": "revision and supersession invariants retain identity, lineage and immutable history",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/engineering-workflow-facade.test.cjs",
+      "currentTestCount": {
+        "value": 2,
+        "basis": "Two SCL01X synthetic SQLite workflow scenarios."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 222,
+        "basis": "Observed normal Windows focused SCL01X test receipt."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Each case uses an isolated temporary SQLite workspace.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "engineering-workflow-state-facade",
+          "behaviorId": "development-and-routed-work-complete-from-typed-state",
+          "proofLocator": "Development phases, routed decomposition, review, repair and close derive from structured state",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "engineering-workflow-state-facade",
+          "behaviorId": "issue-fix-and-tester-proof-use-typed-state",
+          "proofLocator": "Issue analysis, Fix, validation and Tester obligation use typed records without Markdown",
           "proofRole": "primary"
         }
       ]
