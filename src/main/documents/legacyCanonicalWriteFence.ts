@@ -2,9 +2,20 @@ import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
+const cutoverFences = new Set<string>();
+
+/** Blocks every canonical V1 write in this main process, including callbacks that finish after cutover starts. */
+export function acquireLegacyCutoverFence(workspaceRoot: string): () => void {
+  const root = fs.realpathSync(workspaceRoot);
+  if (cutoverFences.has(root)) throw Error("A Project State cutover already owns the legacy writer fence.");
+  cutoverFences.add(root);
+  return () => { cutoverFences.delete(root); };
+}
+
 /** Temporary V1 compatibility fence: legacy writes end when the durable provider generation selects structured authority. */
 export function assertLegacyCanonicalWriteAllowed(workspaceRoot: string): void {
   const root = fs.realpathSync(workspaceRoot);
+  if (cutoverFences.has(root)) throw Error("Legacy canonical Markdown writes are fenced during Project State cutover.");
   const appRoot = path.join(root, ".champcity");
   if (!fs.existsSync(appRoot)) return;
   if (fs.lstatSync(appRoot).isSymbolicLink() || !fs.lstatSync(appRoot).isDirectory() || path.dirname(fs.realpathSync(appRoot)) !== root) {

@@ -3435,6 +3435,34 @@
       ]
     },
     {
+      "capabilityId": "provider-generation-cutover",
+      "description": "Durable provider-generation cutover with application writer fence, backup, unknown-outcome recovery and guarded rollback.",
+      "sourcePatterns": [
+        "src/main/documents/legacyCanonicalWriteFence.ts",
+        "src/main/issueResolution/issueResolutionService.ts",
+        "src/main/migrations/structuredProviderCutover.ts"
+      ],
+      "dependsOn": [
+        "legacy-equivalence-verification",
+        "project-state-backup-recovery",
+        "project-state-store"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "cutover-fences-legacy-and-selects-one-durable-generation",
+          "description": "cutover fences a late legacy writer, verifies backup and selects one durable structured generation"
+        },
+        {
+          "behaviorId": "stale-or-interrupted-selection-preserves-legacy-authority",
+          "description": "stale source and a failed pre-selection step leave legacy authority writable"
+        },
+        {
+          "behaviorId": "unknown-outcome-recovers-and-rollback-requires-untouched-state",
+          "description": "unknown post-selection outcome recovers from durable generation and rollback requires untouched structured state"
+        }
+      ]
+    },
+    {
       "capabilityId": "release-and-git-operations",
       "description": "Candidate validation, bounded Git mutations, release actions, and repository-state evidence.",
       "sourcePatterns": [
@@ -12179,6 +12207,70 @@
           "capabilityId": "staged-legacy-import",
           "behaviorId": "stale-or-dangling-input-is-rejected-before-staging",
           "proofLocator": "staged import rejects stale snapshots and dangling Repair parents without leaving a candidate",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/migration/structured-provider-cutover.test.cjs",
+      "currentTestCount": {
+        "value": 3,
+        "basis": "Three SCL01Y fence, unknown-outcome and rollback migration fixtures."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 740,
+        "basis": "Observed normal Windows focused SCL01Y test receipt."
+      },
+      "proposedValidationLane": "migration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "migration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Each case uses an isolated temporary SQLite workspace.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "provider-generation-cutover",
+          "behaviorId": "cutover-fences-legacy-and-selects-one-durable-generation",
+          "proofLocator": "cutover fences a late legacy writer, verifies backup and selects one durable structured generation",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "provider-generation-cutover",
+          "behaviorId": "stale-or-interrupted-selection-preserves-legacy-authority",
+          "proofLocator": "stale source and a failed pre-selection step leave legacy authority writable",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "provider-generation-cutover",
+          "behaviorId": "unknown-outcome-recovers-and-rollback-requires-untouched-state",
+          "proofLocator": "unknown post-selection outcome recovers from durable generation and rollback requires untouched structured state",
           "proofRole": "primary"
         }
       ]
