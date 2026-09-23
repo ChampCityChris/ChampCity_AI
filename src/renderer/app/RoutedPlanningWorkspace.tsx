@@ -58,14 +58,13 @@ function withoutPlanDataBlock(markdown: string): string {
   return markdown.replace(/```champcity-work-plan\r?\n[\s\S]*?\r?\n```/g, "").trim();
 }
 
-export function RoutedPlanningWorkspace({ intakeId, intake, stage, browserPanel, onReloadBrowser, onNavigationRefresh, onOpenDecomposition }: {
+export function RoutedPlanningWorkspace({ intakeId, intake, stage, browserPanel, onReloadBrowser, onNavigationRefresh }: {
   intakeId: string;
   intake?: WorkIntakeRecord;
   stage: WorkPlanningStage;
   browserPanel: ReactNode;
   onReloadBrowser: () => void;
   onNavigationRefresh: (advance: boolean) => Promise<void>;
-  onOpenDecomposition?: (workItemId: string) => void;
 }): JSX.Element {
   const [model, setModel] = useState<WorkPlanningModel | null>(null);
   const [supportingAssessment, setSupportingAssessment] = useState<WorkPlanningModel | null>(null);
@@ -151,12 +150,6 @@ export function RoutedPlanningWorkspace({ intakeId, intake, stage, browserPanel,
       </article>
       {stage === "assessment" && artifact?.researchOutcome ? researchOutcomeSummary(artifact.researchOutcome) : null}
       {stage === "plan" && artifact?.structure ? readablePlanStructure(artifact.structure) : null}
-      {stage === "plan" && artifact?.disposition === "Approved" && !artifact.stale && artifact.structure && onOpenDecomposition ?
-        <section className="work-decomposition-entry" aria-label="Review decomposition">
-          <h3>Review decomposition</h3><p>Open a planning correction for a selected Work Item.</p>
-          {artifact.structure.workItems.map((item) => <button key={item.workItemId} type="button"
-            onClick={() => onOpenDecomposition(item.workItemId)}>Review decomposition for {item.workItemId}: {item.title}</button>)}
-        </section> : null}
       <section className="figma-disposition-panel work-planning-decision" aria-label={`${title} disposition`}>
         <header><span>{title} Review</span></header>
         <p role="status">{planningStatusLabel(model, stage)}</p>

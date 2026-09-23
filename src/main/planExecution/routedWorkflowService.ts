@@ -13,6 +13,7 @@ import { workIssueContext } from "../workPlanning/workIssueContext";
 import { getIssueCorrectionIntegrationEvidence } from "../issueResolution/issueResolutionService";
 import { createRoutedIntegrationService } from "./routedIntegrationService";
 import { projectPlanExecution } from "./planExecutor";
+import { getActiveArchitectOutputRuntimeSubmission, getActivePreparedArchitectOutputInstruction } from "../architectOutputs/architectOutputRuntimeService";
 
 function document(root: string, relativePath: string): RoutedWorkflowDocument | undefined {
   const target = resolveRepositoryPath(root, relativePath, { allowMissingLeaf: true });
@@ -74,14 +75,22 @@ export async function getRoutedWorkflow(root: string, intakeId: string): Promise
     if (!entry || !item?.eligible) return model;
     const contract = entry.repairContext ? entry.repairContext.existing : entry.formal;
     model.current = { workItemId: entry.candidate.workItemId, implementationId: entry.executionWorkCardId, phaseId: entry.candidate.phaseId,
+      contractTargetPath: entry.repairContext?.targetPath ?? entry.targets.formalWorkCardMarkdownPath,
       ...(contract ? { contract: document(root, contract.markdownPath) } : {}) };
     if (!entry.handoff) model.actions.push("begin");
     else if (!contract || contract.effectiveDisposition !== "Approved") {
       model.actions.push("prepare", "check-draft");
+      const owner = entry.repairContext ? `routed-work-card-repair-${intakeId}` : `routed-work-card-planning-${intakeId}`;
+      const handoff = entry.repairContext?.handoff ?? entry.handoff;
+      const active = getActiveArchitectOutputRuntimeSubmission(root, owner);
+      if (handoff && active?.submission.sourceHandoff.path === handoff.markdownPath &&
+        active.submission.sourceHandoff.revision === handoff.metadata.artifactRevision &&
+        getActivePreparedArchitectOutputInstruction(root, owner)) model.actions.push("copy");
       if (contract) model.actions.push("review-contract");
     } else {
       const review = getWorkCardBuildingReviewProjection(root, entry.scope, entry.executionWorkCardId);
       model.current.report = document(root, review.implementerReportPath);
+      model.current.reportTargetPath = review.implementerReportPath;
       model.implementer = await app.implementationStatus(entry.candidate.workItemId);
       if (model.implementer.state === "running") {
         model.actions = [...runtimeActions];
@@ -149,7 +158,7 @@ export async function runRoutedWorkflow(root: string, intakeId: string, action: 
   const app = createRoutedDevelopmentApplicationService(root, intakeId);
   if (action === "activate") await activateRoutedDevelopmentExecutionBinding(root, intakeId);
   else if (action === "begin") await app.execution.begin(request);
-  else if (action === "prepare" || action === "check-draft" || action === "review-contract") {
+  else if (action === "prepare" || action === "copy" || action === "check-draft" || action === "review-contract") {
     const state = await loadRoutedDevelopmentExecution(root, intakeId);
     const entry = state.entries.find((entry) => entry.candidate.workItemId === request.workItemId);
     if (!entry) throw Error("Current Work Item is required.");
@@ -163,7 +172,8 @@ export async function runRoutedWorkflow(root: string, intakeId: string, action: 
       if (action === "prepare") await (repair ? app.execution.prepareRepair(request) : app.execution.prepare(request));
       const draft = await (repair ? app.execution.getRepairDraft(request) : app.execution.getDraft(request));
       if (!draft) throw Error("Prepare the current Work Item handoff first.");
-      if (action === "prepare") { instruction = draft.preparedInstruction; feedback = "Work Card Architect handoff copied."; }
+      if (action === "prepare") feedback = "Work Card Architect handoff prepared. Copy it when ready.";
+      else if (action === "copy") { instruction = draft.preparedInstruction; feedback = "Work Card Architect handoff copied."; }
       else feedback = draft.promotionError ?? `Draft: ${draft.submission.state}.`;
     }
   } else if (action === "implement") await app.implement({ ...request, selection: input.selection });

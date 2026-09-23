@@ -8551,19 +8551,6 @@ body {
   padding-left: 24px;
 }
 
-.work-decomposition-entry {
-  display: grid;
-  gap: 8px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-
-.work-decomposition-entry h3,
-.work-decomposition-entry p {
-  margin: 0;
-}
-
 .work-decomposition-workspace .figma-document-card {
   min-height: 220px;
 }
@@ -8584,11 +8571,43 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
+.routed-execution-workspace {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-height: 0;
+}
+
+.routed-work-item-map {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+
+.routed-work-item-map-body {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.1fr);
+  gap: 16px;
+  min-width: 0;
+}
+
+.routed-work-item-map-body .figma-work-card-map-list {
+  margin: 0;
+}
+
+.routed-work-item-map-body .figma-document-card {
+  min-width: 0;
+}
+
 @media (max-width: 900px) {
   .work-routing-workspace .work-intake-doc-chat-workspace,
   .work-routed-planning-workspace .work-intake-doc-chat-workspace,
   .work-decomposition-workspace .work-intake-doc-chat-workspace {
     grid-template-columns: minmax(0, 1fr);
     overflow-y: auto;
+  }
+
+  .routed-work-item-map-body {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

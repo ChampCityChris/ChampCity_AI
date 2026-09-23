@@ -15,6 +15,10 @@ const { WorkItemDecompositionWorkspace } = loadRendererSourceModule("src/rendere
 const { RoutedIssueBridge } = loadRendererSourceModule("src/renderer/app/RoutedIssueBridge.tsx");
 const { RoutedIssueReturnNav } = loadRendererSourceModule("src/renderer/app/RoutedIssueReturnNav.tsx");
 const { activateRoutedIssueWorkspace } = loadRendererSourceModule("src/renderer/app/routedIssueNavigation.ts");
+const { RoutedExecutionWorkspace, requiredRoutedExecutionStep } = loadRendererSourceModule("src/renderer/app/RoutedExecutionWorkspace.tsx");
+const { RoutedWorkItemMapWorkspace } = loadRendererSourceModule("src/renderer/app/RoutedWorkItemMapWorkspace.tsx");
+const { RoutedWorkItemPlanningWorkspace } = loadRendererSourceModule("src/renderer/app/RoutedWorkItemPlanningWorkspace.tsx");
+const { RoutedImplementWorkspace } = loadRendererSourceModule("src/renderer/app/RoutedImplementWorkspace.tsx");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -69,6 +73,8 @@ test("Architect attachment follows available routed stages and preserves Develop
     ] } };
   assert.equal(shouldAttachArchitectSurface(base), true);
   assert.equal(shouldAttachArchitectSurface({ ...base, workIntakeStageId: "execution" }), false);
+  assert.equal(shouldAttachArchitectSurface({ ...base, workIntakeStageId: "execution", workIntakeExecutionStepId: "planning" }), true);
+  assert.equal(shouldAttachArchitectSurface({ ...base, workIntakeStageId: "execution", workIntakeDecompositionActive: true }), true);
   assert.equal(shouldAttachArchitectSurface({ ...base, workIntakeStageId: "intake" }), false);
   assert.equal(shouldAttachArchitectSurface({ ...base, paneVisible: false }), false);
   assert.equal(shouldAttachArchitectSurface({ ...base, workIntakeForeground: false, developmentForeground: true,
@@ -133,11 +139,11 @@ const planningArtifact = { relativePath: "planning/assessment.md", artifactRevis
   stale: false, bodyMarkdown: "# Route Architect Assessment\n\n## Evidence\nBounded evidence." };
 const planningModel = { intakeId: "intake-1", routeId: "feature-change", stage: "assessment", canPrepare: true,
   preparedInstruction: "Handoff", researchClosed: false, artifact: planningArtifact };
-function planningView(stage, model, supporting = null, onOpenDecomposition) {
+function planningView(stage, model, supporting = null) {
   const wrapper = stage === "assessment" ? WorkArchitectAssessmentWorkspace : WorkPlanWorkspace;
   const wrapped = wrapper({ intakeId: "intake-1", intake: routingIntake,
     browserPanel: React.createElement("div", { "aria-label": "Embedded ChatGPT browser" }),
-    onReloadBrowser() {}, async onNavigationRefresh() {}, onOpenDecomposition });
+    onReloadBrowser() {}, async onNavigationRefresh() {} });
   assert.equal(wrapped.type.name, RoutedPlanningWorkspace.name);
   assert.equal(wrapped.props.stage, stage);
   return withState([model, supporting, stage, "", false, "", ""], () => RoutedPlanningWorkspace(wrapped.props));
@@ -245,17 +251,83 @@ test("accepting decomposition returns the resume Work Item; revision stays in co
   } finally { global.window = originalWindow; }
 });
 
-test("opening decomposition from an approved Plan passes selected Work Item without reviewing Plan", () => {
+test("Work Item Map opens decomposition for the selected approved Plan candidate", () => {
   const selected = [];
   const approved = { ...planningModel, stage: "plan", artifact: { ...planningArtifact, disposition: "Approved",
     structure: { topology: "direct", topologyRationale: "One delivery", phases: [],
       workItems: [{ workItemId: "WI01", title: "Deliver", purpose: "Build", dependsOn: [] }] } } };
-  const element = planningView("plan", approved, planningModel, (workItemId) => selected.push(workItemId));
-  const open = elements(element.props.documentColumn).find((entry) => entry.type === "button"
-    && React.Children.toArray(entry.props.children).join("").startsWith("Review decomposition for"));
+  const element = RoutedWorkItemMapWorkspace({ model: { actions: ["activate"], reasons: [], execution: null }, plan: approved,
+    selectedWorkItemId: "WI01", busy: false, error: "", onSelect() {}, onActivate() {}, onBegin() {},
+    onContinue() {}, onDecompose: (workItemId) => selected.push(workItemId) });
+  const open = elements(element).find((entry) => entry.type === "button" && entry.props.children === "Decompose Work Item");
   assert.ok(open);
   open.props.onClick();
   assert.deepEqual(selected, ["WI01"]);
+});
+
+const executionCandidate = { workItemId: "WI01", title: "Deliver", purpose: "Build the navigation", dependsOn: [] };
+const executionPlan = { ...planningModel, stage: "plan", artifact: { ...planningArtifact, disposition: "Approved",
+  structure: { topology: "direct", topologyRationale: "One delivery", phases: [], workItems: [executionCandidate] } } };
+const executionModel = { actions: ["begin"], reasons: [], feedback: "", execution: { fingerprint: "current",
+  nextWorkItemId: "WI01", acceptance: [], blockers: [], workItems: [{ candidate: executionCandidate,
+    stage: "planning", eligible: true, reasons: [] }] }, current: { workItemId: "WI01", implementationId: "WI01",
+    contractTargetPath: "planning/work-card.md" }, implementer: null };
+
+test("routed Execution opens Work Item Map with seven nested tasks", () => {
+  const markup = renderToStaticMarkup(withState([executionModel, executionPlan, "map", false, ""], () =>
+    RoutedExecutionWorkspace({ intakeId: "intake-1", selectedWorkItemId: "WI01", browserPanel: null,
+      onSelectWorkItem() {}, onDecompose() {}, onReloadBrowser() {}, onStepChange() {} })));
+  assert.match(markup, /Work Item Map|Planning|Implement|Review &amp; Validation|Repair|Close \/ Next|Acceptance/);
+  assert.match(markup, /Begin Work Item|Eligibility: Ready|Decompose Work Item/);
+  assert.doesNotMatch(markup, /Formal Work Card disposition|Codex Execution Console|RoutedExecutionPanel/);
+  assert.equal(requiredRoutedExecutionStep(executionModel), "map");
+});
+
+test("Work Item Planning mounts ChatGPT with separate Prepare and Copy and gates review on draft", () => {
+  const props = { model: { ...executionModel, actions: ["prepare", "copy", "check-draft"] },
+    browserPanel: React.createElement("div", null, "Embedded ChatGPT browser"), busy: false, error: "",
+    onReloadBrowser() {}, onAction() {}, onDecompose() {} };
+  const pending = renderToStaticMarkup(withState([""], () => RoutedWorkItemPlanningWorkspace(props)));
+  assert.match(pending, /Embedded ChatGPT browser|Prepare Handoff|Copy Handoff|Refresh/);
+  assert.match(pending, /Formal Work Card target: planning\/work-card.md/);
+  assert.doesNotMatch(pending, /Approve Work Card|Request Revision|Reject/);
+  const draft = renderToStaticMarkup(withState([""], () => RoutedWorkItemPlanningWorkspace({ ...props,
+    model: { ...props.model, actions: [...props.model.actions, "review-contract"],
+      current: { ...executionModel.current, contract: { body: "# Formal Work Card\n\nReady", path: "planning/work-card.md",
+        revision: 1, disposition: "Pending" } } } })));
+  assert.match(draft, /Approve Work Card|Request Revision|Reject/);
+});
+
+test("routed Implement reuses Codex console and actions without review controls", () => {
+  const model = { ...executionModel, actions: ["implement", "resolve-environment"],
+    current: { ...executionModel.current, reportTargetPath: "planning/implementer-report.md",
+      contract: { body: "# Work Card", path: "planning/work-card.md", revision: 1, disposition: "Approved" } } };
+  const markup = renderToStaticMarkup(RoutedImplementWorkspace({ model, busy: false, error: "", onAction() {} }));
+  assert.match(markup, /Implement WI01|Approved Work Card|Implementer Report target|Codex/);
+  assert.doesNotMatch(markup, /Validate report|Request Repair|Integration|Approve report/);
+});
+
+test("routed Work Card Prepare and Copy are separate service actions", async (t) => {
+  const { seedPreparedApprovedRoutedWorkPlan } = require("../support/work-intake-fixtures.cjs");
+  const { getRoutedWorkflow, runRoutedWorkflow } = require("../../dist/main/planExecution/routedWorkflowService.js");
+  const structure = { topology: "direct", topologyRationale: "One bounded task", acceptanceCriteria: ["Navigation works"],
+    workItems: [{ ...executionCandidate, acceptanceCriteria: ["Navigation works"] }] };
+  const fixture = await seedPreparedApprovedRoutedWorkPlan(t, structure, "feature-change", {
+    setupRepository(root) { fs.writeFileSync(path.join(root, ".gitignore"), "/planning/\n"); },
+  });
+  const before = await getRoutedWorkflow(fixture.root, fixture.intake.intakeId);
+  assert.ok(before.actions.includes("begin"));
+  const begun = await runRoutedWorkflow(fixture.root, fixture.intake.intakeId, "begin", {
+    workItemId: "WI01", expectedFingerprint: before.execution.fingerprint });
+  assert.ok(begun.model.actions.includes("prepare"));
+  assert.equal(begun.model.actions.includes("copy"), false);
+  const prepared = await runRoutedWorkflow(fixture.root, fixture.intake.intakeId, "prepare", {
+    workItemId: "WI01", expectedFingerprint: begun.model.execution.fingerprint });
+  assert.equal(prepared.instruction, undefined);
+  assert.ok(prepared.model.actions.includes("copy"));
+  const copied = await runRoutedWorkflow(fixture.root, fixture.intake.intakeId, "copy", {
+    workItemId: "WI01", expectedFingerprint: prepared.model.execution.fingerprint });
+  assert.match(copied.instruction, /Formal Work Card|Work Card/);
 });
 
 test("routed Issue bridge opens one Issue then continues the same Issue without duplicate RCA controls", async () => {

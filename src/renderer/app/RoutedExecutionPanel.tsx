@@ -3,7 +3,6 @@ import type { RoutedWorkflowAction, RoutedWorkflowInput, RoutedWorkflowModel } f
 import type { RoutedAcceptanceProjection } from "../../shared/routedDevelopmentExecutionContracts";
 import type { ExecutionCriterionEvidence } from "../../shared/planExecutionContracts";
 import { workRouteProfileRegistry, type WorkRouteId } from "../../shared/workIntakeRoutingContracts";
-import { CodexExecutionActions, CodexExecutionConsole, DevelopmentEnvironmentStatus } from "./WorkCardBuildingReviewWorkspace";
 
 export function RoutedExecutionPanel({ intakeId }: { intakeId: string }) {
   const [model, setModel] = useState<RoutedWorkflowModel | null>(null);
@@ -16,14 +15,6 @@ export function RoutedExecutionPanel({ intakeId }: { intakeId: string }) {
     void window.champcity.runRoutedWorkflow(intakeId, "status").then((next) => { if (alive) setModel(next); }).catch((failure: unknown) => { if (alive) setError(String(failure)); });
     return () => { alive = false; };
   }, [intakeId]);
-  useEffect(() => {
-    if (model?.implementer?.state !== "running" || busy) return;
-    let alive = true;
-    const timer = window.setTimeout(() => {
-      void window.champcity.runRoutedWorkflow(intakeId, "status").then((next) => { if (alive) setModel(next); }).catch((failure: unknown) => { if (alive) setError(String(failure)); });
-    }, 2000);
-    return () => { alive = false; window.clearTimeout(timer); };
-  }, [intakeId, model, busy]);
   async function act(action: RoutedWorkflowAction, input: RoutedWorkflowInput = {}) {
     setBusy(true); setError("");
     try {
@@ -48,37 +39,9 @@ export function RoutedExecutionPanel({ intakeId }: { intakeId: string }) {
       <p>Work branch: {model.workBranch} · Integration target: {model.targetBranch}</p>
       {model.planPath ? <p>Plan: {model.planPath}</p> : null}
       {model.reasons.map((message) => <p key={message} role="status">{message}</p>)}
-      {button("activate", "Begin approved Plan")}
-      {model.execution ? <>
-        <p>{model.execution.planId} · {model.execution.topology} · {model.execution.status}</p>
-        <ol>{model.execution.workItems.map((item) => <li key={item.candidate.workItemId}>
-          <strong>{item.candidate.workItemId}: {item.candidate.title}</strong> — {item.stage}
-          {item.candidate.phaseId ? ` · Phase ${item.candidate.phaseId}` : ""}
-          {item.reasons.length ? <p>{item.reasons.join(" ")}</p> : null}
-          {item.evidencePaths.length ? <details><summary>Work Item evidence</summary>{item.evidencePaths.map((entry) => <p key={entry}>{entry}</p>)}</details> : null}
-        </li>)}</ol>
-      </> : null}
       {current ? <section aria-label="Current Work Item">
         <h4>{current.implementationId}{current.phaseId ? ` · Phase ${current.phaseId}` : ""}</h4>
-        {button("begin", "Begin Work Item")}
-        {button("prepare", "Prepare and copy Work Card handoff")}
-        {button("check-draft", "Check submitted Work Card")}
-        {current.contract ? <details open><summary>Work Card · {current.contract.disposition} · revision {current.contract.revision}</summary><p>{current.contract.path}</p><pre>{current.contract.body}</pre></details> : null}
         <label>Review notes or Repair defect<textarea value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
-        {button("review-contract", "Approve Work Card", { disposition: "Approved", expectedRevision: current.contract?.revision })}
-        {button("review-contract", "Request Work Card revision", { disposition: "RevisionRequested", expectedRevision: current.contract?.revision })}
-        {button("review-contract", "Reject Work Card", { disposition: "Rejected", expectedRevision: current.contract?.revision })}
-        {model.implementer ? <>
-          <DevelopmentEnvironmentStatus execution={model.implementer} />
-          <CodexExecutionActions execution={model.implementer} isActionRunning={busy} canRunOverride={available("implement")}
-            onRun={(selection) => void act("implement", { selection })} onCancel={() => void act("cancel")}
-            onResolveEnvironment={available("resolve-environment") ? () => void act("resolve-environment") : undefined} />
-          <CodexExecutionConsole execution={model.implementer} isActionRunning={busy}
-            onRespondToCodexApproval={(requestId, decision) => void act("respond-approval", { approval: { requestId, decision } })}
-            onRespondToCodexUserInput={(requestId, answers) => void act("respond-input", { userInput: { requestId, answers } })}
-            onRespondToCodexMcpElicitation={(requestId, action, content) => void act("respond-elicitation", { elicitation: { requestId, action, content } })} />
-          {model.implementer.checkpoint ? <p>Source checkpoint: {model.implementer.checkpoint.status} · {model.implementer.checkpoint.message} {model.implementer.checkpoint.commit}</p> : null}
-        </> : null}
         {current.report ? <details open><summary>Implementer Report · {current.report.disposition}</summary><p>{current.report.path}</p><pre>{current.report.body}</pre></details> : null}
         {button("review-report", "Approve report", { disposition: "Approved", expectedRevision: current.report?.revision })}
         {button("review-report", "Request report Repair", { disposition: "RevisionRequested", expectedRevision: current.report?.revision })}

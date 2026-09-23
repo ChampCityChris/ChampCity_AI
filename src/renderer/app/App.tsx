@@ -147,6 +147,7 @@ import { WorkItemDecompositionWorkspace, type DecompositionReturnTarget } from "
 import { RoutedIssueBridge } from "./RoutedIssueBridge";
 import { RoutedIssueReturnNav } from "./RoutedIssueReturnNav";
 import { activateRoutedIssueWorkspace } from "./routedIssueNavigation";
+import { RoutedExecutionWorkspace, type RoutedExecutionStepId } from "./RoutedExecutionWorkspace";
 import { RoutedExecutionPanel } from "./RoutedExecutionPanel";
 import { shouldAttachArchitectSurface } from "./architectSurfaceEligibility";
 import type { WorkIntakeProjection } from "../../shared/workIntakeContracts";
@@ -294,6 +295,8 @@ export function App(): JSX.Element {
   const [activeWorkIntakeStageId, setActiveWorkIntakeStageId] = useState<WorkIntakeStageId>("intake");
   const [decompositionContext, setDecompositionContext] = useState<{ intakeId: string; workItemId: string; returnTarget: DecompositionReturnTarget } | null>(null);
   const [decompositionReturnFeedback, setDecompositionReturnFeedback] = useState("");
+  const [selectedRoutedWorkItemId, setSelectedRoutedWorkItemId] = useState<string | null>(null);
+  const [activeRoutedExecutionStepId, setActiveRoutedExecutionStepId] = useState<RoutedExecutionStepId>("map");
   const [activeWorkflowId, setActiveWorkflowId] = useState<WorkflowId | null>(null);
   const [settingsReturnShellView, setSettingsReturnShellView] =
     useState<SettingsReturnShellView>("workflow-hub");
@@ -478,7 +481,8 @@ export function App(): JSX.Element {
     shouldAttachArchitectSurface({ paneVisible: isArchitectPaneVisible, developmentForeground: isDevelopmentForeground,
       developmentBrowserAvailable: architectBrowserWorkspaceAvailable, workCardRepair: isWorkCardRepair,
       issueForeground: isIssueResolutionForeground, issueStageId: activeIssueStageId, issueFixCardStepId: activeIssueFixCardStepId,
-      workIntakeForeground: isWorkIntakeForeground, workIntakeStageId: activeWorkIntakeStageId, workIntakeNavigation });
+      workIntakeForeground: isWorkIntakeForeground, workIntakeStageId: activeWorkIntakeStageId, workIntakeNavigation,
+      workIntakeExecutionStepId: activeRoutedExecutionStepId, workIntakeDecompositionActive: Boolean(decompositionContext) });
   const isSettingsWorkspace = shellView === "settings";
   const currentIssue = useMemo(
     () => issueInventory?.issues.find((issue) => issue.issueId === selectedIssueId) ?? null,
@@ -2747,6 +2751,8 @@ export function App(): JSX.Element {
     try {
       setDecompositionContext(null);
       setDecompositionReturnFeedback("");
+      setSelectedRoutedWorkItemId(null);
+      setActiveRoutedExecutionStepId("map");
       const projection = await window.champcity.getWorkIntakeProjection();
       const navigation = await window.champcity.getWorkIntakeNavigation(projection.currentIntake?.intakeId);
       setWorkIntakeProjection(projection);
@@ -4091,6 +4097,7 @@ export function App(): JSX.Element {
                 onReturn={async (target, resumeWorkItemId) => {
                   await refreshWorkIntakeNavigation(decompositionContext.intakeId);
                   setDecompositionContext(null);
+                  if (resumeWorkItemId) setSelectedRoutedWorkItemId(resumeWorkItemId);
                   setActiveWorkIntakeStageId(target === "plan" ? "plan" : "execution");
                   setDecompositionReturnFeedback(resumeWorkItemId
                     ? `${decompositionContext.workItemId} was superseded. Resume with ${resumeWorkItemId} after its prerequisites.` : "");
@@ -4117,13 +4124,17 @@ export function App(): JSX.Element {
               <WorkPlanWorkspace intakeId={selectedWorkIntakeId}
                 intake={workIntakeProjection.intakes.find((entry) => entry.intakeId === selectedWorkIntakeId)}
                 browserPanel={routedArchitectBrowserPanel} onReloadBrowser={() => void reloadArchitectBrowser()}
-                onOpenDecomposition={(workItemId) => {
-                  setDecompositionReturnFeedback("");
-                  setDecompositionContext({ intakeId: selectedWorkIntakeId, workItemId, returnTarget: "plan" });
-                }}
                 onNavigationRefresh={(advance) => refreshWorkIntakeNavigation(selectedWorkIntakeId, advance)} />
-            ) : <>{decompositionReturnFeedback ? <p role="status" className="document-feedback">{decompositionReturnFeedback}</p> : null}
-              <RoutedExecutionPanel intakeId={selectedWorkIntakeId} /></>
+            ) : activeWorkIntakeStageId === "execution" ? <>
+              {decompositionReturnFeedback ? <p role="status" className="document-feedback">{decompositionReturnFeedback}</p> : null}
+              <RoutedExecutionWorkspace intakeId={selectedWorkIntakeId} selectedWorkItemId={selectedRoutedWorkItemId}
+                browserPanel={routedArchitectBrowserPanel} onReloadBrowser={() => void reloadArchitectBrowser()}
+                onSelectWorkItem={setSelectedRoutedWorkItemId} onStepChange={setActiveRoutedExecutionStepId}
+                onDecompose={(workItemId) => {
+                  setDecompositionReturnFeedback("");
+                  setDecompositionContext({ intakeId: selectedWorkIntakeId, workItemId, returnTarget: "work-item-map" });
+                }} />
+            </> : <RoutedExecutionPanel intakeId={selectedWorkIntakeId} />
           ) : isWorkflowHubForeground ? (
             <>
               {issueCloseActionFeedback ? (

@@ -5,7 +5,7 @@ import type { CodexImplementerExecutionModel, CodexApprovalResponse, CodexUserIn
 import type { CodexModelSelection } from "./codexRuntimeContracts";
 import type { DocumentDispositionStatus } from "./documents/documentDisposition";
 
-export type RoutedWorkflowAction = "status" | "activate" | "begin" | "prepare" | "check-draft" | "review-contract" | "implement" | "resolve-environment" | "cancel"
+export type RoutedWorkflowAction = "status" | "activate" | "begin" | "prepare" | "copy" | "check-draft" | "review-contract" | "implement" | "resolve-environment" | "cancel"
   | "respond-approval" | "respond-input" | "respond-elicitation" | "review-report" | "advisory-review" | "validate" | "create-repair" | "close"
   | "save-acceptance" | "review-acceptance" | "integrate" | "prepare-integration-repair" | "apply-integration-repair" | "complete-integration-repair"
   | "integration-decision" | "retry-integration-validation" | "abort-integration";
@@ -38,7 +38,7 @@ export interface RoutedWorkflowModel {
   execution?: RoutedDevelopmentExecutionProjection;
   integration?: RoutedIntegrationProjection;
   repair?: IntegrationRepairAttempt;
-  current?: { workItemId: string; implementationId: string; phaseId?: string; contract?: RoutedWorkflowDocument; report?: RoutedWorkflowDocument };
+  current?: { workItemId: string; implementationId: string; phaseId?: string; contractTargetPath?: string; contract?: RoutedWorkflowDocument; report?: RoutedWorkflowDocument; reportTargetPath?: string };
   implementer?: CodexImplementerExecutionModel;
   feedback?: string;
 }

@@ -3265,6 +3265,7 @@
         "src/renderer/app/**",
         "src/renderer/styles.css",
         "src/shared/routedIssueLineageContracts.ts",
+        "src/shared/routedWorkflowContracts.ts",
         "src/shared/workIntakeNavigationContracts.ts",
         "src/shared/workspaces/**"
       ],
@@ -3302,8 +3303,8 @@
           "description": "Accepting a decomposition returns the resume Work Item after Plan refresh; revision remains in the contextual workspace"
         },
         {
-          "behaviorId": "decomposition-opens-from-approved-plan-without-reviewing-plan",
-          "description": "An approved Plan opens a contextual decomposition for the selected Work Item without another Plan review"
+          "behaviorId": "decomposition-opens-from-work-item-map-for-approved-plan-candidate",
+          "description": "The Work Item Map opens contextual decomposition for the selected candidate in an approved Plan"
         },
         {
           "behaviorId": "decomposition-workspace-presents-readable-proposal-and-embedded-architect",
@@ -3438,6 +3439,14 @@
           "description": "Architect attachment follows routed availability and preserves existing Development and Issue attachment"
         },
         {
+          "behaviorId": "routed-execution-opens-work-item-map-with-seven-task-loop",
+          "description": "Routed Execution opens the Work Item Map with seven nested lifecycle tasks"
+        },
+        {
+          "behaviorId": "routed-implement-reuses-codex-presentation-without-review-controls",
+          "description": "Routed Implement reuses Codex controls and console without report review controls"
+        },
+        {
           "behaviorId": "routed-issue-lineage-is-queryable-from-canonical-handoff",
           "description": "Routed Issue source lineage remains queryable from canonical handoff after UI reset or route supersession"
         },
@@ -3446,8 +3455,16 @@
           "description": "Routed navigation unlocks only stages supported by current workflow owner evidence"
         },
         {
+          "behaviorId": "routed-planning-separates-prepare-copy-and-gates-contract-review",
+          "description": "Work Item Planning shows an embedded Architect, separate Prepare and Copy actions, and review only for a current draft"
+        },
+        {
           "behaviorId": "routed-rail-presents-six-ordered-stages-and-blockers",
           "description": "Routed rail presents six ordered stages and accessible blockers"
+        },
+        {
+          "behaviorId": "routed-work-card-prepare-and-copy-are-separate-actions",
+          "description": "Routed Work Card Prepare creates a handoff without copying, and Copy returns the current prepared instruction"
         },
         {
           "behaviorId": "routing-workspace-decision-refreshes-navigation",
@@ -15274,8 +15291,8 @@
     {
       "testPath": "test/renderer/work-intake-routed-workspaces.test.cjs",
       "currentTestCount": {
-        "value": 16,
-        "basis": "Observed WIR-UX04B focused Windows run."
+        "value": 20,
+        "basis": "Observed WIR-UX05A focused Windows run."
       },
       "duration": {
         "kind": "measured",
@@ -15326,8 +15343,8 @@
         },
         {
           "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "decomposition-opens-from-approved-plan-without-reviewing-plan",
-          "proofLocator": "opening decomposition from an approved Plan passes selected Work Item without reviewing Plan",
+          "behaviorId": "decomposition-opens-from-work-item-map-for-approved-plan-candidate",
+          "proofLocator": "Work Item Map opens decomposition for the selected approved Plan candidate",
           "proofRole": "primary"
         },
         {
@@ -15362,6 +15379,18 @@
         },
         {
           "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "routed-execution-opens-work-item-map-with-seven-task-loop",
+          "proofLocator": "routed Execution opens Work Item Map with seven nested tasks",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "routed-implement-reuses-codex-presentation-without-review-controls",
+          "proofLocator": "routed Implement reuses Codex console and actions without review controls",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "routed-issue-lineage-is-queryable-from-canonical-handoff",
           "proofLocator": "routed Issue lineage remains queryable from canonical handoff after UI state is lost",
           "proofRole": "primary"
@@ -15374,8 +15403,20 @@
         },
         {
           "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "routed-planning-separates-prepare-copy-and-gates-contract-review",
+          "proofLocator": "Work Item Planning mounts ChatGPT with separate Prepare and Copy and gates review on draft",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "routed-rail-presents-six-ordered-stages-and-blockers",
           "proofLocator": "routed rail has exact stage order and explains blocked stages",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "routed-work-card-prepare-and-copy-are-separate-actions",
+          "proofLocator": "routed Work Card Prepare and Copy are separate service actions",
           "proofRole": "primary"
         },
         {
