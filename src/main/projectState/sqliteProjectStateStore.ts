@@ -1,4 +1,5 @@
-import { DatabaseSync } from "node:sqlite";
+import { backup, DatabaseSync } from "node:sqlite";
+import fs from "node:fs";
 import path from "node:path";
 import type { EntityType, ProjectId, ProjectStateEntity, ProjectStateRecord } from "../../shared/projectState/domainContracts";
 import { assertRevision } from "../../shared/projectState/domainInvariants";
@@ -190,7 +191,7 @@ function insertVersion(database: DatabaseSync, entity: ProjectStateEntity): void
 }
 
 /** Owns one local SQLite database and serializes every mutation on its writer connection. */
-export function createSQLiteProjectStateStore(databasePath: string): ProjectStateStore & { close(): void } {
+export function createSQLiteProjectStateStore(databasePath: string): ProjectStateStore & { close(): void; createOnlineBackup(destinationPath: string): Promise<number> } {
   if (!path.isAbsolute(databasePath) || databasePath.startsWith("\\\\") || databasePath.startsWith("//")) {
     throw new ProjectStateStoreError("INVALID_STATE", "Project State requires an absolute local database path.");
   }
@@ -211,6 +212,26 @@ export function createSQLiteProjectStateStore(databasePath: string): ProjectStat
   const assertOpen = () => { if (closed) throw new ProjectStateStoreError("INVALID_STATE", "Project State store is closed."); };
   return {
     ...readPort(reader, assertOpen, true),
+    async createOnlineBackup(destinationPath) {
+      assertOpen();
+      const relative = path.relative(path.dirname(databasePath), destinationPath);
+      if (!path.isAbsolute(destinationPath) || !relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative) || path.resolve(destinationPath) === path.resolve(databasePath)) {
+        throw new ProjectStateStoreError("INVALID_STATE", "Backup destination must remain inside the Project State storage boundary.");
+      }
+      if (fs.existsSync(destinationPath)) throw new ProjectStateStoreError("INVALID_STATE", "Backup destination already exists.");
+      let release!: () => void;
+      const prior = writerTail;
+      writerTail = new Promise<void>(resolve => { release = resolve; });
+      await prior;
+      try {
+        assertOpen();
+        writing = true;
+        return await backup(writer, destinationPath);
+      } catch (error) {
+        if (fs.existsSync(destinationPath)) fs.rmSync(destinationPath, { force: true });
+        throw persistenceError(error);
+      } finally { writing = false; release(); }
+    },
     async listPendingOutbox(projectId, limit) {
       assertOpen();
       if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new ProjectStateStoreError("INVALID_STATE", "Outbox batch limit must be between 1 and 100.");

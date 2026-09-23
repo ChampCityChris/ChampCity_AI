@@ -3033,6 +3033,31 @@
       ]
     },
     {
+      "capabilityId": "project-state-backup-recovery",
+      "description": "Application-owned SQLite Project State backup, verification, retention and isolated recovery.",
+      "sourcePatterns": [
+        "src/main/projectState/sqliteProjectStateRecovery.ts"
+      ],
+      "dependsOn": [
+        "project-state-sqlite-schema",
+        "project-state-sqlite-store"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "bounded-retention-and-live-copy-guard",
+          "description": "Bounded backup retention removes only managed snapshots and prevents casual live-file copying"
+        },
+        {
+          "behaviorId": "corrupt-backup-candidate-and-wrong-project-are-rejected",
+          "description": "Corrupt backups, tampered candidates and wrong Project identity are rejected before selection"
+        },
+        {
+          "behaviorId": "online-backup-and-isolated-candidate-preserve-canonical-state",
+          "description": "Online backup and isolated selected candidate preserve canonical records, history, relationships and audit"
+        }
+      ]
+    },
+    {
       "capabilityId": "project-state-domain",
       "description": "Canonical Structured Project State entity contracts and bounded type validation.",
       "sourcePatterns": [
@@ -13854,6 +13879,69 @@
           "capabilityId": "project-state-service",
           "behaviorId": "source-checkpoints-retain-exact-revisions-and-semantic-targets",
           "proofLocator": "implementation and disposition checkpoints retain exact revisions and semantic targets",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/sqlite-backup-recovery.test.cjs",
+      "currentTestCount": {
+        "value": 3,
+        "basis": "Three SCL01S online backup, corruption/recovery and retention scenarios."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 267,
+        "basis": "Observed normal Windows focused SCL01S backup test receipt."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Each test owns a unique temporary SQLite database directory.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "project-state-backup-recovery",
+          "behaviorId": "bounded-retention-and-live-copy-guard",
+          "proofLocator": "bounded retention removes only managed old snapshots and rejects live-file backup destination",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-backup-recovery",
+          "behaviorId": "corrupt-backup-candidate-and-wrong-project-are-rejected",
+          "proofLocator": "corrupt backup, tampered candidate and wrong Project identity fail before selection",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-backup-recovery",
+          "behaviorId": "online-backup-and-isolated-candidate-preserve-canonical-state",
+          "proofLocator": "online backup and isolated selected candidate preserve records, history, relationships and audit",
           "proofRole": "primary"
         }
       ]
