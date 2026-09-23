@@ -8490,7 +8490,8 @@ body {
   padding: 8px 12px;
 }
 
-.work-routing-workspace .work-intake-doc-chat-workspace {
+.work-routing-workspace .work-intake-doc-chat-workspace,
+.work-routed-planning-workspace .work-intake-doc-chat-workspace {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   overflow: hidden;
@@ -8498,27 +8499,55 @@ body {
 }
 
 .work-routing-workspace .work-intake-document-column,
-.work-routing-workspace .work-intake-browser-column {
+.work-routing-workspace .work-intake-browser-column,
+.work-routed-planning-workspace .work-intake-document-column,
+.work-routed-planning-workspace .work-intake-browser-column {
   min-height: 0;
 }
 
-.work-routing-workspace .figma-browser-actions-row {
+.work-routing-workspace .figma-browser-actions-row,
+.work-routed-planning-workspace .figma-browser-actions-row {
   flex-wrap: wrap;
 }
 
-.work-routing-decision .figma-disposition-row {
+.work-routing-decision .figma-disposition-row,
+.work-planning-decision .figma-disposition-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   padding: 10px;
 }
 
 .work-routing-decision textarea,
-.work-routing-decision select {
+.work-routing-decision select,
+.work-planning-decision textarea {
   width: 100%;
 }
 
+.work-routed-planning-workspace .figma-document-card {
+  min-height: 220px;
+}
+
+.work-plan-structure,
+.work-research-outcome {
+  padding: 14px;
+  color: var(--foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.work-plan-structure h3,
+.work-research-outcome h3 {
+  margin: 0 0 8px;
+}
+
+.work-plan-structure ol {
+  padding-left: 24px;
+}
+
 @media (max-width: 900px) {
-  .work-routing-workspace .work-intake-doc-chat-workspace {
+  .work-routing-workspace .work-intake-doc-chat-workspace,
+  .work-routed-planning-workspace .work-intake-doc-chat-workspace {
     grid-template-columns: minmax(0, 1fr);
     overflow-y: auto;
   }

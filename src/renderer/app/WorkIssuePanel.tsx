@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { IssueArchitectReviewDisposition, WorkIssueAction, WorkIssueModel } from "../../shared/issueResolutionContracts";
-import { WorkPlanningPanel } from "./WorkPlanningPanel";
+import { WorkPlanWorkspace } from "./WorkPlanWorkspace";
 import { RoutedExecutionPanel } from "./RoutedExecutionPanel";
 
 export function WorkIssuePanel({ intakeId, onRoutingChanged, onOpenIssue }: { intakeId: string; onRoutingChanged: () => Promise<void>; onOpenIssue?: (issueId: string) => void }) {
@@ -41,7 +41,8 @@ export function WorkIssuePanel({ intakeId, onRoutingChanged, onOpenIssue }: { in
         <button disabled={busy} onClick={() => void act("review", "Rejected")}>Reject RCA</button>
       </> : null}
       {model.rerouteRecommended ? <p>RCA recommends another route. Review the general route decision above.</p> : null}
-      {model.correctionPlanningReady ? <WorkPlanningPanel intakeId={intakeId} planOnly /> : null}
+      {model.correctionPlanningReady ? <WorkPlanWorkspace intakeId={intakeId} browserPanel={null}
+        onReloadBrowser={() => undefined} onNavigationRefresh={async () => undefined} /> : null}
       {model.correctionPlanningReady && !model.execution ? <button disabled={busy} onClick={() => void act("activate-execution")}>Begin approved correction Plan</button> : null}
       {model.execution ? <section aria-label="Correction execution">
         <h3>Correction execution — {model.execution.topology}</h3>

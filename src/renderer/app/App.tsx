@@ -141,9 +141,9 @@ import { WorkflowHubWorkspace } from "./WorkflowHubWorkspace";
 import { WorkIntakeWorkspace } from "./WorkIntakeWorkspace";
 import { WorkIntakeRoutingRail } from "./WorkIntakeRoutingRail";
 import { WorkRoutingWorkspace } from "./WorkRoutingWorkspace";
-import { WorkPlanningPanel } from "./WorkPlanningPanel";
+import { WorkArchitectAssessmentWorkspace } from "./WorkArchitectAssessmentWorkspace";
+import { WorkPlanWorkspace } from "./WorkPlanWorkspace";
 import { RoutedExecutionPanel } from "./RoutedExecutionPanel";
-import { DocumentChatWorkspaceShell } from "./DocumentChatWorkspaceShell";
 import { shouldAttachArchitectSurface } from "./architectSurfaceEligibility";
 import type { WorkIntakeProjection } from "../../shared/workIntakeContracts";
 import type { WorkIntakeNavigationProjection, WorkIntakeStageId } from "../../shared/workIntakeNavigationContracts";
@@ -3904,6 +3904,10 @@ export function App(): JSX.Element {
       />
     </div>
   ) : null;
+  const routedArchitectBrowserPanel = isArchitectPaneVisible ? <FigmaBrowserPanel hostRef={architectHostRef}
+    onReload={() => void reloadArchitectBrowser()} onRetry={() => void retryArchitectBrowser()}
+    retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
+    statusLabel={architectBrowserPresentation(architectStatus).label} /> : null;
 
   return (
     <div className={`app-root ${themeMode === "dark" ? "dark" : ""}`}>
@@ -4015,27 +4019,19 @@ export function App(): JSX.Element {
                 }} />
             ) : activeWorkIntakeStageId === "routing" ? (
               <WorkRoutingWorkspace intake={workIntakeProjection.intakes.find((entry) => entry.intakeId === selectedWorkIntakeId)!}
-                browserPanel={isArchitectPaneVisible ? <FigmaBrowserPanel hostRef={architectHostRef}
-                  onReload={() => void reloadArchitectBrowser()} onRetry={() => void retryArchitectBrowser()}
-                  retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
-                  statusLabel={architectBrowserPresentation(architectStatus).label} /> : null}
+                browserPanel={routedArchitectBrowserPanel}
                 onReloadBrowser={() => void reloadArchitectBrowser()}
                 onNavigationRefresh={(advance) => refreshWorkIntakeNavigation(selectedWorkIntakeId, advance)} />
-            ) : ["assessment", "plan"].includes(activeWorkIntakeStageId) ? (
-              <DocumentChatWorkspaceShell
-                bodyClassName="work-intake-doc-chat-workspace" browserColumnClassName="work-intake-browser-column"
-                className="work-intake-stage-workspace" documentColumnClassName="work-intake-document-column"
-                eyebrow="Work Intake" heading={workIntakeNavigation?.stages.find((stage) => stage.stageId === activeWorkIntakeStageId)?.label ?? "Routed work"}
-                summary="Review current evidence and continue the selected work."
-                browserPanel={isArchitectPaneVisible ? <FigmaBrowserPanel hostRef={architectHostRef}
-                  onReload={() => void reloadArchitectBrowser()} onRetry={() => void retryArchitectBrowser()}
-                  retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
-                  statusLabel={architectBrowserPresentation(architectStatus).label} /> : null}
-                browserActions={null}
-                documentColumn={<WorkPlanningPanel key={`${selectedWorkIntakeId}:${activeWorkIntakeStageId}`}
-                  intakeId={selectedWorkIntakeId} fixedStage={activeWorkIntakeStageId === "plan" ? "plan" : "assessment"}
-                  onNavigationChange={() => void refreshWorkIntakeNavigation()} />}
-              />
+            ) : activeWorkIntakeStageId === "assessment" ? (
+              <WorkArchitectAssessmentWorkspace intakeId={selectedWorkIntakeId}
+                intake={workIntakeProjection.intakes.find((entry) => entry.intakeId === selectedWorkIntakeId)}
+                browserPanel={routedArchitectBrowserPanel} onReloadBrowser={() => void reloadArchitectBrowser()}
+                onNavigationRefresh={(advance) => refreshWorkIntakeNavigation(selectedWorkIntakeId, advance)} />
+            ) : activeWorkIntakeStageId === "plan" ? (
+              <WorkPlanWorkspace intakeId={selectedWorkIntakeId}
+                intake={workIntakeProjection.intakes.find((entry) => entry.intakeId === selectedWorkIntakeId)}
+                browserPanel={routedArchitectBrowserPanel} onReloadBrowser={() => void reloadArchitectBrowser()}
+                onNavigationRefresh={(advance) => refreshWorkIntakeNavigation(selectedWorkIntakeId, advance)} />
             ) : <RoutedExecutionPanel intakeId={selectedWorkIntakeId} />
           ) : isWorkflowHubForeground ? (
             <>

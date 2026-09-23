@@ -8,6 +8,11 @@ const { WorkIntakeWorkspace } = loadRendererSourceModule("src/renderer/app/WorkI
 const { WorkIntakeRoutingRail } = loadRendererSourceModule("src/renderer/app/WorkIntakeRoutingRail.tsx");
 const { shouldAttachArchitectSurface } = loadRendererSourceModule("src/renderer/app/architectSurfaceEligibility.ts");
 const { WorkRoutingWorkspace } = loadRendererSourceModule("src/renderer/app/WorkRoutingWorkspace.tsx");
+const { WorkArchitectAssessmentWorkspace } = loadRendererSourceModule("src/renderer/app/WorkArchitectAssessmentWorkspace.tsx");
+const { WorkPlanWorkspace } = loadRendererSourceModule("src/renderer/app/WorkPlanWorkspace.tsx");
+const { RoutedPlanningWorkspace } = loadRendererSourceModule("src/renderer/app/RoutedPlanningWorkspace.tsx");
+const fs = require("node:fs");
+const path = require("node:path");
 
 function withState(values, render) {
   const original = React.useState;
@@ -118,4 +123,64 @@ test("route decision completion refreshes and advances routed navigation", async
     assert.equal(calls[0].input.disposition, "accept");
     assert.deepEqual(calls[1], { advance: true });
   } finally { global.window = originalWindow; }
+});
+
+const planningArtifact = { relativePath: "planning/assessment.md", artifactRevision: 1, disposition: "Pending",
+  stale: false, bodyMarkdown: "# Route Architect Assessment\n\n## Evidence\nBounded evidence." };
+const planningModel = { intakeId: "intake-1", routeId: "feature-change", stage: "assessment", canPrepare: true,
+  preparedInstruction: "Handoff", researchClosed: false, artifact: planningArtifact };
+function planningView(stage, model, supporting = null) {
+  const wrapper = stage === "assessment" ? WorkArchitectAssessmentWorkspace : WorkPlanWorkspace;
+  const wrapped = wrapper({ intakeId: "intake-1", intake: routingIntake,
+    browserPanel: React.createElement("div", { "aria-label": "Embedded ChatGPT browser" }),
+    onReloadBrowser() {}, async onNavigationRefresh() {} });
+  assert.equal(wrapped.type.name, RoutedPlanningWorkspace.name);
+  assert.equal(wrapped.props.stage, stage);
+  return withState([model, supporting, stage, "", false, "", ""], () => RoutedPlanningWorkspace(wrapped.props));
+}
+
+test("Assessment and Plan render separate Architect workspaces without nested later stages", () => {
+  const assessment = renderToStaticMarkup(planningView("assessment", planningModel));
+  assert.match(assessment, /Architect Assessment|Embedded ChatGPT browser/);
+  assert.match(assessment, /Prepare Handoff|Copy Handoff|Refresh|Reload ChatGPT/);
+  assert.match(assessment, /Approve assessment|Request Revision|Reject/);
+  assert.doesNotMatch(assessment, /Planning stage|<select|Work Item Decomposition|Plan execution/);
+
+  const planModel = { ...planningModel, stage: "plan", artifact: { ...planningArtifact,
+    bodyMarkdown: "# Work Plan\n\n## Delivery\nBounded delivery.",
+    structure: { topology: "direct", topologyRationale: "One bounded delivery", phases: [],
+      workItems: [{ workItemId: "WI01", title: "Deliver navigation", purpose: "Connect the routed view", dependsOn: [] }] } } };
+  const plan = renderToStaticMarkup(planningView("plan", planModel, planningModel));
+  assert.match(plan, /Work Plan|Embedded ChatGPT browser|Approved Assessment/);
+  assert.match(plan, /Direct Plan|Deliver navigation|Approve Plan and topology/);
+  assert.doesNotMatch(plan, /Planning stage|<select|Work Item Decomposition|Plan execution/);
+});
+
+test("approved ordinary Assessment opens Plan and approved Plan opens Execution", async (t) => {
+  const { seedPreparedRoutedWorkIntake, seedPreparedApprovedRoutedWorkPlan } = require("../support/work-intake-fixtures.cjs");
+  const { getWorkIntakeNavigation } = require("../../dist/main/workIntake/workIntakeNavigationService.js");
+  const { workPlanningKernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
+  const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
+  const fixture = seedPreparedRoutedWorkIntake(t, "feature-change");
+  const profile = resolveWorkPlanningProfile("feature-change");
+  const prepared = await workPlanningKernel.prepare(fixture.root, fixture.intake.intakeId, "assessment");
+  const draftPath = path.join(fixture.root, prepared.submission.expectedDraftSlots[0].draftRelativePath);
+  fs.mkdirSync(path.dirname(draftPath), { recursive: true });
+  fs.writeFileSync(draftPath, "# Route Architect Assessment\n\n" + profile.assessmentSections
+    .map((heading) => `## ${heading}\nBounded evidence.`).join("\n\n") + "\n");
+  const current = await workPlanningKernel.get(fixture.root, fixture.intake.intakeId, "assessment");
+  await workPlanningKernel.review(fixture.root, fixture.intake.intakeId, "assessment", {
+    expectedRevision: current.artifact.artifactRevision, disposition: "Approved", notes: "Assessment approved" });
+  const afterAssessment = await getWorkIntakeNavigation(fixture.root, fixture.intake.intakeId);
+  assert.equal(afterAssessment.requiredStageId, "plan");
+  assert.equal(afterAssessment.stages.find((stage) => stage.stageId === "execution").available, false);
+
+  const structure = { topology: "direct", topologyRationale: "One bounded delivery", acceptanceCriteria: ["Navigation works"],
+    workItems: [{ workItemId: "WI01", title: "Deliver navigation", purpose: "Connect routed views", dependsOn: [], acceptanceCriteria: ["Navigation works"] }] };
+  const approved = await seedPreparedApprovedRoutedWorkPlan(t, structure, "feature-change", {
+    setupRepository(root) { fs.writeFileSync(path.join(root, ".gitignore"), "/planning/\n"); },
+  });
+  const afterPlan = await getWorkIntakeNavigation(approved.root, approved.intake.intakeId);
+  assert.equal(afterPlan.requiredStageId, "execution");
+  assert.equal(afterPlan.stages.find((stage) => stage.stageId === "execution").available, true);
 });

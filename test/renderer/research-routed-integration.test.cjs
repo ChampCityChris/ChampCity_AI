@@ -4,8 +4,8 @@ const { renderToStaticMarkup } = require("react-dom/server");
 const test = require("node:test");
 const { loadRendererSourceModule } = require("./renderer-source-loader.cjs");
 
-const { WorkPlanningPanel } = loadRendererSourceModule("src/renderer/app/WorkPlanningPanel.tsx");
 const { RoutedExecutionPanel } = loadRendererSourceModule("src/renderer/app/RoutedExecutionPanel.tsx");
+const { seedResearchIntegrationCompletion } = require("../support/research-integration-scenarios.cjs");
 
 function withHooks(values, render) {
   const originalState = React.useState;
@@ -17,21 +17,15 @@ function withHooks(values, render) {
   finally { React.useState = originalState; React.useEffect = originalEffect; }
 }
 
-function nodes(element) {
-  if (!element || typeof element !== "object") return [];
-  return [element, ...React.Children.toArray(element.props?.children).flatMap(nodes)];
-}
-
-test("Research-closed planning renders shared routed integration without Plan execution controls", () => {
-  const model = { intakeId: "intake-fixture", routeId: "research-prototype", stage: "assessment", canPrepare: false, researchClosed: true,
-    artifact: { identity: { intakeId: "intake-fixture", routeDecisionId: "decision-fixture", routeId: "research-prototype", assessmentId: "ASSESSMENT01" },
-      relativePath: "planning/assessment.md", artifactRevision: 1, sourceRevisions: [], disposition: "Approved", reviewNotes: "", stale: false, bodyMarkdown: "# Research",
-      researchOutcome: { outcome: "no-implementation-plan-required", prototypeDisposition: "disposable", productionFollowUp: "none", evidence: ["complete"], decisionEnabled: "stop", successFailureResult: "met", closureCondition: "closed" } } };
-  const element = withHooks(["assessment", model, "", "", false, false], () => WorkPlanningPanel({ intakeId: "intake-fixture" }));
-  const routed = nodes(element).find((node) => typeof node.type === "function" && node.type.name === "RoutedExecutionPanel");
-  assert.ok(routed, "Research closure exposes the shared routed integration panel");
-  assert.equal(routed.props.intakeId, "intake-fixture");
-  assert.equal(nodes(element).some((node) => node.type?.name === "WorkItemDecompositionPanel"), false);
+test("approved Research assessment navigates directly to Integration without Plan or Execution", async (t) => {
+  const fixture = seedResearchIntegrationCompletion(t);
+  const { getWorkIntakeNavigation } = require("../../dist/main/workIntake/workIntakeNavigationService.js");
+  const navigation = await getWorkIntakeNavigation(fixture.root, fixture.intake.intakeId);
+  assert.equal(navigation.requiredStageId, "integration");
+  assert.deepEqual(navigation.stages.filter((stage) => stage.available).map((stage) => stage.stageId),
+    ["intake", "routing", "assessment", "integration"]);
+  assert.equal(navigation.stages.find((stage) => stage.stageId === "plan").available, false);
+  assert.equal(navigation.stages.find((stage) => stage.stageId === "execution").available, false);
 });
 
 test("Routed execution presents Research integration wording and preserves Plan wording", () => {
