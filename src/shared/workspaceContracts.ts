@@ -1128,7 +1128,8 @@ export type CodexImplementerExecutionState =
 export type CodexImplementerIntegrationMode = "app-server-stdio";
 export type CodexImplementerExecutionKind =
   | "work-card-implementation"
-  | "environment-resolution";
+  | "environment-resolution"
+  | "integration-repair";
 
 export interface CodexRuntimeCapabilityStatus {
   state: "not-read" | "read" | "unavailable";

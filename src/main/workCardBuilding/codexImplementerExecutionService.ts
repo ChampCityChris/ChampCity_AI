@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import { captureWorkItemCheckpoint, observeCheckpointChanges, type WorkItemCheckpointCapture } from "../planExecution/workItemCheckpointService";
 import { completePlanWorkItemSource } from "../planExecution/planExecutor";
 import { resolveRoutedImplementerContext } from "../planExecution/routedImplementerContext";
+import type { IntegrationRepairExecutionContext } from "../planExecution/integrationRepairImplementerService";
 import type { WorkItemCheckpointResult } from "../../shared/workItemCheckpointContracts";
 import fs from "node:fs";
 import path from "node:path";
@@ -82,7 +83,7 @@ export interface CodexAppServerExecutionAdapter {
 
 export type CodexAppServerExecutionAdapterFactory = CodexAppServerAdapterFactory;
 
-interface ExecutionContext {
+interface WorkCardExecutionContext {
   ownerKind?: "development" | "issue" | "routed-development";
   intakeId?: string;
   planId?: string;
@@ -106,6 +107,9 @@ interface ExecutionContext {
   implementerReportSha256: string;
   developmentEnvironmentPreflight: DevelopmentEnvironmentPreflightResult | null;
 }
+/** The Integration Repair owner carries source scope instead of a Work Card and Implementer Report. */
+export type CodexExecutionContext = WorkCardExecutionContext | IntegrationRepairExecutionContext;
+type ExecutionContext = WorkCardExecutionContext;
 
 interface IssueExecutionSelector {
   ownerKind: "issue";
@@ -113,7 +117,8 @@ interface IssueExecutionSelector {
   fixCardId: string;
   currentImplementationId?: string;
 }
-export type CodexExecutionSelector = IssueExecutionSelector | { ownerKind: "routed-development"; intakeId: string; workItemId: string };
+export type CodexExecutionSelector = IssueExecutionSelector | { ownerKind: "routed-development"; intakeId: string; workItemId: string }
+  | { ownerKind: "integration-repair"; intakeId: string; candidateId: string; repairId: string };
 
 interface SessionRecord extends ExecutionContext {
   checkpointCapture?: WorkItemCheckpointCapture;
@@ -817,6 +822,7 @@ export class CodexImplementerExecutionService {
       if (!fs.existsSync(projectRoot) || !fs.statSync(projectRoot).isDirectory()) {
         throw new Error("Selected workspace root is not a readable directory.");
       }
+      if (selector?.ownerKind === "integration-repair") throw new Error("Integration Repair uses its bounded isolated execution owner.");
       if (selector?.ownerKind === "issue") {
         const issueContext = resolveIssueFixCardCodexExecutionContext(
           projectRoot,

@@ -316,6 +316,7 @@ export function CodexExecutionActions({
   onCancel,
   onResolveEnvironment,
   onRun,
+  runLabel = "Run Codex Implementer",
 }: {
   canRunOverride?: boolean;
   execution: CodexImplementerExecutionModel | null;
@@ -323,6 +324,7 @@ export function CodexExecutionActions({
   onCancel: () => void;
   onResolveEnvironment?: () => void;
   onRun: (selection: CodexModelSelection) => void;
+  runLabel?: string;
 }): JSX.Element {
   const modelSelection = useCodexModelSelection(isActionRunning || execution?.state === "running");
   const state = execution?.state ?? "unavailable";
@@ -341,7 +343,7 @@ export function CodexExecutionActions({
           type="button"
         >
           <Play aria-hidden="true" size={16} />
-          Run Codex Implementer
+          {runLabel}
         </button>
         {onResolveEnvironment && execution?.developmentEnvironmentPreflight?.state === "resolution-required" ? (
           <button
@@ -394,9 +396,9 @@ export function CodexExecutionConsole({
   const modelSelection = useCodexModelSelection(isActionRunning || execution?.state === "running");
   const state = execution?.state ?? "unavailable";
   const availability = codexImplementerAvailabilityLabel(execution);
-  const executionLabel = execution?.executionKind === "environment-resolution"
-    ? "Environment Resolution"
-    : "Work Card Implementation";
+  const integrationRepair = execution?.executionKind === "integration-repair";
+  const executionLabel = integrationRepair ? "Integration Repair" : execution?.executionKind === "environment-resolution"
+    ? "Environment Resolution" : "Work Card Implementation";
   const reportUpdated = execution?.reportUpdated ? "Updated" : "Not updated";
 
   return (
@@ -412,14 +414,14 @@ export function CodexExecutionConsole({
         </div>
       </header>
       <dl>
-        <div>
+        {!integrationRepair ? <><div>
           <dt>{contextSummary?.contractLabel ?? "Work Card Contract"}</dt>
           <dd>{contextSummary ? `${contextSummary.contractPath} revision ${contextSummary.contractRevision}` : "Waiting"}</dd>
         </div>
         <div>
           <dt>Implementer Report</dt>
           <dd>{contextSummary ? `${contextSummary.reportPath} revision ${contextSummary.reportRevision}` : "Waiting"}</dd>
-        </div>
+        </div></> : null}
         <div>
           <dt>State</dt>
           <dd>{state}</dd>
@@ -428,10 +430,10 @@ export function CodexExecutionConsole({
           <dt>Elapsed</dt>
           <dd>{formatElapsed(execution?.elapsedMs)}</dd>
         </div>
-        <div>
+        {!integrationRepair ? <div>
           <dt>Report Update</dt>
           <dd>{reportUpdated}</dd>
-        </div>
+        </div> : null}
       </dl>
       {execution?.failureReason ? (
         <div className="codex-execution-message error" role="status">{execution.failureReason}</div>

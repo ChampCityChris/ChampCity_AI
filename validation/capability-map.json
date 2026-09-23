@@ -3139,12 +3139,24 @@
           "description": "Integration Repair controller preserves retry ownership patch disposition intent and Operator decisions without process setup"
         },
         {
+          "behaviorId": "integration-repair-implementer-isolates-changed-and-deleted-source",
+          "description": "Integration Repair Implementer sees only declared source and supplies exact changed or deleted patches to the application"
+        },
+        {
+          "behaviorId": "integration-repair-operator-decision-preserves-candidate",
+          "description": "Incompatible accepted intent records an Operator decision without applying source"
+        },
+        {
           "behaviorId": "integration-repair-provider",
           "description": "real Integration Repair provider binds immutable policy changed paths ownership and governing bytes"
         },
         {
           "behaviorId": "integration-repair-source-boundary",
           "description": "Integration Repair source boundaries retain validation retries Operator decisions and worker index rejection"
+        },
+        {
+          "behaviorId": "integration-repair-unexpected-path-fails-before-patch",
+          "description": "Unexpected Integration Repair file creation fails before candidate patching"
         },
         {
           "behaviorId": "integration-target-policy-authority",
@@ -3367,6 +3379,10 @@
           "description": "Hub with no selected project renders project-selection shell without Development lifecycle status"
         },
         {
+          "behaviorId": "integration-repair-renders-codex-without-json-patch-transfer",
+          "description": "Repair-required Integration exposes Codex execution without an Operator JSON patch field"
+        },
+        {
           "behaviorId": "issue-evidence-waits-for-a-pre-existing-app-refresh-and-then-performs-exactly-one-fresh-read",
           "description": "Issue evidence waits for a pre-existing App refresh and then performs exactly one fresh read"
         },
@@ -3431,8 +3447,8 @@
           "description": "required state does not alter Project Intake lifecycle status text"
         },
         {
-          "behaviorId": "research-completion-renders-shared-integration-without-plan-controls",
-          "description": "Approved Research assessment navigates directly to Integration without Plan or Execution; integration retains Research wording"
+          "behaviorId": "research-completion-renders-dedicated-integration-without-plan-controls",
+          "description": "Approved Research assessment navigates directly to a dedicated Integration workspace without Plan or Work Item controls"
         },
         {
           "behaviorId": "routed-acceptance-opens-boundary-evidence-workspace",
@@ -5946,6 +5962,81 @@
           "capabilityId": "release-and-git-operations",
           "behaviorId": "integration-repair-controller",
           "proofLocator": "Integration Repair controller preserves retry ownership patch disposition intent and Operator decisions without process setup",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/agent-harness/integration-repair-implementer.test.cjs",
+      "currentTestCount": {
+        "value": 4,
+        "basis": "Observed WIR-UX06 focused Windows run."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 45,
+        "basis": "Observed WIR-UX06 focused Windows run; isolated fixture assertions."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe isolated source fixture and injected Codex transport.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "integration-repair-implementer-isolates-changed-and-deleted-source",
+          "proofLocator": "Integration Repair runs against only isolated editable source and applies exact changed and deleted patches",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "integration-repair-implementer-isolates-changed-and-deleted-source",
+          "proofLocator": "cancel interrupts isolated Integration Repair without applying source",
+          "proofRole": "supporting",
+          "relationshipToPrimary": "complementary",
+          "primaryProof": {
+            "testPath": "test/agent-harness/integration-repair-implementer.test.cjs",
+            "proofLocator": "Integration Repair runs against only isolated editable source and applies exact changed and deleted patches"
+          }
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "integration-repair-operator-decision-preserves-candidate",
+          "proofLocator": "incompatible accepted intent records an Operator decision without applying source",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "integration-repair-unexpected-path-fails-before-patch",
+          "proofLocator": "unexpected Integration Repair file creation fails closed before candidate patching",
           "proofRole": "primary"
         }
       ]
@@ -14749,8 +14840,8 @@
     {
       "testPath": "test/renderer/research-routed-integration.test.cjs",
       "currentTestCount": {
-        "value": 2,
-        "basis": "Declared by WIR23-REPAIR03C for the previously uncovered no-execution Research integration rendering boundary."
+        "value": 4,
+        "basis": "Observed WIR-UX06 focused Windows run."
       },
       "duration": {
         "kind": "measured",
@@ -14791,20 +14882,37 @@
       "behaviorCoverage": [
         {
           "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "research-completion-renders-shared-integration-without-plan-controls",
-          "proofLocator": "Routed execution presents Research integration wording and preserves Plan wording",
+          "behaviorId": "integration-repair-renders-codex-without-json-patch-transfer",
+          "proofLocator": "Integration preserves an explicit Operator decision state",
+          "proofRole": "supporting",
+          "relationshipToPrimary": "complementary",
+          "primaryProof": {
+            "testPath": "test/renderer/research-routed-integration.test.cjs",
+            "proofLocator": "repair-required Integration presents Codex execution without JSON patch transfer"
+          }
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "integration-repair-renders-codex-without-json-patch-transfer",
+          "proofLocator": "repair-required Integration presents Codex execution without JSON patch transfer",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "research-completion-renders-dedicated-integration-without-plan-controls",
+          "proofLocator": "approved Research assessment navigates directly to Integration without Plan or Execution",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "research-completion-renders-dedicated-integration-without-plan-controls",
+          "proofLocator": "dedicated Integration workspace presents Research wording without Plan or Work Item controls",
           "proofRole": "supporting",
           "relationshipToPrimary": "complementary",
           "primaryProof": {
             "testPath": "test/renderer/research-routed-integration.test.cjs",
             "proofLocator": "approved Research assessment navigates directly to Integration without Plan or Execution"
           }
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "research-completion-renders-shared-integration-without-plan-controls",
-          "proofLocator": "approved Research assessment navigates directly to Integration without Plan or Execution",
-          "proofRole": "primary"
         }
       ]
     },

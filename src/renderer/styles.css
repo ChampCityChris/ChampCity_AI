@@ -8649,6 +8649,45 @@ body {
   margin: 12px 0;
 }
 
+.routed-integration-workspace {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-width: 0;
+  padding: 16px;
+}
+
+.routed-integration-workspace .figma-document-card,
+.routed-integration-repair {
+  min-width: 0;
+}
+
+.routed-integration-workspace dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.routed-integration-workspace dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.routed-integration-repair {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.routed-integration-repair pre {
+  max-height: 280px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 900px) {
   .work-routing-workspace .work-intake-doc-chat-workspace,
   .work-routed-planning-workspace .work-intake-doc-chat-workspace,
@@ -8660,6 +8699,10 @@ body {
   .routed-work-item-map-body,
   .routed-review-layout,
   .routed-acceptance-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .routed-integration-workspace dl {
     grid-template-columns: minmax(0, 1fr);
   }
 }

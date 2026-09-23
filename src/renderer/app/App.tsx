@@ -148,7 +148,7 @@ import { RoutedIssueBridge } from "./RoutedIssueBridge";
 import { RoutedIssueReturnNav } from "./RoutedIssueReturnNav";
 import { activateRoutedIssueWorkspace } from "./routedIssueNavigation";
 import { RoutedExecutionWorkspace, type RoutedExecutionStepId } from "./RoutedExecutionWorkspace";
-import { RoutedExecutionPanel } from "./RoutedExecutionPanel";
+import { RoutedIntegrationWorkspace } from "./RoutedIntegrationWorkspace";
 import { shouldAttachArchitectSurface } from "./architectSurfaceEligibility";
 import type { WorkIntakeProjection } from "../../shared/workIntakeContracts";
 import type { WorkIntakeNavigationProjection, WorkIntakeStageId } from "../../shared/workIntakeNavigationContracts";
@@ -4135,7 +4135,7 @@ export function App(): JSX.Element {
                   setDecompositionReturnFeedback("");
                   setDecompositionContext({ intakeId: selectedWorkIntakeId, workItemId, returnTarget: "work-item-map" });
                 }} />
-            </> : <RoutedExecutionPanel intakeId={selectedWorkIntakeId} />
+            </> : <RoutedIntegrationWorkspace intakeId={selectedWorkIntakeId} />
           ) : isWorkflowHubForeground ? (
             <>
               {issueCloseActionFeedback ? (

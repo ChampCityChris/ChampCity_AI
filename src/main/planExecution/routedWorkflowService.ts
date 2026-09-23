@@ -14,6 +14,7 @@ import { getIssueCorrectionIntegrationEvidence } from "../issueResolution/issueR
 import { createRoutedIntegrationService } from "./routedIntegrationService";
 import { projectPlanExecution } from "./planExecutor";
 import { getActiveArchitectOutputRuntimeSubmission, getActivePreparedArchitectOutputInstruction } from "../architectOutputs/architectOutputRuntimeService";
+import { integrationRepairImplementerService } from "./integrationRepairImplementerService";
 
 function document(root: string, relativePath: string): RoutedWorkflowDocument | undefined {
   const target = resolveRepositoryPath(root, relativePath, { allowMissingLeaf: true });
@@ -33,9 +34,16 @@ async function integrationSummary(root: string, model: RoutedWorkflowModel) {
   if (candidate?.activeRepairId) model.repair = integration.readRepair(candidate.candidateId, candidate.activeRepairId);
   if (model.integration.status === "ready") model.actions.push("integrate");
   if (model.integration.status === "repair-required") model.actions.push("prepare-integration-repair");
-  if (model.integration.status === "repair-required" && model.repair?.status === "prepared") model.actions.push("apply-integration-repair", "complete-integration-repair", "integration-decision");
+  if (model.integration.status === "repair-required" && model.repair?.status === "prepared" && candidate) {
+    const selector = { ownerKind: "integration-repair" as const, intakeId: model.intakeId, candidateId: candidate.candidateId, repairId: model.repair.repairId };
+    model.integrationRepairImplementer = integrationRepairImplementerService.status(root, selector);
+    if (model.integrationRepairImplementer.state === "running") model.actions.push("cancel-integration-repair", "respond-integration-repair-approval", "respond-integration-repair-input", "respond-integration-repair-elicitation");
+    else { if (model.integrationRepairImplementer.canRunAgain) model.actions.push("run-integration-repair"); model.actions.push("integration-decision"); }
+  }
   if (["failed", "repair-required"].includes(model.integration.status) && candidate?.status !== "conflicted") model.actions.push("retry-integration-validation");
   if (candidate && candidate.status !== "integrated" && candidate.status !== "aborted") model.actions.push("abort-integration");
+  if (model.integrationRepairImplementer?.state === "running") model.actions = model.actions.filter((action) =>
+    ["cancel-integration-repair", "respond-integration-repair-approval", "respond-integration-repair-input", "respond-integration-repair-elicitation"].includes(action));
 }
 
 /** Constrained desktop application adapter. Existing owners decide every transition. */
@@ -116,7 +124,7 @@ export async function getRoutedWorkflow(root: string, intakeId: string): Promise
 }
 
 export async function runRoutedWorkflow(root: string, intakeId: string, action: RoutedWorkflowAction, input: RoutedWorkflowInput = {}): Promise<{ model: RoutedWorkflowModel; instruction?: string }> {
-  if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).some((key) => !["expectedFingerprint", "workItemId", "expectedRevision", "disposition", "notes", "repairDefectText", "selection", "validation", "acceptance", "acceptanceReview", "candidateId", "repairId", "patches", "approval", "userInput", "elicitation"].includes(key))) throw Error("Invalid routed workflow input.");
+  if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).some((key) => !["expectedFingerprint", "workItemId", "expectedRevision", "disposition", "notes", "repairDefectText", "selection", "validation", "acceptance", "acceptanceReview", "candidateId", "repairId", "approval", "userInput", "elicitation"].includes(key))) throw Error("Invalid routed workflow input.");
   if (input.notes !== undefined && (typeof input.notes !== "string" || input.notes.length > 4000)) throw Error("Workflow notes must be bounded text.");
   if (input.repairDefectText !== undefined && (typeof input.repairDefectText !== "string" || input.repairDefectText.length > 4000)) throw Error("Repair defect text must be bounded text.");
   // Runtime control remains available even if governing files change during a run.
@@ -130,6 +138,16 @@ export async function runRoutedWorkflow(root: string, intakeId: string, action: 
     else throw Error("Current runtime response is required.");
     return { model: await getRoutedWorkflow(root, intakeId) };
   }
+  if (["cancel-integration-repair", "respond-integration-repair-approval", "respond-integration-repair-input", "respond-integration-repair-elicitation"].includes(action)) {
+    if (!input.candidateId || !input.repairId) throw Error("The exact running Integration Repair identity is required.");
+    const selector = { ownerKind: "integration-repair" as const, intakeId, candidateId: input.candidateId, repairId: input.repairId };
+    if (action === "cancel-integration-repair") await integrationRepairImplementerService.cancel(root, selector);
+    else if (action === "respond-integration-repair-approval" && input.approval) await integrationRepairImplementerService.respondApproval(root, selector, input.approval);
+    else if (action === "respond-integration-repair-input" && input.userInput) await integrationRepairImplementerService.respondInput(root, selector, input.userInput);
+    else if (action === "respond-integration-repair-elicitation" && input.elicitation) await integrationRepairImplementerService.respondElicitation(root, selector, input.elicitation);
+    else throw Error("Current Integration Repair runtime response is required.");
+    return { model: await getRoutedWorkflow(root, intakeId) };
+  }
   const model = await getRoutedWorkflow(root, intakeId);
   if (action === "status") return { model };
   if (!model.actions.includes(action)) throw Error(model.reasons[0] ?? "This action is not available for the current workflow evidence.");
@@ -141,16 +159,18 @@ export async function runRoutedWorkflow(root: string, intakeId: string, action: 
   const selector = { ownerKind: "routed-development" as const, intakeId, workItemId: request.workItemId };
   let instruction: string | undefined;
   let feedback = "Workflow updated.";
-  const integrationActions: RoutedWorkflowAction[] = ["integrate", "prepare-integration-repair", "apply-integration-repair", "complete-integration-repair", "integration-decision", "retry-integration-validation", "abort-integration"];
+  const integrationActions: RoutedWorkflowAction[] = ["integrate", "prepare-integration-repair", "run-integration-repair", "integration-decision", "retry-integration-validation", "abort-integration"];
   if (integrationActions.includes(action)) {
     const routedIntegration = createRoutedIntegrationService(root, intakeId);
     if (action === "integrate") await routedIntegration.integrate(integration);
     else if (action === "prepare-integration-repair") {
-      const repair = await routedIntegration.prepareRepair(integration);
-      instruction = `${repair.prompt}\nReturn only a JSON array of {"path":"...","beforeSha256":"...","content":"replacement source or null"} patches for the stated editable files. Paste that response into ChampCity's Integration Repair patch field.\n`;
-      feedback = "Integration Repair handoff copied.";
-    } else if (action === "apply-integration-repair" && input.repairId && input.patches) await routedIntegration.applyRepair({ ...integration, repairId: input.repairId, patches: input.patches });
-    else if (action === "complete-integration-repair" && input.repairId) await routedIntegration.completeRepair({ ...integration, repairId: input.repairId });
+      await routedIntegration.prepareRepair(integration);
+      feedback = "Bounded Integration Repair is prepared for in-product execution.";
+    } else if (action === "run-integration-repair" && input.candidateId && input.repairId && input.selection) {
+      const started = await integrationRepairImplementerService.start(root, { ownerKind: "integration-repair", intakeId, candidateId: input.candidateId, repairId: input.repairId }, input.selection);
+      if (started.state === "unavailable" || started.state === "failed") throw Error(started.failureReason ?? "Integration Repair Implementer could not start.");
+      feedback = "Integration Repair Implementer started in an isolated source workspace.";
+    }
     else if (action === "integration-decision" && input.repairId) await routedIntegration.requestOperatorDecision({ ...integration, repairId: input.repairId, reason: notes });
     else if (action === "retry-integration-validation") await routedIntegration.retryValidation(integration);
     else if (action === "abort-integration") await routedIntegration.abort(integration);
