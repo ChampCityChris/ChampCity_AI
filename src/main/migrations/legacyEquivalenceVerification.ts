@@ -158,6 +158,18 @@ export async function verifyStagedLegacyEquivalence(workspaceRoot: string, snaps
               { assessments: assessments.length, decisions: decisions.length });
           }
         }
+        if (Array.isArray(history)) {
+          const selected = [...history].reverse().map(entry => (entry as Record<string, unknown>).decision as Record<string, unknown> | undefined)
+            .find(decision => typeof decision?.selectedRouteId === "string");
+          const intakeSource = snapshot.documents.find(item => item.metadata.artifactType === "work-intake" &&
+            item.metadata.identity.intakeId === document.metadata.identity.intakeId);
+          const intake = intakeSource ? semantic(intakeSource.path) : null;
+          const route = intake?.entityType === "WorkIntake" ? await service.getCurrentWorkRoute(staged.projectId, intake.id) : null;
+          comparedFacts++;
+          if ((selected?.selectedRouteId ?? null) !== (route?.route ?? null)) {
+            add("route-effective-state", document.path, selected?.selectedRouteId ?? null, route?.route ?? null);
+          }
+        }
       }
       if (["validation-record", "issue-validation-record"].includes(kind)) {
         const data = document.metadata.workflowData;

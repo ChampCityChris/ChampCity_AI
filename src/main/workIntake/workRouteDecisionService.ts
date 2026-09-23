@@ -6,6 +6,7 @@ import { isWorkRouteId, type OperatorRouteDecision, type OperatorRouteSelection,
 import type { WorkRouteDecisionEntry, WorkRouteDecisionInput, WorkRouteDecisionModel, WorkRouteRerouteInput } from "../../shared/workRouteDecisionContracts";
 import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
 import { writeCanonicalMarkdownDocuments, type WriteCanonicalMarkdownDocumentInput } from "../documents/canonicalMarkdownDocumentWriter";
+import { assertLegacyCanonicalReadAllowed } from "../documents/legacyCanonicalWriteFence";
 import { listPlanningDocuments } from "../documents/planningDocumentService";
 import { createWorkIntakeBranchService } from "./workIntakeBranchService";
 import { readWorkIntake } from "./workIntakeService";
@@ -15,6 +16,7 @@ import { issueEvidenceBytes, issueEvidenceDigest } from "../workPlanning/workIss
 export const workRouteDecisionPath = (intakeId: string) => `planning/work-intake/routes/${intakeId}.md`;
 const reroutePath = (intakeId: string) => `planning/work-intake/reroutes/${intakeId}.md`;
 function read(root: string, relativePath: string) {
+  assertLegacyCanonicalReadAllowed(root);
   const resolved = resolveRepositoryPath(root, relativePath, { allowMissingLeaf: true });
   if (resolved.relativePath !== relativePath) throw Error("Route evidence path must not be redirected.");
   if (!fs.existsSync(resolved.resolvedPath)) return null;

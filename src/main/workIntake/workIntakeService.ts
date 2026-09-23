@@ -8,6 +8,7 @@ import type {
 } from "../../shared/workIntakeContracts";
 import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
 import { writeCanonicalMarkdownDocuments } from "../documents/canonicalMarkdownDocumentWriter";
+import { assertLegacyCanonicalReadAllowed } from "../documents/legacyCanonicalWriteFence";
 import { createSourceControlService } from "../sourceControl/sourceControlService";
 import { createWorkIntakeBranchService, workIntakeBranchName } from "./workIntakeBranchService";
 
@@ -22,6 +23,7 @@ function containedPath(root: string, relativePath: string): string {
 }
 
 function readCanonical(root: string, relativePath: string) {
+  assertLegacyCanonicalReadAllowed(root);
   const file = containedPath(root, relativePath);
   if (!fs.existsSync(file)) return null;
   if (!fs.statSync(file).isFile() || fs.statSync(file).size > 1_000_000) throw Error("Work Intake document is not a bounded Markdown file.");

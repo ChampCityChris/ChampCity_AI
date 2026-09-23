@@ -11,6 +11,7 @@ import { buildDeterministicArchitectDraftSubmissionId } from "../architectOutput
 import { createArchitectOutputRegistry } from "../architectOutputs/architectOutputRegistry";
 import { getActiveArchitectOutputRuntimeSubmission, getArchitectOutputRuntimeStatus, prepareArchitectOutputRuntimeSubmission } from "../architectOutputs/architectOutputRuntimeService";
 import { buildMcpWorkspaceBindingPromptBlock, buildWriteMarkdownArtifactJsonBlock } from "../integrations/mcpWorkspacePromptContract";
+import { assertLegacyCanonicalReadAllowed } from "../documents/legacyCanonicalWriteFence";
 import { createWorkIntakeBranchService } from "./workIntakeBranchService";
 import { readWorkIntake } from "./workIntakeService";
 
@@ -20,6 +21,7 @@ const target = (intakeId: string) => `planning/work-intake/routing/${intakeId}.m
 interface RoutingContext { intake: WorkIntakeRecord; sourceDigests: Record<string, string>; priorAssessment?: { revision: number; status: string; notes: string } }
 
 function boundedPath(root: string, relativePath: string): string {
+  assertLegacyCanonicalReadAllowed(root);
   const resolved = resolveRepositoryPath(root, relativePath, { allowMissingLeaf: true });
   if (resolved.relativePath !== relativePath) throw Error("Routing artifact paths must not be redirected.");
   return resolved.resolvedPath;

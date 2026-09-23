@@ -10,7 +10,7 @@ import { inventoryLegacyMarkdownAuthority, type LegacyAuthorityDocument, type Le
 
 const principal: PrincipalRef = { principalId: "legacy-importer", principalType: "system", role: "migration" };
 const importTime = "2000-01-01T00:00:00.000Z";
-export const STAGED_LEGACY_IMPORTER_VERSION = 2;
+export const STAGED_LEGACY_IMPORTER_VERSION = 3;
 const workKinds = new Map<string, EntityBodyMap["WorkItem"]["workItemKind"]>([["formal-work-card", "feature"], ["repair-work-card", "repair"], ["fix-card", "fix"]]);
 const maxSemanticText = 4096;
 
@@ -228,10 +228,10 @@ export async function stageLegacyAuthorityImport(workspaceRoot: string, snapshot
         const decidedAt = required(row.recordedAt, "route decision time");
         const decision = entity("Decision", document, `route-decision-${index}`, { decisionType: "work-intake-route",
           outcome: required(decisionData.selectedRouteId, "selected route"), rationale: required(decisionData.rationale, "route decision rationale"),
-          decisionRole: "migration-transcription", decisionScope: `work-intake:${intake.id}`,
-          decidedBy: principal, decidedAt, effectiveAt: decidedAt });
+          decisionRole: "Operator", decisionScope: `work-intake:${intake.id}`,
+          decidedBy: { principalId: "legacy-operator-unidentified", principalType: "human", role: "Operator" }, decidedAt, effectiveAt: decidedAt });
         relate(decision, "governs", intake);
-        relate(decision, "governs", assessment);
+        relate(decision, "derived_from", assessment);
       }
     }
     for (const document of snapshot.documents) {

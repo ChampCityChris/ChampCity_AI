@@ -14,8 +14,17 @@ export function acquireLegacyCutoverFence(workspaceRoot: string): () => void {
 
 /** Temporary V1 compatibility fence: legacy writes end when the durable provider generation selects structured authority. */
 export function assertLegacyCanonicalWriteAllowed(workspaceRoot: string): void {
+  assertLegacyCanonicalAccessAllowed(workspaceRoot, "writes");
+}
+
+/** A cut-over Project may read historical Markdown as Evidence, but not reconstruct current state from it. */
+export function assertLegacyCanonicalReadAllowed(workspaceRoot: string): void {
+  assertLegacyCanonicalAccessAllowed(workspaceRoot, "reads");
+}
+
+function assertLegacyCanonicalAccessAllowed(workspaceRoot: string, action: "reads" | "writes"): void {
   const root = fs.realpathSync(workspaceRoot);
-  if (cutoverFences.has(root)) throw Error("Legacy canonical Markdown writes are fenced during Project State cutover.");
+  if (cutoverFences.has(root)) throw Error(`Legacy canonical Markdown ${action} are fenced during Project State cutover.`);
   const appRoot = path.join(root, ".champcity");
   if (!fs.existsSync(appRoot)) return;
   if (fs.lstatSync(appRoot).isSymbolicLink() || !fs.lstatSync(appRoot).isDirectory() || path.dirname(fs.realpathSync(appRoot)) !== root) {
@@ -27,6 +36,6 @@ export function assertLegacyCanonicalWriteAllowed(workspaceRoot: string): void {
   const database = new DatabaseSync(databasePath, { readOnly: true });
   try {
     const row = database.prepare("SELECT COUNT(*) AS selected FROM project_state_authority WHERE authority = 'structured'").get() as { selected: number };
-    if (row.selected > 0) throw Error("Legacy canonical Markdown writes are fenced after Structured Project State authority selection.");
+    if (row.selected > 0) throw Error(`Legacy canonical Markdown ${action} are fenced after Structured Project State authority selection.`);
   } finally { database.close(); }
 }

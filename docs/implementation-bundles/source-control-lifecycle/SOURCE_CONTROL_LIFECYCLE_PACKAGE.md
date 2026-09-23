@@ -39,6 +39,8 @@ Work Intake source preparation, checkpoints, integration and Source Graph
 
 There is no temporary Work Intake persistence adapter between Markdown and Structured Project State.
 
+The SCL01Z provider and legacy-compatibility baseline is recorded in [Structured Project State qualification](STRUCTURED_STATE_QUALIFICATION.md).
+
 ## Execution Baseline Rule
 
 This package is intended to be integrated into `dev` before implementation starts.

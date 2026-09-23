@@ -4062,6 +4062,31 @@
       ]
     },
     {
+      "capabilityId": "structured-state-qualification",
+      "description": "Post-cutover structured authority, scanner retirement, restart, context and derived feed qualification.",
+      "sourcePatterns": [
+        "src/main/documents/legacyCanonicalWriteFence.ts",
+        "src/main/documents/planningDocumentService.ts",
+        "src/main/documents/planningProjectionContext.ts",
+        "src/main/documents/planningRepositorySnapshot.ts",
+        "src/main/migrations/legacyEquivalenceVerification.ts",
+        "src/main/migrations/stagedLegacyImporter.ts",
+        "src/main/workIntake/workIntakeService.ts",
+        "src/main/workIntake/workRouteDecisionService.ts",
+        "src/main/workIntake/workRoutingAssessmentService.ts"
+      ],
+      "dependsOn": [
+        "project-state-service",
+        "provider-generation-cutover"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "qualified-project-uses-structured-state-and-fences-legacy-scanners",
+          "description": "qualified Project uses structured truth after restart, while legacy scanners and cached snapshots are fenced"
+        }
+      ]
+    },
+    {
       "capabilityId": "validation-capability-map",
       "description": "Repository-owned capability/test inventory schema, ownership, proof relationships, and corpus integrity.",
       "sourcePatterns": [
@@ -12271,6 +12296,58 @@
           "capabilityId": "provider-generation-cutover",
           "behaviorId": "unknown-outcome-recovers-and-rollback-requires-untouched-state",
           "proofLocator": "unknown post-selection outcome recovers from durable generation and rollback requires untouched structured state",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/migration/structured-state-qualification.test.cjs",
+      "currentTestCount": {
+        "value": 1,
+        "basis": "One SCL01Z synthetic cutover and restart qualification scenario."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 391,
+        "basis": "Observed normal Windows focused SCL01Z test receipt."
+      },
+      "proposedValidationLane": "migration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "migration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "One isolated temporary SQLite workspace with no shared mutable resources.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "structured-state-qualification",
+          "behaviorId": "qualified-project-uses-structured-state-and-fences-legacy-scanners",
+          "proofLocator": "qualified Project uses structured truth after restart, while legacy scanners and cached snapshots are fenced",
           "proofRole": "primary"
         }
       ]
