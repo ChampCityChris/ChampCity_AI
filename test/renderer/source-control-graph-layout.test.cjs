@@ -17,7 +17,7 @@ function graphFixture() {
     ["feature", "c", "work"], ["hotfix-one", "f", "work"], ["hotfix-two", "i", "work"],
     ["dev", "e", "dev"], ["main", "h", "main"],
   ].map(([id, headRevisionId, role]) => ({ id, headRevisionId, role, workIntakeIds: [], providerBranchName: id }));
-  return { sourceLines, revisions };
+  return { sourceLines, revisions, workBindings: [], integrationTargets: [{ lineId: "main" }, { lineId: "dev" }] };
 }
 
 test("source graph layout places feature and two hotfix lines below target chronology", () => {
@@ -38,6 +38,16 @@ test("integrated parents rejoin the dev and main chronology", () => {
   assert.deepEqual(layout.edges.filter(edge => edge.integration).map(edge => [edge.parentId, edge.childId]),
     [["c", "e"], ["f", "h"]]);
   assert.ok(layout.edges.every(edge => edge.path.startsWith("M ")));
+});
+
+test("fast-forward integration visibly connects the work line to its target revision", () => {
+  const graph = graphFixture();
+  graph.sourceLines.find(line => line.id === "dev").headRevisionId = "c";
+  graph.workBindings.push({ lineId: "feature", integrationState: "integrated" });
+  const layout = layoutSourceGraph(graph);
+  const link = layout.edges.find(edge => edge.semantic);
+  assert.deepEqual([link.parentId, link.childId, link.integration], ["feature", "c", true]);
+  assert.equal(layout.nodes.find(node => node.revision.id === "c").lineId, "dev");
 });
 
 test("source workspace exposes read-only native navigation and a loading state", () => {

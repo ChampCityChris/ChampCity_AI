@@ -3763,6 +3763,10 @@
           "description": "exact revision details expose bounded changed files without source mutation"
         },
         {
+          "behaviorId": "source-lifecycle-package-qualifies-three-lines-checkpoint-review-and-integration",
+          "description": "dirty checkout intake and three work lines reach exact checkpoints, revision review, integration repair and graph projection"
+        },
+        {
           "behaviorId": "status-recovers-the-latest-completed-candidate-validation-and-its-safe-receipts",
           "description": "status recovers the latest completed candidate validation and its safe receipts"
         },
@@ -17141,7 +17145,7 @@
     },
     {
       "testPath": "test/renderer/source-control-graph-layout.test.cjs",
-      "currentTestCount": { "value": 3, "basis": "SCL09 focused renderer graph geometry and read-only shell fixtures." },
+      "currentTestCount": { "value": 4, "basis": "SCL10 focused renderer graph geometry, fast-forward integration, and read-only shell fixtures." },
       "duration": { "kind": "estimated", "milliseconds": 900, "basis": "Comparable renderer module-loader tests." },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -18371,6 +18375,25 @@
       "behaviorCoverage": [
         { "capabilityId": "release-and-git-operations", "behaviorId": "source-graph-projects-bounded-branch-ancestry-and-workflow-meaning", "proofLocator": "five branch heads, merged ancestry, semantic bindings, bounded truncation and metadata fallback", "proofRole": "primary" },
         { "capabilityId": "release-and-git-operations", "behaviorId": "source-graph-revision-detail-is-read-only-and-bounded", "proofLocator": "exact revision changed-file detail is capped at 24 and leaves the selected source unchanged", "proofRole": "primary" }
+      ]
+    },
+    {
+      "testPath": "test/source-control/source-lifecycle-package.test.cjs",
+      "currentTestCount": { "value": 1, "basis": "SCL10 end-to-end synthetic structured source lifecycle fixture." },
+      "duration": { "kind": "measured", "milliseconds": 45000, "basis": "Observed focused normal Windows SCL10 run." },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": { "electron": false, "filesystem": true, "git": true, "network": false, "process": true, "timing": false },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": ["capability", "integration"],
+      "execution": { "requiresBuild": true, "platform": "any", "externalCapabilities": [], "scheduling": "parallel-safe",
+        "schedulingReason": "One isolated temporary Git and SQLite repository per fixture.",
+        "ownedResources": ["bounded-child-process", "isolated-git-fixture", "temp-filesystem-isolated"] },
+      "proofCharacteristics": ["behavioral"],
+      "dispositionReasons": ["current-proof-appropriate"],
+      "behaviorCoverage": [
+        { "capabilityId": "release-and-git-operations", "behaviorId": "source-lifecycle-package-qualifies-three-lines-checkpoint-review-and-integration", "proofLocator": "dirty dev capture, feature and two hotfix lines, review-loop revisions, clean and repaired integration, and projected graph", "proofRole": "primary" }
       ]
     },
     {

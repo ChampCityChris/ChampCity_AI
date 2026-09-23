@@ -155,7 +155,8 @@ export async function getSourceGraph(root: string, repositoryId: string, options
   const maxLines = bound(options.maxLines, 64, MAX_LINES, "maxLines");
   if (options.includeCompleted !== undefined && typeof options.includeCompleted !== "boolean")
     throw new AgentHarnessError("INVALID_INPUT", "includeCompleted must be boolean.");
-  const branchOutput = (await runBoundedGit({ cwd: root, args: ["for-each-ref", "--sort=refname", `--count=${maxLines + 1}`,
+  const branchOutput = (await runBoundedGit({ cwd: root, args: ["for-each-ref", "--sort=refname",
+    "--exclude=refs/heads/champcity-integration/*", "--exclude=refs/heads/champcity-mcp/*", `--count=${maxLines + 1}`,
     "--format=%(refname:short)%00%(objectname)", "refs/heads"] })).stdout;
   const allBranches = branchOutput.split(/\r?\n/).filter(Boolean).map(record => {
     const [name, commit] = record.split("\0");

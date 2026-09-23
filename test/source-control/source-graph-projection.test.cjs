@@ -42,6 +42,8 @@ async function fixture(context) {
   git(root, "switch", "-c", "hotfix/two");
   const hotfixTwo = commit(root, "hotfix-two");
   git(root, "switch", "dev");
+  git(root, "branch", `champcity-integration/${"a".repeat(64)}`, devMerge);
+  git(root, "branch", "champcity-mcp/op-synthetic", devMerge);
   return { root, base, feature, devBefore, devMerge, hotfixOne, mainMerge, hotfixTwo };
 }
 

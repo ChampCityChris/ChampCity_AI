@@ -115,7 +115,7 @@ export function SourceControlWorkspace({ projectName, onReturn }: { projectName:
                 </div>
               </div>
             </div>
-            <p className="source-graph-key"><span>● Revision</span><span>◆ Merge revision</span><span>Dashed curve: integrated parent</span></p>
+            <p className="source-graph-key"><span>● Revision</span><span>◆ Merge revision</span><span>Dashed curve: integration link</span></p>
           </section>
           {graph.workBindings.length ? <section className="source-work-list" aria-label="Work Intakes">
             <h2>Work Intakes</h2>
