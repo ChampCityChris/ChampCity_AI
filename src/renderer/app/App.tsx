@@ -143,6 +143,7 @@ import { WorkIntakeRoutingRail } from "./WorkIntakeRoutingRail";
 import { WorkRoutingWorkspace } from "./WorkRoutingWorkspace";
 import { WorkArchitectAssessmentWorkspace } from "./WorkArchitectAssessmentWorkspace";
 import { WorkPlanWorkspace } from "./WorkPlanWorkspace";
+import { WorkItemDecompositionWorkspace, type DecompositionReturnTarget } from "./WorkItemDecompositionWorkspace";
 import { RoutedExecutionPanel } from "./RoutedExecutionPanel";
 import { shouldAttachArchitectSurface } from "./architectSurfaceEligibility";
 import type { WorkIntakeProjection } from "../../shared/workIntakeContracts";
@@ -287,6 +288,8 @@ export function App(): JSX.Element {
   const [workIntakeNavigation, setWorkIntakeNavigation] = useState<WorkIntakeNavigationProjection | null>(null);
   const [selectedWorkIntakeId, setSelectedWorkIntakeId] = useState<string | null>(null);
   const [activeWorkIntakeStageId, setActiveWorkIntakeStageId] = useState<WorkIntakeStageId>("intake");
+  const [decompositionContext, setDecompositionContext] = useState<{ intakeId: string; workItemId: string; returnTarget: DecompositionReturnTarget } | null>(null);
+  const [decompositionReturnFeedback, setDecompositionReturnFeedback] = useState("");
   const [activeWorkflowId, setActiveWorkflowId] = useState<WorkflowId | null>(null);
   const [settingsReturnShellView, setSettingsReturnShellView] =
     useState<SettingsReturnShellView>("workflow-hub");
@@ -2717,6 +2720,8 @@ export function App(): JSX.Element {
 
   async function openWorkIntake(): Promise<void> {
     try {
+      setDecompositionContext(null);
+      setDecompositionReturnFeedback("");
       const projection = await window.champcity.getWorkIntakeProjection();
       const navigation = await window.champcity.getWorkIntakeNavigation(projection.currentIntake?.intakeId);
       setWorkIntakeProjection(projection);
@@ -3945,7 +3950,7 @@ export function App(): JSX.Element {
       ) : null}
       {isWorkIntakeForeground && workIntakeNavigation?.intakeId ? (
         <WorkIntakeRoutingRail projection={workIntakeNavigation} activeStageId={activeWorkIntakeStageId}
-          onStageChange={setActiveWorkIntakeStageId} />
+          onStageChange={(stageId) => { setDecompositionContext(null); setActiveWorkIntakeStageId(stageId); }} />
       ) : null}
 
       <div className={isLandingForeground ? "app-body landing-app-body" : "app-body"}>
@@ -4011,7 +4016,17 @@ export function App(): JSX.Element {
               onStartNewProject={() => void startNewProjectFromLanding()}
             />
           ) : isWorkIntakeForeground && workIntakeProjection ? (
-            activeWorkIntakeStageId === "intake" || !selectedWorkIntakeId ? (
+            decompositionContext && selectedWorkIntakeId === decompositionContext.intakeId ? (
+              <WorkItemDecompositionWorkspace {...decompositionContext} browserPanel={routedArchitectBrowserPanel}
+                onReloadBrowser={() => void reloadArchitectBrowser()}
+                onReturn={async (target, resumeWorkItemId) => {
+                  await refreshWorkIntakeNavigation(decompositionContext.intakeId);
+                  setDecompositionContext(null);
+                  setActiveWorkIntakeStageId(target === "plan" ? "plan" : "execution");
+                  setDecompositionReturnFeedback(resumeWorkItemId
+                    ? `${decompositionContext.workItemId} was superseded. Resume with ${resumeWorkItemId} after its prerequisites.` : "");
+                }} />
+            ) : activeWorkIntakeStageId === "intake" || !selectedWorkIntakeId ? (
               <WorkIntakeWorkspace key={workspace.workspaceRoot} projection={workIntakeProjection}
                 onReturn={returnToWorkflowHub} onSaved={async (intakeId) => {
                   await refreshWorkIntakeNavigation(intakeId);
@@ -4031,8 +4046,13 @@ export function App(): JSX.Element {
               <WorkPlanWorkspace intakeId={selectedWorkIntakeId}
                 intake={workIntakeProjection.intakes.find((entry) => entry.intakeId === selectedWorkIntakeId)}
                 browserPanel={routedArchitectBrowserPanel} onReloadBrowser={() => void reloadArchitectBrowser()}
+                onOpenDecomposition={(workItemId) => {
+                  setDecompositionReturnFeedback("");
+                  setDecompositionContext({ intakeId: selectedWorkIntakeId, workItemId, returnTarget: "plan" });
+                }}
                 onNavigationRefresh={(advance) => refreshWorkIntakeNavigation(selectedWorkIntakeId, advance)} />
-            ) : <RoutedExecutionPanel intakeId={selectedWorkIntakeId} />
+            ) : <>{decompositionReturnFeedback ? <p role="status" className="document-feedback">{decompositionReturnFeedback}</p> : null}
+              <RoutedExecutionPanel intakeId={selectedWorkIntakeId} /></>
           ) : isWorkflowHubForeground ? (
             <>
               {issueCloseActionFeedback ? (

@@ -11,6 +11,7 @@ const { WorkRoutingWorkspace } = loadRendererSourceModule("src/renderer/app/Work
 const { WorkArchitectAssessmentWorkspace } = loadRendererSourceModule("src/renderer/app/WorkArchitectAssessmentWorkspace.tsx");
 const { WorkPlanWorkspace } = loadRendererSourceModule("src/renderer/app/WorkPlanWorkspace.tsx");
 const { RoutedPlanningWorkspace } = loadRendererSourceModule("src/renderer/app/RoutedPlanningWorkspace.tsx");
+const { WorkItemDecompositionWorkspace } = loadRendererSourceModule("src/renderer/app/WorkItemDecompositionWorkspace.tsx");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -129,11 +130,11 @@ const planningArtifact = { relativePath: "planning/assessment.md", artifactRevis
   stale: false, bodyMarkdown: "# Route Architect Assessment\n\n## Evidence\nBounded evidence." };
 const planningModel = { intakeId: "intake-1", routeId: "feature-change", stage: "assessment", canPrepare: true,
   preparedInstruction: "Handoff", researchClosed: false, artifact: planningArtifact };
-function planningView(stage, model, supporting = null) {
+function planningView(stage, model, supporting = null, onOpenDecomposition) {
   const wrapper = stage === "assessment" ? WorkArchitectAssessmentWorkspace : WorkPlanWorkspace;
   const wrapped = wrapper({ intakeId: "intake-1", intake: routingIntake,
     browserPanel: React.createElement("div", { "aria-label": "Embedded ChatGPT browser" }),
-    onReloadBrowser() {}, async onNavigationRefresh() {} });
+    onReloadBrowser() {}, async onNavigationRefresh() {}, onOpenDecomposition });
   assert.equal(wrapped.type.name, RoutedPlanningWorkspace.name);
   assert.equal(wrapped.props.stage, stage);
   return withState([model, supporting, stage, "", false, "", ""], () => RoutedPlanningWorkspace(wrapped.props));
@@ -183,4 +184,73 @@ test("approved ordinary Assessment opens Plan and approved Plan opens Execution"
   const afterPlan = await getWorkIntakeNavigation(approved.root, approved.intake.intakeId);
   assert.equal(afterPlan.requiredStageId, "execution");
   assert.equal(afterPlan.stages.find((stage) => stage.stageId === "execution").available, true);
+});
+
+function elements(node) {
+  if (!node || typeof node !== "object") return [];
+  return [node, ...React.Children.toArray(node.props?.children).flatMap(elements)];
+}
+const proposal = { kind: "siblings", rationale: "Split review from delivery", evidence: ["Separate acceptance boundary"],
+  replacements: [{ workItemId: "WI01A", title: "Deliver", purpose: "Build the change", dependsOn: [], acceptanceCriteria: ["Done"] },
+    { workItemId: "WI01B", title: "Verify", purpose: "Check the result", dependsOn: ["WI01A"], acceptanceCriteria: ["Verified"] }] };
+const decomposition = { kind: "decomposition-proposal", intakeId: "intake-1", workItemId: "WI01",
+  relativePath: "planning/decomposition.md", revision: 2, planRevision: 1, state: "pending", proposal,
+  canPrepare: true, preparedInstruction: "Handoff", notes: "" };
+function decompositionView(model, onReturn) {
+  return withState([model, planningModel, "proposal", "Review notes", false, "", ""], () =>
+    WorkItemDecompositionWorkspace({ intakeId: "intake-1", workItemId: "WI01", returnTarget: "plan",
+      browserPanel: React.createElement("div", { "aria-label": "Embedded ChatGPT browser" }),
+      onReloadBrowser() {}, onReturn }));
+}
+
+test("decomposition presents readable proposal and Architect handoff as a contextual workspace", () => {
+  const markup = renderToStaticMarkup(decompositionView(decomposition, async () => undefined));
+  assert.match(markup, /Embedded ChatGPT browser|Prepare Handoff|Copy Handoff|Refresh|Reload ChatGPT/);
+  assert.match(markup, /Decomposition Proposal|Approved Plan|Split review from delivery|Separate acceptance boundary/);
+  assert.match(markup, /WI01A: Deliver|WI01B: Verify|Accept Plan Change|Request Revised Proposal/);
+  assert.doesNotMatch(markup, /<pre|\{&quot;kind&quot;|<select|Decompose a candidate \(optional\)/);
+});
+
+test("accepting decomposition returns the resume Work Item; revision stays in context", async () => {
+  const originalWindow = global.window;
+  const calls = [];
+  global.window = { champcity: {
+    async reviewWorkItemDecomposition(intakeId, workItemId, input) {
+      calls.push({ intakeId, workItemId, input });
+      return input.disposition === "accept" ? { ...decomposition, state: "accepted", resumeWorkItemId: "WI01A" }
+        : { ...decomposition, state: "revision-requested" };
+    },
+    async getWorkPlanning() { calls.push("refresh-plan"); return planningModel; },
+  } };
+  try {
+    const accepted = decompositionView(decomposition, async (target, resume) => { calls.push({ target, resume }); });
+    const accept = elements(accepted.props.documentColumn).find((entry) => entry.type === "button" && entry.props.children === "Accept Plan Change");
+    accept.props.onClick();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(calls[0].input.disposition, "accept");
+    assert.equal(calls[0].input.expectedPlanRevision, 1);
+    assert.equal(calls[1], "refresh-plan");
+    assert.deepEqual(calls[2], { target: "work-item-map", resume: "WI01A" });
+
+    calls.length = 0;
+    const revision = decompositionView(decomposition, async (target, resume) => { calls.push({ target, resume }); });
+    const revise = elements(revision.props.documentColumn).find((entry) => entry.type === "button" && entry.props.children === "Request Revised Proposal");
+    revise.props.onClick();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(calls[0].input.disposition, "request-revision");
+    assert.equal(calls.length, 1, "revision does not leave the workspace or change the Plan");
+  } finally { global.window = originalWindow; }
+});
+
+test("opening decomposition from an approved Plan passes selected Work Item without reviewing Plan", () => {
+  const selected = [];
+  const approved = { ...planningModel, stage: "plan", artifact: { ...planningArtifact, disposition: "Approved",
+    structure: { topology: "direct", topologyRationale: "One delivery", phases: [],
+      workItems: [{ workItemId: "WI01", title: "Deliver", purpose: "Build", dependsOn: [] }] } } };
+  const element = planningView("plan", approved, planningModel, (workItemId) => selected.push(workItemId));
+  const open = elements(element.props.documentColumn).find((entry) => entry.type === "button"
+    && React.Children.toArray(entry.props.children).join("").startsWith("Review decomposition for"));
+  assert.ok(open);
+  open.props.onClick();
+  assert.deepEqual(selected, ["WI01"]);
 });
