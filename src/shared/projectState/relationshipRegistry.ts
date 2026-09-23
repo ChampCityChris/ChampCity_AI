@@ -37,6 +37,7 @@ export const RELATIONSHIP_REGISTRY = Object.freeze({
   governs: rule(["Decision"], all, true),
   implements: rule(["WorkItem"], ["BoundedSolution"]),
   implements_work_item: rule(["ImplementationRecord"], ["WorkItem"], true),
+  initiates: rule(["WorkIntake"], ["Workflow"], true),
   integrates: rule(["IntegrationRecord"], ["WorkIntake", "SourceBinding"], true),
   owns_workflow: rule(["WorkIntake"], ["Workflow"], true),
   part_of: rule(["WorkItem"], ["WorkItem", "Phase"]),

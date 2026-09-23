@@ -20,6 +20,8 @@ export type PhaseState = WorkflowState;
 export type WorkItemKind = "feature" | "fix" | "repair" | "migration" | "maintenance";
 export type WorkState = "planned" | "ready" | "in_progress" | "implemented" | "blocked" | "validation_pending" | "closed" | "cancelled";
 export type ImplementationOutcome = "implemented" | "partial" | "blocked" | "failed" | "abandoned";
+export type WorkIntakeState = "captured" | "assessing" | "routed" | "active" | "closed" | "cancelled";
+export type WorkRoute = "greenfield" | "feature-change" | "refactor-migration" | "integration-composition" | "infrastructure-platform" | "research-prototype" | "issue-resolution";
 export const PROJECT_STATE_SCHEMA_VERSION = 1 as const;
 
 export interface RecordEnvelope<T extends EntityType = EntityType> {
@@ -45,8 +47,8 @@ export interface RecordEnvelope<T extends EntityType = EntityType> {
 export interface EntityBodyMap {
   Project: { name: string; description: string };
   ProjectResource: { resourceType: string; provider: string; logicalName: string; locator: string; role: string };
-  WorkIntake: { request: string; desiredOutcome: string; constraints: string[]; evidenceContext: string[]; intakeState: string; requestedIntegrationTarget: string };
-  RouteAssessment: { workIntakeId: EntityId; recommendation: string; traits: string[]; rationale: string; alternate?: string; evidenceIds: EvidenceId[] };
+  WorkIntake: { request: string; desiredOutcome: string; constraints: string[]; evidenceContext: string[]; intakeState: WorkIntakeState; requestedIntegrationTarget: string };
+  RouteAssessment: { workIntakeId: EntityId; recommendation: WorkRoute; traits: string[]; rationale: string; alternate?: WorkRoute; evidenceIds: EvidenceId[] };
   Workflow: { workflowType: string; workspace: string; governingEntityId: EntityId; workflowState: WorkflowState };
   Phase: { title: string; objective: string; phaseState: PhaseState; sequence: number };
   Finding: { title: string; statement: string; category: string; impact: string; observedAt: string; findingState: string; confidence?: number };

@@ -3074,6 +3074,10 @@
       ],
       "behaviors": [
         {
+          "behaviorId": "advisory-assessments-and-operator-reroutes-preserve-history-and-current-route",
+          "description": "advisory assessments and Operator reroutes preserve history and current route"
+        },
+        {
           "behaviorId": "decision-correction-preserves-history-and-governance-while-later-decisions-remain-distinct",
           "description": "Decision correction preserves history and governance while later Decisions remain distinct"
         },
@@ -3118,6 +3122,10 @@
           "description": "ProjectStateService creates, revises and supersedes with mechanical identity and history"
         },
         {
+          "behaviorId": "route-assessment-validates-evidence-ownership-and-vocabulary-atomically",
+          "description": "route assessment validates Evidence ownership and route vocabulary atomically"
+        },
+        {
           "behaviorId": "service-rejects-unregistered-fields-and-keeps-query-results-bounded",
           "description": "service rejects unregistered fields and keeps query results bounded"
         },
@@ -3132,6 +3140,10 @@
         {
           "behaviorId": "validation-target-version-and-source-baseline-determine-freshness",
           "description": "Validation target version and source baseline determine freshness without deleting history"
+        },
+        {
+          "behaviorId": "work-intake-capture-revision-and-lifecycle-initiate-one-workflow",
+          "description": "Work Intake capture, revision and lifecycle initiate one Workflow"
         }
       ]
     },
@@ -13943,6 +13955,69 @@
           "capabilityId": "project-state-store",
           "behaviorId": "in-memory-projectstatestore-relationship-rules-and-project-isolation",
           "proofLocator": "in-memory ProjectStateStore: relationship rules and Project isolation",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/work-intake-routing.test.cjs",
+      "currentTestCount": {
+        "value": 6,
+        "basis": "Three Work Intake, assessment and reroute scenarios across in-memory and SQLite adapters introduced by SCL01M."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 340,
+        "basis": "Observed normal Windows focused SCL01M test receipt."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Per-test temporary SQLite file and isolated in-memory adapter.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "advisory-assessments-and-operator-reroutes-preserve-history-and-current-route",
+          "proofLocator": "advisory assessments and Operator reroutes preserve full history and current route",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "route-assessment-validates-evidence-ownership-and-vocabulary-atomically",
+          "proofLocator": "route assessment validates evidence ownership and unsupported routes atomically",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "work-intake-capture-revision-and-lifecycle-initiate-one-workflow",
+          "proofLocator": "Work Intake capture, revision and lifecycle retain a single initiated Workflow",
           "proofRole": "primary"
         }
       ]

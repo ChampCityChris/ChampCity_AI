@@ -13,7 +13,7 @@ const bodies = {
   Project: { name: "Project", description: "Description" },
   ProjectResource: { resourceType: "repository", provider: "git", logicalName: "Source", locator: "opaque", role: "source" },
   WorkIntake: { request: "Request", desiredOutcome: "Outcome", constraints: [], evidenceContext: [], intakeState: "captured", requestedIntegrationTarget: "dev" },
-  RouteAssessment: { workIntakeId: linkedId, recommendation: "feature", traits: [], rationale: "Reason", evidenceIds: [] },
+  RouteAssessment: { workIntakeId: linkedId, recommendation: "feature-change", traits: [], rationale: "Reason", evidenceIds: [] },
   Workflow: { workflowType: "development", workspace: "work", governingEntityId: linkedId, workflowState: "active" },
   Phase: { title: "Phase", objective: "Objective", phaseState: "active", sequence: 1 },
   Finding: { ...common, category: "defect", impact: "Impact", observedAt: now, findingState: "open" },
