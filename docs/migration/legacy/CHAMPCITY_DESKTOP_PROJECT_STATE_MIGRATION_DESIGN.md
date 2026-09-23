@@ -1076,7 +1076,7 @@ IntegrityChecker
 Desktop adapters provide:
 
 - local repository/file snapshotting;
-- local Project State persistence, with SQLite an initial candidate;
+- local Project State persistence through the adopted SQLite ProjectStateStore adapter;
 - local evidence/blob storage;
 - local backups;
 - Desktop project/provider selection; and

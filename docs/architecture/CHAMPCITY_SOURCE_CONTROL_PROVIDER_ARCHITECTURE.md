@@ -11,7 +11,7 @@ The product must not make Git's internal interaction model—branches, worktrees
 
 Git remains the first and current source-control provider because it is mature, interoperable, and already deeply supported by the repository ecosystem. It is an infrastructure adapter beneath ChampCity RepositoryService, not the semantic definition of RepositoryService.
 
-This architecture establishes the provider-neutral source-control model that sits above the concurrent RepositoryCheckout architecture and the current bounded Git implementation.
+This architecture establishes the provider-neutral source-control model that sits above the current bounded Git implementation. Work Intake source preparation, agent-free checkpoint/integration sequencing, and Source Graph visualization are specialized by `CHAMPCITY_AGENT_FREE_SOURCE_CONTROL_LIFECYCLE_ARCHITECTURE.md`; later general concurrent writable checkout/worktree execution is specialized by `CHAMPCITY_CONCURRENT_REPOSITORY_CHECKOUT_ARCHITECTURE.md`.
 
 ## Architectural Decision
 

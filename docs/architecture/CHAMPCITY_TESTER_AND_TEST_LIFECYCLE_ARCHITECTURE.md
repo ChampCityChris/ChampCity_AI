@@ -495,7 +495,7 @@ The Validator does not repeat the Tester's suite-design judgment unless the evid
 
 V2 Project State should represent semantic testing results without turning executable files into workflow state.
 
-Target logical records include:
+Target logical concepts map to canonical Structured Project State as follows:
 
 ### RegressionObligation
 
@@ -511,15 +511,15 @@ Fields include:
 
 ### TestLifecycleAssessment
 
-Records the evidence and Tester disposition for a permanent proof artifact.
+Represent this as a `Validation` whose validation type identifies test-lifecycle assessment and whose target is the applicable RegressionObligation/PermanentTestReference.
 
 ### ImplementationProof
 
-Records Work Item-local execution evidence without requiring the temporary executable to remain permanently.
+Represent this as immutable `Evidence` linked to the Work Item/ImplementationRecord and exact source baseline. The temporary executable need not remain permanently.
 
 ### PermanentTestReference
 
-Binds a repository test/proof identity to one or more RegressionObligations.
+Represent this as a typed `ProjectResource`/RepositoryService source reference linked to one or more RegressionObligations through the canonical `proves` relationship.
 
 These records follow normal Structured Project State rules for identity, revision, relationship, and provenance.
 

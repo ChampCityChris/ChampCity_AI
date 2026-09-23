@@ -1,6 +1,8 @@
 # ChampCity Work Intake Routing, Planning, and Source-Control Architecture
 
-**Status:** Adopted architecture — 2026-09-19
+**Status:** Adopted architecture — 2026-09-19; source-control sequencing amended 2026-09-23
+
+> **2026-09-23 source-control amendment:** `CHAMPCITY_AGENT_FREE_SOURCE_CONTROL_LIFECYCLE_ARCHITECTURE.md` supersedes §§4.2–4.3 wherever this document makes primary-checkout cleanliness or checkout switching a prerequisite to Work Intake capture/persistence. Work Intake intent is persisted first; source preparation is separate deterministic application state. Existing-project Work Intake SourceLines default to exact `dev` revisions, and general multi-agent worktree orchestration is deferred.
 
 ## 1. Purpose
 
@@ -123,7 +125,7 @@ The existing bounded Git implementation in agentHarness/repository/gitMutations.
 
 Every submitted Work Intake must own a dedicated Git branch.
 
-The branch is established before canonical Work Intake artifacts or implementation changes are written.
+The Work Intake's semantic identity and intent are persisted before source preparation is allowed to fail. Repository-backed canonical artifacts may be materialized after source preparation is ready.
 
 The Work Intake records at minimum:
 
@@ -144,14 +146,16 @@ Branch naming must be deterministic, valid, collision-safe, and independent of t
 
 When the Operator submits Start Work / Work Intake, ChampCity:
 
-1. inspects the selected Repository;
-2. requires a known clean source baseline before branching;
-3. resolves the intended integration/base branch and exact commit;
-4. creates and selects a new dedicated Work Intake branch;
-5. records the branch binding;
-6. writes the Work Intake artifacts on that branch.
+1. persists the Work Intake identity and intent;
+2. resolves the intended integration/base SourceLine and exact immutable SourceRevision;
+3. creates the dedicated Work Intake SourceLine from that revision without requiring or switching the primary checkout;
+4. records source-preparation state and branch/provider binding;
+5. materializes repository-backed Work Intake artifacts when the Work Intake source is ready;
+6. activates a writable checkout only when that Work Intake actually needs one.
 
-If branch establishment or initial persistence fails, ChampCity must fail closed and leave the prior branch/source state recoverable. It must not silently continue planning on the wrong branch.
+For existing Projects the default integration target is `dev`. For Greenfield Projects ChampCity establishes `main`, creates `dev` from the initial `main` revision, then creates the first Work Intake SourceLine from `dev`.
+
+Unrelated primary-checkout PendingChangeSet state is not a Work Intake admission gate. If source preparation fails, the Work Intake remains captured and the failure is represented as retryable source-preparation state. Checkout cleanliness remains a valid local precondition only for operations that would actually reassign, retire, or destructively recover a mutable checkout.
 
 ### 4.4 Git is not another approval gate
 
