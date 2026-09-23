@@ -3058,6 +3058,35 @@
       ]
     },
     {
+      "capabilityId": "project-state-sqlite-schema",
+      "description": "Application-owned SQLite schema, ordered migration ledger and open-time verification.",
+      "sourcePatterns": [
+        "src/main/projectState/sqliteSchema.ts"
+      ],
+      "dependsOn": [
+        "project-state-domain",
+        "project-state-sqlite-binding"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "fresh-sqlite-schema-migrates-once-and-verifies-configuration-on-reopen",
+          "description": "fresh SQLite schema migrates once and verifies configuration on reopen"
+        },
+        {
+          "behaviorId": "future-unknown-and-untracked-migration-states-fail-closed-without-rewriting-the-ledger",
+          "description": "future, unknown and untracked migration states fail closed without rewriting the ledger"
+        },
+        {
+          "behaviorId": "schema-enforces-project-ownership-json-shape-version-history-and-relation-endpoints",
+          "description": "schema enforces Project ownership, JSON shape, version history and relation endpoints"
+        },
+        {
+          "behaviorId": "version-body-serialization-validates-domain-shape-and-sorts-json-keys",
+          "description": "version body serialization validates domain shape and sorts JSON keys"
+        }
+      ]
+    },
+    {
       "capabilityId": "project-state-store",
       "description": "Asynchronous Project State store semantics and cross-adapter conformance.",
       "sourcePatterns": [
@@ -13190,6 +13219,75 @@
           "capabilityId": "project-state-sqlite-binding",
           "behaviorId": "node-built-in-sqlite-passes-the-wal-fix-gate-and-file-backed-capability-probe",
           "proofLocator": "Node built-in SQLite passes the WAL fix gate and file-backed capability probe",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/sqlite-schema-migrations.test.cjs",
+      "currentTestCount": {
+        "value": 4,
+        "basis": "Four temporary-file schema and migration scenarios introduced by SCL01F."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 187,
+        "basis": "Observed normal Windows focused test receipt for SCL01F."
+      },
+      "proposedValidationLane": "fast",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Each test owns a unique temporary SQLite database directory.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "project-state-sqlite-schema",
+          "behaviorId": "fresh-sqlite-schema-migrates-once-and-verifies-configuration-on-reopen",
+          "proofLocator": "fresh SQLite schema migrates once and verifies configuration on reopen",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-sqlite-schema",
+          "behaviorId": "future-unknown-and-untracked-migration-states-fail-closed-without-rewriting-the-ledger",
+          "proofLocator": "future, unknown and untracked migration states fail closed without rewriting the ledger",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-sqlite-schema",
+          "behaviorId": "schema-enforces-project-ownership-json-shape-version-history-and-relation-endpoints",
+          "proofLocator": "schema enforces Project ownership, JSON shape, version history and relation endpoints",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-sqlite-schema",
+          "behaviorId": "version-body-serialization-validates-domain-shape-and-sorts-json-keys",
+          "proofLocator": "version body serialization validates domain shape and sorts JSON keys",
           "proofRole": "primary"
         }
       ]
