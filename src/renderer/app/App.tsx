@@ -144,10 +144,14 @@ import { WorkRoutingWorkspace } from "./WorkRoutingWorkspace";
 import { WorkArchitectAssessmentWorkspace } from "./WorkArchitectAssessmentWorkspace";
 import { WorkPlanWorkspace } from "./WorkPlanWorkspace";
 import { WorkItemDecompositionWorkspace, type DecompositionReturnTarget } from "./WorkItemDecompositionWorkspace";
+import { RoutedIssueBridge } from "./RoutedIssueBridge";
+import { RoutedIssueReturnNav } from "./RoutedIssueReturnNav";
+import { activateRoutedIssueWorkspace } from "./routedIssueNavigation";
 import { RoutedExecutionPanel } from "./RoutedExecutionPanel";
 import { shouldAttachArchitectSurface } from "./architectSurfaceEligibility";
 import type { WorkIntakeProjection } from "../../shared/workIntakeContracts";
 import type { WorkIntakeNavigationProjection, WorkIntakeStageId } from "../../shared/workIntakeNavigationContracts";
+import type { RoutedIssueLineage } from "../../shared/routedIssueLineageContracts";
 import { isWorkflowReviewDocument } from "./workflowReviewDocuments";
 import type { WorkflowId } from "../../shared/workflowHubContracts";
 import type {
@@ -364,6 +368,9 @@ export function App(): JSX.Element {
   const [issueInventory, setIssueInventory] =
     useState<IssueInventoryProjection | null>(null);
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
+  const [routedIssueLineage, setRoutedIssueLineage] = useState<RoutedIssueLineage | null>(null);
+  const [routedIssueRerouteRecommended, setRoutedIssueRerouteRecommended] = useState(false);
+  const [routedIssueReturnError, setRoutedIssueReturnError] = useState("");
   const [activeIssueStageId, setActiveIssueStageId] =
     useState<IssueResolutionStageId>("intake");
   const [issueArchitectProjection, setIssueArchitectProjection] =
@@ -698,6 +705,24 @@ export function App(): JSX.Element {
     }
     void refreshIssueInventory();
   }, [isIssueResolutionForeground, issueInventory, isIssueInventoryLoading]);
+
+  useEffect(() => {
+    let current = true;
+    setRoutedIssueLineage(null);
+    setRoutedIssueRerouteRecommended(false);
+    setRoutedIssueReturnError("");
+    if (isIssueResolutionForeground && currentIssue) {
+      void window.champcity.getRoutedIssueLineage(currentIssue.issueId).then(async (lineage) => {
+        if (!current) return;
+        setRoutedIssueLineage(lineage);
+        if (lineage) {
+          const route = await window.champcity.getWorkRouteDecision(lineage.intakeId);
+          if (current) setRoutedIssueRerouteRecommended(route.recommendation?.kind === "architect-reroute-recommendation");
+        }
+      }).catch((failure: unknown) => { if (current) setRoutedIssueReturnError(failure instanceof Error ? failure.message : "Routed Issue lineage could not be loaded."); });
+    }
+    return () => { current = false; };
+  }, [currentIssue?.issueId, isIssueResolutionForeground]);
 
   useEffect(() => {
     if (
@@ -2747,6 +2772,31 @@ export function App(): JSX.Element {
       ? current : navigation.requiredStageId);
   }
 
+  async function openRoutedIssueResolution(issueId: string): Promise<void> {
+    await activateRoutedIssueWorkspace(issueId, {
+      refreshInventory: (selectedId) => refreshIssueInventory(selectedId),
+      getNavigation: (selectedId) => window.champcity.getIssueResolutionNavigationProjection(selectedId),
+      selectIssue: setSelectedIssueId,
+      setNavigation: setIssueNavigationProjection,
+      setArchitectPlanning: () => setActiveIssueStageId("architect-planning"),
+      showIssueWorkflow: () => { setActiveWorkflowId("issue-resolution"); setShellView("workflow"); },
+    });
+  }
+
+  async function returnToRoutedWorkIntake(lineage: RoutedIssueLineage, stage: "routing" | "integration"): Promise<void> {
+    setRoutedIssueReturnError("");
+    try {
+      const navigation = await window.champcity.getWorkIntakeNavigation(lineage.intakeId);
+      if (stage === "integration" && !navigation.stages.some((entry) => entry.stageId === "integration" && entry.available)) {
+        throw Error("Work Intake Integration is not yet available. Refresh Issue completion evidence first.");
+      }
+      await refreshWorkIntakeNavigation(lineage.intakeId);
+      setActiveWorkIntakeStageId(stage);
+      setActiveWorkflowId(null);
+      setShellView("work-intake");
+    } catch (failure) { setRoutedIssueReturnError(failure instanceof Error ? failure.message : "Work Intake could not be opened."); }
+  }
+
   function returnToWorkflowHub(): void {
     setShellView("workflow-hub");
     setActiveWorkflowId(null);
@@ -2979,6 +3029,16 @@ export function App(): JSX.Element {
       setIssueArchitectProjection(result.projection);
       applyIssuePostMutationProjection(result.postMutation);
       setIssueArchitectActionFeedback(result.message);
+      try {
+        const lineage = routedIssueLineage ?? await window.champcity.getRoutedIssueLineage(currentIssue.issueId);
+        if (lineage?.issueId === currentIssue.issueId) {
+          await window.champcity.runWorkIssueAction(lineage.intakeId, "status");
+          const route = await window.champcity.getWorkRouteDecision(lineage.intakeId);
+          setRoutedIssueRerouteRecommended(route.recommendation?.kind === "architect-reroute-recommendation");
+        }
+      } catch (failure) {
+        setRoutedIssueReturnError(failure instanceof Error ? failure.message : "Routed Work Intake evidence could not be refreshed.");
+      }
     } catch (error) {
       setIssueArchitectActionError(error instanceof Error ? error.message : "Issue Architect review failed.");
       await refreshIssueArchitectPlanningProjection(currentIssue.issueId);
@@ -3120,7 +3180,12 @@ export function App(): JSX.Element {
       const navigation = await window.champcity.getIssueResolutionNavigationProjection(currentIssue.issueId);
       setIssueNavigationProjection(navigation);
       await refreshIssueInventory(currentIssue.issueId);
-      returnToWorkflowHub();
+      try {
+        const lineage = routedIssueLineage ?? await window.champcity.getRoutedIssueLineage(currentIssue.issueId);
+        if (lineage?.issueId !== currentIssue.issueId) returnToWorkflowHub();
+      } catch (failure) {
+        setRoutedIssueReturnError(failure instanceof Error ? failure.message : "Routed Issue lineage could not be loaded.");
+      }
     } catch (error) {
       setIssueCloseActionError(error instanceof Error ? error.message : "Issue Close failed.");
       await refreshIssueCloseProjection(currentIssue.issueId);
@@ -4008,6 +4073,10 @@ export function App(): JSX.Element {
           aria-labelledby="workspace-heading"
           ref={workspaceSurfaceRef}
         >
+          {isIssueResolutionForeground && routedIssueLineage ? <RoutedIssueReturnNav lineage={routedIssueLineage}
+            rerouteRecommended={routedIssueRerouteRecommended} error={routedIssueReturnError}
+            onReturnToRouting={(lineage) => void returnToRoutedWorkIntake(lineage, "routing")} /> : null}
+          {isIssueResolutionForeground && !routedIssueLineage && routedIssueReturnError ? <p role="alert">{routedIssueReturnError}</p> : null}
           {isLandingForeground ? (
             <LandingWorkspace
               feedback={documentError}
@@ -4032,6 +4101,8 @@ export function App(): JSX.Element {
                   await refreshWorkIntakeNavigation(intakeId);
                   setActiveWorkIntakeStageId("routing");
                 }} />
+            ) : activeWorkIntakeStageId === "routing" && workIntakeNavigation?.issueAssessmentExternallyOwned && workIntakeNavigation.selectedRouteId === "issue-resolution" ? (
+              <RoutedIssueBridge intakeId={selectedWorkIntakeId} onOpenIssue={openRoutedIssueResolution} />
             ) : activeWorkIntakeStageId === "routing" ? (
               <WorkRoutingWorkspace intake={workIntakeProjection.intakes.find((entry) => entry.intakeId === selectedWorkIntakeId)!}
                 browserPanel={routedArchitectBrowserPanel}
@@ -4301,6 +4372,8 @@ export function App(): JSX.Element {
               onClose={(input) => void runIssueClose(input)}
               onRefresh={() => void refreshIssueCloseProjection(currentIssue?.issueId, { synchronizeStage: true })}
               projection={issueCloseProjection}
+              routedIntakeId={routedIssueLineage?.intakeId}
+              onReturnToWorkIntake={routedIssueLineage ? () => void returnToRoutedWorkIntake(routedIssueLineage, "integration") : undefined}
             />
           ) : (
           <>

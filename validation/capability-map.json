@@ -2082,6 +2082,10 @@
           "description": "Closed and Needs Attention projections never expose another Close Issue action"
         },
         {
+          "behaviorId": "closed-routed-issue-offers-return-to-work-intake-integration",
+          "description": "Closed routed Issue offers return to originating Work Intake Integration"
+        },
+        {
           "behaviorId": "controlled-fix-card-dispositions-are-bound-to-the-exact-reviewed-body",
           "description": "controlled Fix Card dispositions are bound to the exact reviewed body"
         },
@@ -3257,8 +3261,10 @@
       "description": "Evidence-driven renderer navigation, document review, rails, dashboards, and workflow shell presentation.",
       "sourcePatterns": [
         "src/main/workIntake/workIntakeNavigationService.ts",
+        "src/main/workPlanning/routedIssueLineageService.ts",
         "src/renderer/app/**",
         "src/renderer/styles.css",
+        "src/shared/routedIssueLineageContracts.ts",
         "src/shared/workIntakeNavigationContracts.ts",
         "src/shared/workspaces/**"
       ],
@@ -3364,6 +3370,18 @@
           "description": "Issue evidence waits for a pre-existing App refresh and then performs exactly one fresh read"
         },
         {
+          "behaviorId": "issue-reframe-offers-return-to-work-intake-routing-without-selecting-route",
+          "description": "Issue reframe exposes return to Work Intake Routing without changing the Operator route"
+        },
+        {
+          "behaviorId": "issue-route-bridge-opens-once-and-continues-existing-issue",
+          "description": "Routed Issue bridge opens one Issue then continues the same Issue in existing workspaces"
+        },
+        {
+          "behaviorId": "issue-route-transition-selects-existing-architect-planning-workflow",
+          "description": "Routed Issue transition selects the Issue and existing Architect Planning workspace"
+        },
+        {
           "behaviorId": "landing-selection-feedback-remains-bounded-to-the-landing-surface",
           "description": "landing selection feedback remains bounded to the landing surface"
         },
@@ -3418,6 +3436,10 @@
         {
           "behaviorId": "routed-architect-attachment-follows-stage-evidence-and-preserves-peer-workflows",
           "description": "Architect attachment follows routed availability and preserves existing Development and Issue attachment"
+        },
+        {
+          "behaviorId": "routed-issue-lineage-is-queryable-from-canonical-handoff",
+          "description": "Routed Issue source lineage remains queryable from canonical handoff after UI reset or route supersession"
         },
         {
           "behaviorId": "routed-navigation-unlocks-only-evidenced-stages",
@@ -13724,8 +13746,8 @@
     {
       "testPath": "test/renderer/issue-close-workspace.test.cjs",
       "currentTestCount": {
-        "value": 3,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 4,
+        "basis": "Observed WIR-UX04B focused Windows run."
       },
       "duration": {
         "kind": "measured",
@@ -13769,6 +13791,12 @@
           "capabilityId": "issue-resolution-workflow",
           "behaviorId": "closed-and-needs-attention-projections-never-expose-another-close-issue-action",
           "proofLocator": "Closed and Needs Attention projections never expose another Close Issue action",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "issue-resolution-workflow",
+          "behaviorId": "closed-routed-issue-offers-return-to-work-intake-integration",
+          "proofLocator": "closed routed Issue offers return to Work Intake Integration",
           "proofRole": "primary"
         },
         {
@@ -15246,8 +15274,8 @@
     {
       "testPath": "test/renderer/work-intake-routed-workspaces.test.cjs",
       "currentTestCount": {
-        "value": 12,
-        "basis": "WIR-UX04A routed workspace assertions."
+        "value": 16,
+        "basis": "Observed WIR-UX04B focused Windows run."
       },
       "duration": {
         "kind": "measured",
@@ -15310,8 +15338,32 @@
         },
         {
           "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "issue-reframe-offers-return-to-work-intake-routing-without-selecting-route",
+          "proofLocator": "Issue reframe offers return to Work Intake Routing without selecting a replacement route",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "issue-route-bridge-opens-once-and-continues-existing-issue",
+          "proofLocator": "routed Issue bridge opens one Issue then continues the same Issue without duplicate RCA controls",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "issue-route-transition-selects-existing-architect-planning-workflow",
+          "proofLocator": "routed Issue transition selects existing Architect Planning and Issue workflow",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "routed-architect-attachment-follows-stage-evidence-and-preserves-peer-workflows",
           "proofLocator": "Architect attachment follows available routed stages and preserves Development and Issue cases",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "routed-issue-lineage-is-queryable-from-canonical-handoff",
+          "proofLocator": "routed Issue lineage remains queryable from canonical handoff after UI state is lost",
           "proofRole": "primary"
         },
         {

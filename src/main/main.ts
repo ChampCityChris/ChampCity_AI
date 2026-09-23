@@ -60,6 +60,7 @@ import type { RoutedWorkflowAction, RoutedWorkflowInput } from "../shared/routed
 import { copyWorkRoutingAssessment, getWorkRoutingAssessment, prepareWorkRoutingAssessment } from "./workIntake/workRoutingAssessmentService";
 import { decideWorkRoute, getWorkRouteDecision } from "./workIntake/workRouteDecisionService";
 import { runWorkIssueAction } from "./workPlanning/workIssueRoutingService";
+import { getRoutedIssueLineage } from "./workPlanning/routedIssueLineageService";
 import { workItemDecompositionService } from "./workCardPlanning/workItemDecompositionService";
 import type { WorkItemDecompositionReview } from "../shared/workItemDecompositionContracts";
 import type { WorkIssueAction, WorkIssueActionInput } from "../shared/issueResolutionContracts";
@@ -774,6 +775,7 @@ ipcMain.handle("workIssue:action", async (_event, intakeId: string, action: Work
   if (result.instruction) clipboard.writeText(result.instruction);
   return result.model;
 });
+ipcMain.handle("workIssue:lineage", (_event, issueId: string) => getRoutedIssueLineage(getRequiredWorkspaceRoot(), issueId));
 ipcMain.handle("workRoute:decide", (_event, intakeId: string, input: WorkRouteDecisionInput) => decideWorkRoute(getRequiredWorkspaceRoot(), intakeId, input));
 ipcMain.handle("workPlanning:status", (_event, intakeId: string, stage: WorkPlanningStage) => workPlanningKernel.get(getRequiredWorkspaceRoot(), intakeId, stage));
 ipcMain.handle("workDecomposition:status", (_event, intakeId: string, workItemId: string) => workItemDecompositionService.get(getRequiredWorkspaceRoot(), intakeId, workItemId));

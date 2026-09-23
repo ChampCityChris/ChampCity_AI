@@ -24,6 +24,7 @@ const api: ChampCityApi = {
   copyWorkRoutingAssessment: (intakeId) => ipcRenderer.invoke("workRouting:copy", intakeId),
   getWorkRouteDecision: (intakeId) => ipcRenderer.invoke("workRoute:status", intakeId),
   runWorkIssueAction: (intakeId, action, input) => ipcRenderer.invoke("workIssue:action", intakeId, action, input),
+  getRoutedIssueLineage: (issueId) => ipcRenderer.invoke("workIssue:lineage", issueId),
   decideWorkRoute: (intakeId, input) => ipcRenderer.invoke("workRoute:decide", intakeId, input),
   getWorkPlanning: (intakeId, stage) => ipcRenderer.invoke("workPlanning:status", intakeId, stage),
   getWorkItemDecomposition: (intakeId, workItemId) => ipcRenderer.invoke("workDecomposition:status", intakeId, workItemId),

@@ -1386,6 +1386,7 @@ export interface ChampCityApi {
   copyWorkRoutingAssessment: (intakeId: string) => Promise<void>;
   getWorkRouteDecision: (intakeId: string) => Promise<import("./workRouteDecisionContracts").WorkRouteDecisionModel>;
   runWorkIssueAction: (intakeId: string, action: import("./issueResolutionContracts").WorkIssueAction, input?: import("./issueResolutionContracts").WorkIssueActionInput) => Promise<import("./issueResolutionContracts").WorkIssueModel>;
+  getRoutedIssueLineage: (issueId: string) => Promise<import("./routedIssueLineageContracts").RoutedIssueLineage | null>;
   decideWorkRoute: (intakeId: string, input: import("./workRouteDecisionContracts").WorkRouteDecisionInput) => Promise<import("./workRouteDecisionContracts").WorkRouteDecisionModel>;
   getWorkPlanning: (intakeId: string, stage: import("./workPlanningContracts").WorkPlanningStage) => Promise<import("./workPlanningContracts").WorkPlanningModel>;
   getWorkItemDecomposition: (intakeId: string, workItemId: string) => Promise<import("./workItemDecompositionContracts").WorkItemDecompositionModel>;

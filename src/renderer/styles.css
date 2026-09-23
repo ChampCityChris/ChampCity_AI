@@ -8568,6 +8568,22 @@ body {
   min-height: 220px;
 }
 
+.routed-issue-bridge {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 16px;
+  padding: 20px;
+}
+
+.routed-issue-return {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
 @media (max-width: 900px) {
   .work-routing-workspace .work-intake-doc-chat-workspace,
   .work-routed-planning-workspace .work-intake-doc-chat-workspace,

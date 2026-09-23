@@ -15,6 +15,8 @@ export function IssueCloseWorkspace({
   onClose,
   onRefresh,
   projection,
+  routedIntakeId,
+  onReturnToWorkIntake,
 }: {
   actionError: string;
   actionFeedback: string;
@@ -24,6 +26,8 @@ export function IssueCloseWorkspace({
   onClose: (input: IssueCloseActionInput) => void;
   onRefresh: () => void;
   projection: IssueCloseProjection | null;
+  routedIntakeId?: string;
+  onReturnToWorkIntake?: () => void;
 }): JSX.Element {
   const validation = projection?.validationBasis;
   const canClose = Boolean(projection?.canCloseIssue && projection.validationBasisSha256) && !actionPending;
@@ -121,7 +125,8 @@ export function IssueCloseWorkspace({
       <section className="issue-close-final-action" aria-label="Final Issue close action">
         <div>
           <strong>Final Issue-level close record</strong>
-          <p>Closing this Issue returns to the Workflow Hub. It does not close, advance, reset, snapshot, restore, or otherwise alter Development state; any later Development entry uses the existing repository resolver.</p>
+          <p>{routedIntakeId ? "Closing this routed Issue preserves its Work Intake lineage. Return to Work Intake Integration after closure."
+            : "Closing this Issue returns to the Workflow Hub. It does not close, advance, reset, snapshot, restore, or otherwise alter Development state; any later Development entry uses the existing repository resolver."}</p>
           <span>{projection?.closeRecord.path ?? "issues/<ISSUE_ID>/Close_Records/ISSUE_CLOSE_RECORD_<ISSUE_ID>.md"}</span>
         </div>
         {projection?.canCloseIssue && projection.validationBasisSha256 ? (
@@ -134,6 +139,8 @@ export function IssueCloseWorkspace({
             {actionPending ? "Closing Issue..." : "Close Issue"}
           </button>
         ) : null}
+        {projection?.status === "closed" && routedIntakeId && onReturnToWorkIntake ? <button type="button" className="primary-action"
+          onClick={onReturnToWorkIntake}>Return to Work Intake Integration</button> : null}
       </section>
     </section>
   );

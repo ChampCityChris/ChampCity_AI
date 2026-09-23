@@ -12,6 +12,9 @@ const { WorkArchitectAssessmentWorkspace } = loadRendererSourceModule("src/rende
 const { WorkPlanWorkspace } = loadRendererSourceModule("src/renderer/app/WorkPlanWorkspace.tsx");
 const { RoutedPlanningWorkspace } = loadRendererSourceModule("src/renderer/app/RoutedPlanningWorkspace.tsx");
 const { WorkItemDecompositionWorkspace } = loadRendererSourceModule("src/renderer/app/WorkItemDecompositionWorkspace.tsx");
+const { RoutedIssueBridge } = loadRendererSourceModule("src/renderer/app/RoutedIssueBridge.tsx");
+const { RoutedIssueReturnNav } = loadRendererSourceModule("src/renderer/app/RoutedIssueReturnNav.tsx");
+const { activateRoutedIssueWorkspace } = loadRendererSourceModule("src/renderer/app/routedIssueNavigation.ts");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -253,4 +256,77 @@ test("opening decomposition from an approved Plan passes selected Work Item with
   assert.ok(open);
   open.props.onClick();
   assert.deepEqual(selected, ["WI01"]);
+});
+
+test("routed Issue bridge opens one Issue then continues the same Issue without duplicate RCA controls", async () => {
+  const originalWindow = global.window;
+  const calls = [];
+  global.window = { champcity: { async runWorkIssueAction(intakeId, action) {
+    calls.push({ intakeId, action }); return { issueId: "ISSUE_001" };
+  } } };
+  try {
+    const open = withState([{ issueId: null }, false, ""], () => RoutedIssueBridge({ intakeId: "intake-1",
+      async onOpenIssue(issueId) { calls.push({ opened: issueId }); } }));
+    const openMarkup = renderToStaticMarkup(open);
+    assert.match(openMarkup, /Open Issue Resolution/);
+    assert.doesNotMatch(openMarkup, /Approve RCA|Correction execution|RoutedExecutionPanel|Plan acceptance/);
+    elements(open).find((entry) => entry.type === "button").props.onClick();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(calls, [{ intakeId: "intake-1", action: "open" }, { opened: "ISSUE_001" }]);
+
+    calls.length = 0;
+    const continued = withState([{ issueId: "ISSUE_001" }, false, ""], () => RoutedIssueBridge({ intakeId: "intake-1",
+      async onOpenIssue(issueId) { calls.push({ opened: issueId }); } }));
+    assert.match(renderToStaticMarkup(continued), /Continue Issue Resolution/);
+    elements(continued).find((entry) => entry.type === "button").props.onClick();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(calls, [{ opened: "ISSUE_001" }]);
+  } finally { global.window = originalWindow; }
+});
+
+test("routed Issue transition selects existing Architect Planning and Issue workflow", async () => {
+  const steps = [];
+  await activateRoutedIssueWorkspace("ISSUE_001", {
+    async refreshInventory(issueId) { steps.push(`inventory:${issueId}`); },
+    async getNavigation(issueId) { steps.push(`navigation:${issueId}`); return { issueId }; },
+    selectIssue(issueId) { steps.push(`select:${issueId}`); },
+    setNavigation(value) { steps.push(`projection:${value.issueId}`); },
+    setArchitectPlanning() { steps.push("architect-planning"); },
+    showIssueWorkflow() { steps.push("issue-resolution"); },
+  });
+  assert.deepEqual(steps, ["inventory:ISSUE_001", "navigation:ISSUE_001", "select:ISSUE_001",
+    "projection:ISSUE_001", "architect-planning", "issue-resolution"]);
+});
+
+test("routed Issue lineage remains queryable from canonical handoff after UI state is lost", async (t) => {
+  const { seedPreparedRoutedWorkIntake, bypassWorkIntakeBranchVerification } = require("../support/work-intake-fixtures.cjs");
+  const fixture = seedPreparedRoutedWorkIntake(t, "issue-resolution");
+  bypassWorkIntakeBranchVerification(t);
+  const { runWorkIssueAction } = require("../../dist/main/workPlanning/workIssueRoutingService.js");
+  const { getRoutedIssueLineage } = require("../../dist/main/workPlanning/routedIssueLineageService.js");
+  const opened = await runWorkIssueAction(fixture.root, fixture.intake.intakeId, "open");
+  const issueId = opened.model.issueId;
+  const expected = { issueId, intakeId: fixture.intake.intakeId,
+    routeDecisionId: fixture.route.selection.decisionId, handoffPath: opened.model.handoffPath };
+  assert.deepEqual(getRoutedIssueLineage(fixture.root, issueId), expected);
+  assert.deepEqual(getRoutedIssueLineage(fixture.root, issueId), expected);
+  assert.equal(getRoutedIssueLineage(fixture.root, "ISSUE_999"), null);
+  const handoffFile = path.join(fixture.root, opened.model.handoffPath);
+  const { parseCanonicalMarkdownDocument, serializeCanonicalMarkdownDocument } = require("../../dist/shared/documents/canonicalMarkdown.js");
+  const handoff = parseCanonicalMarkdownDocument(fs.readFileSync(handoffFile, "utf8"));
+  fs.writeFileSync(handoffFile, serializeCanonicalMarkdownDocument({ ...handoff.metadata, participationRole: "historical" }, handoff.bodyMarkdown));
+  assert.deepEqual(getRoutedIssueLineage(fixture.root, issueId), expected, "superseded route still retains source lineage");
+});
+
+test("Issue reframe offers return to Work Intake Routing without selecting a replacement route", () => {
+  const lineage = { issueId: "ISSUE_001", intakeId: "intake-1", routeDecisionId: "decision-1", handoffPath: "planning/handoff.md" };
+  const calls = [];
+  const none = React.createElement(RoutedIssueReturnNav, { lineage, rerouteRecommended: false, error: "",
+    onReturnToRouting(value) { calls.push(value); } });
+  assert.doesNotMatch(renderToStaticMarkup(none), /Return to Work Intake Routing/);
+  const recommended = RoutedIssueReturnNav({ lineage, rerouteRecommended: true, error: "",
+    onReturnToRouting(value) { calls.push(value); } });
+  assert.match(renderToStaticMarkup(recommended), /Return to Work Intake Routing/);
+  elements(recommended).find((entry) => entry.type === "button").props.onClick();
+  assert.deepEqual(calls, [lineage]);
 });
