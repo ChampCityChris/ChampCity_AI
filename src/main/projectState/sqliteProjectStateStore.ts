@@ -174,6 +174,18 @@ function readPort(database: DatabaseSync, assertOpen: () => void, useSnapshot = 
   };
 }
 
+/** Read-only projection access: opening this port never initializes or migrates a store. */
+export function createSQLiteProjectStateReader(databasePath: string): ProjectStateReadPort & { close(): void } {
+  if (!path.isAbsolute(databasePath) || databasePath.startsWith("\\\\") || databasePath.startsWith("//")) {
+    throw new ProjectStateStoreError("INVALID_STATE", "Project State requires an absolute local database path.");
+  }
+  const database = new DatabaseSync(databasePath, { readOnly: true, timeout: PROJECT_STATE_BUSY_TIMEOUT_MS, defensive: true, allowExtension: false });
+  if (typeof database.enableDefensive === "function") database.enableDefensive(true);
+  let closed = false;
+  return { ...readPort(database, () => { if (closed) throw new ProjectStateStoreError("INVALID_STATE", "Project State reader is closed."); }, true),
+    close() { if (!closed) { closed = true; database.close(); } } };
+}
+
 function insertVersion(database: DatabaseSync, entity: ProjectStateEntity): void {
   const common = [entity.projectId, entity.recordVersion, entity.schemaVersion, entity.lineageId, entity.lifecycleState,
     entity.dispositionState ?? null, entity.createdAt, JSON.stringify(entity.createdBy), entity.updatedAt,

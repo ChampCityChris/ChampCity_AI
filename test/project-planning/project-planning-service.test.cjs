@@ -367,7 +367,7 @@ test("routed Development binding preserves approved direct and phased sources an
     await assert.rejects(activate(root, intake.intakeId));
     assert.notEqual(git("rev-parse", "HEAD"), headBeforeReroute, "reroute disposition checkpoints the prior source line");
     verifyMock.mock.restore();
-    git("switch", "--force", "main");
+    git("switch", "--force", "dev");
     assert.equal(await read(root, intake.intakeId), null, "base branch has no routed execution binding");
   });
   await t.test("Issue route cannot use Development binding", async (t) => {

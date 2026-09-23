@@ -94,13 +94,18 @@ export interface IntegrationCandidateRequest {
   target: IntegrationTarget;
 }
 
-export interface SourceGraphOptions { maxRevisions?: number; includeCompleted?: boolean }
+export interface SourceGraphOptions { maxRevisions?: number; maxLines?: number; includeCompleted?: boolean }
 export interface SourceGraph {
   repositoryId: string;
-  integrationTargets: IntegrationTarget[];
-  sourceLines: SourceLine[];
-  revisions: Array<{ revisionId: string; parents: string[]; sourceLineIds: string[]; timestamp: string }>;
-  workBindings: Array<{ workIntakeId: string; sourceLineId: string; title: string; route: string; lifecycleState: string; integrationState: string }>;
+  /** Opaque graph IDs are deterministic for an unchanged repository/ref identity. */
+  integrationTargets: Array<{ id: string; lineId: string; headRevisionId: string }>;
+  sourceLines: Array<{ id: string; headRevisionId: string; providerBranchName?: string; role: "main" | "dev" | "work"; workIntakeIds: string[] }>;
+  revisions: Array<{ id: string; parents: string[]; timestamp: string; headOfLineIds: string[]; checkpointKinds: Array<"implementation" | "disposition">; integrationStates: string[] }>;
+  workBindings: Array<{ workIntakeId: string; lineId: string | null; title: string; route: string | null; workType: string | null;
+    lifecycleState: string; workflowState: string | null; checkpointKinds: Array<"implementation" | "disposition">; integrationState: string | null }>;
+  truncation: { maxRevisions: number; maxLines: number; revisionsTruncated: boolean; linesTruncated: boolean;
+    omittedParentLinks: number; workBindingsTruncated: boolean };
+  providerDiagnostics: { provider: "git"; currentBranch?: string; metadata: "available" | "missing" | "unavailable" };
 }
 
 /** Operations become available incrementally as their package cards implement them. */
@@ -108,4 +113,5 @@ export interface RepositoryLifecycleFoundation {
   bootstrapProjectSource(): Promise<SourceControlResult<ProjectSourceBootstrap>>;
   resolveSourceRevision(selector: SourceRevisionSelector): Promise<SourceControlResult<SourceRevision>>;
   createWorkSource(input: CreateWorkSourceInput): Promise<SourceControlResult<WorkSourceBinding>>;
+  getSourceGraph(options?: SourceGraphOptions): Promise<SourceControlResult<SourceGraph>>;
 }

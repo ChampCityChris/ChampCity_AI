@@ -3755,6 +3755,10 @@
           "description": "source and lifecycle checkpoints bind attributed files to the current Intake branch and reject unrelated or stale evidence"
         },
         {
+          "behaviorId": "source-graph-projects-bounded-branch-ancestry-and-workflow-meaning",
+          "description": "read-only source graph projects bounded branch and merge ancestry with optional Work Intake semantics"
+        },
+        {
           "behaviorId": "status-recovers-the-latest-completed-candidate-validation-and-its-safe-receipts",
           "description": "status recovers the latest completed candidate validation and its safe receipts"
         },
@@ -18320,6 +18324,25 @@
         { "capabilityId": "semantic-source-checkpoints", "behaviorId": "implementation-checkpoint-attribution-and-idempotence", "proofLocator": "implementation checkpoint commits attributed file and duplicate retry returns exact revision", "proofRole": "primary" },
         { "capabilityId": "semantic-source-checkpoints", "behaviorId": "operator-disposition-creates-empty-lifecycle-revision", "proofLocator": "operator disposition creates an evidenced empty lifecycle revision", "proofRole": "primary" },
         { "capabilityId": "semantic-source-checkpoints", "behaviorId": "retry-reconciles-committed-source-after-binding-failure", "proofLocator": "retry reconciles a committed source revision after a failed binding update", "proofRole": "primary" }
+      ]
+    },
+    {
+      "testPath": "test/source-control/source-graph-projection.test.cjs",
+      "currentTestCount": { "value": 2, "basis": "SCL08 focused graph topology and metadata fixtures." },
+      "duration": { "kind": "measured", "milliseconds": 4700, "basis": "Observed focused normal Windows SCL08 run." },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": { "electron": false, "filesystem": true, "git": true, "network": false, "process": true, "timing": false },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": ["capability"],
+      "execution": { "requiresBuild": true, "platform": "any", "externalCapabilities": [], "scheduling": "parallel-safe",
+        "schedulingReason": "Each fixture owns an isolated temporary Git and SQLite repository.",
+        "ownedResources": ["bounded-child-process", "isolated-git-fixture", "temp-filesystem-isolated"] },
+      "proofCharacteristics": ["behavioral"],
+      "dispositionReasons": ["current-proof-appropriate"],
+      "behaviorCoverage": [
+        { "capabilityId": "release-and-git-operations", "behaviorId": "source-graph-projects-bounded-branch-ancestry-and-workflow-meaning", "proofLocator": "five branch heads, merged ancestry, semantic bindings, bounded truncation and metadata fallback", "proofRole": "primary" }
       ]
     },
     {

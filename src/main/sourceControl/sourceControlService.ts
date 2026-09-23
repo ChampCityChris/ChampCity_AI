@@ -20,10 +20,11 @@ import type {
   SourceControlOperation, SourceControlPosition,
   SourceControlReceipt, SourceControlResult,
 } from "../../shared/sourceControlContracts";
-import type { CreateWorkSourceInput, ProjectSourceBootstrap, SourceRevisionSelector, WorkSourceBinding } from "../../shared/sourceLifecycleContracts";
+import type { CreateWorkSourceInput, ProjectSourceBootstrap, SourceGraphOptions, SourceRevisionSelector, WorkSourceBinding } from "../../shared/sourceLifecycleContracts";
 import { workIntakeBranchName } from "./workSourceNaming";
 import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
 import { bootstrapProjectSource as establishProjectSource } from "./projectSourceBootstrap";
+import { getSourceGraph } from "./sourceGraphService";
 
 /** Called by trusted main-process services with a selected repository, without MCP/model mediation. */
 export function createSourceControlService(binding: { repositoryId: string; repositoryRoot: string; managedWorkspaces?: ManagedWorkspaceStore }) {
@@ -110,6 +111,7 @@ export function createSourceControlService(binding: { repositoryId: string; repo
   const changedFiles = () => inspectGitChangedFiles(root);
 
   return {
+    getSourceGraph: (options?: SourceGraphOptions) => run("source-graph", false, () => getSourceGraph(root, repositoryId, options)),
     bootstrapProjectSource: async (): Promise<SourceControlResult<ProjectSourceBootstrap>> => {
       const receipt: SourceControlReceipt = { repositoryId, operation: "bootstrap-project-source", startedAt: new Date().toISOString(),
         completedAt: "", before: null, after: null };
