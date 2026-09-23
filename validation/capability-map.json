@@ -3391,6 +3391,29 @@
       ]
     },
     {
+      "capabilityId": "project-workflow-state-facade",
+      "description": "Structured Project, Architect Planning and Work Intake semantics with a fenced legacy Markdown compatibility writer.",
+      "sourcePatterns": [
+        "src/main/documents/canonicalMarkdownDocumentWriter.ts",
+        "src/main/documents/legacyCanonicalWriteFence.ts",
+        "src/main/projectState/projectWorkflowStateFacade.ts"
+      ],
+      "dependsOn": [
+        "project-state-service",
+        "project-state-store"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "legacy-canonical-writes-stop-after-structured-authority-selection",
+          "description": "Legacy canonical writes remain available before cutover and stop after durable structured authority selection"
+        },
+        {
+          "behaviorId": "structured-project-architect-planning-and-intake-do-not-read-markdown",
+          "description": "Project, Architect Planning and Work Intake execute against structured records without Markdown discovery"
+        }
+      ]
+    },
+    {
       "capabilityId": "release-and-git-operations",
       "description": "Candidate validation, bounded Git mutations, release actions, and repository-state evidence.",
       "sourcePatterns": [
@@ -13867,6 +13890,64 @@
           "capabilityId": "project-state-service",
           "behaviorId": "phased-plan-derives-nested-membership-and-milestone-proof",
           "proofLocator": "phased plan derives nested membership and Phase milestone proof",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/project-workflow-facade.test.cjs",
+      "currentTestCount": {
+        "value": 2,
+        "basis": "Two SCL01W synthetic structured workflow and legacy authority fence scenarios."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 207,
+        "basis": "Observed normal Windows focused SCL01W test receipt."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Each case uses an isolated temporary SQLite workspace.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "project-workflow-state-facade",
+          "behaviorId": "legacy-canonical-writes-stop-after-structured-authority-selection",
+          "proofLocator": "legacy canonical writer remains compatible before cutover and is fenced by durable structured authority",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-workflow-state-facade",
+          "behaviorId": "structured-project-architect-planning-and-intake-do-not-read-markdown",
+          "proofLocator": "Project, Architect Planning and Work Intake execute from Structured Project State without Markdown",
           "proofRole": "primary"
         }
       ]

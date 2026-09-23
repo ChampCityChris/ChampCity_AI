@@ -1,0 +1,21 @@
+import fs from "node:fs";
+import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
+
+/** Temporary V1 compatibility fence: legacy writes end when the durable provider generation selects structured authority. */
+export function assertLegacyCanonicalWriteAllowed(workspaceRoot: string): void {
+  const root = fs.realpathSync(workspaceRoot);
+  const appRoot = path.join(root, ".champcity");
+  if (!fs.existsSync(appRoot)) return;
+  if (fs.lstatSync(appRoot).isSymbolicLink() || !fs.lstatSync(appRoot).isDirectory() || path.dirname(fs.realpathSync(appRoot)) !== root) {
+    throw Error("Application authority storage escapes the selected workspace.");
+  }
+  const databasePath = path.join(appRoot, "project-state.sqlite");
+  if (!fs.existsSync(databasePath)) return;
+  if (fs.lstatSync(databasePath).isSymbolicLink() || !fs.lstatSync(databasePath).isFile()) throw Error("Project State authority store is invalid.");
+  const database = new DatabaseSync(databasePath, { readOnly: true });
+  try {
+    const row = database.prepare("SELECT COUNT(*) AS selected FROM project_state_authority WHERE authority = 'structured'").get() as { selected: number };
+    if (row.selected > 0) throw Error("Legacy canonical Markdown writes are fenced after Structured Project State authority selection.");
+  } finally { database.close(); }
+}
