@@ -3078,8 +3078,16 @@
           "description": "advisory assessments and Operator reroutes preserve history and current route"
         },
         {
+          "behaviorId": "authoritative-context-preserves-exact-identity-decisions-validation-and-source-references",
+          "description": "Bounded authoritative context preserves exact identities, decisions, validations and source references"
+        },
+        {
           "behaviorId": "bounded-record-filters-and-pagination-expose-current-and-historical-results",
           "description": "Bounded record filters and pagination expose deterministic current and historical results"
+        },
+        {
+          "behaviorId": "committed-event-feed-replays-with-idempotent-derived-cursor",
+          "description": "Committed Project State events replay with an idempotent derived consumer cursor"
         },
         {
           "behaviorId": "current-project-state-view-derives-route-work-repair-validation-and-source",
@@ -13221,6 +13229,63 @@
           "capabilityId": "project-planning-workflow",
           "behaviorId": "project-planning-source-revision-invalidates-prior-handoff-and-outputs",
           "proofLocator": "project planning source revision invalidates prior handoff and outputs",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/authoritative-context-event-feed.test.cjs",
+      "currentTestCount": {
+        "value": 4,
+        "basis": "Two context and committed-feed scenarios across in-memory and SQLite adapters introduced by SCL01R."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 2630,
+        "basis": "Observed normal Windows focused SCL01R test receipt."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Per-test temporary SQLite file and isolated in-memory adapter.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "authoritative-context-preserves-exact-identity-decisions-validation-and-source-references",
+          "proofLocator": "bounded authoritative context retains exact identities, decisions, validations and source references",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "committed-event-feed-replays-with-idempotent-derived-cursor",
+          "proofLocator": "committed feed replays by sequence and derived cursor is idempotent",
           "proofRole": "primary"
         }
       ]

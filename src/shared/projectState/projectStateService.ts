@@ -2,7 +2,7 @@ import type { DispositionState, EntityBodyMap, EntityId, EntityType, LifecycleSt
 import { assertSupersession } from "./domainInvariants";
 import { createProjectStateEntity, ENTITY_TYPE_REGISTRY, ProjectStateDomainError, validateProjectStateEntity } from "./entityTypeRegistry";
 import { createRelationship as createDomainRelationship, RELATIONSHIP_REGISTRY, type ProjectStateRelationship, type RelationshipType } from "./relationshipRegistry";
-import type { ProjectStateStore, ProjectStateUnitOfWork, StateChange } from "./projectStateStore";
+import type { ProjectStateOutboxEvent, ProjectStateStore, ProjectStateUnitOfWork, StateChange } from "./projectStateStore";
 
 export interface RecordQuery { entityType?: EntityType; lifecycleState?: LifecycleState; workflowId?: EntityId; workItemId?: EntityId; decisionId?: EntityId; decisionOutcome?: string; dispositionState?: DispositionState; updatedFrom?: string; updatedThrough?: string; relatedTo?: EntityId; relationshipType?: RelationshipType; relationshipDirection?: "from" | "to" | "either"; current?: boolean; offset?: number; limit?: number }
 export interface RecordQueryPage { records: ProjectStateEntity[]; offset: number; limit: number; totalMatches: number; truncated: boolean; nextOffset: number | null }
@@ -23,6 +23,10 @@ export type ProjectionType = "work-intake" | "work-item" | "repair" | "fix" | "v
 export interface ProjectionMetadata { projectionType: ProjectionType; projectionVersion: 1; projectId: ProjectId; sourceEntityIds: EntityId[]; generatedAt: string; authoritative: false }
 export interface RenderedProjectStateView { metadata: ProjectionMetadata; markdown: string }
 export interface StructuredProjectStateExport { exportVersion: 1; projectId: ProjectId; generatedAt: string; authoritative: true; records: ProjectStateEntity[]; history: { entityId: EntityId; versions: ProjectStateEntity[] }[]; relationships: ProjectStateRelationship[]; stateChanges: StateChange[] }
+export type AuthoritativeContextScope = "project" | "workflow" | "work-item" | "work-intake";
+export interface AuthoritativeContext { projectId: ProjectId; scope: AuthoritativeContextScope; rootEntityId: EntityId; authoritative: true; records: ProjectStateEntity[]; relationships: ProjectStateRelationship[]; decisions: EntityId[]; validations: EntityId[]; sourceReferences: { entityId: EntityId; field: string; reference: string }[]; offset: number; limit: number; totalMatches: number; truncated: boolean; nextOffset: number | null }
+export interface DerivedEventCursor { projectId: ProjectId; sequence: number; eventId: string | null }
+export interface CommittedEventFeed { projectId: ProjectId; events: ProjectStateOutboxEvent[]; nextCursor: DerivedEventCursor; hasMore: boolean }
 export interface ProjectStateSummary { projectId: ProjectId; totalRecords: number; activeRecords: number; countsByType: Partial<Record<EntityType, number>> }
 export interface RecordHistory { lineageId: string; records: ProjectStateEntity[] }
 export interface RecordLineage { records: ProjectStateEntity[]; relationships: ProjectStateRelationship[] }
@@ -53,6 +57,18 @@ function fail(message: string): never { throw new ProjectStateDomainError(messag
 const dispositionOutcomes = new Set<DispositionState>(["advisory", "proposed", "approved", "revision_requested", "accepted", "rejected", "revoked"]);
 const workRoutes = new Set<WorkRoute>(["greenfield", "feature-change", "refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype", "issue-resolution"]);
 const lifecycleAssessmentStatuses = new Set<TestLifecycleAssessmentStatus>(["PRESERVE", "REWRITE_CANDIDATE", "SPLIT_CANDIDATE", "CONSOLIDATE_CANDIDATE", "MIGRATE_CANDIDATE", "RETIRE_CANDIDATE", "QUARANTINE_CANDIDATE", "NEEDS_TESTER_REVIEW"]);
+/** Consumers persist this cursor in their own derived store; Project State never owns that checkpoint. */
+export function advanceDerivedEventCursor(cursor: DerivedEventCursor, event: ProjectStateOutboxEvent): DerivedEventCursor {
+  if (!cursor || typeof cursor.projectId !== "string" || !Number.isSafeInteger(cursor.sequence) || cursor.sequence < 0 || (cursor.sequence === 0 ? cursor.eventId !== null : typeof cursor.eventId !== "string" || !cursor.eventId)) fail("Invalid derived event cursor.");
+  if (event.projectId !== cursor.projectId) fail("Derived event cursor Project mismatch.");
+  if (event.sequence < cursor.sequence) return cursor;
+  if (event.sequence === cursor.sequence) {
+    if (event.id !== cursor.eventId) fail("Derived event cursor conflicts with a committed event.");
+    return cursor;
+  }
+  if (event.sequence !== cursor.sequence + 1) fail("Derived event cursor has a sequence gap.");
+  return { projectId: cursor.projectId, sequence: event.sequence, eventId: event.id };
+}
 function validateTestPath(path: string) {
   if (typeof path !== "string" || path.length > 512 || !/^test\/(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+\.test\.cjs$/.test(path) || path.split("/").includes("..")) fail("Permanent test locator must be a repository-relative test path.");
 }
@@ -1082,6 +1098,72 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return { exportVersion: 1, projectId, generatedAt: new Date().toISOString(), authoritative: true,
       records, history, relationships, stateChanges };
   }
+
+  async function getAuthoritativeContext(projectId: ProjectId,
+    request: { scope: AuthoritativeContextScope; entityId?: EntityId; offset?: number; limit?: number }): Promise<AuthoritativeContext> {
+    exactInput(request, ["scope", "entityId", "offset", "limit"]);
+    if (!["project", "workflow", "work-item", "work-intake"].includes(request.scope)) fail("Unsupported authoritative context scope.");
+    const limit = request.limit ?? 50;
+    const offset = request.offset ?? 0;
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) fail("Context limit must be between 1 and 100.");
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset > 10_000) fail("Context offset must be between 0 and 10000.");
+    const rootId = request.scope === "project" ? projectId : request.entityId;
+    if (!rootId || request.scope === "project" && request.entityId && request.entityId !== projectId) fail("Context root does not match its scope.");
+    const root = await requiredRecord(store, projectId, rootId);
+    const expected: Record<AuthoritativeContextScope, EntityType> = { project: "Project", workflow: "Workflow", "work-item": "WorkItem", "work-intake": "WorkIntake" };
+    if (root.entityType !== expected[request.scope]) fail("Context root has the wrong entity type.");
+    const all = (await store.listEntities(projectId)).filter(record => record.lifecycleState !== "superseded" && record.lifecycleState !== "voided");
+    const byId = new Map(all.map(record => [record.id, record]));
+    const edges = (await store.listRelationships(projectId)).filter(edge => !edge.endedAt);
+    const distance = new Map<EntityId, number>([[rootId, 0]]);
+    if (request.scope === "project") {
+      for (const record of all) distance.set(record.id, 0);
+    } else {
+      for (let depth = 0; depth < 3; depth++) {
+        for (const edge of edges) {
+          if (distance.get(edge.fromEntityId) === depth && byId.has(edge.toEntityId) && !distance.has(edge.toEntityId)) distance.set(edge.toEntityId, depth + 1);
+          if (distance.get(edge.toEntityId) === depth && byId.has(edge.fromEntityId) && !distance.has(edge.fromEntityId)) distance.set(edge.fromEntityId, depth + 1);
+        }
+      }
+    }
+    const matching = [...distance.keys()].map(id => byId.get(id)).filter((record): record is ProjectStateEntity => !!record)
+      .sort((a, b) => (distance.get(a.id) ?? 0) - (distance.get(b.id) ?? 0) || a.id.localeCompare(b.id));
+    const records = matching.slice(offset, offset + limit);
+    const ids = new Set(records.map(record => record.id));
+    const relationships = edges.filter(edge => ids.has(edge.fromEntityId) || ids.has(edge.toEntityId))
+      .sort((a, b) => a.id.localeCompare(b.id));
+    if (relationships.length > 1000) fail("Context relationships exceed their bound.");
+    const sourceReferences: AuthoritativeContext["sourceReferences"] = [];
+    for (const record of records) {
+      if (!["SourceBinding", "SourceCheckpoint", "IntegrationRecord", "Validation", "Evidence", "ProjectResource"].includes(record.entityType)) continue;
+      for (const [field, reference] of Object.entries(record.body)) {
+        if (typeof reference === "string" && /(?:repositoryId|SourceLineId|RevisionId|CheckoutId|sourceBaselineRef)$/.test(field)) sourceReferences.push({ entityId: record.id, field, reference });
+      }
+    }
+    sourceReferences.sort((a, b) => a.entityId.localeCompare(b.entityId) || a.field.localeCompare(b.field));
+    const nextOffset = offset + records.length < matching.length ? offset + records.length : null;
+    return { projectId, scope: request.scope, rootEntityId: rootId, authoritative: true, records, relationships,
+      decisions: records.filter(record => record.entityType === "Decision").map(record => record.id),
+      validations: records.filter(record => record.entityType === "Validation").map(record => record.id),
+      sourceReferences, offset, limit, totalMatches: matching.length, truncated: nextOffset !== null, nextOffset };
+  }
+
+  async function getCommittedEventFeed(projectId: ProjectId,
+    request: { cursor?: DerivedEventCursor; limit?: number } = {}): Promise<CommittedEventFeed> {
+    exactInput(request, ["cursor", "limit"]);
+    if (!await store.getProject(projectId)) fail("Event feed Project does not exist.");
+    const limit = request.limit ?? 100;
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) fail("Event feed limit must be between 1 and 100.");
+    const cursor = request.cursor ?? { projectId, sequence: 0, eventId: null };
+    if (cursor.projectId !== projectId || !Number.isSafeInteger(cursor.sequence) || cursor.sequence < 0 || (cursor.sequence === 0 ? cursor.eventId !== null : typeof cursor.eventId !== "string" || !cursor.eventId)) fail("Invalid event feed cursor.");
+    const fromCheckpoint = await store.listOutbox(projectId, Math.max(0, cursor.sequence - 1));
+    if (cursor.sequence > 0 && (fromCheckpoint[0]?.sequence !== cursor.sequence || fromCheckpoint[0].id !== cursor.eventId)) fail("Event feed cursor does not identify a committed event.");
+    const pending = cursor.sequence > 0 ? fromCheckpoint.slice(1) : fromCheckpoint;
+    const events = pending.slice(0, limit);
+    let nextCursor = cursor;
+    for (const event of events) nextCursor = advanceDerivedEventCursor(nextCursor, event);
+    return { projectId, events, nextCursor, hasMore: pending.length > limit };
+  }
   async function supersessionChain(projectId: ProjectId, identity: EntityId): Promise<ProjectStateEntity[] | null> {
     const record = await store.getEntity(projectId, identity);
     if (!record) return null;
@@ -1481,7 +1563,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     createSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, createIntegrationRecord, advanceIntegrationRecord,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
     reviseRecord, supersedeRecord, createRelationship, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, completeWorkItem, completePhase,
-    getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, renderView, exportStructuredProjectState, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
+    getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, renderView, exportStructuredProjectState, getAuthoritativeContext, getCommittedEventFeed, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
     getEffectiveDisposition, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus,
     getImplementationAttempts, getExecutionPlan, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,
     getWorkRouteHistory, getCurrentWorkRoute, getWorkIntakeSummary, getSourceSemanticView, getRegressionObligationView };
