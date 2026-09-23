@@ -3082,6 +3082,10 @@
           "description": "effective disposition requires a current human Operator Decision"
         },
         {
+          "behaviorId": "evidence-identity-provenance-and-immutable-external-payload-metadata",
+          "description": "Evidence identity, provenance and immutable external payload metadata remain queryable"
+        },
+        {
           "behaviorId": "history-orders-same-timestamp-successor-by-explicit-edge",
           "description": "history orders a same-timestamp successor by the explicit edge rather than lexical identity"
         },
@@ -3092,6 +3096,10 @@
         {
           "behaviorId": "operator-decision-query-follows-explicit-criterion-policy",
           "description": "Operator Decision query follows explicit Criterion policy"
+        },
+        {
+          "behaviorId": "policy-class-and-latest-fresh-validation-control-criterion-proof",
+          "description": "policy class and latest fresh Validation control Criterion proof"
         },
         {
           "behaviorId": "projectstateservice-creates-revises-and-supersedes-with-mechanical-identity-and-history",
@@ -3108,6 +3116,10 @@
         {
           "behaviorId": "typed-decision-validation-and-evidence-commands-derive-trusted-attribution-and-enforce-relationsh",
           "description": "typed Decision, Validation and Evidence commands derive trusted attribution and enforce relationships"
+        },
+        {
+          "behaviorId": "validation-target-version-and-source-baseline-determine-freshness",
+          "description": "Validation target version and source baseline determine freshness without deleting history"
         }
       ]
     },
@@ -13279,6 +13291,69 @@
           "capabilityId": "project-state-domain",
           "behaviorId": "revision-and-supersession-invariants-retain-identity-lineage-and-immutable-history",
           "proofLocator": "revision and supersession invariants retain identity, lineage and immutable history",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/evidence-validation-freshness.test.cjs",
+      "currentTestCount": {
+        "value": 6,
+        "basis": "Three Evidence, Validation and freshness scenarios across in-memory and SQLite adapters introduced by SCL01K."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 270,
+        "basis": "Observed normal Windows focused SCL01K test receipt."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Per-test temporary SQLite file and isolated in-memory adapter.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "evidence-identity-provenance-and-immutable-external-payload-metadata",
+          "proofLocator": "exact target version and source baseline determine historical proof freshness",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "policy-class-and-latest-fresh-validation-control-criterion-proof",
+          "proofLocator": "policy and latest fresh result control completion-relevant proof",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "validation-target-version-and-source-baseline-determine-freshness",
+          "proofLocator": "exact target version and source baseline determine historical proof freshness",
           "proofRole": "primary"
         }
       ]

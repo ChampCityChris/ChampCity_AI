@@ -10,7 +10,7 @@ const { createProjectStateService } = require("../../dist/shared/projectState/pr
 const operator = { principalId: "operator", principalType: "human", role: "Operator" };
 const model = { principalId: "model", principalType: "agent", role: "Architect" };
 const workBody = { workItemKind: "feature", title: "Work", objective: "Build", workState: "ready" };
-const criterionBody = { statement: "Human choice", criticality: "required", verificationIntent: "operator_decision", criterionState: "open" };
+const criterionBody = { statement: "Human choice", criticality: "required", verificationIntent: "Obtain the reserved choice", validationPolicy: "operator_decision", criterionState: "open" };
 
 function sqliteFixture(context) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-decision-test-"));
@@ -70,7 +70,7 @@ function register(name, factory) {
     const service = createProjectStateService(store, operator);
     const project = await service.createRecord(null, "Project", { name: "Synthetic", description: "Project" });
     const work = await service.createRecord(project.id, "WorkItem", workBody);
-    const ordinary = await service.createRecord(project.id, "Criterion", { ...criterionBody, statement: "Automated", verificationIntent: "deterministic" });
+    const ordinary = await service.createRecord(project.id, "Criterion", { ...criterionBody, statement: "Automated", validationPolicy: "deterministic" });
     await service.createRelationship(project.id, work.id, "defines_criterion", ordinary.id);
     assert.deepEqual(await service.getRequiredOperatorDecisions(project.id), []);
     const required = await service.createRecord(project.id, "Criterion", criterionBody);

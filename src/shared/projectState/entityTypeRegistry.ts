@@ -1,6 +1,6 @@
 import { PROJECT_STATE_SCHEMA_VERSION, type EntityBodyMap, type EntityType, type PrincipalRef, type ProjectId, type ProjectStateEntity, type ProjectStateRecord, type Provenance, type RecordEnvelope } from "./domainContracts";
 
-type FieldKind = "text" | "id" | "instant" | "number" | "text-list" | "id-list" | "principal" | "digest";
+type FieldKind = "text" | "id" | "instant" | "number" | "version" | "text-list" | "id-list" | "principal" | "digest";
 type FieldRule = FieldKind | readonly string[];
 interface EntityDefinition { schemaVersion: typeof PROJECT_STATE_SCHEMA_VERSION; required: Readonly<Record<string, FieldRule>>; optional?: Readonly<Record<string, FieldRule>>; immutableAfterCreation: boolean }
 
@@ -21,11 +21,11 @@ export const ENTITY_TYPE_REGISTRY: Readonly<Record<EntityType, EntityDefinition>
   Finding: { schemaVersion: 1, required: { title: text, statement: text, category: text, impact: text, observedAt: instant, findingState: text }, optional: { confidence: "number" }, immutableAfterCreation: false },
   RootCause: { schemaVersion: 1, required: { title: text, statement: text, rationale: text, rootCauseState: text }, optional: { confidence: "number" }, immutableAfterCreation: false },
   BoundedSolution: { schemaVersion: 1, required: { title: text, objective: text, scopeIn: textList, scopeOut: textList, constraints: textList, assumptions: textList, risks: textList, solutionState: text }, immutableAfterCreation: false },
-  Criterion: { schemaVersion: 1, required: { statement: text, criticality: ["required", "optional", "informational"], verificationIntent: text, criterionState: text }, immutableAfterCreation: false },
+  Criterion: { schemaVersion: 1, required: { statement: text, criticality: ["required", "optional", "informational"], verificationIntent: text, validationPolicy: ["deterministic", "semantic_ai", "visual_human", "deferred_visual_phase", "operator_decision"], criterionState: text }, immutableAfterCreation: false },
   WorkItem: { schemaVersion: 1, required: { workItemKind: text, title: text, objective: text, workState: text }, optional: { startedAt: instant, implementedAt: instant }, immutableAfterCreation: false },
   ImplementationRecord: { schemaVersion: 1, required: { workItemId: id, summary: text, deviations: textList, blockers: textList, residualRisks: textList, outcome: text }, optional: { executionRef: text }, immutableAfterCreation: true },
-  Validation: { schemaVersion: 1, required: { validationType: text, method: text, outcome: ["pass", "fail", "blocked", "inconclusive"], performedBy: "principal", performedAt: instant, summary: text }, immutableAfterCreation: true },
-  Evidence: { schemaVersion: 1, required: { evidenceType: text, description: text, capturedAt: instant, capturedBy: "principal", mediaType: text, payloadRef: text, digest: "digest" }, optional: { size: "number" }, immutableAfterCreation: false },
+  Validation: { schemaVersion: 1, required: { validationType: text, method: text, validationMode: ["deterministic", "semantic_ai", "visual_human"], outcome: ["pass", "fail", "blocked", "inconclusive"], targetEntityId: id, targetRecordVersion: "version", performedBy: "principal", performedAt: instant, summary: text }, optional: { sourceBaselineRef: text }, immutableAfterCreation: true },
+  Evidence: { schemaVersion: 1, required: { evidenceType: text, description: text, capturedAt: instant, capturedBy: "principal", mediaType: text, payloadRef: text, digest: "digest" }, optional: { size: "number" }, immutableAfterCreation: true },
   Decision: { schemaVersion: 1, required: { decisionType: text, outcome: text, rationale: text, decisionRole: text, decisionScope: text, decidedBy: "principal", decidedAt: instant, effectiveAt: instant }, immutableAfterCreation: true },
   RegressionObligation: { schemaVersion: 1, required: { title: text, statement: text, obligationState: text }, optional: { testReferenceId: id, sourceWorkItemId: id }, immutableAfterCreation: false },
   SourceBinding: { schemaVersion: 1, required: { workIntakeId: id, repositoryId: text, integrationTargetSourceLineId: text, preparationState: ["unprepared", "preparing", "ready", "blocked"] }, optional: { baseRevisionId: text, workSourceLineId: text, currentRevisionId: text, repositoryCheckoutId: text, failureCode: text }, immutableAfterCreation: false },
@@ -76,6 +76,7 @@ function checkField(value: unknown, rule: FieldRule, label: string) {
     case "id": canonicalId(value, label); return;
     case "instant": canonicalInstant(value, label); return;
     case "number": if (typeof value !== "number" || !Number.isFinite(value) || value < 0) fail(`${label} must be a nonnegative finite number.`); return;
+    case "version": if (!Number.isSafeInteger(value) || (value as number) < 1) fail(`${label} must be a positive record version.`); return;
     case "digest": if (typeof value !== "string" || !/^[a-f0-9]{64}$/i.test(value)) fail(`${label} must be a SHA-256 digest.`); return;
     case "principal": principal(value, label); return;
     case "text-list": case "id-list":

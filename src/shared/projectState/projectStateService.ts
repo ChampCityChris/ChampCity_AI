@@ -1,4 +1,4 @@
-import type { DispositionState, EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef, ProjectId, ProjectStateEntity, ProjectStateRecord } from "./domainContracts";
+import type { DispositionState, EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef, ProjectId, ProjectStateEntity, ProjectStateRecord, ValidationMode } from "./domainContracts";
 import { assertSupersession } from "./domainInvariants";
 import { createProjectStateEntity, ENTITY_TYPE_REGISTRY, ProjectStateDomainError, validateProjectStateEntity } from "./entityTypeRegistry";
 import { createRelationship as createDomainRelationship, type ProjectStateRelationship, type RelationshipType } from "./relationshipRegistry";
@@ -12,6 +12,9 @@ export interface MutationContext { reason?: string; causationId?: string; correl
 export interface DecisionInput { decisionType: string; outcome: string; decisionScope: string; rationale?: string; effectiveAt?: string }
 export interface EffectiveDisposition { state: DispositionState; decisionId: EntityId | null; effectiveAt: string | null }
 export interface RequiredOperatorDecision { criterionId: EntityId; targetId: EntityId; currentDisposition: DispositionState }
+export type ValidationStaleReason = "target-version-changed" | "target-superseded" | "source-baseline-changed";
+export interface ValidationFreshness { validationId: EntityId; targetEntityId: EntityId; targetRecordVersion: number; current: boolean; staleReason: ValidationStaleReason | null }
+export interface CriterionValidationStatus { criterionId: EntityId; policy: EntityBodyMap["Criterion"]["validationPolicy"]; satisfied: boolean; validationId: EntityId | null; reason: "current-pass" | "no-current-validation" | "latest-validation-not-pass" | "deferred-to-phase" | "operator-decision-required" }
 export const PROJECT_STATE_EVENT_TYPES = Object.freeze({
   create: "project-state.record-created",
   revise: "project-state.record-revised",
@@ -49,7 +52,7 @@ function checkedContext(context: MutationContext | undefined, defaultReason: str
   }
   return { ...context, reason: context.reason ?? defaultReason };
 }
-async function requiredRecord(unit: ProjectStateUnitOfWork, projectId: ProjectId, entityId: EntityId): Promise<ProjectStateEntity> {
+async function requiredRecord(unit: Pick<ProjectStateUnitOfWork, "getEntity">, projectId: ProjectId, entityId: EntityId): Promise<ProjectStateEntity> {
   const record = await unit.getEntity(projectId, entityId);
   if (!record) fail("Project State record does not exist in this Project.");
   return record;
@@ -172,10 +175,11 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     });
   }
 
-  async function recordLinked(projectId: ProjectId, targetId: EntityId, entityType: "Decision" | "Validation" | "Evidence", body: Record<string, unknown>, relationshipType: "governs" | "evaluates" | "supports", context?: MutationContext) {
+  async function recordLinked(projectId: ProjectId, targetId: EntityId, entityType: "Decision" | "Validation" | "Evidence", body: Record<string, unknown> | ((target: ProjectStateEntity) => Record<string, unknown>), relationshipType: "governs" | "evaluates" | "supports", context?: MutationContext) {
     return store.transaction(projectId, async unit => {
       const target = await requiredRecord(unit, projectId, targetId);
-      const record = createProjectStateEntity({ entityType, projectId, body: body as EntityBodyMap[typeof entityType], principal: trustedPrincipal });
+      const resolvedBody = typeof body === "function" ? body(target) : body;
+      const record = createProjectStateEntity({ entityType, projectId, body: resolvedBody as EntityBodyMap[typeof entityType], principal: trustedPrincipal });
       await unit.saveEntity(record as unknown as ProjectStateEntity, null);
       await recordMutation(unit, { projectId, entityId: record.id, fromVersion: null, toVersion: 1,
         operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: record.createdAt,
@@ -240,13 +244,30 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     });
   }
 
-  async function recordValidation(projectId: ProjectId, targetId: EntityId, input: { validationType: string; method: string; outcome: "pass" | "fail" | "blocked" | "inconclusive"; summary: string }, context?: MutationContext) {
-    const content = exactInput(input, ["validationType", "method", "outcome", "summary"]);
-    return recordLinked(projectId, targetId, "Validation", { ...content, performedBy: trustedPrincipal, performedAt: new Date().toISOString() }, "evaluates", context);
+  async function recordValidation(projectId: ProjectId, targetId: EntityId, input: { validationType: string; method: string; validationMode?: ValidationMode; outcome: "pass" | "fail" | "blocked" | "inconclusive"; summary: string; targetRecordVersion?: number; sourceBaselineRef?: string }, context?: MutationContext) {
+    exactInput(input, ["validationType", "method", "validationMode", "outcome", "summary", "targetRecordVersion", "sourceBaselineRef"]);
+    return recordLinked(projectId, targetId, "Validation", target => {
+      if (input.targetRecordVersion !== undefined && input.targetRecordVersion !== target.recordVersion) fail("Validation target version is stale.");
+      const mode = input.validationMode ?? "deterministic";
+      if (!(["deterministic", "semantic_ai", "visual_human"] as const).includes(mode)) fail("Unsupported validation mode.");
+      if (mode === "visual_human" && trustedPrincipal.principalType !== "human") fail("Visual validation requires a human performer.");
+      if (target.entityType === "Criterion") {
+        const policy = target.body.validationPolicy;
+        if (policy === "operator_decision") fail("An Operator Decision cannot be replaced by Validation.");
+        const requiredMode = policy === "deferred_visual_phase" ? "visual_human" : policy;
+        if (mode !== requiredMode) fail("Validation mode does not satisfy Criterion policy.");
+      }
+      return { validationType: input.validationType, method: input.method, validationMode: mode, outcome: input.outcome,
+        summary: input.summary, targetEntityId: target.id, targetRecordVersion: target.recordVersion,
+        ...(input.sourceBaselineRef === undefined ? {} : { sourceBaselineRef: input.sourceBaselineRef }),
+        performedBy: trustedPrincipal, performedAt: new Date().toISOString() };
+    }, "evaluates", context);
   }
 
   async function recordEvidence(projectId: ProjectId, targetId: EntityId, input: { evidenceType: string; description: string; mediaType: string; payloadRef: string; digest: string; size?: number }, context?: MutationContext) {
     const content = exactInput(input, ["evidenceType", "description", "mediaType", "payloadRef", "digest", "size"]);
+    if (typeof input.payloadRef !== "string" || !/^[a-z][a-z0-9+.-]*:[^\s]+$/i.test(input.payloadRef) || /^data:/i.test(input.payloadRef)) fail("Evidence payload must use an external reference, not inline bytes.");
+    if (input.size !== undefined && (!Number.isSafeInteger(input.size) || input.size < 0)) fail("Evidence size must be a nonnegative integer.");
     return recordLinked(projectId, targetId, "Evidence", { ...content, capturedBy: trustedPrincipal, capturedAt: new Date().toISOString() }, "supports", context);
   }
 
@@ -338,6 +359,52 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return evidence.filter((record): record is ProjectStateEntity => record?.entityType === "Evidence");
   }
 
+  async function getValidationFreshness(projectId: ProjectId, validationId: EntityId, currentSourceBaselineRef?: string): Promise<ValidationFreshness> {
+    const record = await requiredRecord(store, projectId, validationId);
+    if (record.entityType !== "Validation") fail("Validation identity is required.");
+    if (currentSourceBaselineRef !== undefined && (typeof currentSourceBaselineRef !== "string" || currentSourceBaselineRef.length === 0)) fail("Current source baseline reference is invalid.");
+    const target = await store.getEntity(projectId, record.body.targetEntityId);
+    const edges = (await store.listRelationships(projectId, "evaluates"))
+      .filter(edge => edge.fromEntityId === validationId && edge.toEntityId === record.body.targetEntityId && !edge.endedAt);
+    if (!target || edges.length !== 1) fail("Validation target binding is missing or inconsistent.");
+    const staleReason: ValidationStaleReason | null = target.lifecycleState === "superseded" || target.lifecycleState === "voided"
+      ? "target-superseded" : target.recordVersion !== record.body.targetRecordVersion
+        ? "target-version-changed" : record.body.sourceBaselineRef !== currentSourceBaselineRef
+          ? "source-baseline-changed" : null;
+    return { validationId, targetEntityId: target.id, targetRecordVersion: record.body.targetRecordVersion,
+      current: staleReason === null, staleReason };
+  }
+
+  async function getCriterionValidationStatus(projectId: ProjectId, criterionId: EntityId, currentSourceBaselineRef?: string): Promise<CriterionValidationStatus> {
+    const criterion = await requiredRecord(store, projectId, criterionId);
+    if (criterion.entityType !== "Criterion") fail("Criterion identity is required.");
+    const policy = criterion.body.validationPolicy;
+    if (policy === "operator_decision") return { criterionId, policy, satisfied: false, validationId: null, reason: "operator-decision-required" };
+    if (policy === "deferred_visual_phase") {
+      const owners = (await store.listRelationships(projectId, "defines_criterion"))
+        .filter(edge => edge.toEntityId === criterionId && !edge.endedAt);
+      const entities = await Promise.all(owners.map(edge => store.getEntity(projectId, edge.fromEntityId)));
+      if (!entities.some(entity => entity?.entityType === "Phase")) return { criterionId, policy, satisfied: false, validationId: null, reason: "deferred-to-phase" };
+    }
+    const requiredMode: ValidationMode = policy === "deferred_visual_phase" ? "visual_human" : policy;
+    const validationIds = new Set((await store.listRelationships(projectId, "evaluates"))
+      .filter(edge => edge.toEntityId === criterionId && !edge.endedAt).map(edge => edge.fromEntityId));
+    const validations = (await store.listEntities(projectId, "Validation"))
+      .filter((record): record is ProjectStateRecord<"Validation"> => record.entityType === "Validation")
+      .filter(record => validationIds.has(record.id) && record.body.validationMode === requiredMode);
+    const sequenceById = new Map((await store.listOutbox(projectId))
+      .filter(event => event.entityId && event.payload.operation === "create").map(event => [event.entityId as string, event.sequence]));
+    const fresh = [];
+    for (const validation of validations) {
+      if ((await getValidationFreshness(projectId, validation.id, currentSourceBaselineRef)).current) fresh.push(validation);
+    }
+    fresh.sort((a, b) => (sequenceById.get(a.id) ?? 0) - (sequenceById.get(b.id) ?? 0) || a.id.localeCompare(b.id));
+    const latest = fresh.at(-1);
+    if (!latest) return { criterionId, policy, satisfied: false, validationId: null, reason: "no-current-validation" };
+    return { criterionId, policy, satisfied: latest.body.outcome === "pass", validationId: latest.id,
+      reason: latest.body.outcome === "pass" ? "current-pass" : "latest-validation-not-pass" };
+  }
+
   async function getEffectiveDisposition(projectId: ProjectId, targetId: EntityId, asOf = new Date().toISOString()): Promise<EffectiveDisposition> {
     if (!canonicalInstant(asOf)) fail("Disposition query time must be canonical UTC.");
     if (!await store.getEntity(projectId, targetId)) fail("Disposition target does not exist in this Project.");
@@ -368,7 +435,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   async function getRequiredOperatorDecisions(projectId: ProjectId): Promise<RequiredOperatorDecision[]> {
     const criteria = (await store.listEntities(projectId, "Criterion"))
       .filter((record): record is ProjectStateRecord<"Criterion"> => record.entityType === "Criterion")
-      .filter(record => record.lifecycleState === "active" && record.body.verificationIntent === "operator_decision");
+      .filter(record => record.lifecycleState === "active" && record.body.validationPolicy === "operator_decision");
     const definitions = (await store.listRelationships(projectId, "defines_criterion")).filter(edge => !edge.endedAt);
     const pending: RequiredOperatorDecision[] = [];
     for (const criterion of criteria) {
@@ -385,5 +452,5 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
 
   return { createRecord, reviseRecord, supersedeRecord, createRelationship, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence,
     getRecord, queryRecords, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
-    getEffectiveDisposition, getRequiredOperatorDecisions };
+    getEffectiveDisposition, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus };
 }

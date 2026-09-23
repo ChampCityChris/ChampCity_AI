@@ -13,6 +13,8 @@ export interface Provenance { origin: "native" | "legacy-import" | "external"; s
 /** Existence, workflow progress and effective disposition are separate dimensions. */
 export type LifecycleState = "active" | "closed" | "archived" | "superseded" | "voided";
 export type DispositionState = "none" | "advisory" | "proposed" | "approved" | "revision_requested" | "accepted" | "rejected" | "revoked";
+export type ValidationPolicyClass = "deterministic" | "semantic_ai" | "visual_human" | "deferred_visual_phase" | "operator_decision";
+export type ValidationMode = "deterministic" | "semantic_ai" | "visual_human";
 export const PROJECT_STATE_SCHEMA_VERSION = 1 as const;
 
 export interface RecordEnvelope<T extends EntityType = EntityType> {
@@ -45,10 +47,10 @@ export interface EntityBodyMap {
   Finding: { title: string; statement: string; category: string; impact: string; observedAt: string; findingState: string; confidence?: number };
   RootCause: { title: string; statement: string; rationale: string; confidence?: number; rootCauseState: string };
   BoundedSolution: { title: string; objective: string; scopeIn: string[]; scopeOut: string[]; constraints: string[]; assumptions: string[]; risks: string[]; solutionState: string };
-  Criterion: { statement: string; criticality: "required" | "optional" | "informational"; verificationIntent: string; criterionState: string };
+  Criterion: { statement: string; criticality: "required" | "optional" | "informational"; verificationIntent: string; validationPolicy: ValidationPolicyClass; criterionState: string };
   WorkItem: { workItemKind: string; title: string; objective: string; workState: string; startedAt?: string; implementedAt?: string };
   ImplementationRecord: { workItemId: EntityId; summary: string; deviations: string[]; blockers: string[]; residualRisks: string[]; outcome: string; executionRef?: string };
-  Validation: { validationType: string; method: string; outcome: "pass" | "fail" | "blocked" | "inconclusive"; performedBy: PrincipalRef; performedAt: string; summary: string };
+  Validation: { validationType: string; method: string; validationMode: ValidationMode; outcome: "pass" | "fail" | "blocked" | "inconclusive"; targetEntityId: EntityId; targetRecordVersion: number; sourceBaselineRef?: string; performedBy: PrincipalRef; performedAt: string; summary: string };
   Evidence: { evidenceType: string; description: string; capturedAt: string; capturedBy: PrincipalRef; mediaType: string; payloadRef: string; digest: string; size?: number };
   Decision: { decisionType: string; outcome: string; rationale: string; decisionRole: string; decisionScope: string; decidedBy: PrincipalRef; decidedAt: string; effectiveAt: string };
   RegressionObligation: { title: string; statement: string; obligationState: string; testReferenceId?: EntityId; sourceWorkItemId?: EntityId };
