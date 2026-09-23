@@ -2524,6 +2524,26 @@
       ]
     },
     {
+      "capabilityId": "legacy-authority-inventory",
+      "description": "Read-only bounded inventory and hash-addressed snapshot of current V1 Markdown authority.",
+      "sourcePatterns": [
+        "src/main/migrations/legacyAuthorityInventory.ts"
+      ],
+      "dependsOn": [
+        "canonical-document-storage"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "legacy-conflicts-are-explicit",
+          "description": "Duplicate, malformed, mismatched and oversized authority is reported explicitly"
+        },
+        {
+          "behaviorId": "legacy-snapshot-is-complete-repeatable-and-read-only",
+          "description": "Canonical legacy documents, provenance, bindings and source revisions yield a repeatable read-only snapshot"
+        }
+      ]
+    },
+    {
       "capabilityId": "phase-execution-workflow",
       "description": "Phase map, interview, planning, validation, close, and renderer transition behavior.",
       "sourcePatterns": [
@@ -11842,6 +11862,64 @@
           "capabilityId": "workflow-lifecycle-resolution",
           "behaviorId": "visible-workspaces-are-registry-definitions-with-current-labels-and-architect-interview",
           "proofLocator": "visible workspaces are registry definitions with current labels and Architect Interview",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/migration/legacy-authority-inventory.test.cjs",
+      "currentTestCount": {
+        "value": 3,
+        "basis": "Three SCL01T inventory repeatability, conflict and bound fixtures."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 106,
+        "basis": "Observed normal Windows focused SCL01T fixture run."
+      },
+      "proposedValidationLane": "migration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "migration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Each fixture owns a unique temporary workspace.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "legacy-authority-inventory",
+          "behaviorId": "legacy-conflicts-are-explicit",
+          "proofLocator": "legacy inventory exposes duplicate identity, malformed metadata and source revision conflict",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "legacy-authority-inventory",
+          "behaviorId": "legacy-snapshot-is-complete-repeatable-and-read-only",
+          "proofLocator": "legacy authority snapshot is complete, hash addressed, repeatable and read only",
           "proofRole": "primary"
         }
       ]
