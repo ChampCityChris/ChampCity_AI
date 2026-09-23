@@ -3015,6 +3015,36 @@
       ]
     },
     {
+      "capabilityId": "project-state-store",
+      "description": "Asynchronous Project State store semantics and cross-adapter conformance.",
+      "sourcePatterns": [
+        "src/shared/projectState/inMemoryProjectStateStore.ts",
+        "src/shared/projectState/projectStateStore.ts",
+        "test/support/project-state-store-conformance.cjs"
+      ],
+      "dependsOn": [
+        "project-state-domain"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "in-memory-projectstatestore-atomic-project-entity-versions-and-optimistic-writes",
+          "description": "in-memory ProjectStateStore: atomic Project/entity versions and optimistic writes"
+        },
+        {
+          "behaviorId": "in-memory-projectstatestore-audit-outbox-and-provider-generation-commit-or-roll-back-together",
+          "description": "in-memory ProjectStateStore: audit, outbox and provider generation commit or roll back together"
+        },
+        {
+          "behaviorId": "in-memory-projectstatestore-concurrent-writers-serialize-while-readers-see-committed-state",
+          "description": "in-memory ProjectStateStore: concurrent writers serialize while readers see committed state"
+        },
+        {
+          "behaviorId": "in-memory-projectstatestore-relationship-rules-and-project-isolation",
+          "description": "in-memory ProjectStateStore: relationship rules and Project isolation"
+        }
+      ]
+    },
+    {
       "capabilityId": "release-and-git-operations",
       "description": "Candidate validation, bounded Git mutations, release actions, and repository-state evidence.",
       "sourcePatterns": [
@@ -12993,6 +13023,75 @@
           "capabilityId": "project-state-domain",
           "behaviorId": "revision-and-supersession-invariants-retain-identity-lineage-and-immutable-history",
           "proofLocator": "revision and supersession invariants retain identity, lineage and immutable history",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/store-conformance.test.cjs",
+      "currentTestCount": {
+        "value": 4,
+        "basis": "Four adapter-neutral conformance scenarios introduced by SCL01C."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 500,
+        "basis": "In-memory adapter with synthetic records; estimate pending supported Windows receipt."
+      },
+      "proposedValidationLane": "fast",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": false,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Synthetic in-memory state per test with no shared mutable resources.",
+        "ownedResources": [
+          "pure-stateless"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "project-state-store",
+          "behaviorId": "in-memory-projectstatestore-atomic-project-entity-versions-and-optimistic-writes",
+          "proofLocator": "in-memory ProjectStateStore: atomic Project/entity versions and optimistic writes",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-store",
+          "behaviorId": "in-memory-projectstatestore-audit-outbox-and-provider-generation-commit-or-roll-back-together",
+          "proofLocator": "in-memory ProjectStateStore: audit, outbox and provider generation commit or roll back together",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-store",
+          "behaviorId": "in-memory-projectstatestore-concurrent-writers-serialize-while-readers-see-committed-state",
+          "proofLocator": "in-memory ProjectStateStore: concurrent writers serialize while readers see committed state",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-store",
+          "behaviorId": "in-memory-projectstatestore-relationship-rules-and-project-isolation",
+          "proofLocator": "in-memory ProjectStateStore: relationship rules and Project isolation",
           "proofRole": "primary"
         }
       ]
