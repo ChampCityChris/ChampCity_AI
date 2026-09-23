@@ -3003,6 +3003,14 @@
         {
           "behaviorId": "registry-rejects-unknown-type-unsupported-fields-and-invalid-envelope-semantics",
           "description": "registry rejects unknown type, unsupported fields, and invalid envelope semantics"
+        },
+        {
+          "behaviorId": "relationship-registry-enforces-direction-endpoint-existence-project-ownership-and-provenance",
+          "description": "relationship registry enforces direction, endpoint existence, Project ownership and provenance"
+        },
+        {
+          "behaviorId": "revision-and-supersession-invariants-retain-identity-lineage-and-immutable-history",
+          "description": "revision and supersession invariants retain identity, lineage and immutable history"
         }
       ]
     },
@@ -12917,8 +12925,8 @@
     {
       "testPath": "test/project-state/domain-contracts.test.cjs",
       "currentTestCount": {
-        "value": 3,
-        "basis": "Three focused domain tests introduced by SCL01A."
+        "value": 5,
+        "basis": "Three domain contract tests from SCL01A and two invariant tests from SCL01B."
       },
       "duration": {
         "kind": "estimated",
@@ -12973,6 +12981,18 @@
           "capabilityId": "project-state-domain",
           "behaviorId": "registry-rejects-unknown-type-unsupported-fields-and-invalid-envelope-semantics",
           "proofLocator": "registry rejects unknown type, unsupported fields, and invalid envelope semantics",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-domain",
+          "behaviorId": "relationship-registry-enforces-direction-endpoint-existence-project-ownership-and-provenance",
+          "proofLocator": "relationship registry enforces direction, endpoint existence, Project ownership and provenance",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-domain",
+          "behaviorId": "revision-and-supersession-invariants-retain-identity-lineage-and-immutable-history",
+          "proofLocator": "revision and supersession invariants retain identity, lineage and immutable history",
           "proofRole": "primary"
         }
       ]

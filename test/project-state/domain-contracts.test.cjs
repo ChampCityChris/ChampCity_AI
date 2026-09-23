@@ -3,6 +3,8 @@ const { randomUUID } = require("node:crypto");
 const test = require("node:test");
 
 const { ENTITY_TYPE_REGISTRY, createProjectStateEntity, validateProjectStateEntity } = require("../../dist/shared/projectState/entityTypeRegistry.js");
+const { RELATIONSHIP_REGISTRY, createRelationship, assertRelationshipEnd, validateRelationship } = require("../../dist/shared/projectState/relationshipRegistry.js");
+const { assertRevision, assertSupersession, assertNoHardDelete } = require("../../dist/shared/projectState/domainInvariants.js");
 const principal = { principalId: "system", principalType: "system", role: "state-service" };
 const now = new Date().toISOString();
 const linkedId = randomUUID();
@@ -60,4 +62,45 @@ test("registry enforces text, list, timestamp and total record bounds", () => {
   assert.throws(() => validateProjectStateEntity({ ...valid, body: { ...valid.body, constraints: Array(128).fill("x".repeat(4096)) } }), /byte bound/);
   assert.throws(() => validateProjectStateEntity({ ...valid, createdAt: "yesterday" }), /UTC instant/);
   assert.throws(() => validateProjectStateEntity({ ...valid, provenance: { origin: "native", extra: "x" } }), /unsupported/);
+});
+
+test("relationship registry enforces direction, endpoint existence, Project ownership and provenance", () => {
+  const projectId = randomUUID();
+  const finding = createProjectStateEntity({ entityType: "Finding", projectId, body: bodies.Finding, principal });
+  const cause = createProjectStateEntity({ entityType: "RootCause", projectId, body: bodies.RootCause, principal });
+  const other = createProjectStateEntity({ entityType: "Finding", projectId: randomUUID(), body: bodies.Finding, principal });
+  const intake = createProjectStateEntity({ entityType: "WorkIntake", projectId, body: bodies.WorkIntake, principal });
+  const source = createProjectStateEntity({ entityType: "SourceBinding", projectId, body: { ...bodies.SourceBinding, workIntakeId: intake.id }, principal });
+  const entities = new Map([finding, cause, other, intake, source].map(entity => [entity.id, entity]));
+  const lookup = id => entities.get(id);
+  const link = createRelationship({ projectId, fromEntityId: cause.id, relationshipType: "explains", toEntityId: finding.id, createdBy: principal }, lookup);
+  assert.equal(validateRelationship(link, lookup).id, link.id);
+  assert.throws(() => assertRelationshipEnd(link, now), /Immutable provenance/);
+  assert.equal(createRelationship({ projectId, fromEntityId: source.id, relationshipType: "binds_source", toEntityId: intake.id, createdBy: principal }, lookup).relationshipType, "binds_source");
+  assert.ok(Object.hasOwn(RELATIONSHIP_REGISTRY, "proves"));
+  assert.throws(() => createRelationship({ projectId, fromEntityId: finding.id, relationshipType: "explains", toEntityId: cause.id, createdBy: principal }, lookup), /direction/);
+  assert.throws(() => createRelationship({ projectId, fromEntityId: cause.id, relationshipType: "explains", toEntityId: other.id, createdBy: principal }, lookup), /one Project/);
+  assert.throws(() => createRelationship({ projectId, fromEntityId: cause.id, relationshipType: "explains", toEntityId: randomUUID(), createdBy: principal }, lookup), /does not exist/);
+  assert.throws(() => createRelationship({ projectId, fromEntityId: cause.id, relationshipType: "invented", toEntityId: finding.id, createdBy: principal }, lookup), /Unregistered/);
+});
+
+test("revision and supersession invariants retain identity, lineage and immutable history", () => {
+  const projectId = randomUUID();
+  const original = createProjectStateEntity({ entityType: "BoundedSolution", projectId, body: bodies.BoundedSolution, principal });
+  const revised = { ...original, recordVersion: 2, body: { ...original.body, objective: "Revised objective" } };
+  assert.doesNotThrow(() => assertRevision(original, revised));
+  assert.throws(() => assertRevision(original, { ...revised, lineageId: randomUUID() }), /identity/);
+  assert.throws(() => assertRevision(original, { ...revised, recordVersion: 3 }), /one version/);
+  const terminal = { ...original, recordVersion: 2, lifecycleState: "superseded", supersededAt: now };
+  const successor = { ...createProjectStateEntity({ entityType: "BoundedSolution", projectId, body: bodies.BoundedSolution, principal }), lineageId: original.lineageId };
+  assert.doesNotThrow(() => assertSupersession(original, terminal, successor));
+  assert.throws(() => assertSupersession(original, terminal, { ...successor, lineageId: randomUUID() }), /shared type/);
+  const linked = new Map([terminal, successor].map(entity => [entity.id, entity]));
+  assert.equal(createRelationship({ projectId, fromEntityId: successor.id, relationshipType: "supersedes", toEntityId: terminal.id, createdBy: principal }, id => linked.get(id)).relationshipType, "supersedes");
+  assert.throws(() => createRelationship({ projectId, fromEntityId: terminal.id, relationshipType: "supersedes", toEntityId: successor.id, createdBy: principal }, id => linked.get(id)), /successor|predecessor/);
+  const decision = createProjectStateEntity({ entityType: "Decision", projectId, body: bodies.Decision, principal });
+  assert.throws(() => assertRevision(decision, { ...decision, recordVersion: 2 }), /Immutable/);
+  const evidence = createProjectStateEntity({ entityType: "Evidence", projectId, body: bodies.Evidence, principal });
+  assert.throws(() => assertRevision(evidence, { ...evidence, recordVersion: 2 }, { evidenceReliedUpon: true }), /Immutable/);
+  assert.throws(() => assertNoHardDelete(), /hard-deleted/);
 });

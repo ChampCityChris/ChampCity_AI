@@ -25,7 +25,7 @@ export const ENTITY_TYPE_REGISTRY: Readonly<Record<EntityType, EntityDefinition>
   WorkItem: { schemaVersion: 1, required: { workItemKind: text, title: text, objective: text, workState: text }, optional: { startedAt: instant, implementedAt: instant }, immutableAfterCreation: false },
   ImplementationRecord: { schemaVersion: 1, required: { workItemId: id, summary: text, deviations: textList, blockers: textList, residualRisks: textList, outcome: text }, optional: { executionRef: text }, immutableAfterCreation: true },
   Validation: { schemaVersion: 1, required: { validationType: text, method: text, outcome: ["pass", "fail", "blocked", "inconclusive"], performedBy: "principal", performedAt: instant, summary: text }, immutableAfterCreation: true },
-  Evidence: { schemaVersion: 1, required: { evidenceType: text, description: text, capturedAt: instant, capturedBy: "principal", mediaType: text, payloadRef: text, digest: "digest" }, optional: { size: "number" }, immutableAfterCreation: true },
+  Evidence: { schemaVersion: 1, required: { evidenceType: text, description: text, capturedAt: instant, capturedBy: "principal", mediaType: text, payloadRef: text, digest: "digest" }, optional: { size: "number" }, immutableAfterCreation: false },
   Decision: { schemaVersion: 1, required: { decisionType: text, outcome: text, rationale: text, decisionRole: text, decisionScope: text, decidedBy: "principal", decidedAt: instant, effectiveAt: instant }, immutableAfterCreation: true },
   RegressionObligation: { schemaVersion: 1, required: { title: text, statement: text, obligationState: text }, optional: { testReferenceId: id, sourceWorkItemId: id }, immutableAfterCreation: false },
   SourceBinding: { schemaVersion: 1, required: { workIntakeId: id, repositoryId: text, integrationTargetSourceLineId: text, preparationState: ["unprepared", "preparing", "ready", "blocked"] }, optional: { baseRevisionId: text, workSourceLineId: text, currentRevisionId: text, repositoryCheckoutId: text, failureCode: text }, immutableAfterCreation: false },
@@ -34,7 +34,7 @@ export const ENTITY_TYPE_REGISTRY: Readonly<Record<EntityType, EntityDefinition>
 });
 
 export class ProjectStateDomainError extends Error {
-  readonly code = "INVALID_PROJECT_STATE";
+  readonly code: string = "INVALID_PROJECT_STATE";
   constructor(message: string) { super(message); this.name = "ProjectStateDomainError"; }
 }
 
