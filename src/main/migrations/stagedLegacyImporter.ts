@@ -5,10 +5,12 @@ import type { EntityBodyMap, EntityType, PrincipalRef, ProjectStateEntity } from
 import { validateProjectStateEntity } from "../../shared/projectState/entityTypeRegistry";
 import type { ProjectStateRelationship, RelationshipType } from "../../shared/projectState/relationshipRegistry";
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
+import { PROJECT_STATE_DATABASE_SCHEMA_VERSION } from "../projectState/sqliteSchema";
 import { inventoryLegacyMarkdownAuthority, type LegacyAuthorityDocument, type LegacyAuthoritySnapshot } from "./legacyAuthorityInventory";
 
 const principal: PrincipalRef = { principalId: "legacy-importer", principalType: "system", role: "migration" };
 const importTime = "2000-01-01T00:00:00.000Z";
+export const STAGED_LEGACY_IMPORTER_VERSION = 2;
 const workKinds = new Map<string, EntityBodyMap["WorkItem"]["workItemKind"]>([["formal-work-card", "feature"], ["repair-work-card", "repair"], ["fix-card", "fix"]]);
 const maxSemanticText = 4096;
 
@@ -42,6 +44,8 @@ function sourceRef(document: LegacyAuthorityDocument): string {
 export interface StagedLegacyImport {
   snapshotId: string;
   digest: string;
+  importerVersion: number;
+  schemaVersion: number;
   projectId: string;
   databasePath: string;
   stageRoot: string;
@@ -88,6 +92,7 @@ export async function stageLegacyAuthorityImport(workspaceRoot: string, snapshot
     const evidenceByPath = new Map<string, ProjectStateEntity>();
     const itemAliases = new Map<string, ProjectStateEntity[]>();
     const phases = new Map<string, ProjectStateEntity[]>();
+    const intakesByAlias = new Map<string, ProjectStateEntity>();
     const correlations: StagedLegacyImport["correlations"] = [];
     const entity = <T extends EntityType>(kind: T, document: LegacyAuthorityDocument, role: string, content: EntityBodyMap[T]): ProjectStateEntity => {
       const entityId = role === "project" ? projectId : id(`${snapshot.digest}:${document.path}:${role}`);
@@ -120,26 +125,46 @@ export async function stageLegacyAuthorityImport(workspaceRoot: string, snapshot
       const data = document.metadata.workflowData;
       if (kind === "work-intake") {
         const branch = data.branchBinding as Record<string, unknown> | undefined;
+        const intakeAlias = required(document.metadata.identity.intakeId, "Work Intake alias");
+        const hasRoute = snapshot.documents.some(item => item.metadata.artifactType === "operator-route-decision" &&
+          item.metadata.identity.intakeId === intakeAlias && Array.isArray(item.metadata.workflowData.history) && item.metadata.workflowData.history.length > 0);
         mapped = entity("WorkIntake", document, "semantic", { request: required(data.workRequest, "Work Intake request"),
           desiredOutcome: required(data.desiredOutcome, "Work Intake outcome"),
           constraints: text(data.knownConstraints) ? [required(data.knownConstraints, "Work Intake constraints")] : [],
           evidenceContext: text(data.repositoryReviewContext) ? [required(data.repositoryReviewContext, "Work Intake evidence context")] : [],
-          intakeState: "captured", requestedIntegrationTarget: required(branch?.baseBranch, "Work Intake target SourceLine") });
+          intakeState: hasRoute ? "routed" : "captured", requestedIntegrationTarget: required(branch?.baseBranch, "Work Intake target SourceLine") });
+        intakesByAlias.set(intakeAlias, mapped);
         const workflow = entity("Workflow", document, "workflow", { workflowType: "work-intake", workspace: "work-intake",
-          governingEntityId: mapped.id, workflowState: "planned" });
+          governingEntityId: mapped.id, workflowState: hasRoute ? "active" : "planned" });
         relate(mapped, "initiates", workflow);
+        const repositoryId = text(branch?.repositoryId) ?? text(projectSource.metadata.workflowData.repositoryId);
+        if (repositoryId) {
+          const baseRevisionId = text(branch?.baseCommit);
+          const workSourceLineId = text(branch?.workBranch);
+          const currentRevisionId = text(branch?.currentHead);
+          const ready = Boolean(baseRevisionId && workSourceLineId && currentRevisionId);
+          const binding = entity("SourceBinding", document, "source-binding", { workIntakeId: mapped.id,
+            repositoryId, integrationTargetSourceLineId: required(branch?.baseBranch, "Work Intake target SourceLine"),
+            ...(baseRevisionId ? { baseRevisionId } : {}), ...(workSourceLineId ? { workSourceLineId } : {}),
+            ...(currentRevisionId && workSourceLineId ? { currentRevisionId } : {}), preparationState: ready ? "ready" : "unprepared" });
+          relate(binding, "binds_source", mapped);
+        }
       } else if (workKinds.has(kind)) {
         const candidate = data.candidate && typeof data.candidate === "object" && !Array.isArray(data.candidate) ? data.candidate as Record<string, unknown> : {};
+        const closed = snapshot.documents.some(item => ["work-card-close-return-record", "fix-card-close-record"].includes(item.metadata.artifactType) &&
+          item.metadata.documentDisposition.status === "Approved" && item.sourceRevisions.some(source => source.path === document.path));
         mapped = entity("WorkItem", document, "semantic", { workItemKind: workKinds.get(kind)!,
           title: required(candidate.title ?? data.title ?? heading(document), "Work Item title"),
-          objective: required(candidate.purpose ?? data.objective ?? body(document), "Work Item objective"), workState: "planned" });
+          objective: required(candidate.purpose ?? data.objective ?? body(document), "Work Item objective"),
+          workState: closed ? "closed" : document.metadata.documentDisposition.status === "Approved" ? "ready" : "planned" });
         for (const alias of [document.metadata.identity.workCardId, document.metadata.identity.fixCardId, document.metadata.identity.repairId, document.metadata.identity.candidateId]) {
           if (typeof alias === "string" && alias) itemAliases.set(alias, [...(itemAliases.get(alias) ?? []), mapped]);
         }
       } else if (kind === "phase-planning") {
         const phaseId = required(document.metadata.identity.phaseId, "Phase alias");
         const sequence = [...phases.keys()].length + 1;
-        mapped = entity("Phase", document, "semantic", { title: heading(document), objective: body(document), phaseState: "planned", sequence });
+        mapped = entity("Phase", document, "semantic", { title: heading(document), objective: body(document),
+          phaseState: document.metadata.documentDisposition.status === "Approved" ? "active" : "planned", sequence });
         phases.set(phaseId, [...(phases.get(phaseId) ?? []), mapped]);
       } else if (kind === "issue-record") {
         mapped = entity("Finding", document, "semantic", { title: heading(document), statement: body(document), category: "legacy-issue",
@@ -172,6 +197,42 @@ export async function stageLegacyAuthorityImport(workspaceRoot: string, snapshot
       const correlation = correlations.find(item => item.legacyPath === document.path)!;
       correlation.entityId = validation.id;
       correlation.entityType = "Validation";
+    }
+    for (const document of snapshot.documents) {
+      const disposition = document.metadata.documentDisposition;
+      if (disposition.status === "Pending") continue;
+      const target = byPath.get(document.path) ?? evidenceByPath.get(document.path)!;
+      const outcome = { Approved: "approved", Rejected: "rejected", RevisionRequested: "revision_requested" }[disposition.status];
+      if (!outcome) throw Error(`Unsupported legacy disposition: ${document.path}.`);
+      const when = disposition.reviewedAt ?? importTime;
+      const decision = entity("Decision", document, "disposition-decision", { decisionType: "legacy-document-disposition", outcome,
+        rationale: disposition.notes, decisionRole: "migration-transcription", decisionScope: document.path,
+        decidedBy: principal, decidedAt: when, effectiveAt: when });
+      relate(decision, "governs", target);
+    }
+    for (const document of snapshot.documents.filter(item => item.metadata.artifactType === "operator-route-decision")) {
+      const history = document.metadata.workflowData.history;
+      if (!Array.isArray(history)) throw Error(`Legacy route history is invalid: ${document.path}.`);
+      const intake = intakesByAlias.get(required(document.metadata.identity.intakeId, "route Intake alias"));
+      if (!intake) throw Error(`Legacy route Intake is missing: ${document.path}.`);
+      for (const [index, entry] of history.entries()) {
+        if (!entry || typeof entry !== "object" || Array.isArray(entry)) throw Error(`Legacy route history entry is invalid: ${document.path}.`);
+        const row = entry as Record<string, unknown>;
+        const advice = row.advice as Record<string, unknown> | undefined;
+        const decisionData = row.decision as Record<string, unknown> | undefined;
+        if (!advice || !decisionData || !Array.isArray(advice.traits) || advice.traits.some(item => typeof item !== "string")) throw Error(`Legacy route facts are incomplete: ${document.path}.`);
+        const assessment = entity("RouteAssessment", document, `route-assessment-${index}`, {
+          workIntakeId: intake.id, recommendation: required(advice.recommendedRouteId, "recommended route") as EntityBodyMap["RouteAssessment"]["recommendation"],
+          traits: advice.traits as string[], rationale: required(advice.rationale, "route rationale"), evidenceIds: [] });
+        relate(assessment, "assesses_route", intake);
+        const decidedAt = required(row.recordedAt, "route decision time");
+        const decision = entity("Decision", document, `route-decision-${index}`, { decisionType: "work-intake-route",
+          outcome: required(decisionData.selectedRouteId, "selected route"), rationale: required(decisionData.rationale, "route decision rationale"),
+          decisionRole: "migration-transcription", decisionScope: `work-intake:${intake.id}`,
+          decidedBy: principal, decidedAt, effectiveAt: decidedAt });
+        relate(decision, "governs", intake);
+        relate(decision, "governs", assessment);
+      }
     }
     for (const document of snapshot.documents) {
       const evidence = evidenceByPath.get(document.path)!;
@@ -247,7 +308,8 @@ export async function stageLegacyAuthorityImport(workspaceRoot: string, snapshot
     });
     store.close();
     store = undefined;
-    return { snapshotId: snapshot.snapshotId, digest: snapshot.digest, projectId, databasePath, stageRoot, correlations };
+    return { snapshotId: snapshot.snapshotId, digest: snapshot.digest, importerVersion: STAGED_LEGACY_IMPORTER_VERSION,
+      schemaVersion: PROJECT_STATE_DATABASE_SCHEMA_VERSION, projectId, databasePath, stageRoot, correlations };
   } catch (error) {
     store?.close();
     if (path.dirname(stageRoot) === base && fs.existsSync(stageRoot)) fs.rmSync(stageRoot, { recursive: true, force: true });

@@ -2544,6 +2544,26 @@
       ]
     },
     {
+      "capabilityId": "legacy-equivalence-verification",
+      "description": "Version-bound semantic and shadow-read comparison of a staged Project State graph with exact V1 authority.",
+      "sourcePatterns": [
+        "src/main/migrations/legacyEquivalenceVerification.ts"
+      ],
+      "dependsOn": [
+        "staged-legacy-import"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "equivalent-shadow-read-is-version-bound-and-read-only",
+          "description": "An exact snapshot and staged graph yield a reproducible, read-only verification with no blocking mismatches"
+        },
+        {
+          "behaviorId": "stale-source-and-semantic-mismatch-block-cutover",
+          "description": "Stale source or changed staged semantic state blocks cutover with explicit mismatch evidence"
+        }
+      ]
+    },
+    {
       "capabilityId": "phase-execution-workflow",
       "description": "Phase map, interview, planning, validation, close, and renderer transition behavior.",
       "sourcePatterns": [
@@ -11941,6 +11961,64 @@
           "capabilityId": "legacy-authority-inventory",
           "behaviorId": "legacy-snapshot-is-complete-repeatable-and-read-only",
           "proofLocator": "legacy authority snapshot is complete, hash addressed, repeatable and read only",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/migration/legacy-equivalence-verification.test.cjs",
+      "currentTestCount": {
+        "value": 2,
+        "basis": "Two SCL01V equivalence and mismatch/staleness scenarios."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 275,
+        "basis": "Observed normal Windows focused SCL01V fixture run."
+      },
+      "proposedValidationLane": "migration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "migration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Each fixture owns an isolated temporary workspace and staged SQLite candidate.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "legacy-equivalence-verification",
+          "behaviorId": "equivalent-shadow-read-is-version-bound-and-read-only",
+          "proofLocator": "equivalence verification binds exact snapshot, schema and importer with zero blocking mismatches",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "legacy-equivalence-verification",
+          "behaviorId": "stale-source-and-semantic-mismatch-block-cutover",
+          "proofLocator": "stale source and staged semantic mismatch block cutover with explicit evidence",
           "proofRole": "primary"
         }
       ]
