@@ -5,10 +5,12 @@ import type { ProjectStateRecord } from "../../shared/projectState/domainContrac
 import type { SourceGraph, SourceGraphOptions } from "../../shared/sourceLifecycleContracts";
 import { AgentHarnessError } from "../agentHarness/core/errors";
 import { runBoundedGit } from "../agentHarness/repository/boundedGit";
+import { inspectGitCommit } from "../agentHarness/repository/gitMutations";
 import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
 import { createSQLiteProjectStateReader } from "../projectState/sqliteProjectStateStore";
 import { selectedStructuredProjectId } from "../workIntake/structuredWorkIntakeService";
-import { readWorkIntake } from "../workIntake/workIntakeService";
+import { readWorkIntake, readWorkProjectIdentity } from "../workIntake/workIntakeService";
+import type { SourceGraphRevisionDetail } from "../../shared/sourceLifecycleContracts";
 
 const MAX_LINES = 128;
 const MAX_REVISIONS = 500;
@@ -91,6 +93,7 @@ async function structuredMetadata(root: string, repositoryId: string, projectId:
       return { workIntakeId: intake.id, lineId: branch && names.has(branch) ? lineId(repositoryId, branch) : null,
         title: intake.body.request, route: routes.get(intake.id) ?? null, workType: workflow?.body.workflowType ?? null,
         lifecycleState: intake.body.intakeState, workflowState: workflow?.body.workflowState ?? null,
+        baseRevisionId: binding.body.baseRevisionId ?? null, currentRevisionId: binding.body.currentRevisionId ?? null,
         checkpointKinds: [...new Set(checkpoints.filter(row => row.body.workIntakeId === intake.id).map(row => row.body.checkpointKind))].sort(),
         integrationState: ownIntegrations.at(-1)?.body.integrationState ?? null };
     });
@@ -111,9 +114,39 @@ function legacyMetadata(root: string, repositoryId: string, names: Set<string>):
   return { workBindings: limited.map(row => ({ workIntakeId: row.intakeId,
       lineId: names.has(row.branchBinding.workBranch) ? lineId(repositoryId, row.branchBinding.workBranch) : null,
       title: row.workRequest, route: null, workType: null, lifecycleState: "active", workflowState: null,
+      baseRevisionId: row.branchBinding.baseCommit, currentRevisionId: row.branchBinding.currentHead,
       checkpointKinds: [], integrationState: null })), checkpoints: [], integrations: [],
     targets: [...new Set(limited.map(row => row.branchBinding.baseBranch))],
     truncated: entries.length > MAX_BINDINGS || selected.length > MAX_BINDINGS, status: limited.length ? "available" : "missing" };
+}
+
+/** Resolve the selected app identity without deriving it from a display branch label. */
+export async function selectedSourceGraphRepositoryId(root: string): Promise<string> {
+  try {
+    const projectId = selectedStructuredProjectId(root);
+    if (projectId) {
+      const reader = createSQLiteProjectStateReader(path.join(root, ".champcity", "project-state.sqlite"));
+      try {
+        const resources = await reader.listEntities(projectId, "ProjectResource");
+        const resource = resources.find(row => row.entityType === "ProjectResource" && row.body.resourceType === "source-repository");
+        if (resource?.entityType === "ProjectResource") return resource.body.logicalName;
+        const bindings = await reader.listEntities(projectId, "SourceBinding");
+        const binding = bindings.find(row => row.entityType === "SourceBinding");
+        if (binding?.entityType === "SourceBinding") return binding.body.repositoryId;
+      } finally { reader.close(); }
+    } else {
+      return readWorkProjectIdentity(root)?.repositoryId ?? "selected-repository";
+    }
+  } catch { /* Mechanical topology remains available without workflow metadata. */ }
+  return "selected-repository";
+}
+
+export async function getSourceGraphRevisionDetail(root: string, revisionId: string): Promise<SourceGraphRevisionDetail> {
+  if (!revisionPattern.test(revisionId)) throw new AgentHarnessError("INVALID_INPUT", "An exact source revision is required.");
+  const commit = await inspectGitCommit(root, { ref: revisionId });
+  const changedFiles = commit.changedFiles.slice(0, 24).map(row => ({ path: row.path, status: row.status }));
+  return { revisionId: commit.commit, parents: commit.parents, timestamp: commit.authoredAt, changedFiles,
+    totalChangedFiles: commit.changedFiles.length, changedFilesTruncated: commit.changedFiles.length > changedFiles.length };
 }
 
 /** Backend-owned, read-only projection of local branch topology and available workflow semantics. */

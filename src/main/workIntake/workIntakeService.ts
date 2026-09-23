@@ -30,7 +30,7 @@ function readCanonical(root: string, relativePath: string) {
   return parseCanonicalMarkdownDocument(fs.readFileSync(file, "utf8"));
 }
 
-function readProject(root: string): WorkProjectIdentity | null {
+export function readWorkProjectIdentity(root: string): WorkProjectIdentity | null {
   const document = readCanonical(root, projectPath);
   if (!document) return null;
   const data = document.metadata.workflowData;
@@ -52,7 +52,7 @@ export function readWorkIntake(root: string, intakeId: string): WorkIntakeRecord
   if (!document || document.metadata.artifactType !== "work-intake") throw Error("Work Intake document is missing or invalid.");
   const data = document.metadata.workflowData;
   const branch = data.branchBinding as WorkIntakeRecord["branchBinding"] | undefined;
-  const project = readProject(root);
+  const project = readWorkProjectIdentity(root);
   if (!project || document.metadata.identity.intakeId !== intakeId || data.intakeId !== intakeId ||
     data.projectId !== project.projectId || document.metadata.identity.projectId !== project.projectId ||
     !branch || branch.intakeId !== intakeId || branch.repositoryId !== project.repositoryId ||
@@ -76,7 +76,7 @@ export function readWorkIntake(root: string, intakeId: string): WorkIntakeRecord
 }
 
 export async function getWorkIntakeProjection(root: string): Promise<WorkIntakeProjection> {
-  const project = readProject(root);
+  const project = readWorkProjectIdentity(root);
   const sourceControl = createSourceControlService({ repositoryId: project?.repositoryId ?? "selected-repository", repositoryRoot: root });
   const state = await sourceControl.branches();
   const intakes: WorkIntakeRecord[] = [];
@@ -112,7 +112,7 @@ export async function getWorkIntakeProjection(root: string): Promise<WorkIntakeP
 
 export async function submitWorkIntake(root: string, input: WorkIntakeSubmission): Promise<WorkIntakeSubmissionResult> {
   validateSubmission(input);
-  const existingProject = readProject(root);
+  const existingProject = readWorkProjectIdentity(root);
   if ((existingProject?.projectId ?? null) !== input.projectId) throw Error("Selected Project identity changed; refresh Work Intake.");
   const project: WorkProjectIdentity = existingProject ?? {
     projectId: `project-${randomUUID()}`, repositoryId: `repository-${randomUUID()}`, name: input.projectName.trim(),
@@ -121,7 +121,7 @@ export async function submitWorkIntake(root: string, input: WorkIntakeSubmission
   const branchService = createWorkIntakeBranchService({ repositoryId: project.repositoryId, repositoryRoot: root });
   return branchService.establish({ intakeId, baseBranch: input.baseBranch, baseCommit: input.baseCommit }, (binding) => {
     // Recheck the selected base's identity after branching: never rewrite a different Project.
-    const baseProject = readProject(root);
+    const baseProject = readWorkProjectIdentity(root);
     if (baseProject && JSON.stringify(baseProject) !== JSON.stringify(project)) throw Error("Selected base belongs to another Project identity.");
     const projectRevision = baseProject ? readCanonical(root, projectPath)!.metadata.artifactRevision : 1;
     const relativePath = `${intakeDirectory}/${intakeId}.md`;

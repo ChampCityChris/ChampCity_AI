@@ -1379,6 +1379,8 @@ export interface WorkspaceMigrationResult {
 }
 
 export interface ChampCityApi {
+  getSourceGraph: (options?: import("./sourceLifecycleContracts").SourceGraphOptions) => Promise<import("./sourceControlContracts").SourceControlResult<import("./sourceLifecycleContracts").SourceGraph>>;
+  getSourceGraphRevisionDetail: (revisionId: string) => Promise<import("./sourceControlContracts").SourceControlResult<import("./sourceLifecycleContracts").SourceGraphRevisionDetail>>;
   getWorkIntakeNavigation: (intakeId?: string) => Promise<import("./workIntakeNavigationContracts").WorkIntakeNavigationProjection>;
   runRoutedWorkflow: (intakeId: string, action: import("./routedWorkflowContracts").RoutedWorkflowAction, input?: import("./routedWorkflowContracts").RoutedWorkflowInput) => Promise<import("./routedWorkflowContracts").RoutedWorkflowModel>;
   getWorkIntakeProjection: () => Promise<import("./workIntakeContracts").WorkIntakeProjection>;

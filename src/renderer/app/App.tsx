@@ -138,6 +138,7 @@ import { FigmaBrowserPanel } from "./figma/FigmaBrowserPanel";
 import { FigmaSidebar, type FigmaThemeMode } from "./figma/FigmaSidebar";
 import { LandingWorkspace } from "./LandingWorkspace";
 import { WorkflowHubWorkspace } from "./WorkflowHubWorkspace";
+import { SourceControlWorkspace } from "./SourceControlWorkspace";
 import { WorkIntakeWorkspace } from "./WorkIntakeWorkspace";
 import { WorkIntakeRoutingRail } from "./WorkIntakeRoutingRail";
 import { WorkRoutingWorkspace } from "./WorkRoutingWorkspace";
@@ -221,7 +222,7 @@ const activeWorkCardResumeWorkspaceIds = new Set<WorkspaceId>([
 ]);
 export const settingsWorkspaceId = "settings" as WorkspaceId;
 
-type ShellView = "landing" | "workflow-hub" | "workflow" | "settings" | "work-intake";
+type ShellView = "landing" | "workflow-hub" | "workflow" | "settings" | "work-intake" | "source-control";
 type SettingsReturnShellView = Exclude<ShellView, "landing" | "settings">;
 type ProjectEntryDestination = "workflow-hub" | "project-intake-capture" | "work-intake";
 
@@ -477,6 +478,7 @@ export function App(): JSX.Element {
   const isLandingForeground = shellView === "landing";
   const isWorkflowHubForeground = shellView === "workflow-hub";
   const isWorkIntakeForeground = shellView === "work-intake";
+  const isSourceControlForeground = shellView === "source-control";
   const shouldAttachEmbeddedArchitectSurface =
     shouldAttachArchitectSurface({ paneVisible: isArchitectPaneVisible, developmentForeground: isDevelopmentForeground,
       developmentBrowserAvailable: architectBrowserWorkspaceAvailable, workCardRepair: isWorkCardRepair,
@@ -4063,6 +4065,8 @@ export function App(): JSX.Element {
                 ? "development"
                 : isIssueResolutionForeground
                 ? "issue-resolution"
+                : isSourceControlForeground
+                ? "source-control"
                 : "hub"
             }
             onChooseProject={chooseWorkspace}
@@ -4084,6 +4088,7 @@ export function App(): JSX.Element {
             isLandingForeground ? "landing-surface" : "",
             !isLandingForeground && usesFigmaWorkspaceBody ? "figma-workspace-surface" : "",
             isWorkflowHubForeground ? "workflow-hub-surface" : "",
+            isSourceControlForeground ? "source-control-surface" : "",
             isIssueResolutionForeground ? "issue-resolution-surface" : "",
             isSettingsWorkspace ? "settings-workspace-surface" : "",
             isVisibleArchitectOutputWorkspace ? "architect-interview-surface" : "",
@@ -4149,6 +4154,9 @@ export function App(): JSX.Element {
                   setDecompositionContext({ intakeId: selectedWorkIntakeId, workItemId, returnTarget: "work-item-map" });
                 }} />
             </> : <RoutedIntegrationWorkspace intakeId={selectedWorkIntakeId} />
+          ) : isSourceControlForeground ? (
+            <SourceControlWorkspace key={workspace.ok ? workspace.workspaceRoot : "none"}
+              projectName={projectDisplayName(workspace)} onReturn={returnToWorkflowHub} />
           ) : isWorkflowHubForeground ? (
             <>
               {issueCloseActionFeedback ? (
@@ -4160,6 +4168,7 @@ export function App(): JSX.Element {
                 isEnteringDevelopment={isLoadingDocuments && activeWorkflowId === "development"}
                 onOpenWorkflow={(workflowId) => void openWorkflow(workflowId)}
                 onStartWork={() => void openWorkIntake()}
+                onOpenSourceControl={() => setShellView("source-control")}
                 projectName={projectDisplayName(workspace)}
                 workspace={workspace}
               />

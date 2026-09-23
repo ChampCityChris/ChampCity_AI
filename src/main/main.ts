@@ -54,6 +54,9 @@ import {
 import { resolveFirstNonApprovedDocument } from "./documents/firstNonApprovedResolver";
 import { submitProjectIntakeForRepository } from "./projectIntake/projectIntakeService";
 import { getWorkIntakeProjection, readWorkIntake, submitWorkIntake } from "./workIntake/workIntakeService";
+import { createSourceControlService } from "./sourceControl/sourceControlService";
+import { selectedSourceGraphRepositoryId } from "./sourceControl/sourceGraphService";
+import type { SourceGraphOptions } from "../shared/sourceLifecycleContracts";
 import { captureGreenfieldWorkIntake, captureStructuredWorkIntake, getGreenfieldWorkIntakeProjection, getStructuredWorkIntakeProjection, isGreenfieldProjectRoot, retryStructuredWorkIntakeSource, selectedStructuredProjectId } from "./workIntake/structuredWorkIntakeService";
 import { getWorkIntakeNavigation } from "./workIntake/workIntakeNavigationService";
 import { runRoutedWorkflow } from "./planExecution/routedWorkflowService";
@@ -760,6 +763,16 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle("sourceGraph:get", async (_event, options?: SourceGraphOptions) => {
+  const root = getRequiredWorkspaceRoot();
+  const repositoryId = await selectedSourceGraphRepositoryId(root);
+  return createSourceControlService({ repositoryId, repositoryRoot: root }).getSourceGraph(options);
+});
+ipcMain.handle("sourceGraph:revisionDetail", async (_event, revisionId: string) => {
+  const root = getRequiredWorkspaceRoot();
+  const repositoryId = await selectedSourceGraphRepositoryId(root);
+  return createSourceControlService({ repositoryId, repositoryRoot: root }).getSourceGraphRevisionDetail(revisionId);
+});
 ipcMain.handle("workIntake:projection", () => {
   const root = getRequiredWorkspaceRoot();
   const projectId = selectedStructuredProjectId(root);

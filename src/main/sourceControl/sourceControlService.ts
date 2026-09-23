@@ -24,7 +24,7 @@ import type { CreateWorkSourceInput, ProjectSourceBootstrap, SourceGraphOptions,
 import { workIntakeBranchName } from "./workSourceNaming";
 import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
 import { bootstrapProjectSource as establishProjectSource } from "./projectSourceBootstrap";
-import { getSourceGraph } from "./sourceGraphService";
+import { getSourceGraph, getSourceGraphRevisionDetail } from "./sourceGraphService";
 
 /** Called by trusted main-process services with a selected repository, without MCP/model mediation. */
 export function createSourceControlService(binding: { repositoryId: string; repositoryRoot: string; managedWorkspaces?: ManagedWorkspaceStore }) {
@@ -112,6 +112,8 @@ export function createSourceControlService(binding: { repositoryId: string; repo
 
   return {
     getSourceGraph: (options?: SourceGraphOptions) => run("source-graph", false, () => getSourceGraph(root, repositoryId, options)),
+    getSourceGraphRevisionDetail: (revisionId: string) => run("source-graph-revision-detail", false,
+      () => getSourceGraphRevisionDetail(root, revisionId)),
     bootstrapProjectSource: async (): Promise<SourceControlResult<ProjectSourceBootstrap>> => {
       const receipt: SourceControlReceipt = { repositoryId, operation: "bootstrap-project-source", startedAt: new Date().toISOString(),
         completedAt: "", before: null, after: null };

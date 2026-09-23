@@ -102,10 +102,20 @@ export interface SourceGraph {
   sourceLines: Array<{ id: string; headRevisionId: string; providerBranchName?: string; role: "main" | "dev" | "work"; workIntakeIds: string[] }>;
   revisions: Array<{ id: string; parents: string[]; timestamp: string; headOfLineIds: string[]; checkpointKinds: Array<"implementation" | "disposition">; integrationStates: string[] }>;
   workBindings: Array<{ workIntakeId: string; lineId: string | null; title: string; route: string | null; workType: string | null;
-    lifecycleState: string; workflowState: string | null; checkpointKinds: Array<"implementation" | "disposition">; integrationState: string | null }>;
+    lifecycleState: string; workflowState: string | null; baseRevisionId: string | null; currentRevisionId: string | null;
+    checkpointKinds: Array<"implementation" | "disposition">; integrationState: string | null }>;
   truncation: { maxRevisions: number; maxLines: number; revisionsTruncated: boolean; linesTruncated: boolean;
     omittedParentLinks: number; workBindingsTruncated: boolean };
   providerDiagnostics: { provider: "git"; currentBranch?: string; metadata: "available" | "missing" | "unavailable" };
+}
+
+export interface SourceGraphRevisionDetail {
+  revisionId: string;
+  parents: string[];
+  timestamp: string;
+  changedFiles: Array<{ path: string; status: string }>;
+  totalChangedFiles: number;
+  changedFilesTruncated: boolean;
 }
 
 /** Operations become available incrementally as their package cards implement them. */

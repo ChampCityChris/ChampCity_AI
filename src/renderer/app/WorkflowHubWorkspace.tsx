@@ -1,4 +1,4 @@
-import { ArrowRight, Bug, Code2 } from "lucide-react";
+import { ArrowRight, Bug, Code2, GitBranch } from "lucide-react";
 
 import {
   workflowDefinitions,
@@ -16,12 +16,14 @@ export function WorkflowHubWorkspace({
   isEnteringDevelopment,
   onOpenWorkflow,
   onStartWork,
+  onOpenSourceControl,
   projectName,
   workspace,
 }: {
   isEnteringDevelopment?: boolean;
   onOpenWorkflow: (workflowId: WorkflowId) => void;
   onStartWork: () => void;
+  onOpenSourceControl: () => void;
   projectName: string;
   workspace: WorkspaceSelection;
 }): JSX.Element {
@@ -49,6 +51,12 @@ export function WorkflowHubWorkspace({
           <span className="workflow-card-title">Start Work</span>
           <span className="workflow-card-description">Describe the change or problem. Review the recommended route, approve its Plan, and carry the work through implementation and integration.</span>
           <span className="workflow-card-action">Open Work Intake <ArrowRight aria-hidden="true" size={18} /></span>
+        </button>
+        <button className="workflow-card" type="button" onClick={onOpenSourceControl}>
+          <span className="workflow-card-icon" aria-hidden="true"><GitBranch size={42} strokeWidth={1.7} /></span>
+          <span className="workflow-card-title">Source Control</span>
+          <span className="workflow-card-description">See how Work Intake lines, hotfixes, and integration targets relate to the repository history.</span>
+          <span className="workflow-card-action">View source graph <ArrowRight aria-hidden="true" size={18} /></span>
         </button>
       </div>
       <details>

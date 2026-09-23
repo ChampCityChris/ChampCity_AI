@@ -118,6 +118,7 @@ test("Hub with no selected project renders project-selection shell without Devel
   }));
   const hubMarkup = renderToStaticMarkup(React.createElement(WorkflowHubWorkspace, {
     onOpenWorkflow: () => undefined,
+    onOpenSourceControl: () => undefined,
     projectName: "No Project Selected",
     workspace: { ok: false, workspaceRoot: null, reason: "No project selected." },
   }));
@@ -131,9 +132,10 @@ test("Hub with no selected project renders project-selection shell without Devel
   assert.doesNotMatch(hubMarkup, /Development|Current Required Workflow Step|Phase Loop|Work Card loop/);
 });
 
-test("Selected-project Hub prioritizes Work Intake and retains Development and Issue recovery", () => {
+test("Selected-project Hub exposes Source Control beside Work Intake and retains workflow recovery", () => {
   const markup = renderToStaticMarkup(React.createElement(WorkflowHubWorkspace, {
     onOpenWorkflow: () => undefined,
+    onOpenSourceControl: () => undefined,
     projectName: "ChampCity_AI",
     workspace: { ok: true, workspaceRoot: "<PROJECT_REPO>" },
   }));
@@ -142,6 +144,8 @@ test("Selected-project Hub prioritizes Work Intake and retains Development and I
   assert.match(markup, /Start a new body of work on ChampCity_AI, or continue existing work\./);
   assert.match(markup, /aria-label="Start work"/);
   assert.match(markup, /Open Work Intake/);
+  assert.match(markup, /Source Control/);
+  assert.match(markup, /View source graph/);
   assert.match(markup, /<details><summary>Continue legacy Development or Issue work<\/summary>/);
   assert.match(markup, /aria-label="Existing workflow recovery"/);
   assert.match(markup, /class="workflow-card"/);

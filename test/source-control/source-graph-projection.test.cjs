@@ -95,6 +95,8 @@ test("read-only source graph preserves five branch heads, merge parents, semanti
   assert.equal(work.title, "Implement graph feature");
   assert.equal(work.route, "feature-change");
   assert.equal(work.integrationState, "integrated");
+  assert.equal(work.baseRevisionId, base);
+  assert.equal(work.currentRevisionId, feature);
   assert.deepEqual(work.checkpointKinds, ["implementation"]);
   assert.deepEqual(graph.revisions.find(row => row.id === feature).checkpointKinds, ["implementation"]);
   assert.deepEqual(graph.revisions.find(row => row.id === devMerge).integrationStates, ["integrated"]);
@@ -122,4 +124,30 @@ test("missing workflow metadata leaves mechanical topology valid", async context
   assert.equal(response.result.providerDiagnostics.metadata, "missing");
   assert.deepEqual(response.result.workBindings, []);
   assert.ok(response.result.revisions.some(row => row.id === devMerge && row.parents.length === 2));
+});
+
+test("revision detail returns a bounded changed-file summary without mutating the source", async context => {
+  const { root, feature } = await fixture(context);
+  const source = createSourceControlService({ repositoryId: "repo-graph", repositoryRoot: root });
+  const before = git(root, "status", "--porcelain");
+  const detail = await source.getSourceGraphRevisionDetail(feature);
+  assert.equal(detail.ok, true, JSON.stringify(detail));
+  assert.equal(detail.receipt.operation, "source-graph-revision-detail");
+  assert.equal(detail.result.revisionId, feature);
+  assert.deepEqual(detail.result.changedFiles, [{ path: "feature.txt", status: "A" }]);
+  assert.equal(detail.result.totalChangedFiles, 1);
+  assert.equal(detail.result.changedFilesTruncated, false);
+  for (let index = 0; index < 26; index++) fs.writeFileSync(path.join(root, `bulk-${index}.txt`), `${index}\n`);
+  git(root, "add", "--all");
+  git(root, "commit", "-m", "bounded detail");
+  const bulk = await source.getSourceGraphRevisionDetail(git(root, "rev-parse", "HEAD"));
+  assert.equal(bulk.ok, true, JSON.stringify(bulk));
+  assert.equal(bulk.result.totalChangedFiles, 26);
+  assert.equal(bulk.result.changedFiles.length, 24);
+  assert.equal(bulk.result.changedFilesTruncated, true);
+  const invalid = await source.getSourceGraphRevisionDetail("HEAD");
+  assert.equal(invalid.ok, false);
+  assert.equal(invalid.error.code, "INVALID_INPUT");
+  assert.equal(git(root, "status", "--porcelain"), before);
+  assert.equal(git(root, "branch", "--show-current"), "dev");
 });

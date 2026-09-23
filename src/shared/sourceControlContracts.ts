@@ -7,6 +7,7 @@ export interface SourceControlPosition {
 export type SourceControlOperation =
   | "resolve-source-revision" | "create-work-source" | "bootstrap-project-source"
   | "source-graph"
+  | "source-graph-revision-detail"
   | "inspect-reflog" | "replace-branch-ref" | "push-with-lease" | "delete-untracked-paths" | "discard-managed-worktree" | "isolated-skip"
   | "isolated-begin" | "isolated-inspect" | "isolated-continue" | "isolated-abort" | "isolated-advance"
   | "amend-commit" | "revert-commit" | "cherry-pick-commit"
