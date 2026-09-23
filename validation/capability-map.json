@@ -3949,6 +3949,27 @@
       ]
     },
     {
+      "capabilityId": "staged-legacy-import",
+      "description": "Deterministic isolated import of one exact legacy authority snapshot into Structured Project State.",
+      "sourcePatterns": [
+        "src/main/migrations/stagedLegacyImporter.ts"
+      ],
+      "dependsOn": [
+        "legacy-authority-inventory",
+        "project-state-sqlite-store"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "exact-snapshot-builds-repeatable-isolated-graph-and-evidence",
+          "description": "Exact legacy input builds a reproducible staged graph with historical Markdown Evidence and no authority cutover"
+        },
+        {
+          "behaviorId": "stale-or-dangling-input-is-rejected-before-staging",
+          "description": "Stale source, tampered snapshot and dangling Repair parent are rejected without retaining a candidate"
+        }
+      ]
+    },
+    {
       "capabilityId": "validation-capability-map",
       "description": "Repository-owned capability/test inventory schema, ownership, proof relationships, and corpus integrity.",
       "sourcePatterns": [
@@ -11978,6 +11999,64 @@
           "capabilityId": "canonical-document-migration",
           "behaviorId": "paired-artifact-migration-previews-target-markdown-and-deletes-legacy-sibling-on-apply",
           "proofLocator": "paired artifact migration previews target Markdown and deletes legacy sibling on apply",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/migration/staged-legacy-importer.test.cjs",
+      "currentTestCount": {
+        "value": 2,
+        "basis": "Two SCL01U deterministic graph and rejection scenarios."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 292,
+        "basis": "Observed normal Windows focused SCL01U fixture run."
+      },
+      "proposedValidationLane": "migration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "migration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Each test owns an isolated temporary workspace and staged SQLite candidate.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "staged-legacy-import",
+          "behaviorId": "exact-snapshot-builds-repeatable-isolated-graph-and-evidence",
+          "proofLocator": "one exact legacy snapshot stages deterministic structured graph and historical Markdown Evidence",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "staged-legacy-import",
+          "behaviorId": "stale-or-dangling-input-is-rejected-before-staging",
+          "proofLocator": "staged import rejects stale snapshots and dangling Repair parents without leaving a candidate",
           "proofRole": "primary"
         }
       ]
