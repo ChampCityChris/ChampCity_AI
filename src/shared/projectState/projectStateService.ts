@@ -175,7 +175,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (restrictedGenericTypes.has(entityType)) fail("Decision, Validation and Evidence require typed commands.");
     if (entityType === "ImplementationRecord" || entityType === "Workflow") fail("ImplementationRecord and Workflow require typed commands.");
     if (entityType === "WorkIntake" || entityType === "RouteAssessment") fail("Work Intake and Route Assessment require typed commands.");
-    if (["SourceBinding", "SourceCheckpoint", "IntegrationRecord"].includes(entityType)) fail("Source semantic records require typed commands.");
+    if (["SourceBaseline", "SourceBinding", "SourceCheckpoint", "IntegrationRecord"].includes(entityType)) fail("Source semantic records require typed commands.");
     if (entityType === "RegressionObligation" || (entityType === "ProjectResource" && (content as EntityBodyMap["ProjectResource"]).resourceType === "permanent-test-reference")) fail("Tester semantic records require typed commands.");
     if (entityType === "Project" && projectId !== null) fail("A new Project cannot borrow another Project identity.");
     if (entityType !== "Project" && !projectId) fail("Project identity is required.");
@@ -302,7 +302,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       if (restrictedGenericTypes.has(current.entityType)) fail("Immutable semantic records require typed correction or supersession.");
       if (current.entityType === "WorkIntake") fail("Work Intake revision requires a typed command.");
       if (current.entityType === "RegressionObligation" || (current.entityType === "ProjectResource" && current.body.resourceType === "permanent-test-reference")) fail("Tester semantic revision requires a typed command.");
-      if (["SourceBinding", "SourceCheckpoint", "IntegrationRecord"].includes(current.entityType)) fail("Source semantic revision requires a typed command.");
+      if (["SourceBaseline", "SourceBinding", "SourceCheckpoint", "IntegrationRecord"].includes(current.entityType)) fail("Source semantic revision requires a typed command.");
       if (current.entityType === "Workflow" && patch.workflowType !== undefined && patch.workflowType !== current.body.workflowType) fail("Workflow type is immutable.");
       if ((current.entityType === "WorkItem" && patch.workState === "closed") || (current.entityType === "Phase" && patch.phaseState === "closed")) fail("Completion requires a typed eligibility command.");
       if (current.recordVersion !== expectedRevision) fail("Expected Project State revision is stale.");
@@ -325,7 +325,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       if (restrictedGenericTypes.has(previous.entityType)) fail("Issued Decision, Validation and Evidence require a typed correction policy.");
       if (previous.entityType === "ImplementationRecord") fail("Implementation attempts are immutable; record a new attempt.");
       if (previous.entityType === "WorkIntake" || previous.entityType === "RouteAssessment") fail("Work Intake retains identity and Route Assessments remain historical records.");
-      if (["SourceBinding", "SourceCheckpoint", "IntegrationRecord"].includes(previous.entityType)) fail("Source semantic records retain their identity and revision history.");
+      if (["SourceBaseline", "SourceBinding", "SourceCheckpoint", "IntegrationRecord"].includes(previous.entityType)) fail("Source semantic records retain their identity and revision history.");
       if (previous.entityType === "RegressionObligation") {
         if (content.obligationState !== "active") fail("A successor obligation must start active.");
         const sourceId = content.sourceWorkItemId;
@@ -366,6 +366,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (relationshipType === "implements_work_item") fail("Implementation attempts require a typed command.");
     if (relationshipType === "initiates" || relationshipType === "assesses_route") fail("Work Intake ownership and route assessment require typed commands.");
     if (["binds_source", "checkpoints", "integrates"].includes(relationshipType)) fail("Source semantic relationships require typed commands.");
+    if (relationshipType === "baselines_source") fail("Workflow SourceBaseline linkage requires the typed baseline command.");
     if (relationshipType === "proves") fail("Permanent proof links require a typed command.");
     return store.transaction(projectId, async unit => {
       const from = await requiredRecord(unit, projectId, fromEntityId);
@@ -717,6 +718,29 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
           changedFields: ["intakeState"], defaultReason: "Route Work Intake", context });
       }
       return decision;
+    });
+  }
+
+  async function createWorkflowSourceBaseline(projectId: ProjectId, workflowId: EntityId,
+    input: { repositoryId: string; integrationTargetSourceLineId: string; baseRevisionId: string }, context?: MutationContext) {
+    exactInput(input, ["repositoryId", "integrationTargetSourceLineId", "baseRevisionId"]);
+    return store.transaction(projectId, async unit => {
+      if (!await unit.getProject(projectId)) fail("Owning Project does not exist.");
+      const workflow = await requiredRecord(unit, projectId, workflowId);
+      if (workflow.entityType !== "Workflow") fail("SourceBaseline requires a Workflow.");
+      if (workflow.body.workflowType === "work-intake-routing") fail("WIR cannot own an implementation SourceBaseline.");
+      if (workflow.lifecycleState !== "active" || ["closed", "cancelled"].includes(workflow.body.workflowState)) fail("SourceBaseline requires a current nonterminal Workflow.");
+      if ((await unit.listEntities(projectId, "SourceBaseline")).some(record => record.entityType === "SourceBaseline" && record.body.workflowId === workflowId)) {
+        fail("Workflow already has a SourceBaseline.");
+      }
+      const body: EntityBodyMap["SourceBaseline"] = { workflowId, ...input };
+      const baseline = createProjectStateEntity({ entityType: "SourceBaseline", projectId, body, principal: trustedPrincipal });
+      await unit.saveEntity(baseline, null);
+      await recordMutation(unit, { projectId, entityId: baseline.id, fromVersion: null, toVersion: 1,
+        operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: baseline.createdAt,
+        changedFields: Object.keys(baseline.body), defaultReason: "Capture Workflow SourceBaseline", context });
+      await linkSemantic(unit, projectId, baseline, workflow, "baselines_source", context);
+      return baseline;
     });
   }
 
@@ -1167,7 +1191,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (relationships.length > 1000) fail("Context relationships exceed their bound.");
     const sourceReferences: AuthoritativeContext["sourceReferences"] = [];
     for (const record of records) {
-      if (!["SourceBinding", "SourceCheckpoint", "IntegrationRecord", "Validation", "Evidence", "ProjectResource"].includes(record.entityType)) continue;
+      if (!["SourceBaseline", "SourceBinding", "SourceCheckpoint", "IntegrationRecord", "Validation", "Evidence", "ProjectResource"].includes(record.entityType)) continue;
       for (const [field, reference] of Object.entries(record.body)) {
         if (typeof reference === "string" && /(?:repositoryId|SourceLineId|RevisionId|CheckoutId|sourceBaselineRef)$/.test(field)) sourceReferences.push({ entityId: record.id, field, reference });
       }
@@ -1594,7 +1618,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   return { createRecord, createWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision,
-    createSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, createIntegrationRecord, advanceIntegrationRecord,
+    createWorkflowSourceBaseline, createSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, createIntegrationRecord, advanceIntegrationRecord,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, completeWorkItem, completePhase,
     getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, renderView, exportStructuredProjectState, getAuthoritativeContext, getCommittedEventFeed, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,

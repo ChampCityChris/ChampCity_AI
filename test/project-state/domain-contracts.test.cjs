@@ -15,6 +15,7 @@ const bodies = {
   WorkIntake: { request: "Request", desiredOutcome: "Outcome", constraints: [], evidenceContext: [], intakeState: "captured", requestedIntegrationTarget: "dev" },
   RouteAssessment: { workIntakeId: linkedId, recommendation: "feature-change", traits: [], rationale: "Reason", evidenceIds: [] },
   Workflow: { workflowType: "feature-capability", title: "Feature / Capability", currentWorkspace: "work", workflowState: "active" },
+  SourceBaseline: { workflowId: linkedId, repositoryId: "repo", integrationTargetSourceLineId: "dev", baseRevisionId: "revision" },
   Phase: { title: "Phase", objective: "Objective", phaseState: "active", sequence: 1 },
   Finding: { ...common, category: "defect", impact: "Impact", observedAt: now, findingState: "open" },
   RootCause: { ...common, rationale: "Rationale", rootCauseState: "proposed" },
@@ -42,6 +43,14 @@ test("all adopted Project State types have registered bounded schemas and applic
     assert.equal(record.recordVersion, 1);
     assert.match(record.id, /^[0-9a-f-]{36}$/);
     assert.equal(validateProjectStateEntity(structuredClone(record)).id, record.id);
+  }
+  assert.equal(ENTITY_TYPE_REGISTRY.SourceBaseline.immutableAfterCreation, true);
+  const baseline = createProjectStateEntity({ entityType: "SourceBaseline", projectId: project.id, body: { ...bodies.SourceBaseline, workflowId: linkedId }, principal });
+  assert.throws(() => validateProjectStateEntity({ ...baseline, body: { ...baseline.body, extra: "x" } }), /unsupported/);
+  const { baseRevisionId: _baseRevisionId, ...missingBaselineRevision } = baseline.body;
+  assert.throws(() => validateProjectStateEntity({ ...baseline, body: missingBaselineRevision }), /baseRevisionId is required/);
+  for (const field of ["repositoryId", "integrationTargetSourceLineId", "baseRevisionId"]) {
+    assert.throws(() => validateProjectStateEntity({ ...baseline, body: { ...baseline.body, [field]: "bad reference" } }), /opaque RepositoryService reference/);
   }
 });
 
@@ -86,12 +95,25 @@ test("relationship registry enforces direction, endpoint existence, Project owne
   const other = createProjectStateEntity({ entityType: "Finding", projectId: randomUUID(), body: bodies.Finding, principal });
   const intake = createProjectStateEntity({ entityType: "WorkIntake", projectId, body: bodies.WorkIntake, principal });
   const source = createProjectStateEntity({ entityType: "SourceBinding", projectId, body: { ...bodies.SourceBinding, workIntakeId: intake.id }, principal });
-  const entities = new Map([finding, cause, other, intake, source].map(entity => [entity.id, entity]));
+  const workflow = createProjectStateEntity({ entityType: "Workflow", projectId, body: bodies.Workflow, principal });
+  const baseline = createProjectStateEntity({ entityType: "SourceBaseline", projectId, body: { ...bodies.SourceBaseline, workflowId: workflow.id }, principal });
+  const entities = new Map([finding, cause, other, intake, source, workflow, baseline].map(entity => [entity.id, entity]));
   const lookup = id => entities.get(id);
   const link = createRelationship({ projectId, fromEntityId: cause.id, relationshipType: "explains", toEntityId: finding.id, createdBy: principal }, lookup);
   assert.equal(validateRelationship(link, lookup).id, link.id);
   assert.throws(() => assertRelationshipEnd(link, now), /Immutable provenance/);
   assert.equal(createRelationship({ projectId, fromEntityId: source.id, relationshipType: "binds_source", toEntityId: intake.id, createdBy: principal }, lookup).relationshipType, "binds_source");
+  const baselineLink = createRelationship({ projectId, fromEntityId: baseline.id, relationshipType: "baselines_source", toEntityId: workflow.id, createdBy: principal }, lookup);
+  assert.equal(baselineLink.relationshipType, "baselines_source");
+  assert.throws(() => assertRelationshipEnd(baselineLink, now), /Immutable provenance/);
+  assert.ok(Object.hasOwn(RELATIONSHIP_REGISTRY, "baselines_source"));
+  const routing = createProjectStateEntity({ entityType: "Workflow", projectId, body: { ...bodies.Workflow, workflowType: "work-intake-routing" }, principal });
+  const routingBaseline = createProjectStateEntity({ entityType: "SourceBaseline", projectId, body: { ...bodies.SourceBaseline, workflowId: routing.id }, principal });
+  entities.set(routing.id, routing); entities.set(routingBaseline.id, routingBaseline);
+  assert.throws(() => createRelationship({ projectId, fromEntityId: routingBaseline.id, relationshipType: "baselines_source", toEntityId: routing.id, createdBy: principal }, lookup), /substantive Workflow/);
+  const unrelatedWorkflow = createProjectStateEntity({ entityType: "Workflow", projectId, body: { ...bodies.Workflow, title: "Other" }, principal });
+  entities.set(unrelatedWorkflow.id, unrelatedWorkflow);
+  assert.throws(() => createRelationship({ projectId, fromEntityId: baseline.id, relationshipType: "baselines_source", toEntityId: unrelatedWorkflow.id, createdBy: principal }, lookup), /body Workflow must match/);
   assert.ok(Object.hasOwn(RELATIONSHIP_REGISTRY, "proves"));
   assert.ok(Object.hasOwn(RELATIONSHIP_REGISTRY, "routes_to"));
   assert.equal(Object.hasOwn(RELATIONSHIP_REGISTRY, "owns_workflow"), false);

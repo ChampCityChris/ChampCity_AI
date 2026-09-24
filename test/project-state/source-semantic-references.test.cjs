@@ -26,6 +26,39 @@ async function readyBinding(service, projectId, intakeId) {
 }
 
 function register(name, factory) {
+  test(`${name}: Workflow SourceBaseline is exact, immutable and captured once without provider work`, async context => {
+    const store = factory(context);
+    const service = createProjectStateService(store, principal);
+    const project = await service.createRecord(null, "Project", { name: "Synthetic", description: "Project" });
+    const workflow = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Feature", currentWorkspace: "development" });
+    const input = { repositoryId: "repo-opaque", integrationTargetSourceLineId: "dev-line", baseRevisionId: "base-revision" };
+    await assert.rejects(service.createRecord(project.id, "SourceBaseline", { workflowId: workflow.id, ...input }), /typed commands/);
+    await assert.rejects(service.createWorkflowSourceBaseline(project.id, workflow.id, { ...input, unexpected: "x" }), /Unsupported semantic input field/);
+    await assert.rejects(service.createWorkflowSourceBaseline(project.id, workflow.id, { ...input, repositoryId: "repo with spaces" }), /opaque RepositoryService reference/);
+    const baseline = await service.createWorkflowSourceBaseline(project.id, workflow.id, input);
+    assert.deepEqual(baseline.body, { workflowId: workflow.id, ...input });
+    const links = await service.getRelationships(project.id, baseline.id);
+    assert.equal(links.length, 1);
+    assert.equal(links[0].relationshipType, "baselines_source");
+    await assert.rejects(service.createRelationship(project.id, baseline.id, "baselines_source", workflow.id), /typed baseline command/);
+    const stateChangesBefore = (await store.listStateChanges(project.id)).length;
+    const outboxBefore = (await store.listOutbox(project.id)).length;
+    await assert.rejects(service.createWorkflowSourceBaseline(project.id, workflow.id, input), /already has a SourceBaseline/);
+    assert.equal((await store.listStateChanges(project.id)).length, stateChangesBefore);
+    assert.equal((await store.listOutbox(project.id)).length, outboxBefore);
+    await assert.rejects(service.reviseRecord(project.id, baseline.id, { baseRevisionId: "other" }, 1), /typed command/);
+    await assert.rejects(service.supersedeRecord(project.id, baseline.id, { workflowId: workflow.id, ...input }, 1), /identity and revision history/);
+    await assert.rejects(service.endRelationship(project.id, links[0].id), /Immutable provenance/);
+    const independent = await service.createWorkflow(project.id, { workflowType: "issue-resolution", title: "Issue", currentWorkspace: "development" });
+    assert.equal((await service.createWorkflowSourceBaseline(project.id, independent.id, { ...input, baseRevisionId: "other-revision" })).body.baseRevisionId, "other-revision");
+    const { workflow: wir } = await service.createWorkIntake(project.id, intakeBody);
+    await assert.rejects(service.createWorkflowSourceBaseline(project.id, wir.id, input), /WIR cannot own/);
+    const otherProject = await service.createRecord(null, "Project", { name: "Other", description: "Project" });
+    await assert.rejects(service.createWorkflowSourceBaseline(otherProject.id, workflow.id, input), /does not exist in this Project/);
+    const closed = await service.createWorkflow(project.id, { workflowType: "research-prototype", title: "Closed", currentWorkspace: "research", workflowState: "closed" });
+    await assert.rejects(service.createWorkflowSourceBaseline(project.id, closed.id, input), /current nonterminal/);
+  });
+
   test(`${name}: SourceBinding retains opaque RepositoryService references and preparation history`, async context => {
     const store = factory(context);
     const service = createProjectStateService(store, principal);

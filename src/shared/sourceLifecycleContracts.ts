@@ -6,6 +6,14 @@ export interface SourceRevision {
   revisionId: string;
 }
 
+/** Immutable source state captured when a substantive Workflow is established. */
+export interface SourceBaseline {
+  workflowId: string;
+  repositoryId: string;
+  integrationTargetSourceLineId: string;
+  baseRevisionId: string;
+}
+
 export interface SourceLine {
   repositoryId: string;
   sourceLineId: string;

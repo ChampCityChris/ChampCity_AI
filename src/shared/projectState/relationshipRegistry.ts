@@ -18,7 +18,7 @@ interface RelationshipDefinition {
   immutableProvenance: boolean;
 }
 
-const all: readonly EntityType[] = ["Project", "ProjectResource", "WorkIntake", "RouteAssessment", "Workflow", "Phase", "Finding", "RootCause", "BoundedSolution", "Criterion", "WorkItem", "ImplementationRecord", "Validation", "Evidence", "Decision", "RegressionObligation", "SourceBinding", "SourceCheckpoint", "IntegrationRecord"];
+const all: readonly EntityType[] = ["Project", "ProjectResource", "WorkIntake", "RouteAssessment", "Workflow", "SourceBaseline", "Phase", "Finding", "RootCause", "BoundedSolution", "Criterion", "WorkItem", "ImplementationRecord", "Validation", "Evidence", "Decision", "RegressionObligation", "SourceBinding", "SourceCheckpoint", "IntegrationRecord"];
 const nonProject = all.filter(type => type !== "Project");
 const rule = (from: readonly EntityType[], to: readonly EntityType[], immutableProvenance = false): RelationshipDefinition => ({ from, to, immutableProvenance });
 
@@ -26,6 +26,7 @@ const rule = (from: readonly EntityType[], to: readonly EntityType[], immutableP
 export const RELATIONSHIP_REGISTRY = Object.freeze({
   addresses: rule(["BoundedSolution"], ["RootCause", "Finding"]),
   assesses_route: rule(["RouteAssessment"], ["WorkIntake"], true),
+  baselines_source: rule(["SourceBaseline"], ["Workflow"], true),
   binds_source: rule(["SourceBinding"], ["WorkIntake"], true),
   blocks: rule(nonProject, nonProject),
   checkpoints: rule(["SourceCheckpoint"], ["SourceBinding", "WorkIntake", "WorkItem", "ImplementationRecord"], true),
@@ -75,6 +76,8 @@ export function validateRelationship(
   if (!definition.from.includes(from.entityType) || !definition.to.includes(to.entityType)) fail("Relationship direction or endpoint type is invalid.");
   if (relationship.relationshipType === "part_of" && from.entityType === "Phase" && to.entityType !== "Workflow") fail("Phase membership must target a Workflow.");
   if (relationship.relationshipType === "routes_to" && (from.entityType !== "Workflow" || to.entityType !== "Workflow" || from.body.workflowType !== "work-intake-routing" || to.body.workflowType === "work-intake-routing")) fail("routes_to requires a Work Intake routing Workflow source and a non-routing Workflow target.");
+  if (relationship.relationshipType === "baselines_source" && (to.entityType !== "Workflow" || to.body.workflowType === "work-intake-routing")) fail("baselines_source requires a substantive Workflow target.");
+  if (relationship.relationshipType === "baselines_source" && from.entityType === "SourceBaseline" && from.body.workflowId !== to.id) fail("SourceBaseline body Workflow must match its provenance endpoint.");
   if (relationship.relationshipType === "derived_from" && from.lineageId === to.lineageId) fail("Derivation must retain a distinct lineage.");
   if (relationship.relationshipType === "supersedes") {
     if (from.entityType !== to.entityType || from.lineageId !== to.lineageId) fail("Supersession requires one entity type and shared lineage.");

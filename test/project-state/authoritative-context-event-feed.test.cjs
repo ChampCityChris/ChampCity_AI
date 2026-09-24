@@ -23,6 +23,7 @@ function register(name, factory) {
     const project = await service.createRecord(null, "Project", { name: "Synthetic", description: "Project" });
     const { intake, workflow } = await service.createWorkIntake(project.id, { request: "Change", desiredOutcome: "Working", constraints: [], evidenceContext: [], requestedIntegrationTarget: "dev" });
     const targetWorkflow = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Target", currentWorkspace: "development" });
+    const baseline = await service.createWorkflowSourceBaseline(project.id, targetWorkflow.id, { repositoryId: "repo-baseline", integrationTargetSourceLineId: "dev-baseline", baseRevisionId: "revision-baseline" });
     const targetPhase = await service.createRecord(project.id, "Phase", { title: "Target phase", objective: "Independent", phaseState: "active", sequence: 1 });
     const targetWork = await service.createRecord(project.id, "WorkItem", { workItemKind: "feature", title: "Target work", objective: "Build", workState: "ready" });
     await service.createRelationship(project.id, targetPhase.id, "part_of", targetWorkflow.id);
@@ -63,6 +64,10 @@ function register(name, factory) {
     assert.equal(workflowContext.relationships.some(edge => edge.relationshipType === "routes_to" && edge.toEntityId === targetWorkflow.id), true);
     const targetContext = await service.getAuthoritativeContext(project.id, { scope: "workflow", entityId: targetWorkflow.id, limit: 100 });
     assert.equal(targetContext.records.some(record => record.id === workflow.id || record.id === intake.id), false);
+    assert.equal(targetContext.records.some(record => record.id === baseline.id), true);
+    for (const [field, reference] of Object.entries({ repositoryId: "repo-baseline", integrationTargetSourceLineId: "dev-baseline", baseRevisionId: "revision-baseline" })) {
+      assert.equal(targetContext.sourceReferences.some(ref => ref.entityId === baseline.id && ref.field === field && ref.reference === reference), true);
+    }
     const projectContext = await service.getAuthoritativeContext(project.id, { scope: "project", limit: 100 });
     assert.equal(projectContext.records.some(record => record.id === workflow.id), true);
     assert.equal(projectContext.records.some(record => record.id === targetWorkflow.id), true);
