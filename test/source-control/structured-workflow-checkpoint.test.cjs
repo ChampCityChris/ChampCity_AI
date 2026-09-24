@@ -34,9 +34,13 @@ test("structured route, implementation and revision review share one SourceLine 
   assert.equal(routeRetry.checkpoint.revision.revisionId, routeHead);
   assert.equal(git(root, "rev-parse", "HEAD"), routeHead);
   const summary = await state.getWorkIntakeSummary(saved.projectId, saved.intakeId);
+  const routingWorkflow = await state.getRecord(saved.projectId, summary.routingWorkflowId);
+  const targetWorkflow = await state.createWorkflow(saved.projectId, { workflowType: "feature-capability", title: "Feature implementation", currentWorkspace: "development" });
+  await state.linkWorkflowRouteTarget(saved.projectId, routingWorkflow.id, targetWorkflow.id);
+  assert.equal((await state.getWorkIntakeSummary(saved.projectId, saved.intakeId)).targetWorkflowId, targetWorkflow.id);
   const work = await state.createRecord(saved.projectId, "WorkItem", {
     workItemKind: "feature", title: "Feature", objective: "Implement feature", workState: "implemented" });
-  await state.createRelationship(saved.projectId, work.id, "part_of", summary.workflowId);
+  await state.createRelationship(saved.projectId, work.id, "part_of", targetWorkflow.id);
   store.close();
   fs.writeFileSync(path.join(root, "feature.txt"), "implemented\n");
   const implementationInput = { summary: "Feature implemented", deviations: [], blockers: [], residualRisks: [],

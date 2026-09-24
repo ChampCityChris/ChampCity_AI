@@ -38,9 +38,15 @@ async function routeAndWork(root, captured, title, route) {
   const next = openState(root);
   try {
     const summary = await next.state.getWorkIntakeSummary(captured.projectId, captured.intakeId);
+    const workflowType = route === "feature-change" ? "feature-capability" : "issue-resolution";
+    const currentWorkspace = route === "feature-change" ? "development" : "issue";
+    const target = await next.state.createWorkflow(captured.projectId, { workflowType,
+      title: `${title} ${route} execution`, currentWorkspace });
+    await next.state.linkWorkflowRouteTarget(captured.projectId, summary.routingWorkflowId, target.id);
+    assert.equal((await next.state.getWorkIntakeSummary(captured.projectId, captured.intakeId)).targetWorkflowId, target.id);
     const work = await next.state.createRecord(captured.projectId, "WorkItem",
       { workItemKind: "feature", title, objective: title, workState: "implemented" });
-    await next.state.createRelationship(captured.projectId, work.id, "part_of", summary.workflowId);
+    await next.state.createRelationship(captured.projectId, work.id, "part_of", target.id);
     return work.id;
   } finally { next.store.close(); }
 }

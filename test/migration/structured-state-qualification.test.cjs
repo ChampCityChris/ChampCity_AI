@@ -64,7 +64,10 @@ test("qualified Project uses structured truth after restart, while legacy scanne
   assert.equal(summary.currentRoute.route, "feature-change");
   const binding = await service.getSourceSemanticView(staged.projectId, "repository-1");
   assert.equal(binding.bindings.length, 1);
-  const workflow = await service.getRecord(staged.projectId, summary.workflowId);
+  const routingWorkflow = await service.getRecord(staged.projectId, summary.routingWorkflowId);
+  const workflow = await service.createWorkflow(staged.projectId, { workflowType: "feature-capability", title: "Qualified feature delivery", currentWorkspace: "development" });
+  await service.linkWorkflowRouteTarget(staged.projectId, routingWorkflow.id, workflow.id);
+  assert.equal((await service.getWorkIntakeSummary(staged.projectId, intakeId)).targetWorkflowId, workflow.id);
   const facade = createEngineeringWorkflowStateFacade(store, operator);
   const phase = await facade.addPhase(staged.projectId, workflow.id, { title: "Delivery", objective: "Build", sequence: 1 });
   const work = await facade.addWorkItem(staged.projectId, { workItemKind: "feature", title: "Work", objective: "Deliver" }, phase.id);
