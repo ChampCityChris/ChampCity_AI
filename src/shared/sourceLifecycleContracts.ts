@@ -21,6 +21,38 @@ export interface SourceLine {
   providerBranchName: string;
 }
 
+/** Semantic identity for a provider repository. Filesystem locations belong to checkouts. */
+export interface Repository {
+  repositoryId: string;
+  provider: "git";
+}
+
+export type RepositoryCheckoutRole = "main" | "dev" | "workflow";
+
+/** One concrete project-managed working copy of a semantic SourceLine. */
+export interface RepositoryCheckout {
+  repositoryCheckoutId: string;
+  repositoryId: string;
+  sourceLineId: string;
+  role: RepositoryCheckoutRole;
+  projectRelativePath: string;
+  workflowId?: string;
+}
+
+export interface ManagedProjectSourcePaths {
+  repositoryMetadataRelativePath: string;
+  mainCheckoutRelativePath: string;
+  devCheckoutRelativePath: string;
+  workflowCheckoutRootRelativePath: string;
+}
+
+export const MANAGED_PROJECT_SOURCE_PATHS: Readonly<ManagedProjectSourcePaths> = Object.freeze({
+  repositoryMetadataRelativePath: ".champcity/repository.git",
+  mainCheckoutRelativePath: "Main",
+  devCheckoutRelativePath: "Dev",
+  workflowCheckoutRootRelativePath: ".champcity/checkouts",
+});
+
 export interface IntegrationTarget {
   repositoryId: string;
   sourceLineId: string;

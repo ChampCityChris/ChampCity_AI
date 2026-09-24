@@ -3687,6 +3687,10 @@
           "description": "isolated npm ci leaves a held source node_modules/electron sentinel intact"
         },
         {
+          "behaviorId": "managed-project-source-topology-separates-container-repository-and-checkouts",
+          "description": "managed source topology keeps Project containers, repository metadata, and SourceLine checkouts distinct with canonical contained paths"
+        },
+        {
           "behaviorId": "mapped-branch-push-upstream-and-exact-remote-deletion",
           "description": "mapped branch push upstream and exact remote deletion preserve local refs and sanitize failures"
         },
@@ -18460,6 +18464,26 @@
       "dispositionReasons": ["current-proof-appropriate"],
       "behaviorCoverage": [
         { "capabilityId": "release-and-git-operations", "behaviorId": "source-lifecycle-package-qualifies-three-lines-checkpoint-review-and-integration", "proofLocator": "dirty dev capture, feature and two hotfix lines, review-loop revisions, clean and repaired integration, and projected graph", "proofRole": "primary" }
+      ]
+    },
+    {
+      "testPath": "test/source-control/source-topology-path-contracts.test.cjs",
+      "currentTestCount": { "value": 6, "basis": "Focused Project container topology path, identity, role validation, and redirect safety fixtures." },
+      "duration": { "kind": "measured", "milliseconds": 87, "basis": "Observed supported-Windows focused WTR02C contract test run." },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": { "electron": false, "filesystem": true, "git": false, "network": false, "process": false, "timing": false },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": ["capability"],
+      "execution": { "requiresBuild": true, "platform": "any", "externalCapabilities": [], "scheduling": "parallel-safe",
+        "schedulingReason": "Each fixture owns isolated temporary Project containers and no Git or shared mutable state.",
+        "ownedResources": ["temp-filesystem-isolated"] },
+      "proofCharacteristics": ["behavioral"],
+      "dispositionReasons": ["current-proof-appropriate"],
+      "behaviorCoverage": [
+        { "capabilityId": "release-and-git-operations", "behaviorId": "managed-project-source-topology-separates-container-repository-and-checkouts",
+          "proofLocator": "canonical managed paths, non-Git container resolution, exact Workflow UUID mapping, checkout-role validation, and redirect rejection", "proofRole": "primary" }
       ]
     },
     {
