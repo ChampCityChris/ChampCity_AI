@@ -74,13 +74,14 @@ The subcard map is an execution forecast. Only the next approved card is authori
 
 ### WTR02 — Repository, checkout, MCP, and source ownership contracts
 
-- **WTR02A — Introduce Workflow SourceBaseline and Workflow-owned SourceBinding contracts.**
-- **WTR02B — Separate Project container, Repository, SourceLine, and RepositoryCheckout path contracts.**
-- **WTR02C — Allow MCP workspace registration/tooling for non-Git Project roots and explicit Git checkout targets.**
-- **WTR02D — Generalize work-source naming/creation from WorkIntake owner to Workflow owner.**
-- **WTR02E — Implement lazy Workflow SourceLine and checkout materialization from exact baseline.**
-- **WTR02F — Move source checkpoints and IntegrationRecord ownership from WorkIntake to Workflow.**
-- **WTR02G — Project Source Graph metadata by Workflow identity rather than WorkIntake identity.**
+- **WTR02A — Establish immutable Workflow SourceBaseline semantic contract and typed capture.**
+- **WTR02B — Convert SourceBinding semantic ownership from Work Intake to Workflow/SourceBaseline.**
+- **WTR02C — Separate Project container, Repository, SourceLine, and RepositoryCheckout path contracts.**
+- **WTR02D — Allow MCP workspace registration/tooling for non-Git Project roots and explicit Git checkout targets.**
+- **WTR02E — Generalize work-source naming/creation from WorkIntake owner to Workflow owner.**
+- **WTR02F — Implement lazy Workflow SourceLine and checkout materialization from exact baseline.**
+- **WTR02G — Move source checkpoints and IntegrationRecord ownership from WorkIntake to Workflow.**
+- **WTR02H — Project Source Graph metadata by Workflow identity rather than WorkIntake identity.**
 
 ### WTR03 — Fresh Project bootstrap and legacy abandonment
 
@@ -261,14 +262,14 @@ The final proof must establish:
 
 ## 5. Immediate release boundary
 
-**WTR01A, WTR01B, and WTR01C are closed. WTR01D is the only card currently authored/released for implementation.**
+**WTR01 is closed. WTR02A is the only card currently authored/released for implementation.**
 
 The Operator has authorized the one attributable card-local checkpoint commit required by this WTR package after each card's bounded implementation, validation, and Implementer Report. That routine checkpoint does not require a second Git approval.
 
-No WTR02 or later milestone/card is implementation-authorized until:
+No WTR02B or later card is implementation-authorized until:
 
-- WTR01D is implemented by Luna Medium;
+- WTR02A is implemented by Luna Medium;
 - focused validation/report/checkpoint are complete;
-- the Architect reviews WTR01D;
-- WTR01 is formally closed;
+- the Architect reviews WTR02A;
+- any WTR02A repair is closed;
 - the Architect authors/releases the next bounded card.
