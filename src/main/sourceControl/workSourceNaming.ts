@@ -9,3 +9,10 @@ export function workIntakeBranchName(intakeId: string): string {
   const digest = createHash("sha256").update(intakeId).digest("hex").slice(0, 24);
   return `work-intake/${slug}-${digest}`;
 }
+
+export function workflowSourceLineName(workflowId: string): string {
+  if (typeof workflowId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(workflowId)) {
+    throw new AgentHarnessError("INVALID_INPUT", "Workflow identity must be a canonical lowercase UUID.");
+  }
+  return `workflow/${workflowId}`;
+}

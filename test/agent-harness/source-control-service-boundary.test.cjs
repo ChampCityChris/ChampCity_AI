@@ -9,6 +9,7 @@ const ts = require("typescript");
 const repositoryRoot = path.resolve(__dirname, "../..");
 const { AgentHarnessError } = require("../../dist/main/agentHarness/core/errors.js");
 const { createSourceControlService } = require("../../dist/main/sourceControl/sourceControlService.js");
+const { workflowSourceLineName } = require("../../dist/main/sourceControl/workSourceNaming.js");
 const {
   createWorkIntakeBranchService, workIntakeBranchName,
 } = require("../../dist/main/workIntake/workIntakeBranchService.js");
@@ -94,21 +95,34 @@ test("application source control returns attributable receipts and preserves Git
 
   const dirtyPath = 'file with spaces.txt';
   fs.writeFileSync(path.join(root, dirtyPath), "service content\n");
-  const workSource = (await success(service.createWorkSource({ baseRevision, owner: { kind: "work-intake", workIntakeId: "WI.01" } }), "create-work-source")).result;
-  assert.equal(workSource.sourceLine.sourceLineId, workIntakeBranchName("WI.01"));
+  const workflowId = "a1b2c3d4-e5f6-4789-8abc-0123456789ab";
+  const secondWorkflowId = "b1b2c3d4-e5f6-4789-8abc-0123456789ab";
+  const workSource = (await success(service.createWorkSource({ baseRevision, owner: { kind: "workflow", workflowId } }), "create-work-source")).result;
+  assert.deepEqual(workSource.owner, { kind: "workflow", workflowId });
+  assert.equal(workSource.sourceLine.sourceLineId, `workflow/${workflowId}`);
+  assert.equal(workSource.sourceLine.providerBranchName, `workflow/${workflowId}`);
   assert.equal(workSource.sourceLine.headRevisionId, baseline);
   assert.equal(workSource.repositoryCheckoutId, undefined);
   assert.equal(git(root, ["rev-parse", workSource.sourceLine.providerBranchName]), baseline);
   assert.equal(git(root, ["branch", "--show-current"]), "work/service");
   assert.equal(fs.readFileSync(path.join(root, dirtyPath), "utf8"), "service content\n");
-  const collision = await service.createWorkSource({ baseRevision, owner: { kind: "work-intake", workIntakeId: "WI.01" } });
+  const collision = await service.createWorkSource({ baseRevision, owner: { kind: "workflow", workflowId } });
   assert.equal(collision.ok, false);
   assert.equal(collision.error.mutationMayHaveOccurred, true);
   assert.equal(git(root, ["rev-parse", workSource.sourceLine.providerBranchName]), baseline);
-  const wrongRepository = await service.createWorkSource({ baseRevision: { ...baseRevision, repositoryId: "another" }, owner: { kind: "work-intake", workIntakeId: "WI.02" } });
+  const otherWorkSource = (await success(service.createWorkSource({ baseRevision, owner: { kind: "workflow", workflowId: secondWorkflowId } }), "create-work-source")).result;
+  assert.equal(otherWorkSource.sourceLine.sourceLineId, `workflow/${secondWorkflowId}`);
+  assert.notEqual(otherWorkSource.sourceLine.sourceLineId, workSource.sourceLine.sourceLineId);
+  assert.equal(git(root, ["rev-parse", otherWorkSource.sourceLine.providerBranchName]), baseline);
+  const wrongRepository = await service.createWorkSource({ baseRevision: { ...baseRevision, repositoryId: "another" }, owner: { kind: "workflow", workflowId: "c1b2c3d4-e5f6-4789-8abc-0123456789ab" } });
   assert.equal(wrongRepository.ok, false);
   assert.equal(wrongRepository.error.code, "INVALID_INPUT");
-  assert.equal(git(root, ["branch", "--list", workIntakeBranchName("WI.02")]), "");
+  assert.equal(git(root, ["branch", "--list", "workflow/c1b2c3d4-e5f6-4789-8abc-0123456789ab"]), "");
+  const malformedOwner = await service.createWorkSource({ baseRevision, owner: { kind: "work-intake", workIntakeId: "WI.01" } });
+  assert.equal(malformedOwner.ok, false);
+  assert.equal(malformedOwner.error.code, "INVALID_INPUT");
+  assert.equal(git(root, ["branch", "--list", "work-intake/*"]), "");
+  assert.equal(git(root, ["branch", "--list", "workflow/*"]).trim().split(/\r?\n/).filter(Boolean).length, 2);
   const dirty = await service.switchBranch("dev");
   assert.equal(dirty.ok, false);
   assert.equal(dirty.error.code, "GIT_EXECUTION_FAILED");
@@ -175,4 +189,20 @@ test("application source control returns attributable receipts and preserves Git
   const nonGit = await createSourceControlService({ repositoryId: "non-git", repositoryRoot: nonGitRoot }).status();
   assert.equal(nonGit.ok, false);
   assert.equal(nonGit.error.code, "GIT_CAPABILITY_UNAVAILABLE");
+});
+
+test("workflow source-line names require canonical Workflow UUIDs", () => {
+  const id = "a1b2c3d4-e5f6-4789-8abc-0123456789ab";
+  assert.equal(workflowSourceLineName(id), `workflow/${id}`);
+  for (const invalid of [
+    id.toUpperCase(),
+    "00000000-0000-0000-0000-000000000000",
+    "a1b2c3d4-e5f6-0789-8abc-0123456789ab",
+    "a1b2c3d4-e5f6-4789-7abc-0123456789ab",
+    `../${id}`,
+    `${id}/extra`,
+    ` ${id}`,
+  ]) {
+    assert.throws(() => workflowSourceLineName(invalid), { code: "INVALID_INPUT" });
+  }
 });

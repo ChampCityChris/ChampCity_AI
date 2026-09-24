@@ -21,7 +21,7 @@ import type {
   SourceControlReceipt, SourceControlResult,
 } from "../../shared/sourceControlContracts";
 import type { CreateWorkSourceInput, ProjectSourceBootstrap, SourceGraphOptions, SourceRevisionSelector, WorkSourceBinding } from "../../shared/sourceLifecycleContracts";
-import { workIntakeBranchName } from "./workSourceNaming";
+import { workflowSourceLineName } from "./workSourceNaming";
 import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
 import { bootstrapProjectSource as establishProjectSource } from "./projectSourceBootstrap";
 import { getSourceGraph, getSourceGraphRevisionDetail } from "./sourceGraphService";
@@ -147,11 +147,11 @@ export function createSourceControlService(binding: { repositoryId: string; repo
       if (input.baseRevision.repositoryId !== repositoryId || !/^[a-f0-9]{40,64}$/.test(input.baseRevision.revisionId)) {
         throw new AgentHarnessError("INVALID_INPUT", "An exact source revision in the selected repository is required.");
       }
-      if (input.owner.kind !== "work-intake") throw new AgentHarnessError("INVALID_INPUT", "A Work Intake source owner is required.");
-      const sourceLineId = workIntakeBranchName(input.owner.workIntakeId);
+      if (!input.owner || input.owner.kind !== "workflow") throw new AgentHarnessError("INVALID_INPUT", "A Workflow source owner is required.");
+      const sourceLineId = workflowSourceLineName(input.owner.workflowId);
       const created = await createGitBranchFromRef(root, { branchName: sourceLineId, sourceRef: input.baseRevision.revisionId });
       return {
-        owner: input.owner,
+        owner: { kind: "workflow", workflowId: input.owner.workflowId },
         baseRevision: input.baseRevision,
         sourceLine: { repositoryId, sourceLineId, providerBranchName: created.branchName, headRevisionId: created.sourceCommit },
       };

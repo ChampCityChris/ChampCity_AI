@@ -63,15 +63,15 @@ export type SourceRevisionSelector =
   | { kind: "source-line"; sourceLineId: string }
   | { kind: "revision"; revisionId: string };
 
-export interface WorkSourceOwner { kind: "work-intake"; workIntakeId: string }
+export interface WorkflowSourceOwner { kind: "workflow"; workflowId: string }
 
 export interface CreateWorkSourceInput {
   baseRevision: SourceRevision;
-  owner: WorkSourceOwner;
+  owner: WorkflowSourceOwner;
 }
 
 export interface WorkSourceBinding {
-  owner: WorkSourceOwner;
+  owner: WorkflowSourceOwner;
   sourceLine: SourceLine;
   baseRevision: SourceRevision;
   repositoryCheckoutId?: string;
