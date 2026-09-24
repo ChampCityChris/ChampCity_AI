@@ -163,6 +163,24 @@ test("non-Git Project routes Git only through a registered Dev checkout and unre
   assert.equal(after.error.code, "WORKSPACE_ACCESS_DENIED");
 });
 
+test("registered checkout descriptor drift is unavailable and never redirects Git use", async () => {
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-registry-drift-"));
+  const project = path.join(container, "Project");
+  const dev = path.join(project, "Dev");
+  fs.mkdirSync(dev, { recursive: true });
+  execFileSync("git", ["init", "-b", "dev"], { cwd: dev, stdio: "ignore" });
+  const registry = new RegisteredWorkspaceRegistry({ userDataRoot: path.join(container, "user-data") });
+  await registry.register(project);
+  const descriptor = { repositoryCheckoutId: "drift-dev", repositoryId: "repo", sourceLineId: "dev", role: "dev", projectRelativePath: "Dev" };
+  await registry.registerRepositoryCheckout("project", descriptor);
+  const stored = registry.entries.get("project");
+  stored.repositoryCheckouts[0].projectRelativePath = "../outside";
+  const summaries = await registry.listRepositoryCheckoutSummaries("project");
+  assert.equal(summaries[0].availability, "unavailable");
+  await assert.rejects(registry.resolveRepositoryCheckoutContext("project", "drift-dev"), (error) => error.code === "GIT_CAPABILITY_UNAVAILABLE");
+  assert.equal(fs.existsSync(path.join(container, "outside")), false);
+});
+
 test("Git-backed Project root is not an implicit checkout and stale registrations stay visible", async () => {
   const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-registry-no-fallback-"));
   const project = path.join(container, "Legacy Git Project");

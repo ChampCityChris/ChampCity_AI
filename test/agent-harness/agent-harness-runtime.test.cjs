@@ -72,6 +72,45 @@ const {
   getAgentHarnessSettingsPath,
 } = require("../../dist/main/agentHarness/runtime/agentHarnessSettings.js");
 
+test("HTTP MCP routes Git to an explicitly registered Dev checkout while Project files stay in the container", async () => {
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-http-checkout-routing-"));
+  const root = path.join(container, "Routing Project");
+  const dev = path.join(root, "Dev");
+  const userDataRoot = path.join(container, "user-data");
+  fs.mkdirSync(dev, { recursive: true });
+  fs.writeFileSync(path.join(root, "README.md"), "Project container file\n", "utf8");
+  fs.writeFileSync(path.join(dev, "README.md"), "Dev checkout file\n", "utf8");
+  execFileSync("git", ["init", "-b", "dev"], { cwd: dev, stdio: "ignore" });
+  execFileSync("git", ["config", "user.name", "Test"], { cwd: dev, stdio: "ignore" });
+  execFileSync("git", ["config", "user.email", "test@example.invalid"], { cwd: dev, stdio: "ignore" });
+  execFileSync("git", ["add", "--all"], { cwd: dev, stdio: "ignore" });
+  execFileSync("git", ["commit", "-m", "fixture"], { cwd: dev, stdio: "ignore" });
+  const service = new AgentHarnessService({ userDataRoot, allowUnauthenticatedLocal: true, port: 0 });
+  let client;
+  try {
+    const workspace = await service.registerWorkspaceRoot(root);
+    assert.equal(workspace.workspace.workspaceId, "routing_project");
+    const descriptor = { repositoryCheckoutId: "routing-dev", repositoryId: "routing-repo", sourceLineId: "dev", role: "dev", projectRelativePath: "Dev" };
+    await service.registerRepositoryCheckout("routing_project", descriptor);
+    const status = await service.start();
+    client = (await connectMcpClient(status.mcpEndpoint)).client;
+    const projectRead = await callTool(client, "repo_toolbox", { workspaceId: "routing_project", action: "read_file", params: { relativePath: "README.md" } });
+    assert.match(projectRead.structuredContent.payload.content, /Project container file/);
+    const gitStatus = await callTool(client, "git_toolbox", { workspaceId: "routing_project", action: "status", params: { repositoryCheckoutId: "routing-dev" } });
+    assert.equal(gitStatus.structuredContent.ok, true, JSON.stringify(gitStatus.structuredContent.error));
+    fs.writeFileSync(path.join(dev, "checkout-only.txt"), "Dev only\n", "utf8");
+    const staged = await callTool(client, "git_toolbox", { workspaceId: "routing_project", action: "stage_changes", params: { repositoryCheckoutId: "routing-dev", paths: ["checkout-only.txt"] } });
+    assert.equal(staged.structuredContent.ok, true, JSON.stringify(staged.structuredContent.error));
+    assert.equal(execFileSync("git", ["status", "--porcelain"], { cwd: dev, encoding: "utf8" }).trim(), "A  checkout-only.txt");
+    const missingSelector = await callTool(client, "git_toolbox", { workspaceId: "routing_project", action: "status", params: {} });
+    assert.equal(missingSelector.isError, true);
+    assert.throws(() => execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd: root, stdio: ["ignore", "pipe", "ignore"] }));
+  } finally {
+    await client?.close().catch(() => undefined);
+    await service.stop().catch(() => undefined);
+  }
+});
+
 test("Agent Harness HTTP runtime serves registered workspace tool discovery, read, write, diagnostics, and shutdown", async () => {
   const { root, userDataRoot } = createWorkspace("FO76_Collector");
   const beforeEnv = process.env.CHAMPCITY_WC60_SENTINEL;

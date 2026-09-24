@@ -919,7 +919,7 @@ function gitInspectionAction(name: string, params: Record<string, ParamSpec>, di
 
 function withRepositoryCheckoutId(params: Record<string, ParamSpec>): Record<string, ParamSpec> {
   if (Object.prototype.hasOwnProperty.call(params, "repositoryCheckoutId")) throw new Error("Git target is centrally defined.");
-  return { ...params, repositoryCheckoutId: { type: "string", required: true, minLength: 1, maxLength: 160 } };
+  return { ...params, repositoryCheckoutId: { type: "string", required: true, minLength: 1, maxLength: 128 } };
 }
 
 function releaseInspectionAction(

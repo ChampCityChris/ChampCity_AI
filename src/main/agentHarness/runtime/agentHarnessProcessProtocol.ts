@@ -1,8 +1,10 @@
+import type { RepositoryCheckout } from "../../../shared/sourceLifecycleContracts";
 import type {
   AgentHarnessSettingsInput,
   AgentHarnessStatus,
   AgentHarnessWorkspaceRegistrySnapshot,
   AgentHarnessRegisteredWorkspaceSummary,
+  AgentHarnessRegisteredRepositoryCheckoutSummary,
   LegacyOAuthClientImportResult,
   AgentHarnessControlledRestartDisposition,
 } from "../../../shared/workspaceContracts";
@@ -24,6 +26,8 @@ export type AgentHarnessControlOperation =
   | "list-registered-workspaces"
   | "register-workspace"
   | "unregister-workspace"
+  | "register-repository-checkout"
+  | "unregister-repository-checkout"
   | "shutdown";
 
 export interface AgentHarnessWorkerEnvironmentOverrides {
@@ -71,6 +75,8 @@ export interface AgentHarnessControlRequestPayloads {
   "list-registered-workspaces": null;
   "register-workspace": { workspaceRoot: string };
   "unregister-workspace": { workspaceId: string };
+  "register-repository-checkout": { workspaceId: string; checkout: RepositoryCheckout };
+  "unregister-repository-checkout": { workspaceId: string; repositoryCheckoutId: string };
   shutdown: null;
 }
 
@@ -89,6 +95,8 @@ export interface AgentHarnessControlResponsePayloads {
   "list-registered-workspaces": AgentHarnessWorkspaceRegistrySnapshot;
   "register-workspace": AgentHarnessWorkspaceRegistrationControlResult;
   "unregister-workspace": AgentHarnessWorkspaceRegistrySnapshot;
+  "register-repository-checkout": AgentHarnessRegisteredRepositoryCheckoutSummary;
+  "unregister-repository-checkout": AgentHarnessRegisteredRepositoryCheckoutSummary[];
   shutdown: AgentHarnessStatus;
 }
 
@@ -148,6 +156,8 @@ const controlOperations = new Set<AgentHarnessControlOperation>([
   "list-registered-workspaces",
   "register-workspace",
   "unregister-workspace",
+  "register-repository-checkout",
+  "unregister-repository-checkout",
   "shutdown",
 ]);
 
@@ -160,7 +170,9 @@ export function isAgentHarnessControlRequest(value: unknown): value is AgentHarn
     typeof value.requestId === "string" &&
     value.requestId.length > 0 &&
     isAgentHarnessControlOperation(value.operation) &&
-    Object.prototype.hasOwnProperty.call(value, "payload");
+    Object.prototype.hasOwnProperty.call(value, "payload") &&
+    (value.operation !== "register-repository-checkout" || isSemanticCheckoutRequest(value.payload)) &&
+    (value.operation !== "unregister-repository-checkout" || (isRecord(value.payload) && typeof value.payload.workspaceId === "string" && typeof value.payload.repositoryCheckoutId === "string" && !hasHostPathFields(value.payload)));
 }
 
 export function isAgentHarnessControlResponse(value: unknown): value is AgentHarnessControlResponse {
@@ -189,6 +201,14 @@ export function isAgentHarnessControlResponse(value: unknown): value is AgentHar
 
 function isAgentHarnessControlOperation(value: unknown): value is AgentHarnessControlOperation {
   return typeof value === "string" && controlOperations.has(value as AgentHarnessControlOperation);
+}
+
+function isSemanticCheckoutRequest(value: unknown): boolean {
+  return isRecord(value) && typeof value.workspaceId === "string" && typeof value.checkout === "object" && value.checkout !== null && !Array.isArray(value.checkout) && !hasHostPathFields(value) && !hasHostPathFields(value.checkout);
+}
+
+function hasHostPathFields(value: object): boolean {
+  return ["root", "absoluteRoot", "checkoutRoot", "gitCommonDirectory", "canonicalRoot", "absolutePath"].some((key) => Object.prototype.hasOwnProperty.call(value, key));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -388,4 +408,11 @@ function isNullableInteger(value: unknown): boolean {
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+export function isAgentHarnessRegisteredRepositoryCheckoutSummary(value: unknown): value is AgentHarnessRegisteredRepositoryCheckoutSummary {
+  return isRecord(value) && typeof value.repositoryCheckoutId === "string" && value.repositoryCheckoutId.length > 0 && value.repositoryCheckoutId.length <= 128 && typeof value.repositoryId === "string" && typeof value.sourceLineId === "string" && ["main", "dev", "workflow"].includes(String(value.role)) && typeof value.projectRelativePath === "string" && (value.workflowId === undefined || typeof value.workflowId === "string") && ["available", "unavailable"].includes(String(value.availability)) && (value.validationError === null || typeof value.validationError === "string") && !("root" in value) && !("absoluteRoot" in value) && !("canonicalRoot" in value) && !("checkoutRoot" in value) && !("gitCommonDirectory" in value) && !("absolutePath" in value);
+}
+export function isAgentHarnessRegisteredRepositoryCheckoutSummaryArray(value: unknown): value is AgentHarnessRegisteredRepositoryCheckoutSummary[] {
+  return Array.isArray(value) && value.every(isAgentHarnessRegisteredRepositoryCheckoutSummary);
 }

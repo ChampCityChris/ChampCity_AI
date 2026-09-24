@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
+import type { RepositoryCheckout } from "../../../shared/sourceLifecycleContracts";
 import net, { type Socket } from "node:net";
 import type {
   AgentHarnessSettingsInput,
   AgentHarnessRegisteredWorkspaceSummary,
+  AgentHarnessRegisteredRepositoryCheckoutSummary,
   AgentHarnessServiceHostLifecycleStatus,
   AgentHarnessStatus,
   AgentHarnessWorkspaceRegistrySnapshot,
@@ -12,6 +14,8 @@ import {
   isAgentHarnessStatus,
   isAgentHarnessWorkspaceRegistrySnapshot,
   isAgentHarnessWorkspaceRegistrationControlResult,
+  isAgentHarnessRegisteredRepositoryCheckoutSummary,
+  isAgentHarnessRegisteredRepositoryCheckoutSummaryArray,
 } from "./agentHarnessProcessProtocol";
 import {
   createAgentHarnessServiceHostDescriptorFromIdentity,
@@ -209,6 +213,18 @@ export class AgentHarnessServiceHostClient {
       throw this.invalidResponse("Service Host returned an invalid registry snapshot.");
     }
     return registry;
+  }
+
+  async registerRepositoryCheckout(workspaceId: string, checkout: RepositoryCheckout): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary> {
+    const result = await this.invoke("register-repository-checkout", { workspaceId, checkout });
+    if (!isAgentHarnessRegisteredRepositoryCheckoutSummary(result)) throw this.invalidResponse("Service Host returned an invalid checkout summary.");
+    return result;
+  }
+
+  async unregisterRepositoryCheckout(workspaceId: string, repositoryCheckoutId: string): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary[]> {
+    const result = await this.invoke("unregister-repository-checkout", { workspaceId, repositoryCheckoutId });
+    if (!isAgentHarnessRegisteredRepositoryCheckoutSummaryArray(result)) throw this.invalidResponse("Service Host returned invalid checkout summaries.");
+    return result;
   }
 
   async shutdownServiceHost(): Promise<void> {

@@ -1,7 +1,7 @@
 import { managedWorkspaceId, verifyManagedCheckout } from "../repository/managedWorktrees";
 import fs from "node:fs";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { runBoundedGit } from "../repository/boundedGit";
 import type {
   AgentHarnessRegisteredWorkspaceSummary,
   AgentHarnessWorkspaceRegistrySnapshot,
@@ -185,12 +185,12 @@ export class RegisteredWorkspaceRegistry {
     const sameId = registered.find(item => item.repositoryCheckoutId === checkout.repositoryCheckoutId);
     if (sameId) {
       if (!sameCheckoutContract(sameId, checkout)) throw new AgentHarnessError("WORKSPACE_REGISTRY_CONFLICT", "RepositoryCheckout ID is already registered with a different contract.");
-      try { this.validateCheckoutRoot(this.deriveCheckoutRoot(entry.canonicalRoot, checkout)); }
+      try { await this.validateCheckoutRoot(this.deriveCheckoutRoot(entry.canonicalRoot, checkout)); }
       catch { throw new AgentHarnessError("GIT_CAPABILITY_UNAVAILABLE", "The registered checkout is unavailable or does not identify an exact Git working tree."); }
       return this.checkoutSummary(checkout, true, null);
     }
     if (registered.some(item => item.projectRelativePath === checkout.projectRelativePath)) throw new AgentHarnessError("WORKSPACE_REGISTRY_CONFLICT", "A checkout path is already registered under a different identity.");
-    try { this.validateCheckoutRoot(this.deriveCheckoutRoot(entry.canonicalRoot, checkout)); }
+    try { await this.validateCheckoutRoot(this.deriveCheckoutRoot(entry.canonicalRoot, checkout)); }
     catch { throw new AgentHarnessError("GIT_CAPABILITY_UNAVAILABLE", "The registered checkout is unavailable or does not identify an exact Git working tree."); }
     const next = new Map(this.entries);
     const updated = { ...entry, repositoryCheckouts: [...registered, { ...checkout }].sort((a,b) => a.repositoryCheckoutId.localeCompare(b.repositoryCheckoutId)) };
@@ -209,10 +209,15 @@ export class RegisteredWorkspaceRegistry {
 
   async listRepositoryCheckoutSummaries(workspaceId: unknown): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary[]> {
     const entry = this.requireProjectEntry(workspaceId);
-    return (entry.repositoryCheckouts ?? []).map(checkout => {
-      try { this.validateCheckoutRoot(this.deriveCheckoutRoot(entry.canonicalRoot, checkout)); return this.checkoutSummary(checkout, true, null); }
-      catch { return this.checkoutSummary(checkout, false, "Registered checkout is unavailable or no longer validates."); }
-    });
+    const summaries: AgentHarnessRegisteredRepositoryCheckoutSummary[] = [];
+    for (const checkout of entry.repositoryCheckouts ?? []) {
+      try {
+        if (!validateRepositoryCheckoutContract(checkout).valid) throw new Error("invalid descriptor");
+        await this.validateCheckoutRoot(this.deriveCheckoutRoot(entry.canonicalRoot, checkout));
+        summaries.push(this.checkoutSummary(checkout, true, null));
+      } catch { summaries.push(this.checkoutSummary(checkout, false, "Registered checkout is unavailable or no longer validates.")); }
+    }
+    return summaries;
   }
 
   async resolveRepositoryCheckoutContext(workspaceId: unknown, repositoryCheckoutId: unknown) {
@@ -221,8 +226,9 @@ export class RegisteredWorkspaceRegistry {
     const checkout = (entry.repositoryCheckouts ?? []).find(item => item.repositoryCheckoutId === repositoryCheckoutId);
     if (!checkout) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "The repositoryCheckoutId is not registered under this Project workspace.");
     try {
+      if (!validateRepositoryCheckoutContract(checkout).valid) throw new Error("invalid descriptor");
       await this.resolve(entry.workspaceId);
-      const root = this.deriveCheckoutRoot(entry.canonicalRoot, checkout); this.validateCheckoutRoot(root);
+      const root = this.deriveCheckoutRoot(entry.canonicalRoot, checkout); await this.validateCheckoutRoot(root);
       return { workspaceId: entry.workspaceId, root, checkout };
     } catch { throw new AgentHarnessError("GIT_CAPABILITY_UNAVAILABLE", "The registered repository checkout is unavailable or no longer validates."); }
   }
@@ -237,10 +243,11 @@ export class RegisteredWorkspaceRegistry {
     const topology = resolveManagedProjectSourceTopology(projectRoot);
     return checkout.role === "main" ? topology.mainCheckoutRoot : checkout.role === "dev" ? topology.devCheckoutRoot : resolveManagedWorkflowCheckoutPath(projectRoot, checkout.workflowId!).checkoutRoot;
   }
-  private validateCheckoutRoot(root: string): void {
+  private async validateCheckoutRoot(root: string): Promise<void> {
     const resolved = fs.realpathSync(root);
     if (path.resolve(resolved) !== path.resolve(root) || !fs.statSync(resolved).isDirectory()) throw new Error("redirect");
-    const top = execFileSync("git", ["-C", resolved, "rev-parse", "--show-toplevel"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    const result = await runBoundedGit({ cwd: resolved, args: ["rev-parse", "--show-toplevel"] });
+    const top = result.stdout.trim();
     if (path.resolve(top) !== path.resolve(resolved)) throw new Error("not exact root");
   }
   private checkoutSummary(checkout: RepositoryCheckout, available: boolean, validationError: string | null): AgentHarnessRegisteredRepositoryCheckoutSummary {

@@ -198,6 +198,10 @@ export class AgentHarnessServiceHostServer {
         return this.controller.registerWorkspace(request.payload.workspaceRoot);
       case "unregister-workspace":
         return this.controller.unregisterWorkspace(request.payload.workspaceId);
+      case "register-repository-checkout":
+        return this.controller.registerRepositoryCheckout(request.payload.workspaceId, request.payload.checkout);
+      case "unregister-repository-checkout":
+        return this.controller.unregisterRepositoryCheckout(request.payload.workspaceId, request.payload.repositoryCheckoutId);
       case "service-host-shutdown":
         return null;
       case "background-agent-user-exit":
