@@ -43,15 +43,15 @@ Before changing production code, tests, scripts, migrations, fixtures, packaging
 
 ## Git safety
 
-Operator-directed repository policy: perform all development work directly on `dev` in the primary repository checkout. Retain only `dev` and `main` branches locally and on `origin`. Do not create additional branches or worktrees unless the Operator explicitly changes this policy. `main` remains the release branch; do not move it merely to consolidate development work.
+Until an active Operator-approved card deliberately replaces the repository topology, perform development work directly on `dev` in the primary repository checkout. `main` remains the release branch; do not move it merely to consolidate development work. An active card implementing an adopted branch/worktree/RepositoryCheckout topology may create or modify that topology within its bounded scope without a separate Git approval.
 
-The Operator is the only authority over Git and release work. Current Operator direction and explicit task constraints define the scope of every branch, stage, commit, push, merge, rebase, tag, release, reset, clean, restore, and stash action. A Work Card or Repair Card may record those constraints, but it is not a permission source and does not permit Git mutation.
+The Operator is the only authority over Git and release work. An Operator-approved active Work Card, Repair Card, or package execution instruction is the durable expression of the delegated task scope; it does not become a separate authority principal. When that active scope requires routine bounded Git mechanics—such as branch/worktree preparation, staging attributable changes, creating the required checkpoint commit, or performing another explicitly defined workflow mechanic—those operations are already authorized task mechanics and MUST NOT trigger a second Operator approval request.
 
 - Obey any explicit prohibition such as `no Git this turn`.
-- When the Operator directs Git work, treat the bounded Git operations as ordinary task scope; no card heading, token, metadata field, contract, or MCP state is an additional approval requirement.
+- When the Operator directs work through an active card/package, treat the bounded Git operations required by that work as ordinary task scope. A required card-local checkpoint commit does not need a second Operator confirmation.
 - When Git mutation is outside the current task scope, limit Git use to read-only inspection.
 - Preserve unrelated working-tree changes. Never use destructive blanket cleanup to make a dirty worktree appear clean.
-- Before an Operator-directed commit, inspect the exact staged diff and run a bounded secret, local-path, and generated-artifact safety scan.
+- Before any task-scope commit, inspect the exact staged diff and run a bounded secret, local-path, and generated-artifact safety scan.
 - Never push directly to a protected or release branch unless the Operator explicitly directs it.
 
 ## Validation and acceptance
@@ -76,7 +76,7 @@ The report must identify:
 - files created, modified, deleted, and intentionally not created;
 - implementation summary and evidence used;
 - commands, execution lanes, validation results, skipped checks, and reasons;
-- Git actions and actual commit hash when a commit was Operator-directed, or explicit no-mutation confirmation;
+- Git actions and actual commit hash when the active Operator-approved scope required a commit, or explicit no-mutation confirmation;
 - security and local-path safety results;
 - remaining Operator manual validation, blockers, residual risks, and recommended next task.
 

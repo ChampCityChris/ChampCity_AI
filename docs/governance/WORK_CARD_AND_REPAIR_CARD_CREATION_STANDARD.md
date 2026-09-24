@@ -16,7 +16,7 @@ Both card types must be **concise and tightly bounded**. Card size is an executi
 
 ## Work Card creation standard
 
-A Work Card is a **bounded forward-implementation contract**. It records the Operator's direction as scoped instructions; it does not independently grant permission for work. It should describe a bounded product/workflow objective that the Implementer can build and prove without redesigning the system.
+A Work Card is a **bounded forward-implementation contract**. Once selected/approved by the Operator for execution, it is the durable delegated task scope. It does not become an independent authority principal, but the Implementer does not need a second approval for ordinary mechanics required by that bounded scope. It should describe a bounded product/workflow objective that the Implementer can build and prove without redesigning the system.
 
 A proper Work Card must:
 
@@ -56,7 +56,7 @@ A proper Work Card must:
     Under V1/manual workflows, the report path must be specified. The report must include repository verification, files changed, implementation summary, proof, command results, deviations, blockers, and remaining human validation required by the governing workflow. Under V2 structured reporting, the Work Item must require the equivalent semantic result while ChampCity captures deterministic receipts and renders the human-readable report.
 11. **State Git scope and constraints explicitly when material**
 
-    The Operator is the only authority. An explicit prohibition such as `no Git this turn` constrains the Implementer and must be obeyed. When the Operator's current direction or bounded task includes Git work, the card may record the required or allowed operations as ordinary task scope; that wording does not create a machine permission grant. Do not invent a separate Git-authorization gate merely because a Git action mutates the repository.
+    The Operator is the only authority. An explicit prohibition such as `no Git this turn` constrains the Implementer and must be obeyed. When an Operator-approved active card/package requires Git work, the stated bounded Git operations are ordinary delegated task mechanics. This includes a required attributable checkpoint commit. Do not ask for another approval merely because the operation mutates repository metadata/history. Destructive, publication/release, or otherwise out-of-scope operations remain subject to their explicit policy.
 12. **Return to workflow**
 
     The card must state the expected post-implementation path. In V1 this may include Architect review and Operator validation. In V2, follow the applicable Design Reviewer/Validator and deterministic completion semantics rather than manufacturing a card-level human disposition when none is required.
@@ -118,8 +118,8 @@ For both, the core standard is the same: **verified evidence, concise bounded sc
 
 ## Operator decisions, task scope, and infrastructure
 
-The human Operator is the only authority over product intent, material scope, material risk/exception acceptance, and other human decisions reserved by `CCAI-AUTH-001`. Work Cards and Repair Cards are bounded execution contracts: they record direction, task scope, instructions, constraints, and evidence, but they cannot serve as permission principals.
+The human Operator is the only authority over product intent, material scope, material risk/exception acceptance, and other human decisions reserved by `CCAI-AUTH-001`. Work Cards and Repair Cards are bounded execution contracts: once activated by Operator direction, they carry delegated task scope, instructions, constraints, and evidence. They do not become independent permission principals.
 
-The Implementer must follow the Operator's current direction and every explicit task constraint. In particular, `no Git this turn` or another Git prohibition must be obeyed. When Git operations are part of the task, a card may describe the required or allowed operations in ordinary prose as scope. No heading, token list, metadata field, card format, validation record, or workflow state becomes a machine permission grant.
+The Implementer must follow the Operator's current direction and every explicit task constraint. In particular, `no Git this turn` or another Git prohibition must be obeyed. When Git operations are part of an Operator-approved active card/package, the required bounded operations—including a specified checkpoint commit—are already within delegated task scope and require no separate confirmation. No heading, token list, metadata field, validation record, or workflow state becomes an independent authority principal.
 
 MCP and future RepositoryService implementations enforce execution-security and policy boundaries such as authenticated access scope, exact Repository identity/binding, containment, Git-backed preconditions where required, bounded action schemas, and deterministic command safety checks. They do not infer an Operator Decision from a card or manufacture a separate approval hierarchy for ordinary task mechanics.

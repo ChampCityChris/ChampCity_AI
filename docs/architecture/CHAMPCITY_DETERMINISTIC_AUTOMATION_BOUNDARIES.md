@@ -376,7 +376,7 @@ Implementation completes
 
 The AI worker does not need a sequence of Git tool calls for this path.
 
-AI access to Git inspection remains appropriate when history/diff semantics are part of investigation, RCA, code review, or implementation reasoning. This target does not grant Git mutation to the current documentation task or remove existing authorization requirements.
+AI access to Git inspection remains appropriate when history/diff semantics are part of investigation, RCA, code review, or implementation reasoning. Routine Git mutation required by an Operator-directed active task is a deterministic workflow mechanic and does not require a second approval merely because it changes repository state. Explicit `no Git` constraints, destructive-operation safeguards, and publication/release policy still bind the execution.
 
 ### Rule 9 — Evidence collection is automatic; evidence meaning may require AI
 
