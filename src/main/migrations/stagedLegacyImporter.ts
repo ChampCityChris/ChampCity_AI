@@ -137,18 +137,6 @@ export async function stageLegacyAuthorityImport(workspaceRoot: string, snapshot
         const workflow = entity("Workflow", document, "workflow", { workflowType: "work-intake-routing",
           title: required(data.workRequest, "Work Intake request"), currentWorkspace: "work-intake", workflowState: hasRoute ? "active" : "planned" });
         relate(mapped, "initiates", workflow);
-        const repositoryId = text(branch?.repositoryId) ?? text(projectSource.metadata.workflowData.repositoryId);
-        if (repositoryId) {
-          const baseRevisionId = text(branch?.baseCommit);
-          const workSourceLineId = text(branch?.workBranch);
-          const currentRevisionId = text(branch?.currentHead);
-          const ready = Boolean(baseRevisionId && workSourceLineId && currentRevisionId);
-          const binding = entity("SourceBinding", document, "source-binding", { workIntakeId: mapped.id,
-            repositoryId, integrationTargetSourceLineId: required(branch?.baseBranch, "Work Intake target SourceLine"),
-            ...(baseRevisionId ? { baseRevisionId } : {}), ...(workSourceLineId ? { workSourceLineId } : {}),
-            ...(currentRevisionId && workSourceLineId ? { currentRevisionId } : {}), preparationState: ready ? "ready" : "unprepared" });
-          relate(binding, "binds_source", mapped);
-        }
       } else if (workKinds.has(kind)) {
         const candidate = data.candidate && typeof data.candidate === "object" && !Array.isArray(data.candidate) ? data.candidate as Record<string, unknown> : {};
         const closed = snapshot.documents.some(item => ["work-card-close-return-record", "fix-card-close-record"].includes(item.metadata.artifactType) &&

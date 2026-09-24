@@ -18,10 +18,17 @@ function sqliteFixture(context) {
   return store;
 }
 
+async function createBinding(service, projectId, intakeId) {
+  const summary = await service.getWorkIntakeSummary(projectId, intakeId);
+  const workflow = await service.createWorkflow(projectId, { workflowType: "feature-capability", title: "Target", currentWorkspace: "development" });
+  await service.linkWorkflowRouteTarget(projectId, summary.routingWorkflowId, workflow.id);
+  const baseline = await service.createWorkflowSourceBaseline(projectId, workflow.id, { repositoryId: "repo-opaque", integrationTargetSourceLineId: "target-line", baseRevisionId: "base-revision" });
+  return { workflow, baseline, binding: await service.createWorkflowSourceBinding(projectId, workflow.id, baseline.id) };
+}
 async function readyBinding(service, projectId, intakeId) {
-  const created = await service.createSourceBinding(projectId, intakeId, { repositoryId: "repo-opaque", integrationTargetSourceLineId: "target-line" });
-  await service.updateSourceBinding(projectId, created.id, { preparationState: "preparing", baseRevisionId: "base-revision" }, 1);
-  const ready = await service.updateSourceBinding(projectId, created.id, { preparationState: "ready", workSourceLineId: "work-line", currentRevisionId: "work-revision" }, 2);
+  const { binding } = await createBinding(service, projectId, intakeId);
+  await service.updateSourceBinding(projectId, binding.id, { preparationState: "preparing" }, 1);
+  const ready = await service.updateSourceBinding(projectId, binding.id, { preparationState: "ready", workSourceLineId: "work-line", currentRevisionId: "work-revision" }, 2);
   return ready;
 }
 
@@ -66,22 +73,27 @@ function register(name, factory) {
     await assert.rejects(service.createWorkflowSourceBaseline(project.id, closed.id, input), /current nonterminal/);
   });
 
-  test(`${name}: SourceBinding retains opaque RepositoryService references and preparation history`, async context => {
+  test(`${name}: SourceBinding is Workflow-owned and resolves baseline identity immutably`, async context => {
     const store = factory(context);
     const service = createProjectStateService(store, principal);
     const project = await service.createRecord(null, "Project", { name: "Synthetic", description: "Project" });
     const { intake } = await service.createWorkIntake(project.id, intakeBody);
-    await assert.rejects(service.createRecord(project.id, "SourceBinding", { workIntakeId: intake.id, repositoryId: "repo", integrationTargetSourceLineId: "dev", preparationState: "unprepared" }), /typed commands/);
-    await assert.rejects(service.createSourceBinding(project.id, intake.id, { repositoryId: "repo with spaces", integrationTargetSourceLineId: "dev" }), /opaque RepositoryService reference/);
-    const binding = await service.createSourceBinding(project.id, intake.id, { repositoryId: "repo-opaque", integrationTargetSourceLineId: "target-line" });
+    const { workflow, baseline, binding } = await createBinding(service, project.id, intake.id);
+    await assert.rejects(service.createRecord(project.id, "SourceBinding", { workIntakeId: intake.id, workflowId: workflow.id, sourceBaselineId: baseline.id, preparationState: "unprepared" }), /typed commands/);
     assert.equal(binding.body.preparationState, "unprepared");
-    await assert.rejects(service.createSourceBinding(project.id, intake.id, { repositoryId: "repo-2", integrationTargetSourceLineId: "dev" }), /already has an active SourceBinding/);
+    await assert.rejects(service.createWorkflowSourceBinding(project.id, workflow.id, baseline.id), /already has a SourceBinding/);
+    const successor = (await service.supersedeRecord(project.id, workflow.id, { ...workflow.body, title: "Successor" }, 1)).successor;
+    await assert.rejects(service.createWorkflowSourceBinding(project.id, successor.id, baseline.id), /already has a SourceBinding/);
+    const independent = await service.createWorkflow(project.id, { workflowType: "issue-resolution", title: "Independent", currentWorkspace: "development" });
+    const independentBaseline = await service.createWorkflowSourceBaseline(project.id, independent.id,
+      { repositoryId: "repo-opaque", integrationTargetSourceLineId: "other-target", baseRevisionId: "other-base" });
+    assert.equal((await service.createWorkflowSourceBinding(project.id, independent.id, independentBaseline.id)).body.workflowId, independent.id);
     await assert.rejects(service.updateSourceBinding(project.id, binding.id, { preparationState: "ready" }, 1), /Invalid source preparation transition/);
-    await service.updateSourceBinding(project.id, binding.id, { preparationState: "preparing", baseRevisionId: "base-revision" }, 1);
+    await service.updateSourceBinding(project.id, binding.id, { preparationState: "preparing" }, 1);
     await assert.rejects(service.updateSourceBinding(project.id, binding.id, { preparationState: "ready", workSourceLineId: "work-line" }, 2), /Ready SourceBinding requires/);
     const ready = await service.updateSourceBinding(project.id, binding.id, { preparationState: "ready", workSourceLineId: "work-line", currentRevisionId: "work-revision" }, 2);
     assert.equal(ready.body.currentRevisionId, "work-revision");
-    assert.equal((await service.getSourceSemanticView(project.id, "repo-opaque")).bindings[0].id, binding.id);
+    assert.ok((await service.getSourceSemanticView(project.id, "repo-opaque")).bindings.some(row => row.id === binding.id));
     assert.equal((await service.getSourceSemanticView(project.id, "other-repo")).bindings.length, 0);
     assert.equal((await service.getRecordHistory(project.id, binding.id)).records.length, 3);
     assert.equal((await store.listStateChanges(project.id)).length, (await store.listOutbox(project.id)).length);

@@ -47,8 +47,11 @@ async function structuredMetadata(root: string, repositoryId: string, projectId:
   names: Set<string>, includeCompleted: boolean): Promise<Metadata> {
   const reader = createSQLiteProjectStateReader(path.join(root, ".champcity", "project-state.sqlite"));
   try {
+    const baselineRows = (await reader.listEntities(projectId, "SourceBaseline"))
+      .filter((row): row is ProjectStateRecord<"SourceBaseline"> => row.entityType === "SourceBaseline");
+    const baselines = new Map(baselineRows.map(row => [row.id, row]));
     const bindings = (await reader.listEntities(projectId, "SourceBinding"))
-      .filter((row): row is ProjectStateRecord<"SourceBinding"> => row.entityType === "SourceBinding" && row.body.repositoryId === repositoryId)
+      .filter((row): row is ProjectStateRecord<"SourceBinding"> => row.entityType === "SourceBinding" && baselines.get(row.body.sourceBaselineId)?.body.repositoryId === repositoryId)
       .sort((a, b) => a.id.localeCompare(b.id));
     const intakes = new Map((await reader.listEntities(projectId, "WorkIntake"))
       .filter((row): row is ProjectStateRecord<"WorkIntake"> => row.entityType === "WorkIntake").map(row => [row.id, row]));
@@ -75,30 +78,43 @@ async function structuredMetadata(root: string, repositoryId: string, projectId:
       .filter((row): row is ProjectStateRecord<"SourceCheckpoint"> => row.entityType === "SourceCheckpoint");
     const allIntegrations = (await reader.listEntities(projectId, "IntegrationRecord"))
       .filter((row): row is ProjectStateRecord<"IntegrationRecord"> => row.entityType === "IntegrationRecord");
+    const workflowLineages = new Map([...workflows].map(([id, row]) => [id, row.lineageId]));
+    const routesTo = relationships.filter(row => row.relationshipType === "routes_to");
+    const initiates = relationships.filter(row => row.relationshipType === "initiates");
+    const intakeForBinding = new Map<string, string>();
+    for (const binding of bindings) {
+      const lineage = workflowLineages.get(binding.body.workflowId);
+      const targets = new Set([...workflows].filter(([, wf]) => wf.lineageId === lineage).map(([id]) => id));
+      const sources = routesTo.filter(edge => targets.has(edge.toEntityId)).map(edge => edge.fromEntityId);
+      const paths = new Set(initiates.filter(edge => sources.includes(edge.toEntityId)).map(edge => edge.fromEntityId));
+      if (paths.size === 1) intakeForBinding.set(binding.id, [...paths][0]);
+    }
     const selected = bindings.filter(row => {
-      const intake = intakes.get(row.body.workIntakeId);
+      const intake = intakes.get(intakeForBinding.get(row.id) ?? "");
       return intake && (includeCompleted || !["closed", "cancelled"].includes(intake.body.intakeState));
     });
     const limited = selected.slice(0, MAX_BINDINGS);
-    const ids = new Set(limited.map(row => row.body.workIntakeId));
+    const intakeIds = new Map(limited.map(row => [row.id, intakeForBinding.get(row.id)!]));
+    const ids = new Set(intakeIds.values());
     const checkpoints = allCheckpoints.filter(row => ids.has(row.body.workIntakeId));
     const integrations = allIntegrations.filter(row => ids.has(row.body.workIntakeId));
     const workBindings = limited.map(binding => {
-      const intake = intakes.get(binding.body.workIntakeId)!;
+      const intakeId = intakeIds.get(binding.id)!;
+      const intake = intakes.get(intakeId)!;
       const branch = binding.body.workSourceLineId;
-      const workflowId = relationships.find(row => row.relationshipType === "initiates" && row.fromEntityId === intake.id)?.toEntityId;
+      const workflowId = binding.body.workflowId;
       const workflow = workflowId ? workflows.get(workflowId) : undefined;
       const ownIntegrations = integrations.filter(row => row.body.workIntakeId === intake.id)
         .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt) || a.id.localeCompare(b.id));
       return { workIntakeId: intake.id, lineId: branch && names.has(branch) ? lineId(repositoryId, branch) : null,
         title: intake.body.request, route: routes.get(intake.id) ?? null, workType: workflow?.body.workflowType ?? null,
         lifecycleState: intake.body.intakeState, workflowState: workflow?.body.workflowState ?? null,
-        baseRevisionId: binding.body.baseRevisionId ?? null, currentRevisionId: binding.body.currentRevisionId ?? null,
+        baseRevisionId: baselines.get(binding.body.sourceBaselineId)?.body.baseRevisionId ?? null, currentRevisionId: binding.body.currentRevisionId ?? null,
         checkpointKinds: [...new Set(checkpoints.filter(row => row.body.workIntakeId === intake.id).map(row => row.body.checkpointKind))].sort(),
         integrationState: ownIntegrations.at(-1)?.body.integrationState ?? null };
     });
     return { workBindings, checkpoints, integrations,
-      targets: [...new Set(limited.map(row => row.body.integrationTargetSourceLineId))],
+      targets: [...new Set(limited.map(row => baselines.get(row.body.sourceBaselineId)?.body.integrationTargetSourceLineId).filter((id): id is string => !!id))],
       truncated: selected.length > MAX_BINDINGS, status: "available" };
   } finally { reader.close(); }
 }
@@ -132,7 +148,10 @@ export async function selectedSourceGraphRepositoryId(root: string): Promise<str
         if (resource?.entityType === "ProjectResource") return resource.body.logicalName;
         const bindings = await reader.listEntities(projectId, "SourceBinding");
         const binding = bindings.find(row => row.entityType === "SourceBinding");
-        if (binding?.entityType === "SourceBinding") return binding.body.repositoryId;
+        if (binding?.entityType === "SourceBinding") {
+          const baseline = await reader.getEntity(projectId, binding.body.sourceBaselineId);
+          if (baseline?.entityType === "SourceBaseline") return baseline.body.repositoryId;
+        }
       } finally { reader.close(); }
     } else {
       return readWorkProjectIdentity(root)?.repositoryId ?? "selected-repository";

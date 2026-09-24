@@ -27,7 +27,7 @@ const bodies = {
   Evidence: { evidenceType: "test-output", description: "Output", capturedAt: now, capturedBy: principal, mediaType: "text/plain", payloadRef: "sha256:payload", digest: "a".repeat(64) },
   Decision: { decisionType: "proceed", outcome: "approved", rationale: "Reason", decisionRole: "Operator", decisionScope: "project", decidedBy: principal, decidedAt: now, effectiveAt: now },
   RegressionObligation: { ...common, capabilityId: "sample-capability", riskCategory: "functional", obligationState: "active" },
-  SourceBinding: { workIntakeId: linkedId, repositoryId: "repo", integrationTargetSourceLineId: "dev", preparationState: "unprepared" },
+  SourceBinding: { workflowId: linkedId, sourceBaselineId: linkedId, preparationState: "unprepared" },
   SourceCheckpoint: { boundaryId: "boundary", workIntakeId: linkedId, sourceLineId: "work", expectedRevisionId: "revision", checkpointKind: "implementation", checkpointState: "pending" },
   IntegrationRecord: { workIntakeId: linkedId, incomingRevisionId: "incoming", targetSourceLineId: "dev", targetBeforeRevisionId: "before", integrationState: "prepared", outcome: "pending", validationIds: [], repairWorkItemIds: [] },
 };
@@ -46,6 +46,8 @@ test("all adopted Project State types have registered bounded schemas and applic
   }
   assert.equal(ENTITY_TYPE_REGISTRY.SourceBaseline.immutableAfterCreation, true);
   const baseline = createProjectStateEntity({ entityType: "SourceBaseline", projectId: project.id, body: { ...bodies.SourceBaseline, workflowId: linkedId }, principal });
+  assert.throws(() => createProjectStateEntity({ entityType: "SourceBinding", projectId: project.id,
+    body: { workIntakeId: linkedId, repositoryId: "repo", integrationTargetSourceLineId: "dev", preparationState: "unprepared" }, principal }), /workflowId is required/);
   assert.throws(() => validateProjectStateEntity({ ...baseline, body: { ...baseline.body, extra: "x" } }), /unsupported/);
   const { baseRevisionId: _baseRevisionId, ...missingBaselineRevision } = baseline.body;
   assert.throws(() => validateProjectStateEntity({ ...baseline, body: missingBaselineRevision }), /baseRevisionId is required/);
@@ -94,15 +96,16 @@ test("relationship registry enforces direction, endpoint existence, Project owne
   const cause = createProjectStateEntity({ entityType: "RootCause", projectId, body: bodies.RootCause, principal });
   const other = createProjectStateEntity({ entityType: "Finding", projectId: randomUUID(), body: bodies.Finding, principal });
   const intake = createProjectStateEntity({ entityType: "WorkIntake", projectId, body: bodies.WorkIntake, principal });
-  const source = createProjectStateEntity({ entityType: "SourceBinding", projectId, body: { ...bodies.SourceBinding, workIntakeId: intake.id }, principal });
   const workflow = createProjectStateEntity({ entityType: "Workflow", projectId, body: bodies.Workflow, principal });
   const baseline = createProjectStateEntity({ entityType: "SourceBaseline", projectId, body: { ...bodies.SourceBaseline, workflowId: workflow.id }, principal });
+  const source = createProjectStateEntity({ entityType: "SourceBinding", projectId, body: { workflowId: workflow.id, sourceBaselineId: baseline.id, preparationState: "unprepared" }, principal });
   const entities = new Map([finding, cause, other, intake, source, workflow, baseline].map(entity => [entity.id, entity]));
   const lookup = id => entities.get(id);
   const link = createRelationship({ projectId, fromEntityId: cause.id, relationshipType: "explains", toEntityId: finding.id, createdBy: principal }, lookup);
   assert.equal(validateRelationship(link, lookup).id, link.id);
   assert.throws(() => assertRelationshipEnd(link, now), /Immutable provenance/);
-  assert.equal(createRelationship({ projectId, fromEntityId: source.id, relationshipType: "binds_source", toEntityId: intake.id, createdBy: principal }, lookup).relationshipType, "binds_source");
+  assert.equal(createRelationship({ projectId, fromEntityId: source.id, relationshipType: "binds_source", toEntityId: workflow.id, createdBy: principal }, lookup).relationshipType, "binds_source");
+  assert.throws(() => createRelationship({ projectId, fromEntityId: source.id, relationshipType: "binds_source", toEntityId: intake.id, createdBy: principal }, lookup), /direction or endpoint/);
   const baselineLink = createRelationship({ projectId, fromEntityId: baseline.id, relationshipType: "baselines_source", toEntityId: workflow.id, createdBy: principal }, lookup);
   assert.equal(baselineLink.relationshipType, "baselines_source");
   assert.throws(() => assertRelationshipEnd(baselineLink, now), /Immutable provenance/);

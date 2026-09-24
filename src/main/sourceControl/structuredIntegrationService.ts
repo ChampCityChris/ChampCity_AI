@@ -36,11 +36,17 @@ export function createStructuredIntegrationService(root: string, projectId: stri
       const intake = await store.getEntity(projectId, intakeId);
       if (intake?.entityType !== "WorkIntake" || intake.body.intakeState !== "closed" || intake.body.requestedIntegrationTarget !== "dev")
         throw Error("Structured integration requires a completed Work Intake targeting dev.");
+      const intakeSummary = await state.getWorkIntakeSummary(projectId, intakeId);
+      if (!intakeSummary.targetWorkflowId) throw Error("Completed Work Intake has no target Workflow.");
       const bindings = (await store.listEntities(projectId, "SourceBinding"))
-        .filter((row): row is Binding => row.entityType === "SourceBinding" && row.body.workIntakeId === intakeId && row.lifecycleState === "active");
+        .filter((row): row is Binding => row.entityType === "SourceBinding" && row.body.workflowId === intakeSummary.targetWorkflowId && row.lifecycleState === "active");
       if (bindings.length !== 1) throw Error("Completed Work Intake has no unique SourceBinding.");
       const source = bindings[0].body;
-      if (source.preparationState !== "ready" || !source.baseRevisionId || !source.workSourceLineId || !source.currentRevisionId || source.integrationTargetSourceLineId !== "dev")
+      const baseline = await store.getEntity(projectId, source.sourceBaselineId);
+      const bindingWorkflow = await store.getEntity(projectId, source.workflowId);
+      const baselineWorkflow = baseline?.entityType === "SourceBaseline" ? await store.getEntity(projectId, baseline.body.workflowId) : null;
+      if (baseline?.entityType !== "SourceBaseline" || bindingWorkflow?.entityType !== "Workflow" || baselineWorkflow?.entityType !== "Workflow" || baselineWorkflow.lineageId !== bindingWorkflow.lineageId) throw Error("SourceBinding baseline and Workflow lineage mismatch.");
+      if (source.preparationState !== "ready" || !baseline.body.baseRevisionId || !source.workSourceLineId || !source.currentRevisionId || baseline.body.integrationTargetSourceLineId !== "dev")
         throw Error("Completed Work Intake has no ready exact source revision.");
       const checkpoints = (await store.listEntities(projectId, "SourceCheckpoint"))
         .filter((row): row is ProjectStateRecord<"SourceCheckpoint"> => row.entityType === "SourceCheckpoint" && row.body.workIntakeId === intakeId);
@@ -52,7 +58,7 @@ export function createStructuredIntegrationService(root: string, projectId: stri
         if (!resulting || byPrior.has(prior)) throw Error("Completed Work Intake source checkpoint chain is ambiguous.");
         byPrior.set(prior, resulting);
       }
-      let chained = source.baseRevisionId;
+      let chained = baseline.body.baseRevisionId;
       for (let index = 0; index < checkpoints.length; index++) {
         const next = byPrior.get(chained);
         if (!next || next === chained) throw Error("Completed Work Intake source checkpoint chain has a gap.");
@@ -61,8 +67,8 @@ export function createStructuredIntegrationService(root: string, projectId: stri
       if (chained !== source.currentRevisionId) throw Error("Completed Work Intake source revision lacks a saved checkpoint chain.");
       const current = await state.getWorkIntakeSummary(projectId, intakeId);
       if (!current.currentRoute) throw Error("Completed Work Intake has no current Operator route.");
-      const binding: WorkIntakeBranchBinding = { intakeId, repositoryId: source.repositoryId,
-        baseBranch: "dev", baseCommit: source.baseRevisionId, workBranch: source.workSourceLineId, currentHead: source.currentRevisionId };
+      const binding: WorkIntakeBranchBinding = { intakeId, repositoryId: baseline.body.repositoryId,
+        baseBranch: "dev", baseCommit: baseline.body.baseRevisionId, workBranch: source.workSourceLineId, currentHead: source.currentRevisionId };
       const summary = JSON.stringify({ intakeId, request: current.request, desiredOutcome: current.desiredOutcome,
         constraints: current.constraints, route: current.currentRoute.route, decisionId: current.currentRoute.decisionId,
         sourceRevisionId: source.currentRevisionId, checkpointIds: checkpoints.map(row => row.id).sort() });
@@ -134,8 +140,9 @@ export function createStructuredIntegrationService(root: string, projectId: stri
     const store = open();
     try {
       const state = createProjectStateService(store, principal);
+      const summary = await state.getWorkIntakeSummary(projectId, intakeId);
       const bindings = (await store.listEntities(projectId, "SourceBinding"))
-        .filter((row): row is Binding => row.entityType === "SourceBinding" && row.body.workIntakeId === intakeId && row.lifecycleState === "active");
+        .filter((row): row is Binding => row.entityType === "SourceBinding" && row.body.workflowId === summary.targetWorkflowId && row.lifecycleState === "active");
       if (bindings.length !== 1 || bindings[0].body.currentRevisionId !== record.incomingCommit) throw Error("Integration SourceBinding changed.");
       const existing = (await store.listEntities(projectId, "IntegrationRecord"))
         .filter((row): row is Integration => row.entityType === "IntegrationRecord" && row.body.workIntakeId === intakeId &&

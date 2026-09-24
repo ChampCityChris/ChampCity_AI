@@ -37,8 +37,11 @@ function register(name, factory) {
     await service.createRelationship(project.id, work.id, "part_of", phase.id);
     const validation = await service.recordValidation(project.id, work.id, { validationType: "test", method: "automated", outcome: "pass", summary: "Pass", sourceBaselineRef: "revision-a" });
     const decision = await service.recordDecision(project.id, work.id, { decisionType: "proceed", outcome: "approved", decisionScope: "work-item" });
-    const binding = await service.createSourceBinding(project.id, intake.id, { repositoryId: "repo", integrationTargetSourceLineId: "dev-line" });
-    await service.updateSourceBinding(project.id, binding.id, { preparationState: "preparing", baseRevisionId: "base" }, 1);
+    const target = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Target", currentWorkspace: "development" });
+    await service.linkWorkflowRouteTarget(project.id, workflow.id, target.id);
+    const baseline = await service.createWorkflowSourceBaseline(project.id, target.id, { repositoryId: "repo", integrationTargetSourceLineId: "dev-line", baseRevisionId: "base" });
+    const binding = await service.createWorkflowSourceBinding(project.id, target.id, baseline.id);
+    await service.updateSourceBinding(project.id, binding.id, { preparationState: "preparing" }, 1);
     await service.updateSourceBinding(project.id, binding.id, { preparationState: "ready", workSourceLineId: "work-line", currentRevisionId: "revision-a" }, 2);
     const checkpoint = await service.createSourceCheckpoint(project.id, binding.id, work.id, { boundaryId: "boundary", expectedRevisionId: "revision-a", checkpointKind: "implementation", checkpointState: "pending" });
     const integration = await service.createIntegrationRecord(project.id, binding.id, { targetBeforeRevisionId: "target-before", targetEntityId: work.id });

@@ -99,17 +99,6 @@ export async function verifyStagedLegacyEquivalence(workspaceRoot: string, snaps
         const expectedState = hasRoute ? "routed" : "captured";
         comparedFacts++;
         if (mapped.body.intakeState !== expectedState) add("intake-stage", document.path, expectedState, mapped.body.intakeState);
-        const branch = document.metadata.workflowData.branchBinding as Record<string, unknown> | undefined;
-        const bindings = records.filter(item => item.entityType === "SourceBinding" && item.body.workIntakeId === mapped.id);
-        if (branch?.repositoryId || projectSource?.metadata.workflowData.repositoryId) {
-          comparedFacts++;
-          const binding = bindings.length === 1 ? bindings[0] : undefined;
-          if (binding?.entityType !== "SourceBinding" || binding.body.integrationTargetSourceLineId !== branch?.baseBranch ||
-            binding.body.repositoryId !== (branch?.repositoryId ?? projectSource?.metadata.workflowData.repositoryId) ||
-            (branch?.currentHead && binding.body.currentRevisionId !== branch.currentHead)) {
-            add("source-binding", document.path, branch, binding?.entityType === "SourceBinding" ? binding.body : null);
-          }
-        }
       }
       if (mapped?.entityType === "WorkItem") {
         const closed = snapshot.documents.some(item => ["work-card-close-return-record", "fix-card-close-record"].includes(item.metadata.artifactType) &&

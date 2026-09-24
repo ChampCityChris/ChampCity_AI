@@ -79,10 +79,14 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
     const store = createSQLiteProjectStateStore(path.join(selected, ".champcity", "project-state.sqlite"));
     try {
       const state = createProjectStateService(store, principal);
+      const intakeSummary = await state.getWorkIntakeSummary(projectId, request.workIntakeId);
+      if (!intakeSummary.targetWorkflowId) return blocked("Work Intake has no target Workflow source binding.");
       const bindings = (await store.listEntities(projectId, "SourceBinding"))
-        .filter((row): row is Binding => row.entityType === "SourceBinding" && row.body.workIntakeId === request.workIntakeId && row.lifecycleState === "active");
+        .filter((row): row is Binding => row.entityType === "SourceBinding" && row.body.workflowId === intakeSummary.targetWorkflowId && row.lifecycleState === "active");
       if (bindings.length !== 1) return blocked("Work Intake must have one active SourceBinding.");
       let binding = bindings[0];
+      const baseline = await store.getEntity(projectId, binding.body.sourceBaselineId);
+      if (baseline?.entityType !== "SourceBaseline" || baseline.body.workflowId !== binding.body.workflowId) return blocked("SourceBinding baseline and Workflow lineage mismatch.");
       if (binding.body.preparationState !== "ready" || binding.body.workSourceLineId !== request.sourceLineId ||
         binding.body.repositoryCheckoutId !== request.repositoryCheckoutId && request.repositoryCheckoutId !== undefined)
         return blocked("Work Intake source binding does not match the checkpoint request.");
@@ -98,7 +102,7 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
           !governs.some(edge => edge.fromEntityId === decision.id && edge.toEntityId === target.id && !edge.endedAt))
           return blocked("Operator disposition evidence is unavailable.");
       }
-      const source = createSourceControlService({ repositoryId: binding.body.repositoryId, repositoryRoot: selected });
+      const source = createSourceControlService({ repositoryId: baseline.body.repositoryId, repositoryRoot: selected });
       const branch = await source.branches(request.sourceLineId);
       if (!branch.ok || branch.result.currentBranch !== request.sourceLineId ||
         branch.result.selectedBranch?.commit !== branch.result.head)
@@ -113,7 +117,7 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
       if (saved && (saved.body.receiptDigest !== receiptDigest || saved.body.checkpointKind !== kind ||
         saved.body.expectedRevisionId !== request.expectedRevisionId || saved.body.workIntakeId !== request.workIntakeId ||
         saved.body.sourceLineId !== request.sourceLineId)) return inspection("Checkpoint identity conflicts with saved evidence.", saved.id);
-      if (saved?.body.checkpointState === "committed") return result(binding.body.repositoryId, saved);
+      if (saved?.body.checkpointState === "committed") return result(baseline.body.repositoryId, saved);
       if (!saved) {
         if (binding.body.currentRevisionId !== request.expectedRevisionId || branch.result.head !== request.expectedRevisionId)
           return blocked("Expected source revision is stale.");
@@ -139,7 +143,7 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
         if (binding.body.currentRevisionId !== inspected.result.commit) return inspection("Source binding requires inspection.", saved.id);
         saved = await state.advanceSourceCheckpoint(projectId, saved.id,
           { checkpointState: "committed", resultingRevisionId: inspected.result.commit }, saved.recordVersion) as Checkpoint;
-        return result(binding.body.repositoryId, saved);
+        return result(baseline.body.repositoryId, saved);
       }
       const changed = await source.changedFiles();
       const relevant = changed.ok ? changed.result.filter(item => !isAppState(item.path)) : [];
@@ -191,7 +195,7 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
         { currentRevisionId: inspected.result.commit }, binding.recordVersion) as Binding;
       saved = await state.advanceSourceCheckpoint(projectId, saved.id,
         { checkpointState: "committed", resultingRevisionId: inspected.result.commit }, saved.recordVersion) as Checkpoint;
-      return result(binding.body.repositoryId, saved);
+      return result(baseline.body.repositoryId, saved);
     } finally { store.close(); }
   } catch {
     if (pendingId) {

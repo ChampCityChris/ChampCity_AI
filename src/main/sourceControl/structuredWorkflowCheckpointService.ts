@@ -19,8 +19,17 @@ function open(root: string, projectId: string): { selected: string; store: Store
   return { selected, store: createSQLiteProjectStateStore(path.join(selected, ".champcity", "project-state.sqlite")) };
 }
 async function bindingFor(store: Store, projectId: string, intakeId: string): Promise<Binding> {
+  const state = createProjectStateService(store, operator);
+  const summary = await state.getWorkIntakeSummary(projectId, intakeId);
+  if (!summary.targetWorkflowId) throw Error("Work Intake has no target Workflow source binding.");
   const bindings = (await store.listEntities(projectId, "SourceBinding"))
-    .filter((record): record is Binding => record.entityType === "SourceBinding" && record.body.workIntakeId === intakeId && record.lifecycleState === "active");
+    .filter((record): record is Binding => record.entityType === "SourceBinding" && record.body.workflowId === summary.targetWorkflowId && record.lifecycleState === "active");
+  if (bindings.length === 1) {
+    const baseline = await store.getEntity(projectId, bindings[0].body.sourceBaselineId);
+    const workflow = await store.getEntity(projectId, bindings[0].body.workflowId);
+    const baselineWorkflow = baseline?.entityType === "SourceBaseline" ? await store.getEntity(projectId, baseline.body.workflowId) : null;
+    if (baseline?.entityType !== "SourceBaseline" || workflow?.entityType !== "Workflow" || baselineWorkflow?.entityType !== "Workflow" || workflow.lineageId !== baselineWorkflow.lineageId) throw Error("SourceBinding baseline and Workflow lineage mismatch.");
+  }
   if (bindings.length !== 1 || bindings[0].body.preparationState !== "ready" ||
     !bindings[0].body.currentRevisionId || !bindings[0].body.workSourceLineId) throw Error("Work Intake source must be ready.");
   return bindings[0];
@@ -32,20 +41,23 @@ async function priorRevision(store: Store, projectId: string, boundaryId: string
   return existing[0]?.body.expectedRevisionId ?? binding.body.currentRevisionId!;
 }
 async function assertWorkOwner(store: Store, projectId: string, intakeId: string, workItemId: string) {
-  const initiated = (await store.listRelationships(projectId, "initiates"))
-    .filter(edge => edge.fromEntityId === intakeId && !edge.endedAt).map(edge => edge.toEntityId);
-  if (initiated.length !== 1) throw Error("Work Intake workflow ownership is ambiguous.");
+  const summary = await createProjectStateService(store, operator).getWorkIntakeSummary(projectId, intakeId);
+  if (!summary.targetWorkflowId) throw Error("Work Intake has no target Workflow owner.");
+  const owner = await store.getEntity(projectId, summary.targetWorkflowId);
+  if (owner?.entityType !== "Workflow") throw Error("Work Intake target Workflow is unavailable.");
+  const workflowLineages = new Set((await store.listEntities(projectId, "Workflow"))
+    .filter(row => row.entityType === "Workflow" && row.lineageId === owner.lineageId).map(row => row.id));
   const parents = (await store.listRelationships(projectId, "part_of")).filter(edge => !edge.endedAt);
   let current = workItemId;
   const seen = new Set<string>();
   while (!seen.has(current)) {
-    if (current === initiated[0]) return;
+    if (workflowLineages.has(current)) return;
     seen.add(current);
     const next = parents.filter(edge => edge.fromEntityId === current);
     if (next.length !== 1) break;
     current = next[0].toEntityId;
   }
-  throw Error("Work Item is not owned by the selected Work Intake workflow.");
+  throw Error("Work Item is not owned by the selected target Workflow lineage.");
 }
 
 /** Route selection is saved exactly once for an assessment, then checkpointed on the same SourceLine. */
