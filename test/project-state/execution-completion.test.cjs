@@ -6,6 +6,7 @@ const test = require("node:test");
 const { createInMemoryProjectStateStore } = require("../../dist/shared/projectState/inMemoryProjectStateStore.js");
 const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
 const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
+const { WORKFLOW_TYPE_REGISTRY } = require("../../dist/shared/projectState/workflowTypeRegistry.js");
 
 const operator = { principalId: "operator", principalType: "human", role: "Operator" };
 const reviewer = { principalId: "reviewer", principalType: "agent", role: "Reviewer" };
@@ -22,6 +23,39 @@ function sqliteFixture(context) {
 }
 
 function register(name, factory) {
+  test(`${name}: Workflow repeatability, lifetime uniqueness and type stability follow registry policy`, async context => {
+    const store = factory(context);
+    const service = createProjectStateService(store, operator);
+    const project = await service.createRecord(null, "Project", { name: "Workflow policy", description: "Synthetic" });
+    const repeatableTypes = Object.values(WORKFLOW_TYPE_REGISTRY).filter(item => item.repeatable).map(item => item.workflowType);
+    const created = [];
+    for (const workflowType of repeatableTypes) {
+      const first = await service.createWorkflow(project.id, { workflowType, title: "Same title", currentWorkspace: "same-workspace" });
+      const second = await service.createWorkflow(project.id, { workflowType, title: "Same title", currentWorkspace: "same-workspace" });
+      assert.notEqual(first.id, second.id);
+      assert.equal((await service.getRecord(project.id, first.id)).id, first.id);
+      assert.equal((await service.getRecord(project.id, second.id)).id, second.id);
+      created.push(first, second);
+    }
+    const queried = await service.queryRecords(project.id, { entityType: "Workflow" });
+    assert.equal(queried.length, created.length);
+    assert.equal(new Set(queried.map(record => record.id)).size, created.length);
+    assert.equal((await service.getCurrentProjectStateView(project.id)).workflows.length, created.length);
+
+    const projectCreation = await service.createWorkflow(project.id, { workflowType: "project-creation", title: "Create", currentWorkspace: "planning" });
+    const eventsBefore = (await store.listStateChanges(project.id)).length;
+    await assert.rejects(service.createWorkflow(project.id, { workflowType: "project-creation", title: "Again", currentWorkspace: "elsewhere" }), /non-repeatable project-creation Workflow/);
+    assert.equal((await service.queryRecords(project.id, { entityType: "Workflow" })).length, created.length + 1);
+    assert.equal((await store.listStateChanges(project.id)).length, eventsBefore);
+    const otherProject = await service.createRecord(null, "Project", { name: "Other", description: "Synthetic" });
+    assert.equal((await service.createWorkflow(otherProject.id, { workflowType: "project-creation", title: "Create", currentWorkspace: "planning" })).body.workflowType, "project-creation");
+
+    await assert.rejects(service.reviseRecord(project.id, created[0].id, { workflowType: "project-creation" }, 1), /Workflow type is immutable/);
+    const sameType = await service.supersedeRecord(project.id, projectCreation.id, { ...projectCreation.body, title: "Corrected" }, 1);
+    await assert.rejects(service.createWorkflow(project.id, { workflowType: "project-creation", title: "Again", currentWorkspace: "elsewhere" }), /non-repeatable project-creation Workflow/);
+    await assert.rejects(service.supersedeRecord(project.id, sameType.successor.id, { ...sameType.successor.body, workflowType: "feature-capability" }, 1), /retain its Workflow type/);
+  });
+
   test(`${name}: direct Workflow and Work Item completion uses attempts and current Criterion proof`, async context => {
     const store = factory(context);
     const service = createProjectStateService(store, operator);

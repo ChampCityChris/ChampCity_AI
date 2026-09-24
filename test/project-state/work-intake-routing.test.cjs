@@ -44,6 +44,9 @@ function register(name, factory) {
     const secondTarget = await service.createWorkflow(project.id, { workflowType: "issue-resolution", title: "Another", currentWorkspace: "issue" });
     await assert.rejects(service.linkWorkflowRouteTarget(project.id, workflow.id, secondTarget.id), /already has a target/);
     const secondIntake = await service.createWorkIntake(project.id, { ...intakeInput, request: "Second intake" });
+    assert.notEqual(secondIntake.workflow.id, workflow.id);
+    assert.equal((await service.queryRecords(project.id, { entityType: "Workflow" })).filter(record => record.body.workflowType === "work-intake-routing").length, 2);
+    assert.equal((await service.getCurrentProjectStateView(project.id)).workflows.filter(record => record.type === "work-intake-routing").length, 2);
     await assert.rejects(service.linkWorkflowRouteTarget(project.id, secondIntake.workflow.id, target.id), /already has a routing provenance source/);
     await assert.rejects(service.reviseRecord(project.id, intake.id, { request: "Bypass" }, 1), /typed command/);
     const revised = await service.reviseWorkIntake(project.id, intake.id, { desiredOutcome: "Revised feature" }, 1);

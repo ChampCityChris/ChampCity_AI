@@ -1,5 +1,5 @@
 import type { DispositionState, EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef, ProjectId, ProjectStateEntity, ProjectStateRecord, TestLifecycleAssessmentStatus, ValidationMode, WorkflowState, WorkIntakeState, WorkRoute } from "./domainContracts";
-import type { WorkflowType } from "./workflowTypeRegistry";
+import { getWorkflowTypeDefinition, type WorkflowType } from "./workflowTypeRegistry";
 import { assertSupersession } from "./domainInvariants";
 import { createProjectStateEntity, ENTITY_TYPE_REGISTRY, ProjectStateDomainError, validateProjectStateEntity } from "./entityTypeRegistry";
 import { createRelationship as createDomainRelationship, RELATIONSHIP_REGISTRY, type ProjectStateRelationship, type RelationshipType } from "./relationshipRegistry";
@@ -194,6 +194,11 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     exactInput(input, ["workflowType", "title", "currentWorkspace", "workflowState"]);
     return store.transaction(projectId, async unit => {
       if (!await unit.getProject(projectId)) fail("Owning Project does not exist.");
+      const definition = getWorkflowTypeDefinition(input.workflowType);
+      if (!definition) fail("Unsupported Workflow type.");
+      if (!definition.repeatable && (await unit.listEntities(projectId, "Workflow")).some(record => record.entityType === "Workflow" && record.body.workflowType === input.workflowType)) {
+        fail(`Project already has its non-repeatable ${input.workflowType} Workflow.`);
+      }
       const record = createProjectStateEntity({ entityType: "Workflow", projectId,
         body: { workflowType: input.workflowType, title: input.title, currentWorkspace: input.currentWorkspace,
           workflowState: input.workflowState ?? "active" }, principal: trustedPrincipal });
@@ -298,6 +303,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       if (current.entityType === "WorkIntake") fail("Work Intake revision requires a typed command.");
       if (current.entityType === "RegressionObligation" || (current.entityType === "ProjectResource" && current.body.resourceType === "permanent-test-reference")) fail("Tester semantic revision requires a typed command.");
       if (["SourceBinding", "SourceCheckpoint", "IntegrationRecord"].includes(current.entityType)) fail("Source semantic revision requires a typed command.");
+      if (current.entityType === "Workflow" && patch.workflowType !== undefined && patch.workflowType !== current.body.workflowType) fail("Workflow type is immutable.");
       if ((current.entityType === "WorkItem" && patch.workState === "closed") || (current.entityType === "Phase" && patch.phaseState === "closed")) fail("Completion requires a typed eligibility command.");
       if (current.recordVersion !== expectedRevision) fail("Expected Project State revision is stale.");
       const next = validateProjectStateEntity({ ...current, recordVersion: current.recordVersion + 1, updatedAt: new Date().toISOString(), updatedBy: trustedPrincipal, body: { ...current.body, ...patch } });
@@ -326,6 +332,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         if (sourceId !== undefined && (await requiredRecord(unit, projectId, sourceId as EntityId)).entityType !== "WorkItem") fail("Obligation source must be a Work Item.");
       }
       if (previous.entityType === "ProjectResource" && previous.body.resourceType === "permanent-test-reference") fail("Permanent test references retain immutable catalog identity.");
+      if (previous.entityType === "Workflow" && content.workflowType !== previous.body.workflowType) fail("Workflow supersession must retain its Workflow type.");
       const currentFamily = (await unit.listEntities(projectId, previous.entityType)).filter(candidate => candidate.lineageId === previous.lineageId && candidate.lifecycleState !== "superseded");
       if (currentFamily.length !== 1 || currentFamily[0].id !== previous.id) fail("Supersession target is not the unique current record in its lineage.");
       const now = new Date().toISOString();

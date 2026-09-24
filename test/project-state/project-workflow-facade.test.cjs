@@ -41,6 +41,8 @@ test("Project, Architect Planning and Work Intake execute from Structured Projec
   assert.equal(plan.workflow.body.workflowType, "project-creation");
   assert.equal(plan.workflow.body.title, "Project Creation / Greenfield");
   assert.equal(plan.workflow.body.currentWorkspace, "project-planning");
+  await assert.rejects(facade.createProjectPlan(project.id, { workflowType: "project-creation", phases: [{ title: "Phase 2",
+    objective: "Implement", workItems: [{ workItemKind: "feature", title: "More work", objective: "Deliver" }] }] }), /non-repeatable project-creation Workflow/);
   assert.equal((await facade.getProjectPlan(project.id)).phases.length > 0, true);
   const intake = await facade.captureWorkIntake(project.id, { request: "New capability", desiredOutcome: "Done", constraints: [],
     evidenceContext: [], requestedIntegrationTarget: "dev" });
