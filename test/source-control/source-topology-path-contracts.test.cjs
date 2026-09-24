@@ -60,7 +60,8 @@ test("canonical Workflow UUID maps to its exact Project-relative checkout path",
 test("Workflow identity rejects noncanonical values", context => {
   const root = project(context);
   for (const id of ["bad", workflowId.toUpperCase(), `../${workflowId}`, `x/${workflowId}`, `${workflowId} `,
-    "a1b2c3d4-e5f6-4789-8abc-0123456789aG", "C:\\temp\\workflow"]) {
+    "a1b2c3d4-e5f6-0789-8abc-0123456789ab", "a1b2c3d4-e5f6-4789-7abc-0123456789ab",
+    "00000000-0000-0000-0000-000000000000", "a1b2c3d4-e5f6-4789-8abc-0123456789aG", "C:\\temp\\workflow"]) {
     assert.throws(() => resolveManagedWorkflowCheckoutPath(root, id), /Workflow ID/);
   }
 });
@@ -69,6 +70,8 @@ test("RepositoryCheckout roles validate identity, path, and workflow relationshi
   assert.deepEqual(validateRepositoryCheckoutContract(checkout()), { valid: true });
   assert.deepEqual(validateRepositoryCheckoutContract(checkout({ sourceLineId: "dev", role: "dev", projectRelativePath: "Dev" })), { valid: true });
   assert.deepEqual(validateRepositoryCheckoutContract(checkout({ sourceLineId: "work-line", role: "workflow",
+    projectRelativePath: `.champcity/checkouts/${workflowId}`, workflowId })), { valid: true });
+  assert.deepEqual(validateRepositoryCheckoutContract(checkout({ sourceLineId: `workflow/${workflowId}`, role: "workflow",
     projectRelativePath: `.champcity/checkouts/${workflowId}`, workflowId })), { valid: true });
 
   for (const value of [
@@ -88,6 +91,9 @@ test("RepositoryCheckout roles validate identity, path, and workflow relationshi
     checkout({ repositoryId: "bad identity" }),
     checkout({ repositoryCheckoutId: "" }),
     checkout({ sourceLineId: "" }),
+    checkout({ sourceLineId: "work line" }),
+    checkout({ sourceLineId: "work\u0000line" }),
+    checkout({ sourceLineId: "x".repeat(513) }),
   ]) assert.equal(validateRepositoryCheckoutContract(value).valid, false, JSON.stringify(value));
 
   assert.equal(validateRepositoryCheckoutContract(checkout({ sourceLineId: "dev", role: "dev", projectRelativePath: "Dev", workflowId })).valid, false);
@@ -95,6 +101,19 @@ test("RepositoryCheckout roles validate identity, path, and workflow relationshi
     projectRelativePath: `.champcity/checkouts/${workflowId}` })).valid, false);
   assert.equal(validateRepositoryCheckoutContract(checkout({ role: "workflow", sourceLineId: "work-line", workflowId,
     projectRelativePath: `.champcity/checkouts/${workflowId.toUpperCase()}` })).valid, false);
+  for (const invalidId of ["a1b2c3d4-e5f6-0789-8abc-0123456789ab", "a1b2c3d4-e5f6-4789-7abc-0123456789ab",
+    "00000000-0000-0000-0000-000000000000", workflowId.toUpperCase()]) {
+    assert.equal(validateRepositoryCheckoutContract(checkout({ role: "workflow", sourceLineId: "work-line", workflowId: invalidId,
+      projectRelativePath: `.champcity/checkouts/${invalidId}` })).valid, false);
+  }
+
+  const valid = checkout();
+  assert.equal(validateRepositoryCheckoutContract({ ...valid, hostRoot: "C:/machine-specific/path" }).valid, false);
+  assert.equal(validateRepositoryCheckoutContract({ ...valid, arbitrary: true }).valid, false);
+  assert.equal(validateRepositoryCheckoutContract([]).valid, false);
+  const { role, ...missingRequired } = valid;
+  assert.equal(validateRepositoryCheckoutContract(missingRequired).valid, false);
+  assert.equal(validateRepositoryCheckoutContract(Object.assign(Object.create({ inherited: true }), valid)).valid, false);
 });
 
 test("existing redirect in managed topology is rejected", context => {

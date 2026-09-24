@@ -7,7 +7,8 @@ import {
 } from "../../shared/sourceLifecycleContracts";
 
 const opaqueIdentity = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/;
-const canonicalWorkflowId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const canonicalWorkflowId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const sourceLineIdentity = (value: unknown): value is string => typeof value === "string" && value.length > 0 && value.length <= 512 && !/[\s\p{Cc}]/u.test(value);
 
 export interface ManagedProjectSourceTopology {
   projectContainerRoot: string;
@@ -98,9 +99,19 @@ function canonicalRelativePath(value: unknown): value is string {
 }
 
 export function validateRepositoryCheckoutContract(checkout: RepositoryCheckout): { valid: boolean; reason?: string } {
-  if (!checkout || typeof checkout !== "object") return { valid: false, reason: "checkout must be an object" };
-  if (![checkout.repositoryCheckoutId, checkout.repositoryId, checkout.sourceLineId].every(value => typeof value === "string" && opaqueIdentity.test(value))) {
-    return { valid: false, reason: "checkout, repository, and source line identities must be bounded opaque identities" };
+  if (!checkout || typeof checkout !== "object" || Array.isArray(checkout)) return { valid: false, reason: "checkout must be an ordinary object" };
+  const prototype = Object.getPrototypeOf(checkout);
+  if (prototype !== Object.prototype && prototype !== null) return { valid: false, reason: "checkout must be an ordinary object" };
+  const allowedFields = new Set(["repositoryCheckoutId", "repositoryId", "sourceLineId", "role", "projectRelativePath", "workflowId"]);
+  const ownKeys = Reflect.ownKeys(checkout);
+  if (ownKeys.some(key => typeof key !== "string" || !allowedFields.has(key))) return { valid: false, reason: "checkout contains unsupported fields" };
+  const requiredFields = ["repositoryCheckoutId", "repositoryId", "sourceLineId", "role", "projectRelativePath"];
+  if (requiredFields.some(key => !Object.prototype.hasOwnProperty.call(checkout, key))) return { valid: false, reason: "checkout is missing a required field" };
+  if (![checkout.repositoryCheckoutId, checkout.repositoryId].every(value => typeof value === "string" && opaqueIdentity.test(value))) {
+    return { valid: false, reason: "checkout and repository identities must be bounded opaque identities" };
+  }
+  if (!sourceLineIdentity(checkout.sourceLineId)) {
+    return { valid: false, reason: "source line identity must be non-empty, bounded, and contain no whitespace or control characters" };
   }
   if (!canonicalRelativePath(checkout.projectRelativePath)) return { valid: false, reason: "path must be canonical Project-relative forward-slash form" };
   const paths = MANAGED_PROJECT_SOURCE_PATHS;
