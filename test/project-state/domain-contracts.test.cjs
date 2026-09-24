@@ -28,8 +28,8 @@ const bodies = {
   Decision: { decisionType: "proceed", outcome: "approved", rationale: "Reason", decisionRole: "Operator", decisionScope: "project", decidedBy: principal, decidedAt: now, effectiveAt: now },
   RegressionObligation: { ...common, capabilityId: "sample-capability", riskCategory: "functional", obligationState: "active" },
   SourceBinding: { workflowId: linkedId, sourceBaselineId: linkedId, preparationState: "unprepared" },
-  SourceCheckpoint: { boundaryId: "boundary", workIntakeId: linkedId, sourceLineId: "work", expectedRevisionId: "revision", checkpointKind: "implementation", checkpointState: "pending" },
-  IntegrationRecord: { workIntakeId: linkedId, incomingRevisionId: "incoming", targetSourceLineId: "dev", targetBeforeRevisionId: "before", integrationState: "prepared", outcome: "pending", validationIds: [], repairWorkItemIds: [] },
+  SourceCheckpoint: { boundaryId: "boundary", workflowId: linkedId, sourceLineId: "work", expectedRevisionId: "revision", checkpointKind: "implementation", checkpointState: "pending" },
+  IntegrationRecord: { workflowId: linkedId, incomingRevisionId: "incoming", targetSourceLineId: "dev", targetBeforeRevisionId: "before", integrationState: "prepared", outcome: "pending", validationIds: [], repairWorkItemIds: [] },
 };
 
 test("all adopted Project State types have registered bounded schemas and application-issued envelopes", () => {

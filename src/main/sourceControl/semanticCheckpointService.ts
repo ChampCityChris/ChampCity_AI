@@ -7,6 +7,9 @@ import type { CheckpointResult, DispositionCheckpointRequest, ImplementationChec
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
 import { selectedStructuredProjectId } from "../workIntake/structuredWorkIntakeService";
 import { createSourceControlService } from "./sourceControlService";
+import { resolveManagedProjectSourceTopology, resolveManagedWorkflowCheckoutPath, workflowRepositoryCheckoutId } from "./projectSourceTopology";
+import { workflowSourceLineName } from "./workSourceNaming";
+import { runBoundedGit } from "../agentHarness/repository/boundedGit";
 
 const principal = { principalId: "local-operator", principalType: "human" as const, role: "Operator" };
 const activeRoots = new Set<string>();
@@ -63,12 +66,12 @@ async function exactCheckpoint(store: Store, projectId: string, boundaryId: stri
 async function checkpoint(root: string, projectId: string, kind: Kind, request: Request): Promise<CheckpointResult> {
   let selected: string;
   try { selected = fs.realpathSync(root); } catch { return blocked("Selected repository is unavailable."); }
-  if (activeRoots.has(selected)) return blocked("A source checkpoint is already running for this repository.");
-  activeRoots.add(selected);
+  let lockKey = selected;
+  let lockAcquired = false;
   let pendingId: string | null = null;
   try {
     if (selectedStructuredProjectId(selected) !== projectId) return blocked("Selected structured Project authority is unavailable.");
-    if (![request.boundaryId, request.workIntakeId, request.targetEntityId, request.sourceLineId].every(validId) ||
+    if (![request.boundaryId, request.workflowId, request.targetEntityId, request.sourceLineId, request.repositoryCheckoutId].every(validId) ||
       !/^[a-f0-9]{40,64}$/.test(request.expectedRevisionId) ||
       (kind === "disposition" && !validId((request as DispositionCheckpointRequest).dispositionId)) ||
       !Array.isArray(request.attributablePaths) || request.attributablePaths.length > 256 ||
@@ -79,55 +82,86 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
     const store = createSQLiteProjectStateStore(path.join(selected, ".champcity", "project-state.sqlite"));
     try {
       const state = createProjectStateService(store, principal);
-      const intakeSummary = await state.getWorkIntakeSummary(projectId, request.workIntakeId);
-      if (!intakeSummary.targetWorkflowId) return blocked("Work Intake has no target Workflow source binding.");
-      const targetWorkflow = await store.getEntity(projectId, intakeSummary.targetWorkflowId);
-      if (targetWorkflow?.entityType !== "Workflow") return blocked("Work Intake target Workflow is unavailable.");
+      const targetWorkflow = await store.getEntity(projectId, request.workflowId);
+      if (targetWorkflow?.entityType !== "Workflow" || targetWorkflow.body.workflowType === "work-intake-routing") return blocked("Checkpoint requires a substantive Workflow owner.");
       const workflows = (await store.listEntities(projectId, "Workflow")).filter(row => row.entityType === "Workflow" && row.lineageId === targetWorkflow.lineageId);
       const lineageIds = new Set(workflows.map(row => row.id));
       const bindings = (await store.listEntities(projectId, "SourceBinding"))
         .filter((row): row is Binding => row.entityType === "SourceBinding" && lineageIds.has(row.body.workflowId) && row.lifecycleState === "active");
-      if (bindings.length !== 1) return blocked("Work Intake must have one active SourceBinding.");
+      if (bindings.length !== 1) return blocked("Workflow lineage must have one active SourceBinding.");
       let binding = bindings[0];
       const baseline = await store.getEntity(projectId, binding.body.sourceBaselineId);
       const bindingWorkflow = await store.getEntity(projectId, binding.body.workflowId);
       const baselineWorkflow = baseline?.entityType === "SourceBaseline" ? await store.getEntity(projectId, baseline.body.workflowId) : null;
       if (baseline?.entityType !== "SourceBaseline" || bindingWorkflow?.entityType !== "Workflow" || baselineWorkflow?.entityType !== "Workflow" || bindingWorkflow.lineageId !== baselineWorkflow.lineageId) return blocked("SourceBinding baseline and Workflow lineage mismatch.");
-      if (binding.body.preparationState !== "ready" || binding.body.workSourceLineId !== request.sourceLineId ||
-        binding.body.repositoryCheckoutId !== request.repositoryCheckoutId && request.repositoryCheckoutId !== undefined)
-        return blocked("Work Intake source binding does not match the checkpoint request.");
+      if (binding.body.preparationState !== "ready" || !binding.body.currentRevisionId || !binding.body.workSourceLineId || !binding.body.repositoryCheckoutId || binding.body.workSourceLineId !== request.sourceLineId || binding.body.repositoryCheckoutId !== request.repositoryCheckoutId)
+        return blocked("Workflow SourceBinding does not match the checkpoint request.");
+      if (request.repositoryCheckoutId !== workflowRepositoryCheckoutId(baseline.body.workflowId) || binding.body.workSourceLineId !== workflowSourceLineName(baseline.body.workflowId)) return blocked("Workflow checkout identity differs from its immutable SourceBaseline anchor.");
+      const checkout = resolveManagedWorkflowCheckoutPath(selected, baseline.body.workflowId).checkoutRoot;
+      const checkoutStat = fs.lstatSync(checkout);
+      if (!checkoutStat.isDirectory() || checkoutStat.isSymbolicLink() || fs.realpathSync(checkout) !== checkout) return blocked("Managed Workflow checkout is unavailable or redirected.");
+      lockKey = checkout;
+      if (activeRoots.has(lockKey)) return blocked("A source checkpoint is already running for this Workflow checkout.");
+      activeRoots.add(lockKey);
+      lockAcquired = true;
+      const topology = resolveManagedProjectSourceTopology(selected);
+      const gitTop = (await runBoundedGit({ cwd: checkout, args: ["rev-parse", "--show-toplevel"] })).stdout.trim();
+      const common = (await runBoundedGit({ cwd: checkout, args: ["rev-parse", "--git-common-dir"] })).stdout.trim();
+      const devCommon = (await runBoundedGit({ cwd: topology.devCheckoutRoot, args: ["rev-parse", "--git-common-dir"] })).stdout.trim();
+      const commonPath = path.resolve(checkout, common); const devCommonPath = path.resolve(topology.devCheckoutRoot, devCommon);
+      if (fs.realpathSync(gitTop) !== checkout || fs.realpathSync(commonPath) !== fs.realpathSync(devCommonPath)) return blocked("Workflow checkout Git identity differs from managed Project topology.");
       const target = await store.getEntity(projectId, request.targetEntityId);
+      const allEdges = await store.listRelationships(projectId);
+      const belongsToWorkflow = (entityId: string) => {
+        const seen = new Set<string>(); let current = entityId;
+        while (!seen.has(current)) { if (lineageIds.has(current)) return true; seen.add(current);
+          const parents = allEdges.filter(edge => edge.relationshipType === "part_of" && edge.fromEntityId === current && !edge.endedAt);
+          if (parents.length !== 1) break; current = parents[0].toEntityId; }
+        return false;
+      };
       if (kind === "implementation") {
         if (target?.entityType !== "ImplementationRecord" || target.body.outcome !== "implemented")
           return blocked("Implementation checkpoint requires a completed ImplementationRecord.");
+        if (!belongsToWorkflow(target.body.workItemId)) return blocked("Implementation target is outside the requested Workflow lineage.");
       } else {
-        if (!target || !["WorkItem", "WorkIntake"].includes(target.entityType)) return blocked("Disposition target is invalid.");
+        if (!target || !["WorkItem", "Workflow"].includes(target.entityType)) return blocked("Disposition target is invalid.");
+        if (target.entityType === "Workflow" ? !lineageIds.has(target.id) : !belongsToWorkflow(target.id)) return blocked("Disposition target is outside the requested Workflow lineage.");
         const decision = await store.getEntity(projectId, (request as DispositionCheckpointRequest).dispositionId);
         const governs = await store.listRelationships(projectId, "governs");
         if (decision?.entityType !== "Decision" || decision.body.decisionRole !== "Operator" ||
           !governs.some(edge => edge.fromEntityId === decision.id && edge.toEntityId === target.id && !edge.endedAt))
           return blocked("Operator disposition evidence is unavailable.");
       }
-      const source = createSourceControlService({ repositoryId: baseline.body.repositoryId, repositoryRoot: selected });
+      const source = createSourceControlService({ repositoryId: baseline.body.repositoryId, repositoryRoot: checkout });
       const branch = await source.branches(request.sourceLineId);
       if (!branch.ok || branch.result.currentBranch !== request.sourceLineId ||
         branch.result.selectedBranch?.commit !== branch.result.head)
-        return blocked("Select the exact Work Intake source line before checkpointing.");
-      const fileDigests = paths.map(item => ({ path: item, digest: fileDigest(selected, item) }));
+        return blocked("Workflow checkout is not on the exact requested source revision.");
+      let saved = await exactCheckpoint(store, projectId, request.boundaryId);
+      if (branch.result.head !== request.expectedRevisionId) {
+        if (!saved || saved.body.workflowId !== request.workflowId || saved.body.expectedRevisionId !== request.expectedRevisionId ||
+          saved.body.sourceLineId !== request.sourceLineId || saved.body.checkpointKind !== kind || !saved.body.receiptDigest)
+          return blocked("Expected source revision is stale.", saved?.id ?? null);
+        const priorCommit = await source.inspectCommit({ ref: branch.result.head });
+        if (!priorCommit.ok || priorCommit.result.parents.length !== 1 || priorCommit.result.parents[0] !== request.expectedRevisionId ||
+          priorCommit.result.message.trim() !== commitMessage(kind, saved.body.receiptDigest) ||
+          priorCommit.result.changedFiles.map(file => file.path).sort().join("\0") !== paths.join("\0"))
+          return inspection("Source advanced without matching checkpoint evidence.", saved.id);
+      }
+      const fileDigests = paths.map(item => ({ path: item, digest: fileDigest(checkout, item) }));
       const receiptDigest = digest(JSON.stringify({ version: 1, kind, projectId, boundaryId: request.boundaryId,
-        workIntakeId: request.workIntakeId, targetEntityId: request.targetEntityId,
+        workflowId: request.workflowId, repositoryCheckoutId: request.repositoryCheckoutId, targetEntityId: request.targetEntityId,
         dispositionId: kind === "disposition" ? (request as DispositionCheckpointRequest).dispositionId : null,
         sourceLineId: request.sourceLineId, expectedRevisionId: request.expectedRevisionId, files: fileDigests }));
       const message = commitMessage(kind, receiptDigest);
-      let saved = await exactCheckpoint(store, projectId, request.boundaryId);
       if (saved && (saved.body.receiptDigest !== receiptDigest || saved.body.checkpointKind !== kind ||
-        saved.body.expectedRevisionId !== request.expectedRevisionId || saved.body.workIntakeId !== request.workIntakeId ||
+        saved.body.expectedRevisionId !== request.expectedRevisionId || saved.body.workflowId !== request.workflowId ||
         saved.body.sourceLineId !== request.sourceLineId)) return inspection("Checkpoint identity conflicts with saved evidence.", saved.id);
       if (saved?.body.checkpointState === "committed") return result(baseline.body.repositoryId, saved);
       if (!saved) {
-        if (binding.body.currentRevisionId !== request.expectedRevisionId || branch.result.head !== request.expectedRevisionId)
+        if (binding.body.currentRevisionId !== request.expectedRevisionId)
           return blocked("Expected source revision is stale.");
-        const created = await state.createSourceCheckpoint(projectId, binding.id, request.targetEntityId,
+        const created = await state.createSourceCheckpoint(projectId, binding.id, request.workflowId, request.targetEntityId,
           { boundaryId: request.boundaryId, expectedRevisionId: request.expectedRevisionId, checkpointKind: kind,
             checkpointState: "pending", receiptDigest });
         if (created.entityType !== "SourceCheckpoint") throw Error("Checkpoint record type changed.");
@@ -152,6 +186,7 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
         return result(baseline.body.repositoryId, saved);
       }
       const changed = await source.changedFiles();
+      if (branch.result.head !== request.expectedRevisionId) return blocked("Expected source revision is stale.", saved.id);
       const relevant = changed.ok ? changed.result.filter(item => !isAppState(item.path)) : [];
       const blockReason = !changed.ok ? "Source change inventory is unavailable." :
         changed.result.some(item => item.indexStatus !== " " && item.indexStatus !== "?") ?
@@ -178,8 +213,8 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
       const stagedInventory = await source.changedFiles();
       if (!stagedInventory.ok || stagedInventory.result.filter(item => !isAppState(item.path))
         .some(item => !paths.includes(item.path) || item.worktreeStatus !== " ") ||
-        paths.some(item => !stagedInventory.ok || !stagedInventory.result.some(file => file.path === item && file.indexStatus !== " ")) ||
-        fileDigests.some(item => fileDigest(selected, item.path) !== item.digest)) {
+          paths.some(item => !stagedInventory.ok || !stagedInventory.result.some(file => file.path === item && file.indexStatus !== " ")) ||
+        fileDigests.some(item => fileDigest(checkout, item.path) !== item.digest)) {
         saved = await state.advanceSourceCheckpoint(projectId, saved.id,
           { checkpointState: "inspection-required" }, saved.recordVersion) as Checkpoint;
         return inspection("Staged source evidence requires inspection.", saved.id);
@@ -216,7 +251,7 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
       } catch { /* Preserve the pending record for explicit retry reconciliation. */ }
     }
     return inspection("Checkpoint outcome is uncertain; inspect source and saved evidence before retrying.", pendingId);
-  } finally { activeRoots.delete(selected); }
+  } finally { if (lockAcquired) activeRoots.delete(lockKey); }
 }
 
 /** Main-process semantic checkpoint operations. The caller supplies a selected Project root. */

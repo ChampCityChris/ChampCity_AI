@@ -19,9 +19,7 @@ function sqliteFixture(context) {
 }
 
 async function createBinding(service, projectId, intakeId) {
-  const summary = await service.getWorkIntakeSummary(projectId, intakeId);
   const workflow = await service.createWorkflow(projectId, { workflowType: "feature-capability", title: "Target", currentWorkspace: "development" });
-  await service.linkWorkflowRouteTarget(projectId, summary.routingWorkflowId, workflow.id);
   const baseline = await service.createWorkflowSourceBaseline(projectId, workflow.id, { repositoryId: "repo-opaque", integrationTargetSourceLineId: "target-line", baseRevisionId: "base-revision" });
   return { workflow, baseline, binding: await service.createWorkflowSourceBinding(projectId, workflow.id, baseline.id) };
 }
@@ -118,19 +116,25 @@ function register(name, factory) {
     const { intake } = await service.createWorkIntake(project.id, intakeBody);
     const binding = await readyBinding(service, project.id, intake.id);
     const work = await service.createRecord(project.id, "WorkItem", workBody);
+    await service.createRelationship(project.id, work.id, "part_of", binding.body.workflowId);
     const implementation = await service.recordImplementation(project.id, work.id, { summary: "Done", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
-    await assert.rejects(service.createSourceCheckpoint(project.id, binding.id, implementation.id, { boundaryId: "boundary-1", expectedRevisionId: "wrong", checkpointKind: "implementation", checkpointState: "pending" }), /expected revision differs/);
-    const checkpoint = await service.createSourceCheckpoint(project.id, binding.id, implementation.id, { boundaryId: "boundary-1", expectedRevisionId: "work-revision", checkpointKind: "implementation", checkpointState: "pending" });
+    await assert.rejects(service.createSourceCheckpoint(project.id, binding.id, binding.body.workflowId, implementation.id, { boundaryId: "boundary-1", expectedRevisionId: "wrong", checkpointKind: "implementation", checkpointState: "pending" }), /expected revision differs/);
+    const checkpoint = await service.createSourceCheckpoint(project.id, binding.id, binding.body.workflowId, implementation.id, { boundaryId: "boundary-1", expectedRevisionId: "work-revision", checkpointKind: "implementation", checkpointState: "pending" });
     assert.equal(checkpoint.body.sourceLineId, "work-line");
-    assert.equal(checkpoint.body.workIntakeId, intake.id);
-    assert.deepEqual(new Set((await service.getRelationships(project.id, checkpoint.id)).map(edge => edge.toEntityId)), new Set([binding.id, intake.id, implementation.id]));
-    await assert.rejects(service.createSourceCheckpoint(project.id, binding.id, work.id, { boundaryId: "boundary-1", expectedRevisionId: "work-revision", checkpointKind: "disposition", checkpointState: "pending" }), /boundary already exists/);
+    assert.equal(checkpoint.body.workflowId, binding.body.workflowId);
+    assert.equal(Object.hasOwn(checkpoint.body, "workIntakeId"), false);
+    assert.deepEqual(new Set((await service.getRelationships(project.id, checkpoint.id)).map(edge => edge.toEntityId)), new Set([binding.id, binding.body.workflowId, implementation.id]));
+    const foreignWorkflow = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Foreign", currentWorkspace: "development" });
+    const foreignWork = await service.createRecord(project.id, "WorkItem", workBody);
+    await service.createRelationship(project.id, foreignWork.id, "part_of", foreignWorkflow.id);
+    await assert.rejects(service.createSourceCheckpoint(project.id, binding.id, binding.body.workflowId, foreignWork.id, { boundaryId: "foreign-disposition", expectedRevisionId: "work-revision", checkpointKind: "disposition", checkpointState: "pending" }), /outside the owning Workflow lineage/);
+    await assert.rejects(service.createSourceCheckpoint(project.id, binding.id, binding.body.workflowId, work.id, { boundaryId: "boundary-1", expectedRevisionId: "work-revision", checkpointKind: "disposition", checkpointState: "pending" }), /boundary already exists/);
     const committed = await service.advanceSourceCheckpoint(project.id, checkpoint.id, { checkpointState: "committed", resultingRevisionId: "work-revision-2" }, 1);
     assert.equal(committed.body.resultingRevisionId, "work-revision-2");
     await assert.rejects(service.advanceSourceCheckpoint(project.id, checkpoint.id, { checkpointState: "pending" }, 2), /Invalid checkpoint transition/);
     const updatedBinding = await service.updateSourceBinding(project.id, binding.id, { currentRevisionId: "work-revision-2" }, 3);
     assert.equal(updatedBinding.body.currentRevisionId, "work-revision-2");
-    const disposition = await service.createSourceCheckpoint(project.id, binding.id, work.id, { boundaryId: "boundary-2", expectedRevisionId: "work-revision-2", checkpointKind: "disposition", checkpointState: "pending" });
+    const disposition = await service.createSourceCheckpoint(project.id, binding.id, binding.body.workflowId, work.id, { boundaryId: "boundary-2", expectedRevisionId: "work-revision-2", checkpointKind: "disposition", checkpointState: "pending" });
     assert.equal(disposition.body.checkpointKind, "disposition");
     assert.equal((await service.getSourceSemanticView(project.id, "repo-opaque")).checkpoints.length, 2);
   });
@@ -142,11 +146,20 @@ function register(name, factory) {
     const { intake } = await service.createWorkIntake(project.id, intakeBody);
     const binding = await readyBinding(service, project.id, intake.id);
     const work = await service.createRecord(project.id, "WorkItem", workBody);
-    const integration = await service.createIntegrationRecord(project.id, binding.id, { targetBeforeRevisionId: "target-before", candidateRevisionId: "candidate", targetEntityId: work.id });
+    await service.createRelationship(project.id, work.id, "part_of", binding.body.workflowId);
+    const foreignWorkflow = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Foreign integration", currentWorkspace: "development" });
+    const foreignWork = await service.createRecord(project.id, "WorkItem", workBody);
+    await service.createRelationship(project.id, foreignWork.id, "part_of", foreignWorkflow.id);
+    const integration = await service.createIntegrationRecord(project.id, binding.id, binding.body.workflowId, { targetBeforeRevisionId: "target-before", candidateRevisionId: "candidate", targetEntityId: work.id });
+    assert.equal(integration.body.workflowId, binding.body.workflowId);
+    assert.equal(Object.hasOwn(integration.body, "workIntakeId"), false);
+    assert.deepEqual(new Set((await service.getRelationships(project.id, integration.id)).map(edge => edge.toEntityId)), new Set([binding.id, binding.body.workflowId, work.id]));
+    await assert.rejects(service.createIntegrationRecord(project.id, binding.id, binding.body.workflowId, { targetBeforeRevisionId: "target-before-foreign", targetEntityId: foreignWork.id }), /outside the owning Workflow lineage/);
     assert.equal(integration.body.incomingRevisionId, "work-revision");
     assert.equal(integration.body.targetSourceLineId, "target-line");
     const validation = await service.recordValidation(project.id, integration.id, { validationType: "integration", method: "automated", outcome: "pass", summary: "Candidate checked", sourceBaselineRef: "candidate" });
     const repair = await service.createRecord(project.id, "WorkItem", { ...workBody, workItemKind: "repair", title: "Repair" });
+    await service.createRelationship(project.id, repair.id, "part_of", binding.body.workflowId);
     const validating = await service.advanceIntegrationRecord(project.id, integration.id, { integrationState: "validating", validationIds: [validation.id] }, 1);
     assert.deepEqual(validating.body.validationIds, [validation.id]);
     const repairing = await service.advanceIntegrationRecord(project.id, integration.id, { integrationState: "repairing", repairWorkItemIds: [repair.id] }, 2);

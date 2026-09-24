@@ -60,16 +60,23 @@ test("read-only source graph preserves five branch heads, merge parents, semanti
     const { intake } = await state.createWorkIntake(project.id, { request: "Implement graph feature", desiredOutcome: "Delivered",
       constraints: [], evidenceContext: [], requestedIntegrationTarget: "dev" });
     intakeId = intake.id;
-    const binding = await state.createSourceBinding(project.id, intake.id, { repositoryId: "repo-graph", integrationTargetSourceLineId: "dev" });
-    await state.updateSourceBinding(project.id, binding.id, { preparationState: "preparing", baseRevisionId: base }, 1);
+    const routing = (await store.listEntities(project.id, "Workflow")).find(row => row.entityType === "Workflow" && row.body.workflowType === "work-intake-routing");
+    const workflow = await state.createWorkflow(project.id, { workflowType: "feature-capability", title: "Implement graph feature", currentWorkspace: "development" });
+    await state.linkWorkflowRouteTarget(project.id, routing.id, workflow.id);
+    const baseline = await state.createWorkflowSourceBaseline(project.id, workflow.id, { repositoryId: "repo-graph", integrationTargetSourceLineId: "dev", baseRevisionId: base });
+    const binding = await state.createWorkflowSourceBinding(project.id, workflow.id, baseline.id);
+    await state.updateSourceBinding(project.id, binding.id, { preparationState: "preparing" }, 1);
     await state.updateSourceBinding(project.id, binding.id, { preparationState: "ready", workSourceLineId: "feature/work-1",
       currentRevisionId: feature, repositoryCheckoutId: "workflow-checkout-fixture" }, 2);
+    const work = await state.createRecord(project.id, "WorkItem", { workItemKind: "feature", title: "Graph feature", objective: "Implement", workState: "implemented" });
+    await state.createRelationship(project.id, work.id, "part_of", workflow.id);
+    const implementation = await state.recordImplementation(project.id, work.id, { summary: "Done", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
     const assessment = await state.recordRouteAssessment(project.id, intake.id, { recommendation: "feature-change", traits: [],
       rationale: "Feature", evidenceIds: [] });
     await state.recordRouteDecision(project.id, intake.id, { route: "feature-change", assessmentId: assessment.id });
-    await state.createSourceCheckpoint(project.id, binding.id, intake.id, { boundaryId: "feature-checkpoint",
+    await state.createSourceCheckpoint(project.id, binding.id, workflow.id, implementation.id, { boundaryId: "feature-checkpoint",
       expectedRevisionId: feature, checkpointKind: "implementation", checkpointState: "committed", resultingRevisionId: feature });
-    const integration = await state.createIntegrationRecord(project.id, binding.id, { targetBeforeRevisionId: devBefore });
+    const integration = await state.createIntegrationRecord(project.id, binding.id, workflow.id, { targetBeforeRevisionId: devBefore });
     await state.advanceIntegrationRecord(project.id, integration.id, { integrationState: "validating" }, 1);
     await state.advanceIntegrationRecord(project.id, integration.id, { integrationState: "ready" }, 2);
     await state.advanceIntegrationRecord(project.id, integration.id, { integrationState: "integrated", outcome: "integrated",

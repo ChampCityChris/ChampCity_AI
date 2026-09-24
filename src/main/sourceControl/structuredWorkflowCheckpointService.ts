@@ -18,12 +18,9 @@ function open(root: string, projectId: string): { selected: string; store: Store
   if (selectedStructuredProjectId(selected) !== projectId) throw Error("Selected structured Project authority is unavailable.");
   return { selected, store: createSQLiteProjectStateStore(path.join(selected, ".champcity", "project-state.sqlite")) };
 }
-async function bindingFor(store: Store, projectId: string, intakeId: string): Promise<Binding> {
-  const state = createProjectStateService(store, operator);
-  const summary = await state.getWorkIntakeSummary(projectId, intakeId);
-  if (!summary.targetWorkflowId) throw Error("Work Intake has no target Workflow source binding.");
-  const targetWorkflow = await store.getEntity(projectId, summary.targetWorkflowId);
-  if (targetWorkflow?.entityType !== "Workflow") throw Error("Work Intake target Workflow is unavailable.");
+async function bindingForWorkflow(store: Store, projectId: string, workflowId: string): Promise<Binding> {
+  const targetWorkflow = await store.getEntity(projectId, workflowId);
+  if (targetWorkflow?.entityType !== "Workflow" || targetWorkflow.body.workflowType === "work-intake-routing") throw Error("A substantive Workflow is required.");
   const lineageIds = new Set((await store.listEntities(projectId, "Workflow"))
     .filter(row => row.entityType === "Workflow" && row.lineageId === targetWorkflow.lineageId).map(row => row.id));
   const bindings = (await store.listEntities(projectId, "SourceBinding"))
@@ -35,7 +32,7 @@ async function bindingFor(store: Store, projectId: string, intakeId: string): Pr
     if (baseline?.entityType !== "SourceBaseline" || workflow?.entityType !== "Workflow" || baselineWorkflow?.entityType !== "Workflow" || workflow.lineageId !== baselineWorkflow.lineageId) throw Error("SourceBinding baseline and Workflow lineage mismatch.");
   }
   if (bindings.length !== 1 || bindings[0].body.preparationState !== "ready" ||
-    !bindings[0].body.currentRevisionId || !bindings[0].body.workSourceLineId) throw Error("Work Intake source must be ready.");
+    !bindings[0].body.currentRevisionId || !bindings[0].body.workSourceLineId || !bindings[0].body.repositoryCheckoutId) throw Error("Workflow source must be ready.");
   return bindings[0];
 }
 async function priorRevision(store: Store, projectId: string, boundaryId: string, binding: Binding): Promise<string> {
@@ -44,10 +41,8 @@ async function priorRevision(store: Store, projectId: string, boundaryId: string
   if (existing.length > 1) throw Error("Checkpoint boundary is ambiguous.");
   return existing[0]?.body.expectedRevisionId ?? binding.body.currentRevisionId!;
 }
-async function assertWorkOwner(store: Store, projectId: string, intakeId: string, workItemId: string) {
-  const summary = await createProjectStateService(store, operator).getWorkIntakeSummary(projectId, intakeId);
-  if (!summary.targetWorkflowId) throw Error("Work Intake has no target Workflow owner.");
-  const owner = await store.getEntity(projectId, summary.targetWorkflowId);
+async function assertWorkOwner(store: Store, projectId: string, workflowId: string, workItemId: string) {
+  const owner = await store.getEntity(projectId, workflowId);
   if (owner?.entityType !== "Workflow") throw Error("Work Intake target Workflow is unavailable.");
   const workflowLineages = new Set((await store.listEntities(projectId, "Workflow"))
     .filter(row => row.entityType === "Workflow" && row.lineageId === owner.lineageId).map(row => row.id));
@@ -64,13 +59,12 @@ async function assertWorkOwner(store: Store, projectId: string, intakeId: string
   throw Error("Work Item is not owned by the selected target Workflow lineage.");
 }
 
-/** Route selection is saved exactly once for an assessment, then checkpointed on the same SourceLine. */
+/** WIR routing persists its decision without creating source lifecycle evidence. */
 export async function selectStructuredWorkRoute(root: string, projectId: string, intakeId: string,
   input: { route: WorkRoute; assessmentId: string; rationale: string }): Promise<WorkflowCheckpointResult<ProjectStateRecord<"Decision">>> {
   const { selected, store } = open(root, projectId);
   try {
     const state = createProjectStateService(store, operator);
-    const binding = await bindingFor(store, projectId, intakeId);
     const history = await state.getWorkRouteHistory(projectId, intakeId);
     const derived = new Set(history.relationships.filter(edge => edge.relationshipType === "derived_from" && edge.toEntityId === input.assessmentId && !edge.endedAt)
       .map(edge => edge.fromEntityId));
@@ -80,26 +74,21 @@ export async function selectStructuredWorkRoute(root: string, projectId: string,
       throw Error("Route assessment already has a conflicting Operator decision.");
     const saved = prior[0] ?? await state.recordRouteDecision(projectId, intakeId, input);
     if (saved.entityType !== "Decision") throw Error("Route decision type changed.");
-    const boundaryId = `route:${intakeId}:${input.assessmentId}`;
-    const checkpoint = await createDispositionCheckpoint(selected, projectId, {
-      boundaryId, workIntakeId: intakeId, targetEntityId: intakeId,
-      sourceLineId: binding.body.workSourceLineId!, expectedRevisionId: await priorRevision(store, projectId, boundaryId, binding),
-      dispositionId: saved.id, attributablePaths: [],
-    });
+    const checkpoint: CheckpointResult = { state: "not-required", checkpointId: null, revision: null, message: "Routing decision does not own source." };
     return { record: saved, checkpoint };
   } finally { store.close(); }
 }
 
 /** Completed ImplementationRecords obtain a source revision before their review surface can use them. */
-export async function recordStructuredImplementation(root: string, projectId: string, intakeId: string, workItemId: string,
+export async function recordStructuredImplementation(root: string, projectId: string, workflowId: string, workItemId: string,
   input: Omit<EntityBodyMap["ImplementationRecord"], "workItemId"> & { executionRef: string },
   boundaryId: string, attributablePaths: string[]): Promise<WorkflowCheckpointResult<ProjectStateRecord<"ImplementationRecord">>> {
   const { selected, store } = open(root, projectId);
   try {
     if (input.outcome !== "implemented" || !input.executionRef) throw Error("Implementation checkpoint requires a completed unique execution.");
     const state = createProjectStateService(store, operator);
-    await assertWorkOwner(store, projectId, intakeId, workItemId);
-    const binding = await bindingFor(store, projectId, intakeId);
+    await assertWorkOwner(store, projectId, workflowId, workItemId);
+    const binding = await bindingForWorkflow(store, projectId, workflowId);
     const attempts = (await state.getImplementationAttempts(projectId, workItemId))
       .filter(record => record.body.executionRef === input.executionRef);
     if (attempts.length > 1 || attempts.length === 1 &&
@@ -109,22 +98,22 @@ export async function recordStructuredImplementation(root: string, projectId: st
     const saved = attempts[0] ?? await state.recordImplementation(projectId, workItemId, input);
     if (saved.entityType !== "ImplementationRecord") throw Error("Implementation record type changed.");
     const checkpoint = await createImplementationCheckpoint(selected, projectId, {
-      boundaryId, workIntakeId: intakeId, targetEntityId: saved.id,
+      boundaryId, workflowId, targetEntityId: saved.id,
       sourceLineId: binding.body.workSourceLineId!, expectedRevisionId: await priorRevision(store, projectId, boundaryId, binding),
-      attributablePaths,
+      repositoryCheckoutId: binding.body.repositoryCheckoutId!, attributablePaths,
     });
     return { record: saved, checkpoint };
   } finally { store.close(); }
 }
 
 /** Existing human review Decisions produce chronology; routine Validator results use their own state. */
-export async function recordStructuredWorkDisposition(root: string, projectId: string, intakeId: string, workItemId: string,
+export async function recordStructuredWorkDisposition(root: string, projectId: string, workflowId: string, workItemId: string,
   input: DecisionInput, boundaryId: string): Promise<WorkflowCheckpointResult<ProjectStateRecord<"Decision">>> {
   const { selected, store } = open(root, projectId);
   try {
     const state = createProjectStateService(store, operator);
-    await assertWorkOwner(store, projectId, intakeId, workItemId);
-    const binding = await bindingFor(store, projectId, intakeId);
+    await assertWorkOwner(store, projectId, workflowId, workItemId);
+    const binding = await bindingForWorkflow(store, projectId, workflowId);
     const decisions = (await store.listEntities(projectId, "Decision"))
       .filter((record): record is ProjectStateRecord<"Decision"> => record.entityType === "Decision" && record.body.decisionScope === input.decisionScope &&
         record.body.decisionType === input.decisionType);
@@ -135,9 +124,9 @@ export async function recordStructuredWorkDisposition(root: string, projectId: s
     const saved = prior[0] ?? await state.recordDecision(projectId, workItemId, input);
     if (saved.entityType !== "Decision") throw Error("Work Item decision type changed.");
     const checkpoint = await createDispositionCheckpoint(selected, projectId, {
-      boundaryId, workIntakeId: intakeId, targetEntityId: workItemId,
+      boundaryId, workflowId, targetEntityId: workItemId,
       sourceLineId: binding.body.workSourceLineId!, expectedRevisionId: await priorRevision(store, projectId, boundaryId, binding),
-      dispositionId: saved.id, attributablePaths: [],
+      repositoryCheckoutId: binding.body.repositoryCheckoutId!, dispositionId: saved.id, attributablePaths: [],
     });
     return { record: saved, checkpoint };
   } finally { store.close(); }

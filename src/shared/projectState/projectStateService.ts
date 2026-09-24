@@ -17,8 +17,8 @@ export interface CurrentProjectStateView {
   decisions: { id: EntityId; outcome: string; targetIds: EntityId[]; effectiveAt: string }[];
   validations: { id: EntityId; targetId: EntityId; targetVersion: number; outcome: EntityBodyMap["Validation"]["outcome"]; sourceBaselineRef: string | null }[];
   sourceBindings: { id: EntityId; workflowId: EntityId; sourceBaselineId: EntityId; preparationState: EntityBodyMap["SourceBinding"]["preparationState"]; workSourceLineId: string | null; currentRevisionId: string | null; repositoryCheckoutId: string | null }[];
-  sourceCheckpoints: { id: EntityId; workIntakeId: EntityId; state: EntityBodyMap["SourceCheckpoint"]["checkpointState"]; expectedRevisionId: string; resultingRevisionId: string | null }[];
-  integrations: { id: EntityId; workIntakeId: EntityId; state: EntityBodyMap["IntegrationRecord"]["integrationState"]; outcome: EntityBodyMap["IntegrationRecord"]["outcome"]; incomingRevisionId: string; resultRevisionId: string | null }[];
+  sourceCheckpoints: { id: EntityId; workflowId: EntityId; state: EntityBodyMap["SourceCheckpoint"]["checkpointState"]; expectedRevisionId: string; resultingRevisionId: string | null }[];
+  integrations: { id: EntityId; workflowId: EntityId; state: EntityBodyMap["IntegrationRecord"]["integrationState"]; outcome: EntityBodyMap["IntegrationRecord"]["outcome"]; incomingRevisionId: string; resultRevisionId: string | null }[];
 }
 export type ProjectionType = "work-intake" | "work-item" | "repair" | "fix" | "validation" | "implementation-report" | "route-history" | "decision-history" | "project-state-summary";
 export interface ProjectionMetadata { projectionType: ProjectionType; projectionVersion: 1; projectId: ProjectId; sourceEntityIds: EntityId[]; generatedAt: string; authoritative: false }
@@ -802,29 +802,33 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     });
   }
 
-  async function createSourceCheckpoint(projectId: ProjectId, bindingId: EntityId, targetId: EntityId,
+  async function createSourceCheckpoint(projectId: ProjectId, bindingId: EntityId, workflowId: EntityId, targetId: EntityId,
     input: Pick<EntityBodyMap["SourceCheckpoint"], "boundaryId" | "expectedRevisionId" | "checkpointKind" | "checkpointState"> & { resultingRevisionId?: string; receiptDigest?: string }, context?: MutationContext) {
     exactInput(input, ["boundaryId", "expectedRevisionId", "checkpointKind", "checkpointState", "resultingRevisionId", "receiptDigest"]);
     return store.transaction(projectId, async unit => {
       const binding = await requiredRecord(unit, projectId, bindingId);
       const target = await requiredRecord(unit, projectId, targetId);
-      if (binding.entityType !== "SourceBinding" || binding.body.preparationState !== "ready" || !binding.body.workSourceLineId) fail("Checkpoint requires a ready SourceBinding.");
+      if (binding.entityType !== "SourceBinding" || binding.body.preparationState !== "ready" || !binding.body.workSourceLineId || !binding.body.repositoryCheckoutId) fail("Checkpoint requires a ready SourceBinding with RepositoryCheckout.");
       const baseline = await requiredRecord(unit, projectId, binding.body.sourceBaselineId);
-      const workflow = await requiredRecord(unit, projectId, binding.body.workflowId);
+      const workflow = await requiredRecord(unit, projectId, workflowId);
+      const bindingWorkflow = await requiredRecord(unit, projectId, binding.body.workflowId);
       const baselineWorkflow = baseline.entityType === "SourceBaseline" ? await requiredRecord(unit, projectId, baseline.body.workflowId) : null;
-      if (baseline.entityType !== "SourceBaseline" || workflow.entityType !== "Workflow" || baselineWorkflow?.entityType !== "Workflow" || baselineWorkflow.lineageId !== workflow.lineageId) fail("SourceBinding baseline and Workflow lineage mismatch.");
-      if (!["WorkIntake", "WorkItem", "ImplementationRecord"].includes(target.entityType)) fail("Unsupported checkpoint target.");
+      if (baseline.entityType !== "SourceBaseline" || workflow.entityType !== "Workflow" || bindingWorkflow.entityType !== "Workflow" || baselineWorkflow?.entityType !== "Workflow" || workflow.body.workflowType === "work-intake-routing" || workflow.lineageId !== bindingWorkflow.lineageId || baselineWorkflow.lineageId !== workflow.lineageId) fail("SourceCheckpoint Workflow and SourceBinding lineage mismatch.");
+      if (!["WorkItem", "Workflow", "ImplementationRecord"].includes(target.entityType)) fail("Unsupported checkpoint target.");
       if ((await unit.listEntities(projectId, "SourceCheckpoint")).some(record => record.entityType === "SourceCheckpoint" && record.body.boundaryId === input.boundaryId)) fail("Checkpoint boundary already exists.");
-      const lineageWorkflow = await requiredRecord(unit, projectId, binding.body.workflowId);
-      const lineageIds = new Set((await unit.listEntities(projectId, "Workflow")).filter(r => r.entityType === "Workflow" && lineageWorkflow.entityType === "Workflow" && r.lineageId === lineageWorkflow.lineageId).map(r => r.id));
-      const routes = await unit.listRelationships(projectId, "routes_to");
-      const initiates = await unit.listRelationships(projectId, "initiates");
-      const provenance = new Set<EntityId>();
-      for (const route of routes.filter(edge => lineageIds.has(edge.toEntityId))) for (const edge of initiates.filter(item => item.toEntityId === route.fromEntityId)) provenance.add(edge.fromEntityId);
-      if (provenance.size !== 1) fail(provenance.size ? "SourceCheckpoint Work Intake provenance is ambiguous." : "Direct Workflow checkpoint ownership awaits WTR02G; no Work Intake provenance exists.");
-      const body: EntityBodyMap["SourceCheckpoint"] = { ...input, workIntakeId: [...provenance][0],
+      const lineageIds = new Set((await unit.listEntities(projectId, "Workflow")).filter(r => r.entityType === "Workflow" && r.lineageId === workflow.lineageId).map(r => r.id));
+      const body: EntityBodyMap["SourceCheckpoint"] = { ...input, workflowId,
         sourceLineId: binding.body.workSourceLineId };
-      if (target.entityType === "WorkIntake" && target.id !== body.workIntakeId) fail("Checkpoint Work Intake does not match SourceBinding.");
+      const edges = await unit.listRelationships(projectId);
+      const belongs = (id: EntityId) => {
+        const seen = new Set<EntityId>(); let current = id;
+        while (!seen.has(current)) { if (lineageIds.has(current)) return true; seen.add(current);
+          const parents = edges.filter(edge => edge.relationshipType === "part_of" && edge.fromEntityId === current && !edge.endedAt);
+          if (parents.length !== 1) break; current = parents[0].toEntityId; }
+        return false;
+      };
+      if (input.checkpointKind === "implementation" && (target.entityType !== "ImplementationRecord" || !belongs(target.body.workItemId))) fail("Implementation checkpoint target is outside the owning Workflow lineage.");
+      if (input.checkpointKind === "disposition" && !(target.entityType === "Workflow" ? lineageIds.has(target.id) : target.entityType === "WorkItem" && belongs(target.id))) fail("Disposition checkpoint target is outside the owning Workflow lineage.");
       if (binding.body.currentRevisionId !== body.expectedRevisionId) fail("Checkpoint expected revision differs from SourceBinding current revision.");
       assertSourceCheckpointBody(body);
       const checkpoint = createProjectStateEntity({ entityType: "SourceCheckpoint", projectId, body, principal: trustedPrincipal });
@@ -832,8 +836,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       await recordMutation(unit, { projectId, entityId: checkpoint.id, fromVersion: null, toVersion: 1,
         operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: checkpoint.createdAt,
         changedFields: Object.keys(checkpoint.body), defaultReason: "Create SourceCheckpoint", context });
-      const intake = await requiredRecord(unit, projectId, body.workIntakeId);
-      for (const related of new Map([binding, intake, target].map(record => [record.id, record])).values()) {
+      for (const related of new Map([binding, workflow, target].map(record => [record.id, record])).values()) {
         await linkSemantic(unit, projectId, checkpoint, related, "checkpoints", context);
       }
       return checkpoint;
@@ -865,27 +868,24 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     });
   }
 
-  async function createIntegrationRecord(projectId: ProjectId, bindingId: EntityId,
+  async function createIntegrationRecord(projectId: ProjectId, bindingId: EntityId, workflowId: EntityId,
     input: { targetBeforeRevisionId: string; candidateRevisionId?: string; targetEntityId?: EntityId }, context?: MutationContext) {
     exactInput(input, ["targetBeforeRevisionId", "candidateRevisionId", "targetEntityId"]);
     return store.transaction(projectId, async unit => {
       const binding = await requiredRecord(unit, projectId, bindingId);
-      if (binding.entityType !== "SourceBinding" || binding.body.preparationState !== "ready" || !binding.body.currentRevisionId) fail("Integration requires a ready SourceBinding with current revision.");
+      if (binding.entityType !== "SourceBinding" || binding.body.preparationState !== "ready" || !binding.body.currentRevisionId || !binding.body.workSourceLineId || !binding.body.repositoryCheckoutId) fail("Integration requires a ready SourceBinding with current revision and RepositoryCheckout.");
       const baseline = await requiredRecord(unit, projectId, binding.body.sourceBaselineId);
-      const workflow = await requiredRecord(unit, projectId, binding.body.workflowId);
-      if (baseline.entityType !== "SourceBaseline" || workflow.entityType !== "Workflow") fail("Integration SourceBinding baseline is invalid.");
+      const workflow = await requiredRecord(unit, projectId, workflowId);
+      const bindingWorkflow = await requiredRecord(unit, projectId, binding.body.workflowId);
+      if (baseline.entityType !== "SourceBaseline" || workflow.entityType !== "Workflow" || bindingWorkflow.entityType !== "Workflow" || workflow.body.workflowType === "work-intake-routing" || workflow.lineageId !== bindingWorkflow.lineageId) fail("Integration SourceBinding Workflow is invalid.");
       const lineageIds = new Set((await unit.listEntities(projectId, "Workflow")).filter(r => r.entityType === "Workflow" && r.lineageId === workflow.lineageId).map(r => r.id));
       if (!lineageIds.has(baseline.body.workflowId)) fail("SourceBinding baseline and Workflow lineage mismatch.");
-      const routes = await unit.listRelationships(projectId, "routes_to");
-      const initiates = await unit.listRelationships(projectId, "initiates");
-      const provenance = new Set<EntityId>();
-      for (const route of routes.filter(edge => lineageIds.has(edge.toEntityId))) for (const edge of initiates.filter(item => item.toEntityId === route.fromEntityId)) provenance.add(edge.fromEntityId);
-      if (provenance.size !== 1) fail(provenance.size ? "Integration Work Intake provenance is ambiguous." : "Direct Workflow integration ownership awaits WTR02G; no Work Intake provenance exists.");
-      const intake = await requiredRecord(unit, projectId, [...provenance][0]);
-      if (intake.entityType !== "WorkIntake") fail("Integration SourceBinding has no Work Intake.");
       const target = input.targetEntityId ? await requiredRecord(unit, projectId, input.targetEntityId) : null;
       if (target && !["WorkItem", "ImplementationRecord"].includes(target.entityType)) fail("Integration target must be a Work Item or ImplementationRecord.");
-      const body: EntityBodyMap["IntegrationRecord"] = { workIntakeId: intake.id,
+      const edges = await unit.listRelationships(projectId);
+      const belongs = (id: EntityId) => { const seen = new Set<EntityId>(); let current = id; while (!seen.has(current)) { if (lineageIds.has(current)) return true; seen.add(current); const parents = edges.filter(edge => edge.relationshipType === "part_of" && edge.fromEntityId === current && !edge.endedAt); if (parents.length !== 1) break; current = parents[0].toEntityId; } return false; };
+      if (target && !(target.entityType === "WorkItem" ? belongs(target.id) : target.entityType === "ImplementationRecord" && belongs(target.body.workItemId))) fail("Integration target is outside the owning Workflow lineage.");
+      const body: EntityBodyMap["IntegrationRecord"] = { workflowId,
         incomingRevisionId: binding.body.currentRevisionId, targetSourceLineId: baseline.body.integrationTargetSourceLineId,
         targetBeforeRevisionId: input.targetBeforeRevisionId,
         ...(input.candidateRevisionId ? { candidateRevisionId: input.candidateRevisionId } : {}),
@@ -896,7 +896,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       await recordMutation(unit, { projectId, entityId: record.id, fromVersion: null, toVersion: 1,
         operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: record.createdAt,
         changedFields: Object.keys(record.body), defaultReason: "Create IntegrationRecord", context });
-      for (const related of [binding, intake, ...(target ? [target] : [])]) await linkSemantic(unit, projectId, record, related, "integrates", context);
+      for (const related of [binding, workflow, ...(target ? [target] : [])]) await linkSemantic(unit, projectId, record, related, "integrates", context);
       return record;
     });
   }
@@ -922,9 +922,14 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         if (!(await unit.listRelationships(projectId, "evaluates")).some(edge => edge.fromEntityId === id && edge.toEntityId === integrationId && !edge.endedAt)) fail("Integration Validation relationship is missing.");
       }
       const existingLinks = (await unit.listRelationships(projectId, "integrates")).filter(edge => edge.fromEntityId === integrationId && !edge.endedAt);
+      const owner = await requiredRecord(unit, projectId, current.body.workflowId);
+      const lineageIds = new Set((await unit.listEntities(projectId, "Workflow")).filter(row => row.entityType === "Workflow" && owner.entityType === "Workflow" && row.lineageId === owner.lineageId).map(row => row.id));
+      const edges = await unit.listRelationships(projectId);
+      const belongs = (id: EntityId) => { const seen = new Set<EntityId>(); let currentId = id; while (!seen.has(currentId)) { if (lineageIds.has(currentId)) return true; seen.add(currentId); const parents = edges.filter(edge => edge.relationshipType === "part_of" && edge.fromEntityId === currentId && !edge.endedAt); if (parents.length !== 1) break; currentId = parents[0].toEntityId; } return false; };
       for (const id of body.repairWorkItemIds) {
         const repair = await requiredRecord(unit, projectId, id);
         if (repair.entityType !== "WorkItem" || !["repair", "fix"].includes(repair.body.workItemKind)) fail("Integration repair must be a Repair or Fix Work Item.");
+        if (!belongs(repair.id)) fail("Integration repair Work Item is outside the owning Workflow lineage.");
         if (!existingLinks.some(edge => edge.toEntityId === id)) await linkSemantic(unit, projectId, current, repair, "integrates", context);
       }
       const now = new Date().toISOString();
@@ -1108,10 +1113,10 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         workSourceLineId: record.body.workSourceLineId ?? null,
         currentRevisionId: record.body.currentRevisionId ?? null,
         repositoryCheckoutId: record.body.repositoryCheckoutId ?? null })),
-      sourceCheckpoints: checkpoints.map(record => ({ id: record.id, workIntakeId: record.body.workIntakeId,
+      sourceCheckpoints: checkpoints.map(record => ({ id: record.id, workflowId: record.body.workflowId,
         state: record.body.checkpointState, expectedRevisionId: record.body.expectedRevisionId,
         resultingRevisionId: record.body.resultingRevisionId ?? null })),
-      integrations: integrations.map(record => ({ id: record.id, workIntakeId: record.body.workIntakeId,
+      integrations: integrations.map(record => ({ id: record.id, workflowId: record.body.workflowId,
         state: record.body.integrationState, outcome: record.body.outcome,
         incomingRevisionId: record.body.incomingRevisionId, resultRevisionId: record.body.resultRevisionId ?? null })),
     };

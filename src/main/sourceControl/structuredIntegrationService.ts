@@ -15,6 +15,7 @@ import { createIntegrationPolicyProvider, loadIntegrationPolicy, loadIntegration
 import { deriveIntegrationRepairEditablePaths } from "../planExecution/integrationRepairPolicyProvider";
 import { createSourceControlService } from "./sourceControlService";
 import { selectedStructuredProjectId } from "../workIntake/structuredWorkIntakeService";
+import { resolveManagedProjectSourceTopology, resolveManagedWorkflowCheckoutPath } from "./projectSourceTopology";
 
 const principal = { principalId: "local-operator", principalType: "human" as const, role: "Operator" };
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
@@ -26,6 +27,7 @@ type Binding = ProjectStateRecord<"SourceBinding">;
 export function createStructuredIntegrationService(root: string, projectId: string, intakeId: string,
   overrides: Pick<IntegrationCandidateHooks, "checks" | "repairPolicy" | "repairContext"> = {}) {
   const selected = fs.realpathSync(root);
+  const devRoot = resolveManagedProjectSourceTopology(selected).devCheckoutRoot;
   if (selectedStructuredProjectId(selected) !== projectId) throw Error("Selected structured Project authority is unavailable.");
   const file = path.join(selected, ".champcity", "project-state.sqlite");
   const open = () => createSQLiteProjectStateStore(file);
@@ -62,8 +64,11 @@ export function createStructuredIntegrationService(root: string, projectId: stri
       if (baseline?.entityType !== "SourceBaseline" || bindingWorkflow?.entityType !== "Workflow" || baselineWorkflow?.entityType !== "Workflow" || baselineWorkflow.lineageId !== bindingWorkflow.lineageId) throw Error("SourceBinding baseline and Workflow lineage mismatch.");
       if (source.preparationState !== "ready" || !baseline.body.baseRevisionId || !source.workSourceLineId || !source.currentRevisionId || baseline.body.integrationTargetSourceLineId !== "dev")
         throw Error("Completed Work Intake has no ready exact source revision.");
+      if (!source.repositoryCheckoutId || source.preparationState !== "ready" || !source.currentRevisionId || !source.workSourceLineId) throw Error("Completed Workflow has no ready RepositoryCheckout.");
+      const workflowIds = new Set((await store.listEntities(projectId, "Workflow"))
+        .filter(row => row.entityType === "Workflow" && row.lineageId === bindingWorkflow.lineageId).map(row => row.id));
       const checkpoints = (await store.listEntities(projectId, "SourceCheckpoint"))
-        .filter((row): row is ProjectStateRecord<"SourceCheckpoint"> => row.entityType === "SourceCheckpoint" && row.body.workIntakeId === intakeId);
+        .filter((row): row is ProjectStateRecord<"SourceCheckpoint"> => row.entityType === "SourceCheckpoint" && workflowIds.has(row.body.workflowId));
       if (checkpoints.some(row => row.body.checkpointState !== "committed")) throw Error("Completed Work Intake has unresolved source checkpoints.");
       const byPrior = new Map<string, string>();
       for (const checkpoint of checkpoints) {
@@ -95,9 +100,22 @@ export function createStructuredIntegrationService(root: string, projectId: stri
   async function verifyBinding(binding: WorkIntakeBranchBinding) {
     const loaded = await completion();
     if (JSON.stringify(loaded.binding) !== JSON.stringify(binding)) throw Error("Structured SourceBinding changed before integration.");
-    const source = createSourceControlService({ repositoryRoot: selected, repositoryId: binding.repositoryId });
+    const store = open();
+    let sourceRoot: string;
+    try {
+      const intakeSummary = await createProjectStateService(store, principal).getWorkIntakeSummary(projectId, intakeId);
+      if (!intakeSummary.targetWorkflowId) throw Error("Integration Work Intake has no target Workflow.");
+      const owner = await store.getEntity(projectId, intakeSummary.targetWorkflowId);
+      const sourceBinding = await bindingForTargetWorkflow(store, intakeSummary.targetWorkflowId);
+      const baseline = await store.getEntity(projectId, sourceBinding.body.sourceBaselineId);
+      if (owner?.entityType !== "Workflow" || baseline?.entityType !== "SourceBaseline" || sourceBinding.body.repositoryCheckoutId !== `workflow-${baseline.body.workflowId}`) throw Error("Workflow RepositoryCheckout identity is invalid.");
+      sourceRoot = resolveManagedWorkflowCheckoutPath(selected, baseline.body.workflowId).checkoutRoot;
+    } finally { store.close(); }
+    const source = createSourceControlService({ repositoryRoot: sourceRoot, repositoryId: binding.repositoryId });
     const branches = await source.branches(binding.workBranch);
-    if (!branches.ok || branches.result.selectedBranch?.commit !== binding.currentHead)
+    const sourceStatus = await source.status();
+    if (!branches.ok || branches.result.currentBranch !== binding.workBranch || branches.result.selectedBranch?.commit !== binding.currentHead ||
+      !sourceStatus.ok || !sourceStatus.result.clean)
       throw Error("Completed Work Intake source line differs from its saved exact revision.");
     return binding;
   }
@@ -105,21 +123,21 @@ export function createStructuredIntegrationService(root: string, projectId: stri
     const loaded = await completion();
     if (JSON.stringify(loaded.completion) !== JSON.stringify(record.completion) || loaded.binding.currentHead !== record.incomingCommit)
       throw Error("Structured Integration Repair completion changed.");
-    const snapshot = await loadIntegrationPolicyAtCommit(selected, record.targetCommit);
+    const snapshot = await loadIntegrationPolicyAtCommit(devRoot, record.targetCommit);
     const scope = snapshot.policy.repair;
     if (!scope) throw Error("Integration Repair requires target-owned bounded repair policy.");
-    if (loadIntegrationPolicy(integrationPaths(selected, record.candidateId).checkout).textSha256 !== snapshot.textSha256)
+    if (loadIntegrationPolicy(integrationPaths(devRoot, record.candidateId).checkout).textSha256 !== snapshot.textSha256)
       throw Error("Integration Repair policy changed.");
-    const source = createSourceControlService({ repositoryRoot: selected, repositoryId: record.repositoryId });
+    const source = createSourceControlService({ repositoryRoot: devRoot, repositoryId: record.repositoryId });
     const changed = await source.integrationRepairChangedPaths({ candidateId: record.candidateId, mergeBase: record.mergeBase, incomingCommit: record.incomingCommit });
     const inspected = await source.inspectIntegration(record.candidateId);
     if (!changed.ok || !inspected.ok) throw Error("Integration Repair candidate evidence is unavailable.");
     const sources = scope.sources;
     const editablePaths = deriveIntegrationRepairEditablePaths(scope, sources, record.conflictingPaths, inspected.result.conflictingPaths, changed.result);
     for (const entry of sources) {
-      const local = integrationSourceBytes(selected, entry.path);
-      const candidate = integrationSourceBytes(integrationPaths(selected, record.candidateId).checkout, entry.path);
-      const target = await readIntegrationCommitFile(selected, record.targetCommit, entry.path, 250_000);
+      const local = integrationSourceBytes(devRoot, entry.path);
+      const candidate = integrationSourceBytes(integrationPaths(devRoot, record.candidateId).checkout, entry.path);
+      const target = await readIntegrationCommitFile(devRoot, record.targetCommit, entry.path, 250_000);
       if (local === null || candidate === null || local.replaceAll("\r\n", "\n") !== target.toString("utf8").replaceAll("\r\n", "\n") ||
         candidate.replaceAll("\r\n", "\n") !== local.replaceAll("\r\n", "\n")) throw Error("Integration Repair governing source changed.");
     }
@@ -131,7 +149,7 @@ export function createStructuredIntegrationService(root: string, projectId: stri
     const sourceDigests: Record<string, string> = { [`semantic/work-intake/${intakeId}`]: digest(loaded.summary) };
     const context = [`### Work Intake semantic completion\n\n${loaded.summary}`];
     for (const source of policy.sources) {
-      const bytes = integrationSourceBytes(selected, source.path);
+      const bytes = integrationSourceBytes(devRoot, source.path);
       if (bytes === null) throw Error("Integration Repair governing source is missing.");
       sourceDigests[source.path] = integrationSourceDigest(bytes);
       context.push(`### ${source.role}: ${source.path}\n\n${bytes}`);
@@ -142,10 +160,10 @@ export function createStructuredIntegrationService(root: string, projectId: stri
   async function candidate() {
     if (!engine) {
       repositoryId = (await completion()).binding.repositoryId;
-      engine = createIntegrationCandidateService({ repositoryRoot: selected, repositoryId,
+      engine = createIntegrationCandidateService({ repositoryRoot: devRoot, repositoryId,
         load: async () => { const current = await completion(); return { binding: current.binding, completion: current.completion }; },
         verifyBinding, requiredTargetBranch: "dev",
-        ...(overrides.checks ? { checks: overrides.checks } : createIntegrationPolicyProvider(selected)),
+        ...(overrides.checks ? { checks: overrides.checks } : createIntegrationPolicyProvider(devRoot)),
         repairPolicy: overrides.repairPolicy ?? repairPolicy, repairContext: overrides.repairContext ?? repairContext });
     }
     return engine;
@@ -158,11 +176,14 @@ export function createStructuredIntegrationService(root: string, projectId: stri
       if (!summary.targetWorkflowId) throw Error("Integration Work Intake has no target Workflow.");
       const binding = await bindingForTargetWorkflow(store, summary.targetWorkflowId);
       if (binding.body.currentRevisionId !== record.incomingCommit) throw Error("Integration SourceBinding changed.");
+      const workflow = await store.getEntity(projectId, summary.targetWorkflowId);
+      if (workflow?.entityType !== "Workflow") throw Error("Integration target Workflow is unavailable.");
+      const lineageIds = new Set((await store.listEntities(projectId, "Workflow")).filter(row => row.entityType === "Workflow" && row.lineageId === workflow.lineageId).map(row => row.id));
       const existing = (await store.listEntities(projectId, "IntegrationRecord"))
-        .filter((row): row is Integration => row.entityType === "IntegrationRecord" && row.body.workIntakeId === intakeId &&
+        .filter((row): row is Integration => row.entityType === "IntegrationRecord" && lineageIds.has(row.body.workflowId) &&
           row.body.incomingRevisionId === record.incomingCommit && row.body.targetBeforeRevisionId === record.targetCommit);
       if (existing.length > 1) throw Error("Structured integration evidence is ambiguous.");
-      let saved = existing[0] ?? await state.createIntegrationRecord(projectId, binding.id,
+      let saved = existing[0] ?? await state.createIntegrationRecord(projectId, binding.id, summary.targetWorkflowId,
         { targetBeforeRevisionId: record.targetCommit, ...(record.candidateCommit ? { candidateRevisionId: record.candidateCommit } : {}) }) as Integration;
       if (saved.body.integrationState === "integrated") {
         if (saved.body.resultRevisionId !== record.targetAfterRevisionId) throw Error("Integrated target result conflicts with saved evidence.");
@@ -202,8 +223,13 @@ export function createStructuredIntegrationService(root: string, projectId: stri
     async query() { const current = await completion(); const service = await candidate();
       const records = service.list(intakeId).filter(row => JSON.stringify(row.completion) === JSON.stringify(current.completion));
       const store = open();
-      try { const integrations = (await store.listEntities(projectId, "IntegrationRecord"))
-        .filter((row): row is Integration => row.entityType === "IntegrationRecord" && row.body.workIntakeId === intakeId);
+      try { const state = createProjectStateService(store, principal);
+        const summary = await state.getWorkIntakeSummary(projectId, intakeId);
+        const workflow = summary.targetWorkflowId ? await store.getEntity(projectId, summary.targetWorkflowId) : null;
+        if (workflow?.entityType !== "Workflow") throw Error("Integration target Workflow is unavailable.");
+        const lineageIds = new Set((await store.listEntities(projectId, "Workflow")).filter(row => row.entityType === "Workflow" && row.lineageId === workflow.lineageId).map(row => row.id));
+        const integrations = (await store.listEntities(projectId, "IntegrationRecord"))
+        .filter((row): row is Integration => row.entityType === "IntegrationRecord" && lineageIds.has(row.body.workflowId));
         return { completion: current.completion, candidates: records, integrations }; }
       finally { store.close(); } },
     async integrate() { const service = await candidate(); const current = await completion();

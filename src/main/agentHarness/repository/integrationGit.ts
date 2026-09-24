@@ -104,7 +104,17 @@ export async function advanceIntegrationTarget(root: string, input: { candidateI
   const incoming = await inspectGitBranchState(root, input.incomingBranch);
   if (target.selectedBranch?.commit !== exact(input.localTargetCommit) || incoming.selectedBranch?.commit !== exact(input.incomingCommit)) throw fail("Integration refs changed; construct a fresh candidate.");
   const worktrees = (await runBoundedGit({ cwd: root, args: ["worktree", "list", "--porcelain", "-z"] })).stdout.split("\0");
-  if (worktrees.includes(`branch refs/heads/${input.targetBranch}`)) throw fail("Target is checked out in another context; release that checkout before advancing it.");
+  const targetCheckedOut = worktrees.includes(`branch refs/heads/${input.targetBranch}`);
+  if (targetCheckedOut) {
+    const currentBranch = (await runBoundedGit({ cwd: root, args: ["branch", "--show-current"] })).stdout.trim();
+    const currentHead = (await runBoundedGit({ cwd: root, args: ["rev-parse", "HEAD"] })).stdout.trim();
+    const status = await inspectGitCheckout(root);
+    if (currentBranch !== input.targetBranch || currentHead !== input.localTargetCommit || !status.clean)
+      throw fail("Target branch is checked out outside a clean exact selected integration checkout.");
+    if (!await ancestor(root, input.localTargetCommit, input.candidateCommit) || !await ancestor(root, input.incomingCommit, input.candidateCommit)) throw fail("Candidate does not preserve both accepted histories.");
+    await runBoundedGit({ cwd: root, args: ["reset", "--hard", exact(input.candidateCommit)] });
+    return { commit: await commitAt(root, `refs/heads/${input.targetBranch}`) };
+  }
   if (!await ancestor(root, input.localTargetCommit, input.candidateCommit) || !await ancestor(root, input.incomingCommit, input.candidateCommit)) throw fail("Candidate does not preserve both accepted histories.");
   await advanceGitBranchRef(root, { branchName: input.targetBranch, sourceRef: input.candidateCommit, expectedCurrentCommit: input.localTargetCommit });
   return { commit: await commitAt(root, `refs/heads/${input.targetBranch}`) };

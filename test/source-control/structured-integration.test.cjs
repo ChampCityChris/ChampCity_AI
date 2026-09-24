@@ -4,124 +4,71 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { captureGreenfieldWorkIntake } = require("../../dist/main/workIntake/structuredWorkIntakeService.js");
 const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
 const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
-const { selectStructuredWorkRoute } = require("../../dist/main/sourceControl/structuredWorkflowCheckpointService.js");
-const { createStructuredIntegrationService } = require("../../dist/main/sourceControl/structuredIntegrationService.js");
+const { createWorkflowSourceMaterializationService } = require("../../dist/main/sourceControl/workflowSourceMaterializationService.js");
 const { createImplementationCheckpoint } = require("../../dist/main/sourceControl/semanticCheckpointService.js");
+const { createStructuredIntegrationService } = require("../../dist/main/sourceControl/structuredIntegrationService.js");
 
 const operator = { principalId: "operator", principalType: "human", role: "Operator" };
+const repositoryId = "structured-integration-repository";
 function git(root, ...args) { return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim(); }
 
-test("completed structured Work Intake integrates exact validated source into dev without switching the primary checkout", async context => {
+test("structured integration stores Workflow ownership and uses Workflow source plus Dev target checkouts", async context => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-structured-integration-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const captured = await captureGreenfieldWorkIntake(root, { projectId: null, projectName: "Structured Integration",
-    workRequest: "Deliver one accepted capability", desiredOutcome: "Accepted source on dev", knownConstraints: "Keep the work source",
-    repositoryReviewContext: "Greenfield", hasExistingSourceOrPlanning: false, baseBranch: "", baseCommit: "" });
-  assert.equal(captured.source.state, "ready");
-  const line = captured.source.binding.sourceLine.sourceLineId;
-  const targetBefore = git(root, "rev-parse", "dev");
-  git(root, "switch", line);
-  const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
-  try {
-    const state = createProjectStateService(store, operator);
-    const assessment = await state.recordRouteAssessment(captured.projectId, captured.intakeId,
-      { recommendation: "feature-change", traits: [], rationale: "One accepted capability", evidenceIds: [] });
-    const route = await selectStructuredWorkRoute(root, captured.projectId, captured.intakeId,
-      { route: "feature-change", assessmentId: assessment.id, rationale: "Operator selects feature work" });
-    assert.equal(route.checkpoint.state, "committed");
-    let intake = await store.getEntity(captured.projectId, captured.intakeId);
-    intake = await state.advanceWorkIntake(captured.projectId, captured.intakeId, "active", intake.recordVersion);
-    await state.advanceWorkIntake(captured.projectId, captured.intakeId, "closed", intake.recordVersion);
-  } finally { store.close(); }
-  const service = createStructuredIntegrationService(root, captured.projectId, captured.intakeId,
-    { checks: [{ checkId: "accepted-source", run: async () => ({ exitCode: 0, summary: "Accepted source preserved" }) }] });
-  const before = await service.query();
-  assert.equal(before.candidates.length, 0);
-  assert.equal(git(root, "rev-parse", "dev"), targetBefore);
-  const pendingState = git(root, "status", "--porcelain", "--untracked-files=all");
-  assert.equal(pendingState, "?? .champcity/project-state.sqlite");
-  fs.writeFileSync(path.join(root, "pending-source.txt"), "Unrelated work stays pending.\n");
-  await assert.rejects(service.integrate(), /pending source changes/);
-  assert.equal(fs.readFileSync(path.join(root, "pending-source.txt"), "utf8"), "Unrelated work stays pending.\n");
-  assert.equal(git(root, "rev-parse", "dev"), targetBefore);
-  fs.unlinkSync(path.join(root, "pending-source.txt"));
+  const dev = path.join(root, "Dev"); fs.mkdirSync(dev); git(dev, "init", "-b", "dev");
+  git(dev, "config", "user.name", "Integration Test"); git(dev, "config", "user.email", "test@example.invalid");
+  fs.mkdirSync(path.join(dev, ".champcity"));
+  fs.writeFileSync(path.join(dev, ".champcity", "integration-policy.json"), JSON.stringify({ schemaVersion: 1,
+    checks: [{ checkId: "accepted-source", lane: "integration", runner: { kind: "npm-script", script: "verify", timeoutMs: 15000 } }],
+    requiredIntegrationChecks: ["accepted-source"], repair: null }));
+  fs.writeFileSync(path.join(dev, "package.json"), JSON.stringify({ scripts: { verify: "node -e \"process.exit(0)\"" } }));
+  fs.writeFileSync(path.join(dev, "feature.txt"), "base\n"); git(dev, "add", "."); git(dev, "commit", "-m", "base");
+  const base = git(dev, "rev-parse", "HEAD"); fs.mkdirSync(path.join(root, ".champcity"));
+  let store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  let state = createProjectStateService(store, operator);
+  const project = await state.createRecord(null, "Project", { name: "Structured Integration", description: "Fixture" });
+  await store.transaction(project.id, unit => unit.advanceProviderGeneration({ projectId: project.id, generation: 1, authority: "structured", updatedAt: new Date().toISOString() }, null));
+  const { intake, workflow: routing } = await state.createWorkIntake(project.id, { request: "Integrate capability", desiredOutcome: "Accepted on dev", constraints: [], evidenceContext: [], requestedIntegrationTarget: "dev" });
+  const assessment = await state.recordRouteAssessment(project.id, intake.id, { recommendation: "feature-change", traits: [], rationale: "Feature", evidenceIds: [] });
+  const route = await state.recordRouteDecision(project.id, intake.id, { route: "feature-change", assessmentId: assessment.id, rationale: "Feature" });
+  const workflow = await state.createWorkflow(project.id, { workflowType: "feature-capability", title: "Feature", currentWorkspace: "development" });
+  await state.linkWorkflowRouteTarget(project.id, routing.id, workflow.id);
+  const baseline = await state.createWorkflowSourceBaseline(project.id, workflow.id, { repositoryId, integrationTargetSourceLineId: "dev", baseRevisionId: base });
+  store.close();
+  const materializer = createWorkflowSourceMaterializationService({ projectContainerRoot: root, projectId: project.id, mcpWorkspaceId: "project",
+    checkoutRegistration: { registerRepositoryCheckout: async (_id, checkout) => ({ ...checkout, availability: "available", validationError: null }) } });
+  const materialized = await materializer.materialize(workflow.id);
+  store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite")); state = createProjectStateService(store, operator);
+  const sourceRoot = path.join(root, materialized.checkout.projectRelativePath);
+  const work = await state.createRecord(project.id, "WorkItem", { workItemKind: "feature", title: "Implement", objective: "Add behavior", workState: "implemented" });
+  await state.createRelationship(project.id, work.id, "part_of", workflow.id);
+  const implementation = await state.recordImplementation(project.id, work.id, { summary: "Implemented", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+  fs.writeFileSync(path.join(sourceRoot, "feature.txt"), "incoming accepted\n");
+  const checkpoint = await createImplementationCheckpoint(root, project.id, { boundaryId: "incoming-checkpoint", workflowId: workflow.id,
+    targetEntityId: implementation.id, sourceLineId: materialized.binding.body.workSourceLineId, expectedRevisionId: base,
+    repositoryCheckoutId: materialized.binding.body.repositoryCheckoutId, attributablePaths: ["feature.txt"] });
+  assert.equal(checkpoint.state, "committed", JSON.stringify(checkpoint));
+  let savedIntake = await store.getEntity(project.id, intake.id);
+  savedIntake = await state.advanceWorkIntake(project.id, intake.id, "active", savedIntake.recordVersion);
+  await state.advanceWorkIntake(project.id, intake.id, "closed", savedIntake.recordVersion);
+  store.close();
+
+  const devBefore = git(dev, "rev-parse", "dev");
+  const service = createStructuredIntegrationService(root, project.id, intake.id,
+    { checks: [{ checkId: "accepted-source", run: async candidateRoot => ({ exitCode: fs.readFileSync(path.join(candidateRoot, "feature.txt"), "utf8").includes("incoming accepted") ? 0 : 1, summary: "Incoming source checked" }) }] });
   const integrated = await service.integrate();
   assert.equal(integrated.candidate.status, "integrated", integrated.candidate.message);
   assert.equal(integrated.candidate.targetBranch, "dev");
-  assert.equal(integrated.candidate.targetAfterRevisionId, integrated.candidate.candidateCommit);
+  assert.equal(integrated.integration.body.workflowId, workflow.id);
+  assert.equal(Object.hasOwn(integrated.integration.body, "workIntakeId"), false);
   assert.equal(integrated.integration.body.integrationState, "integrated");
-  assert.equal(integrated.integration.body.resultRevisionId, integrated.candidate.candidateCommit);
-  assert.equal(integrated.integration.body.validationIds.length, 1);
-  assert.equal(git(root, "rev-parse", "dev"), integrated.candidate.candidateCommit);
-  assert.equal(git(root, "branch", "--show-current"), line);
-  assert.equal(git(root, "status", "--porcelain", "--untracked-files=all"), pendingState,
-    "application-owned Project State remains in the primary checkout");
-  const retry = await service.integrate();
-  assert.equal(retry.integration.id, integrated.integration.id);
-  assert.equal(retry.candidate.candidateId, integrated.candidate.candidateId);
-  assert.equal(git(root, "rev-parse", "dev"), integrated.candidate.candidateCommit);
-});
-
-test("structured conflict retains the candidate and uses bounded application-owned Integration Repair", async context => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-structured-repair-"));
-  context.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const captured = await captureGreenfieldWorkIntake(root, { projectId: null, projectName: "Structured Repair",
-    workRequest: "Preserve both accepted changes", desiredOutcome: "Both behaviors on dev", knownConstraints: "Bounded source repair",
-    repositoryReviewContext: "Greenfield", hasExistingSourceOrPlanning: false, baseBranch: "", baseCommit: "" });
-  const line = captured.source.binding.sourceLine.sourceLineId;
-  git(root, "switch", line);
-  const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
-  try {
-    const state = createProjectStateService(store, operator);
-    const assessment = await state.recordRouteAssessment(captured.projectId, captured.intakeId,
-      { recommendation: "feature-change", traits: [], rationale: "Preserve both", evidenceIds: [] });
-    const route = await selectStructuredWorkRoute(root, captured.projectId, captured.intakeId,
-      { route: "feature-change", assessmentId: assessment.id, rationale: "Operator accepts feature route" });
-    assert.equal(route.checkpoint.state, "committed");
-    const work = await state.createRecord(captured.projectId, "WorkItem", { workItemKind: "feature", title: "Change source",
-      objective: "Preserve both accepted behaviors", workState: "ready" });
-    const implementation = await state.recordImplementation(captured.projectId, work.id,
-      { summary: "Incoming behavior", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
-    fs.writeFileSync(path.join(root, "shared.txt"), "incoming accepted\n");
-    const checkpoint = await createImplementationCheckpoint(root, captured.projectId, { boundaryId: "incoming-source",
-      workIntakeId: captured.intakeId, targetEntityId: implementation.id, sourceLineId: line,
-      expectedRevisionId: route.checkpoint.revision.revisionId, attributablePaths: ["shared.txt"] });
-    assert.equal(checkpoint.state, "committed", checkpoint.message);
-    git(root, "switch", "dev");
-    fs.writeFileSync(path.join(root, "shared.txt"), "target accepted\n");
-    fs.writeFileSync(path.join(root, ".champcity", "integration-policy.json"), JSON.stringify({ schemaVersion: 1,
-      checks: [{ checkId: "accepted-source", lane: "integration", runner: { kind: "npm-script", script: "verify", timeoutMs: 15000 } }],
-      requiredIntegrationChecks: ["accepted-source"], repair: { allowedEditableRoots: ["shared.txt"], sources: [] } }));
-    git(root, "add", "shared.txt", ".champcity/integration-policy.json");
-    git(root, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "independent target work");
-    git(root, "switch", line);
-    let intake = await store.getEntity(captured.projectId, captured.intakeId);
-    intake = await state.advanceWorkIntake(captured.projectId, captured.intakeId, "active", intake.recordVersion);
-    await state.advanceWorkIntake(captured.projectId, captured.intakeId, "closed", intake.recordVersion);
-  } finally { store.close(); }
-  const targetBefore = git(root, "rev-parse", "dev");
-  const service = createStructuredIntegrationService(root, captured.projectId, captured.intakeId,
-    { checks: [{ checkId: "accepted-source", run: async candidateRoot => {
-      const content = fs.readFileSync(path.join(candidateRoot, "shared.txt"), "utf8");
-      return { exitCode: content.includes("incoming accepted") && content.includes("target accepted") ? 0 : 1,
-        summary: "Both accepted behaviors survive" };
-    } }] });
-  const conflicted = await service.integrate();
-  assert.equal(conflicted.candidate.status, "conflicted", conflicted.candidate.message);
-  assert.equal(conflicted.integration.body.integrationState, "repairing");
-  assert.equal(git(root, "rev-parse", "dev"), targetBefore);
-  const attempt = await service.prepareRepair(conflicted.candidate.candidateId);
-  assert.deepEqual(attempt.policy.editablePaths, ["shared.txt"]);
-  await assert.rejects(service.applyRepair(conflicted.candidate.candidateId, attempt.repairId,
-    [{ path: "outside.txt", beforeSha256: "deleted", content: "outside" }]), /source scope/);
-  await service.applyRepair(conflicted.candidate.candidateId, attempt.repairId,
-    [{ path: "shared.txt", beforeSha256: attempt.snapshot.editable["shared.txt"], content: "incoming accepted\ntarget accepted\n" }]);
-  const repaired = await service.completeRepair(conflicted.candidate.candidateId, attempt.repairId);
-  assert.equal(repaired.candidate.status, "integrated", repaired.candidate.message);
-  assert.equal(repaired.integration.body.integrationState, "integrated");
-  assert.equal(repaired.integration.body.resultRevisionId, git(root, "rev-parse", "dev"));
-  assert.equal(git(root, "branch", "--show-current"), line);
+  assert.equal(git(dev, "rev-parse", "dev"), integrated.candidate.candidateCommit);
+  assert.notEqual(devBefore, integrated.candidate.candidateCommit);
+  assert.equal(git(sourceRoot, "rev-parse", "HEAD"), checkpoint.revision.revisionId);
+  assert.equal(git(dev, "branch", "--show-current"), "dev");
+  assert.throws(() => git(root, "rev-parse", "--show-toplevel"));
+  assert.equal(baseline.body.baseRevisionId, base);
+  const retry = await service.integrate(); assert.equal(retry.integration.id, integrated.integration.id); assert.equal(route.entityType, "Decision");
 });

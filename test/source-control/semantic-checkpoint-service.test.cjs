@@ -4,113 +4,97 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { captureGreenfieldWorkIntake } = require("../../dist/main/workIntake/structuredWorkIntakeService.js");
 const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
 const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
+const { createWorkflowSourceMaterializationService } = require("../../dist/main/sourceControl/workflowSourceMaterializationService.js");
 const { createImplementationCheckpoint, createDispositionCheckpoint } = require("../../dist/main/sourceControl/semanticCheckpointService.js");
 
 const operator = { principalId: "operator", principalType: "human", role: "Operator" };
+const repositoryId = "checkpoint-repository";
 function git(root, ...args) { return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim(); }
 async function fixture(context) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-checkpoint-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const saved = await captureGreenfieldWorkIntake(root, {
-    projectId: null, projectName: "Checkpoint project", workRequest: "Implement feature", desiredOutcome: "Working feature",
-    knownConstraints: "Keep source bounded", repositoryReviewContext: "New project", hasExistingSourceOrPlanning: false,
-    baseBranch: "", baseCommit: "",
-  });
-  assert.equal(saved.source.state, "ready", JSON.stringify(saved.source));
-  const line = saved.source.binding.sourceLine.sourceLineId;
-  const head = saved.source.binding.sourceLine.headRevisionId;
-  git(root, "switch", line);
+  const dev = path.join(root, "Dev"); fs.mkdirSync(dev); git(dev, "init", "-b", "dev");
+  git(dev, "config", "user.email", "test@example.invalid"); git(dev, "config", "user.name", "Checkpoint Test");
+  fs.writeFileSync(path.join(dev, "base.txt"), "base\n"); git(dev, "add", "base.txt"); git(dev, "commit", "-m", "base");
+  const head = git(dev, "rev-parse", "HEAD"); fs.mkdirSync(path.join(root, ".champcity"));
   const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
   const state = createProjectStateService(store, operator);
-  const work = await state.createRecord(saved.projectId, "WorkItem", {
-    workItemKind: "feature", title: "Feature", objective: "Implement", workState: "implemented",
-  });
-  const implementation = await state.recordImplementation(saved.projectId, work.id, {
-    summary: "Implemented feature", deviations: [], blockers: [], residualRisks: [], outcome: "implemented",
-  });
-  const decision = await state.recordDecision(saved.projectId, work.id, {
-    decisionType: "accept", outcome: "accepted", rationale: "Reviewed", decisionScope: "work-item",
-  });
+  const project = await state.createRecord(null, "Project", { name: "Checkpoint project", description: "Fixture" });
+  await store.transaction(project.id, unit => unit.advanceProviderGeneration({ projectId: project.id, generation: 1, authority: "structured", updatedAt: new Date().toISOString() }, null));
+  const workflow = await state.createWorkflow(project.id, { workflowType: "feature-capability", title: "Feature", currentWorkspace: "development" });
+  const baseline = await state.createWorkflowSourceBaseline(project.id, workflow.id, { repositoryId, integrationTargetSourceLineId: "dev", baseRevisionId: head });
+  const phase = await state.createRecord(project.id, "Phase", { title: "Phase", objective: "Deliver", phaseState: "active", sequence: 1 });
+  await state.createRelationship(project.id, phase.id, "part_of", workflow.id);
+  const work = await state.createRecord(project.id, "WorkItem", { workItemKind: "feature", title: "Feature", objective: "Implement", workState: "implemented" });
+  await state.createRelationship(project.id, work.id, "part_of", phase.id);
+  const implementation = await state.recordImplementation(project.id, work.id, { summary: "Implemented", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+  const decision = await state.recordDecision(project.id, work.id, { decisionType: "accept", outcome: "accepted", rationale: "Reviewed", decisionScope: "work-item" });
   store.close();
-  return { root, projectId: saved.projectId, intakeId: saved.intakeId, line, head, workId: work.id,
-    implementationId: implementation.id, decisionId: decision.id };
+  const materializer = createWorkflowSourceMaterializationService({ projectContainerRoot: root, projectId: project.id, mcpWorkspaceId: "project",
+    checkoutRegistration: { registerRepositoryCheckout: async (_id, checkout) => ({ ...checkout, availability: "available", validationError: null }) } });
+  const materialized = await materializer.materialize(workflow.id);
+  const checkout = path.join(root, materialized.checkout.projectRelativePath);
+  return { root, dev, checkout, projectId: project.id, workflowId: workflow.id, checkoutId: materialized.checkout.repositoryCheckoutId,
+    line: materialized.binding.body.workSourceLineId, head, workId: work.id, implementationId: implementation.id, decisionId: decision.id };
 }
-function implementation(f) {
-  return { boundaryId: "implementation-1", workIntakeId: f.intakeId, targetEntityId: f.implementationId,
-    sourceLineId: f.line, expectedRevisionId: f.head, attributablePaths: ["feature.txt"] };
-}
+function implementation(f) { return { boundaryId: "implementation-1", workflowId: f.workflowId, targetEntityId: f.implementationId,
+  sourceLineId: f.line, expectedRevisionId: f.head, repositoryCheckoutId: f.checkoutId, attributablePaths: ["feature.txt"] }; }
 
-test("implementation checkpoint commits attributed file and duplicate retry returns exact revision", async context => {
-  const f = await fixture(context);
-  fs.writeFileSync(path.join(f.root, "feature.txt"), "feature content\n");
+test("implementation checkpoint writes only to Workflow checkout and retries by exact identity", async context => {
+  const f = await fixture(context); fs.writeFileSync(path.join(f.checkout, "feature.txt"), "feature content\n");
   const first = await createImplementationCheckpoint(f.root, f.projectId, implementation(f));
   assert.equal(first.state, "committed", JSON.stringify(first));
-  assert.equal(first.revision.revisionId, git(f.root, "rev-parse", "HEAD"));
-  assert.equal(git(f.root, "show", "--format=", "--name-only", "HEAD"), "feature.txt");
-  const second = await createImplementationCheckpoint(f.root, f.projectId, implementation(f));
-  assert.equal(second.state, "committed", JSON.stringify(second));
-  assert.equal(second.revision.revisionId, first.revision.revisionId);
-  assert.equal(second.checkpointId, first.checkpointId);
-  assert.equal(git(f.root, "rev-list", "--count", f.line), "2");
-});
-
-test("wrong source line and unrelated file block without staging or source mutation", async context => {
-  const f = await fixture(context);
-  fs.writeFileSync(path.join(f.root, "feature.txt"), "feature content\n");
-  const wrong = await createImplementationCheckpoint(f.root, f.projectId, { ...implementation(f), sourceLineId: "dev" });
-  assert.equal(wrong.state, "blocked");
-  fs.writeFileSync(path.join(f.root, "unrelated.txt"), "other\n");
-  const unrelated = await createImplementationCheckpoint(f.root, f.projectId, implementation(f));
-  assert.equal(unrelated.state, "blocked");
-  assert.ok(unrelated.checkpointId);
+  assert.equal(first.revision.revisionId, git(f.checkout, "rev-parse", "HEAD"));
+  assert.equal(git(f.checkout, "show", "--format=", "--name-only", "HEAD"), "feature.txt");
+  assert.throws(() => git(f.root, "rev-parse", "--show-toplevel"));
+  assert.equal(git(f.dev, "branch", "--show-current"), "dev");
   const store = createSQLiteProjectStateStore(path.join(f.root, ".champcity", "project-state.sqlite"));
-  try { assert.equal((await store.getEntity(f.projectId, unrelated.checkpointId)).body.checkpointState, "blocked"); }
+  try { const binding = (await store.listEntities(f.projectId, "SourceBinding"))[0]; assert.equal(binding.body.currentRevisionId, first.revision.revisionId);
+    const saved = await store.getEntity(f.projectId, first.checkpointId); assert.equal(saved.body.workflowId, f.workflowId); assert.equal(Object.hasOwn(saved.body, "workIntakeId"), false); }
   finally { store.close(); }
-  assert.equal(git(f.root, "rev-parse", "HEAD"), f.head);
-  assert.equal(git(f.root, "diff", "--cached", "--name-only"), "");
-  fs.rmSync(path.join(f.root, "unrelated.txt"));
-  const retried = await createImplementationCheckpoint(f.root, f.projectId, implementation(f));
-  assert.equal(retried.state, "committed", JSON.stringify(retried));
-  assert.equal(retried.checkpointId, unrelated.checkpointId);
+  const second = await createImplementationCheckpoint(f.root, f.projectId, implementation(f));
+  assert.equal(second.checkpointId, first.checkpointId); assert.equal(git(f.checkout, "rev-list", "--count", f.line), "2");
 });
 
-test("operator disposition creates an evidenced empty lifecycle revision", async context => {
-  const f = await fixture(context);
-  const request = { boundaryId: "disposition-1", workIntakeId: f.intakeId, targetEntityId: f.workId,
-    sourceLineId: f.line, expectedRevisionId: f.head, dispositionId: f.decisionId, attributablePaths: [] };
+test("checkout and source line mismatches block without touching project or Dev roots", async context => {
+  const f = await fixture(context); fs.writeFileSync(path.join(f.checkout, "feature.txt"), "feature content\n");
+  assert.equal((await createImplementationCheckpoint(f.root, f.projectId, { ...implementation(f), sourceLineId: "wrong" })).state, "blocked");
+  assert.equal((await createImplementationCheckpoint(f.root, f.projectId, { ...implementation(f), repositoryCheckoutId: "wrong-checkout" })).state, "blocked");
+  assert.equal(git(f.dev, "branch", "--show-current"), "dev"); assert.equal(git(f.checkout, "rev-parse", "HEAD"), f.head);
+});
+
+test("disposition creates an evidenced empty revision on the owning Workflow checkout", async context => {
+  const f = await fixture(context); const request = { boundaryId: "disposition-1", workflowId: f.workflowId, targetEntityId: f.workId,
+    sourceLineId: f.line, expectedRevisionId: f.head, repositoryCheckoutId: f.checkoutId, dispositionId: f.decisionId, attributablePaths: [] };
   const first = await createDispositionCheckpoint(f.root, f.projectId, request);
-  assert.equal(first.state, "committed", JSON.stringify(first));
-  assert.equal(git(f.root, "show", "--format=", "--name-only", "HEAD"), "");
+  assert.equal(first.state, "committed", JSON.stringify(first)); assert.equal(git(f.checkout, "show", "--format=", "--name-only", "HEAD"), "");
   assert.equal((await createDispositionCheckpoint(f.root, f.projectId, request)).revision.revisionId, first.revision.revisionId);
-  assert.equal(git(f.root, "rev-list", "--count", f.line), "2");
 });
 
-test("retry reconciles a committed source revision after a failed binding update", async context => {
-  const f = await fixture(context);
-  fs.writeFileSync(path.join(f.root, "feature.txt"), "feature content\n");
-  const module = require("../../dist/shared/projectState/projectStateService.js");
-  const original = module.createProjectStateService;
-  let failOnce = true;
-  module.createProjectStateService = (...args) => {
-    const service = original(...args);
-    return { ...service, updateSourceBinding: async (...updateArgs) => {
-      if (failOnce) { failOnce = false; throw Error("Synthetic post-commit failure"); }
-      return service.updateSourceBinding(...updateArgs);
-    } };
-  };
-  let first;
-  try { first = await createImplementationCheckpoint(f.root, f.projectId, implementation(f)); }
-  finally { module.createProjectStateService = original; }
-  assert.equal(first.state, "inspection-required", JSON.stringify(first));
-  assert.ok(first.checkpointId);
-  const committedHead = git(f.root, "rev-parse", "HEAD");
-  assert.notEqual(committedHead, f.head);
-  const recovered = await createImplementationCheckpoint(f.root, f.projectId, implementation(f));
-  assert.equal(recovered.state, "committed", JSON.stringify(recovered));
-  assert.equal(recovered.checkpointId, first.checkpointId);
-  assert.equal(recovered.revision.revisionId, committedHead);
-  assert.equal(git(f.root, "rev-list", "--count", f.line), "2");
+test("independent Workflow checkouts use independent checkpoint exclusion keys", async context => {
+  const f = await fixture(context); const store = createSQLiteProjectStateStore(path.join(f.root, ".champcity", "project-state.sqlite"));
+  const state = createProjectStateService(store, operator);
+  const workflow = await state.createWorkflow(f.projectId, { workflowType: "feature-capability", title: "Second", currentWorkspace: "development" });
+  await state.createWorkflowSourceBaseline(f.projectId, workflow.id, { repositoryId, integrationTargetSourceLineId: "dev", baseRevisionId: f.head });
+  const phase = await state.createRecord(f.projectId, "Phase", { title: "Second phase", objective: "Deliver", phaseState: "active", sequence: 2 });
+  await state.createRelationship(f.projectId, phase.id, "part_of", workflow.id);
+  const work = await state.createRecord(f.projectId, "WorkItem", { workItemKind: "feature", title: "Second work", objective: "Implement", workState: "implemented" });
+  await state.createRelationship(f.projectId, work.id, "part_of", phase.id);
+  const implementationRecord = await state.recordImplementation(f.projectId, work.id, { summary: "Implemented", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+  store.close();
+  const materializer = createWorkflowSourceMaterializationService({ projectContainerRoot: f.root, projectId: f.projectId, mcpWorkspaceId: "project",
+    checkoutRegistration: { registerRepositoryCheckout: async (_id, checkout) => ({ ...checkout, availability: "available", validationError: null }) } });
+  const second = await materializer.materialize(workflow.id); assert.notEqual(second.binding.body.workflowId, f.workflowId);
+  assert.notEqual(second.checkout.repositoryCheckoutId, f.checkoutId);
+  const secondRoot = path.join(f.root, second.checkout.projectRelativePath);
+  fs.writeFileSync(path.join(f.checkout, "first.txt"), "one\n"); fs.writeFileSync(path.join(secondRoot, "second.txt"), "two\n");
+  const [a, b] = await Promise.all([
+    createImplementationCheckpoint(f.root, f.projectId, { ...implementation(f), boundaryId: "parallel-one", attributablePaths: ["first.txt"] }),
+    createImplementationCheckpoint(f.root, f.projectId, { boundaryId: "parallel-two", workflowId: workflow.id, targetEntityId: implementationRecord.id,
+      sourceLineId: second.binding.body.workSourceLineId, expectedRevisionId: f.head, repositoryCheckoutId: second.checkout.repositoryCheckoutId, attributablePaths: ["second.txt"] }),
+  ]);
+  assert.equal(a.state, "committed", JSON.stringify(a)); assert.equal(b.state, "committed", JSON.stringify(b));
+  assert.equal(git(f.dev, "branch", "--show-current"), "dev");
 });

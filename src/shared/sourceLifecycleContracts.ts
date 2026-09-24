@@ -93,21 +93,21 @@ export type SourceReadiness =
 
 export interface ImplementationCheckpointRequest {
   boundaryId: string;
-  workIntakeId: string;
+  workflowId: string;
   targetEntityId: string;
   sourceLineId: string;
   expectedRevisionId: string;
-  repositoryCheckoutId?: string;
+  repositoryCheckoutId: string;
   attributablePaths: string[];
 }
 
 export interface DispositionCheckpointRequest {
   boundaryId: string;
-  workIntakeId: string;
+  workflowId: string;
   targetEntityId: string;
   sourceLineId: string;
   expectedRevisionId: string;
-  repositoryCheckoutId?: string;
+  repositoryCheckoutId: string;
   dispositionId: string;
   attributablePaths: string[];
 }
@@ -122,14 +122,15 @@ export interface SourceCheckpoint {
 }
 
 export interface CheckpointResult {
-  state: "committed" | "blocked" | "inspection-required";
+  state: "not-required" | "committed" | "blocked" | "inspection-required";
   checkpointId: string | null;
   revision: SourceRevision | null;
   message: string;
 }
 
 export interface IntegrationCandidateRequest {
-  workIntakeId: string;
+  workflowId: string;
+  repositoryCheckoutId: string;
   incomingRevision: SourceRevision;
   target: IntegrationTarget;
 }

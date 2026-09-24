@@ -91,8 +91,11 @@ function register(name, factory) {
     const binding = await service.createWorkflowSourceBinding(project.id, target.id, baseline.id);
     await service.updateSourceBinding(project.id, binding.id, { preparationState: "preparing" }, 1);
     await service.updateSourceBinding(project.id, binding.id, { preparationState: "ready", workSourceLineId: "work-line", currentRevisionId: "revision-a", repositoryCheckoutId: "workflow-checkout-fixture" }, 2);
-    const checkpoint = await service.createSourceCheckpoint(project.id, binding.id, implementation.id, { boundaryId: "boundary", expectedRevisionId: "revision-a", checkpointKind: "implementation", checkpointState: "pending" });
-    const integration = await service.createIntegrationRecord(project.id, binding.id, { targetBeforeRevisionId: "target-before", targetEntityId: work.id });
+    const targetWork = await service.createRecord(project.id, "WorkItem", workBody("Target workflow work"));
+    await service.createRelationship(project.id, targetWork.id, "part_of", target.id);
+    const targetImplementation = await service.recordImplementation(project.id, targetWork.id, { summary: "Done", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+    const checkpoint = await service.createSourceCheckpoint(project.id, binding.id, target.id, targetImplementation.id, { boundaryId: "boundary", expectedRevisionId: "revision-a", checkpointKind: "implementation", checkpointState: "pending" });
+    const integration = await service.createIntegrationRecord(project.id, binding.id, target.id, { targetBeforeRevisionId: "target-before", targetEntityId: targetWork.id });
     const view = await service.getCurrentProjectStateView(project.id, { limitPerSection: 1 });
     assert.equal(view.project.id, project.id);
     assert.equal(view.workIntakes[0].routingWorkflowId, workflow.id);
@@ -103,7 +106,7 @@ function register(name, factory) {
     assert.deepEqual(view.workflows[0], { id: workflow.id, type: "work-intake-routing", title: "Change", state: "active", currentWorkspace: "work-intake" });
     assert.deepEqual(view.sourceBindings.map(item => ({ workflowId: item.workflowId, sourceBaselineId: item.sourceBaselineId })), [{ workflowId: target.id, sourceBaselineId: baseline.id }]);
     assert.deepEqual(view.phases[0].workItemIds, [work.id]);
-    assert.equal(view.sections.WorkItem.total, 2);
+    assert.equal(view.sections.WorkItem.total, 3);
     assert.equal(view.sections.WorkItem.truncated, true);
     assert.equal(view.sections.WorkItem.nextOffset, 1);
     const secondPage = await service.getCurrentProjectStateView(project.id, { limitPerSection: 1, offset: 1 });
@@ -117,7 +120,9 @@ function register(name, factory) {
     assert.equal(view.sourceBindings[0].repositoryCheckoutId, "workflow-checkout-fixture");
     assert.deepEqual(Object.keys(view.sourceBindings[0]).sort(), ["currentRevisionId", "id", "preparationState", "repositoryCheckoutId", "sourceBaselineId", "workSourceLineId", "workflowId"].sort());
     assert.equal(view.sourceCheckpoints[0].id, checkpoint.id);
+    assert.equal(view.sourceCheckpoints[0].workflowId, target.id);
     assert.equal(view.integrations[0].id, integration.id);
+    assert.equal(view.integrations[0].workflowId, target.id);
   });
 }
 

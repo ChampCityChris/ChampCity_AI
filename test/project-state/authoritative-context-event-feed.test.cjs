@@ -40,20 +40,23 @@ function register(name, factory) {
     const binding = await service.createWorkflowSourceBinding(project.id, targetWorkflow.id, baseline.id);
     await service.updateSourceBinding(project.id, binding.id, { preparationState: "preparing" }, 1);
     await service.updateSourceBinding(project.id, binding.id, { preparationState: "ready", workSourceLineId: "work-line", currentRevisionId: "revision-a", repositoryCheckoutId: "workflow-checkout-fixture" }, 2);
-    const checkpoint = await service.createSourceCheckpoint(project.id, binding.id, work.id, { boundaryId: "boundary", expectedRevisionId: "revision-a", checkpointKind: "implementation", checkpointState: "pending" });
-    const integration = await service.createIntegrationRecord(project.id, binding.id, { targetBeforeRevisionId: "target-before", targetEntityId: work.id });
+    const targetImplementation = await service.recordImplementation(project.id, targetWork.id, { summary: "Done", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+    const targetValidation = await service.recordValidation(project.id, targetWork.id, { validationType: "test", method: "automated", outcome: "pass", summary: "Pass" });
+    const targetDecision = await service.recordDecision(project.id, targetWork.id, { decisionType: "proceed", outcome: "approved", decisionScope: "work-item" });
+    const checkpoint = await service.createSourceCheckpoint(project.id, binding.id, targetWorkflow.id, targetImplementation.id, { boundaryId: "boundary", expectedRevisionId: "revision-a", checkpointKind: "implementation", checkpointState: "pending" });
+    const integration = await service.createIntegrationRecord(project.id, binding.id, targetWorkflow.id, { targetBeforeRevisionId: "target-before", targetEntityId: targetWork.id });
     const before = (await store.listStateChanges(project.id)).length;
-    const workContext = await service.getAuthoritativeContext(project.id, { scope: "work-item", entityId: work.id, limit: 100 });
+    const workContext = await service.getAuthoritativeContext(project.id, { scope: "work-item", entityId: targetWork.id, limit: 100 });
     assert.equal(workContext.authoritative, true);
-    assert.equal(workContext.records.find(record => record.id === work.id).recordVersion, 1);
-    assert.equal(workContext.records.some(record => record.id === validation.id), true);
-    assert.equal(workContext.records.some(record => record.id === decision.id), true);
+    assert.equal(workContext.records.find(record => record.id === targetWork.id).recordVersion, 1);
+    assert.equal(workContext.records.some(record => record.id === targetValidation.id), true);
+    assert.equal(workContext.records.some(record => record.id === targetDecision.id), true);
     assert.equal(workContext.records.some(record => record.id === checkpoint.id), true);
     assert.equal(workContext.records.some(record => record.id === integration.id), true);
     assert.equal(workContext.records.some(record => record.id === binding.id), true);
     assert.equal(workContext.sourceReferences.some(ref => ref.entityId === binding.id && ref.field === "currentRevisionId" && ref.reference === "revision-a"), true);
-    assert.equal(workContext.validations.includes(validation.id), true);
-    assert.equal(workContext.decisions.includes(decision.id), true);
+    assert.equal(workContext.validations.includes(targetValidation.id), true);
+    assert.equal(workContext.decisions.includes(targetDecision.id), true);
     const intakeContext = await service.getAuthoritativeContext(project.id, { scope: "work-intake", entityId: intake.id, limit: 100 });
     assert.equal(intakeContext.records.some(record => record.id === route.id), true);
     assert.equal(intakeContext.records.some(record => record.id === targetPhase.id || record.id === targetWork.id), false);
@@ -65,6 +68,8 @@ function register(name, factory) {
     assert.equal((await store.listRelationships(project.id, "routes_to")).filter(edge => edge.fromEntityId === workflow.id && !edge.endedAt).length, 1);
     const targetContext = await service.getAuthoritativeContext(project.id, { scope: "workflow", entityId: targetWorkflow.id, limit: 100 });
     assert.equal(targetContext.records.some(record => record.id === baseline.id), true);
+    assert.equal(targetContext.records.some(record => record.id === checkpoint.id), true);
+    assert.equal(targetContext.records.some(record => record.id === integration.id), true);
     for (const [field, reference] of Object.entries({ repositoryId: "repo-baseline", integrationTargetSourceLineId: "dev-baseline", baseRevisionId: "revision-baseline" })) {
       assert.equal(targetContext.sourceReferences.some(ref => ref.entityId === baseline.id && ref.field === field && ref.reference === reference), true);
     }

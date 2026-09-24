@@ -82,7 +82,18 @@ export async function getStructuredWorkIntakeProjection(root: string, projectId:
     const checkpoints = (await store.listEntities(projectId, "SourceCheckpoint"))
       .filter((item): item is ProjectStateRecord<"SourceCheckpoint"> => item.entityType === "SourceCheckpoint")
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
-    const saved = intakes.map(item => captured(item, repositoryId, checkpoints.filter(checkpoint => checkpoint.body.workIntakeId === item.id)));
+    const routes = await store.listRelationships(projectId, "routes_to");
+    const initiates = await store.listRelationships(projectId, "initiates");
+    const workflowByIntake = new Map<string, Set<string>>();
+    for (const route of routes.filter(edge => !edge.endedAt)) for (const origin of initiates.filter(edge => edge.toEntityId === route.fromEntityId && !edge.endedAt)) {
+      const values = workflowByIntake.get(origin.fromEntityId) ?? new Set<string>(); values.add(route.toEntityId); workflowByIntake.set(origin.fromEntityId, values);
+    }
+    const workflows = await store.listEntities(projectId, "Workflow");
+    const saved = intakes.map(item => {
+      const targetIds = workflowByIntake.get(item.id) ?? new Set<string>();
+      const lineageIds = new Set(workflows.filter(row => row.entityType === "Workflow" && [...targetIds].some(targetId => workflows.some(target => target.entityType === "Workflow" && target.id === targetId && target.lineageId === row.lineageId))).map(row => row.id));
+      return captured(item, repositoryId, checkpoints.filter(checkpoint => lineageIds.has(checkpoint.body.workflowId)));
+    });
     const source = createSourceControlService({ repositoryRoot: root, repositoryId });
     const branches = await source.branches();
     const available = branches.ok ? branches.result.branches : [];

@@ -102,22 +102,23 @@ async function structuredMetadata(root: string, repositoryId: string, projectId:
     });
     const limited = selected.slice(0, MAX_BINDINGS);
     const intakeIds = new Map(limited.map(row => [row.id, intakeForBinding.get(row.id)!]));
-    const ids = new Set(intakeIds.values());
-    const checkpoints = allCheckpoints.filter(row => ids.has(row.body.workIntakeId));
-    const integrations = allIntegrations.filter(row => ids.has(row.body.workIntakeId));
+    const selectedLineages = new Set(limited.map(row => workflowLineages.get(row.body.workflowId)).filter((id): id is string => !!id));
+    const lineageWorkflowIds = new Set([...workflows].filter(([, wf]) => selectedLineages.has(wf.lineageId)).map(([id]) => id));
+    const checkpoints = allCheckpoints.filter(row => lineageWorkflowIds.has(row.body.workflowId));
+    const integrations = allIntegrations.filter(row => lineageWorkflowIds.has(row.body.workflowId));
     const workBindings = limited.map(binding => {
       const intakeId = intakeIds.get(binding.id)!;
       const intake = intakes.get(intakeId)!;
       const branch = binding.body.workSourceLineId;
       const workflowId = binding.body.workflowId;
       const workflow = workflowId ? workflows.get(workflowId) : undefined;
-      const ownIntegrations = integrations.filter(row => row.body.workIntakeId === intake.id)
+      const ownIntegrations = integrations.filter(row => workflow?.lineageId === workflowLineages.get(row.body.workflowId))
         .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt) || a.id.localeCompare(b.id));
       return { workIntakeId: intake.id, lineId: branch && names.has(branch) ? lineId(repositoryId, branch) : null,
         title: intake.body.request, route: routes.get(intake.id) ?? null, workType: workflow?.body.workflowType ?? null,
         lifecycleState: intake.body.intakeState, workflowState: workflow?.body.workflowState ?? null,
         baseRevisionId: baselines.get(binding.body.sourceBaselineId)?.body.baseRevisionId ?? null, currentRevisionId: binding.body.currentRevisionId ?? null,
-        checkpointKinds: [...new Set(checkpoints.filter(row => row.body.workIntakeId === intake.id).map(row => row.body.checkpointKind))].sort(),
+        checkpointKinds: [...new Set(checkpoints.filter(row => workflow?.lineageId === workflowLineages.get(row.body.workflowId)).map(row => row.body.checkpointKind))].sort(),
         integrationState: ownIntegrations.at(-1)?.body.integrationState ?? null };
     });
     return { workBindings, checkpoints, integrations,
