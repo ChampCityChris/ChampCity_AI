@@ -20,9 +20,12 @@ function open(root: string, projectId: string): { selected: string; store: Store
 }
 async function bindingForWorkflow(store: Store, projectId: string, workflowId: string): Promise<Binding> {
   const targetWorkflow = await store.getEntity(projectId, workflowId);
-  if (targetWorkflow?.entityType !== "Workflow" || targetWorkflow.body.workflowType === "work-intake-routing") throw Error("A substantive Workflow is required.");
-  const lineageIds = new Set((await store.listEntities(projectId, "Workflow"))
-    .filter(row => row.entityType === "Workflow" && row.lineageId === targetWorkflow.lineageId).map(row => row.id));
+  if (targetWorkflow?.entityType !== "Workflow") throw Error("A substantive Workflow is required.");
+  const workflows = (await store.listEntities(projectId, "Workflow")).filter((row): row is ProjectStateRecord<"Workflow"> => row.entityType === "Workflow" && row.lineageId === targetWorkflow.lineageId);
+  const current = workflows.filter(row => row.lifecycleState === "active" && row.body.workflowType !== "work-intake-routing" &&
+    !["closed", "cancelled"].includes(row.body.workflowState));
+  if (current.length !== 1 || current[0].id !== workflowId) throw Error("Source lifecycle evidence requires the unique current Workflow owner.");
+  const lineageIds = new Set(workflows.map(row => row.id));
   const bindings = (await store.listEntities(projectId, "SourceBinding"))
     .filter((record): record is Binding => record.entityType === "SourceBinding" && lineageIds.has(record.body.workflowId) && record.lifecycleState === "active");
   if (bindings.length === 1) {
@@ -44,8 +47,11 @@ async function priorRevision(store: Store, projectId: string, boundaryId: string
 async function assertWorkOwner(store: Store, projectId: string, workflowId: string, workItemId: string) {
   const owner = await store.getEntity(projectId, workflowId);
   if (owner?.entityType !== "Workflow") throw Error("Work Intake target Workflow is unavailable.");
-  const workflowLineages = new Set((await store.listEntities(projectId, "Workflow"))
-    .filter(row => row.entityType === "Workflow" && row.lineageId === owner.lineageId).map(row => row.id));
+  const workflows = (await store.listEntities(projectId, "Workflow")).filter((row): row is ProjectStateRecord<"Workflow"> => row.entityType === "Workflow" && row.lineageId === owner.lineageId);
+  const currentOwners = workflows.filter(row => row.lifecycleState === "active" && row.body.workflowType !== "work-intake-routing" &&
+    !["closed", "cancelled"].includes(row.body.workflowState));
+  if (currentOwners.length !== 1 || currentOwners[0].id !== workflowId) throw Error("Source lifecycle evidence requires the unique current Workflow owner.");
+  const workflowLineages = new Set(workflows.map(row => row.id));
   const parents = (await store.listRelationships(projectId, "part_of")).filter(edge => !edge.endedAt);
   let current = workItemId;
   const seen = new Set<string>();

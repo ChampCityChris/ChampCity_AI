@@ -49,12 +49,14 @@ test("WIR route decisions do not checkpoint; implementation and disposition use 
   currentStore.close();
 
   const implementationInput = { summary: "Feature implemented", deviations: [], blockers: [], residualRisks: [], outcome: "implemented", executionRef: "execution-target" };
+  await assert.rejects(recordStructuredImplementation(root, project.id, target.id, work.id, { ...implementationInput, executionRef: "historical-owner" }, "historical-implementation", ["feature.txt"]), /unique current Workflow owner/);
   await assert.rejects(recordStructuredImplementation(root, project.id, successor.id, wrong.id, { ...implementationInput, executionRef: "wrong" }, "wrong-owner", ["feature.txt"]), /not owned by the selected target Workflow lineage/);
   fs.writeFileSync(path.join(checkout, "feature.txt"), "implemented\n");
   const implementation = await recordStructuredImplementation(root, project.id, successor.id, work.id, implementationInput, "implementation-boundary", ["feature.txt"]);
   assert.equal(implementation.record.body.workItemId, work.id); assert.equal(implementation.checkpoint.state, "committed");
   assert.equal(git(dev, "branch", "--show-current"), "dev");
   const badDecision = { decisionType: "review", outcome: "accepted", rationale: "Wrong owner", decisionScope: "wrong-owner" };
+  await assert.rejects(recordStructuredWorkDisposition(root, project.id, target.id, work.id, { ...badDecision, decisionScope: "historical-owner" }, "historical-disposition"), /unique current Workflow owner/);
   await assert.rejects(recordStructuredWorkDisposition(root, project.id, successor.id, wrong.id, badDecision, "wrong-disposition"), /not owned by the selected target Workflow lineage/);
   const disposition = await recordStructuredWorkDisposition(root, project.id, successor.id, work.id,
     { decisionType: "review", outcome: "accepted", rationale: "Accepted", decisionScope: "target-owner" }, "disposition-boundary");

@@ -53,6 +53,7 @@ test("structured integration stores Workflow ownership and uses Workflow source 
   let savedIntake = await store.getEntity(project.id, intake.id);
   savedIntake = await state.advanceWorkIntake(project.id, intake.id, "active", savedIntake.recordVersion);
   await state.advanceWorkIntake(project.id, intake.id, "closed", savedIntake.recordVersion);
+  const successor = (await state.supersedeRecord(project.id, workflow.id, { ...workflow.body, title: "Feature successor" }, workflow.recordVersion)).successor;
   store.close();
 
   const devBefore = git(dev, "rev-parse", "dev");
@@ -61,7 +62,7 @@ test("structured integration stores Workflow ownership and uses Workflow source 
   const integrated = await service.integrate();
   assert.equal(integrated.candidate.status, "integrated", integrated.candidate.message);
   assert.equal(integrated.candidate.targetBranch, "dev");
-  assert.equal(integrated.integration.body.workflowId, workflow.id);
+  assert.equal(integrated.integration.body.workflowId, successor.id);
   assert.equal(Object.hasOwn(integrated.integration.body, "workIntakeId"), false);
   assert.equal(integrated.integration.body.integrationState, "integrated");
   assert.equal(git(dev, "rev-parse", "dev"), integrated.candidate.candidateCommit);
@@ -70,5 +71,17 @@ test("structured integration stores Workflow ownership and uses Workflow source 
   assert.equal(git(dev, "branch", "--show-current"), "dev");
   assert.throws(() => git(root, "rev-parse", "--show-toplevel"));
   assert.equal(baseline.body.baseRevisionId, base);
+  const verify = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  try {
+    const savedBaseline = (await verify.listEntities(project.id, "SourceBaseline"))[0];
+    const savedBinding = (await verify.listEntities(project.id, "SourceBinding"))[0];
+    const savedWorkflow = await verify.getEntity(project.id, successor.id);
+    const routes = await verify.listRelationships(project.id, "routes_to");
+    assert.equal(savedBaseline.body.workflowId, workflow.id);
+    assert.equal(savedBinding.body.workflowId, workflow.id);
+    assert.equal(savedBinding.body.workSourceLineId, materialized.binding.body.workSourceLineId);
+    assert.equal(savedWorkflow.lineageId, workflow.lineageId);
+    assert.ok(routes.some(edge => edge.toEntityId === workflow.id));
+  } finally { verify.close(); }
   const retry = await service.integrate(); assert.equal(retry.integration.id, integrated.integration.id); assert.equal(route.entityType, "Decision");
 });

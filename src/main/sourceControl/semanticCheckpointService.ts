@@ -84,7 +84,11 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
       const state = createProjectStateService(store, principal);
       const targetWorkflow = await store.getEntity(projectId, request.workflowId);
       if (targetWorkflow?.entityType !== "Workflow" || targetWorkflow.body.workflowType === "work-intake-routing") return blocked("Checkpoint requires a substantive Workflow owner.");
-      const workflows = (await store.listEntities(projectId, "Workflow")).filter(row => row.entityType === "Workflow" && row.lineageId === targetWorkflow.lineageId);
+      const workflows = (await store.listEntities(projectId, "Workflow")).filter((row): row is ProjectStateRecord<"Workflow"> => row.entityType === "Workflow" && row.lineageId === targetWorkflow.lineageId);
+      const currentOwners = workflows.filter(row => row.lifecycleState === "active" && row.body.workflowType !== "work-intake-routing" &&
+        !["closed", "cancelled"].includes(row.body.workflowState));
+      if (currentOwners.length !== 1 || currentOwners[0].id !== request.workflowId)
+        return blocked("Checkpoint requires the unique current active nonterminal substantive Workflow owner.");
       const lineageIds = new Set(workflows.map(row => row.id));
       const bindings = (await store.listEntities(projectId, "SourceBinding"))
         .filter((row): row is Binding => row.entityType === "SourceBinding" && lineageIds.has(row.body.workflowId) && row.lifecycleState === "active");

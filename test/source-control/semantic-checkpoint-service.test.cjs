@@ -65,6 +65,35 @@ test("checkout and source line mismatches block without touching project or Dev 
   assert.equal(git(f.dev, "branch", "--show-current"), "dev"); assert.equal(git(f.checkout, "rev-parse", "HEAD"), f.head);
 });
 
+test("historical Workflow checkpoint IDs block before Git mutation while the successor uses the immutable baseline checkout", async context => {
+  const f = await fixture(context);
+  const store = createSQLiteProjectStateStore(path.join(f.root, ".champcity", "project-state.sqlite"));
+  const state = createProjectStateService(store, operator);
+  const prior = await store.getEntity(f.projectId, f.workflowId);
+  const successor = (await state.supersedeRecord(f.projectId, f.workflowId, { ...prior.body, title: "Successor" }, prior.recordVersion)).successor;
+  store.close();
+  fs.writeFileSync(path.join(f.checkout, "feature.txt"), "feature content\n");
+  const historical = await createImplementationCheckpoint(f.root, f.projectId, implementation(f));
+  assert.equal(historical.state, "blocked");
+  assert.match(historical.message, /unique current active nonterminal substantive Workflow owner/);
+  assert.equal(git(f.checkout, "rev-parse", "HEAD"), f.head);
+  const current = await createImplementationCheckpoint(f.root, f.projectId, { ...implementation(f), workflowId: successor.id });
+  assert.equal(current.state, "committed", JSON.stringify(current));
+  assert.equal(git(f.checkout, "rev-parse", "HEAD"), current.revision.revisionId);
+  assert.equal(git(f.checkout, "branch", "--show-current"), f.line);
+  assert.equal(git(f.dev, "branch", "--show-current"), "dev");
+  const verify = createSQLiteProjectStateStore(path.join(f.root, ".champcity", "project-state.sqlite"));
+  try {
+    const baseline = (await verify.listEntities(f.projectId, "SourceBaseline"))[0];
+    const binding = (await verify.listEntities(f.projectId, "SourceBinding"))[0];
+    const saved = await verify.getEntity(f.projectId, current.checkpointId);
+    assert.equal(baseline.body.workflowId, f.workflowId);
+    assert.equal(binding.body.workSourceLineId, f.line);
+    assert.equal(saved.body.workflowId, successor.id);
+    assert.equal((await verify.listEntities(f.projectId, "Workflow")).length, 2);
+  } finally { verify.close(); }
+});
+
 test("disposition creates an evidenced empty revision on the owning Workflow checkout", async context => {
   const f = await fixture(context); const request = { boundaryId: "disposition-1", workflowId: f.workflowId, targetEntityId: f.workId,
     sourceLineId: f.line, expectedRevisionId: f.head, repositoryCheckoutId: f.checkoutId, dispositionId: f.decisionId, attributablePaths: [] };

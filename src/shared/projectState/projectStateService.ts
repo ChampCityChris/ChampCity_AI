@@ -132,6 +132,19 @@ async function requiredRecord(unit: Pick<ProjectStateUnitOfWork, "getEntity">, p
   return record;
 }
 
+async function requireCurrentSourceWorkflow(unit: ProjectStateUnitOfWork, projectId: ProjectId, workflow: ProjectStateEntity) {
+  if (workflow.entityType !== "Workflow" || workflow.lifecycleState !== "active" ||
+    workflow.body.workflowType === "work-intake-routing" || ["closed", "cancelled"].includes(workflow.body.workflowState))
+    fail("Source lifecycle records require the current active nonterminal substantive Workflow.");
+  const current = (await unit.listEntities(projectId, "Workflow")).filter(record => record.entityType === "Workflow" &&
+    record.lineageId === workflow.lineageId && record.lifecycleState !== "superseded" && record.lifecycleState !== "voided" &&
+    record.lifecycleState === "active" && record.body.workflowType !== "work-intake-routing" &&
+    !["closed", "cancelled"].includes(record.body.workflowState));
+  if (current.length !== 1) fail("Workflow lineage has no unique current source lifecycle owner.");
+  if (current[0].id !== workflow.id) fail("Source lifecycle records require the current Workflow owner ID.");
+  return current[0];
+}
+
 /** Construct only in the trusted Product Core; callers cannot supply attribution per command. */
 export function createProjectStateService(store: ProjectStateStore, principal: PrincipalRef) {
   const trustedPrincipal = structuredClone(principal);
@@ -811,6 +824,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       if (binding.entityType !== "SourceBinding" || binding.body.preparationState !== "ready" || !binding.body.workSourceLineId || !binding.body.repositoryCheckoutId) fail("Checkpoint requires a ready SourceBinding with RepositoryCheckout.");
       const baseline = await requiredRecord(unit, projectId, binding.body.sourceBaselineId);
       const workflow = await requiredRecord(unit, projectId, workflowId);
+      await requireCurrentSourceWorkflow(unit, projectId, workflow);
       const bindingWorkflow = await requiredRecord(unit, projectId, binding.body.workflowId);
       const baselineWorkflow = baseline.entityType === "SourceBaseline" ? await requiredRecord(unit, projectId, baseline.body.workflowId) : null;
       if (baseline.entityType !== "SourceBaseline" || workflow.entityType !== "Workflow" || bindingWorkflow.entityType !== "Workflow" || baselineWorkflow?.entityType !== "Workflow" || workflow.body.workflowType === "work-intake-routing" || workflow.lineageId !== bindingWorkflow.lineageId || baselineWorkflow.lineageId !== workflow.lineageId) fail("SourceCheckpoint Workflow and SourceBinding lineage mismatch.");
@@ -876,6 +890,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       if (binding.entityType !== "SourceBinding" || binding.body.preparationState !== "ready" || !binding.body.currentRevisionId || !binding.body.workSourceLineId || !binding.body.repositoryCheckoutId) fail("Integration requires a ready SourceBinding with current revision and RepositoryCheckout.");
       const baseline = await requiredRecord(unit, projectId, binding.body.sourceBaselineId);
       const workflow = await requiredRecord(unit, projectId, workflowId);
+      await requireCurrentSourceWorkflow(unit, projectId, workflow);
       const bindingWorkflow = await requiredRecord(unit, projectId, binding.body.workflowId);
       if (baseline.entityType !== "SourceBaseline" || workflow.entityType !== "Workflow" || bindingWorkflow.entityType !== "Workflow" || workflow.body.workflowType === "work-intake-routing" || workflow.lineageId !== bindingWorkflow.lineageId) fail("Integration SourceBinding Workflow is invalid.");
       const lineageIds = new Set((await unit.listEntities(projectId, "Workflow")).filter(r => r.entityType === "Workflow" && r.lineageId === workflow.lineageId).map(r => r.id));
