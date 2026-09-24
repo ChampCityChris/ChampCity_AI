@@ -93,10 +93,26 @@ test("relationship registry enforces direction, endpoint existence, Project owne
   assert.throws(() => assertRelationshipEnd(link, now), /Immutable provenance/);
   assert.equal(createRelationship({ projectId, fromEntityId: source.id, relationshipType: "binds_source", toEntityId: intake.id, createdBy: principal }, lookup).relationshipType, "binds_source");
   assert.ok(Object.hasOwn(RELATIONSHIP_REGISTRY, "proves"));
+  assert.ok(Object.hasOwn(RELATIONSHIP_REGISTRY, "routes_to"));
+  assert.equal(Object.hasOwn(RELATIONSHIP_REGISTRY, "owns_workflow"), false);
   assert.throws(() => createRelationship({ projectId, fromEntityId: finding.id, relationshipType: "explains", toEntityId: cause.id, createdBy: principal }, lookup), /direction/);
   assert.throws(() => createRelationship({ projectId, fromEntityId: cause.id, relationshipType: "explains", toEntityId: other.id, createdBy: principal }, lookup), /one Project/);
   assert.throws(() => createRelationship({ projectId, fromEntityId: cause.id, relationshipType: "explains", toEntityId: randomUUID(), createdBy: principal }, lookup), /does not exist/);
   assert.throws(() => createRelationship({ projectId, fromEntityId: cause.id, relationshipType: "invented", toEntityId: finding.id, createdBy: principal }, lookup), /Unregistered/);
+});
+
+test("routes_to is immutable WIR-to-substantive-Workflow provenance", () => {
+  const projectId = randomUUID();
+  const routing = createProjectStateEntity({ entityType: "Workflow", projectId, body: { ...bodies.Workflow, workflowType: "work-intake-routing" }, principal });
+  const target = createProjectStateEntity({ entityType: "Workflow", projectId, body: bodies.Workflow, principal });
+  const otherRouting = createProjectStateEntity({ entityType: "Workflow", projectId, body: { ...bodies.Workflow, workflowType: "work-intake-routing" }, principal });
+  const linked = new Map([routing, target, otherRouting].map(record => [record.id, record]));
+  const lookup = id => linked.get(id);
+  const edge = createRelationship({ projectId, fromEntityId: routing.id, relationshipType: "routes_to", toEntityId: target.id, createdBy: principal }, lookup);
+  assert.equal(edge.relationshipType, "routes_to");
+  assert.throws(() => assertRelationshipEnd(edge, now), /Immutable provenance/);
+  assert.throws(() => createRelationship({ projectId, fromEntityId: target.id, relationshipType: "routes_to", toEntityId: otherRouting.id, createdBy: principal }, lookup), /direction|routing Workflow source/);
+  assert.throws(() => createRelationship({ projectId, fromEntityId: routing.id, relationshipType: "routes_to", toEntityId: otherRouting.id, createdBy: principal }, lookup), /non-routing Workflow target/);
 });
 
 test("revision and supersession invariants retain identity, lineage and immutable history", () => {

@@ -10,7 +10,7 @@ export interface RecordQueryPage { records: ProjectStateEntity[]; offset: number
 export interface CurrentProjectStateView {
   project: ProjectStateRecord<"Project">;
   sections: Record<string, { offset: number; limit: number; total: number; truncated: boolean; nextOffset: number | null }>;
-  workIntakes: { id: EntityId; state: WorkIntakeState; workflowId: EntityId | null; route: CurrentWorkRoute | null }[];
+  workIntakes: { id: EntityId; state: WorkIntakeState; routingWorkflowId: EntityId | null; targetWorkflowId: EntityId | null; route: CurrentWorkRoute | null }[];
   workflows: { id: EntityId; type: WorkflowType; title: string; state: WorkflowState; currentWorkspace: string }[];
   phases: { id: EntityId; state: EntityBodyMap["Phase"]["phaseState"]; sequence: number; workItemIds: EntityId[] }[];
   workItems: { id: EntityId; state: EntityBodyMap["WorkItem"]["workState"]; kind: EntityBodyMap["WorkItem"]["workItemKind"]; repairTargetIds: EntityId[]; latestImplementationId: EntityId | null; latestValidationId: EntityId | null }[];
@@ -41,7 +41,7 @@ export interface CriterionValidationStatus { criterionId: EntityId; policy: Enti
 export interface CompletionEligibility { entityId: EntityId; eligible: boolean; blockers: string[] }
 export interface ExecutionPlanView { phases: { phaseId: EntityId; sequence: number; workItemIds: EntityId[]; criterionIds: EntityId[] }[]; directWorkItemIds: EntityId[]; dependencyIds: { from: EntityId; to: EntityId }[]; repairIds: { from: EntityId; to: EntityId }[] }
 export interface CurrentWorkRoute { route: WorkRoute; decisionId: EntityId; assessmentId: EntityId | null; effectiveAt: string }
-export interface WorkIntakeSummary { intakeId: EntityId; request: string; desiredOutcome: string; constraints: string[]; evidenceContext: string[]; intakeState: WorkIntakeState; requestedIntegrationTarget: string; workflowId: EntityId; currentRoute: CurrentWorkRoute | null; assessmentIds: EntityId[]; routeDecisionIds: EntityId[] }
+export interface WorkIntakeSummary { intakeId: EntityId; request: string; desiredOutcome: string; constraints: string[]; evidenceContext: string[]; intakeState: WorkIntakeState; requestedIntegrationTarget: string; routingWorkflowId: EntityId; targetWorkflowId: EntityId | null; currentRoute: CurrentWorkRoute | null; assessmentIds: EntityId[]; routeDecisionIds: EntityId[] }
 export interface WorkRouteHistory { assessments: ProjectStateRecord<"RouteAssessment">[]; decisions: ProjectStateRecord<"Decision">[]; relationships: ProjectStateRelationship[] }
 export interface SourceSemanticView { repositoryId: string; bindings: ProjectStateRecord<"SourceBinding">[]; checkpoints: ProjectStateRecord<"SourceCheckpoint">[]; integrations: ProjectStateRecord<"IntegrationRecord">[]; relationships: ProjectStateRelationship[] }
 export interface RegressionObligationView { obligation: ProjectStateRecord<"RegressionObligation">; assessments: ProjectStateRecord<"Validation">[]; permanentReferences: ProjectStateRecord<"ProjectResource">[]; implementationProof: ProjectStateRecord<"Evidence">[]; relationships: ProjectStateRelationship[] }
@@ -354,6 +354,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   async function createRelationship(projectId: ProjectId, fromEntityId: EntityId, relationshipType: RelationshipType, toEntityId: EntityId, context?: MutationContext) {
+    if (relationshipType === "routes_to") fail("Workflow route provenance requires the typed linkWorkflowRouteTarget command.");
     if (relationshipType === "governs") fail("Decision governance requires a typed Decision command.");
     if (relationshipType === "implements_work_item") fail("Implementation attempts require a typed command.");
     if (relationshipType === "initiates" || relationshipType === "assesses_route") fail("Work Intake ownership and route assessment require typed commands.");
@@ -380,6 +381,26 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       await recordMutation(unit, { projectId, entityId: from.id, fromVersion: from.recordVersion, toVersion: from.recordVersion,
         operation: "relationship-create", eventType: PROJECT_STATE_EVENT_TYPES.relationshipCreate, occurredAt: edge.createdAt,
         changedFields: [`relationship:${relationshipType}`], defaultReason: `Create ${relationshipType} relationship`, context, relationshipId: edge.id });
+      return edge;
+    });
+  }
+
+  async function linkWorkflowRouteTarget(projectId: ProjectId, routingWorkflowId: EntityId, targetWorkflowId: EntityId, context?: MutationContext): Promise<ProjectStateRelationship> {
+    return store.transaction(projectId, async unit => {
+      const routing = await requiredRecord(unit, projectId, routingWorkflowId);
+      const target = await requiredRecord(unit, projectId, targetWorkflowId);
+      if (routing.entityType !== "Workflow" || target.entityType !== "Workflow") fail("Workflow route provenance requires two Workflow records.");
+      if (routing.body.workflowType !== "work-intake-routing" || target.body.workflowType === "work-intake-routing") fail("Workflow route provenance requires a routing Workflow source and non-routing Workflow target.");
+      const current = (record: ProjectStateEntity) => record.entityType === "Workflow" && record.lifecycleState === "active" && record.body.workflowState !== "closed" && record.body.workflowState !== "cancelled";
+      if (!current(routing) || !current(target)) fail("Workflow route provenance requires current nonterminal Workflows.");
+      const active = (await unit.listRelationships(projectId, "routes_to")).filter(edge => !edge.endedAt);
+      if (active.some(edge => edge.fromEntityId === routingWorkflowId)) fail("Routing Workflow already has a target Workflow.");
+      if (active.some(edge => edge.toEntityId === targetWorkflowId)) fail("Target Workflow already has a routing provenance source.");
+      const edge = createDomainRelationship({ projectId, fromEntityId: routingWorkflowId, relationshipType: "routes_to", toEntityId: targetWorkflowId, createdBy: trustedPrincipal }, id => id === routingWorkflowId ? routing : id === targetWorkflowId ? target : undefined);
+      await unit.saveRelationship(edge);
+      await recordMutation(unit, { projectId, entityId: routingWorkflowId, fromVersion: routing.recordVersion, toVersion: routing.recordVersion,
+        operation: "relationship-create", eventType: PROJECT_STATE_EVENT_TYPES.relationshipCreate, occurredAt: edge.createdAt,
+        changedFields: ["relationship:routes_to"], defaultReason: "Link routed Workflow provenance", context, relationshipId: edge.id });
       return edge;
     });
   }
@@ -919,7 +940,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     const edges = idFilters.length || query.relationshipType ? (await store.listRelationships(projectId)).filter(edge => !edge.endedAt) : [];
     const connected = (id: EntityId, target: EntityId) => id === target || edges.some(edge => (edge.fromEntityId === id && edge.toEntityId === target) || (edge.toEntityId === id && edge.fromEntityId === target));
     const workflowMembers = new Set<EntityId>([query.workflowId].filter((id): id is EntityId => !!id));
-    if (query.workflowId) for (const edge of edges) if ((edge.relationshipType === "initiates" || edge.relationshipType === "owns_workflow") && edge.toEntityId === query.workflowId) workflowMembers.add(edge.fromEntityId);
+    if (query.workflowId) for (const edge of edges) if (edge.relationshipType === "initiates" && edge.toEntityId === query.workflowId) workflowMembers.add(edge.fromEntityId);
     if (query.workflowId) for (let pass = 0; pass < edges.length + 1; pass++) {
       const size = workflowMembers.size;
       for (const edge of edges) if (edge.relationshipType === "part_of" && workflowMembers.has(edge.toEntityId)) workflowMembers.add(edge.fromEntityId);
@@ -938,7 +959,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       && (query.current === undefined || (query.current ? record.lifecycleState !== "superseded" && record.lifecycleState !== "voided" : record.lifecycleState === "superseded"))
       && (!query.updatedFrom || record.updatedAt >= query.updatedFrom)
       && (!query.updatedThrough || record.updatedAt <= query.updatedThrough)
-      && (!query.workflowId || workflowMembers.has(record.id) || edges.some(edge => workflowMembers.has(edge.fromEntityId) && edge.toEntityId === record.id || workflowMembers.has(edge.toEntityId) && edge.fromEntityId === record.id))
+      && (!query.workflowId || workflowMembers.has(record.id) || edges.some(edge => edge.relationshipType !== "routes_to" && (workflowMembers.has(edge.fromEntityId) && edge.toEntityId === record.id || workflowMembers.has(edge.toEntityId) && edge.fromEntityId === record.id)))
       && (!query.workItemId || connected(record.id, query.workItemId) || record.entityType === "ImplementationRecord" && record.body.workItemId === query.workItemId || record.entityType === "RegressionObligation" && record.body.sourceWorkItemId === query.workItemId)
       && (!query.decisionId || decisionMembers.has(record.id))
       && (!query.decisionOutcome || record.entityType === "Decision" && record.body.outcome === query.decisionOutcome)
@@ -989,8 +1010,11 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     const latest = <T extends { id: string; createdAt: string }>(records: T[]) => records.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)).at(-1)?.id ?? null;
     const intakeViews = [] as CurrentProjectStateView["workIntakes"];
     for (const intake of intakes) {
+      const routingWorkflowId = edges.find(edge => edge.relationshipType === "initiates" && edge.fromEntityId === intake.id)?.toEntityId ?? null;
+      const targets = routingWorkflowId ? edges.filter(edge => edge.relationshipType === "routes_to" && edge.fromEntityId === routingWorkflowId) : [];
+      if (targets.length > 1) fail("Work Intake routing Workflow has ambiguous routed Workflow provenance.");
       intakeViews.push({ id: intake.id, state: intake.body.intakeState,
-        workflowId: edges.find(edge => edge.relationshipType === "initiates" && edge.fromEntityId === intake.id)?.toEntityId ?? null,
+        routingWorkflowId, targetWorkflowId: targets[0]?.toEntityId ?? null,
         route: await getCurrentWorkRoute(projectId, intake.id) });
     }
     return {
@@ -1121,6 +1145,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     } else {
       for (let depth = 0; depth < 3; depth++) {
         for (const edge of edges) {
+          if (edge.relationshipType === "routes_to") continue;
           if (distance.get(edge.fromEntityId) === depth && byId.has(edge.toEntityId) && !distance.has(edge.toEntityId)) distance.set(edge.toEntityId, depth + 1);
           if (distance.get(edge.toEntityId) === depth && byId.has(edge.fromEntityId) && !distance.has(edge.fromEntityId)) distance.set(edge.fromEntityId, depth + 1);
         }
@@ -1471,10 +1496,12 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       .filter(edge => edge.fromEntityId === intakeId && !edge.endedAt);
     if (workflows.length !== 1) fail("Work Intake must initiate exactly one Workflow.");
     const history = await getWorkRouteHistory(projectId, intakeId);
+    const routes = (await store.listRelationships(projectId, "routes_to")).filter(edge => edge.fromEntityId === workflows[0].toEntityId && !edge.endedAt);
+    if (routes.length > 1) fail("Work Intake routing Workflow has ambiguous routed Workflow provenance.");
     return { intakeId, request: intake.body.request, desiredOutcome: intake.body.desiredOutcome,
       constraints: [...intake.body.constraints], evidenceContext: [...intake.body.evidenceContext],
       intakeState: intake.body.intakeState, requestedIntegrationTarget: intake.body.requestedIntegrationTarget,
-      workflowId: workflows[0].toEntityId, currentRoute: await getCurrentWorkRoute(projectId, intakeId),
+      routingWorkflowId: workflows[0].toEntityId, targetWorkflowId: routes[0]?.toEntityId ?? null, currentRoute: await getCurrentWorkRoute(projectId, intakeId),
       assessmentIds: history.assessments.map(record => record.id), routeDecisionIds: history.decisions.map(record => record.id) };
   }
 
@@ -1562,7 +1589,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   return { createRecord, createWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision,
     createSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, createIntegrationRecord, advanceIntegrationRecord,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
-    reviseRecord, supersedeRecord, createRelationship, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, completeWorkItem, completePhase,
+    reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, completeWorkItem, completePhase,
     getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, renderView, exportStructuredProjectState, getAuthoritativeContext, getCommittedEventFeed, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
     getEffectiveDisposition, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus,
     getImplementationAttempts, getExecutionPlan, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,

@@ -41,6 +41,17 @@ function register(name, factory) {
     assert.equal(tail.truncated, false);
     assert.equal((await service.queryRecords(project.id, { workflowId: workflow.id, entityType: "WorkIntake" }))[0].id, intake.id);
     assert.equal((await service.queryRecords(project.id, { workflowId: workflow.id, entityType: "WorkItem" })).some(record => record.id === first.id), true);
+    const targetWorkflow = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Target", currentWorkspace: "development" });
+    const targetPhase = await service.createRecord(project.id, "Phase", { title: "Target phase", objective: "Independent", phaseState: "active", sequence: 1 });
+    const targetWork = await service.createRecord(project.id, "WorkItem", workBody("Target work"));
+    await service.createRelationship(project.id, targetPhase.id, "part_of", targetWorkflow.id);
+    await service.createRelationship(project.id, targetWork.id, "part_of", targetPhase.id);
+    await service.linkWorkflowRouteTarget(project.id, workflow.id, targetWorkflow.id);
+    const routingRecords = await service.queryRecords(project.id, { workflowId: workflow.id });
+    assert.equal(routingRecords.some(record => record.id === targetWorkflow.id || record.id === targetPhase.id || record.id === targetWork.id), false);
+    const targetRecords = await service.queryRecords(project.id, { workflowId: targetWorkflow.id });
+    assert.equal(targetRecords.some(record => record.id === workflow.id || record.id === intake.id), false);
+    assert.equal((await service.queryRecords(project.id, { relationshipType: "routes_to" }))[0].id, workflow.id);
     assert.deepEqual(new Set((await service.queryRecords(project.id, { workItemId: first.id })).map(item => item.id)), new Set([first.id, phase.id, repair.id, decision.id, validation.id]));
     assert.deepEqual(new Set((await service.queryRecords(project.id, { decisionId: decision.id })).map(item => item.id)), new Set([first.id, decision.id]));
     assert.equal((await service.queryRecords(project.id, { entityType: "Decision", decisionOutcome: "approved" }))[0].id, decision.id);
@@ -51,7 +62,7 @@ function register(name, factory) {
     assert.equal((await service.queryRecords(project.id, { updatedFrom: "2099-01-01T00:00:00.000Z" })).length, 0);
     const replacement = await service.supersedeRecord(project.id, second.id, { ...workBody("Replacement") }, 1);
     assert.equal((await service.queryRecords(project.id, { current: false, entityType: "WorkItem" }))[0].id, second.id);
-    assert.equal((await service.queryRecords(project.id, { current: true, entityType: "WorkItem" })).length, 3);
+    assert.equal((await service.queryRecords(project.id, { current: true, entityType: "WorkItem" })).length, 4);
     assert.equal((await service.queryRecords(project.id, { entityType: "WorkItem", lifecycleState: "superseded" }))[0].id, second.id);
     assert.equal(replacement.successor.lineageId, second.lineageId);
     await assert.rejects(service.queryRecordsPage(project.id, { limit: 101 }), /between 1 and 100/);
@@ -81,7 +92,9 @@ function register(name, factory) {
     const integration = await service.createIntegrationRecord(project.id, binding.id, { targetBeforeRevisionId: "target-before", targetEntityId: work.id });
     const view = await service.getCurrentProjectStateView(project.id, { limitPerSection: 1 });
     assert.equal(view.project.id, project.id);
-    assert.equal(view.workIntakes[0].workflowId, workflow.id);
+    assert.equal(view.workIntakes[0].routingWorkflowId, workflow.id);
+    assert.equal(view.workIntakes[0].targetWorkflowId, null);
+    assert.equal(Object.hasOwn(view.workIntakes[0], "workflowId"), false);
     assert.equal(view.workIntakes[0].route.route, "feature-change");
     assert.equal(view.workflows[0].id, workflow.id);
     assert.deepEqual(view.workflows[0], { id: workflow.id, type: "work-intake-routing", title: "Change", state: "active", currentWorkspace: "work-intake" });

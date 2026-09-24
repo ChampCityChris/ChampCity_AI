@@ -29,8 +29,22 @@ function register(name, factory) {
     assert.equal(intake.body.intakeState, "captured");
     assert.deepEqual(workflow.body, { workflowType: "work-intake-routing", title: intakeInput.request, currentWorkspace: "work-intake", workflowState: "active" });
     assert.equal(initiates.relationshipType, "initiates");
-    assert.equal((await service.getWorkIntakeSummary(project.id, intake.id)).workflowId, workflow.id);
+    const initialSummary = await service.getWorkIntakeSummary(project.id, intake.id);
+    assert.equal(initialSummary.routingWorkflowId, workflow.id);
+    assert.equal(initialSummary.targetWorkflowId, null);
+    assert.equal(Object.hasOwn(initialSummary, "workflowId"), false);
+    assert.deepEqual((await service.getCurrentProjectStateView(project.id)).workIntakes[0], { id: intake.id, state: "captured", routingWorkflowId: workflow.id, targetWorkflowId: null, route: null });
     await assert.rejects(service.createRelationship(project.id, intake.id, "initiates", workflow.id), /typed commands/);
+    const target = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Target", currentWorkspace: "development" });
+    await assert.rejects(service.createRelationship(project.id, workflow.id, "routes_to", target.id), /typed linkWorkflowRouteTarget/);
+    const provenance = await service.linkWorkflowRouteTarget(project.id, workflow.id, target.id);
+    assert.equal(provenance.relationshipType, "routes_to");
+    assert.equal((await service.getWorkIntakeSummary(project.id, intake.id)).targetWorkflowId, target.id);
+    assert.equal((await service.getCurrentProjectStateView(project.id)).workIntakes.find(item => item.id === intake.id).targetWorkflowId, target.id);
+    const secondTarget = await service.createWorkflow(project.id, { workflowType: "issue-resolution", title: "Another", currentWorkspace: "issue" });
+    await assert.rejects(service.linkWorkflowRouteTarget(project.id, workflow.id, secondTarget.id), /already has a target/);
+    const secondIntake = await service.createWorkIntake(project.id, { ...intakeInput, request: "Second intake" });
+    await assert.rejects(service.linkWorkflowRouteTarget(project.id, secondIntake.workflow.id, target.id), /already has a routing provenance source/);
     await assert.rejects(service.reviseRecord(project.id, intake.id, { request: "Bypass" }, 1), /typed command/);
     const revised = await service.reviseWorkIntake(project.id, intake.id, { desiredOutcome: "Revised feature" }, 1);
     assert.equal(revised.recordVersion, 2);
@@ -76,13 +90,14 @@ function register(name, factory) {
     assert.equal(history.decisions.find(record => record.id === secondDecision.id).lifecycleState, "superseded");
     const summary = await service.getWorkIntakeSummary(project.id, intake.id);
     assert.equal(summary.currentRoute.route, "refactor-migration");
+    assert.equal(summary.targetWorkflowId, null);
     assert.equal(summary.routeDecisionIds.length, 3);
     assert.equal(summary.desiredOutcome, intakeInput.desiredOutcome);
     await service.advanceWorkIntake(project.id, intake.id, "active", 6);
     const closed = await service.advanceWorkIntake(project.id, intake.id, "closed", 7);
     assert.equal(closed.lifecycleState, "closed");
     const summaryAfterClose = await service.getWorkIntakeSummary(project.id, intake.id);
-    assert.equal((await service.getRecord(project.id, summaryAfterClose.workflowId)).body.workflowState, "closed");
+    assert.equal((await service.getRecord(project.id, summaryAfterClose.routingWorkflowId)).body.workflowState, "closed");
   });
 
   test(`${name}: route assessment validates evidence ownership and unsupported routes atomically`, async context => {
