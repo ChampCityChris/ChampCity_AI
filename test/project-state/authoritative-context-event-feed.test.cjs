@@ -39,7 +39,7 @@ function register(name, factory) {
     const decision = await service.recordDecision(project.id, work.id, { decisionType: "proceed", outcome: "approved", decisionScope: "work-item" });
     const binding = await service.createWorkflowSourceBinding(project.id, targetWorkflow.id, baseline.id);
     await service.updateSourceBinding(project.id, binding.id, { preparationState: "preparing" }, 1);
-    await service.updateSourceBinding(project.id, binding.id, { preparationState: "ready", workSourceLineId: "work-line", currentRevisionId: "revision-a" }, 2);
+    await service.updateSourceBinding(project.id, binding.id, { preparationState: "ready", workSourceLineId: "work-line", currentRevisionId: "revision-a", repositoryCheckoutId: "workflow-checkout-fixture" }, 2);
     const checkpoint = await service.createSourceCheckpoint(project.id, binding.id, work.id, { boundaryId: "boundary", expectedRevisionId: "revision-a", checkpointKind: "implementation", checkpointState: "pending" });
     const integration = await service.createIntegrationRecord(project.id, binding.id, { targetBeforeRevisionId: "target-before", targetEntityId: work.id });
     const before = (await store.listStateChanges(project.id)).length;

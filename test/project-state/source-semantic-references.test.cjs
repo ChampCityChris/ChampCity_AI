@@ -28,7 +28,7 @@ async function createBinding(service, projectId, intakeId) {
 async function readyBinding(service, projectId, intakeId) {
   const { binding } = await createBinding(service, projectId, intakeId);
   await service.updateSourceBinding(projectId, binding.id, { preparationState: "preparing" }, 1);
-  const ready = await service.updateSourceBinding(projectId, binding.id, { preparationState: "ready", workSourceLineId: "work-line", currentRevisionId: "work-revision" }, 2);
+  const ready = await service.updateSourceBinding(projectId, binding.id, { preparationState: "ready", workSourceLineId: "work-line", currentRevisionId: "work-revision", repositoryCheckoutId: "workflow-checkout-fixture" }, 2);
   return ready;
 }
 
@@ -91,7 +91,8 @@ function register(name, factory) {
     await assert.rejects(service.updateSourceBinding(project.id, binding.id, { preparationState: "ready" }, 1), /Invalid source preparation transition/);
     await service.updateSourceBinding(project.id, binding.id, { preparationState: "preparing" }, 1);
     await assert.rejects(service.updateSourceBinding(project.id, binding.id, { preparationState: "ready", workSourceLineId: "work-line" }, 2), /Ready SourceBinding requires/);
-    const ready = await service.updateSourceBinding(project.id, binding.id, { preparationState: "ready", workSourceLineId: "work-line", currentRevisionId: "work-revision" }, 2);
+    await assert.rejects(service.updateSourceBinding(project.id, binding.id, { preparationState: "ready", workSourceLineId: "work-line", currentRevisionId: "work-revision" }, 2), /Ready SourceBinding requires/);
+    const ready = await service.updateSourceBinding(project.id, binding.id, { preparationState: "ready", workSourceLineId: "work-line", currentRevisionId: "work-revision", repositoryCheckoutId: "workflow-checkout-fixture" }, 2);
     assert.equal(ready.body.currentRevisionId, "work-revision");
     assert.ok((await service.getSourceSemanticView(project.id, "repo-opaque")).bindings.some(row => row.id === binding.id));
     assert.equal((await service.getSourceSemanticView(project.id, "other-repo")).bindings.length, 0);

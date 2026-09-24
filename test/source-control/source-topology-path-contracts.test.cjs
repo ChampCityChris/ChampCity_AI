@@ -4,7 +4,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { MANAGED_PROJECT_SOURCE_PATHS } = require("../../dist/shared/sourceLifecycleContracts.js");
-const { resolveManagedProjectSourceTopology, resolveManagedWorkflowCheckoutPath, validateRepositoryCheckoutContract } = require("../../dist/main/sourceControl/projectSourceTopology.js");
+const { resolveManagedProjectSourceTopology, resolveManagedWorkflowCheckoutPath, validateRepositoryCheckoutContract, workflowRepositoryCheckoutId } = require("../../dist/main/sourceControl/projectSourceTopology.js");
 
 const workflowId = "a1b2c3d4-e5f6-4789-8abc-0123456789ab";
 function project(context) {
@@ -55,6 +55,12 @@ test("canonical Workflow UUID maps to its exact Project-relative checkout path",
   for (const other of [root, path.join(root, ".champcity", "repository.git"), path.join(root, "Main"), path.join(root, "Dev"), result.workflowCheckoutRoot]) {
     assert.notEqual(result.checkoutRoot, other);
   }
+});
+
+test("Workflow checkout identity is deterministic and requires the canonical lowercase UUID", () => {
+  assert.equal(workflowRepositoryCheckoutId(workflowId), `workflow-${workflowId}`);
+  for (const invalid of ["bad", workflowId.toUpperCase(), `../${workflowId}`, `x/${workflowId}`])
+    assert.throws(() => workflowRepositoryCheckoutId(invalid), /Workflow ID/);
 });
 
 test("Workflow identity rejects noncanonical values", context => {

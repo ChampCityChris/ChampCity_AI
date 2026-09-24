@@ -16,7 +16,7 @@ export interface CurrentProjectStateView {
   workItems: { id: EntityId; state: EntityBodyMap["WorkItem"]["workState"]; kind: EntityBodyMap["WorkItem"]["workItemKind"]; repairTargetIds: EntityId[]; latestImplementationId: EntityId | null; latestValidationId: EntityId | null }[];
   decisions: { id: EntityId; outcome: string; targetIds: EntityId[]; effectiveAt: string }[];
   validations: { id: EntityId; targetId: EntityId; targetVersion: number; outcome: EntityBodyMap["Validation"]["outcome"]; sourceBaselineRef: string | null }[];
-  sourceBindings: { id: EntityId; workflowId: EntityId; sourceBaselineId: EntityId; preparationState: EntityBodyMap["SourceBinding"]["preparationState"]; currentRevisionId: string | null }[];
+  sourceBindings: { id: EntityId; workflowId: EntityId; sourceBaselineId: EntityId; preparationState: EntityBodyMap["SourceBinding"]["preparationState"]; workSourceLineId: string | null; currentRevisionId: string | null; repositoryCheckoutId: string | null }[];
   sourceCheckpoints: { id: EntityId; workIntakeId: EntityId; state: EntityBodyMap["SourceCheckpoint"]["checkpointState"]; expectedRevisionId: string; resultingRevisionId: string | null }[];
   integrations: { id: EntityId; workIntakeId: EntityId; state: EntityBodyMap["IntegrationRecord"]["integrationState"]; outcome: EntityBodyMap["IntegrationRecord"]["outcome"]; incomingRevisionId: string; resultRevisionId: string | null }[];
 }
@@ -99,7 +99,7 @@ function decisionBody(input: DecisionInput, principal: PrincipalRef, decidedAt: 
 }
 function assertSourceBindingBody(body: EntityBodyMap["SourceBinding"], baseline?: EntityBodyMap["SourceBaseline"]) {
   if (body.currentRevisionId && !body.workSourceLineId) fail("Current revision requires a work SourceLine.");
-  if (body.preparationState === "ready" && (!baseline?.baseRevisionId || !body.workSourceLineId || !body.currentRevisionId || body.failureCode)) fail("Ready SourceBinding requires baseline, work line and current revision without failure.");
+  if (body.preparationState === "ready" && (!baseline?.baseRevisionId || !body.workSourceLineId || !body.currentRevisionId || !body.repositoryCheckoutId || body.failureCode)) fail("Ready SourceBinding requires baseline, work line, current revision and checkout without failure.");
   if (body.preparationState === "blocked" && !body.failureCode) fail("Blocked SourceBinding requires a failure code.");
 }
 function assertSourceCheckpointBody(body: EntityBodyMap["SourceCheckpoint"]) {
@@ -1105,7 +1105,9 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         targetVersion: record.body.targetRecordVersion, outcome: record.body.outcome, sourceBaselineRef: record.body.sourceBaselineRef ?? null })),
       sourceBindings: bindings.map(record => ({ id: record.id, workflowId: record.body.workflowId, sourceBaselineId: record.body.sourceBaselineId,
         preparationState: record.body.preparationState,
-        currentRevisionId: record.body.currentRevisionId ?? null })),
+        workSourceLineId: record.body.workSourceLineId ?? null,
+        currentRevisionId: record.body.currentRevisionId ?? null,
+        repositoryCheckoutId: record.body.repositoryCheckoutId ?? null })),
       sourceCheckpoints: checkpoints.map(record => ({ id: record.id, workIntakeId: record.body.workIntakeId,
         state: record.body.checkpointState, expectedRevisionId: record.body.expectedRevisionId,
         resultingRevisionId: record.body.resultingRevisionId ?? null })),

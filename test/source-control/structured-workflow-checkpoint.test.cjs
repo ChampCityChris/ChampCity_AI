@@ -49,7 +49,7 @@ test("intake-keyed checkpoints accept target Workflow lineage and reject WIR anc
   const binding = await state.createWorkflowSourceBinding(project.id, successor.id, baseline.id);
   await state.updateSourceBinding(project.id, binding.id, { preparationState: "preparing" }, 1);
   const readyBinding = await state.updateSourceBinding(project.id, binding.id,
-    { preparationState: "ready", workSourceLineId: "work-line", currentRevisionId: baseRevision }, 2);
+    { preparationState: "ready", workSourceLineId: "work-line", currentRevisionId: baseRevision, repositoryCheckoutId: "workflow-checkout-fixture" }, 2);
   assert.equal(readyBinding.body.workflowId, successor.id);
   assert.equal(readyBinding.body.sourceBaselineId, baseline.id);
 

@@ -3811,6 +3811,10 @@
         {
           "behaviorId": "work-intake-branch-binding-selects-an-exact-base-and-fails-closed-before-persistence",
           "description": "Work Intake branch binding selects an exact base and fails closed before persistence"
+        },
+        {
+          "behaviorId": "workflow-source-materialization-recovers-exact-baseline-checkout-by-lineage",
+          "description": "explicit Workflow source materialization reuses immutable lineage baselines and preserves exact partial source state"
         }
       ]
     },
@@ -18470,7 +18474,7 @@
     },
     {
       "testPath": "test/source-control/source-topology-path-contracts.test.cjs",
-      "currentTestCount": { "value": 6, "basis": "Focused Project container topology path, identity, role validation, and redirect safety fixtures." },
+      "currentTestCount": { "value": 7, "basis": "Focused Project container topology path, deterministic checkout identity, role validation, and redirect safety fixtures." },
       "duration": { "kind": "measured", "milliseconds": 87, "basis": "Observed supported-Windows focused WTR02C contract test run." },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -18524,6 +18528,26 @@
       "dispositionReasons": ["current-proof-appropriate"],
       "behaviorCoverage": [
         { "capabilityId": "semantic-source-checkpoints", "behaviorId": "structured-workflow-dispositions-share-source-line", "proofLocator": "structured route, implementation and revision review share one SourceLine with exact checkpoint projections", "proofRole": "primary" }
+      ]
+    },
+    {
+      "testPath": "test/source-control/workflow-source-materialization.test.cjs",
+      "currentTestCount": { "value": 3, "basis": "Three focused synthetic Project State and real-Git tests cover exact baseline, supersession, concurrent checkouts, retries, path conflicts, and pre-mutation rejection." },
+      "duration": { "kind": "estimated", "milliseconds": 30000, "basis": "Estimated for three temporary SQLite and Git materialization scenarios." },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": { "electron": false, "filesystem": true, "git": true, "network": false, "process": true, "timing": false },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": ["capability"],
+      "execution": { "requiresBuild": true, "platform": "any", "externalCapabilities": [], "scheduling": "parallel-safe",
+        "schedulingReason": "Each test uses isolated temporary Project containers, SQLite stores, and Git repositories.",
+        "ownedResources": ["bounded-child-process", "isolated-git-fixture", "temp-filesystem-isolated"] },
+      "proofCharacteristics": ["behavioral"],
+      "dispositionReasons": ["current-proof-appropriate"],
+      "behaviorCoverage": [
+        { "capabilityId": "release-and-git-operations", "behaviorId": "workflow-source-materialization-recovers-exact-baseline-checkout-by-lineage",
+          "proofLocator": "materialization from exact baseline after Dev advances and Workflow supersession, simultaneous Workflow checkout coexistence, ready retry without revision, blocked registration recovery, conflict preservation, and WIR/terminal/no-baseline rejection", "proofRole": "primary" }
       ]
     },
     {

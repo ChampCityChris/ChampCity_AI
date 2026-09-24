@@ -63,7 +63,7 @@ test("read-only source graph preserves five branch heads, merge parents, semanti
     const binding = await state.createSourceBinding(project.id, intake.id, { repositoryId: "repo-graph", integrationTargetSourceLineId: "dev" });
     await state.updateSourceBinding(project.id, binding.id, { preparationState: "preparing", baseRevisionId: base }, 1);
     await state.updateSourceBinding(project.id, binding.id, { preparationState: "ready", workSourceLineId: "feature/work-1",
-      currentRevisionId: feature }, 2);
+      currentRevisionId: feature, repositoryCheckoutId: "workflow-checkout-fixture" }, 2);
     const assessment = await state.recordRouteAssessment(project.id, intake.id, { recommendation: "feature-change", traits: [],
       rationale: "Feature", evidenceIds: [] });
     await state.recordRouteDecision(project.id, intake.id, { route: "feature-change", assessmentId: assessment.id });

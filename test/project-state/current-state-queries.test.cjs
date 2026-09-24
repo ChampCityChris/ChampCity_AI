@@ -90,7 +90,7 @@ function register(name, factory) {
     const baseline = await service.createWorkflowSourceBaseline(project.id, target.id, { repositoryId: "repo", integrationTargetSourceLineId: "dev-line", baseRevisionId: "base" });
     const binding = await service.createWorkflowSourceBinding(project.id, target.id, baseline.id);
     await service.updateSourceBinding(project.id, binding.id, { preparationState: "preparing" }, 1);
-    await service.updateSourceBinding(project.id, binding.id, { preparationState: "ready", workSourceLineId: "work-line", currentRevisionId: "revision-a" }, 2);
+    await service.updateSourceBinding(project.id, binding.id, { preparationState: "ready", workSourceLineId: "work-line", currentRevisionId: "revision-a", repositoryCheckoutId: "workflow-checkout-fixture" }, 2);
     const checkpoint = await service.createSourceCheckpoint(project.id, binding.id, implementation.id, { boundaryId: "boundary", expectedRevisionId: "revision-a", checkpointKind: "implementation", checkpointState: "pending" });
     const integration = await service.createIntegrationRecord(project.id, binding.id, { targetBeforeRevisionId: "target-before", targetEntityId: work.id });
     const view = await service.getCurrentProjectStateView(project.id, { limitPerSection: 1 });
@@ -113,6 +113,9 @@ function register(name, factory) {
     assert.equal(workViews.find(item => item.id === work.id).latestValidationId, validation.id);
     assert.equal(workViews.find(item => item.id === repair.id).repairTargetIds[0], work.id);
     assert.equal(view.sourceBindings[0].currentRevisionId, "revision-a");
+    assert.equal(view.sourceBindings[0].workSourceLineId, "work-line");
+    assert.equal(view.sourceBindings[0].repositoryCheckoutId, "workflow-checkout-fixture");
+    assert.deepEqual(Object.keys(view.sourceBindings[0]).sort(), ["currentRevisionId", "id", "preparationState", "repositoryCheckoutId", "sourceBaselineId", "workSourceLineId", "workflowId"].sort());
     assert.equal(view.sourceCheckpoints[0].id, checkpoint.id);
     assert.equal(view.integrations[0].id, integration.id);
   });
