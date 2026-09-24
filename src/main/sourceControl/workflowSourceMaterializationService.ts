@@ -82,7 +82,20 @@ export function createWorkflowSourceMaterializationService(options: {
       if (!validateRepositoryCheckoutContract(checkout).valid) fail("Generated RepositoryCheckout contract is invalid.");
       const ready = binding.body.preparationState === "ready";
       const expectedHead = ready ? binding.body.currentRevisionId : baseline.body.baseRevisionId;
-      if (ready && (!binding.body.workSourceLineId || binding.body.workSourceLineId !== sourceLineId || binding.body.repositoryCheckoutId !== checkout.repositoryCheckoutId || !expectedHead)) fail("Ready SourceBinding identity conflicts with its baseline.");
+      async function blockReadyFailure(error: unknown, code: string): Promise<never> {
+        try {
+          const latest = await store.getEntity(options.projectId, binding.id) as Binding | null;
+          if (latest && ["preparing", "ready"].includes(latest.body.preparationState)) {
+            binding = await state.updateSourceBinding(options.projectId, binding.id,
+              { preparationState: "blocked", failureCode: code }, latest.recordVersion) as Binding;
+          }
+        } catch { /* Keep the primary materialization error if state changed concurrently. */ }
+        throw error;
+      }
+      if (ready && (!binding.body.workSourceLineId || binding.body.workSourceLineId !== sourceLineId || binding.body.repositoryCheckoutId !== checkout.repositoryCheckoutId || !expectedHead)) {
+        const error = Object.assign(new Error("Ready SourceBinding identity conflicts with its baseline."), { materializationCode: "SOURCE_MATERIALIZATION_STATE_MISMATCH" });
+        await blockReadyFailure(error, "SOURCE_MATERIALIZATION_STATE_MISMATCH");
+      }
 
       if (!ready) {
         const latest = await store.getEntity(options.projectId, binding.id) as Binding;
@@ -127,6 +140,7 @@ export function createWorkflowSourceMaterializationService(options: {
       }
 
       try {
+        if (ready && !fs.existsSync(checkoutPath.checkoutRoot)) fail("Ready Workflow checkout is missing.", "REPOSITORY_CHECKOUT_MATERIALIZATION_FAILED");
         if (!fs.existsSync(checkoutPath.workflowCheckoutRoot)) fs.mkdirSync(checkoutPath.workflowCheckoutRoot);
         if (!fs.existsSync(checkoutPath.checkoutRoot)) {
           await runBoundedGit({ cwd: devRoot, args: ["worktree", "add", checkoutPath.checkoutRoot, sourceLineId] });

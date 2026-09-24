@@ -47,10 +47,10 @@ test("Workflow materialization preserves exact baseline across Dev advance, supe
   const env = setup(context);
   const projectId = await structuredProject(env);
   const { workflow: first, baseline } = await workflowWithBaseline(env, projectId, "First");
-  git(env.dev, "switch", "-c", "temporary-dev-advance");
   fs.writeFileSync(path.join(env.dev, "base.txt"), "R2\n"); git(env.dev, "commit", "-am", "R2");
-  git(env.dev, "switch", "dev");
   const r2 = git(env.dev, "rev-parse", "dev");
+  assert.notEqual(r2, env.r1);
+  assert.equal(git(env.dev, "rev-parse", "dev"), r2);
   const successor = (await env.state.supersedeRecord(projectId, first.id, { ...first.body, title: "First successor" }, first.recordVersion)).successor;
   const createdSecond = await workflowWithBaseline(env, projectId, "Second", env.r1);
   env.store.close();
@@ -85,7 +85,59 @@ test("Workflow materialization preserves exact baseline across Dev advance, supe
   const readyRevision = one.binding.recordVersion;
   const retried = await service.materialize(successor.id);
   assert.equal(retried.binding.recordVersion, readyRevision);
+  assert.equal(git(env.dev, "rev-parse", "dev"), r2);
   assert.equal(registrations.size, 2);
+});
+
+test("ready binding with a missing checkout blocks without recreating it", async context => {
+  const env = setup(context);
+  const projectId = await structuredProject(env);
+  const { workflow } = await workflowWithBaseline(env, projectId, "Missing ready checkout");
+  env.store.close();
+  const service = materializer(env, projectId);
+  const ready = await service.materialize(workflow.id);
+  const checkoutPath = path.join(env.root, ready.checkout.projectRelativePath);
+  const readyVersion = ready.binding.recordVersion;
+  assert.equal(ready.binding.body.preparationState, "ready");
+  git(env.dev, "worktree", "remove", "--force", checkoutPath);
+  assert.equal(fs.existsSync(checkoutPath), false);
+  await assert.rejects(service.materialize(workflow.id), /Ready Workflow checkout is missing/);
+  assert.equal(fs.existsSync(checkoutPath), false);
+  const verify = createSQLiteProjectStateStore(path.join(env.root, ".champcity", "project-state.sqlite"));
+  try {
+    const binding = await verify.getEntity(projectId, ready.binding.id);
+    assert.ok(binding.recordVersion > readyVersion);
+    assert.equal(binding.body.preparationState, "blocked");
+    assert.equal(binding.body.failureCode, "REPOSITORY_CHECKOUT_MATERIALIZATION_FAILED");
+  } finally { verify.close(); }
+});
+
+test("ready semantic identity drift blocks before provider registration or source creation", async context => {
+  const env = setup(context);
+  const projectId = await structuredProject(env);
+  const { workflow } = await workflowWithBaseline(env, projectId, "Semantic ready drift");
+  env.store.close();
+  let registrationCount = 0;
+  const service = materializer(env, projectId, async (_id, checkout) => {
+    registrationCount++;
+    return { ...checkout, availability: "available", validationError: null };
+  });
+  const ready = await service.materialize(workflow.id);
+  const verify = createSQLiteProjectStateStore(path.join(env.root, ".champcity", "project-state.sqlite"));
+  try {
+    const state = createProjectStateService(verify, operator);
+    const changed = await state.updateSourceBinding(projectId, ready.binding.id,
+      { repositoryCheckoutId: `workflow-${workflow.id}-drift` }, ready.binding.recordVersion);
+    const registrationsBeforeRetry = registrationCount;
+    await assert.rejects(service.materialize(workflow.id), /Ready SourceBinding identity conflicts/);
+    assert.equal(registrationCount, registrationsBeforeRetry);
+    assert.equal(git(env.dev, "branch", "--format=%(refname:short)", "--list", "workflow/*"), `workflow/${workflow.id}`);
+    assert.deepEqual(fs.readdirSync(path.join(env.root, ".champcity", "checkouts")), [workflow.id]);
+    const binding = await verify.getEntity(projectId, ready.binding.id);
+    assert.ok(binding.recordVersion > changed.recordVersion);
+    assert.equal(binding.body.preparationState, "blocked");
+    assert.equal(binding.body.failureCode, "SOURCE_MATERIALIZATION_STATE_MISMATCH");
+  } finally { verify.close(); }
 });
 
 test("blocked registration retry recovers exact branch and worktree; conflicting checkout path is preserved", async context => {
