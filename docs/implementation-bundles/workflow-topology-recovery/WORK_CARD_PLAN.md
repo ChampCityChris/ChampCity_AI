@@ -262,14 +262,14 @@ The final proof must establish:
 
 ## 5. Immediate release boundary
 
-**WTR01 and WTR02A are closed. WTR02B Repair01 production changes passed Architect review; WTR02B Repair02 is the only card currently authored/released for implementation.**
+**WTR01, WTR02A, and WTR02B are closed. WTR02C is the only card currently authored/released for implementation.**
 
 The Operator has authorized the one attributable card-local checkpoint commit required by this WTR package after each card's bounded implementation, validation, and Implementer Report. That routine checkpoint does not require a second Git approval.
 
-No WTR02C or later card is implementation-authorized until:
+No WTR02D or later card is implementation-authorized until:
 
-- WTR02B Repair02 is implemented by Luna Medium;
+- WTR02C is implemented by Luna Medium;
 - focused validation/report/checkpoint are complete;
-- the Architect reviews Repair02;
-- WTR02B is formally closed;
+- the Architect reviews WTR02C;
+- any WTR02C repair is closed;
 - the Architect authors/releases the next bounded card.
