@@ -28,8 +28,10 @@ function register(name, factory) {
     const project = await service.createRecord(null, "Project", { name: "Synthetic", description: "Project" });
     const work = await service.createRecord(project.id, "WorkItem", workBody("Direct"));
     await assert.rejects(service.createRecord(project.id, "Workflow", { workflowType: "development", workspace: "work", governingEntityId: work.id, workflowState: "active" }), /typed commands/);
-    const workflow = await service.createWorkflow(project.id, { workflowType: "development", workspace: "work", governingEntityId: work.id });
+    const workflow = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Direct work", currentWorkspace: "work" });
     assert.equal(workflow.body.workflowState, "active");
+    assert.deepEqual(workflow.body, { workflowType: "feature-capability", title: "Direct work", currentWorkspace: "work", workflowState: "active" });
+    await assert.rejects(service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Legacy", currentWorkspace: "work", governingEntityId: work.id }), /Unsupported semantic input field/);
     assert.equal((await service.getExecutionPlan(project.id)).directWorkItemIds[0], work.id);
     const required = await service.createRecord(project.id, "Criterion", criterion("deterministic"));
     await service.createRelationship(project.id, work.id, "defines_criterion", required.id);

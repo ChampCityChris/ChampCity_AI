@@ -134,8 +134,8 @@ export async function stageLegacyAuthorityImport(workspaceRoot: string, snapshot
           evidenceContext: text(data.repositoryReviewContext) ? [required(data.repositoryReviewContext, "Work Intake evidence context")] : [],
           intakeState: hasRoute ? "routed" : "captured", requestedIntegrationTarget: required(branch?.baseBranch, "Work Intake target SourceLine") });
         intakesByAlias.set(intakeAlias, mapped);
-        const workflow = entity("Workflow", document, "workflow", { workflowType: "work-intake", workspace: "work-intake",
-          governingEntityId: mapped.id, workflowState: hasRoute ? "active" : "planned" });
+        const workflow = entity("Workflow", document, "workflow", { workflowType: "work-intake-routing",
+          title: required(data.workRequest, "Work Intake request"), currentWorkspace: "work-intake", workflowState: hasRoute ? "active" : "planned" });
         relate(mapped, "initiates", workflow);
         const repositoryId = text(branch?.repositoryId) ?? text(projectSource.metadata.workflowData.repositoryId);
         if (repositoryId) {

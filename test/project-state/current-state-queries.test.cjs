@@ -84,6 +84,7 @@ function register(name, factory) {
     assert.equal(view.workIntakes[0].workflowId, workflow.id);
     assert.equal(view.workIntakes[0].route.route, "feature-change");
     assert.equal(view.workflows[0].id, workflow.id);
+    assert.deepEqual(view.workflows[0], { id: workflow.id, type: "work-intake-routing", title: "Change", state: "active", currentWorkspace: "work-intake" });
     assert.deepEqual(view.phases[0].workItemIds, [work.id]);
     assert.equal(view.sections.WorkItem.total, 2);
     assert.equal(view.sections.WorkItem.truncated, true);

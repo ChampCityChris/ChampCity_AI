@@ -22,6 +22,7 @@ export type WorkState = "planned" | "ready" | "in_progress" | "implemented" | "b
 export type ImplementationOutcome = "implemented" | "partial" | "blocked" | "failed" | "abandoned";
 export type WorkIntakeState = "captured" | "assessing" | "routed" | "active" | "closed" | "cancelled";
 export type WorkRoute = "greenfield" | "feature-change" | "refactor-migration" | "integration-composition" | "infrastructure-platform" | "research-prototype" | "issue-resolution";
+import type { WorkflowType } from "./workflowTypeRegistry";
 export type TestLifecycleAssessmentStatus = "PRESERVE" | "REWRITE_CANDIDATE" | "SPLIT_CANDIDATE" | "CONSOLIDATE_CANDIDATE" | "MIGRATE_CANDIDATE" | "RETIRE_CANDIDATE" | "QUARANTINE_CANDIDATE" | "NEEDS_TESTER_REVIEW";
 export const PROJECT_STATE_SCHEMA_VERSION = 1 as const;
 
@@ -50,7 +51,7 @@ export interface EntityBodyMap {
   ProjectResource: { resourceType: string; provider: string; logicalName: string; locator: string; role: string; sourceRevisionId?: string };
   WorkIntake: { request: string; desiredOutcome: string; constraints: string[]; evidenceContext: string[]; intakeState: WorkIntakeState; requestedIntegrationTarget: string; hasExistingSourceOrPlanning?: boolean };
   RouteAssessment: { workIntakeId: EntityId; recommendation: WorkRoute; traits: string[]; rationale: string; alternate?: WorkRoute; evidenceIds: EvidenceId[] };
-  Workflow: { workflowType: string; workspace: string; governingEntityId: EntityId; workflowState: WorkflowState };
+  Workflow: { workflowType: WorkflowType; title: string; currentWorkspace: string; workflowState: WorkflowState };
   Phase: { title: string; objective: string; phaseState: PhaseState; sequence: number };
   Finding: { title: string; statement: string; category: string; impact: string; observedAt: string; findingState: string; confidence?: number };
   RootCause: { title: string; statement: string; rationale: string; confidence?: number; rootCauseState: string };

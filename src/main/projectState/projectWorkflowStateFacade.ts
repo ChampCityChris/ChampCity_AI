@@ -1,4 +1,6 @@
 import type { EntityBodyMap, PrincipalRef, ProjectId, WorkRoute } from "../../shared/projectState/domainContracts";
+import type { WorkflowType } from "../../shared/projectState/workflowTypeRegistry";
+import { WORKFLOW_TYPE_REGISTRY } from "../../shared/projectState/workflowTypeRegistry";
 import { createProjectStateService } from "../../shared/projectState/projectStateService";
 import type { ProjectStateStore } from "../../shared/projectState/projectStateStore";
 
@@ -8,7 +10,7 @@ export interface ArchitectPlanningInput {
   solutions: Array<EntityBodyMap["BoundedSolution"] & { rootCauseIndex: number }>;
 }
 export interface ProjectPlanInput {
-  workflowType: string;
+  workflowType: WorkflowType;
   phases: Array<{ title: string; objective: string; workItems: Array<Pick<EntityBodyMap["WorkItem"], "workItemKind" | "title" | "objective">> }>;
 }
 
@@ -68,7 +70,8 @@ export function createProjectWorkflowStateFacade(store: ProjectStateStore, princ
     },
     async createProjectPlan(projectId: ProjectId, input: ProjectPlanInput) {
       if (input.phases.length > 50 || input.phases.some(phase => phase.workItems.length > 50)) throw Error("Project Plan exceeds its bound.");
-      const workflow = await state.createWorkflow(projectId, { workflowType: input.workflowType, workspace: "project-planning", governingEntityId: projectId });
+      const workflow = await state.createWorkflow(projectId, { workflowType: input.workflowType,
+        title: WORKFLOW_TYPE_REGISTRY[input.workflowType].label, currentWorkspace: "project-planning" });
       const phases = [];
       for (const [index, phase] of input.phases.entries()) {
         const record = await state.createRecord(projectId, "Phase", { title: phase.title, objective: phase.objective,

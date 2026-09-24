@@ -1,4 +1,5 @@
 import { PROJECT_STATE_SCHEMA_VERSION, type EntityBodyMap, type EntityType, type PrincipalRef, type ProjectId, type ProjectStateEntity, type ProjectStateRecord, type Provenance, type RecordEnvelope } from "./domainContracts";
+import { WORKFLOW_TYPE_IDS } from "./workflowTypeRegistry";
 
 type FieldKind = "text" | "source-ref" | "id" | "instant" | "number" | "boolean" | "version" | "text-list" | "id-list" | "principal" | "digest";
 type FieldRule = FieldKind | readonly string[];
@@ -16,7 +17,7 @@ export const ENTITY_TYPE_REGISTRY: Readonly<Record<EntityType, EntityDefinition>
   ProjectResource: { schemaVersion: 1, required: { resourceType: text, provider: text, logicalName: text, locator: text, role: text }, optional: { sourceRevisionId: "source-ref" }, immutableAfterCreation: false },
   WorkIntake: { schemaVersion: 1, required: { request: text, desiredOutcome: text, constraints: textList, evidenceContext: textList, intakeState: ["captured", "assessing", "routed", "active", "closed", "cancelled"], requestedIntegrationTarget: text }, optional: { hasExistingSourceOrPlanning: "boolean" }, immutableAfterCreation: false },
   RouteAssessment: { schemaVersion: 1, required: { workIntakeId: id, recommendation: ["greenfield", "feature-change", "refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype", "issue-resolution"], traits: textList, rationale: text, evidenceIds: idList }, optional: { alternate: ["greenfield", "feature-change", "refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype", "issue-resolution"] }, immutableAfterCreation: true },
-  Workflow: { schemaVersion: 1, required: { workflowType: text, workspace: text, governingEntityId: id, workflowState: ["planned", "active", "blocked", "closed", "cancelled"] }, immutableAfterCreation: false },
+  Workflow: { schemaVersion: 1, required: { workflowType: WORKFLOW_TYPE_IDS, title: text, currentWorkspace: text, workflowState: ["planned", "active", "blocked", "closed", "cancelled"] }, immutableAfterCreation: false },
   Phase: { schemaVersion: 1, required: { title: text, objective: text, phaseState: ["planned", "active", "blocked", "closed", "cancelled"], sequence: "version" }, immutableAfterCreation: false },
   Finding: { schemaVersion: 1, required: { title: text, statement: text, category: text, impact: text, observedAt: instant, findingState: text }, optional: { confidence: "number" }, immutableAfterCreation: false },
   RootCause: { schemaVersion: 1, required: { title: text, statement: text, rationale: text, rootCauseState: text }, optional: { confidence: "number" }, immutableAfterCreation: false },

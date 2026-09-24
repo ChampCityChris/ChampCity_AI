@@ -20,6 +20,7 @@ test("Development phases, routed decomposition, review, repair and close derive 
   const { root, state, facade } = fixture(context);
   const project = await state.createRecord(null, "Project", { name: "Synthetic", description: "Development" });
   const workflow = await facade.startDevelopment(project.id, project.id);
+  assert.deepEqual(workflow.body, { workflowType: "feature-capability", title: "Feature / Capability", currentWorkspace: "development", workflowState: "active" });
   const phase = await facade.addPhase(project.id, workflow.id, { title: "Delivery", objective: "Complete", sequence: 1 });
   const parent = await facade.addWorkItem(project.id, { workItemKind: "feature", title: "Parent", objective: "Build" }, phase.id);
   const [child] = await facade.decomposeWorkItem(project.id, parent.id, [{ workItemKind: "feature", title: "Child", objective: "Build child" }]);

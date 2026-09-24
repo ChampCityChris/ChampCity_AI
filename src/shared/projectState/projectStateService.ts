@@ -1,4 +1,5 @@
 import type { DispositionState, EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef, ProjectId, ProjectStateEntity, ProjectStateRecord, TestLifecycleAssessmentStatus, ValidationMode, WorkflowState, WorkIntakeState, WorkRoute } from "./domainContracts";
+import type { WorkflowType } from "./workflowTypeRegistry";
 import { assertSupersession } from "./domainInvariants";
 import { createProjectStateEntity, ENTITY_TYPE_REGISTRY, ProjectStateDomainError, validateProjectStateEntity } from "./entityTypeRegistry";
 import { createRelationship as createDomainRelationship, RELATIONSHIP_REGISTRY, type ProjectStateRelationship, type RelationshipType } from "./relationshipRegistry";
@@ -10,7 +11,7 @@ export interface CurrentProjectStateView {
   project: ProjectStateRecord<"Project">;
   sections: Record<string, { offset: number; limit: number; total: number; truncated: boolean; nextOffset: number | null }>;
   workIntakes: { id: EntityId; state: WorkIntakeState; workflowId: EntityId | null; route: CurrentWorkRoute | null }[];
-  workflows: { id: EntityId; state: WorkflowState; governingEntityId: EntityId }[];
+  workflows: { id: EntityId; type: WorkflowType; title: string; state: WorkflowState; currentWorkspace: string }[];
   phases: { id: EntityId; state: EntityBodyMap["Phase"]["phaseState"]; sequence: number; workItemIds: EntityId[] }[];
   workItems: { id: EntityId; state: EntityBodyMap["WorkItem"]["workState"]; kind: EntityBodyMap["WorkItem"]["workItemKind"]; repairTargetIds: EntityId[]; latestImplementationId: EntityId | null; latestValidationId: EntityId | null }[];
   decisions: { id: EntityId; outcome: string; targetIds: EntityId[]; effectiveAt: string }[];
@@ -189,14 +190,12 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return record;
   }
 
-  async function createWorkflow(projectId: ProjectId, input: { workflowType: string; workspace: string; governingEntityId: EntityId; workflowState?: WorkflowState }, context?: MutationContext) {
-    exactInput(input, ["workflowType", "workspace", "governingEntityId", "workflowState"]);
+  async function createWorkflow(projectId: ProjectId, input: { workflowType: WorkflowType; title: string; currentWorkspace: string; workflowState?: WorkflowState }, context?: MutationContext) {
+    exactInput(input, ["workflowType", "title", "currentWorkspace", "workflowState"]);
     return store.transaction(projectId, async unit => {
       if (!await unit.getProject(projectId)) fail("Owning Project does not exist.");
-      const governing = await requiredRecord(unit, projectId, input.governingEntityId);
-      if (governing.entityType === "WorkIntake") fail("Work Intake creates its own linked Workflow.");
       const record = createProjectStateEntity({ entityType: "Workflow", projectId,
-        body: { workflowType: input.workflowType, workspace: input.workspace, governingEntityId: input.governingEntityId,
+        body: { workflowType: input.workflowType, title: input.title, currentWorkspace: input.currentWorkspace,
           workflowState: input.workflowState ?? "active" }, principal: trustedPrincipal });
       await unit.saveEntity(record, null);
       await recordMutation(unit, { projectId, entityId: record.id, fromVersion: null, toVersion: 1,
@@ -217,7 +216,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: intake.createdAt,
         changedFields: Object.keys(intake.body), defaultReason: "Capture Work Intake", context });
       const workflow = createProjectStateEntity({ entityType: "Workflow", projectId,
-        body: { workflowType: "work-intake", workspace: "work-intake", governingEntityId: intake.id,
+        body: { workflowType: "work-intake-routing", title: input.request, currentWorkspace: "work-intake",
           workflowState: "active" }, principal: trustedPrincipal });
       await unit.saveEntity(workflow, null);
       await recordMutation(unit, { projectId, entityId: workflow.id, fromVersion: null, toVersion: 1,
@@ -996,7 +995,8 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     }
     return {
       project, sections, workIntakes: intakeViews,
-      workflows: workflows.map(record => ({ id: record.id, state: record.body.workflowState, governingEntityId: record.body.governingEntityId })),
+      workflows: workflows.map(record => ({ id: record.id, type: record.body.workflowType, title: record.body.title,
+        state: record.body.workflowState, currentWorkspace: record.body.currentWorkspace })),
       phases: phases.map(record => ({ id: record.id, state: record.body.phaseState, sequence: record.body.sequence,
         workItemIds: edges.filter(edge => edge.relationshipType === "part_of" && edge.toEntityId === record.id).map(edge => edge.fromEntityId).sort() })),
       workItems: workItems.map(record => ({ id: record.id, state: record.body.workState, kind: record.body.workItemKind,

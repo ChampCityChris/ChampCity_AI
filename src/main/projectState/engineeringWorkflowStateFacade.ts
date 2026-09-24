@@ -12,7 +12,8 @@ export function createEngineeringWorkflowStateFacade(store: ProjectStateStore, p
   const state = createProjectStateService(store, principal);
   return {
     async startDevelopment(projectId: ProjectId, governingEntityId: EntityId) {
-      return state.createWorkflow(projectId, { workflowType: "development", workspace: "development", governingEntityId });
+      void governingEntityId;
+      return state.createWorkflow(projectId, { workflowType: "feature-capability", title: "Feature / Capability", currentWorkspace: "development" });
     },
     async addPhase(projectId: ProjectId, workflowId: EntityId, input: Pick<EntityBodyMap["Phase"], "title" | "objective" | "sequence">) {
       const workflow = await state.getRecord(projectId, workflowId);

@@ -14,7 +14,7 @@ const bodies = {
   ProjectResource: { resourceType: "repository", provider: "git", logicalName: "Source", locator: "opaque", role: "source" },
   WorkIntake: { request: "Request", desiredOutcome: "Outcome", constraints: [], evidenceContext: [], intakeState: "captured", requestedIntegrationTarget: "dev" },
   RouteAssessment: { workIntakeId: linkedId, recommendation: "feature-change", traits: [], rationale: "Reason", evidenceIds: [] },
-  Workflow: { workflowType: "development", workspace: "work", governingEntityId: linkedId, workflowState: "active" },
+  Workflow: { workflowType: "feature-capability", title: "Feature / Capability", currentWorkspace: "work", workflowState: "active" },
   Phase: { title: "Phase", objective: "Objective", phaseState: "active", sequence: 1 },
   Finding: { ...common, category: "defect", impact: "Impact", observedAt: now, findingState: "open" },
   RootCause: { ...common, rationale: "Rationale", rootCauseState: "proposed" },
@@ -53,6 +53,21 @@ test("registry rejects unknown type, unsupported fields, and invalid envelope se
   assert.throws(() => validateProjectStateEntity({ ...valid, schemaVersion: 2 }), /schema version/);
   assert.throws(() => validateProjectStateEntity({ ...valid, lifecycleState: "superseded" }), /timestamp/);
   assert.throws(() => validateProjectStateEntity({ ...valid, sourcePath: "outside" }), /unsupported/);
+});
+
+test("Workflow bodies require canonical types and canonical instance fields", () => {
+  const projectId = randomUUID();
+  const valid = createProjectStateEntity({ entityType: "Workflow", projectId, body: bodies.Workflow, principal });
+  assert.equal(validateProjectStateEntity(structuredClone(valid)).body.workflowType, "feature-capability");
+  for (const workflowType of ["development", "work-intake", "project-planning", "greenfield"]) {
+    assert.throws(() => validateProjectStateEntity({ ...valid, body: { ...valid.body, workflowType } }), /unsupported/);
+  }
+  assert.throws(() => validateProjectStateEntity({ ...valid, body: { ...valid.body, workspace: "legacy" } }), /unsupported/);
+  assert.throws(() => validateProjectStateEntity({ ...valid, body: { ...valid.body, governingEntityId: linkedId } }), /unsupported/);
+  const { title: _title, ...missingTitle } = valid.body;
+  assert.throws(() => validateProjectStateEntity({ ...valid, body: missingTitle }), /title is required/);
+  const { currentWorkspace: _workspace, ...missingWorkspace } = valid.body;
+  assert.throws(() => validateProjectStateEntity({ ...valid, body: missingWorkspace }), /currentWorkspace is required/);
 });
 
 test("registry enforces text, list, timestamp and total record bounds", () => {

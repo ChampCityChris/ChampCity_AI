@@ -27,7 +27,7 @@ function register(name, factory) {
     await assert.rejects(service.createRecord(project.id, "WorkIntake", { ...intakeInput, intakeState: "captured" }), /typed commands/);
     const { intake, workflow, initiates } = await service.createWorkIntake(project.id, intakeInput);
     assert.equal(intake.body.intakeState, "captured");
-    assert.equal(workflow.body.governingEntityId, intake.id);
+    assert.deepEqual(workflow.body, { workflowType: "work-intake-routing", title: intakeInput.request, currentWorkspace: "work-intake", workflowState: "active" });
     assert.equal(initiates.relationshipType, "initiates");
     assert.equal((await service.getWorkIntakeSummary(project.id, intake.id)).workflowId, workflow.id);
     await assert.rejects(service.createRelationship(project.id, intake.id, "initiates", workflow.id), /typed commands/);

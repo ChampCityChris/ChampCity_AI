@@ -35,9 +35,12 @@ test("Project, Architect Planning and Work Intake execute from Structured Projec
     solutions: [] }), /unknown Finding or Root Cause/);
   assert.equal((await store.listEntities(project.id)).length, beforeInvalid);
   assert.equal((await facade.getArchitectPlanning(project.id)).solutions.length, 1);
-  const plan = await facade.createProjectPlan(project.id, { workflowType: "project-planning", phases: [{ title: "Phase 1",
+  const plan = await facade.createProjectPlan(project.id, { workflowType: "project-creation", phases: [{ title: "Phase 1",
     objective: "Implement", workItems: [{ workItemKind: "feature", title: "Work", objective: "Deliver" }] }] });
   assert.equal(plan.phases.length, 1);
+  assert.equal(plan.workflow.body.workflowType, "project-creation");
+  assert.equal(plan.workflow.body.title, "Project Creation / Greenfield");
+  assert.equal(plan.workflow.body.currentWorkspace, "project-planning");
   assert.equal((await facade.getProjectPlan(project.id)).phases.length > 0, true);
   const intake = await facade.captureWorkIntake(project.id, { request: "New capability", desiredOutcome: "Done", constraints: [],
     evidenceContext: [], requestedIntegrationTarget: "dev" });
