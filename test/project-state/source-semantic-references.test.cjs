@@ -46,6 +46,13 @@ function register(name, factory) {
     await assert.rejects(service.createWorkflowSourceBaseline(project.id, workflow.id, input), /already has a SourceBaseline/);
     assert.equal((await store.listStateChanges(project.id)).length, stateChangesBefore);
     assert.equal((await store.listOutbox(project.id)).length, outboxBefore);
+    const { successor } = await service.supersedeRecord(project.id, workflow.id, { ...workflow.body, title: "Corrected Feature" }, 1);
+    assert.equal(successor.lineageId, workflow.lineageId);
+    await assert.rejects(service.createWorkflowSourceBaseline(project.id, successor.id, input), /already has a SourceBaseline/);
+    assert.equal((await service.queryRecords(project.id, { entityType: "SourceBaseline" })).length, 1);
+    assert.deepEqual((await service.getRelationships(project.id, baseline.id)).map(edge => edge.toEntityId), [workflow.id]);
+    assert.equal((await store.listStateChanges(project.id)).length, stateChangesBefore + 3);
+    assert.equal((await store.listOutbox(project.id)).length, outboxBefore + 3);
     await assert.rejects(service.reviseRecord(project.id, baseline.id, { baseRevisionId: "other" }, 1), /typed command/);
     await assert.rejects(service.supersedeRecord(project.id, baseline.id, { workflowId: workflow.id, ...input }, 1), /identity and revision history/);
     await assert.rejects(service.endRelationship(project.id, links[0].id), /Immutable provenance/);

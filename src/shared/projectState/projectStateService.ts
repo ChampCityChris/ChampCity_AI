@@ -730,7 +730,11 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       if (workflow.entityType !== "Workflow") fail("SourceBaseline requires a Workflow.");
       if (workflow.body.workflowType === "work-intake-routing") fail("WIR cannot own an implementation SourceBaseline.");
       if (workflow.lifecycleState !== "active" || ["closed", "cancelled"].includes(workflow.body.workflowState)) fail("SourceBaseline requires a current nonterminal Workflow.");
-      if ((await unit.listEntities(projectId, "SourceBaseline")).some(record => record.entityType === "SourceBaseline" && record.body.workflowId === workflowId)) {
+      const workflowLineageIds = new Set((await unit.listEntities(projectId, "Workflow"))
+        .filter(record => record.entityType === "Workflow" && record.lineageId === workflow.lineageId)
+        .map(record => record.id));
+      if ((await unit.listEntities(projectId, "SourceBaseline")).some(record =>
+        record.entityType === "SourceBaseline" && workflowLineageIds.has(record.body.workflowId))) {
         fail("Workflow already has a SourceBaseline.");
       }
       const body: EntityBodyMap["SourceBaseline"] = { workflowId, ...input };
