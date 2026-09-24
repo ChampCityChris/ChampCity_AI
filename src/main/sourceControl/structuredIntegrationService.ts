@@ -29,6 +29,22 @@ export function createStructuredIntegrationService(root: string, projectId: stri
   if (selectedStructuredProjectId(selected) !== projectId) throw Error("Selected structured Project authority is unavailable.");
   const file = path.join(selected, ".champcity", "project-state.sqlite");
   const open = () => createSQLiteProjectStateStore(file);
+  async function bindingForTargetWorkflow(store: ReturnType<typeof createSQLiteProjectStateStore>, targetWorkflowId: string) {
+    const target = await store.getEntity(projectId, targetWorkflowId);
+    if (target?.entityType !== "Workflow") throw Error("Work Intake target Workflow is unavailable.");
+    const lineageIds = new Set((await store.listEntities(projectId, "Workflow"))
+      .filter(row => row.entityType === "Workflow" && row.lineageId === target.lineageId).map(row => row.id));
+    const bindings = (await store.listEntities(projectId, "SourceBinding"))
+      .filter((row): row is Binding => row.entityType === "SourceBinding" && lineageIds.has(row.body.workflowId) && row.lifecycleState === "active");
+    if (bindings.length !== 1) throw Error("Work Intake has no unique SourceBinding.");
+    const binding = bindings[0];
+    const baseline = await store.getEntity(projectId, binding.body.sourceBaselineId);
+    const owner = await store.getEntity(projectId, binding.body.workflowId);
+    const baselineOwner = baseline?.entityType === "SourceBaseline" ? await store.getEntity(projectId, baseline.body.workflowId) : null;
+    if (baseline?.entityType !== "SourceBaseline" || owner?.entityType !== "Workflow" || baselineOwner?.entityType !== "Workflow" || owner.lineageId !== baselineOwner.lineageId)
+      throw Error("SourceBinding baseline and Workflow lineage mismatch.");
+    return binding;
+  }
   async function completion(): Promise<{ binding: WorkIntakeBranchBinding; completion: IntegrationCompletionEvidence; summary: string }> {
     const store = open();
     try {
@@ -38,10 +54,8 @@ export function createStructuredIntegrationService(root: string, projectId: stri
         throw Error("Structured integration requires a completed Work Intake targeting dev.");
       const intakeSummary = await state.getWorkIntakeSummary(projectId, intakeId);
       if (!intakeSummary.targetWorkflowId) throw Error("Completed Work Intake has no target Workflow.");
-      const bindings = (await store.listEntities(projectId, "SourceBinding"))
-        .filter((row): row is Binding => row.entityType === "SourceBinding" && row.body.workflowId === intakeSummary.targetWorkflowId && row.lifecycleState === "active");
-      if (bindings.length !== 1) throw Error("Completed Work Intake has no unique SourceBinding.");
-      const source = bindings[0].body;
+      const selectedBinding = await bindingForTargetWorkflow(store, intakeSummary.targetWorkflowId);
+      const source = selectedBinding.body;
       const baseline = await store.getEntity(projectId, source.sourceBaselineId);
       const bindingWorkflow = await store.getEntity(projectId, source.workflowId);
       const baselineWorkflow = baseline?.entityType === "SourceBaseline" ? await store.getEntity(projectId, baseline.body.workflowId) : null;
@@ -141,14 +155,14 @@ export function createStructuredIntegrationService(root: string, projectId: stri
     try {
       const state = createProjectStateService(store, principal);
       const summary = await state.getWorkIntakeSummary(projectId, intakeId);
-      const bindings = (await store.listEntities(projectId, "SourceBinding"))
-        .filter((row): row is Binding => row.entityType === "SourceBinding" && row.body.workflowId === summary.targetWorkflowId && row.lifecycleState === "active");
-      if (bindings.length !== 1 || bindings[0].body.currentRevisionId !== record.incomingCommit) throw Error("Integration SourceBinding changed.");
+      if (!summary.targetWorkflowId) throw Error("Integration Work Intake has no target Workflow.");
+      const binding = await bindingForTargetWorkflow(store, summary.targetWorkflowId);
+      if (binding.body.currentRevisionId !== record.incomingCommit) throw Error("Integration SourceBinding changed.");
       const existing = (await store.listEntities(projectId, "IntegrationRecord"))
         .filter((row): row is Integration => row.entityType === "IntegrationRecord" && row.body.workIntakeId === intakeId &&
           row.body.incomingRevisionId === record.incomingCommit && row.body.targetBeforeRevisionId === record.targetCommit);
       if (existing.length > 1) throw Error("Structured integration evidence is ambiguous.");
-      let saved = existing[0] ?? await state.createIntegrationRecord(projectId, bindings[0].id,
+      let saved = existing[0] ?? await state.createIntegrationRecord(projectId, binding.id,
         { targetBeforeRevisionId: record.targetCommit, ...(record.candidateCommit ? { candidateRevisionId: record.candidateCommit } : {}) }) as Integration;
       if (saved.body.integrationState === "integrated") {
         if (saved.body.resultRevisionId !== record.targetAfterRevisionId) throw Error("Integrated target result conflicts with saved evidence.");

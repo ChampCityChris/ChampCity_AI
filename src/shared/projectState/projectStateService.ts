@@ -161,9 +161,10 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   async function linkSemantic(unit: ProjectStateUnitOfWork, projectId: ProjectId, from: ProjectStateEntity, to: ProjectStateEntity,
-    relationshipType: RelationshipType, context?: MutationContext) {
+    relationshipType: RelationshipType, context?: MutationContext, additionalLookupRecords: readonly ProjectStateEntity[] = []) {
+    const additional = new Map(additionalLookupRecords.map(record => [record.id, record]));
     const edge = createDomainRelationship({ projectId, fromEntityId: from.id, relationshipType,
-      toEntityId: to.id, createdBy: trustedPrincipal }, id => id === from.id ? from : id === to.id ? to : undefined);
+      toEntityId: to.id, createdBy: trustedPrincipal }, id => id === from.id ? from : id === to.id ? to : additional.get(id));
     await unit.saveRelationship(edge);
     await recordMutation(unit, { projectId, entityId: from.id, fromVersion: from.recordVersion, toVersion: from.recordVersion,
       operation: "relationship-create", eventType: PROJECT_STATE_EVENT_TYPES.relationshipCreate, occurredAt: edge.createdAt,
@@ -767,7 +768,8 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       await recordMutation(unit, { projectId, entityId: binding.id, fromVersion: null, toVersion: 1,
         operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: binding.createdAt,
         changedFields: Object.keys(binding.body), defaultReason: "Create SourceBinding", context });
-      await linkSemantic(unit, projectId, binding, workflow, "binds_source", context);
+      const baselineWorkflow = await requiredRecord(unit, projectId, baseline.body.workflowId);
+      await linkSemantic(unit, projectId, binding, workflow, "binds_source", context, [baseline, baselineWorkflow]);
       return binding;
     });
   }

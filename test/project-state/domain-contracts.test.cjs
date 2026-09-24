@@ -106,6 +106,19 @@ test("relationship registry enforces direction, endpoint existence, Project owne
   assert.throws(() => assertRelationshipEnd(link, now), /Immutable provenance/);
   assert.equal(createRelationship({ projectId, fromEntityId: source.id, relationshipType: "binds_source", toEntityId: workflow.id, createdBy: principal }, lookup).relationshipType, "binds_source");
   assert.throws(() => createRelationship({ projectId, fromEntityId: source.id, relationshipType: "binds_source", toEntityId: intake.id, createdBy: principal }, lookup), /direction or endpoint/);
+  const successor = { ...workflow, id: randomUUID(), lineageId: workflow.lineageId };
+  const successorBinding = createProjectStateEntity({ entityType: "SourceBinding", projectId,
+    body: { workflowId: successor.id, sourceBaselineId: baseline.id, preparationState: "unprepared" }, principal });
+  const unrelatedWorkflow = createProjectStateEntity({ entityType: "Workflow", projectId, body: { ...bodies.Workflow, title: "Other lineage" }, principal });
+  const unrelatedBaseline = createProjectStateEntity({ entityType: "SourceBaseline", projectId,
+    body: { ...bodies.SourceBaseline, workflowId: unrelatedWorkflow.id }, principal });
+  entities.set(successor.id, successor); entities.set(successorBinding.id, successorBinding);
+  entities.set(unrelatedWorkflow.id, unrelatedWorkflow); entities.set(unrelatedBaseline.id, unrelatedBaseline);
+  assert.equal(createRelationship({ projectId, fromEntityId: successorBinding.id, relationshipType: "binds_source", toEntityId: successor.id, createdBy: principal }, lookup).relationshipType, "binds_source");
+  const mismatchedBinding = createProjectStateEntity({ entityType: "SourceBinding", projectId,
+    body: { workflowId: successor.id, sourceBaselineId: unrelatedBaseline.id, preparationState: "unprepared" }, principal });
+  entities.set(mismatchedBinding.id, mismatchedBinding);
+  assert.throws(() => createRelationship({ projectId, fromEntityId: mismatchedBinding.id, relationshipType: "binds_source", toEntityId: successor.id, createdBy: principal }, lookup), /same Workflow lineage/);
   const baselineLink = createRelationship({ projectId, fromEntityId: baseline.id, relationshipType: "baselines_source", toEntityId: workflow.id, createdBy: principal }, lookup);
   assert.equal(baselineLink.relationshipType, "baselines_source");
   assert.throws(() => assertRelationshipEnd(baselineLink, now), /Immutable provenance/);
@@ -114,9 +127,9 @@ test("relationship registry enforces direction, endpoint existence, Project owne
   const routingBaseline = createProjectStateEntity({ entityType: "SourceBaseline", projectId, body: { ...bodies.SourceBaseline, workflowId: routing.id }, principal });
   entities.set(routing.id, routing); entities.set(routingBaseline.id, routingBaseline);
   assert.throws(() => createRelationship({ projectId, fromEntityId: routingBaseline.id, relationshipType: "baselines_source", toEntityId: routing.id, createdBy: principal }, lookup), /substantive Workflow/);
-  const unrelatedWorkflow = createProjectStateEntity({ entityType: "Workflow", projectId, body: { ...bodies.Workflow, title: "Other" }, principal });
-  entities.set(unrelatedWorkflow.id, unrelatedWorkflow);
-  assert.throws(() => createRelationship({ projectId, fromEntityId: baseline.id, relationshipType: "baselines_source", toEntityId: unrelatedWorkflow.id, createdBy: principal }, lookup), /body Workflow must match/);
+  const unrelatedWorkflowForBaseline = createProjectStateEntity({ entityType: "Workflow", projectId, body: { ...bodies.Workflow, title: "Other" }, principal });
+  entities.set(unrelatedWorkflowForBaseline.id, unrelatedWorkflowForBaseline);
+  assert.throws(() => createRelationship({ projectId, fromEntityId: baseline.id, relationshipType: "baselines_source", toEntityId: unrelatedWorkflowForBaseline.id, createdBy: principal }, lookup), /body Workflow must match/);
   assert.ok(Object.hasOwn(RELATIONSHIP_REGISTRY, "proves"));
   assert.ok(Object.hasOwn(RELATIONSHIP_REGISTRY, "routes_to"));
   assert.equal(Object.hasOwn(RELATIONSHIP_REGISTRY, "owns_workflow"), false);

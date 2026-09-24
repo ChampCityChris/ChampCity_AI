@@ -50,14 +50,21 @@ async function structuredMetadata(root: string, repositoryId: string, projectId:
     const baselineRows = (await reader.listEntities(projectId, "SourceBaseline"))
       .filter((row): row is ProjectStateRecord<"SourceBaseline"> => row.entityType === "SourceBaseline");
     const baselines = new Map(baselineRows.map(row => [row.id, row]));
-    const bindings = (await reader.listEntities(projectId, "SourceBinding"))
-      .filter((row): row is ProjectStateRecord<"SourceBinding"> => row.entityType === "SourceBinding" && baselines.get(row.body.sourceBaselineId)?.body.repositoryId === repositoryId)
+    const workflows = new Map((await reader.listEntities(projectId, "Workflow"))
+      .filter((row): row is ProjectStateRecord<"Workflow"> => row.entityType === "Workflow").map(row => [row.id, row]));
+    const allBindings = (await reader.listEntities(projectId, "SourceBinding"))
+      .filter((row): row is ProjectStateRecord<"SourceBinding"> => row.entityType === "SourceBinding");
+    for (const binding of allBindings) {
+      const baseline = baselines.get(binding.body.sourceBaselineId);
+      const owner = workflows.get(binding.body.workflowId);
+      const baselineOwner = baseline ? workflows.get(baseline.body.workflowId) : undefined;
+      if (!baseline || !owner || !baselineOwner || owner.lineageId !== baselineOwner.lineageId) throw Error("SourceBinding baseline and Workflow lineage mismatch.");
+    }
+    const bindings = allBindings.filter(row => baselines.get(row.body.sourceBaselineId)?.body.repositoryId === repositoryId)
       .sort((a, b) => a.id.localeCompare(b.id));
     const intakes = new Map((await reader.listEntities(projectId, "WorkIntake"))
       .filter((row): row is ProjectStateRecord<"WorkIntake"> => row.entityType === "WorkIntake").map(row => [row.id, row]));
     const relationships = (await reader.listRelationships(projectId)).filter(row => !row.endedAt);
-    const workflows = new Map((await reader.listEntities(projectId, "Workflow"))
-      .filter((row): row is ProjectStateRecord<"Workflow"> => row.entityType === "Workflow").map(row => [row.id, row]));
     const assessments = new Set(relationships.filter(row => row.relationshipType === "assesses_route").map(row => row.fromEntityId));
     const decisions = (await reader.listEntities(projectId, "Decision"))
       .filter((row): row is ProjectStateRecord<"Decision"> => row.entityType === "Decision" && row.lifecycleState === "active"

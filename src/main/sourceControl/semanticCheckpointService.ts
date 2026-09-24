@@ -81,12 +81,18 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
       const state = createProjectStateService(store, principal);
       const intakeSummary = await state.getWorkIntakeSummary(projectId, request.workIntakeId);
       if (!intakeSummary.targetWorkflowId) return blocked("Work Intake has no target Workflow source binding.");
+      const targetWorkflow = await store.getEntity(projectId, intakeSummary.targetWorkflowId);
+      if (targetWorkflow?.entityType !== "Workflow") return blocked("Work Intake target Workflow is unavailable.");
+      const workflows = (await store.listEntities(projectId, "Workflow")).filter(row => row.entityType === "Workflow" && row.lineageId === targetWorkflow.lineageId);
+      const lineageIds = new Set(workflows.map(row => row.id));
       const bindings = (await store.listEntities(projectId, "SourceBinding"))
-        .filter((row): row is Binding => row.entityType === "SourceBinding" && row.body.workflowId === intakeSummary.targetWorkflowId && row.lifecycleState === "active");
+        .filter((row): row is Binding => row.entityType === "SourceBinding" && lineageIds.has(row.body.workflowId) && row.lifecycleState === "active");
       if (bindings.length !== 1) return blocked("Work Intake must have one active SourceBinding.");
       let binding = bindings[0];
       const baseline = await store.getEntity(projectId, binding.body.sourceBaselineId);
-      if (baseline?.entityType !== "SourceBaseline" || baseline.body.workflowId !== binding.body.workflowId) return blocked("SourceBinding baseline and Workflow lineage mismatch.");
+      const bindingWorkflow = await store.getEntity(projectId, binding.body.workflowId);
+      const baselineWorkflow = baseline?.entityType === "SourceBaseline" ? await store.getEntity(projectId, baseline.body.workflowId) : null;
+      if (baseline?.entityType !== "SourceBaseline" || bindingWorkflow?.entityType !== "Workflow" || baselineWorkflow?.entityType !== "Workflow" || bindingWorkflow.lineageId !== baselineWorkflow.lineageId) return blocked("SourceBinding baseline and Workflow lineage mismatch.");
       if (binding.body.preparationState !== "ready" || binding.body.workSourceLineId !== request.sourceLineId ||
         binding.body.repositoryCheckoutId !== request.repositoryCheckoutId && request.repositoryCheckoutId !== undefined)
         return blocked("Work Intake source binding does not match the checkpoint request.");

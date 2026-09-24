@@ -78,7 +78,12 @@ export function validateRelationship(
   if (relationship.relationshipType === "routes_to" && (from.entityType !== "Workflow" || to.entityType !== "Workflow" || from.body.workflowType !== "work-intake-routing" || to.body.workflowType === "work-intake-routing")) fail("routes_to requires a Work Intake routing Workflow source and a non-routing Workflow target.");
   if (relationship.relationshipType === "baselines_source" && (to.entityType !== "Workflow" || to.body.workflowType === "work-intake-routing")) fail("baselines_source requires a substantive Workflow target.");
   if (relationship.relationshipType === "baselines_source" && from.entityType === "SourceBaseline" && from.body.workflowId !== to.id) fail("SourceBaseline body Workflow must match its provenance endpoint.");
-  if (relationship.relationshipType === "binds_source" && (to.entityType !== "Workflow" || to.body.workflowType === "work-intake-routing" || from.entityType !== "SourceBinding" || from.body.workflowId !== to.id)) fail("binds_source requires a matching substantive Workflow owner.");
+  if (relationship.relationshipType === "binds_source") {
+    if (to.entityType !== "Workflow" || to.body.workflowType === "work-intake-routing" || from.entityType !== "SourceBinding" || from.body.workflowId !== to.id) fail("binds_source requires a matching substantive Workflow owner.");
+    const baseline = lookup(from.body.sourceBaselineId);
+    const baselineWorkflow = baseline?.entityType === "SourceBaseline" ? lookup(baseline.body.workflowId) : undefined;
+    if (baseline?.entityType !== "SourceBaseline" || baselineWorkflow?.entityType !== "Workflow" || baselineWorkflow.lineageId !== to.lineageId) fail("binds_source requires a SourceBaseline owned by the same Workflow lineage.");
+  }
   if (relationship.relationshipType === "derived_from" && from.lineageId === to.lineageId) fail("Derivation must retain a distinct lineage.");
   if (relationship.relationshipType === "supersedes") {
     if (from.entityType !== to.entityType || from.lineageId !== to.lineageId) fail("Supersession requires one entity type and shared lineage.");

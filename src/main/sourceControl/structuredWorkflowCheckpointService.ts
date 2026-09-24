@@ -22,8 +22,12 @@ async function bindingFor(store: Store, projectId: string, intakeId: string): Pr
   const state = createProjectStateService(store, operator);
   const summary = await state.getWorkIntakeSummary(projectId, intakeId);
   if (!summary.targetWorkflowId) throw Error("Work Intake has no target Workflow source binding.");
+  const targetWorkflow = await store.getEntity(projectId, summary.targetWorkflowId);
+  if (targetWorkflow?.entityType !== "Workflow") throw Error("Work Intake target Workflow is unavailable.");
+  const lineageIds = new Set((await store.listEntities(projectId, "Workflow"))
+    .filter(row => row.entityType === "Workflow" && row.lineageId === targetWorkflow.lineageId).map(row => row.id));
   const bindings = (await store.listEntities(projectId, "SourceBinding"))
-    .filter((record): record is Binding => record.entityType === "SourceBinding" && record.body.workflowId === summary.targetWorkflowId && record.lifecycleState === "active");
+    .filter((record): record is Binding => record.entityType === "SourceBinding" && lineageIds.has(record.body.workflowId) && record.lifecycleState === "active");
   if (bindings.length === 1) {
     const baseline = await store.getEntity(projectId, bindings[0].body.sourceBaselineId);
     const workflow = await store.getEntity(projectId, bindings[0].body.workflowId);

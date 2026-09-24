@@ -95,6 +95,17 @@ function register(name, factory) {
     assert.equal(ready.body.currentRevisionId, "work-revision");
     assert.ok((await service.getSourceSemanticView(project.id, "repo-opaque")).bindings.some(row => row.id === binding.id));
     assert.equal((await service.getSourceSemanticView(project.id, "other-repo")).bindings.length, 0);
+    const successorBindingWorkflow = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Successor binding", currentWorkspace: "development" });
+    const originalBaseline = await service.createWorkflowSourceBaseline(project.id, successorBindingWorkflow.id,
+      { repositoryId: "repo-successor", integrationTargetSourceLineId: "target-successor", baseRevisionId: "base-successor" });
+    const successorForBinding = (await service.supersedeRecord(project.id, successorBindingWorkflow.id,
+      { ...successorBindingWorkflow.body, title: "Successor" }, 1)).successor;
+    const successorBinding = await service.createWorkflowSourceBinding(project.id, successorForBinding.id, originalBaseline.id);
+    assert.equal(successorBinding.body.workflowId, successorForBinding.id);
+    assert.equal(successorBinding.body.sourceBaselineId, originalBaseline.id);
+    assert.equal((await service.getRelationships(project.id, successorBinding.id))[0].toEntityId, successorForBinding.id);
+    assert.equal((await service.getSourceSemanticView(project.id, "repo-successor")).bindings.some(row => row.id === successorBinding.id), true);
+    await assert.rejects(service.createWorkflowSourceBinding(project.id, successorForBinding.id, originalBaseline.id), /already has a SourceBinding/);
     assert.equal((await service.getRecordHistory(project.id, binding.id)).records.length, 3);
     assert.equal((await store.listStateChanges(project.id)).length, (await store.listOutbox(project.id)).length);
   });
