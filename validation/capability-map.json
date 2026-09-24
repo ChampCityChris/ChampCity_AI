@@ -5113,6 +5113,21 @@
       ]
     },
     {
+      "capabilityId": "workflow-type-registry",
+      "description": "Canonical provider-neutral Workflow type IDs and repeatability metadata.",
+      "sourcePatterns": [
+        "src/shared/projectState/workflowTypeRegistry.ts",
+        "test/project-state/workflow-type-registry.test.cjs"
+      ],
+      "dependsOn": [],
+      "behaviors": [
+        {
+          "behaviorId": "canonical-workflow-types-and-repeatability-are-exact-and-immutable",
+          "description": "Canonical Workflow type IDs, labels, repeatability, legacy rejection, and immutability are exact."
+        }
+      ]
+    },
+    {
       "capabilityId": "workspace-evidence-notification",
       "description": "Selected-workspace evidence change coalescing and bounded repository write notifications.",
       "sourcePatterns": [
@@ -15184,6 +15199,57 @@
           "capabilityId": "project-state-service",
           "behaviorId": "work-intake-capture-revision-and-lifecycle-initiate-one-workflow",
           "proofLocator": "Work Intake capture, revision and lifecycle retain a single initiated Workflow",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/workflow-type-registry.test.cjs",
+      "currentTestCount": {
+        "value": 3,
+        "basis": "Three focused canonical registry, legacy rejection, and immutability scenarios added by WTR01A."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 100,
+        "basis": "Pure in-process registry assertions; estimate pending supported Windows receipt."
+      },
+      "proposedValidationLane": "fast",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": false,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Pure immutable registry assertions with no mutable shared resources.",
+        "ownedResources": [
+          "pure-stateless"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "workflow-type-registry",
+          "behaviorId": "canonical-workflow-types-and-repeatability-are-exact-and-immutable",
+          "proofLocator": "canonical IDs, exact labels and repeatability, legacy rejection, and consumer mutation rejection",
           "proofRole": "primary"
         }
       ]
