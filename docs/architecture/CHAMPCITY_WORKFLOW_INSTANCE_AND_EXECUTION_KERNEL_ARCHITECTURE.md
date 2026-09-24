@@ -1,57 +1,56 @@
 # ChampCity Workflow Instance and Shared Execution Kernel Architecture
 
-**Status:** PROPOSED CORRECTION — Operator review required  
-**Date:** 2026-09-23  
-**Purpose:** Correct workflow topology drift discovered during SCL closeout review.
+**Status:** Adopted recovery architecture — Operator decisions incorporated 2026-09-23  
+**Purpose:** Govern the Workflow Topology Recovery package and correct the WIR/SCL topology drift.
 
-## 1. Governing correction
+## 1. Governing model
 
 ChampCity is not one pipeline.
 
-A Project owns many independent Workflow instances. A Workflow type defines a reusable lifecycle. A Workflow instance is one specific body of work moving through that lifecycle.
+A Project owns many independent Workflow instances. A Workflow Definition describes one reusable lifecycle. A Workflow instance is one specific body of work moving through that lifecycle.
 
-Work Intake Routing (WIR) is one optional Workflow type. It is not the parent lifecycle for all work.
+The initial canonical Workflow type set is:
 
-The governing topology is:
+| Workflow type | Canonical ID | Repeatable |
+| --- | --- | --- |
+| Project Creation / Greenfield | `project-creation` | No |
+| Feature / Capability | `feature-capability` | Yes |
+| Refactor / Migration | `refactor-migration` | Yes |
+| Integration / Composition | `integration-composition` | Yes |
+| Infrastructure / Platform | `infrastructure-platform` | Yes |
+| Research / Prototype | `research-prototype` | Yes |
+| Issue Resolution | `issue-resolution` | Yes |
+| Work Intake Routing | `work-intake-routing` | Yes |
 
-```text
-Project
-├── Greenfield / Project Creation workflow
-├── Feature / Capability workflow instances [0..N]
-├── Refactor / Migration workflow instances [0..N]
-├── Integration / Composition workflow instances [0..N]
-├── Infrastructure / Platform workflow instances [0..N]
-├── Research / Prototype workflow instances [0..N]
-├── Issue Resolution workflow instances [0..N]
-└── Work Intake Routing workflow instances [0..N]
-```
+Future Workflow Definitions such as UI Builder, Art Asset Creation, or Sound Studio may be added without changing the Project/Workflow/Workspace/execution-kernel model.
 
-Except for the naturally one-time Project-creation/Greenfield lifecycle, every workflow type must support multiple concurrent instances in one Project.
-
-Examples:
+A Project may therefore contain, at the same time:
 
 ```text
 Project: ChampCity A/I
 
-Issues
+Issue Resolution
   ISSUE A — OAuth refresh bug
   ISSUE B — renderer regression
   ISSUE C — installer failure
 
-Features
+Feature / Capability
   FEATURE A — Source graph
   FEATURE B — Tester role
 
-Migrations
+Refactor / Migration
   MIGRATION A — Electron → web client
 
-Research
+Research / Prototype
   RESEARCH A — local model execution
+
+Work Intake Routing
+  WIR A — classify an ambiguous request
 ```
 
-These instances may all exist and progress independently.
+No Workflow must finish merely so another Workflow can be created, assessed, planned, or represented in source control.
 
-## 2. Canonical vocabulary
+## 2. Canonical concepts
 
 ### Project
 
@@ -61,13 +60,14 @@ The durable product/software project.
 
 The reusable lifecycle definition for a kind of work.
 
-A Workflow Definition owns, at minimum:
+A Workflow Definition owns:
 
-- workflow type;
+- canonical Workflow type;
 - display/entry identity;
-- workflow-specific intake contract;
-- workflow-specific assessment/discovery contract;
-- workflow-specific planning profile;
+- repeatability rule;
+- Workflow-specific intake contract;
+- Workflow-specific assessment/discovery contract;
+- Workflow-specific planning profile;
 - normalization rules that produce canonical execution semantics;
 - shared execution policy selection;
 - completion policy.
@@ -85,30 +85,39 @@ A Workflow has:
 - lifecycle state;
 - current Workspace/task;
 - governing semantic records;
-- optional source binding;
+- exact source baseline when source-backed;
+- optional materialized SourceLine / RepositoryCheckout;
 - timestamps and lineage.
 
-Multiple active Workflows of the same type are normal.
+Multiple active Workflows of the same repeatable type are normal.
 
 ### Workspace
 
-A reusable task-oriented screen/station. Workspace identity is not Workflow identity.
+A task-oriented UI station through which a Workflow task is performed.
 
-The same Workspace may be used by many Workflow types and instances when the task is materially the same.
+Workspace identity is not Workflow identity. A Workspace can be reused by many Workflow types and instances when the user task is materially the same.
 
 ### Work Item / Phase / Criterion
 
-Canonical execution semantics produced after workflow-specific planning.
+Canonical execution semantics emitted after Workflow-specific planning.
+
+### SourceBaseline
+
+The exact immutable SourceRevision against which a substantive Workflow was created and understood.
+
+Capturing a SourceBaseline does not require creating a branch or writable checkout.
 
 ### SourceLine
 
-Source-control isolation for one substantive Workflow instance.
+Provider-neutral source isolation for a substantive Workflow once repository mutation is required.
 
-SourceLine identity is not Workflow identity. It is an infrastructure binding owned by the Workflow.
+### RepositoryCheckout
 
-## 3. Work Intake Routing is an optional router
+A concrete readable/writable working copy of a Repository. Checkout identity is execution infrastructure and is separate from Project, Workflow, and SourceLine identity.
 
-WIR exists for work whose correct workflow is not already known.
+## 3. Work Intake Routing is an optional Workflow
+
+WIR exists when the Operator has work but does not already know which substantive Workflow fits it.
 
 Its lifecycle is:
 
@@ -118,48 +127,91 @@ WIR instance
 → Architect route assessment
 → Operator route selection
 → instantiate selected independent Workflow
-→ seed selected Workflow intake/context from WIR evidence
+→ seed target Workflow intake/context from WIR evidence
 → link WIR → selected Workflow
 → close WIR
 ```
 
-WIR stops there.
+WIR stops at handoff.
 
 WIR does not own:
 
-- selected Workflow assessment;
-- selected Workflow planning;
+- the target Workflow's SourceBaseline or SourceLine;
+- target assessment;
+- target planning;
 - Phase/Work Item execution;
 - implementation;
 - validation;
 - repair;
 - integration.
 
-The relationship is durable provenance, not parent/child runtime ownership.
+WIR does not receive an implementation SourceLine.
 
-A direct workflow start bypasses WIR entirely:
+Direct workflow start bypasses WIR:
 
 ```text
 + Start Feature
-→ create Feature Workflow instance
+→ create Feature Workflow
 → Feature Intake
 ```
 
-WIR and direct entry must produce equivalent target Workflow semantics after target creation.
+A Feature created directly and a Feature created by WIR must converge on the same target Workflow contract.
 
-## 4. Workflow-specific front half
+## 4. Project Creation / Greenfield is one-time
 
-The principal bespoke portion of a Workflow is before the canonical execution boundary.
+Project Creation is the one-time lifecycle that establishes a new Project.
 
-Examples:
+```text
+Start New Project
+→ Project Intake
+→ Architect product understanding
+→ Greenfield planning
+→ Project/source baseline establishment
+→ shared execution when implementation is required
+→ Workflow Hub
+```
+
+A Project cannot start a second Project Creation Workflow.
+
+Subsequent large changes use repeatable workflows such as Feature / Capability or Refactor / Migration.
+
+WIR is never required merely to create a Project.
+
+## 5. Existing Project registration
+
+Opening an established repository that has no current ChampCity Structured Project State uses a one-time registration Workspace rather than Greenfield or WIR.
+
+```text
+Open Existing Project
+→ current Structured Project State exists?
+    yes → Workflow Hub
+    no  → Existing Project Registration
+          - Project name
+          - purpose / description
+          - repository binding
+          - whether existing planning/architecture is relevant evidence
+        → create fresh Project State
+        → Workflow Hub
+```
+
+Existing Project Registration is Project bootstrap, not a ninth Workflow type.
+
+Old Issues, Development phases, Work Cards, WIR records, or other Markdown workflow artifacts are not imported as current Workflow state.
+
+Historical repository artifacts may later be cited as Evidence.
+
+## 6. Workflow-specific front half
+
+The bespoke portion of a Workflow is primarily before the canonical execution boundary.
 
 ### Feature / Capability
 
 ```text
 Feature Intake
-→ current-baseline / requested-delta assessment
-→ preservation / affected-contract planning
-→ executable plan semantics
+→ current baseline / requested delta
+→ preservation and affected-contract assessment
+→ Feature planning
+→ canonical execution semantics
 ```
 
 ### Issue Resolution
@@ -169,16 +221,16 @@ Issue Intake
 → evidence / reproduction
 → RCA
 → bounded correction planning
-→ executable plan semantics
+→ canonical execution semantics
 ```
 
 ### Refactor / Migration
 
 ```text
 Migration Intake
-→ current-state / target-state assessment
+→ current state / target state
 → transformation / compatibility / cutover / retirement planning
-→ executable plan semantics
+→ canonical execution semantics
 ```
 
 ### Integration / Composition
@@ -186,8 +238,8 @@ Migration Intake
 ```text
 Integration Intake
 → characterization / ownership / contracts / access / data-flow assessment
-→ build-vs-integrate planning
-→ executable plan semantics
+→ build-versus-integrate planning
+→ canonical execution semantics
 ```
 
 ### Infrastructure / Platform
@@ -196,34 +248,18 @@ Integration Intake
 Infrastructure Intake
 → current/target operational topology
 → provisioning / rollout / failure / recovery planning
-→ executable plan semantics
+→ canonical execution semantics
 ```
 
 ### Research / Prototype
 
-Research may terminate in accepted evidence/Decision without implementation.
+Research may terminate in accepted Evidence/Decision without implementation.
 
-If implementation/research Work Items are required, they normalize into the same execution semantics.
+If bounded research Work Items are required, they normalize into the same execution semantics.
 
-### Greenfield / Project Creation
+## 7. Canonical execution boundary
 
-Project creation is distinct from WIR.
-
-```text
-Start New Project
-→ Project Intake
-→ Architect product understanding
-→ Project/Greenfield planning
-→ Project baseline
-→ shared execution when implementation begins
-→ Workflow Hub
-```
-
-WIR must never be required merely to create a Project.
-
-## 5. Normalization boundary
-
-Workflow-specific planning ends by producing canonical execution semantics in Structured Project State:
+Workflow-specific planning ends by producing canonical Structured Project State:
 
 - BoundedSolution where applicable;
 - Work Items;
@@ -234,15 +270,15 @@ Workflow-specific planning ends by producing canonical execution semantics in St
 - relevant Decisions;
 - source/integration context.
 
-A generic canonical Plan entity remains unnecessary. Human-readable Plan documents are projections over these records.
+ChampCity does not require a generic canonical Plan entity. Human-readable plans are projections over these records.
 
-After this boundary, workflow identity is context, not a reason to fork implementation.
+After this boundary, Workflow type is context, not justification for a private implementation engine.
 
-## 6. Shared execution kernel
+## 8. Shared execution kernel
 
-All implementation-bearing workflows use the same execution kernel unless a materially different task is proven.
+All implementation-bearing Workflows use one execution kernel unless a materially different user task is demonstrated.
 
-Target reusable workspaces/services:
+The target reusable loop is:
 
 ```text
 Work Item Map
@@ -256,73 +292,157 @@ Work Item Map
 → Integration
 ```
 
-Shared kernel responsibilities include:
+Shared responsibilities include:
 
-- dependency eligibility;
-- Work Item and Phase progression;
+- Work Item dependency eligibility;
+- Phase eligibility;
 - Work Card decomposition;
 - Implementer runtime execution;
 - ImplementationRecord capture;
 - Evidence and Validation;
-- Repair creation and re-entry;
+- Repair creation/re-entry;
 - Work Item completion;
 - Phase completion;
 - source checkpoints;
 - integration candidate / Integration Repair;
 - final SourceLine integration.
 
-### Governing reuse rule
+### Reuse rule
 
-No workflow-specific execution Workspace may exist after the canonical execution boundary unless that workflow demonstrates a materially different user task that cannot be expressed through the shared execution contracts.
+No Workflow-specific post-plan execution Workspace may exist unless that Workflow demonstrates a materially different task that cannot be represented by the shared execution contracts.
 
-Adapters may translate workflow-specific planning state into shared execution state. Adapters do not justify duplicate Workspaces.
+Adapters may translate Workflow-specific planning semantics into shared execution semantics. Adapters do not justify duplicate Workspaces.
 
-## 7. Source control and multiplicity
+## 9. Source baseline and lazy source materialization
 
-Source control exists to support independent Workflow instances.
+Every substantive source-backed Workflow captures an exact SourceBaseline when the Workflow instance is created.
 
-Each substantive Workflow instance receives its own SourceLine from the appropriate integration target.
+For an established Project, the default baseline is the exact current `dev` SourceRevision at creation time.
 
 Example:
 
 ```text
-dev
-├── feature/<workflow>
-├── feature/<workflow>
-├── issue/<workflow>
-├── issue/<workflow>
-├── migration/<workflow>
-└── infrastructure/<workflow>
+FEATURE-17 created
+→ SourceBaseline = exact dev revision abc123
+→ no SourceLine yet
+→ Feature Intake / planning
+→ executable source mutation required
+→ materialize feature/<workflow-id> from abc123
+→ attach Workflow RepositoryCheckout
+→ implementation
 ```
 
-Workflow creation must not be serialized behind completion of another Workflow.
+This prevents planning against one baseline and silently implementing against another.
 
-The current transitional implementation may still attach only one normal writable RepositoryCheckout at a time. That is an execution-capacity limitation, not a semantic restriction:
+A Workflow that closes without repository mutation never needs a SourceLine. Research is the primary expected example.
+
+Once materialized, the SourceLine belongs to that Workflow for its lifetime.
+
+WIR is excluded: it owns neither an implementation SourceBaseline binding nor SourceLine.
+
+Greenfield is special because no established `dev` baseline exists yet.
+
+## 10. Project container and physical repository layout
+
+The Project root is not required to be a Git working tree.
+
+The preferred layout is:
 
 ```text
-many Workflow instances
-many SourceLines
-one attached writable checkout today
-many checkouts/worktrees later
+ChampCity_AI/
+├── .champcity/
+│   ├── project-state.sqlite
+│   ├── repository.git/              # shared Git repository metadata
+│   └── checkouts/
+│       ├── <workflow-id>/            # on-demand Workflow checkouts
+│       └── ...
+├── Main/                             # permanent checkout of main
+└── Dev/                              # permanent checkout of dev
 ```
 
-Moving to multiple concurrent checkouts/agents later must not require changing Workflow semantics.
+`Main/` and `Dev/` are sibling working trees of the same Git repository.
 
-WIR itself normally needs no implementation SourceLine. Its selected target Workflow owns the SourceLine.
+The parent Project directory is a neutral Project container.
 
-Greenfield source bootstrap remains special because the Project does not yet have an established `main → dev` topology.
+The semantic mapping is:
 
-## 8. Source binding ownership
+```text
+Project
+└── Repository
+    ├── SourceLine: main
+    │   └── RepositoryCheckout: Main/
+    ├── SourceLine: dev
+    │   └── RepositoryCheckout: Dev/
+    └── Workflow SourceLines
+        └── RepositoryCheckout: .champcity/checkouts/<workflow-id>/
+```
+
+Workflow checkouts are application-managed execution infrastructure and may be created/destroyed mechanically.
+
+Main and Dev are durable Project-level checkouts.
+
+This layout must not be implemented as a fake Git repository in the Project container.
+
+## 11. MCP workspace boundary
+
+ChampCity MCP workspace access is filesystem/Project access, not synonymous with a Git repository root.
+
+A Project container may therefore be registered with MCP even when the container itself is not Git-backed.
+
+The intended separation is:
+
+```text
+repo_toolbox
+→ workspace-relative filesystem operations
+→ Git backing not required
+
+git_toolbox
+→ explicit Repository / RepositoryCheckout target
+→ Git required only for that selected target
+```
+
+Conceptually:
+
+```text
+MCP workspace: champcity_ai
+root: <Project container>
+gitBacked: false
+
+RepositoryCheckouts:
+  Main → <Project>/Main
+  Dev  → <Project>/Dev
+  Workflow → <Project>/.champcity/checkouts/<workflow-id>
+```
+
+MCP support for non-Git-backed Project roots is an early prerequisite of the recovery package.
+
+## 12. Git ignore policy
+
+Normal mechanical Git staging must continue to honor ordinary Git ignore semantics.
+
+Greenfield bootstrap must also establish a repository `.gitignore` before the initial source baseline is committed.
+
+The bootstrap rule is:
+
+- preserve an existing `.gitignore`; never overwrite it;
+- for a new repository, create a baseline ignore file before the first commit;
+- include only safe common generated/local noise plus stack-specific additions when the stack is known;
+- do not require the Project container's `.champcity/` directory to be ignored by the source repository because it is outside the Main/Dev checkout roots;
+- normal staging must not force-add ignored paths unless a narrowly explicit operation requests it.
+
+The current mechanical Git staging already respects `.gitignore` by default. The recovery work changes bootstrap behavior, not ordinary Git semantics.
+
+## 13. Source ownership
 
 Canonical SourceBinding, SourceCheckpoint, and IntegrationRecord semantics belong to the substantive Workflow instance.
 
 They must not be structurally keyed to WorkIntake.
 
-Work Intake may be provenance for a Workflow created by WIR, but SourceLine ownership follows the Workflow that performs the work.
+WIR provenance may explain why a Workflow exists, but the target Workflow owns its source lifecycle.
 
-## 9. Workflow Hub
+## 14. Workflow Hub
 
-The Workflow Hub is a workflow-instance dashboard, not a list of singleton pipelines.
+The Workflow Hub is a multi-instance dashboard.
 
 Conceptually:
 
@@ -355,12 +475,12 @@ Work Intake Routing
   + Help Me Route New Work
 
 Source Control
-  View all Workflow SourceLines and integration topology
+  View Workflow SourceLines and integration topology
 ```
 
-Opening one Workflow never changes the existence or lifecycle of another.
+Opening one Workflow never mutates or invalidates another Workflow merely because both are active.
 
-## 10. Structured Project State is the only current workflow authority
+## 15. Structured Project State is the only current workflow authority
 
 Structured Project State is the canonical runtime state model.
 
@@ -369,72 +489,93 @@ There is no permanent legacy/structured provider choice.
 Repository Markdown may remain as:
 
 - architecture/governance documentation;
-- historical evidence;
+- historical Evidence;
 - generated projection/export;
-- explicit imported evidence.
+- explicit imported Evidence.
 
 It is not an alternate live workflow engine.
 
-## 11. Legacy abandonment policy
+## 16. Legacy abandonment policy
 
 There is no legacy-workflow migration requirement.
 
 Pre-existing in-progress Markdown workflow instances are abandoned.
 
-If the work still matters, start a new current Workflow instance and use old artifacts only as evidence/context where useful.
+If that work still matters, the Operator starts a new current Workflow instance and may use old artifacts as Evidence/context.
 
-Do not implement:
+Do not preserve or build:
 
-- staged semantic migration of old workflow instances;
+- staged semantic migration of old Workflow instances;
 - legacy/structured equivalence gating;
 - provider-generation switching between two workflow engines;
 - rollback from current Structured Project State to the legacy workflow engine;
-- permanent legacy workflow entry points.
+- permanent legacy Workflow entry points.
 
-Transient coexistence inside a repair branch while code is replaced is implementation sequencing only. It is not product architecture.
+Temporary coexistence inside a repair sequence is implementation staging only.
 
-## 12. Existing Project bootstrap
+## 17. Per-card recovery governance
 
-Opening an existing repository that does not yet have current Structured Project State establishes a fresh Project identity/resource binding from the selected repository.
+The Workflow Topology Recovery package is also the Phase 2 work-card calibration run.
 
-It does not import old workflow instances.
+GPT 6.0 Luna Medium implements one bounded card at a time.
 
-Historical repository artifacts may be available as evidence, but no old workflow state becomes current automatically.
+After every card:
 
-This is Project registration/bootstrap, not legacy workflow migration.
+```text
+Luna implementation
+→ focused validation
+→ Implementer Report
+→ checkpoint commit
+→ Architect code/evidence review
+→ bounded repair if required
+→ only then release the next card
+```
 
-## 13. Salvage rule
+There is no continuous multi-card authorization for this package.
 
-The repair should preserve proven mechanics where ownership is correct.
+This is deliberate: card quality and implementation drift are being measured independently.
+
+## 18. Salvage rule
+
+Preserve proven mechanics where ownership is correct.
 
 Strong salvage candidates include:
 
-- SQLite ProjectStateStore and recovery mechanics;
-- ProjectStateService record/relationship/history semantics;
-- workflow-specific planning profile content;
+- SQLite ProjectStateStore and backup/recovery;
+- ProjectStateService history/revision/Decision/Evidence/Validation semantics;
+- Workflow-specific planning profile content;
 - `planExecutor` dependency/topology logic;
 - Codex/App Server execution runtime;
-- Evidence/Validation/Decision semantics;
 - source-control provider mechanics;
 - integration candidate and Integration Repair mechanics;
-- reusable renderer presentations such as Codex execution console/actions, OperatorValidationPresentation, WorkCardRepairPresentation, WorkCardClosePresentation, DocumentChatWorkspaceShell.
+- reusable renderer presentations such as Codex execution controls, OperatorValidationPresentation, WorkCardRepairPresentation, WorkCardClosePresentation, and DocumentChatWorkspaceShell;
+- Issue Resolution's multi-instance interaction model.
 
-The repair should move these behind correct Workflow ownership rather than rewrite them merely because surrounding topology was wrong.
+Move these behind the corrected Workflow ownership model rather than rewriting them solely because surrounding topology was wrong.
 
-## 14. Acceptance invariants
+## 19. Acceptance invariants
 
-The corrected product is not complete until all are true:
+The recovery is not complete until all are true:
 
-1. WIR is optional and routing-only.
-2. Every substantive workflow is independently startable.
-3. Multiple instances of each repeatable Workflow type can coexist.
-4. Workflow instances, not WIR, own their SourceLines.
-5. New Project creation uses Project/Greenfield Intake, not WIR.
-6. Workflow-specific intake/assessment/planning remains bespoke.
-7. Post-plan execution uses one shared kernel and reusable Workspace family.
-8. Issue Resolution retains multi-instance behavior while using the shared post-plan kernel.
-9. No production workflow depends on legacy Markdown authority.
-10. No legacy-to-current workflow migration or provider coexistence path remains.
-11. Source Control displays simultaneous Workflow-owned source topology.
-12. Creating/planning a second Workflow does not require finishing the first.
-13. The one-checkout transitional limitation does not become a workflow admission gate.
+1. the canonical initial Workflow type set is the eight types in §1;
+2. Project Creation is one-time; all other types are repeatable;
+3. WIR is optional and routing-only;
+4. every substantive Workflow is directly startable;
+5. multiple instances of the same repeatable type can coexist;
+6. Workflow instances, not WIR, own source lifecycle state;
+7. every substantive source-backed Workflow captures an exact baseline at creation;
+8. SourceLines/checkouts materialize lazily only when source mutation is required;
+9. New Project creation uses Project Creation / Greenfield, not WIR;
+10. existing repositories without current state use Existing Project Registration, not Greenfield or WIR;
+11. Workflow-specific intake/assessment/planning remains bespoke;
+12. post-plan execution uses one shared kernel and reusable Workspace family;
+13. Issue Resolution retains multi-instance behavior while using the shared post-plan kernel;
+14. the Project container may be non-Git-backed;
+15. Main and Dev are durable sibling RepositoryCheckouts;
+16. MCP can expose the non-Git-backed Project container while Git tools target explicit checkouts;
+17. greenfield source bootstrap establishes/preserves normal `.gitignore` behavior;
+18. no production Workflow depends on legacy Markdown authority;
+19. no legacy-to-current Workflow migration/provider coexistence path remains;
+20. Source Control displays simultaneous Workflow-owned source topology;
+21. creating/planning another Workflow does not require finishing the first;
+22. checkout availability is execution capacity, not Workflow admission authority.

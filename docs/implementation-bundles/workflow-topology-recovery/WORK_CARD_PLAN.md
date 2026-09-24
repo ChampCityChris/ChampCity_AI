@@ -1,423 +1,234 @@
 # Workflow Topology Recovery — Repair Work Card Plan
 
 **Package ID:** WTR  
-**Status:** PROPOSED — Operator review required before repair cards are authored  
-**Target repair Implementer:** GPT 6.0 Luna Medium  
-**Source audit:** `ARCHITECT_AUDIT_2026-09-23.md`  
-**Governing proposed architecture:** `docs/architecture/CHAMPCITY_WORKFLOW_INSTANCE_AND_EXECUTION_KERNEL_ARCHITECTURE.md`
+**Status:** Adopted milestone map; bounded cards released one at a time after Architect review  
+**Target Implementer:** GPT 6.0 Luna Medium  
+**Architecture:** `docs/architecture/CHAMPCITY_WORKFLOW_INSTANCE_AND_EXECUTION_KERNEL_ARCHITECTURE.md`  
+**Operator decisions:** `OPERATOR_DECISIONS_2026-09-23.md`  
+**Architect audit:** `ARCHITECT_AUDIT_2026-09-23.md`
 
 ## 1. Package objective
 
-Correct the SCL/WIR topology drift without discarding the useful Structured Project State, source-control, planning-profile, execution-runtime, and integration work already implemented.
+Correct the SCL/WIR topology drift while preserving the useful Structured Project State, planning profiles, execution runtime, source-control mechanics, and integration machinery already implemented.
 
-The completed package must produce:
+The package must produce:
 
-- independent, multi-instance Workflow types;
+- independent multi-instance Workflow types;
 - optional routing-only WIR;
-- direct workflow entry;
-- workflow-owned SourceLines;
-- bespoke workflow intake/assessment/planning;
+- direct Workflow entry;
+- one-time Greenfield Project Creation;
+- Existing Project Registration without legacy Workflow import;
+- exact SourceBaseline capture at Workflow creation;
+- lazy Workflow SourceLine/checkout materialization;
+- non-Git Project containers with permanent Main/Dev checkouts;
+- MCP access to non-Git Project roots and explicit Git checkout targeting;
+- bespoke Workflow intake/assessment/planning;
 - one shared post-plan execution kernel;
 - one current Structured Project State runtime;
-- no legacy workflow migration/coexistence product mode;
+- no legacy Workflow migration/coexistence product mode;
 - no duplicate post-plan Workspace families.
 
-## 2. Execution strategy
+## 2. Phase 2 calibration governance
 
-This repair package is intended for Phase 2 card-standard calibration with GPT 6.0 Luna Medium.
+This package is intentionally different from the prior SCL continuous run.
 
-Accordingly:
+Execution is strictly:
 
-- cards must be bounded and explicit;
-- architectural diagnosis belongs in the cards, not in Luna's inference burden;
-- each card gets exact ownership boundaries, retained components, deletion targets, and acceptance criteria;
-- avoid broad “refactor as appropriate” instructions;
-- one report + checkpoint commit per card;
-- cards execute sequentially unless a true architecture blocker is found;
-- no full-suite default; use exact affected/work-item profiles and card-owned focused tests;
-- do not preserve old behavior merely to keep obsolete tests green.
+```text
+Architect authors one bounded card
+→ Luna Medium implements only that card
+→ focused validation
+→ Implementer Report
+→ checkpoint commit
+→ Architect code/evidence review
+→ bounded repair when required
+→ next card is authored/released
+```
 
-Temporary coexistence between old/new code during the sequence is allowed only as implementation staging. Final package acceptance forbids permanent dual runtime.
+There is no continuous multi-card authorization.
 
-## 3. Proposed card sequence
+The 25 WTR numbers below are **milestones**, not executable cards. Actual implementation is performed through smaller lettered subcards.
 
-### Foundation
+Card-authoring rules:
 
-### WTR01 — Correct Workflow domain contracts and type registry
+- one coherent contract or production path per card;
+- exact owned surface named in the card;
+- explicit non-scope;
+- no “refactor as appropriate” escape hatch;
+- do not preserve obsolete behavior merely to keep retired tests green;
+- focused tests plus validation-planner work-item profile;
+- no broad historical suite by default;
+- one Implementer Report and one attributable checkpoint commit per card;
+- Architect review is mandatory before releasing the next card.
 
-Purpose:
+## 3. Bounded card map
 
-Establish Workflow Definition versus Workflow Instance as explicit first-class concepts.
+The subcard map is an execution forecast. Only the next approved card is authoritative for implementation. Later subcards may be split further after Architect review of prior work, but they must not be silently combined.
 
-Required outcome:
+### WTR01 — Workflow domain contracts
 
-- typed Workflow types for:
-  - Greenfield / Project Creation;
-  - Feature / Capability;
-  - Refactor / Migration;
-  - Integration / Composition;
-  - Infrastructure / Platform;
-  - Research / Prototype;
-  - Issue Resolution;
-  - Work Intake Routing;
-- repeatability metadata: all except Project Creation support N instances;
-- Workflow instance has Project, type, title, lifecycle/current Workspace, governing semantic identity;
-- add WIR-to-target Workflow provenance relationship;
-- remove the invariant that a Work Intake necessarily owns the substantive Workflow;
-- preserve WorkIntake as WIR-specific semantic state;
-- multiplicity tests prove two same-type Workflow instances coexist.
+- **WTR01A — Establish canonical Workflow type registry and repeatability metadata.**
+- **WTR01B — Normalize Workflow instance body contract and validation.**
+- **WTR01C — Add WIR-to-target Workflow provenance relationship and remove substantive ownership assumptions.**
+- **WTR01D — Qualify same-type Workflow multiplicity at the domain/service boundary.**
 
-Do not change UI yet.
+### WTR02 — Repository, checkout, MCP, and source ownership contracts
 
-### WTR02 — Generalize source lifecycle ownership from Work Intake to Workflow
+- **WTR02A — Introduce Workflow SourceBaseline and Workflow-owned SourceBinding contracts.**
+- **WTR02B — Separate Project container, Repository, SourceLine, and RepositoryCheckout path contracts.**
+- **WTR02C — Allow MCP workspace registration/tooling for non-Git Project roots and explicit Git checkout targets.**
+- **WTR02D — Generalize work-source naming/creation from WorkIntake owner to Workflow owner.**
+- **WTR02E — Implement lazy Workflow SourceLine and checkout materialization from exact baseline.**
+- **WTR02F — Move source checkpoints and IntegrationRecord ownership from WorkIntake to Workflow.**
+- **WTR02G — Project Source Graph metadata by Workflow identity rather than WorkIntake identity.**
 
-Purpose:
+### WTR03 — Fresh Project bootstrap and legacy abandonment
 
-Make Git topology represent independent Workflow instances.
+- **WTR03A — Define Existing Project Registration state contract and service.**
+- **WTR03B — Initialize fresh Structured Project State without legacy Workflow import.**
+- **WTR03C — Establish/normalize Project container plus permanent Main/Dev checkout topology.**
+- **WTR03D — Establish Greenfield repository `.gitignore` baseline policy and bootstrap proof.**
+- **WTR03E — Fence old Workflow artifacts as historical Evidence only; no current-state reconstruction.**
 
-Required outcome:
+### WTR04 — Workflow instance application service
 
-- replace `WorkSourceOwner.kind = work-intake` with Workflow-owned source identity;
-- SourceBinding belongs to Workflow;
-- SourceCheckpoint and IntegrationRecord identify Workflow;
-- RepositoryService branch naming accepts workflow type/identity;
-- checkpoints and integration resolve through Workflow SourceBinding;
-- Source Graph contracts expose Workflow bindings, not Work Intake bindings;
-- no dependency on WIR identity for ordinary source operations.
+- **WTR04A — Create/get/list Workflow instances by Project/type/state.**
+- **WTR04B — Workflow current-Workspace and lifecycle transitions.**
+- **WTR04C — Stable display identity and multi-instance inventory projection.**
+- **WTR04D — Production IPC/service boundary for exact Workflow instance selection.**
 
-Keep Work Intake IDs only as optional provenance where a Workflow originated from WIR.
+### WTR05 — Workflow-owned assessment and planning
 
-### WTR03 — Establish fresh Structured Project bootstrap; define legacy abandonment
+- **WTR05A — Replace WIR-scoped planning context with Workflow-scoped planning context.**
+- **WTR05B — Bind existing planning profiles to Workflow Definitions.**
+- **WTR05C — Persist planning output as canonical BoundedSolution/WorkItem/Phase/Criterion relationships.**
+- **WTR05D — Qualify Research evidence-only closure without execution-plan manufacture.**
 
-Purpose:
+### WTR06 — Routing-only WIR
 
-Remove migration as a prerequisite to using the current runtime.
+- **WTR06A — Reduce WIR state machine to intake/routing/handoff/closed.**
+- **WTR06B — Create target Workflow from accepted route and preserve WIR provenance.**
+- **WTR06C — Make direct Workflow creation and WIR handoff converge on one target creation service.**
+- **WTR06D — Replace WIR renderer navigation with routing-only Workspaces.**
 
-Required outcome:
+### WTR07 — Project Creation / Greenfield
 
-- opening an existing repository without current Project State creates/registers a fresh Project + repository resource without importing legacy workflow state;
-- new Structured Project State is current authority by construction;
-- old workflow Markdown remains ordinary historical repository evidence only;
-- no legacy workflow instance is created from repository scans;
-- old in-progress work can only continue by starting a new current Workflow;
-- define safe handling of pre-repair `.champcity/project-state.sqlite` state for this pre-release product without semantic workflow migration.
+- **WTR07A — Restore Start New Project → Project Intake / Greenfield entry.**
+- **WTR07B — Persist Project Intake and Architect product understanding in Structured Project State.**
+- **WTR07C — Greenfield planning emits canonical execution semantics.**
+- **WTR07D — Establish initial source topology without WIR ownership.**
 
-Do not delete old runtime code yet; later cards still need a compiling transition.
+### WTR08 — Shared Structured execution service
 
-### WTR04 — Implement Workflow Instance application service and inventory
+- **WTR08A — Create WorkflowExecutionService projection over WorkItems/Phases/Criteria.**
+- **WTR08B — Work Item implementation attempt and completion commands.**
+- **WTR08C — Shared Validation/Evidence/Repair lifecycle commands.**
+- **WTR08D — Shared Phase progression/completion commands.**
+- **WTR08E — Connect Workflow execution checkpoints to Workflow SourceBinding.**
 
-Purpose:
+### WTR09 — Shared Work Item Map and Work Card Planning
 
-Create the production service boundary for independent Workflow instances.
+- **WTR09A — Shared WorkItemMap projection and Workspace.**
+- **WTR09B — Shared WorkItemPlanning/decomposition Workspace.**
+- **WTR09C — Move Development map/planning onto shared Workspaces.**
+- **WTR09D — Move Issue Fix map/planning onto shared Workspaces.**
+- **WTR09E — Remove routed map/planning ownership after callers move.**
 
-Required outcome:
+### WTR10 — Shared Implement Workspace
 
-- create direct Workflow instance;
-- list instances by Project/type/state;
-- open one exact Workflow;
-- update current Workspace/state;
-- close/cancel Workflow;
-- preserve multiple active same-type instances;
-- stable display identity independent of Git branch;
-- production IPC/service contract no longer assumes one active Development pipeline.
+- **WTR10A — Shared Implement Workspace contract over Workflow/WorkItem context.**
+- **WTR10B — Move Development and Issue implementation callers to shared runtime path.**
+- **WTR10C — Retire Routed/Issue-specific implementation wrappers after caller migration.**
 
-### Routing and planning ownership
+### WTR11 — Shared Review & Validation Workspace
 
-### WTR05 — Decouple planning kernel from WIR and bind planning to Workflow instances
+- **WTR11A — Shared ReviewValidation projection/Workspace over canonical Validation/Evidence.**
+- **WTR11B — Move Development and Issue review callers to shared Workspace.**
+- **WTR11C — Retire Routed/Issue-specific review-validation wrappers.**
 
-Purpose:
+### WTR12 — Shared Repair and Close / Next
 
-Preserve the strong route/profile planning content while moving ownership to the substantive Workflow.
+- **WTR12A — Shared Repair Workspace over Repair WorkItem relationships.**
+- **WTR12B — Shared CloseNext Workspace and deterministic return projection.**
+- **WTR12C — Move Development/Issue/Routed callers and retire duplicate wrappers.**
 
-Required outcome:
+### WTR13 — Shared Phase close and Integration
 
-- workflow-specific profiles remain data-driven;
-- planning context is `projectId + workflowId + workflowType`, not `intakeId + routeDecisionId`;
-- target Workflow's own intake/evidence feeds assessment/planning;
-- planning emits canonical BoundedSolution/WorkItem/Phase/Criterion/dependency state;
-- Issue keeps RCA-specific pre-plan semantics;
-- Research may close without an execution graph;
-- no route owns a private execution engine.
+- **WTR13A — Shared Phase Validation/Close Workspace over canonical Criteria.**
+- **WTR13B — Shared Workflow Integration service/Workspace over Workflow SourceBinding.**
+- **WTR13C — Replace manual repository evidence-path acceptance with canonical Evidence selection.**
+- **WTR13D — Reuse Integration Repair under Workflow ownership.**
 
-### WTR06 — Reduce WIR to routing-only handoff
+### WTR14 — Feature / Capability front half
 
-Purpose:
+- **WTR14A — Feature instance Intake/assessment direct-entry path.**
+- **WTR14B — Feature planning profile → shared execution normalization.**
 
-End WIR at target Workflow creation.
+### WTR15 — Refactor / Migration front half
 
-Required outcome:
+- **WTR15A — Migration Intake/current-target-state assessment.**
+- **WTR15B — Migration/cutover/retirement planning → shared execution normalization.**
 
-- WIR stages become Intake → Route Assessment → Operator Route Decision → Handoff/Closed;
-- route acceptance creates one independent target Workflow instance;
-- WIR evidence is linked/seeds target Workflow context;
-- WIR records durable `routes_to` provenance;
-- WIR closes after successful handoff;
-- WIR does not create/own SourceBinding;
-- remove WIR assessment/plan/execution/integration stages;
-- direct target Workflow creation and WIR-created target Workflow use the same creation service.
+### WTR16 — Integration / Composition front half
 
-### WTR07 — Restore Project Creation / Greenfield entry independently of WIR
+- **WTR16A — Characterize-first Integration Intake/assessment.**
+- **WTR16B — Build-versus-integrate planning → shared execution normalization.**
 
-Purpose:
+### WTR17 — Infrastructure / Platform front half
 
-Repair the Landing/New Project lifecycle.
+- **WTR17A — Infrastructure Intake/operational-topology assessment.**
+- **WTR17B — Provision/rollout/recovery planning → shared execution normalization.**
 
-Required outcome:
+### WTR18 — Research / Prototype front half
 
-- Start New Project opens Project Intake / Greenfield workflow;
-- remove `captureGreenfieldWorkIntake()` as Project-creation authority;
-- Project Intake, Architect product understanding, and Greenfield planning are current Structured Project State operations;
-- establish initial `main → dev` topology at the appropriate Greenfield boundary;
-- initial implementation uses the shared execution kernel later in the package;
-- WIR is not involved unless the Operator explicitly starts WIR after Project creation.
+- **WTR18A — Research question/hypothesis/evidence Intake.**
+- **WTR18B — Research closure or research WorkItem normalization.**
 
-### Shared execution service kernel
+### WTR19 — Issue Resolution current-state conversion
 
-### WTR08 — Promote canonical Structured Project execution kernel
+- **WTR19A — Represent Issue inventory as multiple Issue Resolution Workflow instances.**
+- **WTR19B — Preserve Issue Intake/evidence/reproduction/RCA in Structured Project State.**
+- **WTR19C — Normalize correction planning into shared WorkItems/Phases/Criteria.**
+- **WTR19D — Remove bespoke post-plan Issue execution ownership.**
 
-Purpose:
+### WTR20 — Complete Greenfield through shared execution
 
-Turn existing ProjectStateService/engineering façade/planExecutor assets into the production execution service.
+- **WTR20A — Route approved Greenfield implementation state into shared execution kernel.**
+- **WTR20B — Close Project Creation into Workflow Hub without a private execution loop.**
 
-Required outcome:
+### WTR21 — Multi-instance Workflow Hub
 
-- one WorkflowExecutionService keyed by `projectId + workflowId`;
-- resolve canonical execution graph from WorkItems/Phases/Criteria/relationships;
-- Work Item eligibility/progression;
-- Phase eligibility/progression;
-- implementation attempt recording;
-- Validation/Evidence/Decision integration;
-- Repair relationships;
-- deterministic completion;
-- source checkpoint hooks by Workflow SourceBinding;
-- no Markdown state scan;
-- no Work Intake identity requirement;
-- preserve useful pure logic from `planExecutor`.
+- **WTR21A — Workflow Hub inventory projection grouped by Workflow Definition.**
+- **WTR21B — Direct `+ Start <Workflow>` actions and multiple visible instances.**
+- **WTR21C — Exact instance open/switch behavior without singleton active-workflow assumptions.**
+- **WTR21D — Remove legacy Development/Issue recovery disclosure.**
 
-### Shared execution Workspaces
+### WTR22 — Workflow-aware Source Control graph
 
-### WTR09 — Consolidate Work Item Map and Work Card Planning Workspaces
+- **WTR22A — Render Workflow type/title/state for each SourceLine.**
+- **WTR22B — Qualify simultaneous same-type and cross-type Workflow SourceLines.**
 
-Purpose:
+### WTR23 — Duplicate execution retirement
 
-Create one map/planning Workspace family for all implementation-bearing workflows.
+- **WTR23A — Remove obsolete WIR/Routed post-plan services and Workspaces with zero callers.**
+- **WTR23B — Remove obsolete Development/Issue post-plan wrappers superseded by shared Workspaces.**
 
-Required outcome:
+### WTR24 — Legacy runtime/migration retirement
 
-- one WorkItemMapWorkspace consuming normalized execution projection;
-- one WorkItemPlanningWorkspace consuming `workflowId + workItemId`;
-- reuse decomposition and Architect browser primitives;
-- adapters may provide workflow labels/context but not fork lifecycle logic;
-- replace Development, Issue Fix Card Map/planning, and Routed map/planning wrappers where their task is equivalent.
+- **WTR24A — Remove legacy inventory/import/equivalence/provider-cutover runtime.**
+- **WTR24B — Remove legacy/structured authority selection and obsolete compatibility tests/capability records.**
+- **WTR24C — Verify repository Markdown is documentation/Evidence/projection only, never current Workflow authority.**
 
-### WTR10 — Consolidate Implement Workspace and runtime controls
+### WTR25 — Package qualification
 
-Purpose:
+- **WTR25A — Multi-instance domain/source lifecycle qualification.**
+- **WTR25B — Cross-workflow shared execution qualification.**
+- **WTR25C — Targeted UI qualification: Existing Project Registration, Workflow Hub, shared execution, Source Control.**
+- **WTR25D — Final dead-code/duplicate-path audit and package closeout.**
 
-Use one implementation Workspace/runtime presentation.
+## 4. Required package qualification scenario
 
-Required outcome:
-
-- one ImplementWorkspace;
-- reuse CodexExecutionActions/Console and environment presentation;
-- runtime owner references Workflow/WorkItem identity;
-- Development, Issue, Feature, Migration, etc. all invoke same execution service;
-- no RoutedImplement or IssueFixCardImplement lifecycle wrapper remains.
-
-### WTR11 — Consolidate Review & Validation Workspace
-
-Purpose:
-
-Use one post-implementation review/validation station.
-
-Required outcome:
-
-- one ReviewValidationWorkspace;
-- canonical Evidence/Validation semantics;
-- reusable Architect advisory review where policy requires it;
-- no workflow-specific validation lifecycle owner;
-- Issue, Development and Routed review wrappers retired after replacement.
-
-### WTR12 — Consolidate Repair and Close / Next Workspaces
-
-Purpose:
-
-Unify correction and Work Item completion.
-
-Required outcome:
-
-- one RepairWorkspace over a Repair WorkItem relationship;
-- one CloseNextWorkspace;
-- reuse WorkCardRepairPresentation and WorkCardClosePresentation where appropriate;
-- return target derives from Workflow execution projection;
-- no Routed/Issue/Development-specific close loop.
-
-### WTR13 — Consolidate Phase validation/close and Integration Workspaces
-
-Purpose:
-
-Finish the shared post-plan kernel.
-
-Required outcome:
-
-- one PhaseValidation/Close experience over canonical Phase Criteria;
-- direct Plans skip Phase UI;
-- one Integration workspace over Workflow SourceBinding/IntegrationRecord;
-- Integration Repair remains application-owned and reusable;
-- remove routed-specific acceptance path and manual repository evidence-path entry;
-- evidence selection uses canonical Evidence identities.
-
-## 4. Independent workflow front halves
-
-These cards intentionally occur after the shared execution contracts are stable so they do not create another family of bespoke execution Workspaces.
-
-### WTR14 — Feature / Capability Workflow
-
-- independent direct start;
-- multiple Feature instances;
-- Feature-specific intake;
-- preserve existing feature planning profile;
-- compile into shared execution state;
-- Workflow owns SourceLine;
-- WIR Feature handoff lands in the same Feature intake/planning lifecycle.
-
-### WTR15 — Refactor / Migration Workflow
-
-- independent direct start;
-- multiple Migration instances;
-- current/target/transformation/cutover/retirement intake and planning;
-- preserve existing migration profile;
-- shared execution kernel after planning;
-- no permanent compatibility layer unless the specific Migration Plan explicitly requires a temporary product compatibility mechanism.
-
-### WTR16 — Integration / Composition Workflow
-
-- independent direct start;
-- multiple Integration instances;
-- characterize-first/build-vs-integrate intake and planning;
-- preserve existing integration profile;
-- shared execution after planning.
-
-### WTR17 — Infrastructure / Platform Workflow
-
-- independent direct start;
-- multiple Infrastructure instances;
-- operational topology/provision/rollback/health intake and planning;
-- preserve existing infrastructure profile;
-- shared execution after planning.
-
-### WTR18 — Research / Prototype Workflow
-
-- independent direct start;
-- multiple Research instances;
-- bounded question/hypothesis/evidence/decision intake;
-- preserve existing research profile;
-- close on accepted evidence when no implementation is needed;
-- when Work Items are needed, enter the shared execution kernel;
-- production follow-up creates a separate appropriate Workflow, not a nested continuation.
-
-### WTR19 — Issue Resolution Workflow on current state + shared kernel
-
-Purpose:
-
-Keep the strongest part of the existing Issue model—many independent Issue instances—while removing its duplicate execution implementation.
-
-Required outcome:
-
-- Issue inventory is backed by current Workflow instances;
-- keep Issue-specific Intake, evidence/reproduction, Architect/RCA, and correction planning;
-- correction plan normalizes to shared WorkItems/Phases/Criteria;
-- Fix Cards become ordinary shared Work Items with Issue semantics/context;
-- remove bespoke Issue Implement/Review/Repair/Close execution ownership;
-- multiple Issues remain concurrently open.
-
-### WTR20 — Complete Greenfield execution through shared kernel
-
-Purpose:
-
-Finish Project Creation without a private implementation loop.
-
-Required outcome:
-
-- approved Greenfield planning emits normal execution state;
-- shared Work Item/Phase kernel handles build/review/repair/close;
-- Project Creation completes into Workflow Hub;
-- no separate Greenfield execution workspace family.
-
-## 5. Product navigation and visibility
-
-### WTR21 — Rebuild Workflow Hub as multi-instance dashboard
-
-Purpose:
-
-Expose the corrected topology.
-
-Required outcome:
-
-- one section/card group per Workflow type;
-- `+ Start <type>` direct creation;
-- show multiple active/recent instances per type;
-- open exact instance;
-- WIR entry labeled as routing/help rather than mandatory Start Work;
-- Source Control entry remains first-class;
-- remove `Continue legacy Development or Issue work`;
-- no singleton `activeWorkflowId` model for repeatable workflows.
-
-### WTR22 — Update Source Control graph for Workflow multiplicity
-
-Purpose:
-
-Make Git visibly reflect the product model.
-
-Required outcome:
-
-- graph lines labeled by Workflow type/title/status;
-- multiple same-type Workflow SourceLines shown simultaneously;
-- WIR provenance may be visible in detail but WIR is not source owner;
-- integration target chronology remains clear;
-- one checkout limitation is diagnostics, not workflow eligibility.
-
-## 6. Retirement
-
-### WTR23 — Retire duplicate routed/legacy execution code
-
-Delete/retire only after replacement paths are live and tested.
-
-Expected targets include, subject to exact final dependency audit:
-
-- `RoutedExecutionWorkspace`;
-- Routed Work Item map/planning/implement/review/repair/close/acceptance wrappers;
-- `routedDevelopmentApplicationService`;
-- `routedDevelopmentExecutionService`;
-- `routedDevelopmentExecutionBinding`;
-- WIR-owned routed integration orchestration no longer needed after generic Integration service ownership;
-- duplicate Issue post-plan Fix Card workspace implementations;
-- superseded Development post-plan lifecycle wrappers.
-
-Retain reusable presentation components and low-level services that now serve the shared kernel.
-
-### WTR24 — Remove legacy workflow migration/provider compatibility stack
-
-Expected retirement:
-
-- legacy authority inventory;
-- staged legacy workflow importer;
-- legacy equivalence verifier;
-- structured-provider cutover/rollback;
-- `legacy | structured` workflow authority selection;
-- legacy canonical read/write fence used solely for dual-engine coexistence;
-- legacy Workflow Hub entries;
-- tests/capability records whose only purpose is preserving the retired compatibility architecture.
-
-Repository Markdown remains ordinary documentation/historical evidence where applicable.
-
-## 7. Qualification
-
-### WTR25 — Qualify multi-instance workflows and shared execution kernel
-
-Required end-to-end proof:
-
-One Project simultaneously contains at least:
+At final qualification, one Project must simultaneously contain at least:
 
 - Issue A;
 - Issue B;
@@ -426,43 +237,36 @@ One Project simultaneously contains at least:
 - Feature B;
 - Migration A;
 - Research A;
-- WIR A routing to an additional substantive Workflow.
+- WIR A routing to one additional substantive Workflow.
 
-Prove:
+The final proof must establish:
 
 1. all are independent Workflow identities;
 2. all remain queryable concurrently;
-3. each substantive Workflow has an independent SourceLine;
-4. no existing Workflow must close before another is created/planned;
-5. direct Feature start and WIR→Feature handoff converge on the same Feature workflow contract;
-6. Issue and Feature execute through the same post-plan kernel;
-7. Repair and validation use the same shared Workspace contracts across at least two workflow types;
-8. Source Graph shows simultaneous lines correctly;
-9. switching Workflow UI context does not mutate another Workflow;
-10. the transitional single-checkout limitation does not block Workflow creation/planning;
-11. New Project enters Project/Greenfield Intake, not WIR;
-12. no legacy workflow/provider mode is exposed;
-13. repository old workflow artifacts do not become current Project State;
-14. duplicate retired execution components have no production callers;
-15. targeted visual inspection covers Workflow Hub, two same-type instances, shared execution, and Source Control graph.
+3. direct and WIR-created Workflows converge on the same target contract;
+4. every substantive source-backed Workflow captures an exact baseline;
+5. each Workflow requiring source mutation can own an independent SourceLine;
+6. no Workflow must close before another is created/planned;
+7. at least two Workflow types execute through the same post-plan kernel;
+8. Repair and Review/Validation use the same shared Workspace contracts across Workflow types;
+9. Source Graph shows simultaneous Workflow-owned lines;
+10. Project container root is usable through MCP without being Git-backed;
+11. Main/Dev are durable sibling checkouts;
+12. normal `.gitignore` behavior is preserved from repository bootstrap onward;
+13. New Project enters Project Creation, not WIR;
+14. an unregistered existing repository enters Existing Project Registration;
+15. no legacy Workflow/provider mode is exposed;
+16. old repository Workflow artifacts do not become current Project State;
+17. retired execution/migration components have no production callers.
 
-## 8. Proposed deletion principle
+## 5. Immediate release boundary
 
-Do not keep a wrapper merely because it once had a distinct workflow name.
+Only **WTR01A** is authored for implementation at this time.
 
-After WTR25, any remaining workflow-specific post-plan component/service must have a documented material task difference.
+No WTR01B or later card is implementation-authorized until:
 
-If it cannot state that difference, it is code duplication and should be removed.
-
-## 9. Plan review questions
-
-Operator review should focus on:
-
-1. whether the Workflow type set is correct;
-2. whether WIR should own no SourceLine by default;
-3. whether fresh existing-Project registration without old workflow import is the desired bootstrap;
-4. whether Greenfield / Project Creation should be repeatable or one-time;
-5. whether the proposed 25-card granularity is appropriate for Luna Medium calibration;
-6. whether SourceLine creation should occur at Workflow creation or be delayed until planning determines implementation is required (Research is the main edge case).
-
-No repair cards should be authored until these architecture/sequence questions are accepted or corrected.
+- WTR01A is implemented by Luna Medium;
+- focused validation/report/checkpoint are complete;
+- the Architect reviews the implementation;
+- any WTR01A repair is closed;
+- the Architect authors/releases the next bounded card.
