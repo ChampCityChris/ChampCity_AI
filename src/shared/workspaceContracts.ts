@@ -308,6 +308,17 @@ export interface AgentHarnessRegisteredWorkspaceSummary {
   validationError: string | null;
 }
 
+export interface AgentHarnessRegisteredRepositoryCheckoutSummary {
+  repositoryCheckoutId: string;
+  repositoryId: string;
+  sourceLineId: string;
+  role: "main" | "dev" | "workflow";
+  projectRelativePath: string;
+  workflowId?: string;
+  availability: "available" | "unavailable";
+  validationError: string | null;
+}
+
 export interface AgentHarnessWorkspaceRegistrySnapshot {
   schemaVersion: 1;
   state: "ready" | "failed";

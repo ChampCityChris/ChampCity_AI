@@ -1,10 +1,14 @@
 import { managedWorkspaceId, verifyManagedCheckout } from "../repository/managedWorktrees";
 import fs from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import type {
   AgentHarnessRegisteredWorkspaceSummary,
   AgentHarnessWorkspaceRegistrySnapshot,
+  AgentHarnessRegisteredRepositoryCheckoutSummary,
 } from "../../../shared/workspaceContracts";
+import type { RepositoryCheckout } from "../../../shared/sourceLifecycleContracts";
+import { validateRepositoryCheckoutContract, resolveManagedProjectSourceTopology, resolveManagedWorkflowCheckoutPath } from "../../sourceControl/projectSourceTopology";
 import { AgentHarnessError } from "../core/errors";
 import {
   resolveWorkspaceRootContextAsync,
@@ -19,6 +23,7 @@ interface StoredRegisteredWorkspace {
   workspaceId: string;
   canonicalRoot: string;
   managed?: { commonDirectory: string; checkoutName: string };
+  repositoryCheckouts?: RepositoryCheckout[];
 }
 
 interface StoredRegisteredWorkspaceRegistry {
@@ -171,6 +176,77 @@ export class RegisteredWorkspaceRegistry {
     }
   }
 
+  async registerRepositoryCheckout(workspaceId: string, checkout: RepositoryCheckout): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary> {
+    this.assertReady();
+    const entry = this.requireProjectEntry(workspaceId);
+    const valid = validateRepositoryCheckoutContract(checkout);
+    if (!valid.valid) throw new AgentHarnessError("INVALID_INPUT", "RepositoryCheckout descriptor is invalid.");
+    const registered = entry.repositoryCheckouts ?? [];
+    const sameId = registered.find(item => item.repositoryCheckoutId === checkout.repositoryCheckoutId);
+    if (sameId) {
+      if (!sameCheckoutContract(sameId, checkout)) throw new AgentHarnessError("WORKSPACE_REGISTRY_CONFLICT", "RepositoryCheckout ID is already registered with a different contract.");
+      try { this.validateCheckoutRoot(this.deriveCheckoutRoot(entry.canonicalRoot, checkout)); }
+      catch { throw new AgentHarnessError("GIT_CAPABILITY_UNAVAILABLE", "The registered checkout is unavailable or does not identify an exact Git working tree."); }
+      return this.checkoutSummary(checkout, true, null);
+    }
+    if (registered.some(item => item.projectRelativePath === checkout.projectRelativePath)) throw new AgentHarnessError("WORKSPACE_REGISTRY_CONFLICT", "A checkout path is already registered under a different identity.");
+    try { this.validateCheckoutRoot(this.deriveCheckoutRoot(entry.canonicalRoot, checkout)); }
+    catch { throw new AgentHarnessError("GIT_CAPABILITY_UNAVAILABLE", "The registered checkout is unavailable or does not identify an exact Git working tree."); }
+    const next = new Map(this.entries);
+    const updated = { ...entry, repositoryCheckouts: [...registered, { ...checkout }].sort((a,b) => a.repositoryCheckoutId.localeCompare(b.repositoryCheckoutId)) };
+    next.set(workspaceId, updated); this.persist(next); this.entries = next;
+    return this.checkoutSummary(checkout, true, null);
+  }
+
+  async unregisterRepositoryCheckout(workspaceId: string, repositoryCheckoutId: string): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary[]> {
+    this.assertReady();
+    const entry = this.requireProjectEntry(workspaceId);
+    const next = new Map(this.entries);
+    next.set(workspaceId, { ...entry, repositoryCheckouts: (entry.repositoryCheckouts ?? []).filter(item => item.repositoryCheckoutId !== repositoryCheckoutId) });
+    this.persist(next); this.entries = next;
+    return await this.listRepositoryCheckoutSummaries(workspaceId);
+  }
+
+  async listRepositoryCheckoutSummaries(workspaceId: unknown): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary[]> {
+    const entry = this.requireProjectEntry(workspaceId);
+    return (entry.repositoryCheckouts ?? []).map(checkout => {
+      try { this.validateCheckoutRoot(this.deriveCheckoutRoot(entry.canonicalRoot, checkout)); return this.checkoutSummary(checkout, true, null); }
+      catch { return this.checkoutSummary(checkout, false, "Registered checkout is unavailable or no longer validates."); }
+    });
+  }
+
+  async resolveRepositoryCheckoutContext(workspaceId: unknown, repositoryCheckoutId: unknown) {
+    const entry = this.requireProjectEntry(workspaceId);
+    if (typeof repositoryCheckoutId !== "string" || !repositoryCheckoutId.trim()) throw new AgentHarnessError("INVALID_INPUT", "repositoryCheckoutId is required.");
+    const checkout = (entry.repositoryCheckouts ?? []).find(item => item.repositoryCheckoutId === repositoryCheckoutId);
+    if (!checkout) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "The repositoryCheckoutId is not registered under this Project workspace.");
+    try {
+      await this.resolve(entry.workspaceId);
+      const root = this.deriveCheckoutRoot(entry.canonicalRoot, checkout); this.validateCheckoutRoot(root);
+      return { workspaceId: entry.workspaceId, root, checkout };
+    } catch { throw new AgentHarnessError("GIT_CAPABILITY_UNAVAILABLE", "The registered repository checkout is unavailable or no longer validates."); }
+  }
+
+  private requireProjectEntry(workspaceId: unknown): StoredRegisteredWorkspace {
+    if (typeof workspaceId !== "string" || !workspaceId.trim()) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "Tool call requires an exact registered workspaceId.");
+    const entry = this.entries.get(workspaceId);
+    if (!entry || entry.managed) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "The Project workspace is not registered for RepositoryCheckout routing.");
+    return entry;
+  }
+  private deriveCheckoutRoot(projectRoot: string, checkout: RepositoryCheckout): string {
+    const topology = resolveManagedProjectSourceTopology(projectRoot);
+    return checkout.role === "main" ? topology.mainCheckoutRoot : checkout.role === "dev" ? topology.devCheckoutRoot : resolveManagedWorkflowCheckoutPath(projectRoot, checkout.workflowId!).checkoutRoot;
+  }
+  private validateCheckoutRoot(root: string): void {
+    const resolved = fs.realpathSync(root);
+    if (path.resolve(resolved) !== path.resolve(root) || !fs.statSync(resolved).isDirectory()) throw new Error("redirect");
+    const top = execFileSync("git", ["-C", resolved, "rev-parse", "--show-toplevel"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    if (path.resolve(top) !== path.resolve(resolved)) throw new Error("not exact root");
+  }
+  private checkoutSummary(checkout: RepositoryCheckout, available: boolean, validationError: string | null): AgentHarnessRegisteredRepositoryCheckoutSummary {
+    return { ...checkout, availability: available ? "available" : "unavailable", validationError };
+  }
+
   private load(): void {
     if (!fs.existsSync(this.targetPath)) {
       return;
@@ -280,6 +356,12 @@ function rootKey(value: string): string {
   return process.platform === "win32" ? resolved.toLowerCase() : resolved;
 }
 
+function sameCheckoutContract(left: RepositoryCheckout, right: RepositoryCheckout): boolean {
+  return left.repositoryCheckoutId === right.repositoryCheckoutId && left.repositoryId === right.repositoryId &&
+    left.sourceLineId === right.sourceLineId && left.role === right.role &&
+    left.projectRelativePath === right.projectRelativePath && left.workflowId === right.workflowId;
+}
+
 function isStoredRegistry(value: unknown): value is StoredRegisteredWorkspaceRegistry {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return false;
@@ -293,13 +375,19 @@ function isStoredRegistry(value: unknown): value is StoredRegisteredWorkspaceReg
         return false;
       }
       const candidate = entry as Record<string, unknown>;
-      return Object.keys(candidate).every((key) => ["workspaceId", "canonicalRoot", "managed"].includes(key)) &&
+      return Object.keys(candidate).every((key) => ["workspaceId", "canonicalRoot", "managed", "repositoryCheckouts"].includes(key)) &&
         typeof candidate.workspaceId === "string" &&
         /^[a-z0-9_]+$/.test(candidate.workspaceId) &&
         typeof candidate.canonicalRoot === "string" &&
-        path.isAbsolute(candidate.canonicalRoot) && (candidate.managed === undefined || (
+        path.isAbsolute(candidate.canonicalRoot) && (candidate.repositoryCheckouts === undefined || (
+          Array.isArray(candidate.repositoryCheckouts) && candidate.repositoryCheckouts.every(item => {
+            const result = validateRepositoryCheckoutContract(item as RepositoryCheckout);
+            return result.valid;
+          }) && new Set(candidate.repositoryCheckouts.map(item => (item as RepositoryCheckout).repositoryCheckoutId)).size === candidate.repositoryCheckouts.length &&
+          new Set(candidate.repositoryCheckouts.map(item => (item as RepositoryCheckout).projectRelativePath)).size === candidate.repositoryCheckouts.length
+        )) && (candidate.managed === undefined || (
           candidate.managed !== null && typeof candidate.managed === "object" && !Array.isArray(candidate.managed) &&
-          Object.keys(candidate.managed).every((key) => ["commonDirectory", "checkoutName"].includes(key)) &&
+          candidate.repositoryCheckouts === undefined && Object.keys(candidate.managed).every((key) => ["commonDirectory", "checkoutName"].includes(key)) &&
           typeof (candidate.managed as Record<string, unknown>).commonDirectory === "string" &&
           path.isAbsolute((candidate.managed as { commonDirectory: string }).commonDirectory) &&
           typeof (candidate.managed as Record<string, unknown>).checkoutName === "string"

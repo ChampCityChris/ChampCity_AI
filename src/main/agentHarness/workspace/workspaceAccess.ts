@@ -3,6 +3,14 @@ import path from "node:path";
 import { requireBoundMcpWorkspace } from "../../integrations/mcpWorkspacePromptContract";
 import { AgentHarnessError } from "../core/errors";
 import { isGitBacked } from "../repository/repositoryOperations";
+import type { RepositoryCheckout } from "../../../shared/sourceLifecycleContracts";
+import type { AgentHarnessRegisteredRepositoryCheckoutSummary } from "../../../shared/workspaceContracts";
+
+export interface AgentHarnessRepositoryCheckoutContext {
+  workspaceId: string;
+  root: string;
+  checkout: RepositoryCheckout;
+}
 
 export type HarnessActionKind =
   | "read"
@@ -32,15 +40,21 @@ export interface AgentHarnessWorkspaceAccessProvider {
   listWorkspaceSummaries: () => Array<Omit<AgentHarnessWorkspaceContext, "root" | "capabilities"> & {
     availability: "available" | "unavailable";
   }>;
+  resolveRepositoryCheckoutContext: (workspaceId: unknown, repositoryCheckoutId: unknown) => Promise<AgentHarnessRepositoryCheckoutContext>;
+  listRepositoryCheckoutSummaries: (workspaceId: unknown) => Promise<AgentHarnessRegisteredRepositoryCheckoutSummary[]>;
 }
 
 export function createRegisteredWorkspaceAccessProvider(options: {
   resolveWorkspaceContext: AgentHarnessWorkspaceAccessProvider["resolveWorkspaceContext"];
   listWorkspaceSummaries: AgentHarnessWorkspaceAccessProvider["listWorkspaceSummaries"];
+  resolveRepositoryCheckoutContext?: AgentHarnessWorkspaceAccessProvider["resolveRepositoryCheckoutContext"];
+  listRepositoryCheckoutSummaries?: AgentHarnessWorkspaceAccessProvider["listRepositoryCheckoutSummaries"];
 }): AgentHarnessWorkspaceAccessProvider {
   return {
     resolveWorkspaceContext: options.resolveWorkspaceContext,
     listWorkspaceSummaries: options.listWorkspaceSummaries,
+    resolveRepositoryCheckoutContext: options.resolveRepositoryCheckoutContext ?? (async () => { throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "No registered RepositoryCheckout resolver is available."); }),
+    listRepositoryCheckoutSummaries: options.listRepositoryCheckoutSummaries ?? (async () => []),
   };
 }
 
@@ -84,10 +98,7 @@ function workspaceContext(
 }
 
 export function assertActionAccess(context: AgentHarnessWorkspaceContext, kind: HarnessActionKind): void {
-  if (kind === "git-mutation" && !context.gitBacked) {
-    throw new AgentHarnessError("GIT_CAPABILITY_UNAVAILABLE", "The registered project is not Git-backed.");
-  }
-  if (kind === "git-inspection" && !context.capabilities.gitInspection) {
-    throw new AgentHarnessError("GIT_CAPABILITY_UNAVAILABLE", "The registered project is not Git-backed.");
+  if ((kind === "git-mutation" || kind === "git-inspection") && !context.capabilities.gitInspection) {
+    throw new AgentHarnessError("GIT_CAPABILITY_UNAVAILABLE", "A validated repository checkout is required for Git access.");
   }
 }

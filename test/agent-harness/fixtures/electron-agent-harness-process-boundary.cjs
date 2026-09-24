@@ -203,27 +203,12 @@ async function runBoundaryScenario() {
 
     const gitA = await callTool(mcpClient, "git_toolbox", {
       workspaceId: "project_a",
-      action: "status",
+      action: "list_repository_checkouts",
     });
     assert.equal(gitA.structuredContent.ok, true);
-    assert.equal(gitA.structuredContent.payload.gitBacked, true);
+    assert.deepEqual(gitA.structuredContent.payload, []);
 
     assert.equal(fs.existsSync(path.join(projectA, "planning", "phases")), false);
-    fs.writeFileSync(path.join(projectA, "worker-bounded.txt"), "worker-backed mutation\n", "utf8");
-    const boundedMutation = await callTool(mcpClient, "git_toolbox", {
-      workspaceId: "project_a",
-      action: "stage_changes",
-      params: { paths: ["worker-bounded.txt"] },
-    });
-    assert.equal(boundedMutation.structuredContent.ok, true);
-    assert.deepEqual(boundedMutation.structuredContent.payload.stagedPaths, ["worker-bounded.txt"]);
-    assert.equal(
-      execFileSync("git", ["diff", "--cached", "--name-only", "--", "worker-bounded.txt"], {
-        cwd: projectA,
-        encoding: "utf8",
-      }).trim(),
-      "worker-bounded.txt",
-    );
 
     const readBWhileAIsAvailable = await callTool(mcpClient, "repo_toolbox", {
       workspaceId: "project_b",

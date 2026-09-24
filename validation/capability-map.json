@@ -7,6 +7,8 @@
       "sourcePatterns": [
         "src/main/agentHarness/runtime/**",
         "src/main/agentHarness/tools/**",
+        "src/main/integrations/mcpWorkspacePromptContract.ts",
+        "test/agent-harness/fixtures/electron-agent-harness-process-boundary.cjs",
         "test/support/mcp-diagnostics-fixture.cjs",
         "test/support/mcp-session-fixture.cjs"
       ],

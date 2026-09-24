@@ -11,6 +11,7 @@ import type {
   AgentHarnessControlledRestartDisposition,
   AgentHarnessOperationalDiagnostics,
 } from "../../../shared/workspaceContracts";
+import type { RepositoryCheckout } from "../../../shared/sourceLifecycleContracts";
 import type { AgentHarnessWorkerHeartbeat } from "./agentHarnessProcessProtocol";
 import type { AgentHarnessToolDefinition } from "../tools/toolRegistry";
 import { createAgentHarnessToolRegistry, type AgentHarnessToolRegistry } from "../tools/toolRegistry";
@@ -74,6 +75,8 @@ export class AgentHarnessService {
     this.workspaceAccess = createRegisteredWorkspaceAccessProvider({
       resolveWorkspaceContext: (workspaceId) => this.workspaceRegistry.resolve(workspaceId),
       listWorkspaceSummaries: () => this.workspaceRegistry.snapshot().workspaces,
+      resolveRepositoryCheckoutContext: (workspaceId, id) => this.workspaceRegistry.resolveRepositoryCheckoutContext(workspaceId, id),
+      listRepositoryCheckoutSummaries: (workspaceId) => this.workspaceRegistry.listRepositoryCheckoutSummaries(workspaceId),
     });
     this.registry = createAgentHarnessToolRegistry({
       workspaceAccess: this.workspaceAccess,
@@ -121,6 +124,16 @@ export class AgentHarnessService {
     const registry = this.workspaceRegistry.unregister(workspaceId);
     this.recordActivity(`Unregistered MCP workspace ${workspaceId}.`);
     return registry;
+  }
+
+  async registerRepositoryCheckout(workspaceId: string, checkout: RepositoryCheckout) {
+    await this.workspaceRegistryReady;
+    return this.workspaceRegistry.registerRepositoryCheckout(workspaceId, checkout);
+  }
+
+  async unregisterRepositoryCheckout(workspaceId: string, repositoryCheckoutId: string) {
+    await this.workspaceRegistryReady;
+    return this.workspaceRegistry.unregisterRepositoryCheckout(workspaceId, repositoryCheckoutId);
   }
 
   async start(): Promise<AgentHarnessStatus> {

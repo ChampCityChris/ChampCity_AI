@@ -67,6 +67,7 @@ const EXISTING_TOOL_ACTIONS = {
   ],
   visual_asset_toolbox: ["read_image", "inspect_image", "compare_images", "create_image_preview"],
   git_toolbox: [
+    "list_repository_checkouts",
     "status",
     "diff",
     "changed_files",
@@ -169,12 +170,12 @@ test("HOTFIX10 publishes the exact stable top-level namespace and preserves exis
 
   const gitSchema = toolsByName.get("git_toolbox").inputZodSchema;
   for (const [action, params] of [
-    ["create_branch_from_ref", { branchName: "feature", sourceRef: "dev" }],
-    ["advance_branch_ref", { branchName: "feature", sourceRef: "dev", expectedCurrentCommit: "a".repeat(40) }],
-    ["rename_branch", { branchName: "feature", newBranchName: "renamed" }],
-    ["set_branch_upstream", { branchName: "feature", remote: "origin", remoteBranch: "dev" }],
-    ["unset_branch_upstream", { branchName: "feature" }],
-    ["delete_remote_branch", { remote: "origin", remoteBranch: "dev", expectedRemoteCommit: "a".repeat(40) }],
+    ["create_branch_from_ref", { repositoryCheckoutId: "checkout-1", branchName: "feature", sourceRef: "dev" }],
+    ["advance_branch_ref", { repositoryCheckoutId: "checkout-1", branchName: "feature", sourceRef: "dev", expectedCurrentCommit: "a".repeat(40) }],
+    ["rename_branch", { repositoryCheckoutId: "checkout-1", branchName: "feature", newBranchName: "renamed" }],
+    ["set_branch_upstream", { repositoryCheckoutId: "checkout-1", branchName: "feature", remote: "origin", remoteBranch: "dev" }],
+    ["unset_branch_upstream", { repositoryCheckoutId: "checkout-1", branchName: "feature" }],
+    ["delete_remote_branch", { repositoryCheckoutId: "checkout-1", remote: "origin", remoteBranch: "dev", expectedRemoteCommit: "a".repeat(40) }],
   ]) {
     const input = { workspaceId: fixture.workspaceId, action, params };
     assert.equal(gitSchema.safeParse(input).success, true, action);
@@ -184,10 +185,14 @@ test("HOTFIX10 publishes the exact stable top-level namespace and preserves exis
       assert.equal(gitSchema.safeParse({ ...input, params: missing }).success, false, action + ":" + key);
     }
   }
-  const push = { workspaceId: fixture.workspaceId, action: "push", params: { remoteBranch: "other", setUpstream: true, expectedCommit: "a".repeat(40) } };
+  const push = { workspaceId: fixture.workspaceId, action: "push", params: { repositoryCheckoutId: "checkout-1", remoteBranch: "other", setUpstream: true, expectedCommit: "a".repeat(40) } };
   assert.equal(gitSchema.safeParse(push).success, true);
   assert.equal(gitSchema.safeParse({ ...push, params: { setUpstream: "true" } }).success, false);
-  assert.equal(gitSchema.safeParse({ ...push, params: {} }).success, true);
+  assert.equal(gitSchema.safeParse({ ...push, params: { repositoryCheckoutId: "checkout-1" } }).success, true);
+  assert.equal(gitSchema.safeParse({ ...push, params: { repositoryCheckoutId: "checkout-1", repositoryCheckoutPath: "Dev" } }).success, false);
+  assert.equal(gitSchema.safeParse({ workspaceId: fixture.workspaceId, action: "status", params: {} }).success, false);
+  assert.equal(gitSchema.safeParse({ workspaceId: fixture.workspaceId, action: "status", params: { repositoryCheckoutId: "checkout-1", checkoutRoot: "Dev" } }).success, false);
+  assert.equal(gitSchema.safeParse({ workspaceId: fixture.workspaceId, action: "list_repository_checkouts" }).success, true);
   const firstCapture = captureAgentHarnessPublicToolContract(registry, "files.read files.write");
   const secondCapture = captureAgentHarnessPublicToolContract(registry, "files.write files.read files.write");
   assert.equal(firstCapture.toolCount, 35);

@@ -37,6 +37,11 @@ export function buildMcpWorkspaceBindingPromptBlock(
     ...(binding.branch ? [`- Bound branch: ${binding.branch}`] : []),
     `- Use ChampCity MCP workspaceId "${binding.workspaceId}" only.`,
     "- Use this workspaceId in every ChampCity MCP tool call.",
+    "- workspaceId identifies the Project container, not a Git checkout.",
+    "- repo_toolbox operates on the Project container.",
+    "- git_toolbox Git actions require an exact registered repositoryCheckoutId.",
+    "- Use git_toolbox.list_repository_checkouts to discover registered checkout IDs when Git access is needed.",
+    "- Never invent a checkout ID or substitute a branch or path for repositoryCheckoutId.",
     "- Do not inspect, search, compare, or fall back to any other configured workspace.",
     ...(options.includeDiagnosticsToolboxHint === false
       ? []

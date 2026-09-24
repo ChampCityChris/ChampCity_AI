@@ -257,7 +257,7 @@ test("bounded Git cancels streamed output and terminates children on either outp
   }
 });
 
-test("Git status and public toolboxes contain nested registered roots while preserving repository-root status", async () => {
+test("repo_toolbox preserves nested registered-root status while git_toolbox requires an explicit checkout", async () => {
   const nested = createGitWorkspace("Parent Git Project");
   const registeredRoot = path.join(nested, "Registered Workspace");
   write(nested, "outside.txt", "outside baseline\n");
@@ -292,13 +292,17 @@ test("Git status and public toolboxes contain nested registered roots while pres
   const gitToolStatus = await nestedService.toolRegistry().callTool({
     name: "git_toolbox",
     scope: "files.read",
-    arguments: { workspaceId: nestedWorkspaceId, action: "status" },
+    arguments: { workspaceId: nestedWorkspaceId, action: "status", params: {} },
   });
-  assert.equal(gitToolStatus.ok, true);
-  assert.deepEqual(Object.keys(gitToolStatus.payload).sort(), ["gitBacked", "shortStatus"]);
-  assert.match(gitToolStatus.payload.shortStatus, /inside\.txt/);
-  assert.match(gitToolStatus.payload.shortStatus, /nested\/child\.txt/);
-  assert.doesNotMatch(gitToolStatus.payload.shortStatus, /outside\.txt|\.\.\//);
+  assert.equal(gitToolStatus.ok, false);
+  assert.equal(gitToolStatus.error.code, "INVALID_INPUT");
+  const unregisteredTarget = await nestedService.toolRegistry().callTool({
+    name: "git_toolbox",
+    scope: "files.read",
+    arguments: { workspaceId: nestedWorkspaceId, action: "status", params: { repositoryCheckoutId: "inferred-project-root" } },
+  });
+  assert.equal(unregisteredTarget.ok, false);
+  assert.equal(unregisteredTarget.error.code, "WORKSPACE_ACCESS_DENIED");
 
   const repoToolStatus = await nestedService.toolRegistry().callTool({
     name: "repo_toolbox",
@@ -332,12 +336,10 @@ test("Git status and public toolboxes contain nested registered roots while pres
   const ordinaryStatus = await ordinaryService.toolRegistry().callTool({
     name: "git_toolbox",
     scope: "files.read",
-    arguments: { workspaceId: ordinaryRegistration.workspace.workspaceId, action: "status" },
+    arguments: { workspaceId: ordinaryRegistration.workspace.workspaceId, action: "status", params: {} },
   });
-  assert.equal(ordinaryStatus.ok, true);
-  assert.deepEqual(Object.keys(ordinaryStatus.payload).sort(), ["gitBacked", "shortStatus"]);
-  assert.match(ordinaryStatus.payload.shortStatus, /tracked\.txt/);
-  assert.match(ordinaryStatus.payload.shortStatus, /untracked\.txt/);
+  assert.equal(ordinaryStatus.ok, false);
+  assert.equal(ordinaryStatus.error.code, "INVALID_INPUT");
 });
 
 function createWorkspace(name) {

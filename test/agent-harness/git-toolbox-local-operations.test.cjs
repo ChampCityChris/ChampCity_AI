@@ -35,6 +35,7 @@ const {
 } = require("../support/canonical-markdown-fixtures.cjs");
 const {
   createBoundWorkspace,
+  createGitToolboxWorkspace,
   configureGitIdentity,
   registryFor,
   callGit,
@@ -89,7 +90,7 @@ test("Git dispatch and mutation modules do not import workflow decision services
 });
 
 test("all five bounded git_toolbox mutations execute in a registered Git repository without a planning corpus", async () => {
-  const root = createBoundWorkspace("champcity-git-mutations-success-", true);
+  const root = createGitToolboxWorkspace("champcity-git-mutations-success-");
   fs.writeFileSync(path.join(root, "delete-me.txt"), "delete me\n", "utf8");
   commitAllFixtureState(root, "fixture baseline");
   assert.equal(fs.existsSync(path.join(root, "planning")), false);
@@ -147,7 +148,7 @@ test("all five bounded git_toolbox mutations execute in a registered Git reposit
 });
 
 test("branch state, existing-branch switching, and bounded history expose real repository evidence", async () => {
-  const root = createBoundWorkspace("champcity-git-branch-state-", true);
+  const root = createGitToolboxWorkspace("champcity-git-branch-state-");
   commitAllFixtureState(root, "fixture baseline");
   const baseline = git(root, ["rev-parse", "HEAD"]);
   execFileSync("git", ["branch", "main"], { cwd: root, stdio: "ignore" });
@@ -202,7 +203,7 @@ test("branch state, existing-branch switching, and bounded history expose real r
 });
 
 test("merge_branch carries a hotfix into main and forward into diverged dev, then deletes merged branches safely", async () => {
-  const root = createBoundWorkspace("champcity-git-merge-lifecycle-", true);
+  const root = createGitToolboxWorkspace("champcity-git-merge-lifecycle-");
   commitAllFixtureState(root, "fixture baseline");
   execFileSync("git", ["branch", "main"], { cwd: root, stdio: "ignore" });
   const registry = registryFor(root);
@@ -251,7 +252,7 @@ test("merge_branch carries a hotfix into main and forward into diverged dev, the
 });
 
 test("merge_branch reports conflicts and aborts the merge without resolving or rewriting history", async () => {
-  const root = createBoundWorkspace("champcity-git-merge-conflict-", true);
+  const root = createGitToolboxWorkspace("champcity-git-merge-conflict-");
   fs.writeFileSync(path.join(root, "shared.txt"), "baseline\n", "utf8");
   commitAllFixtureState(root, "fixture baseline");
   const registry = registryFor(root);
@@ -279,19 +280,19 @@ test("merge_branch reports conflicts and aborts the merge without resolving or r
 });
 
 test("OAuth, workspace registration, Git-backed state, action, and parameter gates remain enforced", async () => {
-  const root = createBoundWorkspace("champcity-git-security-boundary-", true);
+  const root = createGitToolboxWorkspace("champcity-git-security-boundary-");
   const registry = registryFor(root);
   const tool = registry.listTools("files.read files.write").find((entry) => entry.name === "git_toolbox");
   assert.ok(tool);
   assert.equal(tool.inputZodSchema.safeParse({
     workspaceId: "alpha",
     action: "stage_changes",
-    params: { paths: ["one.txt", "two/*.ts"] },
+    params: { repositoryCheckoutId: "fixture-checkout", paths: ["one.txt", "two/*.ts"] },
   }).success, true);
   assert.equal(tool.inputZodSchema.safeParse({
     workspaceId: "alpha",
     action: "merge_branch",
-    params: { sourceBranch: "hotfix/one", targetBranch: "dev", mode: "merge" },
+    params: { repositoryCheckoutId: "fixture-checkout", sourceBranch: "hotfix/one", targetBranch: "dev", mode: "merge" },
   }).success, true);
   for (const input of [
     { workspaceId: "alpha", action: "stage_changes", params: { paths: [] } },

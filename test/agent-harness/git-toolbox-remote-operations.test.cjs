@@ -35,6 +35,7 @@ const {
 } = require("../support/canonical-markdown-fixtures.cjs");
 const {
   createBoundWorkspace,
+  createGitToolboxWorkspace,
   configureGitIdentity,
   registryFor,
   callGit,
@@ -47,7 +48,7 @@ const {
 } = require("../support/git-mutation-fixtures.cjs");
 
 test("fetch_remote and fast_forward_branch update from configured upstream without a merge commit", async () => {
-  const root = createBoundWorkspace("champcity-git-fast-forward-", true);
+  const root = createGitToolboxWorkspace("champcity-git-fast-forward-");
   commitAllFixtureState(root, "fixture baseline");
   const remote = path.join(path.dirname(root), "upstream.git");
   execFileSync("git", ["init", "--bare", remote], { stdio: "ignore" });
@@ -98,7 +99,7 @@ test("fetch_remote and fast_forward_branch update from configured upstream witho
 });
 
 test("push and integrate_to_dev reject divergence without force, merge commits, rebase, or reset", async () => {
-  const pushRoot = createBoundWorkspace("champcity-git-push-reject-", true);
+  const pushRoot = createGitToolboxWorkspace("champcity-git-push-reject-");
   commitAllFixtureState(pushRoot, "fixture baseline");
   const pushRegistry = registryFor(pushRoot);
   await requireSuccess(callGit(pushRegistry, pushRoot, "prepare_branch", { branchName: "feature/diverged" }));
@@ -125,7 +126,7 @@ test("push and integrate_to_dev reject divergence without force, merge commits, 
   assert.equal(rejectedPush.ok, false);
   assert.equal(rejectedPush.error.code, "GIT_EXECUTION_FAILED");
 
-  const integrateRoot = createBoundWorkspace("champcity-git-integrate-reject-", true);
+  const integrateRoot = createGitToolboxWorkspace("champcity-git-integrate-reject-");
   commitAllFixtureState(integrateRoot, "fixture baseline");
   const integrateRegistry = registryFor(integrateRoot);
   await requireSuccess(callGit(integrateRegistry, integrateRoot, "prepare_branch", { branchName: "feature/non-ff" }));
@@ -146,7 +147,7 @@ test("push and integrate_to_dev reject divergence without force, merge commits, 
 });
 
 test("independent branch refs preserve dirty checkout state and enforce exact fast-forward ownership", async (t) => {
-  const root = createBoundWorkspace("champcity-ref-primitives-", true);
+  const root = createGitToolboxWorkspace("champcity-ref-primitives-");
   t.after(() => fs.rmSync(path.dirname(root), { recursive: true, force: true }));
   commitAllFixtureState(root, "base");
   const base = git(root, ["rev-parse", "HEAD"]);
@@ -204,7 +205,7 @@ test("independent branch refs preserve dirty checkout state and enforce exact fa
 });
 
 test("mapped branch push upstream and exact remote deletion preserve local refs and sanitize failures", async (t) => {
-  const root = createBoundWorkspace("champcity-remote-branches-", true);
+  const root = createGitToolboxWorkspace("champcity-remote-branches-");
   t.after(() => fs.rmSync(path.dirname(root), { recursive: true, force: true }));
   commitAllFixtureState(root, "base"); const base = git(root, ["rev-parse", "HEAD"]);
   const remote = path.join(path.dirname(root), "remote.git"); git(path.dirname(root), ["init", "--bare", remote]);

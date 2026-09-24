@@ -193,6 +193,7 @@ interface DispatchInput {
   params: Record<string, unknown>;
   userDataRoot: string;
   workspaceSummaries: AgentHarnessWorkspaceAccessProvider["listWorkspaceSummaries"];
+  repositoryCheckoutSummaries: AgentHarnessWorkspaceAccessProvider["listRepositoryCheckoutSummaries"];
   runtimeDiagnostics?: () => Record<string, unknown>;
 }
 
@@ -288,8 +289,12 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
         if (contract.kind === "test-execution" && (typeof args.workspaceId !== "string" || !args.workspaceId.trim() || args.workspaceId.length > 160)) {
           throw new AgentHarnessError("INVALID_INPUT", "workspaceId must be a bounded workspace identity.");
         }
-        const context = await options.workspaceAccess.resolveWorkspaceContext(args.workspaceId);
+        let context = await options.workspaceAccess.resolveWorkspaceContext(args.workspaceId);
         const params = validateParams(args.params, contract);
+        if (contract.kind === "git-inspection" || contract.kind === "git-mutation") {
+          const checkout = await options.workspaceAccess.resolveRepositoryCheckoutContext(args.workspaceId, params.repositoryCheckoutId);
+          context = { ...context, root: checkout.root, gitBacked: true, capabilities: { ...context.capabilities, gitInspection: true } };
+        }
         assertActionAccess(context, contract.kind);
         const dispatchResult = await contract.dispatch({
           context,
@@ -298,6 +303,7 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
           managedWorkspaces: options.managedWorkspaces,
           userDataRoot: options.userDataRoot,
           workspaceSummaries: options.workspaceAccess.listWorkspaceSummaries,
+          repositoryCheckoutSummaries: options.workspaceAccess.listRepositoryCheckoutSummaries,
           runtimeDiagnostics: options.runtimeDiagnostics,
         });
         if (isImageBearingDispatchResult(dispatchResult)) {
@@ -518,6 +524,7 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
       title: "git_toolbox",
       description: "ChampCity A/I Agent Harness git_toolbox.",
       actions: [
+        readAction("list_repository_checkouts", {}, ({ context, repositoryCheckoutSummaries }) => repositoryCheckoutSummaries(context.workspaceId)),
         gitInspectionAction("status", {}, ({ context }) => gitStatus(context.root, context.gitBacked)),
         gitInspectionAction("diff", {
           view: { type: "string", allowedValues: ["unstaged", "staged", "between_refs"] },
@@ -907,7 +914,12 @@ function readAction(name: string, params: Record<string, ParamSpec>, dispatch: T
 }
 
 function gitInspectionAction(name: string, params: Record<string, ParamSpec>, dispatch: ToolActionContract["dispatch"]): ToolActionContract {
-  return { name, kind: "git-inspection", requiredScope: "files.read", params, dispatch };
+  return { name, kind: "git-inspection", requiredScope: "files.read", params: withRepositoryCheckoutId(params), dispatch };
+}
+
+function withRepositoryCheckoutId(params: Record<string, ParamSpec>): Record<string, ParamSpec> {
+  if (Object.prototype.hasOwnProperty.call(params, "repositoryCheckoutId")) throw new Error("Git target is centrally defined.");
+  return { ...params, repositoryCheckoutId: { type: "string", required: true, minLength: 1, maxLength: 160 } };
 }
 
 function releaseInspectionAction(
@@ -943,7 +955,7 @@ function gitMutationAction(
     name,
     kind: "git-mutation",
     requiredScope: "files.write",
-    params,
+    params: withRepositoryCheckoutId(params),
     dispatch: async ({ context, params: values, managedWorkspaces }) => {
       switch (name) {
         case "replace_branch_ref":

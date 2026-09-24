@@ -30,7 +30,7 @@ test("actual Electron utility-process boundary preserves MCP routing, controls, 
   assert.equal(processExists(evidence.failedWorkerPid), false);
   assert.equal(processExists(evidence.recoveredWorkerPid), false);
   context.diagnostic(
-    `isolated worker evidence: distinct initial/recovered process identities; bounded stage_changes crossed the worker-backed public MCP path without workflow or planning fixtures; ${evidence.heartbeatCount} host-loop heartbeats during ${evidence.operationDurationMs}ms broad MCP search; ${evidence.toolCount} public tools; graceful shutdown`,
+    `isolated worker evidence: distinct initial/recovered process identities; repository checkout discovery crossed the worker-backed public MCP path; ${evidence.heartbeatCount} host-loop heartbeats during ${evidence.operationDurationMs}ms broad MCP search; ${evidence.toolCount} public tools; graceful shutdown`,
   );
 });
 
@@ -467,9 +467,10 @@ test("production Service Host survives desktop exit and the next desktop reconne
     assert.equal(written.structuredContent.ok, true);
     const gitStatus = await callTool(mcpClient, "git_toolbox", {
       workspaceId: "project_a",
-      action: "status",
+      action: "list_repository_checkouts",
     });
     assert.equal(gitStatus.structuredContent.ok, true);
+    assert.deepEqual(gitStatus.structuredContent.payload, []);
     await mcpClient.close();
     mcpClient = null;
 

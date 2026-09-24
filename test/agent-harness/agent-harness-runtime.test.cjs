@@ -157,11 +157,10 @@ test("Agent Harness HTTP runtime serves registered workspace tool discovery, rea
 
     const git = await callTool(client, "git_toolbox", {
       workspaceId: "fo76_collector",
-      action: "status",
+      action: "list_repository_checkouts",
     });
     assert.equal(git.structuredContent.ok, true);
-    assert.equal(git.structuredContent.payload.gitBacked, true);
-    assert.match(git.structuredContent.payload.shortStatus, /README\.md|planning\/test\.md/);
+    assert.deepEqual(git.structuredContent.payload, []);
 
     const diagnostics = await callTool(client, "diagnostics_toolbox", {
       workspaceId: "fo76_collector",
