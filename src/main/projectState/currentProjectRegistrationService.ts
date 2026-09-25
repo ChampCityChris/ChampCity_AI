@@ -7,6 +7,7 @@ import { createSQLiteProjectStateStore } from "./sqliteProjectStateStore";
 import { createProjectWorkflowStateFacade } from "./projectWorkflowStateFacade";
 
 const operator = { principalId: "local-operator", principalType: "human" as const, role: "Operator" };
+export const CURRENT_PROJECT_REPOSITORY_ID = "selected-project-source";
 
 export type CurrentProjectRegistrationMode = "existing" | "greenfield";
 export interface CurrentProjectRegistration {
@@ -32,14 +33,14 @@ export function selectedCurrentProjectId(projectRoot: string): string | null {
   try {
     const tables = database.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='projects'").all();
     if (!tables.length) throw Error("Selected Project State store is not current.");
-    const projectIds = (database.prepare("SELECT project_id FROM projects ORDER BY project_id").all() as { project_id: string }[]).map(row => row.project_id);
+    const projectIds = new Set((database.prepare("SELECT project_id FROM projects ORDER BY project_id").all() as { project_id: string }[]).map(row => row.project_id));
     const registrations = (database.prepare(`SELECT e.project_id, v.body_json FROM state_entities e JOIN state_entity_versions v
       ON v.project_id = e.project_id AND v.entity_id = e.entity_id AND v.record_version = e.current_record_version
       WHERE e.entity_type = 'ProjectResource'`).all() as { project_id: string; body_json: string }[])
-      .filter(row => { try { return JSON.parse(row.body_json).locator === "selected-project"; } catch { return false; } })
+      .filter(row => { try { const body = JSON.parse(row.body_json); return body.resourceType === "source-repository" && body.locator === "selected-project"; } catch { return false; } })
       .map(row => row.project_id);
-    if (projectIds.length > 1 || registrations.length > 1) throw Error("Selected Project State contains ambiguous Project identities.");
-    if (registrations.length && !projectIds.includes(registrations[0])) throw Error("Current Project registration references a missing Project.");
+    if (registrations.length > 1) throw Error("Selected Project State contains ambiguous Project identities.");
+    if (registrations.length && !projectIds.has(registrations[0])) throw Error("Current Project registration references a missing Project.");
     return registrations[0] ?? null;
   } finally { database.close(); }
 }
@@ -59,16 +60,6 @@ function containedProjectState(root: string): { directory: string; database: str
   return { directory, database };
 }
 
-function persistedProjectIds(databasePath: string): string[] {
-  if (!fs.existsSync(databasePath)) return [];
-  const database = new DatabaseSync(databasePath, { readOnly: true });
-  try {
-    const tables = database.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='projects'").all();
-    if (!tables.length) throw Error("Project State database is not a recognized current store.");
-    return (database.prepare("SELECT project_id FROM projects ORDER BY project_id").all() as { project_id: string }[]).map(row => row.project_id);
-  } finally { database.close(); }
-}
-
 /** Establishes or opens the one current SPS Project for a selected non-Git Project container. */
 export async function registerCurrentProject(projectRoot: string, mode: CurrentProjectRegistrationMode,
   options: { projectName?: string } = {}): Promise<CurrentProjectRegistration> {
@@ -77,18 +68,17 @@ export async function registerCurrentProject(projectRoot: string, mode: CurrentP
     throw Error("Project name must contain 1 to 200 characters.");
   const canonicalRoot = fs.realpathSync(projectRoot);
   const { database } = containedProjectState(canonicalRoot);
-  const ids = persistedProjectIds(database);
-  if (ids.length > 1) throw Error("Selected Project container contains ambiguous Project State records.");
+  const currentId = selectedCurrentProjectId(canonicalRoot);
   const store = createSQLiteProjectStateStore(database);
   try {
     const facade = createProjectWorkflowStateFacade(store, operator);
     let created = false;
     let projectId: ProjectId;
-    if (ids.length === 1) projectId = ids[0];
+    if (currentId) projectId = currentId;
     else {
       const name = options.projectName?.trim() || (mode === "greenfield" ? "New Project" : "Existing Project");
       const result = await facade.createProject({ name, purpose: mode === "greenfield" ? "Greenfield Project" : "Registered existing Project",
-        repository: { provider: "git", repositoryId: "selected-project-source", locator: "selected-project", } });
+        repository: { provider: "git", repositoryId: CURRENT_PROJECT_REPOSITORY_ID, locator: "selected-project", } });
       projectId = result.project.id;
       created = true;
     }

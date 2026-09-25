@@ -7,7 +7,7 @@ const test = require("node:test");
 const { mainPreloadHarness, loadProductionFunctions } = require("../support/production-execution.cjs");
 const { MANAGED_PROJECT_SOURCE_PATHS } = require("../../dist/shared/sourceLifecycleContracts.js");
 const { AgentHarnessService } = require("../../dist/main/agentHarness/runtime/agentHarnessService.js");
-const { registerCurrentProject, selectedCurrentProjectId } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
+const { CURRENT_PROJECT_REPOSITORY_ID, registerCurrentProject, selectedCurrentProjectId } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
 const { createSourceControlService } = require("../../dist/main/sourceControl/sourceControlService.js");
 const { establishManagedProjectSource } = require("../../dist/main/sourceControl/managedProjectSourceService.js");
 const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
@@ -40,6 +40,8 @@ test("Greenfield entry validates an empty container, establishes SPS and registe
     getRequiredWorkspaceRoot: () => selected,
     assertGreenfieldProjectEntry,
     registerCurrentProject,
+    selectedCurrentProjectId,
+    CURRENT_PROJECT_REPOSITORY_ID,
     getAgentHarnessServiceHostClient: () => harness,
     createSourceControlService,
     establishManagedProjectSource,
@@ -59,6 +61,33 @@ test("Greenfield entry validates an empty container, establishes SPS and registe
   } finally { state.close(); await harness.stop().catch(() => undefined); }
   assert.deepEqual(invocations.map(call => call.channel), ["project:registerCurrent"]);
   assert.throws(() => assertGreenfieldProjectEntry(path.dirname(selected)), /empty Project container/);
+  await assert.rejects(api.registerCurrentProject("greenfield", "Duplicate"), /cannot reopen a Current Project/);
+});
+
+test("Greenfield entry finishes registration for a compatible managed baseline without Current Project SPS", async context => {
+  const selected = root(context);
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-harness-"));
+  context.after(() => fs.rmSync(userData, { recursive: true, force: true }));
+  const harness = new AgentHarnessService({ userDataRoot: userData });
+  harness.registerWorkspace = rootPath => harness.registerWorkspaceRoot(rootPath);
+  context.after(() => harness.stop().catch(() => undefined));
+  const workspace = await harness.registerWorkspace(selected);
+  const checkoutRegistration = { workspaceId: workspace.workspace.workspaceId,
+    registerRepositoryCheckout: (workspaceId, checkout) => harness.registerRepositoryCheckout(workspaceId, checkout) };
+  const bootstrapped = await createSourceControlService({ repositoryId: "selected-project-source", repositoryRoot: selected, checkoutRegistration }).bootstrapProjectSource();
+  assert.equal(bootstrapped.ok, true);
+  assert.equal(selectedCurrentProjectId(selected), null);
+  const { assertGreenfieldProjectEntry } = loadProductionFunctions("src/main/main.ts", ["assertGreenfieldProjectEntry"],
+    { fs, path, MANAGED_PROJECT_SOURCE_PATHS });
+  const { api } = mainPreloadHarness(["project:registerCurrent"], {
+    getRequiredWorkspaceRoot: () => selected, assertGreenfieldProjectEntry, registerCurrentProject, selectedCurrentProjectId, CURRENT_PROJECT_REPOSITORY_ID,
+    getAgentHarnessServiceHostClient: () => harness, createSourceControlService, establishManagedProjectSource,
+    fs, path, MANAGED_PROJECT_SOURCE_PATHS,
+  });
+  const current = await api.registerCurrentProject("greenfield", "Recovered Greenfield");
+  assert.equal(current.created, true);
+  assert.equal(current.projectId, selectedCurrentProjectId(selected));
+  assert.equal(current.projectName, "Recovered Greenfield");
 });
 
 test("Existing conventional Project entry preserves source and historical Markdown without Workflow reconstruction", async context => {

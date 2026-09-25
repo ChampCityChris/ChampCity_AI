@@ -56,7 +56,7 @@ import { submitProjectIntakeForRepository } from "./projectIntake/projectIntakeS
 import { getWorkIntakeProjection, readWorkIntake, submitWorkIntake } from "./workIntake/workIntakeService";
 import { createSourceControlService } from "./sourceControl/sourceControlService";
 import { establishManagedProjectSource } from "./sourceControl/managedProjectSourceService";
-import { registerCurrentProject, selectedCurrentProjectId } from "./projectState/currentProjectRegistrationService";
+import { CURRENT_PROJECT_REPOSITORY_ID, registerCurrentProject, selectedCurrentProjectId } from "./projectState/currentProjectRegistrationService";
 import { MANAGED_PROJECT_SOURCE_PATHS } from "../shared/sourceLifecycleContracts";
 import { selectedSourceGraphRepositoryId } from "./sourceControl/sourceGraphService";
 import type { SourceGraphOptions } from "../shared/sourceLifecycleContracts";
@@ -363,18 +363,29 @@ ipcMain.handle("workspace:clear", (): WorkspaceSelection => {
 ipcMain.handle("project:registerCurrent", async (_event, mode: "existing" | "greenfield", projectName?: string) => {
   if (mode !== "existing" && mode !== "greenfield") throw new Error("A current Project registration mode is required.");
   const root = getRequiredWorkspaceRoot();
-  if (mode === "greenfield") assertGreenfieldProjectEntry(root);
-  const registration = await registerCurrentProject(root, mode, projectName === undefined ? {} : { projectName });
-  const repositoryId = registration.projectResource.body.logicalName;
-  const agentHarness = getAgentHarnessServiceHostClient();
-  const workspace = await agentHarness.registerWorkspace(root);
-  const checkoutRegistration = { workspaceId: workspace.workspace.workspaceId,
-    registerRepositoryCheckout: (workspaceId: string, checkout: import("../shared/sourceLifecycleContracts").RepositoryCheckout) =>
-      agentHarness.registerRepositoryCheckout(workspaceId, checkout) };
   if (mode === "greenfield") {
-    const result = await createSourceControlService({ repositoryId, repositoryRoot: root, checkoutRegistration }).bootstrapProjectSource();
+    if (selectedCurrentProjectId(root)) throw new Error("Start New Project cannot reopen a Current Project; use Existing Project.");
+    assertGreenfieldProjectEntry(root);
+  }
+  const agentHarness = getAgentHarnessServiceHostClient();
+  let workspace: Awaited<ReturnType<typeof agentHarness.registerWorkspace>>;
+  let registration;
+  if (mode === "greenfield") {
+    workspace = await agentHarness.registerWorkspace(root);
+    const checkoutRegistration = { workspaceId: workspace.workspace.workspaceId,
+      registerRepositoryCheckout: (workspaceId: string, checkout: import("../shared/sourceLifecycleContracts").RepositoryCheckout) =>
+        agentHarness.registerRepositoryCheckout(workspaceId, checkout) };
+    const result = await createSourceControlService({ repositoryId: CURRENT_PROJECT_REPOSITORY_ID, repositoryRoot: root, checkoutRegistration }).bootstrapProjectSource();
     if (!result.ok) throw new Error(result.error.message);
-  } else if (fs.existsSync(path.join(root, ".git")) || fs.existsSync(path.join(root, MANAGED_PROJECT_SOURCE_PATHS.repositoryMetadataRelativePath))) {
+    registration = await registerCurrentProject(root, mode, projectName === undefined ? {} : { projectName });
+  } else {
+    registration = await registerCurrentProject(root, mode, projectName === undefined ? {} : { projectName });
+    workspace = await agentHarness.registerWorkspace(root);
+  }
+  const repositoryId = registration.projectResource.body.logicalName;
+  if (mode === "existing" && (fs.existsSync(path.join(root, ".git")) || fs.existsSync(path.join(root, MANAGED_PROJECT_SOURCE_PATHS.repositoryMetadataRelativePath)))) {
+    const checkoutRegistration = { registerRepositoryCheckout: (workspaceId: string, checkout: import("../shared/sourceLifecycleContracts").RepositoryCheckout) =>
+      agentHarness.registerRepositoryCheckout(workspaceId, checkout) };
     await establishManagedProjectSource({ projectRoot: root, repositoryId, workspaceId: workspace.workspace.workspaceId,
       checkoutRegistration: { registerRepositoryCheckout: checkoutRegistration.registerRepositoryCheckout } });
   }

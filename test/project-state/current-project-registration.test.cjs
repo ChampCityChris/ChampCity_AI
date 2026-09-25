@@ -30,22 +30,44 @@ test("fresh Current Project registration is idempotent, local, and ignores legac
   } finally { store.close(); }
 });
 
-test("Current Project registration rejects ambiguous Project identities", async context => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-ambiguous-project-"));
+test("Current Project registration abandons historical Projects and rejects multiple current registrations", async context => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-historical-project-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const first = await registerCurrentProject(root, "greenfield");
+  fs.mkdirSync(path.join(root, ".champcity"));
   const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  let oldProjectId;
+  let oldWorkflowId;
   try {
     const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
     const state = createProjectStateService(store, { principalId: "test", principalType: "human", role: "Operator" });
-    await state.createRecord(null, "Project", { name: "Foreign", description: "ambiguous fixture" });
+    const oldProject = await state.createRecord(null, "Project", { name: "Abandoned", description: "historical fixture" });
+    oldProjectId = oldProject.id;
+    const oldResource = await state.createRecord(oldProjectId, "ProjectResource", { resourceType: "source-repository", provider: "git",
+      logicalName: "old-source", locator: "selected-repository", role: "project-source" });
+    oldWorkflowId = (await state.createWorkflow(oldProjectId, { workflowType: "feature-capability", title: "Historical workflow", currentWorkspace: "old" })).id;
+    assert.equal((await store.listEntities(oldProjectId, "ProjectResource")).find(record => record.entityType === "ProjectResource" && record.id === oldResource.id).body.locator, "selected-repository");
   } finally { store.close(); }
-  await assert.rejects(registerCurrentProject(root, "existing"), /ambiguous Project State/);
+  assert.equal(selectedCurrentProjectId(root), null);
+  const current = await registerCurrentProject(root, "existing");
+  assert.notEqual(current.project.id, oldProjectId);
+  assert.equal(selectedCurrentProjectId(root), current.project.id);
+  const verify = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  try {
+    assert.equal((await verify.listEntities(oldProjectId, "Workflow")).find(record => record.entityType === "Workflow" && record.id === oldWorkflowId).body.title, "Historical workflow");
+    assert.equal((await verify.listEntities(oldProjectId, "ProjectResource")).some(record => record.entityType === "ProjectResource" && record.body.locator === "selected-repository"), true);
+    assert.equal((await verify.listEntities(current.project.id, "WorkIntake")).length, 0);
+    assert.equal((await verify.listEntities(current.project.id, "Workflow")).length, 0);
+    const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
+    const state = createProjectStateService(verify, { principalId: "test", principalType: "human", role: "Operator" });
+    const duplicate = await state.createRecord(null, "Project", { name: "Duplicate current", description: "ambiguous fixture" });
+    await state.createRecord(duplicate.id, "ProjectResource", { resourceType: "source-repository", provider: "git",
+      logicalName: "duplicate-current", locator: "selected-project", role: "project-source" });
+  } finally { verify.close(); }
+  await assert.rejects(registerCurrentProject(root, "existing"), /ambiguous Project identities/);
   assert.throws(() => selectedCurrentProjectId(root), /ambiguous Project identities/);
-  assert.ok(first.project.id);
 });
 
-test("Current Project registration repairs an interrupted Project-only registration", async context => {
+test("Current Project registration creates a fresh identity beside an interrupted Project-only record", async context => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-incomplete-project-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.mkdirSync(path.join(root, ".champcity"));
@@ -57,23 +79,31 @@ test("Current Project registration repairs an interrupted Project-only registrat
     projectId = (await state.createRecord(null, "Project", { name: "Interrupted", description: "recovery fixture" })).id;
   } finally { store.close(); }
   const result = await registerCurrentProject(root, "existing");
-  assert.equal(result.created, false);
-  assert.equal(result.project.id, projectId);
+  assert.equal(result.created, true);
+  assert.notEqual(result.project.id, projectId);
   assert.equal(result.projectResource.body.locator, "selected-project");
 });
 
-test("Current Project discovery refuses legacy source locators without migration", async context => {
+test("Current Project registration leaves legacy source locators historical and creates a fresh Project", async context => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-legacy-locator-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.mkdirSync(path.join(root, ".champcity"));
   const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  let oldProjectId;
   try {
     const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
     const state = createProjectStateService(store, { principalId: "test", principalType: "human", role: "Operator" });
     const project = await state.createRecord(null, "Project", { name: "Legacy", description: "No implicit import" });
-    await state.createRecord(project.id, "ProjectResource", { resourceType: "source-repository", provider: "git",
+    oldProjectId = project.id;
+    await state.createRecord(oldProjectId, "ProjectResource", { resourceType: "source-repository", provider: "git",
       logicalName: "legacy-source", locator: "selected-repository", role: "project-source" });
   } finally { store.close(); }
-  await assert.rejects(registerCurrentProject(root, "existing"), /incompatible with the Current Project contract/);
-  assert.equal(selectedCurrentProjectId(root), null);
+  const result = await registerCurrentProject(root, "existing");
+  assert.notEqual(result.project.id, oldProjectId);
+  assert.equal(selectedCurrentProjectId(root), result.project.id);
+  const verify = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  try {
+    assert.equal((await verify.listEntities(oldProjectId, "ProjectResource")).some(record => record.entityType === "ProjectResource" && record.body.locator === "selected-repository"), true);
+    assert.equal((await verify.listEntities(result.project.id, "ProjectResource")).some(record => record.entityType === "ProjectResource" && record.body.locator === "selected-repository"), false);
+  } finally { verify.close(); }
 });

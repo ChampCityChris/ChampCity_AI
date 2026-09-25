@@ -1535,7 +1535,7 @@
     },
     {
       "capabilityId": "current-project-entry-runtime",
-      "description": "Landing entry paths establish exact Current Project identity and managed Main/Dev source topology before entering Project Intake or Workflow Hub; current discovery excludes provider-generation migration.",
+      "description": "Landing entry establishes fresh Current Project identity independent of historical Project rows; Greenfield entry bootstraps managed Main/Dev before SPS registration and rejects already-current Projects.",
       "sourcePatterns": [
         "src/main/main.ts",
         "src/main/migrations/legacyAuthorityInventory.ts",
@@ -1556,7 +1556,7 @@
       "behaviors": [
         {
           "behaviorId": "current-project-discovery-uses-only-current-project-registration",
-          "description": "Current Project discovery uses the SPS selected-project registration and rejects legacy provider locators without migration."
+          "description": "Current Project discovery uses one active SPS selected-project source registration, ignores abandoned Project rows and legacy locators, and fails closed on duplicate current registrations."
         },
         {
           "behaviorId": "existing-entry-opens-historical-project-as-current-sps-identity",
@@ -1564,7 +1564,7 @@
         },
         {
           "behaviorId": "greenfield-entry-registers-current-project-and-enters-project-intake-with-main-dev",
-          "description": "Greenfield landing entry establishes SPS identity, a deterministic managed source baseline, and Project Intake without Work Intake creation."
+          "description": "Greenfield entry establishes a deterministic managed baseline before SPS identity, can finish an existing compatible baseline, rejects an already-current Project, and creates no Work Intake."
         }
       ]
     },
@@ -13587,8 +13587,8 @@
     {
       "testPath": "test/project-state/current-project-entry.test.cjs",
       "currentTestCount": {
-        "value": 3,
-        "basis": "WRB01-04 Greenfield IPC/preload registration and Main/Dev binding, existing historical Project registration, and landing destination assertions."
+        "value": 4,
+        "basis": "WRB01-04 Greenfield IPC/preload registration and Main/Dev binding, existing historical Project registration, and landing assertions; WRB01-R01-01 adds compatible-baseline retry and duplicate Greenfield rejection."
       },
       "duration": {
         "kind": "measured",
@@ -13679,13 +13679,13 @@
         {
           "capabilityId": "current-project-entry-runtime",
           "behaviorId": "current-project-discovery-uses-only-current-project-registration",
-          "proofLocator": "Current Project selector resolves only selected-project SPS registration and rejects selected-repository legacy locator without conversion",
+          "proofLocator": "Current Project selector creates a fresh identity beside historical selected-repository Project/Workflow state, preserves it, and rejects duplicate selected-project registrations",
           "proofRole": "primary"
         },
         {
           "capabilityId": "project-state-service",
           "behaviorId": "current-project-registration-establishes-one-idempotent-project-without-legacy-state-import",
-          "proofLocator": "fresh registration and reopen retain one exact Project identity; Markdown is not imported and Work Intake/Workflow remain absent",
+          "proofLocator": "fresh registration and reopen retain one exact selected-project identity; abandoned Project state is untouched, and current Work Intake/Workflow remain absent",
           "proofRole": "primary"
         }
       ]
