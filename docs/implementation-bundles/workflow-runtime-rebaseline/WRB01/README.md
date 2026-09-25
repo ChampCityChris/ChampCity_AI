@@ -4,7 +4,7 @@
 **Implementer:** GPT 6.0 Luna Medium  
 **Review cadence:** sequential checkpoints; Architect review after WRB01-05.
 
-**Bundle review:** WRB01 implementation reached `287176637cc8784c4a9552e9305c5795884fbe97`. Architect review found bounded integration defects. WRB01 remains open under released repair bundle `Repair01/`. WRB02 is not authorized until Repair01 closes.
+**Bundle review:** WRB01 implementation reached `287176637cc8784c4a9552e9305c5795884fbe97`. Repair01 reached `50606b2867c041ad461a3634faf7430699af014a` and closed its six intended integration findings. Final Architect review found one Current Project/Repository identity error in the WRB01 architecture plus one local-only Git adoption defect. WRB01 remains open under released `Repair02/`. WRB02 is not authorized until Repair02 closes.
 
 ## Bundle outcome
 
