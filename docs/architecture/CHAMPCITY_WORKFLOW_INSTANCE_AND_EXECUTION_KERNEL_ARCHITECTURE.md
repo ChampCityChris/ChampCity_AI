@@ -159,6 +159,12 @@ Direct workflow start bypasses WIR:
 
 A Feature created directly and a Feature created by WIR must converge on the same target Workflow contract.
 
+In the Current Project application, the Hub is an inventory of exact Workflow instances grouped by type. The selected Workflow ID is the navigation identity; WIR is optional and closes when it creates and links one target. Architect recommendations and Operator route decisions are held in Structured Project State. Generated Markdown is a projection or handoff aid and is not read to recover route authority.
+
+The Current Project Work Intake API requires a selected registered Project. Without one, projection and submission fail with a bounded instruction to select or open a Project. Current Project capture creates only a structured intake; it does not create a branch, route-decision Markdown, or source checkout. Source-neutral WIR does not create source records. When a Project has a Repository, direct and routed substantive Workflow creation capture the same exact Dev SourceBaseline and unprepared SourceBinding. When it has no Repository, neither creates source records.
+
+The Current Project UI ends WIR at target creation and exact target opening. The legacy branch-owned intake, Markdown route authority, and WIR-owned assessment, planning, execution, Issue bridge, and integration continuation are not exposed through main/preload IPC or the renderer. Target-specific assessment and planning surfaces remain the next implementation boundary; WRB03 owns their migration to substantive Workflow instances.
+
 ## 4. Project Creation / Greenfield is one-time
 
 Project Creation is the one-time lifecycle that establishes a new Project.

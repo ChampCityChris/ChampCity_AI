@@ -4,6 +4,38 @@ const { randomUUID } = require("node:crypto");
 const { execFileSync } = require("node:child_process");
 const { tempWorkspace } = require("./canonical-markdown-fixtures.cjs");
 
+async function createLegacyWorkIntakeFixture(root, input) {
+  const { writeCanonicalMarkdownDocuments } = require("../../dist/main/documents/canonicalMarkdownDocumentWriter.js");
+  const { workIntakeBranchName } = require("../../dist/main/workIntake/workIntakeBranchService.js");
+  const projectId = input.projectId || `project-${randomUUID()}`;
+  const repositoryId = `repository-${randomUUID()}`;
+  const intakeId = `intake-${randomUUID()}`;
+  const projectPath = "planning/work-intake/PROJECT.md";
+  const intakePath = `planning/work-intake/intakes/${intakeId}.md`;
+  const workBranch = workIntakeBranchName(intakeId);
+  execFileSync("git", ["switch", "-c", workBranch], { cwd: root, stdio: ["ignore", "pipe", "pipe"] });
+  const binding = { intakeId, repositoryId, baseBranch: input.baseBranch, baseCommit: input.baseCommit, workBranch, currentHead: input.baseCommit };
+    const project = { projectId, repositoryId, name: input.projectName.trim() };
+    const data = { intakeId, projectId, workRequest: input.workRequest.trim(), desiredOutcome: input.desiredOutcome.trim(),
+      knownConstraints: input.knownConstraints.trim(), hasExistingSourceOrPlanning: input.hasExistingSourceOrPlanning,
+      repositoryReviewContext: input.repositoryReviewContext.trim(), branchBinding: binding };
+    const metadata = (artifactType, identity, workflowData, sourceRevisions = []) => ({
+      schemaVersion: 1, artifactType, artifactRevision: 1, participationRole: "contextOnly", identity,
+      sourceRevisions, workflowData, documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
+    });
+    const docs = [];
+    if (!input.projectId) docs.push({ workspaceRoot: root, relativePath: projectPath,
+      metadata: metadata("work-project", { projectId }, project),
+      bodyMarkdown: `# Project: ${project.name}\n\nProject identity: ${projectId}\n` });
+    docs.push({ workspaceRoot: root, relativePath: intakePath,
+      metadata: metadata("work-intake", { intakeId, projectId }, data,
+        input.projectId ? [{ path: projectPath, revision: 1 }] : []),
+      bodyMarkdown: `# Work Intake: ${project.name}\n\n## Work request\n\n${data.workRequest}\n\n## Desired outcome\n\n${data.desiredOutcome}\n\n## Constraints\n\n${data.knownConstraints || "None specified."}\n\n## Existing evidence\n\nExisting source or planning: ${data.hasExistingSourceOrPlanning ? "Yes" : "No"}\n\n${data.repositoryReviewContext || "None supplied."}\n\n## Source baseline\n\nBase branch: ${binding.baseBranch}\nBase commit: ${binding.baseCommit}\nWork branch: ${binding.workBranch}\n` });
+    writeCanonicalMarkdownDocuments(docs);
+  const value = require("../../dist/main/workIntake/workIntakeService.js").readWorkIntake(root, intakeId);
+  return { ok: true, value, binding, receipts: [] };
+}
+
 async function seedRoutedWorkIntake(t, selectedRouteId = "refactor-migration", intent = {}, options = {}) {
   const root = tempWorkspace("champcity-routed-work-");
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -12,10 +44,9 @@ async function seedRoutedWorkIntake(t, selectedRouteId = "refactor-migration", i
   options.setupRepository?.(root, git);
   git("add", "--all"); git("commit", "--allow-empty", "-m", "baseline");
   const initialHead = git("rev-parse", "HEAD");
-  const intakeService = require("../../dist/main/workIntake/workIntakeService.js");
   const routing = require("../../dist/main/workIntake/workRoutingAssessmentService.js");
   const decisions = require("../../dist/main/workIntake/workRouteDecisionService.js");
-  const created = await intakeService.submitWorkIntake(root, { projectId: null, projectName: "Product", workRequest: "A bounded architecture change", desiredOutcome: "Preserve behavior",
+  const created = await createLegacyWorkIntakeFixture(root, { projectId: null, projectName: "Product", workRequest: "A bounded architecture change", desiredOutcome: "Preserve behavior",
     knownConstraints: "Preserve current product", hasExistingSourceOrPlanning: true, repositoryReviewContext: "", ...intent, baseBranch: "main", baseCommit: initialHead });
   if (!created.ok) throw Error(JSON.stringify(created));
   const intake = created.value;
@@ -167,6 +198,7 @@ async function seedPreparedApprovedRoutedWorkPlan(t, structure, routeId = "featu
 }
 
 module.exports = {
+  createLegacyWorkIntakeFixture,
   seedRoutedWorkIntake,
   seedApprovedRoutedWorkPlan,
   seedPreparedRoutedWorkIntake,

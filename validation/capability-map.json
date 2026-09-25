@@ -1943,7 +1943,8 @@
       "sourcePatterns": [
         "src/main/planExecution/workItemCheckpointService.ts",
         "src/main/workIntake/structuredWorkIntakeService.ts",
-        "src/main/workIntake/workIntakeBranchService.ts"
+        "src/main/workIntake/workIntakeBranchService.ts",
+        "src/shared/workIntakeBranchContracts.ts"
       ],
       "dependsOn": [
         "work-intake-capture-source-preparation"
@@ -2230,16 +2231,8 @@
           "description": "discovery reads ISSUE_RECORD.md without rewriting it"
         },
         {
-          "behaviorId": "draft-validation-accepts-only-the-three-exact-architect-recommendations",
-          "description": "draft validation accepts only the three exact Architect Recommendations"
-        },
-        {
           "behaviorId": "evidence-and-issue-record-destination-conflicts-never-overwrite-concurrent-artifacts",
           "description": "evidence and Issue Record destination conflicts never overwrite concurrent artifacts"
-        },
-        {
-          "behaviorId": "existing-architect-investigation-md-awaits-operator-review-instead-of-completing",
-          "description": "existing ARCHITECT_INVESTIGATION.md awaits Operator review instead of completing"
         },
         {
           "behaviorId": "final-issue-closure-leaves-inventory-another-issue-and-repository-derived-development-state-unch",
@@ -2272,14 +2265,6 @@
         {
           "behaviorId": "invalid-bootstrap-adoption-drafts-preserve-both-old-current-planning-files",
           "description": "invalid bootstrap adoption drafts preserve both old current planning files"
-        },
-        {
-          "behaviorId": "invalid-drafts-are-rejected-and-retry-uses-a-fresh-prepared-submission",
-          "description": "invalid drafts are rejected and retry uses a fresh prepared submission"
-        },
-        {
-          "behaviorId": "invalid-exact-active-draft-is-stable-needs-attention-and-is-not-retried-indefinitely",
-          "description": "invalid exact active draft is stable needs-attention and is not retried indefinitely"
         },
         {
           "behaviorId": "invalid-member-promotes-neither-and-does-not-retry-loop-the-same-submission",
@@ -2498,10 +2483,6 @@
           "description": "omitted and empty screenshot collections preserve identical text-only output"
         },
         {
-          "behaviorId": "operator-review-persists-dispositions-and-only-approved-proceed-enables-issue-planning",
-          "description": "Operator review persists dispositions and only Approved Proceed enables Issue Planning"
-        },
-        {
           "behaviorId": "operator-revisionrequested-disposition-makes-additive-planning-revision-eligible-without-falsify",
           "description": "Operator RevisionRequested disposition makes additive planning revision eligible without falsifying Approved review or Development state"
         },
@@ -2538,16 +2519,8 @@
           "description": "post-success backup cleanup failure reports warning without rolling back replacement"
         },
         {
-          "behaviorId": "prepare-creates-an-issue-specific-temporary-draft-handoff-and-copy-requires-it",
-          "description": "prepare creates an Issue-specific temporary-draft handoff and copy requires it"
-        },
-        {
           "behaviorId": "prepare-creates-one-bound-handoff-for-exactly-two-temporary-planning-drafts",
           "description": "prepare creates one bound handoff for exactly two temporary planning drafts"
-        },
-        {
-          "behaviorId": "promotion-never-overwrites-an-existing-final-investigation",
-          "description": "promotion never overwrites an existing final investigation"
         },
         {
           "behaviorId": "repair-reconstruction-excludes-orphan-stale-and-mismatched-state-and-rejects-ambiguous-revisions",
@@ -2566,10 +2539,6 @@
           "description": "revision replacement rollback restores complete current bundle and review after swap failure"
         },
         {
-          "behaviorId": "revisionrequested-requires-notes-prepares-revision-aware-handoff-and-archives-prior-current-file",
-          "description": "RevisionRequested requires notes, prepares revision-aware handoff, and archives prior current files"
-        },
-        {
           "behaviorId": "screenshot-submission-executes-intake-app-preload-main-and-the-single-issue-writer",
           "description": "screenshot submission executes intake, App, preload, main, and the single Issue writer"
         },
@@ -2582,24 +2551,12 @@
           "description": "stale unrelated planning drafts are ignored without active submission identity"
         },
         {
-          "behaviorId": "unrelated-stale-architect-draft-is-ignored-without-active-submission-identity",
-          "description": "unrelated stale Architect draft is ignored without active submission identity"
-        },
-        {
-          "behaviorId": "valid-active-draft-promotes-to-final-and-cleans-the-temporary-submission",
-          "description": "valid active draft promotes to final and cleans the temporary submission"
-        },
-        {
           "behaviorId": "valid-bootstrap-adoption-archives-old-finals-creates-no-fake-review-and-installs-generated-bundl",
           "description": "valid bootstrap adoption archives old finals, creates no fake review, and installs generated bundle"
         },
         {
           "behaviorId": "valid-clipboard-evidence-converts-to-canonical-fc01-submission-shape",
           "description": "valid clipboard evidence converts to canonical FC01 submission shape"
-        },
-        {
-          "behaviorId": "valid-exact-active-draft-auto-promotes-from-projection-refresh",
-          "description": "valid exact active draft auto-promotes from projection refresh"
         },
         {
           "behaviorId": "valid-screenshot-evidence-is-byte-detected-ordered-persisted-and-linked-record-last",
@@ -3734,14 +3691,6 @@
           "description": "release_toolbox publishes exact read/write-scoped actions with no raw command surface"
         },
         {
-          "behaviorId": "research-routed-integration-candidate-lifecycle",
-          "description": "approved no-Plan Research completion checkpoints before real candidate validation, retains active state across changed completion and terminal history, and advances only current accepted evidence"
-        },
-        {
-          "behaviorId": "routed-checkpoint-integration-composition",
-          "description": "routed clean and conflict integration preserves completed checkpoint and Plan lineage from the nearest durable boundary"
-        },
-        {
           "behaviorId": "routed-issue-completion-checkpoints-owned-evidence",
           "description": "Issue completion commits only exact routed Issue evidence before integration"
         },
@@ -3802,10 +3751,6 @@
           "description": "Windows candidate cleanup runs outside the hosting process"
         },
         {
-          "behaviorId": "work-intake-branch-binding-selects-an-exact-base-and-fails-closed-before-persistence",
-          "description": "Work Intake branch binding selects an exact base and fails closed before persistence"
-        },
-        {
           "behaviorId": "workflow-source-materialization-recovers-exact-baseline-checkout-by-lineage",
           "description": "explicit Workflow source materialization reuses immutable lineage baselines and preserves exact partial source state"
         }
@@ -3855,18 +3800,6 @@
         {
           "behaviorId": "architect-interview-rail-status-is-evidence-derived-and-independent-from-selected-state",
           "description": "Architect Interview rail status is evidence-derived and independent from selected state"
-        },
-        {
-          "behaviorId": "decomposition-acceptance-returns-resume-work-item-and-revision-stays-contextual",
-          "description": "Accepting a decomposition returns the resume Work Item after Plan refresh; revision remains in the contextual workspace"
-        },
-        {
-          "behaviorId": "decomposition-opens-from-work-item-map-for-approved-plan-candidate",
-          "description": "The Work Item Map opens contextual decomposition for the selected candidate in an approved Plan"
-        },
-        {
-          "behaviorId": "decomposition-workspace-presents-readable-proposal-and-embedded-architect",
-          "description": "Decomposition presents a readable proposal and approved Plan tab with embedded Architect handoff"
         },
         {
           "behaviorId": "development-rail-renders-workflow-phase-and-work-card-navigation",
@@ -3925,28 +3858,8 @@
           "description": "Hub with no selected project renders project-selection shell without Development lifecycle status"
         },
         {
-          "behaviorId": "integration-repair-renders-codex-without-json-patch-transfer",
-          "description": "Repair-required Integration exposes Codex execution without an Operator JSON patch field"
-        },
-        {
-          "behaviorId": "integration-repair-run-action-carries-exact-candidate-and-repair",
-          "description": "The in-product Integration Repair action sends the current candidate, repair, fingerprint, and model selection to the application"
-        },
-        {
           "behaviorId": "issue-evidence-waits-for-a-pre-existing-app-refresh-and-then-performs-exactly-one-fresh-read",
           "description": "Issue evidence waits for a pre-existing App refresh and then performs exactly one fresh read"
-        },
-        {
-          "behaviorId": "issue-reframe-offers-return-to-work-intake-routing-without-selecting-route",
-          "description": "Issue reframe exposes return to Work Intake Routing without changing the Operator route"
-        },
-        {
-          "behaviorId": "issue-route-bridge-opens-once-and-continues-existing-issue",
-          "description": "Routed Issue bridge opens one Issue then continues the same Issue in existing workspaces"
-        },
-        {
-          "behaviorId": "issue-route-transition-selects-existing-architect-planning-workflow",
-          "description": "Routed Issue transition selects the Issue and existing Architect Planning workspace"
         },
         {
           "behaviorId": "landing-selection-feedback-remains-bounded-to-the-landing-surface",
@@ -3995,78 +3908,6 @@
         {
           "behaviorId": "required-state-does-not-alter-project-intake-lifecycle-status-text",
           "description": "required state does not alter Project Intake lifecycle status text"
-        },
-        {
-          "behaviorId": "research-completion-renders-dedicated-integration-without-plan-controls",
-          "description": "Approved Research assessment navigates directly to a dedicated Integration workspace without Plan or Work Item controls"
-        },
-        {
-          "behaviorId": "routed-acceptance-opens-boundary-evidence-workspace",
-          "description": "Eligible Phase and Plan acceptance use a dedicated evidence workspace with explicit disposition"
-        },
-        {
-          "behaviorId": "routed-architect-attachment-follows-stage-evidence-and-preserves-peer-workflows",
-          "description": "Architect attachment follows routed availability and preserves existing Development and Issue attachment"
-        },
-        {
-          "behaviorId": "routed-close-returns-to-work-item-map",
-          "description": "Routed Close presents current evidence and returns to the Work Item Map"
-        },
-        {
-          "behaviorId": "routed-execution-opens-work-item-map-with-seven-task-loop",
-          "description": "Routed Execution opens the Work Item Map with seven nested lifecycle tasks"
-        },
-        {
-          "behaviorId": "routed-implement-reuses-codex-presentation-without-review-controls",
-          "description": "Routed Implement reuses Codex controls and console without report review controls"
-        },
-        {
-          "behaviorId": "routed-issue-lineage-is-queryable-from-canonical-handoff",
-          "description": "Routed Issue source lineage remains queryable from canonical handoff after UI reset or route supersession"
-        },
-        {
-          "behaviorId": "routed-long-request-keeps-full-text-accessible",
-          "description": "Long routed Assessment requests preserve a concise task header with a keyboard-accessible full request"
-        },
-        {
-          "behaviorId": "routed-navigation-unlocks-only-evidenced-stages",
-          "description": "Routed navigation unlocks only stages supported by current workflow owner evidence"
-        },
-        {
-          "behaviorId": "routed-planning-separates-prepare-copy-and-gates-contract-review",
-          "description": "Work Item Planning shows an embedded Architect, separate Prepare and Copy actions, and review only for a current draft"
-        },
-        {
-          "behaviorId": "routed-rail-presents-six-ordered-stages-and-blockers",
-          "description": "Routed rail presents six ordered stages and accessible blockers"
-        },
-        {
-          "behaviorId": "routed-repair-is-separate-architect-step",
-          "description": "Routed Repair has its own Architect workspace with governing evidence and Work Card disposition"
-        },
-        {
-          "behaviorId": "routed-review-selects-evidence-and-operator-validation",
-          "description": "Routed Review selects Work Card and report evidence and offers explicit Operator validation"
-        },
-        {
-          "behaviorId": "routed-work-card-prepare-and-copy-are-separate-actions",
-          "description": "Routed Work Card Prepare creates a handoff without copying, and Copy returns the current prepared instruction"
-        },
-        {
-          "behaviorId": "routing-workspace-decision-refreshes-navigation",
-          "description": "A current Operator route decision requests routed navigation refresh"
-        },
-        {
-          "behaviorId": "routing-workspace-hides-disposition-before-assessment",
-          "description": "Routing shows human handoff state and embedded Architect without premature route disposition"
-        },
-        {
-          "behaviorId": "routing-workspace-presents-current-recommendation-and-decision",
-          "description": "Current Routing assessment presents a readable recommendation and explicit route decision"
-        },
-        {
-          "behaviorId": "saved-work-intake-does-not-nest-routing-lifecycle",
-          "description": "Saved Work Intake confirms capture without nesting the later routing lifecycle"
         },
         {
           "behaviorId": "selected-project-hub-exposes-source-control-and-work-intake-without-legacy-workflow-recovery",
@@ -4146,10 +3987,6 @@
         {
           "behaviorId": "implementation-checkpoint-attribution-and-idempotence",
           "description": "implementation checkpoint commits attributed file and duplicate retry returns exact revision"
-        },
-        {
-          "behaviorId": "legacy-route-disposition-checkpoints-exact-intake-files",
-          "description": "Operator route selection commits exact canonical Intake evidence and retry reuses its source revision"
         },
         {
           "behaviorId": "operator-disposition-creates-empty-lifecycle-revision",
@@ -6848,21 +6685,55 @@
     },
     {
       "testPath": "test/agent-harness/issue-completion-checkpoint.test.cjs",
-      "currentTestCount": { "value": 1, "basis": "SCL07 focused Issue completion fixture." },
-      "duration": { "kind": "measured", "milliseconds": 13000, "basis": "Observed focused normal Windows SCL07 run." },
+      "currentTestCount": {
+        "value": 1,
+        "basis": "SCL07 focused Issue completion fixture."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 13000,
+        "basis": "Observed focused normal Windows SCL07 run."
+      },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
-      "dependencies": { "electron": false, "filesystem": true, "git": true, "network": false, "process": true, "timing": false },
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
       "sourceInspectionClassification": "none",
       "v2Disposition": "preserve",
-      "validationRoles": ["capability"],
-      "execution": { "requiresBuild": true, "platform": "any", "externalCapabilities": [], "scheduling": "parallel-safe",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
         "schedulingReason": "Each fixture owns an isolated temporary Git repository.",
-        "ownedResources": ["bounded-child-process", "isolated-git-fixture", "temp-filesystem-isolated"] },
-      "proofCharacteristics": ["behavioral"],
-      "dispositionReasons": ["current-proof-appropriate"],
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
       "behaviorCoverage": [
-        { "capabilityId": "release-and-git-operations", "behaviorId": "routed-issue-completion-checkpoints-owned-evidence", "proofLocator": "routed Issue completion commits only its bounded Markdown evidence on the Intake source line", "proofRole": "primary" }
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "routed-issue-completion-checkpoints-owned-evidence",
+          "proofLocator": "routed Issue completion commits only its bounded Markdown evidence on the Intake source line",
+          "proofRole": "primary"
+        }
       ]
     },
     {
@@ -8184,7 +8055,7 @@
       "testPath": "test/agent-harness/source-checkpoint-boundary.test.cjs",
       "currentTestCount": {
         "value": 2,
-        "basis": "WIR23-REPAIR03A added one focused Research lifecycle-checkpoint owner to the previously measured file."
+        "basis": "Counted from node:test declarations in the WRB02-05 checkout."
       },
       "duration": {
         "kind": "measured",
@@ -8583,66 +8454,6 @@
           "capabilityId": "background-agent-lifecycle",
           "behaviorId": "windows-npm-resolution-fails-closed-when-no-standalone-node-prerequisite-exists",
           "proofLocator": "Windows npm resolution fails closed when no standalone Node prerequisite exists",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/agent-harness/work-intake-branch-boundary.test.cjs",
-      "currentTestCount": {
-        "value": 1,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 17805,
-        "basis": "Measured by the WIR23-REPAIR03C-REPAIR04 supported-Windows full-file run; wall-clock file-process duration."
-      },
-      "proposedValidationLane": "integration",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": true,
-        "network": false,
-        "process": true,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability",
-        "integration",
-        "production-path"
-      ],
-      "execution": {
-        "requiresBuild": true,
-        "platform": "any",
-        "externalCapabilities": [
-          "git-cli"
-        ],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, temp-filesystem-isolated.",
-        "ownedResources": [
-          "bounded-child-process",
-          "isolated-git-fixture",
-          "temp-filesystem-isolated"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral",
-        "environment-bound",
-        "external-capability-bound",
-        "production-path"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "release-and-git-operations",
-          "behaviorId": "work-intake-branch-binding-selects-an-exact-base-and-fails-closed-before-persistence",
-          "proofLocator": "Work Intake branch binding selects an exact base and fails closed before persistence",
           "proofRole": "primary"
         }
       ]
@@ -9065,8 +8876,8 @@
     {
       "testPath": "test/architect-outputs/architect-draft-ingestion.test.cjs",
       "currentTestCount": {
-        "value": 9,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 8,
+        "basis": "Counted from node:test declarations in the WRB02-05 checkout."
       },
       "duration": {
         "kind": "measured",
@@ -9260,8 +9071,8 @@
     {
       "testPath": "test/architect-outputs/architect-output-workspace-repair.test.cjs",
       "currentTestCount": {
-        "value": 27,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 26,
+        "basis": "Counted from node:test declarations in the WRB02-05 checkout."
       },
       "duration": {
         "kind": "measured",
@@ -9610,8 +9421,8 @@
     {
       "testPath": "test/characterization/desktop-issue-lifecycle.test.cjs",
       "currentTestCount": {
-        "value": 5,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 4,
+        "basis": "Counted from node:test declarations in the WRB02-05 checkout."
       },
       "duration": {
         "kind": "measured",
@@ -9813,112 +9624,6 @@
           "capabilityId": "codex-implementation-runtime",
           "behaviorId": "failure-failure-retains-last-known-good-with-degraded-status",
           "proofLocator": "Desktop runtime ${failure} failure retains the last known good runtime and explicit model selection",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/characterization/routed-integration-focus.test.cjs",
-      "currentTestCount": {
-        "value": 1,
-        "basis": "One top-level Plan integration scenario after WIR23-REPAIR03C-REPAIR03 moved Research ownership to its dedicated owner."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 17738,
-        "basis": "Measured by the WIR23-REPAIR03C-REPAIR05 supported-Windows full-file run; wall-clock file-process duration."
-      },
-      "proposedValidationLane": "integration",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": true,
-        "network": false,
-        "process": true,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "integration"
-      ],
-      "execution": {
-        "requiresBuild": true,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, temp-filesystem-isolated.",
-        "ownedResources": [
-          "bounded-child-process",
-          "isolated-git-fixture",
-          "temp-filesystem-isolated"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "release-and-git-operations",
-          "behaviorId": "routed-checkpoint-integration-composition",
-          "proofLocator": "routed clean and conflict integration preserves completed checkpoint and Plan lineage from the nearest durable boundary",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/characterization/routed-research-integration-focus.test.cjs",
-      "currentTestCount": {
-        "value": 1,
-        "basis": "One consolidated top-level Research integration scenario introduced by WIR23-REPAIR03C-REPAIR03."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 7823,
-        "basis": "Measured by the WIR23-REPAIR03C-REPAIR05 supported-Windows semantic regression run; wall-clock file-process duration."
-      },
-      "proposedValidationLane": "integration",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": true,
-        "network": false,
-        "process": true,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "integration"
-      ],
-      "execution": {
-        "requiresBuild": true,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, temp-filesystem-isolated.",
-        "ownedResources": [
-          "bounded-child-process",
-          "isolated-git-fixture",
-          "temp-filesystem-isolated"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "release-and-git-operations",
-          "behaviorId": "research-routed-integration-candidate-lifecycle",
-          "proofLocator": "Research completion retains real candidate history and advances only the current accepted evidence",
           "proofRole": "primary"
         }
       ]
@@ -11338,120 +11043,6 @@
           "capabilityId": "external-provider-integration",
           "behaviorId": "untrusted-artifact-bytes-fail-visibly-before-any-runtime-promotion",
           "proofLocator": "untrusted artifact bytes fail visibly before any runtime promotion",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/issue-resolution/issue-architect-planning-service.test.cjs",
-      "currentTestCount": {
-        "value": 12,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 1723,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
-      },
-      "proposedValidationLane": "integration",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": true,
-        "network": false,
-        "process": true,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability",
-        "integration"
-      ],
-      "execution": {
-        "requiresBuild": true,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, temp-filesystem-isolated.",
-        "ownedResources": [
-          "bounded-child-process",
-          "isolated-git-fixture",
-          "temp-filesystem-isolated"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "draft-validation-accepts-only-the-three-exact-architect-recommendations",
-          "proofLocator": "draft validation accepts only the three exact Architect Recommendations",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "existing-architect-investigation-md-awaits-operator-review-instead-of-completing",
-          "proofLocator": "existing ARCHITECT_INVESTIGATION.md awaits Operator review instead of completing",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "invalid-drafts-are-rejected-and-retry-uses-a-fresh-prepared-submission",
-          "proofLocator": "invalid drafts are rejected and retry uses a fresh prepared submission",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "invalid-exact-active-draft-is-stable-needs-attention-and-is-not-retried-indefinitely",
-          "proofLocator": "invalid exact active draft is stable needs-attention and is not retried indefinitely",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "operator-review-persists-dispositions-and-only-approved-proceed-enables-issue-planning",
-          "proofLocator": "Operator review persists dispositions and only Approved Proceed enables Issue Planning",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "prepare-creates-an-issue-specific-temporary-draft-handoff-and-copy-requires-it",
-          "proofLocator": "prepare creates an Issue-specific temporary-draft handoff and copy requires it",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "promotion-never-overwrites-an-existing-final-investigation",
-          "proofLocator": "promotion never overwrites an existing final investigation",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "revisionrequested-requires-notes-prepares-revision-aware-handoff-and-archives-prior-current-file",
-          "proofLocator": "RevisionRequested requires notes, prepares revision-aware handoff, and archives prior current files",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "unrelated-stale-architect-draft-is-ignored-without-active-submission-identity",
-          "proofLocator": "unrelated stale Architect draft is ignored without active submission identity",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "valid-active-draft-promotes-to-final-and-cleans-the-temporary-submission",
-          "proofLocator": "valid active draft promotes to final and cleans the temporary submission",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "valid-exact-active-draft-auto-promotes-from-projection-refresh",
-          "proofLocator": "valid exact active draft auto-promotes from projection refresh",
           "proofRole": "primary"
         }
       ]
@@ -13372,8 +12963,8 @@
     {
       "testPath": "test/project-intake/project-intake-service.test.cjs",
       "currentTestCount": {
-        "value": 5,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 3,
+        "basis": "Counted from node:test declarations in the WRB02-05 checkout."
       },
       "duration": {
         "kind": "measured",
@@ -13436,8 +13027,8 @@
     {
       "testPath": "test/project-planning/project-planning-service.test.cjs",
       "currentTestCount": {
-        "value": 28,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 27,
+        "basis": "Counted from node:test declarations in the WRB02-05 checkout."
       },
       "duration": {
         "kind": "estimated",
@@ -13660,8 +13251,8 @@
     {
       "testPath": "test/project-state/current-project-entry.test.cjs",
       "currentTestCount": {
-        "value": 10,
-        "basis": "WRB01 entry and repair proof; covers source-before-SPS Existing Project validation and retry, optional Repository identities, non-Git registration, fail-closed Source Graph, managed Dev Source Graph/revision detail, WIR projection delegation, and landing routes."
+        "value": 11,
+        "basis": "Counted from node:test declarations in the WRB02-05 checkout."
       },
       "duration": {
         "kind": "measured",
@@ -13680,17 +13271,28 @@
       },
       "sourceInspectionClassification": "none",
       "v2Disposition": "preserve",
-      "validationRoles": ["capability", "integration"],
+      "validationRoles": [
+        "capability",
+        "integration"
+      ],
       "execution": {
         "requiresBuild": true,
         "platform": "windows",
         "externalCapabilities": [],
         "scheduling": "parallel-safe",
         "schedulingReason": "Each scenario uses an isolated temporary Project container, managed Git checkout, and Agent Harness registration.",
-        "ownedResources": ["bounded-child-process", "isolated-git-fixture", "temp-filesystem-isolated"]
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
-      "proofCharacteristics": ["behavioral"],
-      "dispositionReasons": ["current-proof-appropriate"],
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
       "behaviorCoverage": [
         {
           "capabilityId": "current-project-entry-runtime",
@@ -17089,21 +16691,54 @@
     },
     {
       "testPath": "test/renderer/source-control-graph-layout.test.cjs",
-      "currentTestCount": { "value": 4, "basis": "SCL10 focused renderer graph geometry, fast-forward integration, and read-only shell fixtures." },
-      "duration": { "kind": "estimated", "milliseconds": 900, "basis": "Comparable renderer module-loader tests." },
+      "currentTestCount": {
+        "value": 4,
+        "basis": "SCL10 focused renderer graph geometry, fast-forward integration, and read-only shell fixtures."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 900,
+        "basis": "Comparable renderer module-loader tests."
+      },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
-      "dependencies": { "electron": false, "filesystem": true, "git": false, "network": false, "process": false, "timing": false },
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
       "sourceInspectionClassification": "none",
       "v2Disposition": "preserve",
-      "validationRoles": ["capability"],
-      "execution": { "requiresBuild": false, "platform": "any", "externalCapabilities": [], "scheduling": "parallel-safe",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": false,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
         "schedulingReason": "Pure graph layout and static renderer output with isolated module-loader output.",
-        "ownedResources": ["repository-readonly"] },
-      "proofCharacteristics": ["behavioral", "rendered-output"],
-      "dispositionReasons": ["current-proof-appropriate"],
+        "ownedResources": [
+          "repository-readonly"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "rendered-output"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
       "behaviorCoverage": [
-        { "capabilityId": "renderer-navigation-and-presentation", "behaviorId": "source-control-workspace-renders-read-only-graph-navigation-and-integration-geometry", "proofLocator": "five source lines, two integration edges, native navigation and loading shell", "proofRole": "primary" }
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "source-control-workspace-renders-read-only-graph-navigation-and-integration-geometry",
+          "proofLocator": "five source lines, two integration edges, native navigation and loading shell",
+          "proofRole": "primary"
+        }
       ]
     },
     {
@@ -17605,8 +17240,8 @@
     {
       "testPath": "test/renderer/work-intake-routed-workspaces.test.cjs",
       "currentTestCount": {
-        "value": 33,
-        "basis": "Thirty-three rendered capability scenarios include structured Work Intake, WIR presentation, and closed routing history."
+        "value": 4,
+        "basis": "Counted from node:test declarations in the WRB02-05 checkout."
       },
       "duration": {
         "kind": "measured",
@@ -17649,184 +17284,6 @@
         "current-proof-appropriate"
       ],
       "behaviorCoverage": [
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "decomposition-acceptance-returns-resume-work-item-and-revision-stays-contextual",
-          "proofLocator": "accepting decomposition returns the resume Work Item; revision stays in context",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "decomposition-opens-from-work-item-map-for-approved-plan-candidate",
-          "proofLocator": "Work Item Map opens decomposition for the selected approved Plan candidate",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "decomposition-workspace-presents-readable-proposal-and-embedded-architect",
-          "proofLocator": "decomposition presents readable proposal and Architect handoff as a contextual workspace",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "integration-repair-renders-codex-without-json-patch-transfer",
-          "proofLocator": "Integration displays an explicit Operator decision for incompatible accepted intent",
-          "proofRole": "supporting",
-          "relationshipToPrimary": "complementary",
-          "primaryProof": {
-            "testPath": "test/renderer/work-intake-routed-workspaces.test.cjs",
-            "proofLocator": "repair-required Integration exposes in-product Codex without JSON patch transfer"
-          }
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "integration-repair-renders-codex-without-json-patch-transfer",
-          "proofLocator": "repair-required Integration exposes in-product Codex without JSON patch transfer",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "integration-repair-run-action-carries-exact-candidate-and-repair",
-          "proofLocator": "Integration Repair action sends exact candidate and repair identity to the application",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "issue-reframe-offers-return-to-work-intake-routing-without-selecting-route",
-          "proofLocator": "Issue reframe offers return to Work Intake Routing without selecting a replacement route",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "issue-route-bridge-opens-once-and-continues-existing-issue",
-          "proofLocator": "routed Issue bridge opens one Issue then continues the same Issue without duplicate RCA controls",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "issue-route-transition-selects-existing-architect-planning-workflow",
-          "proofLocator": "routed Issue transition selects existing Architect Planning and Issue workflow",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "research-completion-renders-dedicated-integration-without-plan-controls",
-          "proofLocator": "Research Integration keeps Research language and the direct integrate action",
-          "proofRole": "supporting",
-          "relationshipToPrimary": "complementary",
-          "primaryProof": {
-            "testPath": "test/renderer/work-intake-routed-workspaces.test.cjs",
-            "proofLocator": "approved Research assessment advances directly to Integration"
-          }
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "research-completion-renders-dedicated-integration-without-plan-controls",
-          "proofLocator": "approved Research assessment advances directly to Integration",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "routed-acceptance-opens-boundary-evidence-workspace",
-          "proofLocator": "eligible Phase and Plan acceptance use their own evidence workspace",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "routed-architect-attachment-follows-stage-evidence-and-preserves-peer-workflows",
-          "proofLocator": "Architect attachment follows available routed stages and preserves Development and Issue cases",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "routed-close-returns-to-work-item-map",
-          "proofLocator": "routed Close presents its evidence and returns to the Work Item Map",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "routed-execution-opens-work-item-map-with-seven-task-loop",
-          "proofLocator": "routed Execution opens Work Item Map with seven task destinations",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "routed-implement-reuses-codex-presentation-without-review-controls",
-          "proofLocator": "routed Implement reuses Codex console and actions without review controls",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "routed-issue-lineage-is-queryable-from-canonical-handoff",
-          "proofLocator": "routed Issue lineage remains queryable from canonical handoff after UI state is lost",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "routed-long-request-keeps-full-text-accessible",
-          "proofLocator": "long Assessment request collapses to a keyboard-accessible full-text detail",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "routed-navigation-unlocks-only-evidenced-stages",
-          "proofLocator": "navigation service unlocks only stages backed by current owner evidence",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "routed-planning-separates-prepare-copy-and-gates-contract-review",
-          "proofLocator": "Work Item Planning mounts ChatGPT with separate Prepare and Copy and gates review on draft",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "routed-rail-presents-six-ordered-stages-and-blockers",
-          "proofLocator": "routed rail has exact stage order and explains blocked stages",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "routed-repair-is-separate-architect-step",
-          "proofLocator": "routed Repair is a separate Architect step with Prepare Copy Refresh and disposition",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "routed-review-selects-evidence-and-operator-validation",
-          "proofLocator": "routed Review selects evidence and offers explicit Operator validation",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "routed-work-card-prepare-and-copy-are-separate-actions",
-          "proofLocator": "routed Work Card Prepare and Copy are separate service actions",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "routing-workspace-decision-refreshes-navigation",
-          "proofLocator": "route decision completion refreshes and advances routed navigation",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "routing-workspace-hides-disposition-before-assessment",
-          "proofLocator": "Routing Workspace shows the embedded Architect slot and human handoff state without nested lifecycle",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "routing-workspace-presents-current-recommendation-and-decision",
-          "proofLocator": "current assessment exposes recommendation and explicit route disposition",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "saved-work-intake-does-not-nest-routing-lifecycle",
-          "proofLocator": "saved Intake is a capture confirmation without a child routing lifecycle",
-          "proofRole": "primary"
-        },
         {
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "structured-wir-routing-uses-embedded-architect-and-six-route-set",
@@ -18343,139 +17800,375 @@
       },
       "sourceInspectionClassification": "none",
       "v2Disposition": "preserve",
-      "validationRoles": ["capability"],
+      "validationRoles": [
+        "capability"
+      ],
       "execution": {
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
         "scheduling": "parallel-safe",
         "schedulingReason": "Each fixture owns an isolated temporary Git and SQLite repository.",
-        "ownedResources": ["bounded-child-process", "isolated-git-fixture", "temp-filesystem-isolated"]
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
       },
-      "proofCharacteristics": ["behavioral"],
-      "dispositionReasons": ["current-proof-appropriate"],
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
       "behaviorCoverage": [
-        { "capabilityId": "semantic-source-checkpoints", "behaviorId": "checkpoint-blocks-wrong-line-and-unrelated-files", "proofLocator": "wrong source line and unrelated file block without staging or source mutation", "proofRole": "primary" },
-        { "capabilityId": "semantic-source-checkpoints", "behaviorId": "implementation-checkpoint-attribution-and-idempotence", "proofLocator": "implementation checkpoint commits attributed file and duplicate retry returns exact revision", "proofRole": "primary" },
-        { "capabilityId": "semantic-source-checkpoints", "behaviorId": "operator-disposition-creates-empty-lifecycle-revision", "proofLocator": "operator disposition creates an evidenced empty lifecycle revision", "proofRole": "primary" },
-        { "capabilityId": "semantic-source-checkpoints", "behaviorId": "retry-reconciles-committed-source-after-binding-failure", "proofLocator": "retry reconciles a committed source revision after a failed binding update", "proofRole": "primary" }
+        {
+          "capabilityId": "semantic-source-checkpoints",
+          "behaviorId": "checkpoint-blocks-wrong-line-and-unrelated-files",
+          "proofLocator": "wrong source line and unrelated file block without staging or source mutation",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "semantic-source-checkpoints",
+          "behaviorId": "implementation-checkpoint-attribution-and-idempotence",
+          "proofLocator": "implementation checkpoint commits attributed file and duplicate retry returns exact revision",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "semantic-source-checkpoints",
+          "behaviorId": "operator-disposition-creates-empty-lifecycle-revision",
+          "proofLocator": "operator disposition creates an evidenced empty lifecycle revision",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "semantic-source-checkpoints",
+          "behaviorId": "retry-reconciles-committed-source-after-binding-failure",
+          "proofLocator": "retry reconciles a committed source revision after a failed binding update",
+          "proofRole": "primary"
+        }
       ]
     },
     {
       "testPath": "test/source-control/source-graph-projection.test.cjs",
-      "currentTestCount": { "value": 4, "basis": "Observed TAP summary in the WTR02H focused normal-Windows run after adding completed-Workflow filtering proof." },
-      "duration": { "kind": "measured", "milliseconds": 14562, "basis": "Observed total duration in the final WTR02H focused normal-Windows run." },
+      "currentTestCount": {
+        "value": 4,
+        "basis": "Observed TAP summary in the WTR02H focused normal-Windows run after adding completed-Workflow filtering proof."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 14562,
+        "basis": "Observed total duration in the final WTR02H focused normal-Windows run."
+      },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
-      "dependencies": { "electron": false, "filesystem": true, "git": true, "network": false, "process": true, "timing": false },
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
       "sourceInspectionClassification": "none",
       "v2Disposition": "preserve",
-      "validationRoles": ["capability"],
-      "execution": { "requiresBuild": true, "platform": "any", "externalCapabilities": [], "scheduling": "parallel-safe",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
         "schedulingReason": "Each fixture owns an isolated temporary Git and SQLite repository.",
-        "ownedResources": ["bounded-child-process", "isolated-git-fixture", "temp-filesystem-isolated"] },
-      "proofCharacteristics": ["behavioral"],
-      "dispositionReasons": ["current-proof-appropriate"],
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
       "behaviorCoverage": [
-        { "capabilityId": "release-and-git-operations", "behaviorId": "source-graph-projects-bounded-branch-ancestry-and-workflow-meaning", "proofLocator": "three concurrent Workflow source bindings, direct and routed admission, current identity after supersession, lineage history, includeCompleted filtering, bounded truncation and metadata fallback", "proofRole": "primary" },
-        { "capabilityId": "release-and-git-operations", "behaviorId": "source-graph-revision-detail-is-read-only-and-bounded", "proofLocator": "exact revision changed-file detail is capped at 24 and leaves the selected source unchanged", "proofRole": "primary" }
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "source-graph-projects-bounded-branch-ancestry-and-workflow-meaning",
+          "proofLocator": "three concurrent Workflow source bindings, direct and routed admission, current identity after supersession, lineage history, includeCompleted filtering, bounded truncation and metadata fallback",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "source-graph-revision-detail-is-read-only-and-bounded",
+          "proofLocator": "exact revision changed-file detail is capped at 24 and leaves the selected source unchanged",
+          "proofRole": "primary"
+        }
       ]
     },
     {
       "testPath": "test/source-control/source-lifecycle-package.test.cjs",
-      "currentTestCount": { "value": 1, "basis": "SCL10 end-to-end synthetic structured source lifecycle fixture." },
-      "duration": { "kind": "measured", "milliseconds": 45000, "basis": "Observed focused normal Windows SCL10 run." },
+      "currentTestCount": {
+        "value": 1,
+        "basis": "SCL10 end-to-end synthetic structured source lifecycle fixture."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 45000,
+        "basis": "Observed focused normal Windows SCL10 run."
+      },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
-      "dependencies": { "electron": false, "filesystem": true, "git": true, "network": false, "process": true, "timing": false },
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
       "sourceInspectionClassification": "none",
       "v2Disposition": "preserve",
-      "validationRoles": ["capability", "integration"],
-      "execution": { "requiresBuild": true, "platform": "any", "externalCapabilities": [], "scheduling": "parallel-safe",
+      "validationRoles": [
+        "capability",
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
         "schedulingReason": "One isolated temporary Git and SQLite repository per fixture.",
-        "ownedResources": ["bounded-child-process", "isolated-git-fixture", "temp-filesystem-isolated"] },
-      "proofCharacteristics": ["behavioral"],
-      "dispositionReasons": ["current-proof-appropriate"],
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
       "behaviorCoverage": [
-        { "capabilityId": "release-and-git-operations", "behaviorId": "source-lifecycle-package-qualifies-three-lines-checkpoint-review-and-integration", "proofLocator": "dirty dev capture, feature and two hotfix lines, review-loop revisions, clean and repaired integration, and projected graph", "proofRole": "primary" }
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "source-lifecycle-package-qualifies-three-lines-checkpoint-review-and-integration",
+          "proofLocator": "dirty dev capture, feature and two hotfix lines, review-loop revisions, clean and repaired integration, and projected graph",
+          "proofRole": "primary"
+        }
       ]
     },
     {
       "testPath": "test/source-control/source-topology-path-contracts.test.cjs",
-      "currentTestCount": { "value": 7, "basis": "Focused Project container topology path, deterministic checkout identity, role validation, and redirect safety fixtures." },
-      "duration": { "kind": "measured", "milliseconds": 87, "basis": "Observed supported-Windows focused WTR02C contract test run." },
+      "currentTestCount": {
+        "value": 7,
+        "basis": "Focused Project container topology path, deterministic checkout identity, role validation, and redirect safety fixtures."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 87,
+        "basis": "Observed supported-Windows focused WTR02C contract test run."
+      },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
-      "dependencies": { "electron": false, "filesystem": true, "git": false, "network": false, "process": false, "timing": false },
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
       "sourceInspectionClassification": "none",
       "v2Disposition": "preserve",
-      "validationRoles": ["capability"],
-      "execution": { "requiresBuild": true, "platform": "any", "externalCapabilities": [], "scheduling": "parallel-safe",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
         "schedulingReason": "Each fixture owns isolated temporary Project containers and no Git or shared mutable state.",
-        "ownedResources": ["temp-filesystem-isolated"] },
-      "proofCharacteristics": ["behavioral"],
-      "dispositionReasons": ["current-proof-appropriate"],
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
       "behaviorCoverage": [
-        { "capabilityId": "release-and-git-operations", "behaviorId": "managed-project-source-topology-separates-container-repository-and-checkouts",
-          "proofLocator": "canonical managed paths, non-Git container resolution, exact Workflow UUID mapping, checkout-role validation, and redirect rejection", "proofRole": "primary" }
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "managed-project-source-topology-separates-container-repository-and-checkouts",
+          "proofLocator": "canonical managed paths, non-Git container resolution, exact Workflow UUID mapping, checkout-role validation, and redirect rejection",
+          "proofRole": "primary"
+        }
       ]
     },
     {
       "testPath": "test/source-control/structured-integration.test.cjs",
-      "currentTestCount": { "value": 2, "basis": "SCL07 focused structured clean and conflict fixtures." },
-      "duration": { "kind": "measured", "milliseconds": 37000, "basis": "Observed focused normal Windows SCL07 run." },
+      "currentTestCount": {
+        "value": 2,
+        "basis": "SCL07 focused structured clean and conflict fixtures."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 37000,
+        "basis": "Observed focused normal Windows SCL07 run."
+      },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
-      "dependencies": { "electron": false, "filesystem": true, "git": true, "network": false, "process": true, "timing": false },
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
       "sourceInspectionClassification": "none",
       "v2Disposition": "preserve",
-      "validationRoles": ["capability"],
-      "execution": { "requiresBuild": true, "platform": "any", "externalCapabilities": [], "scheduling": "parallel-safe",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
         "schedulingReason": "Each fixture owns an isolated temporary Git and SQLite repository.",
-        "ownedResources": ["bounded-child-process", "isolated-git-fixture", "temp-filesystem-isolated"] },
-      "proofCharacteristics": ["behavioral"],
-      "dispositionReasons": ["current-proof-appropriate"],
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
       "behaviorCoverage": [
-        { "capabilityId": "release-and-git-operations", "behaviorId": "structured-completion-integrates-exact-dev", "proofLocator": "completed structured Work Intake integrates exact validated source into dev without switching the primary checkout", "proofRole": "primary" }
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "structured-completion-integrates-exact-dev",
+          "proofLocator": "completed structured Work Intake integrates exact validated source into dev without switching the primary checkout",
+          "proofRole": "primary"
+        }
       ]
     },
     {
       "testPath": "test/source-control/structured-workflow-checkpoint.test.cjs",
-      "currentTestCount": { "value": 1, "basis": "SCL06 focused structured workflow fixture." },
-      "duration": { "kind": "measured", "milliseconds": 12000, "basis": "Observed focused normal Windows SCL06 run." },
+      "currentTestCount": {
+        "value": 1,
+        "basis": "SCL06 focused structured workflow fixture."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 12000,
+        "basis": "Observed focused normal Windows SCL06 run."
+      },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
-      "dependencies": { "electron": false, "filesystem": true, "git": true, "network": false, "process": true, "timing": false },
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
       "sourceInspectionClassification": "none",
       "v2Disposition": "preserve",
-      "validationRoles": ["capability"],
-      "execution": { "requiresBuild": true, "platform": "any", "externalCapabilities": [], "scheduling": "parallel-safe",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
         "schedulingReason": "Each fixture owns an isolated temporary Git and SQLite repository.",
-        "ownedResources": ["bounded-child-process", "isolated-git-fixture", "temp-filesystem-isolated"] },
-      "proofCharacteristics": ["behavioral"],
-      "dispositionReasons": ["current-proof-appropriate"],
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
       "behaviorCoverage": [
-        { "capabilityId": "semantic-source-checkpoints", "behaviorId": "structured-workflow-dispositions-share-source-line", "proofLocator": "structured route, implementation and revision review share one SourceLine with exact checkpoint projections", "proofRole": "primary" }
+        {
+          "capabilityId": "semantic-source-checkpoints",
+          "behaviorId": "structured-workflow-dispositions-share-source-line",
+          "proofLocator": "structured route, implementation and revision review share one SourceLine with exact checkpoint projections",
+          "proofRole": "primary"
+        }
       ]
     },
     {
       "testPath": "test/source-control/workflow-source-materialization.test.cjs",
-      "currentTestCount": { "value": 3, "basis": "Three focused synthetic Project State and real-Git tests cover exact baseline, supersession, concurrent checkouts, retries, path conflicts, and pre-mutation rejection." },
-      "duration": { "kind": "estimated", "milliseconds": 30000, "basis": "Estimated for three temporary SQLite and Git materialization scenarios." },
+      "currentTestCount": {
+        "value": 3,
+        "basis": "Three focused synthetic Project State and real-Git tests cover exact baseline, supersession, concurrent checkouts, retries, path conflicts, and pre-mutation rejection."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 30000,
+        "basis": "Estimated for three temporary SQLite and Git materialization scenarios."
+      },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
-      "dependencies": { "electron": false, "filesystem": true, "git": true, "network": false, "process": true, "timing": false },
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
       "sourceInspectionClassification": "none",
       "v2Disposition": "preserve",
-      "validationRoles": ["capability"],
-      "execution": { "requiresBuild": true, "platform": "any", "externalCapabilities": [], "scheduling": "parallel-safe",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
         "schedulingReason": "Each test uses isolated temporary Project containers, SQLite stores, and Git repositories.",
-        "ownedResources": ["bounded-child-process", "isolated-git-fixture", "temp-filesystem-isolated"] },
-      "proofCharacteristics": ["behavioral"],
-      "dispositionReasons": ["current-proof-appropriate"],
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
       "behaviorCoverage": [
-        { "capabilityId": "release-and-git-operations", "behaviorId": "workflow-source-materialization-recovers-exact-baseline-checkout-by-lineage",
-          "proofLocator": "materialization from exact baseline after Dev advances and Workflow supersession, simultaneous Workflow checkout coexistence, ready retry without revision, blocked registration recovery, conflict preservation, and WIR/terminal/no-baseline rejection", "proofRole": "primary" }
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "workflow-source-materialization-recovers-exact-baseline-checkout-by-lineage",
+          "proofLocator": "materialization from exact baseline after Dev advances and Workflow supersession, simultaneous Workflow checkout coexistence, ready retry without revision, blocked registration recovery, conflict preservation, and WIR/terminal/no-baseline rejection",
+          "proofRole": "primary"
+        }
       ]
     },
     {
@@ -19631,8 +19324,8 @@
     {
       "testPath": "test/work-card-planning/work-card-planning-service.test.cjs",
       "currentTestCount": {
-        "value": 17,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 14,
+        "basis": "Observed TAP summary in the final WRB02-05 normal Windows focused run."
       },
       "duration": {
         "kind": "measured",
@@ -19981,29 +19674,10 @@
       ]
     },
     {
-      "testPath": "test/work-intake/route-disposition-checkpoint.test.cjs",
-      "currentTestCount": { "value": 1, "basis": "SCL06 route disposition and idempotent retry fixture." },
-      "duration": { "kind": "measured", "milliseconds": 24000, "basis": "Observed focused normal Windows SCL06 run." },
-      "proposedValidationLane": "affected-capability",
-      "platformDependency": "none",
-      "dependencies": { "electron": false, "filesystem": true, "git": true, "network": false, "process": true, "timing": false },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": ["capability"],
-      "execution": { "requiresBuild": true, "platform": "any", "externalCapabilities": [], "scheduling": "parallel-safe",
-        "schedulingReason": "Each fixture owns an isolated temporary Git repository.",
-        "ownedResources": ["bounded-child-process", "isolated-git-fixture", "temp-filesystem-isolated"] },
-      "proofCharacteristics": ["behavioral"],
-      "dispositionReasons": ["current-proof-appropriate"],
-      "behaviorCoverage": [
-        { "capabilityId": "semantic-source-checkpoints", "behaviorId": "legacy-route-disposition-checkpoints-exact-intake-files", "proofLocator": "Operator route selection checkpoints its exact Intake source line and retry reuses the commit", "proofRole": "primary" }
-      ]
-    },
-    {
       "testPath": "test/work-intake/structured-work-intake-capture.test.cjs",
       "currentTestCount": {
-        "value": 7,
-        "basis": "SCL02 capture and retry plus SCL03 exact Dev, collision, and unavailable managed Dev projection/save scenarios."
+        "value": 5,
+        "basis": "Counted from node:test declarations in the WRB02-05 checkout."
       },
       "duration": {
         "kind": "measured",

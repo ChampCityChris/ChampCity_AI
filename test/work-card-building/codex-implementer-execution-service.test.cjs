@@ -53,8 +53,8 @@ test("Codex Implementer service starts App Server thread from current Implement 
   fs.writeFileSync(path.join(root, ".gitignore"), "/planning/\n");
   fixtureGit("init", "-b", "main"); fixtureGit("config", "user.name", "Fixture"); fixtureGit("config", "user.email", "fixture@example.invalid");
   fixtureGit("add", "--all"); fixtureGit("commit", "-m", "fixture baseline");
-  const { submitWorkIntake } = require("../../dist/main/workIntake/workIntakeService.js");
-  const submitted = await submitWorkIntake(root, { projectId: null, projectName: "Implementation fixture", workRequest: "Bounded implementation", desiredOutcome: "Current behavior passes", knownConstraints: "", hasExistingSourceOrPlanning: true, repositoryReviewContext: "", baseBranch: "main", baseCommit: fixtureGit("rev-parse", "HEAD") });
+  const { createLegacyWorkIntakeFixture } = require("../support/work-intake-fixtures.cjs");
+  const submitted = await createLegacyWorkIntakeFixture(root, { projectId: null, projectName: "Implementation fixture", workRequest: "Bounded implementation", desiredOutcome: "Current behavior passes", knownConstraints: "", hasExistingSourceOrPlanning: true, repositoryReviewContext: "", baseBranch: "main", baseCommit: fixtureGit("rev-parse", "HEAD") });
   assert.equal(submitted.ok, true);
   const formalFile = path.join(root, "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md");
   const formal = parseCanonicalMarkdownDocument(fs.readFileSync(formalFile, "utf8"));

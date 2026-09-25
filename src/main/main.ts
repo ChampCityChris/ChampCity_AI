@@ -53,7 +53,6 @@ import {
 } from "./documents/developmentPostMutationProjection";
 import { resolveFirstNonApprovedDocument } from "./documents/firstNonApprovedResolver";
 import { submitProjectIntakeForRepository } from "./projectIntake/projectIntakeService";
-import { getWorkIntakeProjection, readWorkIntake, submitWorkIntake } from "./workIntake/workIntakeService";
 import { createSourceControlService } from "./sourceControl/sourceControlService";
 import { establishManagedProjectSource, resolveManagedDevRepositoryCheckout } from "./sourceControl/managedProjectSourceService";
 import { CURRENT_PROJECT_REPOSITORY_ID, registerCurrentProject, selectedCurrentProjectId } from "./projectState/currentProjectRegistrationService";
@@ -63,21 +62,7 @@ import { registerWorkflowApplicationIpc } from "./workflow/workflowApplicationIp
 import { registerStructuredWorkRoutingIpc } from "./workflow/structuredWorkRoutingIpc";
 import { createWorkflowApplicationService } from "./workflow/workflowApplicationService";
 import type { SourceGraphOptions } from "../shared/sourceLifecycleContracts";
-import { captureGreenfieldWorkIntake, captureStructuredWorkIntake, getGreenfieldWorkIntakeProjection, getStructuredWorkIntakeProjection, isGreenfieldProjectRoot, retryStructuredWorkIntakeSource } from "./workIntake/structuredWorkIntakeService";
-import { getWorkIntakeNavigation } from "./workIntake/workIntakeNavigationService";
-import { runRoutedWorkflow } from "./planExecution/routedWorkflowService";
-import type { RoutedWorkflowAction, RoutedWorkflowInput } from "../shared/routedWorkflowContracts";
-import { copyWorkRoutingAssessment, getWorkRoutingAssessment, prepareWorkRoutingAssessment } from "./workIntake/workRoutingAssessmentService";
-import { decideWorkRoute, getWorkRouteDecision } from "./workIntake/workRouteDecisionService";
-import { runWorkIssueAction } from "./workPlanning/workIssueRoutingService";
-import { getRoutedIssueLineage } from "./workPlanning/routedIssueLineageService";
-import { workItemDecompositionService } from "./workCardPlanning/workItemDecompositionService";
-import type { WorkItemDecompositionReview } from "../shared/workItemDecompositionContracts";
-import type { WorkIssueAction, WorkIssueActionInput } from "../shared/issueResolutionContracts";
-import type { WorkRouteDecisionInput } from "../shared/workRouteDecisionContracts";
-import { workPlanningKernel } from "./workPlanning/workPlanningKernel";
-import type { WorkPlanningReviewInput, WorkPlanningStage } from "../shared/workPlanningContracts";
-import type { WorkIntakeSubmission } from "../shared/workIntakeContracts";
+import { captureStructuredWorkIntake, getStructuredWorkIntakeProjection } from "./workIntake/structuredWorkIntakeService";
 import {
   attachArchitectBrowserSurface,
   confirmArchitectSignedIn,
@@ -850,53 +835,14 @@ ipcMain.handle("sourceGraph:revisionDetail", async (_event, revisionId: string) 
 ipcMain.handle("workIntake:projection", async () => {
   const root = getRequiredWorkspaceRoot();
   const projectId = selectedCurrentProjectId(root);
-  if (projectId) return getStructuredWorkIntakeProjection(root, projectId);
-  return isGreenfieldProjectRoot(root) ? getGreenfieldWorkIntakeProjection(root) : getWorkIntakeProjection(root);
+  if (!projectId) throw Error("Select or open a Project to use Work Intake.");
+  return getStructuredWorkIntakeProjection(root, projectId);
 });
-ipcMain.handle("workIntake:navigation", (_event, intakeId?: string) => getWorkIntakeNavigation(getRequiredWorkspaceRoot(), intakeId));
-ipcMain.handle("routedWorkflow:action", async (_event, intakeId: string, action: RoutedWorkflowAction, input?: RoutedWorkflowInput) => {
-  const result = await runRoutedWorkflow(getRequiredWorkspaceRoot(), intakeId, action, input);
-  if (result.instruction) clipboard.writeText(result.instruction);
-  return result.model;
-});
-ipcMain.handle("workIntake:read", (_event, intakeId: string) => readWorkIntake(getRequiredWorkspaceRoot(), intakeId));
-ipcMain.handle("workIntake:submit", async (_event, submission: WorkIntakeSubmission) => {
+ipcMain.handle("workIntake:submit", async (_event, submission: import("../shared/workIntakeContracts").WorkIntakeSubmission) => {
   const root = getRequiredWorkspaceRoot();
   const projectId = selectedCurrentProjectId(root);
-  // This fallback serves the unreplaced generic Work Intake surface only. WRB01 landing entry registers a Current Project and uses Project Intake instead.
-  return projectId ? { ok: true as const, value: await captureStructuredWorkIntake(root, projectId, submission), receipts: [] as [] }
-    : isGreenfieldProjectRoot(root) ? { ok: true as const, value: await captureGreenfieldWorkIntake(root, submission), receipts: [] as [] }
-    : submitWorkIntake(root, submission);
-});
-ipcMain.handle("workIntake:retry-source", (_event, intakeId: string) => {
-  const root = getRequiredWorkspaceRoot();
-  const projectId = selectedCurrentProjectId(root);
-  if (!projectId) throw Error("Structured Work Intake source preparation is unavailable.");
-  return retryStructuredWorkIntakeSource(root, projectId, intakeId);
-});
-ipcMain.handle("workRouting:prepare", (_event, intakeId: string) => prepareWorkRoutingAssessment(getRequiredWorkspaceRoot(), intakeId));
-ipcMain.handle("workRoute:status", (_event, intakeId: string) => getWorkRouteDecision(getRequiredWorkspaceRoot(), intakeId));
-ipcMain.handle("workIssue:action", async (_event, intakeId: string, action: WorkIssueAction, input?: WorkIssueActionInput) => {
-  const result = await runWorkIssueAction(getRequiredWorkspaceRoot(), intakeId, action, input);
-  if (result.instruction) clipboard.writeText(result.instruction);
-  return result.model;
-});
-ipcMain.handle("workIssue:lineage", (_event, issueId: string) => getRoutedIssueLineage(getRequiredWorkspaceRoot(), issueId));
-ipcMain.handle("workRoute:decide", (_event, intakeId: string, input: WorkRouteDecisionInput) => decideWorkRoute(getRequiredWorkspaceRoot(), intakeId, input));
-ipcMain.handle("workPlanning:status", (_event, intakeId: string, stage: WorkPlanningStage) => workPlanningKernel.get(getRequiredWorkspaceRoot(), intakeId, stage));
-ipcMain.handle("workDecomposition:status", (_event, intakeId: string, workItemId: string) => workItemDecompositionService.get(getRequiredWorkspaceRoot(), intakeId, workItemId));
-ipcMain.handle("workDecomposition:prepare", (_event, intakeId: string, workItemId: string) => workItemDecompositionService.prepare(getRequiredWorkspaceRoot(), intakeId, workItemId));
-ipcMain.handle("workDecomposition:review", (_event, intakeId: string, workItemId: string, input: WorkItemDecompositionReview) => workItemDecompositionService.review(getRequiredWorkspaceRoot(), intakeId, workItemId, input));
-ipcMain.handle("workDecomposition:copy", async (_event, intakeId: string, workItemId: string) => { clipboard.writeText(await workItemDecompositionService.copy(getRequiredWorkspaceRoot(), intakeId, workItemId)); });
-ipcMain.handle("workPlanning:prepare", (_event, intakeId: string, stage: WorkPlanningStage) => workPlanningKernel.prepare(getRequiredWorkspaceRoot(), intakeId, stage));
-ipcMain.handle("workPlanning:review", (_event, intakeId: string, stage: WorkPlanningStage, input: WorkPlanningReviewInput) => workPlanningKernel.review(getRequiredWorkspaceRoot(), intakeId, stage, input));
-ipcMain.handle("workPlanning:copy", async (_event, intakeId: string, stage: WorkPlanningStage) => {
-  clipboard.writeText(await workPlanningKernel.copy(getRequiredWorkspaceRoot(), intakeId, stage));
-});
-ipcMain.handle("workRouting:status", (_event, intakeId: string) => getWorkRoutingAssessment(getRequiredWorkspaceRoot(), intakeId));
-ipcMain.handle("workRouting:copy", async (_event, intakeId: string) => {
-  const instruction = await copyWorkRoutingAssessment(getRequiredWorkspaceRoot(), intakeId);
-  clipboard.writeText(instruction);
+  if (!projectId) throw Error("Select or open a Project to use Work Intake.");
+  return { ok: true as const, value: await captureStructuredWorkIntake(root, projectId, submission), receipts: [] as [] };
 });
 
 ipcMain.handle(

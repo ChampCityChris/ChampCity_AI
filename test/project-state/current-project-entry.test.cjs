@@ -15,7 +15,7 @@ const { establishManagedProjectSource } = require("../../dist/main/sourceControl
 const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
 const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
 const { createWorkflowApplicationService } = require("../../dist/main/workflow/workflowApplicationService.js");
-const { getGreenfieldWorkIntakeProjection, getStructuredWorkIntakeProjection, isGreenfieldProjectRoot } = require("../../dist/main/workIntake/structuredWorkIntakeService.js");
+const { getStructuredWorkIntakeProjection } = require("../../dist/main/workIntake/structuredWorkIntakeService.js");
 const { getWorkIntakeProjection } = require("../../dist/main/workIntake/workIntakeService.js");
 const rendererSource = fs.readFileSync(path.resolve(__dirname, "../../src/renderer/app/App.tsx"), "utf8");
 
@@ -78,8 +78,6 @@ test("Greenfield entry validates an empty container, establishes SPS and registe
     resolveManagedDevRepositoryCheckout,
     selectedSourceGraphRepositoryId,
     getStructuredWorkIntakeProjection,
-    isGreenfieldProjectRoot,
-    getGreenfieldWorkIntakeProjection,
     getWorkIntakeProjection,
     getAgentHarnessServiceHostClient: () => harness,
     createSourceControlService,
@@ -148,8 +146,8 @@ test("Greenfield entry validates an empty container, establishes SPS and registe
   assert.equal(detail.ok, true, JSON.stringify(detail));
   assert.deepEqual(detail.result.changedFiles, [{ path: "graph-proof.txt", status: "A" }]);
   const projection = await api.getWorkIntakeProjection();
-  assert.equal(projection.currentBranch, "dev");
-  assert.equal(projection.branches[0].name, "dev");
+  assert.equal(projection.currentBranch, undefined);
+  assert.equal(projection.branches, undefined);
   assert.deepEqual(invocations.map(call => call.channel), ["project:registerCurrent", "sourceGraph:get", "sourceGraph:revisionDetail", "workIntake:projection"]);
   await harness.stop().catch(() => undefined);
   assert.throws(() => assertGreenfieldProjectEntry(path.dirname(selected)), /empty Project container/);
@@ -226,8 +224,7 @@ test("Work Intake projection IPC delegates without pre-resolving managed Dev", a
   let resolutionAttempts = 0;
   let projectionArgs;
   const expected = { authority: "structured", project: { projectId: current.project.id, repositoryId: CURRENT_PROJECT_REPOSITORY_ID, name: "Synthetic" },
-    suggestedProjectName: "Synthetic", branches: [], currentBranch: null, suggestedBase: null, intakes: [], currentIntake: null,
-    blockedReason: null, capturedIntakes: [], currentCapturedIntake: null };
+    suggestedProjectName: "Synthetic", blockedReason: null, capturedIntakes: [], currentCapturedIntake: null };
   const { api } = mainPreloadHarness(["workIntake:projection"], {
     getRequiredWorkspaceRoot: () => selected,
     selectedCurrentProjectId,
@@ -237,6 +234,18 @@ test("Work Intake projection IPC delegates without pre-resolving managed Dev", a
   assert.deepEqual(await api.getWorkIntakeProjection(), expected);
   assert.deepEqual(projectionArgs, [selected, current.project.id]);
   assert.equal(resolutionAttempts, 0);
+});
+
+test("Work Intake projection and submission require a selected Current Project", async context => {
+  const selected = root(context);
+  const { api } = mainPreloadHarness(["workIntake:projection", "workIntake:submit"], {
+    getRequiredWorkspaceRoot: () => selected,
+    selectedCurrentProjectId: () => null,
+    getStructuredWorkIntakeProjection: async () => { throw new Error("must not project without a Project"); },
+    captureStructuredWorkIntake: async () => { throw new Error("must not capture without a Project"); },
+  });
+  await assert.rejects(api.getWorkIntakeProjection(), /Select or open a Project to use Work Intake/);
+  await assert.rejects(api.submitWorkIntake({ projectName: "Product" }), /Select or open a Project to use Work Intake/);
 });
 
 test("invalid or redirected Existing Project source candidates fail before Current Project registration", async context => {
@@ -331,7 +340,7 @@ test("Existing conventional Project entry preserves source and historical Markdo
   const reopened = await api.registerCurrentProject("existing");
   assert.equal(reopened.projectId, current.projectId);
   assert.equal(reopened.created, false);
-  assert.deepEqual(checkouts.slice(0, 2).map(checkout => checkout.repositoryCheckoutId), checkouts.slice(2).map(checkout => checkout.repositoryCheckoutId));
+  assert.deepEqual(checkouts.slice(0, 2).map(checkout => checkout.repositoryCheckoutId).sort(), checkouts.slice(2).map(checkout => checkout.repositoryCheckoutId).sort());
   const workspaceId = (await harness.listRegisteredWorkspaces()).workspaces[0].workspaceId;
   const mcpRead = await harness.registry.callTool({ name: "repo_toolbox", arguments: { workspaceId, action: "read_file",
     params: { relativePath: "Main/WORKFLOW.md" } }, scope: "files.read" });

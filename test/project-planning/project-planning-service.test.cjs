@@ -71,11 +71,6 @@ test("research closes durably on reviewed evidence without manufacturing a Plan 
   const checkpointHead = git("rev-parse", "HEAD");
   assert.equal(checkpointed.checkpoint.commit, checkpointHead);
   assert.notEqual(checkpointHead, initialHead);
-  const routed = await require("../../dist/main/planExecution/routedWorkflowService.js").getRoutedWorkflow(root, intake.intakeId);
-  assert.equal(routed.integration.status, "ready");
-  assert.equal(routed.integration.completionKind, "research");
-  assert.equal(routed.execution, undefined);
-  assert.ok(routed.actions.includes("integrate"));
   const { activateRoutedDevelopmentExecutionBinding, routedDevelopmentExecutionBindingPath } = require("../../dist/main/planExecution/routedDevelopmentExecutionBinding.js");
   await assert.rejects(activateRoutedDevelopmentExecutionBinding(root, intake.intakeId), /no implementation Plan/);
   assert.equal(fs.existsSync(path.join(root, routedDevelopmentExecutionBindingPath(intake.intakeId))), false);
