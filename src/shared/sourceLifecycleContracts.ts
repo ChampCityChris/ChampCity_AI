@@ -1,4 +1,5 @@
 import type { SourceControlResult } from "./sourceControlContracts";
+import type { WorkflowType } from "./projectState/workflowTypeRegistry";
 
 /** Provider-neutral source identities. Provider branch names are diagnostic data. */
 export interface SourceRevision {
@@ -140,13 +141,13 @@ export interface SourceGraph {
   repositoryId: string;
   /** Opaque graph IDs are deterministic for an unchanged repository/ref identity. */
   integrationTargets: Array<{ id: string; lineId: string; headRevisionId: string }>;
-  sourceLines: Array<{ id: string; headRevisionId: string; providerBranchName?: string; role: "main" | "dev" | "work"; workIntakeIds: string[] }>;
+  sourceLines: Array<{ id: string; headRevisionId: string; providerBranchName?: string; role: "main" | "dev" | "work"; workflowIds: string[] }>;
   revisions: Array<{ id: string; parents: string[]; timestamp: string; headOfLineIds: string[]; checkpointKinds: Array<"implementation" | "disposition">; integrationStates: string[] }>;
-  workBindings: Array<{ workIntakeId: string; lineId: string | null; title: string; route: string | null; workType: string | null;
-    lifecycleState: string; workflowState: string | null; baseRevisionId: string | null; currentRevisionId: string | null;
+  workflowBindings: Array<{ workflowId: string; sourceAnchorWorkflowId: string; lineId: string | null; title: string; workflowType: WorkflowType;
+    lifecycleState: string; workflowState: string; baseRevisionId: string; currentRevisionId: string | null;
     checkpointKinds: Array<"implementation" | "disposition">; integrationState: string | null }>;
   truncation: { maxRevisions: number; maxLines: number; revisionsTruncated: boolean; linesTruncated: boolean;
-    omittedParentLinks: number; workBindingsTruncated: boolean };
+    omittedParentLinks: number; workflowBindingsTruncated: boolean };
   providerDiagnostics: { provider: "git"; currentBranch?: string; metadata: "available" | "missing" | "unavailable" };
 }
 

@@ -3,12 +3,12 @@ import { ArrowLeft, GitBranch, RefreshCw } from "lucide-react";
 import type { SourceGraph, SourceGraphRevisionDetail } from "../../shared/sourceLifecycleContracts";
 import { layoutSourceGraph } from "./sourceGraphLayout";
 
-type Selection = { kind: "line" | "work" | "revision"; id: string };
-type Work = SourceGraph["workBindings"][number];
+type Selection = { kind: "line" | "workflow" | "revision"; id: string };
+type Workflow = SourceGraph["workflowBindings"][number];
 
 const shortRevision = (value: string) => value.slice(0, 9);
-const workStatus = (work: Work) => work.integrationState === "integrated" ? "Integrated"
-  : ["closed", "cancelled"].includes(work.lifecycleState) ? "Completed" : "Active";
+const workflowStatus = (workflow: Workflow) => workflow.integrationState === "integrated" ? "Integrated"
+  : ["closed", "cancelled"].includes(workflow.workflowState) || ["closed", "archived", "voided"].includes(workflow.lifecycleState) ? "Completed" : "Active";
 const label = (value: string | null | undefined) => value?.replaceAll("-", " ") ?? "Not recorded";
 
 export function SourceControlWorkspace({ projectName, onReturn }: { projectName: string; onReturn: () => void }): JSX.Element {
@@ -29,7 +29,7 @@ export function SourceControlWorkspace({ projectName, onReturn }: { projectName:
       setGraph(response.result);
       setSelection(current => {
         if (current?.kind === "line" && response.result.sourceLines.some(line => line.id === current.id)) return current;
-        if (current?.kind === "work" && response.result.workBindings.some(work => work.workIntakeId === current.id)) return current;
+        if (current?.kind === "workflow" && response.result.workflowBindings.some(workflow => workflow.workflowId === current.id)) return current;
         if (current?.kind === "revision" && response.result.revisions.some(revision => revision.id === current.id)) return current;
         return response.result.sourceLines[0] ? { kind: "line", id: response.result.sourceLines[0].id } : null;
       });
@@ -54,15 +54,15 @@ export function SourceControlWorkspace({ projectName, onReturn }: { projectName:
   }, [selection?.kind, selection?.id]);
 
   const selectedLine = selection?.kind === "line" ? graph?.sourceLines.find(line => line.id === selection.id) : undefined;
-  const selectedWork = selection?.kind === "work" ? graph?.workBindings.find(work => work.workIntakeId === selection.id) : undefined;
+  const selectedWorkflow = selection?.kind === "workflow" ? graph?.workflowBindings.find(workflow => workflow.workflowId === selection.id) : undefined;
   const selectedRevision = selection?.kind === "revision" ? graph?.revisions.find(revision => revision.id === selection.id) : undefined;
-  const lineWork = selectedLine ? graph?.workBindings.filter(work => work.lineId === selectedLine.id) ?? [] : [];
+  const lineWorkflows = selectedLine ? graph?.workflowBindings.filter(workflow => workflow.lineId === selectedLine.id) ?? [] : [];
 
   return <section className="source-control-workspace" aria-labelledby="workspace-heading">
     <header className="source-control-header">
       <div><span className="source-control-eyebrow">{projectName} · Repository view</span>
         <h1 id="workspace-heading">Source Control</h1>
-        <p>Inspect source lines, revision ancestry, and Work Intake progress.</p></div>
+        <p>Inspect source lines, revision ancestry, and Workflow progress.</p></div>
       <div className="source-control-header-actions">
         <button type="button" onClick={onReturn}><ArrowLeft size={16} aria-hidden="true" /> Workflows</button>
         <button type="button" onClick={() => void refresh()} disabled={loading}><RefreshCw size={16} aria-hidden="true" /> {loading ? "Loading…" : "Refresh graph"}</button>
@@ -76,10 +76,10 @@ export function SourceControlWorkspace({ projectName, onReturn }: { projectName:
         <span>{graph.integrationTargets.length} integration targets</span>
       </div>
       {graph.providerDiagnostics.metadata === "unavailable" ? <p className="source-control-notice" role="status">Workflow details are unavailable. Repository topology is still shown.</p> : null}
-      {graph.truncation.linesTruncated || graph.truncation.revisionsTruncated || graph.truncation.workBindingsTruncated ?
+      {graph.truncation.linesTruncated || graph.truncation.revisionsTruncated || graph.truncation.workflowBindingsTruncated ?
         <p className="source-control-notice" role="status">Showing a bounded view. {graph.truncation.linesTruncated ? `First ${graph.truncation.maxLines} source lines. ` : ""}
           {graph.truncation.revisionsTruncated ? `First ${graph.truncation.maxRevisions} revisions. ` : ""}
-          {graph.truncation.workBindingsTruncated ? "Some Work Intake details are omitted." : ""}</p> : null}
+          {graph.truncation.workflowBindingsTruncated ? "Some Workflow details are omitted." : ""}</p> : null}
       {graph.sourceLines.length ? <div className="source-control-content">
         <div className="source-control-main">
           <section className="source-graph-section" aria-label="Source graph">
@@ -87,12 +87,12 @@ export function SourceControlWorkspace({ projectName, onReturn }: { projectName:
             <div className="source-graph-board">
               <div className="source-graph-labels" aria-label="Select source line">
                 {layout.lines.map(line => {
-                  const work = graph.workBindings.find(binding => binding.lineId === line.id);
-                  const status = line.role === "main" || line.role === "dev" ? "Target" : work ? workStatus(work) : "Source line";
+                  const workflow = graph.workflowBindings.find(binding => binding.lineId === line.id);
+                  const status = line.role === "main" || line.role === "dev" ? "Target" : workflow ? workflowStatus(workflow) : "Source line";
                   return <button type="button" key={line.id} aria-pressed={selection?.kind === "line" && selection.id === line.id}
-                    onClick={() => setSelection({ kind: "line", id: line.id })} title={work?.title ?? line.providerBranchName ?? "Source line"}>
-                    <strong>{work?.title ?? (line.role === "main" ? "Main" : line.role === "dev" ? "Development" : "Unbound source line")}</strong>
-                    <span>{status}{work?.route ? ` · ${label(work.route)}` : ""}</span>
+                    onClick={() => setSelection({ kind: "line", id: line.id })} title={workflow?.title ?? line.providerBranchName ?? "Source line"}>
+                    <strong>{workflow?.title ?? (line.role === "main" ? "Main" : line.role === "dev" ? "Development" : "Unbound source line")}</strong>
+                    <span>{status}{workflow ? ` · ${label(workflow.workflowType)}` : ""}</span>
                   </button>;
                 })}
               </div>
@@ -117,12 +117,12 @@ export function SourceControlWorkspace({ projectName, onReturn }: { projectName:
             </div>
             <p className="source-graph-key"><span>● Revision</span><span>◆ Merge revision</span><span>Dashed curve: integration link</span></p>
           </section>
-          {graph.workBindings.length ? <section className="source-work-list" aria-label="Work Intakes">
-            <h2>Work Intakes</h2>
-            <div>{graph.workBindings.map(work => <button type="button" key={work.workIntakeId}
-              aria-pressed={selection?.kind === "work" && selection.id === work.workIntakeId}
-              onClick={() => setSelection({ kind: "work", id: work.workIntakeId })}>
-              <strong>{work.title}</strong><span>{workStatus(work)} · {label(work.route ?? work.workType)}</span>
+          {graph.workflowBindings.length ? <section className="source-work-list" aria-label="Workflows">
+            <h2>Workflows</h2>
+            <div>{graph.workflowBindings.map(workflow => <button type="button" key={workflow.workflowId}
+              aria-pressed={selection?.kind === "workflow" && selection.id === workflow.workflowId}
+              onClick={() => setSelection({ kind: "workflow", id: workflow.workflowId })}>
+              <strong>{workflow.title}</strong><span>{workflowStatus(workflow)} · {label(workflow.workflowType)}</span>
             </button>)}</div>
           </section> : null}
         </div>
@@ -130,27 +130,28 @@ export function SourceControlWorkspace({ projectName, onReturn }: { projectName:
           <h2>Details</h2>
           {selectedLine ? <>
             <p className="source-control-detail-type"><GitBranch size={15} aria-hidden="true" /> Source line</p>
-            <h3>{lineWork[0]?.title ?? (selectedLine.role === "main" ? "Main" : selectedLine.role === "dev" ? "Development" : "Unbound source line")}</h3>
-            <p>{selectedLine.role === "main" || selectedLine.role === "dev" ? "Integration target" : lineWork[0] ? workStatus(lineWork[0]) : "No Work Intake binding"}</p>
+            <h3>{lineWorkflows[0]?.title ?? (selectedLine.role === "main" ? "Main" : selectedLine.role === "dev" ? "Development" : "Unbound source line")}</h3>
+            <p>{selectedLine.role === "main" || selectedLine.role === "dev" ? "Integration target" : lineWorkflows[0] ? workflowStatus(lineWorkflows[0]) : "No Workflow binding"}</p>
             <dl><div><dt>Current revision</dt><dd><code>{shortRevision(selectedLine.headRevisionId)}</code></dd></div>
-              {lineWork[0]?.baseRevisionId ? <div><dt>Base revision</dt><dd><code>{shortRevision(lineWork[0].baseRevisionId)}</code></dd></div> : null}
-              {lineWork[0] ? <><div><dt>Route / type</dt><dd>{label(lineWork[0].route ?? lineWork[0].workType)}</dd></div>
-                <div><dt>Lifecycle</dt><dd>{label(lineWork[0].lifecycleState)}</dd></div>
-                <div><dt>Checkpoints</dt><dd>{lineWork[0].checkpointKinds.length ? lineWork[0].checkpointKinds.map(label).join(", ") : "None recorded"}</dd></div>
-                <div><dt>Integration</dt><dd>{label(lineWork[0].integrationState)}</dd></div></> : null}</dl>
+              {lineWorkflows[0]?.baseRevisionId ? <div><dt>Base revision</dt><dd><code>{shortRevision(lineWorkflows[0].baseRevisionId)}</code></dd></div> : null}
+              {lineWorkflows[0] ? <><div><dt>Workflow type</dt><dd>{label(lineWorkflows[0].workflowType)}</dd></div>
+                <div><dt>Lifecycle</dt><dd>{label(lineWorkflows[0].lifecycleState)}</dd></div>
+                <div><dt>Checkpoints</dt><dd>{lineWorkflows[0].checkpointKinds.length ? lineWorkflows[0].checkpointKinds.map(label).join(", ") : "None recorded"}</dd></div>
+                <div><dt>Integration</dt><dd>{label(lineWorkflows[0].integrationState)}</dd></div></> : null}</dl>
             <details><summary>Provider details</summary><dl><div><dt>Branch</dt><dd><code>{selectedLine.providerBranchName ?? "Unavailable"}</code></dd></div>
               <div><dt>Full head revision</dt><dd><code>{selectedLine.headRevisionId}</code></dd></div></dl></details>
-          </> : selectedWork ? <>
-            <p className="source-control-detail-type">Work Intake</p><h3>{selectedWork.title}</h3>
-            <p>{workStatus(selectedWork)}</p>
-            <dl><div><dt>Route / type</dt><dd>{label(selectedWork.route ?? selectedWork.workType)}</dd></div>
-              <div><dt>Lifecycle</dt><dd>{label(selectedWork.lifecycleState)}</dd></div>
-              <div><dt>Workflow</dt><dd>{label(selectedWork.workflowState)}</dd></div>
-              <div><dt>Base revision</dt><dd>{selectedWork.baseRevisionId ? <code>{shortRevision(selectedWork.baseRevisionId)}</code> : "Not recorded"}</dd></div>
-              <div><dt>Current revision</dt><dd>{selectedWork.currentRevisionId ? <code>{shortRevision(selectedWork.currentRevisionId)}</code> : "Not recorded"}</dd></div>
-              <div><dt>Checkpoints</dt><dd>{selectedWork.checkpointKinds.length ? selectedWork.checkpointKinds.map(label).join(", ") : "None recorded"}</dd></div>
-              <div><dt>Integration</dt><dd>{label(selectedWork.integrationState)}</dd></div></dl>
-            <details><summary>Work Intake identity</summary><code>{selectedWork.workIntakeId}</code></details>
+          </> : selectedWorkflow ? <>
+            <p className="source-control-detail-type">Workflow</p><h3>{selectedWorkflow.title}</h3>
+            <p>{workflowStatus(selectedWorkflow)}</p>
+            <dl><div><dt>Workflow type</dt><dd>{label(selectedWorkflow.workflowType)}</dd></div>
+              <div><dt>Workflow state</dt><dd>{label(selectedWorkflow.workflowState)}</dd></div>
+              <div><dt>Lifecycle</dt><dd>{label(selectedWorkflow.lifecycleState)}</dd></div>
+              <div><dt>Base revision</dt><dd><code>{shortRevision(selectedWorkflow.baseRevisionId)}</code></dd></div>
+              <div><dt>Current revision</dt><dd>{selectedWorkflow.currentRevisionId ? <code>{shortRevision(selectedWorkflow.currentRevisionId)}</code> : "Not recorded"}</dd></div>
+              <div><dt>Checkpoints</dt><dd>{selectedWorkflow.checkpointKinds.length ? selectedWorkflow.checkpointKinds.map(label).join(", ") : "None recorded"}</dd></div>
+              <div><dt>Integration</dt><dd>{label(selectedWorkflow.integrationState)}</dd></div></dl>
+            {selectedWorkflow.sourceAnchorWorkflowId !== selectedWorkflow.workflowId ? <details><summary>Source anchor identity</summary><code>{selectedWorkflow.sourceAnchorWorkflowId}</code></details> : null}
+            <details><summary>Workflow identity</summary><code>{selectedWorkflow.workflowId}</code></details>
           </> : selectedRevision ? <>
             <p className="source-control-detail-type">Revision{selectedRevision.parents.length > 1 ? " · Merge" : ""}</p>
             <h3><code>{shortRevision(selectedRevision.id)}</code></h3>
@@ -164,7 +165,7 @@ export function SourceControlWorkspace({ projectName, onReturn }: { projectName:
               <ul className="source-control-files">{revisionDetail.changedFiles.map(file => <li key={`${file.status}:${file.path}`}><span>{file.status}</span><code>{file.path}</code></li>)}</ul>
             </> : <p role="status">Loading revision details…</p>}
             <details><summary>Provider details</summary><code>{selectedRevision.id}</code></details>
-          </> : <p>Select a source line, Work Intake, or revision to inspect it.</p>}
+          </> : <p>Select a source line, Workflow, or revision to inspect it.</p>}
         </aside>
       </div> : <p className="source-control-state">No local source lines are available yet.</p>}
     </> : null}

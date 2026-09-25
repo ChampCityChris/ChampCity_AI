@@ -52,6 +52,11 @@ test("read-only source graph preserves five branch heads, merge parents, semanti
   fs.mkdirSync(path.join(root, ".champcity"));
   const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
   let intakeId;
+  let routingId;
+  let workflowId;
+  let sourceAnchorWorkflowId;
+  let directWorkflowId;
+  let completedWorkflowId;
   try {
     const state = createProjectStateService(store, principal);
     const project = await state.createRecord(null, "Project", { name: "Synthetic", description: "Source graph" });
@@ -61,7 +66,10 @@ test("read-only source graph preserves five branch heads, merge parents, semanti
       constraints: [], evidenceContext: [], requestedIntegrationTarget: "dev" });
     intakeId = intake.id;
     const routing = (await store.listEntities(project.id, "Workflow")).find(row => row.entityType === "Workflow" && row.body.workflowType === "work-intake-routing");
+    routingId = routing.id;
     const workflow = await state.createWorkflow(project.id, { workflowType: "feature-capability", title: "Implement graph feature", currentWorkspace: "development" });
+    workflowId = workflow.id;
+    sourceAnchorWorkflowId = workflow.id;
     await state.linkWorkflowRouteTarget(project.id, routing.id, workflow.id);
     const baseline = await state.createWorkflowSourceBaseline(project.id, workflow.id, { repositoryId: "repo-graph", integrationTargetSourceLineId: "dev", baseRevisionId: base });
     const binding = await state.createWorkflowSourceBinding(project.id, workflow.id, baseline.id);
@@ -71,9 +79,6 @@ test("read-only source graph preserves five branch heads, merge parents, semanti
     const work = await state.createRecord(project.id, "WorkItem", { workItemKind: "feature", title: "Graph feature", objective: "Implement", workState: "implemented" });
     await state.createRelationship(project.id, work.id, "part_of", workflow.id);
     const implementation = await state.recordImplementation(project.id, work.id, { summary: "Done", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
-    const assessment = await state.recordRouteAssessment(project.id, intake.id, { recommendation: "feature-change", traits: [],
-      rationale: "Feature", evidenceIds: [] });
-    await state.recordRouteDecision(project.id, intake.id, { route: "feature-change", assessmentId: assessment.id });
     await state.createSourceCheckpoint(project.id, binding.id, workflow.id, implementation.id, { boundaryId: "feature-checkpoint",
       expectedRevisionId: feature, checkpointKind: "implementation", checkpointState: "committed", resultingRevisionId: feature });
     const integration = await state.createIntegrationRecord(project.id, binding.id, workflow.id, { targetBeforeRevisionId: devBefore });
@@ -81,6 +86,24 @@ test("read-only source graph preserves five branch heads, merge parents, semanti
     await state.advanceIntegrationRecord(project.id, integration.id, { integrationState: "ready" }, 2);
     await state.advanceIntegrationRecord(project.id, integration.id, { integrationState: "integrated", outcome: "integrated",
       targetAfterRevisionId: devMerge, resultRevisionId: devMerge }, 3);
+
+    async function addDirectWorkflow(title, branch, revision, stateName = "active") {
+      const created = await state.createWorkflow(project.id, { workflowType: "issue-resolution", title, currentWorkspace: "development" });
+      const sourceBaseline = await state.createWorkflowSourceBaseline(project.id, created.id, { repositoryId: "repo-graph",
+        integrationTargetSourceLineId: "dev", baseRevisionId: base });
+      const sourceBinding = await state.createWorkflowSourceBinding(project.id, created.id, sourceBaseline.id);
+      await state.updateSourceBinding(project.id, sourceBinding.id, { preparationState: "preparing" }, 1);
+      await state.updateSourceBinding(project.id, sourceBinding.id, { preparationState: "ready", workSourceLineId: branch,
+        currentRevisionId: revision, repositoryCheckoutId: `checkout-${branch}` }, 2);
+      if (stateName === "closed") await state.reviseRecord(project.id, created.id, { workflowState: "closed" }, 1);
+      return created.id;
+    }
+    directWorkflowId = await addDirectWorkflow("Direct hotfix one", "hotfix/one", hotfixOne);
+    completedWorkflowId = await addDirectWorkflow("Completed hotfix two", "hotfix/two", hotfixTwo, "closed");
+
+    const successor = await state.supersedeRecord(project.id, workflow.id, { ...workflow.body, title: "Current graph feature" }, 1);
+    assert.equal(successor.successor.lineageId, workflow.lineageId);
+    workflowId = successor.successor.id;
   } finally { store.close(); }
 
   const before = git(root, "status", "--porcelain");
@@ -98,15 +121,26 @@ test("read-only source graph preserves five branch heads, merge parents, semanti
   assert.ok(graph.revisions.find(row => row.id === mainMerge).parents.includes(hotfixOne));
   assert.ok(graph.revisions.some(row => row.id === hotfixTwo));
   const featureLine = graph.sourceLines.find(line => line.providerBranchName === "feature/work-1");
-  assert.deepEqual(featureLine.workIntakeIds, [intakeId]);
-  const work = graph.workBindings.find(row => row.workIntakeId === intakeId);
-  assert.equal(work.lineId, featureLine.id);
-  assert.equal(work.title, "Implement graph feature");
-  assert.equal(work.route, "feature-change");
-  assert.equal(work.integrationState, "integrated");
-  assert.equal(work.baseRevisionId, base);
-  assert.equal(work.currentRevisionId, feature);
-  assert.deepEqual(work.checkpointKinds, ["implementation"]);
+  assert.deepEqual(featureLine.workflowIds, [workflowId]);
+  assert.ok(!featureLine.workflowIds.includes(sourceAnchorWorkflowId));
+  const workflows = graph.workflowBindings;
+  assert.deepEqual(new Set(workflows.map(row => row.workflowId)), new Set([workflowId, directWorkflowId, completedWorkflowId]));
+  assert.equal(workflows.length, 3);
+  assert.equal(new Set(workflows.map(row => row.lineId)).size, 3);
+  const current = workflows.find(row => row.workflowId === workflowId);
+  assert.equal(current.lineId, featureLine.id);
+  assert.equal(current.sourceAnchorWorkflowId, sourceAnchorWorkflowId);
+  assert.equal(current.title, "Current graph feature");
+  assert.equal(current.workflowType, "feature-capability");
+  assert.equal(current.integrationState, "integrated");
+  assert.equal(current.baseRevisionId, base);
+  assert.equal(current.currentRevisionId, feature);
+  assert.deepEqual(current.checkpointKinds, ["implementation"]);
+  assert.deepEqual(graph.sourceLines.find(line => line.providerBranchName === "hotfix/one").workflowIds, [directWorkflowId]);
+  assert.deepEqual(graph.sourceLines.find(line => line.providerBranchName === "hotfix/two").workflowIds, [completedWorkflowId]);
+  assert.deepEqual(graph.sourceLines.filter(line => ["main", "dev"].includes(line.role)).map(line => line.workflowIds), [[], []]);
+  assert.equal(JSON.stringify(graph).includes(intakeId), false);
+  assert.equal(JSON.stringify(graph).includes(routingId), false);
   assert.deepEqual(graph.revisions.find(row => row.id === feature).checkpointKinds, ["implementation"]);
   assert.deepEqual(graph.revisions.find(row => row.id === devMerge).integrationStates, ["integrated"]);
   assert.equal(graph.providerDiagnostics.metadata, "available");
@@ -131,8 +165,37 @@ test("missing workflow metadata leaves mechanical topology valid", async context
   const response = await createSourceControlService({ repositoryId: "repo-graph", repositoryRoot: root }).getSourceGraph();
   assert.equal(response.ok, true, JSON.stringify(response));
   assert.equal(response.result.providerDiagnostics.metadata, "missing");
-  assert.deepEqual(response.result.workBindings, []);
+  assert.deepEqual(response.result.workflowBindings, []);
+  assert.ok(response.result.sourceLines.every(line => line.workflowIds.length === 0));
   assert.ok(response.result.revisions.some(row => row.id === devMerge && row.parents.length === 2));
+});
+
+test("includeCompleted filters Workflow metadata while retaining provider topology", async context => {
+  const { root } = await fixture(context);
+  fs.mkdirSync(path.join(root, ".champcity"));
+  const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  let completedWorkflowId;
+  try {
+    const state = createProjectStateService(store, principal);
+    const project = await state.createRecord(null, "Project", { name: "Synthetic", description: "Completion filter" });
+    await store.transaction(project.id, unit => unit.advanceProviderGeneration({ projectId: project.id, generation: 1,
+      authority: "structured", updatedAt: new Date().toISOString() }, null));
+    const workflow = await state.createWorkflow(project.id, { workflowType: "issue-resolution", title: "Completed source", currentWorkspace: "development" });
+    completedWorkflowId = workflow.id;
+    const baseline = await state.createWorkflowSourceBaseline(project.id, workflow.id, { repositoryId: "repo-graph", integrationTargetSourceLineId: "dev", baseRevisionId: git(root, "rev-parse", "main") });
+    const binding = await state.createWorkflowSourceBinding(project.id, workflow.id, baseline.id);
+    await state.updateSourceBinding(project.id, binding.id, { preparationState: "preparing" }, 1);
+    await state.updateSourceBinding(project.id, binding.id, { preparationState: "ready", workSourceLineId: "hotfix/two",
+      currentRevisionId: git(root, "rev-parse", "hotfix/two"), repositoryCheckoutId: "checkout-completed" }, 2);
+    await state.reviseRecord(project.id, workflow.id, { workflowState: "cancelled" }, 1);
+  } finally { store.close(); }
+  const source = createSourceControlService({ repositoryId: "repo-graph", repositoryRoot: root });
+  const normal = await source.getSourceGraph();
+  const filtered = await source.getSourceGraph({ includeCompleted: false });
+  assert.ok(normal.result.workflowBindings.some(row => row.workflowId === completedWorkflowId));
+  assert.ok(!filtered.result.workflowBindings.some(row => row.workflowId === completedWorkflowId));
+  assert.ok(filtered.result.sourceLines.some(row => row.providerBranchName === "hotfix/two"));
+  assert.deepEqual(filtered.result.sourceLines.find(row => row.providerBranchName === "hotfix/two").workflowIds, []);
 });
 
 test("revision detail returns a bounded changed-file summary without mutating the source", async context => {

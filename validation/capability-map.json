@@ -18435,8 +18435,8 @@
     },
     {
       "testPath": "test/source-control/source-graph-projection.test.cjs",
-      "currentTestCount": { "value": 3, "basis": "SCL09 focused graph topology and bounded revision detail fixtures." },
-      "duration": { "kind": "measured", "milliseconds": 4700, "basis": "Observed focused normal Windows SCL08 run." },
+      "currentTestCount": { "value": 4, "basis": "Observed TAP summary in the WTR02H focused normal-Windows run after adding completed-Workflow filtering proof." },
+      "duration": { "kind": "measured", "milliseconds": 14562, "basis": "Observed total duration in the final WTR02H focused normal-Windows run." },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
       "dependencies": { "electron": false, "filesystem": true, "git": true, "network": false, "process": true, "timing": false },
@@ -18449,7 +18449,7 @@
       "proofCharacteristics": ["behavioral"],
       "dispositionReasons": ["current-proof-appropriate"],
       "behaviorCoverage": [
-        { "capabilityId": "release-and-git-operations", "behaviorId": "source-graph-projects-bounded-branch-ancestry-and-workflow-meaning", "proofLocator": "five branch heads, merged ancestry, semantic bindings, bounded truncation and metadata fallback", "proofRole": "primary" },
+        { "capabilityId": "release-and-git-operations", "behaviorId": "source-graph-projects-bounded-branch-ancestry-and-workflow-meaning", "proofLocator": "three concurrent Workflow source bindings, direct and routed admission, current identity after supersession, lineage history, includeCompleted filtering, bounded truncation and metadata fallback", "proofRole": "primary" },
         { "capabilityId": "release-and-git-operations", "behaviorId": "source-graph-revision-detail-is-read-only-and-bounded", "proofLocator": "exact revision changed-file detail is capped at 24 and leaves the selected source unchanged", "proofRole": "primary" }
       ]
     },

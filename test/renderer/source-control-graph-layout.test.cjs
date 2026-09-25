@@ -1,4 +1,6 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
 const test = require("node:test");
@@ -16,8 +18,8 @@ function graphFixture() {
   const sourceLines = [
     ["feature", "c", "work"], ["hotfix-one", "f", "work"], ["hotfix-two", "i", "work"],
     ["dev", "e", "dev"], ["main", "h", "main"],
-  ].map(([id, headRevisionId, role]) => ({ id, headRevisionId, role, workIntakeIds: [], providerBranchName: id }));
-  return { sourceLines, revisions, workBindings: [], integrationTargets: [{ lineId: "main" }, { lineId: "dev" }] };
+  ].map(([id, headRevisionId, role]) => ({ id, headRevisionId, role, workflowIds: [], providerBranchName: id }));
+  return { sourceLines, revisions, workflowBindings: [], integrationTargets: [{ lineId: "main" }, { lineId: "dev" }] };
 }
 
 test("source graph layout places feature and two hotfix lines below target chronology", () => {
@@ -43,7 +45,7 @@ test("integrated parents rejoin the dev and main chronology", () => {
 test("fast-forward integration visibly connects the work line to its target revision", () => {
   const graph = graphFixture();
   graph.sourceLines.find(line => line.id === "dev").headRevisionId = "c";
-  graph.workBindings.push({ lineId: "feature", integrationState: "integrated" });
+  graph.workflowBindings.push({ workflowId: "WF.01", lineId: "feature", integrationState: "integrated" });
   const layout = layoutSourceGraph(graph);
   const link = layout.edges.find(edge => edge.semantic);
   assert.deepEqual([link.parentId, link.childId, link.integration], ["feature", "c", true]);
@@ -57,5 +59,9 @@ test("source workspace exposes read-only native navigation and a loading state",
   assert.match(markup, /Loading source graph/);
   assert.match(markup, /Loading…/);
   assert.match(markup, /Workflows/);
+  assert.doesNotMatch(markup, /Work Intakes|Work Intake progress/);
   assert.doesNotMatch(markup, /Merge branch|Reset branch|Stage files|Create branch/);
+  const source = fs.readFileSync(path.join(process.cwd(), "src/renderer/app/SourceControlWorkspace.tsx"), "utf8");
+  assert.doesNotMatch(source, /Work Intakes|Work Intake progress/);
+  assert.doesNotMatch(source, /Stage files|Commit changes|Create branch|Reset branch|Switch branch/);
 });

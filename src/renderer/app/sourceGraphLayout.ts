@@ -48,18 +48,18 @@ export function layoutSourceGraph(graph: SourceGraph): SourceGraphLayout {
     edges.push({ parentId, childId: node.revision.id, integration: index > 0,
       path: `M ${parent.x} ${parent.y} C ${middle} ${parent.y}, ${middle} ${node.y}, ${node.x} ${node.y}` });
   });
-  // Fast-forward integration makes the work head part of the target's first-parent lane.
-  // Retain a visible, semantic connection from the Work Intake line to that exact revision.
-  for (const work of graph.workBindings) {
-    if (work.integrationState !== "integrated" || !work.lineId) continue;
-    const line = lines.find(row => row.id === work.lineId);
+  // Fast-forward integration makes the Workflow head part of the target's first-parent lane.
+  // Retain a visible, semantic connection from the Workflow line to that exact revision.
+  for (const workflow of graph.workflowBindings) {
+    if (workflow.integrationState !== "integrated" || !workflow.lineId) continue;
+    const line = lines.find(row => row.id === workflow.lineId);
     const head = line ? nodeById.get(line.headRevisionId) : undefined;
-    const workRow = rowByLine.get(work.lineId);
-    if (!head || workRow === undefined || head.lineId === work.lineId ||
+    const workflowRow = rowByLine.get(workflow.lineId);
+    if (!head || workflowRow === undefined || head.lineId === workflow.lineId ||
       !graph.integrationTargets.some(target => target.lineId === head.lineId)) continue;
-    const y = 46 + workRow * laneHeight;
+    const y = 46 + workflowRow * laneHeight;
     const middle = head.x / 2;
-    edges.push({ parentId: work.lineId, childId: head.revision.id, integration: true, semantic: true,
+    edges.push({ parentId: workflow.lineId, childId: head.revision.id, integration: true, semantic: true,
       path: `M 0 ${y} C ${middle} ${y}, ${middle} ${head.y}, ${head.x} ${head.y}` });
   }
   return { lines, nodes, edges, width: Math.max(720, 88 + nodes.length * columnWidth),
