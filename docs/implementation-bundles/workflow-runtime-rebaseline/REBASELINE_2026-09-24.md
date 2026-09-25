@@ -21,8 +21,12 @@ Luna stops early only for an architectural contradiction, an invariant that cann
 ### WRB01 — Current Project Runtime Foundation
 Outcome: selecting a Project establishes one current Structured Project State runtime and coherent managed Project source topology. Existing Project Registration and Greenfield Project Creation no longer enter WIR or legacy migration.
 
+**Status:** CLOSED — accepted after Repair03 at implementation checkpoint `4c1f13e4d4550ac958f85c0f715d1a0f4a4f46f0`.
+
 ### WRB02 — Workflow Application, Inventory, and Routing
 Outcome: users create/list/open exact Workflow instances directly; WIR is routing-only and hands off to the same target creation service.
+
+**Status:** RELEASED — five-card bundle under `docs/implementation-bundles/workflow-runtime-rebaseline/WRB02/`, starting from WRB01 closure checkpoint `76ecb4f97ca8aa52b46fdfc95f25e186af20bc4b`. Architect review occurs after WRB02-05.
 
 ### WRB03 — Workflow Planning Normalization
 Outcome: Workflow-specific intake/assessment/planning writes canonical SPS WorkItems/Phases/Criteria. Initial qualification families are Feature/Capability and Issue Resolution plus WIR-routed Feature convergence.
