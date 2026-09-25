@@ -2630,7 +2630,9 @@
       "capabilityId": "managed-project-source-topology",
       "description": "Existing Git Projects safely materialize the durable Project container, Repository metadata, Main/Dev checkouts, and Agent Harness registrations.",
       "sourcePatterns": [
-        "src/main/sourceControl/managedProjectSourceService.ts"
+        "src/main/sourceControl/managedProjectSourceService.ts",
+        "src/main/sourceControl/projectSourceBootstrap.ts",
+        "src/main/sourceControl/sourceControlService.ts"
       ],
       "dependsOn": [
         "agent-harness-repository-operations"
@@ -2639,6 +2641,10 @@
         {
           "behaviorId": "conventional-project-adoption-preserves-source-and-registers-durable-main-dev-checkouts",
           "description": "Conventional Git adoption preserves source state and registers exact managed Main and Dev checkouts."
+        },
+        {
+          "behaviorId": "greenfield-source-bootstrap-establishes-deterministic-managed-main-dev-and-ignore-baseline",
+          "description": "Empty Project bootstrap creates a deterministic tracked ignore baseline and registers sibling Main/Dev checkouts."
         }
       ]
     },
@@ -20175,6 +20181,12 @@
           "capabilityId": "greenfield-source-bootstrap",
           "behaviorId": "new-project-creates-main-dev-and-first-work-source",
           "proofLocator": "greenfield Work Intake persists Project, bootstrap evidence and first work source",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "managed-project-source-topology",
+          "behaviorId": "greenfield-source-bootstrap-establishes-deterministic-managed-main-dev-and-ignore-baseline",
+          "proofLocator": "empty Greenfield Project receives deterministic tracked .gitignore, sibling Main/Dev checkouts, ignores runtime/dependency paths, and reopens idempotently",
           "proofRole": "primary"
         }
       ]

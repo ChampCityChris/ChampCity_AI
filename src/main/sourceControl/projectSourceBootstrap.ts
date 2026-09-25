@@ -3,68 +3,88 @@ import fs from "node:fs";
 import path from "node:path";
 import { AgentHarnessError } from "../agentHarness/core/errors";
 import { runBoundedGit } from "../agentHarness/repository/boundedGit";
-import type { ProjectSourceBootstrap } from "../../shared/sourceLifecycleContracts";
+import type { ProjectSourceBootstrap, RepositoryCheckout } from "../../shared/sourceLifecycleContracts";
+import { MANAGED_PROJECT_SOURCE_PATHS } from "../../shared/sourceLifecycleContracts";
+import type { AgentHarnessRegisteredRepositoryCheckoutSummary } from "../../shared/workspaceContracts";
 
 const initialSubject = "ChampCity initial source baseline";
 const opaqueId = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/;
+const ignoreBaseline = [".champcity/", "node_modules/", "dist/", "build/", "out/", "release/", "coverage/", "",].join("\n");
+export interface ProjectSourceCheckoutRegistration {
+  workspaceId: string;
+  registerRepositoryCheckout(workspaceId: string, checkout: RepositoryCheckout): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary>;
+}
 
 async function git(root: string, args: string[], optional = false): Promise<string | null> {
-  const result = await runBoundedGit({ cwd: root, args, rejectNonZero: !optional });
+  let result;
+  try { result = await runBoundedGit({ cwd: root, args, rejectNonZero: !optional }); }
+  catch (error) {
+    if (error instanceof AgentHarnessError) {
+      const diagnostic = typeof error.details?.stderr === "string" ? error.details.stderr.replaceAll(root, "<PROJECT_REPO>").replace(/[\r\n]+/g, " ").slice(0, 300) : "";
+      throw new AgentHarnessError(error.code,
+        `Managed bootstrap Git operation '${args.filter(value => !path.isAbsolute(value)).slice(0, 3).join(" ")}' failed.${diagnostic ? ` ${diagnostic}` : ""}`);
+    }
+    throw error;
+  }
   return optional && result.exitCode !== 0 ? null : result.stdout.trim();
 }
 
-/** Establishes only the empty initial topology; existing source is never imported or overwritten. */
-export async function bootstrapProjectSource(root: string, repositoryId: string): Promise<ProjectSourceBootstrap> {
+/** Creates an empty managed Project source topology with a deterministic tracked ignore baseline. */
+export async function bootstrapProjectSource(root: string, repositoryId: string,
+  registration?: ProjectSourceCheckoutRegistration): Promise<ProjectSourceBootstrap> {
   if (!opaqueId.test(repositoryId)) throw new AgentHarnessError("INVALID_INPUT", "A bounded repository identity is required.");
   const canonical = fs.realpathSync(root);
   if (!fs.statSync(canonical).isDirectory()) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "Selected Project root is not a directory.");
+  const paths = MANAGED_PROJECT_SOURCE_PATHS;
   const entries = fs.readdirSync(canonical);
-  if (entries.some(entry => entry !== ".git" && entry !== ".champcity")) {
-    throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "Greenfield source bootstrap requires an empty selected Project root.");
-  }
-  for (const entry of entries) {
-    const stat = fs.lstatSync(path.join(canonical, entry));
-    if (!stat.isDirectory() || stat.isSymbolicLink() || path.dirname(fs.realpathSync(path.join(canonical, entry))) !== canonical) {
-      throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "Greenfield source storage is not an owned directory.");
-    }
-  }
-  if (!fs.existsSync(path.join(canonical, ".git"))) await git(canonical, ["init", "-b", "main"]);
-  const selectedRoot = await git(canonical, ["rev-parse", "--show-toplevel"]);
-  if (!selectedRoot || fs.realpathSync(selectedRoot) !== canonical) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "Git topology is not owned by the exact selected Project root.");
-  if ((await git(canonical, ["ls-files", "--cached"])) !== "") throw new AgentHarnessError("STALE_SOURCE", "Greenfield source bootstrap requires an empty index.");
-  const emptyTree = await git(canonical, ["write-tree"]);
-  if (!emptyTree) throw new AgentHarnessError("GIT_EXECUTION_FAILED", "Empty source tree could not be written.");
-  let main = await git(canonical, ["show-ref", "--verify", "--hash", "refs/heads/main"], true);
-  if (!main) {
-    const refs = await git(canonical, ["for-each-ref", "--format=%(refname)", "refs/heads"]);
-    if (refs) throw new AgentHarnessError("STALE_SOURCE", "Greenfield source bootstrap found an incompatible existing branch.");
-    main = (await runBoundedGit({ cwd: canonical,
-      args: ["-c", "user.name=ChampCity", "-c", "user.email=champcity@invalid.local", "commit-tree", emptyTree, "-m", initialSubject],
-      commitDates: { author: "946684800 +0000", committer: "946684800 +0000" } })).stdout.trim();
+  const appRoot = path.join(canonical, ".champcity");
+  if (fs.existsSync(appRoot) && (!fs.lstatSync(appRoot).isDirectory() || fs.lstatSync(appRoot).isSymbolicLink() || path.dirname(fs.realpathSync(appRoot)) !== canonical))
+    throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "Greenfield source storage is not an owned directory.");
+  const metadata = path.join(canonical, paths.repositoryMetadataRelativePath);
+  const mainRoot = path.join(canonical, paths.mainCheckoutRelativePath);
+  const devRoot = path.join(canonical, paths.devCheckoutRelativePath);
+  const initialized = fs.existsSync(metadata);
+  if (!initialized) {
+    if (entries.some(entry => entry !== ".champcity")) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "Greenfield source bootstrap requires an empty selected Project root.");
+    if (fs.existsSync(mainRoot) || fs.existsSync(devRoot)) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "Managed source paths already exist; bootstrap will not overwrite them.");
+    fs.mkdirSync(appRoot, { recursive: true });
+    await git(canonical, ["init", "--bare", metadata]);
+    await git(canonical, ["--git-dir", metadata, "worktree", "add", "--orphan", "-b", "main", mainRoot]);
+    fs.writeFileSync(path.join(mainRoot, ".gitignore"), ignoreBaseline, { flag: "wx" });
+    await git(mainRoot, ["add", "--", ".gitignore"]);
+    await runBoundedGit({ cwd: mainRoot,
+      args: ["-c", "user.name=ChampCity", "-c", "user.email=champcity@invalid.local", "commit", "-m", initialSubject],
+      commitDates: { author: "946684800 +0000", committer: "946684800 +0000" } });
+    const main = await git(mainRoot, ["rev-parse", "HEAD"]);
     if (!main) throw new AgentHarnessError("GIT_EXECUTION_FAILED", "Initial source revision could not be created.");
-    await git(canonical, ["update-ref", "--no-deref", "refs/heads/main", main, "0".repeat(main.length)]);
+    await git(canonical, ["--git-dir", metadata, "worktree", "add", "-b", "dev", devRoot, main]);
   }
-  const [parents, tree, subject] = await Promise.all([
-    git(canonical, ["show", "-s", "--format=%P", main]),
-    git(canonical, ["rev-parse", `${main}^{tree}`]),
-    git(canonical, ["show", "-s", "--format=%s", main]),
+  for (const [label, managedPath] of [["Repository metadata", metadata], ["Main checkout", mainRoot], ["Dev checkout", devRoot]] as const) {
+    let stat: fs.Stats;
+    try { stat = fs.lstatSync(managedPath); }
+    catch { throw new AgentHarnessError("STALE_SOURCE", `${label} is missing from the managed Greenfield topology.`); }
+    if (!stat.isDirectory() || stat.isSymbolicLink() || path.resolve(fs.realpathSync(managedPath)) !== path.resolve(managedPath))
+      throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", `${label} is redirected or unavailable.`);
+  }
+  if (fs.existsSync(path.join(canonical, ".git"))) throw new AgentHarnessError("STALE_SOURCE", "Project root must remain outside Git.");
+  const top = await git(mainRoot, ["rev-parse", "--show-toplevel"], true);
+  const bare = await git(metadata, ["rev-parse", "--is-bare-repository"], true);
+  if (bare !== "true" || !top || path.resolve(top) !== path.resolve(mainRoot)) throw new AgentHarnessError("STALE_SOURCE", "Managed Greenfield topology is incompatible.");
+  const [mainBranch, devBranch, main, dev, tree, subject, parents] = await Promise.all([
+    git(mainRoot, ["branch", "--show-current"]), git(devRoot, ["branch", "--show-current"]), git(mainRoot, ["rev-parse", "HEAD"]),
+    git(devRoot, ["rev-parse", "HEAD"]), git(mainRoot, ["rev-parse", "HEAD^{tree}"]), git(mainRoot, ["show", "-s", "--format=%s", "HEAD"]),
+    git(mainRoot, ["show", "-s", "--format=%P", "HEAD"]),
   ]);
-  if (parents || tree !== emptyTree || subject !== initialSubject) {
-    throw new AgentHarnessError("STALE_SOURCE", "Existing main is not the compatible greenfield baseline.");
+  if (mainBranch !== "main" || devBranch !== "dev" || main !== dev || !tree || subject !== initialSubject || parents)
+    throw new AgentHarnessError("STALE_SOURCE", "Existing managed source history conflicts with the Greenfield baseline.");
+  if (registration) {
+    const make = (role: "main" | "dev"): RepositoryCheckout => ({ repositoryCheckoutId: `${role}-${createHash("sha256").update(repositoryId).digest("hex").slice(0, 32)}`,
+      repositoryId, sourceLineId: role, role, projectRelativePath: role === "main" ? paths.mainCheckoutRelativePath : paths.devCheckoutRelativePath });
+    await Promise.all([make("main"), make("dev")].map(checkout => registration.registerRepositoryCheckout(registration.workspaceId, checkout)));
   }
-  const refs = await git(canonical, ["for-each-ref", "--format=%(refname)", "refs/heads"]);
-  if (refs?.split(/\r?\n/).some(ref => ref !== "refs/heads/main" && ref !== "refs/heads/dev")) {
-    throw new AgentHarnessError("STALE_SOURCE", "Greenfield source bootstrap found an unrelated branch.");
-  }
-  const head = await git(canonical, ["rev-parse", "--verify", "HEAD"], true);
-  if (head && head !== main) throw new AgentHarnessError("STALE_SOURCE", "Selected checkout already has incompatible source history.");
-  if (!head) await git(canonical, ["symbolic-ref", "HEAD", "refs/heads/main"]);
-  const dev = await git(canonical, ["show-ref", "--verify", "--hash", "refs/heads/dev"], true);
-  if (dev && dev !== main) throw new AgentHarnessError("STALE_SOURCE", "Existing dev differs from the initial main revision.");
-  if (!dev) await git(canonical, ["update-ref", "--no-deref", "refs/heads/dev", main, "0".repeat(main.length)]);
-  const commitBytes = (await runBoundedGit({ cwd: canonical, args: ["cat-file", "commit", main] })).stdoutBuffer;
-  return { repositoryId, initialRevision: { repositoryId, revisionId: main },
+  const commitBytes = (await runBoundedGit({ cwd: mainRoot, args: ["cat-file", "commit", main!] })).stdoutBuffer;
+  return { repositoryId, initialRevision: { repositoryId, revisionId: main! },
     initialCommitDigest: createHash("sha256").update(commitBytes).digest("hex"),
-    stableLine: { repositoryId, sourceLineId: "main", providerBranchName: "main", headRevisionId: main },
-    integrationTarget: { repositoryId, sourceLineId: "dev", headRevisionId: main } };
+    stableLine: { repositoryId, sourceLineId: "main", providerBranchName: "main", headRevisionId: main! },
+    integrationTarget: { repositoryId, sourceLineId: "dev", headRevisionId: dev! } };
 }

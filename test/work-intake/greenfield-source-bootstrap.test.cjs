@@ -21,27 +21,38 @@ function submission() {
     baseBranch: "", baseCommit: "" };
 }
 
-test("semantic greenfield bootstrap creates compatible main and dev once and repairs missing dev", async context => {
+test("semantic greenfield bootstrap creates deterministic managed Main/Dev with tracked ignore baseline", async context => {
   const selected = root(context);
-  const source = createSourceControlService({ repositoryId: "repository-greenfield", repositoryRoot: selected });
+  const registrationCalls = [];
+  const source = createSourceControlService({ repositoryId: "repository-greenfield", repositoryRoot: selected,
+    checkoutRegistration: { workspaceId: "project-workspace", registerRepositoryCheckout: async (_workspaceId, checkout) => {
+      registrationCalls.push(checkout); return { ...checkout, availability: "available", validationError: null };
+    } } });
   const first = await source.bootstrapProjectSource();
   assert.equal(first.ok, true, JSON.stringify(first));
   const initial = first.result.initialRevision.revisionId;
   assert.equal(first.result.stableLine.headRevisionId, initial);
   assert.equal(first.result.integrationTarget.headRevisionId, initial);
-  assert.equal(git(selected, "branch", "--show-current"), "main");
-  assert.equal(git(selected, "rev-parse", "main"), initial);
-  assert.equal(git(selected, "rev-parse", "dev"), initial);
-  assert.equal(git(selected, "rev-list", "--parents", "-n", "1", initial).split(" ").length, 1);
-  git(selected, "branch", "-D", "dev");
+  assert.equal(fs.existsSync(path.join(selected, ".git")), false);
+  const main = path.join(selected, "Main");
+  const dev = path.join(selected, "Dev");
+  assert.equal(git(main, "branch", "--show-current"), "main");
+  assert.equal(git(dev, "branch", "--show-current"), "dev");
+  assert.equal(git(main, "rev-parse", "HEAD"), initial);
+  assert.equal(git(dev, "rev-parse", "HEAD"), initial);
+  assert.equal(git(main, "ls-files"), ".gitignore");
+  fs.mkdirSync(path.join(main, "node_modules"));
+  fs.writeFileSync(path.join(main, "node_modules", "ignored.txt"), "ignored\n");
+  fs.writeFileSync(path.join(main, "visible.txt"), "visible\n");
+  assert.match(git(main, "status", "--short"), /visible\.txt/);
+  assert.doesNotMatch(git(main, "status", "--short"), /node_modules/);
+  assert.equal(git(main, "rev-list", "--parents", "-n", "1", initial).split(" ").length, 1);
   const recovered = await source.bootstrapProjectSource();
   assert.equal(recovered.ok, true, JSON.stringify(recovered));
   assert.equal(recovered.result.initialRevision.revisionId, initial);
-  assert.equal(git(selected, "rev-parse", "dev"), initial);
-  assert.equal(git(selected, "rev-list", "--all", "--count"), "1");
-  git(selected, "switch", "dev");
-  assert.equal((await source.bootstrapProjectSource()).ok, true);
-  assert.equal(git(selected, "branch", "--show-current"), "dev", "retry preserves the selected branch");
+  assert.equal(git(dev, "rev-parse", "HEAD"), initial);
+  assert.equal(registrationCalls.length, 4);
+  assert.deepEqual(registrationCalls.slice(0, 2).map(checkout => checkout.role), ["main", "dev"]);
   const another = root(context);
   const same = await createSourceControlService({ repositoryId: "repository-second", repositoryRoot: another }).bootstrapProjectSource();
   assert.equal(same.ok, true, JSON.stringify(same));
