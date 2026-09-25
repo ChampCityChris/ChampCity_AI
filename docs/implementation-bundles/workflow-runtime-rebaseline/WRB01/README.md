@@ -4,6 +4,8 @@
 **Implementer:** GPT 6.0 Luna Medium  
 **Review cadence:** sequential checkpoints; Architect review after WRB01-05.
 
+**Bundle review:** WRB01 implementation reached `287176637cc8784c4a9552e9305c5795884fbe97`. Architect review found bounded integration defects. WRB01 remains open under released repair bundle `Repair01/`. WRB02 is not authorized until Repair01 closes.
+
 ## Bundle outcome
 
 A selected Project is a non-Git Project container with one current Structured Project State runtime. Existing Project and New Project entry are explicit and do not invoke WIR or legacy Workflow migration. Managed source topology provides durable Main/Dev checkouts for later Workflow source materialization.
