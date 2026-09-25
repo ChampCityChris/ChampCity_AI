@@ -4853,6 +4853,36 @@
       ]
     },
     {
+      "capabilityId": "workflow-application-service",
+      "description": "Current Project exact Workflow instance inventory, direct start, source baseline capture, and route provenance.",
+      "sourcePatterns": [
+        "src/main/workflow/**",
+        "src/shared/projectState/projectStateService.ts",
+        "src/shared/projectState/workflowTypeRegistry.ts",
+        "src/shared/workflowApplicationContracts.ts",
+        "test/workflow/workflow-application-service.test.cjs"
+      ],
+      "dependsOn": [
+        "current-project-entry-runtime",
+        "project-state-service",
+        "workflow-type-registry"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "current-workflow-inventory-and-direct-start-use-exact-independent-instance-identity",
+          "description": "Current Project inventory lists exact active and closed Workflow instances, and direct starts create concurrent exact identities."
+        },
+        {
+          "behaviorId": "source-backed-direct-workflow-captures-exact-dev-baseline-with-lazy-binding",
+          "description": "A source-backed direct start atomically captures the exact managed Dev revision and an unprepared SourceBinding without materializing a checkout."
+        },
+        {
+          "behaviorId": "workflow-inventory-resolves-unambiguous-wir-provenance-and-fails-closed",
+          "description": "Current Workflow summaries resolve WIR and routed target provenance while direct Workflow summaries retain the same core shape."
+        }
+      ]
+    },
+    {
       "capabilityId": "workflow-lifecycle-resolution",
       "description": "Repository-derived lifecycle, current-workflow, freshness, resolver, and close-return decisions.",
       "sourcePatterns": [
@@ -5077,7 +5107,7 @@
     },
     {
       "capabilityId": "workflow-type-registry",
-      "description": "Canonical provider-neutral Workflow type IDs and repeatability metadata.",
+      "description": "Canonical provider-neutral Workflow type IDs, repeatability, entry metadata, and route mapping.",
       "sourcePatterns": [
         "src/shared/projectState/workflowTypeRegistry.ts",
         "test/project-state/workflow-type-registry.test.cjs"
@@ -5086,7 +5116,7 @@
       "behaviors": [
         {
           "behaviorId": "canonical-workflow-types-and-repeatability-are-exact-and-immutable",
-          "description": "Canonical Workflow type IDs, labels, repeatability, legacy rejection, and immutability are exact."
+          "description": "Canonical Workflow type IDs, labels, repeatability, application entry metadata, route mapping, legacy rejection, and immutability are exact."
         }
       ]
     },
@@ -15031,8 +15061,8 @@
     {
       "testPath": "test/project-state/workflow-type-registry.test.cjs",
       "currentTestCount": {
-        "value": 3,
-        "basis": "Three focused canonical registry, legacy rejection, and immutability scenarios added by WTR01A."
+        "value": 4,
+        "basis": "Four focused scenarios cover exact registry and entry metadata, route mapping, legacy rejection, and immutability."
       },
       "duration": {
         "kind": "estimated",
@@ -15074,7 +15104,7 @@
         {
           "capabilityId": "workflow-type-registry",
           "behaviorId": "canonical-workflow-types-and-repeatability-are-exact-and-immutable",
-          "proofLocator": "canonical IDs, exact labels and repeatability, legacy rejection, and consumer mutation rejection",
+          "proofLocator": "canonical IDs, labels, repeatability and entry metadata, exact WIR mapping, legacy rejection, and consumer mutation rejection",
           "proofRole": "primary"
         }
       ]
@@ -20408,6 +20438,74 @@
           "capabilityId": "project-planning-workflow",
           "behaviorId": "proof-2-production-service-workflow-reaches-project-planning-after-revised-architect-output",
           "proofLocator": "Proof 2 production-service workflow reaches Project Planning after revised Architect output",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/workflow/workflow-application-service.test.cjs",
+      "currentTestCount": {
+        "value": 3,
+        "basis": "Three focused production-service scenarios cover exact instance inventory and provenance, managed Dev baseline capture, and source inspection failure."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 1500,
+        "basis": "Estimate for isolated temporary SQLite and managed Git topology scenarios pending supported Windows receipt."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "integration",
+        "production-path"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Each scenario owns an isolated temporary Current Project, SQLite database, and synthetic managed Git source.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "production-path"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "current-workflow-inventory-and-direct-start-use-exact-independent-instance-identity",
+          "proofLocator": "direct service calls create same-title concurrent Workflows, reject ineligible direct starts, list active and closed exact identities, and open by Workflow ID",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "source-backed-direct-workflow-captures-exact-dev-baseline-with-lazy-binding",
+          "proofLocator": "source-backed direct start captures exact managed Dev HEAD despite untracked files and creates only SourceBaseline and unprepared SourceBinding",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "workflow-inventory-resolves-unambiguous-wir-provenance-and-fails-closed",
+          "proofLocator": "WIR and routed target summaries resolve WorkIntake and source Workflow provenance with a shared core DTO",
           "proofRole": "primary"
         }
       ]

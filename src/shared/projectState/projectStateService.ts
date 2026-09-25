@@ -32,6 +32,12 @@ export interface ProjectStateSummary { projectId: ProjectId; totalRecords: numbe
 export interface RecordHistory { lineageId: string; records: ProjectStateEntity[] }
 export interface RecordLineage { records: ProjectStateEntity[]; relationships: ProjectStateRelationship[] }
 export interface MutationContext { reason?: string; causationId?: string; correlationId?: string }
+export interface SubstantiveWorkflowCreationInput {
+  workflowType: WorkflowType;
+  title: string;
+  entryWorkspace: string;
+  sourceSeed?: { repositoryId: string; integrationTargetSourceLineId: string; baseRevisionId: string };
+}
 export interface DecisionInput { decisionType: string; outcome: string; decisionScope: string; rationale?: string; effectiveAt?: string }
 export interface EffectiveDisposition { state: DispositionState; decisionId: EntityId | null; effectiveAt: string | null }
 export interface RequiredOperatorDecision { criterionId: EntityId; targetId: EntityId; currentDisposition: DispositionState }
@@ -204,24 +210,67 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return record;
   }
 
+  async function createWorkflowRecord(unit: ProjectStateUnitOfWork, projectId: ProjectId,
+    input: { workflowType: WorkflowType; title: string; currentWorkspace: string; workflowState?: WorkflowState }, context?: MutationContext) {
+    const definition = getWorkflowTypeDefinition(input.workflowType);
+    if (!definition) fail("Unsupported Workflow type.");
+    if (!definition.repeatable && (await unit.listEntities(projectId, "Workflow")).some(record => record.entityType === "Workflow" && record.body.workflowType === input.workflowType))
+      fail(`Project already has its non-repeatable ${input.workflowType} Workflow.`);
+    const record = createProjectStateEntity({ entityType: "Workflow", projectId,
+      body: { workflowType: input.workflowType, title: input.title, currentWorkspace: input.currentWorkspace,
+        workflowState: input.workflowState ?? "active" }, principal: trustedPrincipal });
+    await unit.saveEntity(record, null);
+    await recordMutation(unit, { projectId, entityId: record.id, fromVersion: null, toVersion: 1,
+      operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: record.createdAt,
+      changedFields: Object.keys(record.body), defaultReason: "Create Workflow", context });
+    return record;
+  }
+
   async function createWorkflow(projectId: ProjectId, input: { workflowType: WorkflowType; title: string; currentWorkspace: string; workflowState?: WorkflowState }, context?: MutationContext) {
     exactInput(input, ["workflowType", "title", "currentWorkspace", "workflowState"]);
     return store.transaction(projectId, async unit => {
       if (!await unit.getProject(projectId)) fail("Owning Project does not exist.");
-      const definition = getWorkflowTypeDefinition(input.workflowType);
-      if (!definition) fail("Unsupported Workflow type.");
-      if (!definition.repeatable && (await unit.listEntities(projectId, "Workflow")).some(record => record.entityType === "Workflow" && record.body.workflowType === input.workflowType)) {
-        fail(`Project already has its non-repeatable ${input.workflowType} Workflow.`);
-      }
-      const record = createProjectStateEntity({ entityType: "Workflow", projectId,
-        body: { workflowType: input.workflowType, title: input.title, currentWorkspace: input.currentWorkspace,
-          workflowState: input.workflowState ?? "active" }, principal: trustedPrincipal });
-      await unit.saveEntity(record, null);
-      await recordMutation(unit, { projectId, entityId: record.id, fromVersion: null, toVersion: 1,
-        operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: record.createdAt,
-        changedFields: Object.keys(record.body), defaultReason: "Create Workflow", context });
-      return record;
+      return createWorkflowRecord(unit, projectId, input, context);
     });
+  }
+
+  /** Atomic primitive exposed for compound commands such as WIR target handoff. */
+  async function createSubstantiveWorkflowInUnitOfWork(unit: ProjectStateUnitOfWork, projectId: ProjectId,
+    input: SubstantiveWorkflowCreationInput, context?: MutationContext) {
+    exactInput(input, ["workflowType", "title", "entryWorkspace", "sourceSeed"]);
+    const definition = getWorkflowTypeDefinition(input.workflowType);
+    if (!definition || !definition.directStart) fail("Only repeatable substantive Workflow types can be created by this command.");
+    if (typeof input.title !== "string" || !input.title.trim() || input.title.trim().length > 200)
+      fail("Workflow title must contain 1 to 200 characters.");
+    if (input.entryWorkspace !== definition.entryWorkspace) fail("Workflow entry workspace must match the canonical type registry.");
+    if (!await unit.getProject(projectId)) fail("Owning Project does not exist.");
+    const workflow = await createWorkflowRecord(unit, projectId, { workflowType: input.workflowType,
+      title: input.title.trim(), currentWorkspace: definition.entryWorkspace, workflowState: "active" }, context);
+    let sourceBaseline: ProjectStateRecord<"SourceBaseline"> | null = null;
+    let sourceBinding: ProjectStateRecord<"SourceBinding"> | null = null;
+    if (input.sourceSeed !== undefined) {
+      exactInput(input.sourceSeed, ["repositoryId", "integrationTargetSourceLineId", "baseRevisionId"]);
+      const body: EntityBodyMap["SourceBaseline"] = { workflowId: workflow.id, ...input.sourceSeed };
+      sourceBaseline = createProjectStateEntity({ entityType: "SourceBaseline", projectId, body, principal: trustedPrincipal });
+      await unit.saveEntity(sourceBaseline, null);
+      await recordMutation(unit, { projectId, entityId: sourceBaseline.id, fromVersion: null, toVersion: 1,
+        operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: sourceBaseline.createdAt,
+        changedFields: Object.keys(sourceBaseline.body), defaultReason: "Capture Workflow SourceBaseline", context });
+      await linkSemantic(unit, projectId, sourceBaseline, workflow, "baselines_source", context);
+      const bindingBody: EntityBodyMap["SourceBinding"] = { workflowId: workflow.id, sourceBaselineId: sourceBaseline.id, preparationState: "unprepared" };
+      assertSourceBindingBody(bindingBody, sourceBaseline.body);
+      sourceBinding = createProjectStateEntity({ entityType: "SourceBinding", projectId, body: bindingBody, principal: trustedPrincipal });
+      await unit.saveEntity(sourceBinding, null);
+      await recordMutation(unit, { projectId, entityId: sourceBinding.id, fromVersion: null, toVersion: 1,
+        operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: sourceBinding.createdAt,
+        changedFields: Object.keys(sourceBinding.body), defaultReason: "Create SourceBinding", context });
+      await linkSemantic(unit, projectId, sourceBinding, workflow, "binds_source", context, [sourceBaseline]);
+    }
+    return { workflow, sourceBaseline, sourceBinding };
+  }
+
+  async function createSubstantiveWorkflow(projectId: ProjectId, input: SubstantiveWorkflowCreationInput, context?: MutationContext) {
+    return store.transaction(projectId, unit => createSubstantiveWorkflowInUnitOfWork(unit, projectId, input, context));
   }
 
   async function createWorkIntake(projectId: ProjectId, input: Omit<EntityBodyMap["WorkIntake"], "intakeState">, context?: MutationContext) {
@@ -1680,7 +1729,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return pending.sort((a, b) => a.targetId.localeCompare(b.targetId) || a.criterionId.localeCompare(b.criterionId));
   }
 
-  return { createRecord, createWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision,
+  return { createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision,
     createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, createIntegrationRecord, advanceIntegrationRecord,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, completeWorkItem, completePhase,

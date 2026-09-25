@@ -7,17 +7,18 @@ const {
   WORKFLOW_TYPE_REGISTRY,
   getWorkflowTypeDefinition,
   isWorkflowType,
+  workflowTypeForWorkRoute,
 } = require("../../dist/shared/projectState/workflowTypeRegistry.js");
 
 const expected = [
-  ["project-creation", "Project Creation / Greenfield", false],
-  ["feature-capability", "Feature / Capability", true],
-  ["refactor-migration", "Refactor / Migration", true],
-  ["integration-composition", "Integration / Composition", true],
-  ["infrastructure-platform", "Infrastructure / Platform", true],
-  ["research-prototype", "Research / Prototype", true],
-  ["issue-resolution", "Issue Resolution", true],
-  ["work-intake-routing", "Work Intake Routing", true],
+  ["project-creation", "Project Creation / Greenfield", false, "project-intake", false, 0, undefined],
+  ["feature-capability", "Feature / Capability", true, "feature-intake", true, 1, "Start Feature"],
+  ["refactor-migration", "Refactor / Migration", true, "refactor-intake", true, 2, "Start Migration"],
+  ["integration-composition", "Integration / Composition", true, "integration-intake", true, 3, "Start Integration"],
+  ["infrastructure-platform", "Infrastructure / Platform", true, "infrastructure-intake", true, 4, "Start Infrastructure Work"],
+  ["research-prototype", "Research / Prototype", true, "research-intake", true, 5, "Start Research"],
+  ["issue-resolution", "Issue Resolution", true, "issue-intake", true, 6, "New Issue"],
+  ["work-intake-routing", "Work Intake Routing", true, "work-intake", false, 7, undefined],
 ];
 
 test("canonical Workflow type registry has exact IDs and repeatability metadata", () => {
@@ -29,9 +30,22 @@ test("canonical Workflow type registry has exact IDs and repeatability metadata"
     const definition = getWorkflowTypeDefinition(id);
     assert.equal(isWorkflowType(id), true);
     assert.ok(definition);
-    return [definition.workflowType, definition.label, definition.repeatable];
+    return [definition.workflowType, definition.label, definition.repeatable, definition.entryWorkspace, definition.directStart,
+      definition.hubOrder, definition.startLabel];
   }), expected);
   assert.deepEqual(expected.filter(([, , repeatable]) => !repeatable).map(([id]) => id), ["project-creation"]);
+});
+
+test("Existing-Project WIR route mapping is exact and excludes Greenfield and unknown routes", () => {
+  assert.deepEqual([
+    ["feature-change", "feature-capability"], ["refactor-migration", "refactor-migration"],
+    ["integration-composition", "integration-composition"], ["infrastructure-platform", "infrastructure-platform"],
+    ["research-prototype", "research-prototype"], ["issue-resolution", "issue-resolution"],
+  ].map(([route]) => workflowTypeForWorkRoute(route)), [
+    "feature-capability", "refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype", "issue-resolution",
+  ]);
+  assert.equal(workflowTypeForWorkRoute("greenfield"), undefined);
+  assert.equal(workflowTypeForWorkRoute("unknown"), undefined);
 });
 
 test("legacy and unknown Workflow identifiers are rejected without aliases", () => {
