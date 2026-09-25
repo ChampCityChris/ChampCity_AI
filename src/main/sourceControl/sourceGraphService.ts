@@ -6,7 +6,7 @@ import { AgentHarnessError } from "../agentHarness/core/errors";
 import { runBoundedGit } from "../agentHarness/repository/boundedGit";
 import { inspectGitCommit } from "../agentHarness/repository/gitMutations";
 import { createSQLiteProjectStateReader } from "../projectState/sqliteProjectStateStore";
-import { selectedStructuredProjectId } from "../workIntake/structuredWorkIntakeService";
+import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
 import { readWorkProjectIdentity } from "../workIntake/workIntakeService";
 import type { WorkflowType } from "../../shared/projectState/workflowTypeRegistry";
 import type { SourceGraphRevisionDetail } from "../../shared/sourceLifecycleContracts";
@@ -103,7 +103,7 @@ async function structuredMetadata(root: string, repositoryId: string, projectId:
 /** Resolve the selected app identity without deriving it from a display branch label. */
 export async function selectedSourceGraphRepositoryId(root: string): Promise<string> {
   try {
-    const projectId = selectedStructuredProjectId(root);
+    const projectId = selectedCurrentProjectId(root);
     if (projectId) {
       const reader = createSQLiteProjectStateReader(path.join(root, ".champcity", "project-state.sqlite"));
       try {
@@ -150,7 +150,7 @@ export async function getSourceGraph(root: string, repositoryId: string, options
   const names = new Set(branches.map(row => row.name));
   let metadata: Metadata;
   try {
-    const projectId = selectedStructuredProjectId(root);
+    const projectId = selectedCurrentProjectId(root);
     metadata = projectId ? await structuredMetadata(root, repositoryId, projectId, names, options.includeCompleted !== false)
       : emptyMetadata("missing");
   } catch { metadata = emptyMetadata("unavailable"); }

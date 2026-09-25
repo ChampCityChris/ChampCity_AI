@@ -56,11 +56,11 @@ import { submitProjectIntakeForRepository } from "./projectIntake/projectIntakeS
 import { getWorkIntakeProjection, readWorkIntake, submitWorkIntake } from "./workIntake/workIntakeService";
 import { createSourceControlService } from "./sourceControl/sourceControlService";
 import { establishManagedProjectSource } from "./sourceControl/managedProjectSourceService";
-import { registerCurrentProject } from "./projectState/currentProjectRegistrationService";
+import { registerCurrentProject, selectedCurrentProjectId } from "./projectState/currentProjectRegistrationService";
 import { MANAGED_PROJECT_SOURCE_PATHS } from "../shared/sourceLifecycleContracts";
 import { selectedSourceGraphRepositoryId } from "./sourceControl/sourceGraphService";
 import type { SourceGraphOptions } from "../shared/sourceLifecycleContracts";
-import { captureGreenfieldWorkIntake, captureStructuredWorkIntake, getGreenfieldWorkIntakeProjection, getStructuredWorkIntakeProjection, isGreenfieldProjectRoot, retryStructuredWorkIntakeSource, selectedStructuredProjectId } from "./workIntake/structuredWorkIntakeService";
+import { captureGreenfieldWorkIntake, captureStructuredWorkIntake, getGreenfieldWorkIntakeProjection, getStructuredWorkIntakeProjection, isGreenfieldProjectRoot, retryStructuredWorkIntakeSource } from "./workIntake/structuredWorkIntakeService";
 import { getWorkIntakeNavigation } from "./workIntake/workIntakeNavigationService";
 import { runRoutedWorkflow } from "./planExecution/routedWorkflowService";
 import type { RoutedWorkflowAction, RoutedWorkflowInput } from "../shared/routedWorkflowContracts";
@@ -809,7 +809,7 @@ ipcMain.handle("sourceGraph:revisionDetail", async (_event, revisionId: string) 
 });
 ipcMain.handle("workIntake:projection", () => {
   const root = getRequiredWorkspaceRoot();
-  const projectId = selectedStructuredProjectId(root);
+  const projectId = selectedCurrentProjectId(root);
   return projectId ? getStructuredWorkIntakeProjection(root, projectId)
     : isGreenfieldProjectRoot(root) ? getGreenfieldWorkIntakeProjection(root) : getWorkIntakeProjection(root);
 });
@@ -822,14 +822,15 @@ ipcMain.handle("routedWorkflow:action", async (_event, intakeId: string, action:
 ipcMain.handle("workIntake:read", (_event, intakeId: string) => readWorkIntake(getRequiredWorkspaceRoot(), intakeId));
 ipcMain.handle("workIntake:submit", async (_event, submission: WorkIntakeSubmission) => {
   const root = getRequiredWorkspaceRoot();
-  const projectId = selectedStructuredProjectId(root);
+  const projectId = selectedCurrentProjectId(root);
+  // This fallback serves the unreplaced generic Work Intake surface only. WRB01 landing entry registers a Current Project and uses Project Intake instead.
   return projectId ? { ok: true as const, value: await captureStructuredWorkIntake(root, projectId, submission), receipts: [] as [] }
     : isGreenfieldProjectRoot(root) ? { ok: true as const, value: await captureGreenfieldWorkIntake(root, submission), receipts: [] as [] }
     : submitWorkIntake(root, submission);
 });
 ipcMain.handle("workIntake:retry-source", (_event, intakeId: string) => {
   const root = getRequiredWorkspaceRoot();
-  const projectId = selectedStructuredProjectId(root);
+  const projectId = selectedCurrentProjectId(root);
   if (!projectId) throw Error("Structured Work Intake source preparation is unavailable.");
   return retryStructuredWorkIntakeSource(root, projectId, intakeId);
 });

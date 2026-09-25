@@ -22,7 +22,7 @@ async function fixture(context) {
   const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
   const state = createProjectStateService(store, operator);
   const project = await state.createRecord(null, "Project", { name: "Checkpoint project", description: "Fixture" });
-  await store.transaction(project.id, unit => unit.advanceProviderGeneration({ projectId: project.id, generation: 1, authority: "structured", updatedAt: new Date().toISOString() }, null));
+  await state.createRecord(project.id, "ProjectResource", { resourceType: "source-repository", provider: "git", logicalName: repositoryId, locator: "selected-project", role: "project-source" });
   const workflow = await state.createWorkflow(project.id, { workflowType: "feature-capability", title: "Feature", currentWorkspace: "development" });
   const baseline = await state.createWorkflowSourceBaseline(project.id, workflow.id, { repositoryId, integrationTargetSourceLineId: "dev", baseRevisionId: head });
   const phase = await state.createRecord(project.id, "Phase", { title: "Phase", objective: "Deliver", phaseState: "active", sequence: 1 });

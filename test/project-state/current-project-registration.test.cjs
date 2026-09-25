@@ -5,7 +5,7 @@ const path = require("node:path");
 const test = require("node:test");
 const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
 const { registerCurrentProject } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
-const { selectedStructuredProjectId } = require("../../dist/main/workIntake/structuredWorkIntakeService.js");
+const { selectedCurrentProjectId } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
 
 test("fresh Current Project registration is idempotent, local, and ignores legacy Markdown", async context => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-current-project-"));
@@ -16,7 +16,7 @@ test("fresh Current Project registration is idempotent, local, and ignores legac
   assert.equal(first.created, true);
   assert.equal(second.created, false);
   assert.equal(second.project.id, first.project.id);
-  assert.equal(selectedStructuredProjectId(root), first.project.id);
+  assert.equal(selectedCurrentProjectId(root), first.project.id);
   assert.equal(first.projectResource.projectId, first.project.id);
   assert.equal(fs.existsSync(path.join(root, ".git")), false);
   assert.equal(fs.existsSync(path.join(root, "WORKFLOW.md")), true);
@@ -41,7 +41,7 @@ test("Current Project registration rejects ambiguous Project identities", async 
     await state.createRecord(null, "Project", { name: "Foreign", description: "ambiguous fixture" });
   } finally { store.close(); }
   await assert.rejects(registerCurrentProject(root, "existing"), /ambiguous Project State/);
-  assert.throws(() => selectedStructuredProjectId(root), /ambiguous Project identities/);
+  assert.throws(() => selectedCurrentProjectId(root), /ambiguous Project identities/);
   assert.ok(first.project.id);
 });
 
@@ -60,4 +60,20 @@ test("Current Project registration repairs an interrupted Project-only registrat
   assert.equal(result.created, false);
   assert.equal(result.project.id, projectId);
   assert.equal(result.projectResource.body.locator, "selected-project");
+});
+
+test("Current Project discovery refuses legacy source locators without migration", async context => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-legacy-locator-"));
+  context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(root, ".champcity"));
+  const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  try {
+    const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
+    const state = createProjectStateService(store, { principalId: "test", principalType: "human", role: "Operator" });
+    const project = await state.createRecord(null, "Project", { name: "Legacy", description: "No implicit import" });
+    await state.createRecord(project.id, "ProjectResource", { resourceType: "source-repository", provider: "git",
+      logicalName: "legacy-source", locator: "selected-repository", role: "project-source" });
+  } finally { store.close(); }
+  await assert.rejects(registerCurrentProject(root, "existing"), /incompatible with the Current Project contract/);
+  assert.equal(selectedCurrentProjectId(root), null);
 });

@@ -6,8 +6,9 @@ const path = require("node:path");
 const test = require("node:test");
 const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
 const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
-const { captureStructuredWorkIntake, getStructuredWorkIntakeProjection, retryStructuredWorkIntakeSource,
-  selectedStructuredProjectId } = require("../../dist/main/workIntake/structuredWorkIntakeService.js");
+const { registerCurrentProject, selectedCurrentProjectId } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
+const { captureStructuredWorkIntake, getStructuredWorkIntakeProjection, retryStructuredWorkIntakeSource } =
+  require("../../dist/main/workIntake/structuredWorkIntakeService.js");
 
 const operator = { principalId: "operator", principalType: "human", role: "Operator" };
 function git(root, ...args) { return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim(); }
@@ -21,16 +22,8 @@ async function fixture(context) {
   git(root, "add", "tracked.txt");
   git(root, "commit", "-m", "baseline");
   const head = git(root, "rev-parse", "HEAD");
-  fs.mkdirSync(path.join(root, ".champcity"));
-  const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
-  const state = createProjectStateService(store, operator);
-  const project = await state.createRecord(null, "Project", { name: "Synthetic", description: "Capture test" });
-  await state.createRecord(project.id, "ProjectResource", { resourceType: "source-repository", provider: "git",
-    logicalName: "repository-1", locator: "selected-repository", role: "project-source" });
-  await store.transaction(project.id, unit => unit.advanceProviderGeneration({ projectId: project.id, generation: 1,
-    authority: "structured", updatedAt: new Date().toISOString() }, null));
-  store.close();
-  return { root, projectId: project.id, head };
+  const project = await registerCurrentProject(root, "existing", { projectName: "Synthetic" });
+  return { root, projectId: project.project.id, head };
 }
 function submission(projectId, branch = "dev", commit = "") {
   return { projectId, projectName: "Synthetic", workRequest: "Keep entered work", desiredOutcome: "Saved first",
@@ -41,7 +34,7 @@ function submission(projectId, branch = "dev", commit = "") {
 test("structured Work Intake capture persists without creating source state", async context => {
   const { root, projectId, head } = await fixture(context);
   fs.writeFileSync(path.join(root, "tracked.txt"), "dirty\n");
-  assert.equal(selectedStructuredProjectId(root), projectId);
+  assert.equal(selectedCurrentProjectId(root), projectId);
   const saved = await captureStructuredWorkIntake(root, projectId, submission(projectId, "dev", head));
   assert.equal(saved.source.state, "unprepared", JSON.stringify(saved.source));
   assert.equal(saved.workRequest, "Keep entered work");
@@ -58,7 +51,7 @@ test("structured Work Intake capture persists without creating source state", as
   assert.equal(projection.currentCapturedIntake.source.state, "unprepared");
 });
 
-test("retry before target Workflow handoff remains unprepared and does not mutate provider state", async context => {
+test("retry before target Workflow handoff remains unprepared and does not mutate Git source state", async context => {
   const { root, projectId, head } = await fixture(context);
   const saved = await captureStructuredWorkIntake(root, projectId, submission(projectId));
   const before = git(root, "branch", "--list");

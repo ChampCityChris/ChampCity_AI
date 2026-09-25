@@ -60,8 +60,7 @@ test("read-only source graph preserves five branch heads, merge parents, semanti
   try {
     const state = createProjectStateService(store, principal);
     const project = await state.createRecord(null, "Project", { name: "Synthetic", description: "Source graph" });
-    await store.transaction(project.id, unit => unit.advanceProviderGeneration({ projectId: project.id, generation: 1,
-      authority: "structured", updatedAt: new Date().toISOString() }, null));
+    await state.createRecord(project.id, "ProjectResource", { resourceType: "source-repository", provider: "git", logicalName: "repo-graph", locator: "selected-project", role: "project-source" });
     const { intake } = await state.createWorkIntake(project.id, { request: "Implement graph feature", desiredOutcome: "Delivered",
       constraints: [], evidenceContext: [], requestedIntegrationTarget: "dev" });
     intakeId = intake.id;
@@ -178,8 +177,7 @@ test("includeCompleted filters Workflow metadata while retaining provider topolo
   try {
     const state = createProjectStateService(store, principal);
     const project = await state.createRecord(null, "Project", { name: "Synthetic", description: "Completion filter" });
-    await store.transaction(project.id, unit => unit.advanceProviderGeneration({ projectId: project.id, generation: 1,
-      authority: "structured", updatedAt: new Date().toISOString() }, null));
+    await state.createRecord(project.id, "ProjectResource", { resourceType: "source-repository", provider: "git", logicalName: "repo-graph", locator: "selected-project", role: "project-source" });
     const workflow = await state.createWorkflow(project.id, { workflowType: "issue-resolution", title: "Completed source", currentWorkspace: "development" });
     completedWorkflowId = workflow.id;
     const baseline = await state.createWorkflowSourceBaseline(project.id, workflow.id, { repositoryId: "repo-graph", integrationTargetSourceLineId: "dev", baseRevisionId: git(root, "rev-parse", "main") });

@@ -14,7 +14,7 @@ import { createIntegrationCandidateService, type IntegrationCandidateHooks } fro
 import { createIntegrationPolicyProvider, loadIntegrationPolicy, loadIntegrationPolicyAtCommit } from "../planExecution/integrationPolicyProvider";
 import { deriveIntegrationRepairEditablePaths } from "../planExecution/integrationRepairPolicyProvider";
 import { createSourceControlService } from "./sourceControlService";
-import { selectedStructuredProjectId } from "../workIntake/structuredWorkIntakeService";
+import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
 import { resolveManagedProjectSourceTopology, resolveManagedWorkflowCheckoutPath } from "./projectSourceTopology";
 
 const principal = { principalId: "local-operator", principalType: "human" as const, role: "Operator" };
@@ -28,7 +28,7 @@ export function createStructuredIntegrationService(root: string, projectId: stri
   overrides: Pick<IntegrationCandidateHooks, "checks" | "repairPolicy" | "repairContext"> = {}) {
   const selected = fs.realpathSync(root);
   const devRoot = resolveManagedProjectSourceTopology(selected).devCheckoutRoot;
-  if (selectedStructuredProjectId(selected) !== projectId) throw Error("Selected structured Project authority is unavailable.");
+  if (selectedCurrentProjectId(selected) !== projectId) throw Error("Selected Current Project registration is unavailable.");
   const file = path.join(selected, ".champcity", "project-state.sqlite");
   const open = () => createSQLiteProjectStateStore(file);
   async function bindingForTargetWorkflow(store: ReturnType<typeof createSQLiteProjectStateStore>, targetWorkflowId: string) {

@@ -29,7 +29,7 @@ test("structured integration stores Workflow ownership and uses Workflow source 
   let store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
   let state = createProjectStateService(store, operator);
   const project = await state.createRecord(null, "Project", { name: "Structured Integration", description: "Fixture" });
-  await store.transaction(project.id, unit => unit.advanceProviderGeneration({ projectId: project.id, generation: 1, authority: "structured", updatedAt: new Date().toISOString() }, null));
+  await state.createRecord(project.id, "ProjectResource", { resourceType: "source-repository", provider: "git", logicalName: repositoryId, locator: "selected-project", role: "project-source" });
   const { intake, workflow: routing } = await state.createWorkIntake(project.id, { request: "Integrate capability", desiredOutcome: "Accepted on dev", constraints: [], evidenceContext: [], requestedIntegrationTarget: "dev" });
   const assessment = await state.recordRouteAssessment(project.id, intake.id, { recommendation: "feature-change", traits: [], rationale: "Feature", evidenceIds: [] });
   const route = await state.recordRouteDecision(project.id, intake.id, { route: "feature-change", assessmentId: assessment.id, rationale: "Feature" });

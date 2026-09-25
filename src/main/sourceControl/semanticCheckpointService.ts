@@ -5,7 +5,7 @@ import type { ProjectStateRecord } from "../../shared/projectState/domainContrac
 import { createProjectStateService } from "../../shared/projectState/projectStateService";
 import type { CheckpointResult, DispositionCheckpointRequest, ImplementationCheckpointRequest } from "../../shared/sourceLifecycleContracts";
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
-import { selectedStructuredProjectId } from "../workIntake/structuredWorkIntakeService";
+import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
 import { createSourceControlService } from "./sourceControlService";
 import { resolveManagedProjectSourceTopology, resolveManagedWorkflowCheckoutPath, workflowRepositoryCheckoutId } from "./projectSourceTopology";
 import { workflowSourceLineName } from "./workSourceNaming";
@@ -70,7 +70,7 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
   let lockAcquired = false;
   let pendingId: string | null = null;
   try {
-    if (selectedStructuredProjectId(selected) !== projectId) return blocked("Selected structured Project authority is unavailable.");
+    if (selectedCurrentProjectId(selected) !== projectId) return blocked("Selected Current Project registration is unavailable.");
     if (![request.boundaryId, request.workflowId, request.targetEntityId, request.sourceLineId, request.repositoryCheckoutId].every(validId) ||
       !/^[a-f0-9]{40,64}$/.test(request.expectedRevisionId) ||
       (kind === "disposition" && !validId((request as DispositionCheckpointRequest).dispositionId)) ||

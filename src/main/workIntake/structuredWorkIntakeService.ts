@@ -6,47 +6,11 @@ import type { CapturedWorkIntake, WorkIntakeProjection, WorkIntakeSubmission } f
 import type { SourceReadiness } from "../../shared/sourceLifecycleContracts";
 import type { ProjectStateRecord } from "../../shared/projectState/domainContracts";
 import { createProjectStateService } from "../../shared/projectState/projectStateService";
-import { readDurableProviderGeneration } from "../migrations/structuredProviderCutover";
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
 import { createSourceControlService } from "../sourceControl/sourceControlService";
 
 const principal = { principalId: "local-operator", principalType: "human" as const, role: "Operator" };
 const diagnostic = (code: string) => code.replace(/[^A-Z0-9_-]/gi, "_").slice(0, 64) || "SOURCE_PREPARATION_FAILED";
-
-/** Registered Projects are discovered directly; the cutover lookup remains for the not-yet-retired legacy intake route. */
-export function selectedStructuredProjectId(root: string): string | null {
-  const canonical = fs.realpathSync(root);
-  const app = path.join(canonical, ".champcity");
-  if (!fs.existsSync(app)) return null;
-  if (fs.lstatSync(app).isSymbolicLink() || !fs.lstatSync(app).isDirectory() || path.dirname(fs.realpathSync(app)) !== canonical) throw Error("Project State storage is invalid.");
-  const file = path.join(app, "project-state.sqlite");
-  if (!fs.existsSync(file)) return null;
-  if (fs.lstatSync(file).isSymbolicLink() || !fs.lstatSync(file).isFile()) throw Error("Project State store is invalid.");
-  const database = new DatabaseSync(file, { readOnly: true });
-  let ids: string[];
-  let registrations: string[];
-  try {
-    const tables = database.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='projects'").all();
-    if (!tables.length) throw Error("Selected Project State store is not current.");
-    ids = (database.prepare("SELECT project_id FROM projects ORDER BY project_id").all() as { project_id: string }[]).map(row => row.project_id);
-    registrations = (database.prepare(`SELECT e.project_id, v.body_json FROM state_entities e JOIN state_entity_versions v
-      ON v.project_id = e.project_id AND v.entity_id = e.entity_id AND v.record_version = e.current_record_version
-      WHERE e.entity_type = 'ProjectResource'`).all() as { project_id: string; body_json: string }[])
-      .filter(row => { try { return JSON.parse(row.body_json).locator === "selected-project"; } catch { return false; } })
-      .map(row => row.project_id);
-  }
-  finally { database.close(); }
-  if (ids.length > 1) throw Error("Selected Project State contains ambiguous Project identities.");
-  if (registrations.length > 1) throw Error("Selected Project State contains ambiguous Current Project registrations.");
-  if (registrations.length === 1) {
-    if (!ids.includes(registrations[0])) throw Error("Current Project registration references a missing Project.");
-    return registrations[0];
-  }
-  if (!ids.length) return null;
-  if (ids.length !== 1) throw Error("Selected Project State contains ambiguous Project identities.");
-  if (readDurableProviderGeneration(canonical, ids[0])?.authority !== "structured") return null;
-  return ids[0];
-}
 
 export function isGreenfieldProjectRoot(root: string): boolean {
   const canonical = fs.realpathSync(root);
@@ -158,6 +122,7 @@ export async function retryStructuredWorkIntakeSource(root: string, projectId: s
   return prepare(root, projectId, intakeId);
 }
 
+/** Legacy generic-Work-Intake fallback; the WRB01 Project landing path registers SPS before entering Project Intake. */
 export async function captureGreenfieldWorkIntake(root: string, input: WorkIntakeSubmission): Promise<CapturedWorkIntake> {
   if (!isGreenfieldProjectRoot(root) || input.projectId !== null || typeof input.projectName !== "string" ||
     !input.projectName.trim() || input.projectName.length > 20_000) throw Error("Greenfield Work Intake requires a new selected Project.");

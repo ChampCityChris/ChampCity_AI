@@ -22,7 +22,7 @@ test("WIR route decisions do not checkpoint; implementation and disposition use 
   const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
   const state = createProjectStateService(store, operator);
   const project = await state.createRecord(null, "Project", { name: "Structured workflow", description: "Lineage ownership fixture" });
-  await store.transaction(project.id, unit => unit.advanceProviderGeneration({ projectId: project.id, generation: 1, authority: "structured", updatedAt: new Date().toISOString() }, null));
+  await state.createRecord(project.id, "ProjectResource", { resourceType: "source-repository", provider: "git", logicalName: repositoryId, locator: "selected-project", role: "project-source" });
   const { intake, workflow: routing } = await state.createWorkIntake(project.id, { request: "Implement", desiredOutcome: "Working", constraints: [], evidenceContext: [], requestedIntegrationTarget: "dev" });
   const assessment = await state.recordRouteAssessment(project.id, intake.id, { recommendation: "feature-change", traits: [], rationale: "Feature", evidenceIds: [] });
   const route = await selectStructuredWorkRoute(root, project.id, intake.id, { route: "feature-change", assessmentId: assessment.id, rationale: "Choose feature" });

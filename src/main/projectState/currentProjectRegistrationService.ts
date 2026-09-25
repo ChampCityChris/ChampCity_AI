@@ -17,6 +17,33 @@ export interface CurrentProjectRegistration {
   created: boolean;
 }
 
+/** Resolves the single current Project only through its SPS selected-project resource registration. */
+export function selectedCurrentProjectId(projectRoot: string): string | null {
+  const canonical = fs.realpathSync(projectRoot);
+  const directory = path.join(canonical, ".champcity");
+  if (!fs.existsSync(directory)) return null;
+  const stat = fs.lstatSync(directory);
+  if (stat.isSymbolicLink() || !stat.isDirectory() || path.dirname(fs.realpathSync(directory)) !== canonical)
+    throw Error("Project State storage is invalid.");
+  const databasePath = path.join(directory, "project-state.sqlite");
+  if (!fs.existsSync(databasePath)) return null;
+  if (fs.lstatSync(databasePath).isSymbolicLink() || !fs.lstatSync(databasePath).isFile()) throw Error("Project State store is invalid.");
+  const database = new DatabaseSync(databasePath, { readOnly: true });
+  try {
+    const tables = database.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='projects'").all();
+    if (!tables.length) throw Error("Selected Project State store is not current.");
+    const projectIds = (database.prepare("SELECT project_id FROM projects ORDER BY project_id").all() as { project_id: string }[]).map(row => row.project_id);
+    const registrations = (database.prepare(`SELECT e.project_id, v.body_json FROM state_entities e JOIN state_entity_versions v
+      ON v.project_id = e.project_id AND v.entity_id = e.entity_id AND v.record_version = e.current_record_version
+      WHERE e.entity_type = 'ProjectResource'`).all() as { project_id: string; body_json: string }[])
+      .filter(row => { try { return JSON.parse(row.body_json).locator === "selected-project"; } catch { return false; } })
+      .map(row => row.project_id);
+    if (projectIds.length > 1 || registrations.length > 1) throw Error("Selected Project State contains ambiguous Project identities.");
+    if (registrations.length && !projectIds.includes(registrations[0])) throw Error("Current Project registration references a missing Project.");
+    return registrations[0] ?? null;
+  } finally { database.close(); }
+}
+
 function containedProjectState(root: string): { directory: string; database: string } {
   const canonical = fs.realpathSync(root);
   if (!fs.statSync(canonical).isDirectory()) throw Error("Selected Project container must be a directory.");
@@ -68,6 +95,8 @@ export async function registerCurrentProject(projectRoot: string, mode: CurrentP
     let result = await facade.getProject(projectId);
     let sources = result?.resources.filter(resource => resource.entityType === "ProjectResource" && resource.body.resourceType === "source-repository") ?? [];
     if (!result) throw Error("Selected Project State Project record is unavailable.");
+    if (sources.length && (sources.length !== 1 || sources[0].entityType !== "ProjectResource" || sources[0].body.locator !== "selected-project"))
+      throw Error("Existing source registration is incompatible with the Current Project contract; no legacy Workflow state was imported.");
     if (!sources.length) {
       const state = createProjectStateService(store, operator);
       const source = await state.createRecord(projectId, "ProjectResource", { resourceType: "source-repository",

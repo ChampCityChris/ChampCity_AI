@@ -9,7 +9,7 @@ import { createSourceControlService } from "./sourceControlService";
 import { resolveManagedProjectSourceTopology, resolveManagedWorkflowCheckoutPath, validateRepositoryCheckoutContract, workflowRepositoryCheckoutId } from "./projectSourceTopology";
 import { workflowSourceLineName } from "./workSourceNaming";
 import { isGitWorkTree, runBoundedGit } from "../agentHarness/repository/boundedGit";
-import { selectedStructuredProjectId } from "../workIntake/structuredWorkIntakeService";
+import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
 
 export interface RepositoryCheckoutRegistrationPort {
   registerRepositoryCheckout(workspaceId: string, checkout: RepositoryCheckout): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary>;
@@ -41,7 +41,7 @@ export function createWorkflowSourceMaterializationService(options: {
     if (typeof workflowId !== "string" || !canonicalWorkflowId.test(workflowId)) fail("A canonical Workflow ID is required.");
     const projectRoot = fs.realpathSync(options.projectContainerRoot);
     if (await isGitWorkTree(projectRoot)) fail("Project container must not be a Git working tree.");
-    if (selectedStructuredProjectId(projectRoot) !== options.projectId) fail("Selected structured Project authority is unavailable.");
+    if (selectedCurrentProjectId(projectRoot) !== options.projectId) fail("Selected Current Project registration is unavailable.");
     const store = createSQLiteProjectStateStore(path.join(projectRoot, ".champcity", "project-state.sqlite"));
     try {
       const state = createProjectStateService(store, operator);

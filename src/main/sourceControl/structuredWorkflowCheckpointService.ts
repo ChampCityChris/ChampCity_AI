@@ -4,7 +4,7 @@ import type { EntityBodyMap, ProjectStateRecord, WorkRoute } from "../../shared/
 import { createProjectStateService, type DecisionInput } from "../../shared/projectState/projectStateService";
 import type { CheckpointResult } from "../../shared/sourceLifecycleContracts";
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
-import { selectedStructuredProjectId } from "../workIntake/structuredWorkIntakeService";
+import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
 import { createDispositionCheckpoint, createImplementationCheckpoint } from "./semanticCheckpointService";
 
 const operator = { principalId: "local-operator", principalType: "human" as const, role: "Operator" };
@@ -15,7 +15,7 @@ export type WorkflowCheckpointResult<T> = { record: T; checkpoint: CheckpointRes
 
 function open(root: string, projectId: string): { selected: string; store: Store } {
   const selected = fs.realpathSync(root);
-  if (selectedStructuredProjectId(selected) !== projectId) throw Error("Selected structured Project authority is unavailable.");
+  if (selectedCurrentProjectId(selected) !== projectId) throw Error("Selected Current Project registration is unavailable.");
   return { selected, store: createSQLiteProjectStateStore(path.join(selected, ".champcity", "project-state.sqlite")) };
 }
 async function bindingForWorkflow(store: Store, projectId: string, workflowId: string): Promise<Binding> {

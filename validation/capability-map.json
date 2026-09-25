@@ -1535,9 +1535,13 @@
     },
     {
       "capabilityId": "current-project-entry-runtime",
-      "description": "Landing entry paths establish exact Current Project identity and managed Main/Dev source topology before entering Project Intake or Workflow Hub.",
+      "description": "Landing entry paths establish exact Current Project identity and managed Main/Dev source topology before entering Project Intake or Workflow Hub; current discovery excludes provider-generation migration.",
       "sourcePatterns": [
         "src/main/main.ts",
+        "src/main/migrations/legacyAuthorityInventory.ts",
+        "src/main/migrations/legacyEquivalenceVerification.ts",
+        "src/main/migrations/stagedLegacyImporter.ts",
+        "src/main/migrations/structuredProviderCutover.ts",
         "src/main/projectState/currentProjectRegistrationService.ts",
         "src/main/sourceControl/managedProjectSourceService.ts",
         "src/main/sourceControl/projectSourceBootstrap.ts",
@@ -1550,6 +1554,10 @@
         "project-state-service"
       ],
       "behaviors": [
+        {
+          "behaviorId": "current-project-discovery-uses-only-current-project-registration",
+          "description": "Current Project discovery uses the SPS selected-project registration and rejects legacy provider locators without migration."
+        },
         {
           "behaviorId": "existing-entry-opens-historical-project-as-current-sps-identity",
           "description": "Existing Project landing entry registers SPS identity and preserves historical Markdown without legacy Workflow reconstruction."
@@ -2061,28 +2069,6 @@
         {
           "behaviorId": "untrusted-artifact-bytes-fail-visibly-before-any-runtime-promotion",
           "description": "untrusted artifact bytes fail visibly before any runtime promotion"
-        }
-      ]
-    },
-    {
-      "capabilityId": "greenfield-source-bootstrap",
-      "description": "Empty Project semantic source bootstrap with durable main/dev topology, first Work Intake source and retry proof.",
-      "sourcePatterns": [
-        "src/main/agentHarness/repository/boundedGit.ts",
-        "src/main/main.ts",
-        "src/main/sourceControl/projectSourceBootstrap.ts",
-        "src/main/sourceControl/sourceControlService.ts",
-        "src/main/workIntake/structuredWorkIntakeService.ts",
-        "src/shared/sourceControlContracts.ts",
-        "src/shared/sourceLifecycleContracts.ts"
-      ],
-      "dependsOn": [
-        "existing-project-dev-work-source"
-      ],
-      "behaviors": [
-        {
-          "behaviorId": "new-project-creates-main-dev-and-first-work-source",
-          "description": "greenfield Work Intake persists Project, bootstrap evidence and first work source"
         }
       ]
     },
@@ -2610,46 +2596,6 @@
         {
           "behaviorId": "workspace-paste-handler-blocks-create-in-flight-before-accounting-allocation-and-queue-work",
           "description": "workspace paste handler blocks create-in-flight before accounting, allocation, and queue work"
-        }
-      ]
-    },
-    {
-      "capabilityId": "legacy-authority-inventory",
-      "description": "Read-only bounded inventory and hash-addressed snapshot of current V1 Markdown authority.",
-      "sourcePatterns": [
-        "src/main/migrations/legacyAuthorityInventory.ts"
-      ],
-      "dependsOn": [
-        "canonical-document-storage"
-      ],
-      "behaviors": [
-        {
-          "behaviorId": "legacy-conflicts-are-explicit",
-          "description": "Duplicate, malformed, mismatched and oversized authority is reported explicitly"
-        },
-        {
-          "behaviorId": "legacy-snapshot-is-complete-repeatable-and-read-only",
-          "description": "Canonical legacy documents, provenance, bindings and source revisions yield a repeatable read-only snapshot"
-        }
-      ]
-    },
-    {
-      "capabilityId": "legacy-equivalence-verification",
-      "description": "Version-bound semantic and shadow-read comparison of a staged Project State graph with exact V1 authority.",
-      "sourcePatterns": [
-        "src/main/migrations/legacyEquivalenceVerification.ts"
-      ],
-      "dependsOn": [
-        "staged-legacy-import"
-      ],
-      "behaviors": [
-        {
-          "behaviorId": "equivalent-shadow-read-is-version-bound-and-read-only",
-          "description": "An exact snapshot and staged graph yield a reproducible, read-only verification with no blocking mismatches"
-        },
-        {
-          "behaviorId": "stale-source-and-semantic-mismatch-block-cutover",
-          "description": "Stale source or changed staged semantic state blocks cutover with explicit mismatch evidence"
         }
       ]
     },
@@ -3532,34 +3478,6 @@
       ]
     },
     {
-      "capabilityId": "provider-generation-cutover",
-      "description": "Durable provider-generation cutover with application writer fence, backup, unknown-outcome recovery and guarded rollback.",
-      "sourcePatterns": [
-        "src/main/documents/legacyCanonicalWriteFence.ts",
-        "src/main/issueResolution/issueResolutionService.ts",
-        "src/main/migrations/structuredProviderCutover.ts"
-      ],
-      "dependsOn": [
-        "legacy-equivalence-verification",
-        "project-state-backup-recovery",
-        "project-state-store"
-      ],
-      "behaviors": [
-        {
-          "behaviorId": "cutover-fences-legacy-and-selects-one-durable-generation",
-          "description": "cutover fences a late legacy writer, verifies backup and selects one durable structured generation"
-        },
-        {
-          "behaviorId": "stale-or-interrupted-selection-preserves-legacy-authority",
-          "description": "stale source and a failed pre-selection step leave legacy authority writable"
-        },
-        {
-          "behaviorId": "unknown-outcome-recovers-and-rollback-requires-untouched-state",
-          "description": "unknown post-selection outcome recovers from durable generation and rollback requires untouched structured state"
-        }
-      ]
-    },
-    {
       "capabilityId": "release-and-git-operations",
       "description": "Candidate validation, bounded Git mutations, release actions, and repository-state evidence.",
       "sourcePatterns": [
@@ -4191,7 +4109,7 @@
         "test/support/work-intake-fixtures.cjs"
       ],
       "dependsOn": [
-        "greenfield-source-bootstrap"
+        "managed-project-source-topology"
       ],
       "behaviors": [
         {
@@ -4217,52 +4135,6 @@
         {
           "behaviorId": "structured-workflow-dispositions-share-source-line",
           "description": "typed route, implementation and review mutations checkpoint one Work Intake SourceLine"
-        }
-      ]
-    },
-    {
-      "capabilityId": "staged-legacy-import",
-      "description": "Deterministic isolated import of one exact legacy authority snapshot into Structured Project State.",
-      "sourcePatterns": [
-        "src/main/migrations/stagedLegacyImporter.ts"
-      ],
-      "dependsOn": [
-        "legacy-authority-inventory",
-        "project-state-sqlite-store"
-      ],
-      "behaviors": [
-        {
-          "behaviorId": "exact-snapshot-builds-repeatable-isolated-graph-and-evidence",
-          "description": "Exact legacy input builds a reproducible staged graph with historical Markdown Evidence and no authority cutover"
-        },
-        {
-          "behaviorId": "stale-or-dangling-input-is-rejected-before-staging",
-          "description": "Stale source, tampered snapshot and dangling Repair parent are rejected without retaining a candidate"
-        }
-      ]
-    },
-    {
-      "capabilityId": "structured-state-qualification",
-      "description": "Post-cutover structured authority, scanner retirement, restart, context and derived feed qualification.",
-      "sourcePatterns": [
-        "src/main/documents/legacyCanonicalWriteFence.ts",
-        "src/main/documents/planningDocumentService.ts",
-        "src/main/documents/planningProjectionContext.ts",
-        "src/main/documents/planningRepositorySnapshot.ts",
-        "src/main/migrations/legacyEquivalenceVerification.ts",
-        "src/main/migrations/stagedLegacyImporter.ts",
-        "src/main/workIntake/workIntakeService.ts",
-        "src/main/workIntake/workRouteDecisionService.ts",
-        "src/main/workIntake/workRoutingAssessmentService.ts"
-      ],
-      "dependsOn": [
-        "project-state-service",
-        "provider-generation-cutover"
-      ],
-      "behaviors": [
-        {
-          "behaviorId": "qualified-project-uses-structured-state-and-fences-legacy-scanners",
-          "description": "qualified Project uses structured truth after restart, while legacy scanners and cached snapshots are fenced"
         }
       ]
     },
@@ -12244,122 +12116,6 @@
       ]
     },
     {
-      "testPath": "test/migration/legacy-authority-inventory.test.cjs",
-      "currentTestCount": {
-        "value": 3,
-        "basis": "Three SCL01T inventory repeatability, conflict and bound fixtures."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 106,
-        "basis": "Observed normal Windows focused SCL01T fixture run."
-      },
-      "proposedValidationLane": "migration",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability",
-        "migration"
-      ],
-      "execution": {
-        "requiresBuild": true,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Each fixture owns a unique temporary workspace.",
-        "ownedResources": [
-          "temp-filesystem-isolated"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "legacy-authority-inventory",
-          "behaviorId": "legacy-conflicts-are-explicit",
-          "proofLocator": "legacy inventory exposes duplicate identity, malformed metadata and source revision conflict",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "legacy-authority-inventory",
-          "behaviorId": "legacy-snapshot-is-complete-repeatable-and-read-only",
-          "proofLocator": "legacy authority snapshot is complete, hash addressed, repeatable and read only",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/migration/legacy-equivalence-verification.test.cjs",
-      "currentTestCount": {
-        "value": 2,
-        "basis": "Two SCL01V equivalence and mismatch/staleness scenarios."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 275,
-        "basis": "Observed normal Windows focused SCL01V fixture run."
-      },
-      "proposedValidationLane": "migration",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability",
-        "migration"
-      ],
-      "execution": {
-        "requiresBuild": true,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Each fixture owns an isolated temporary workspace and staged SQLite candidate.",
-        "ownedResources": [
-          "temp-filesystem-isolated"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "legacy-equivalence-verification",
-          "behaviorId": "equivalent-shadow-read-is-version-bound-and-read-only",
-          "proofLocator": "equivalence verification binds exact snapshot, schema and importer with zero blocking mismatches",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "legacy-equivalence-verification",
-          "behaviorId": "stale-source-and-semantic-mismatch-block-cutover",
-          "proofLocator": "stale source and staged semantic mismatch block cutover with explicit evidence",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
       "testPath": "test/migration/paired-artifacts-to-canonical-markdown-v1.test.cjs",
       "currentTestCount": {
         "value": 2,
@@ -12413,180 +12169,6 @@
           "capabilityId": "canonical-document-migration",
           "behaviorId": "paired-artifact-migration-previews-target-markdown-and-deletes-legacy-sibling-on-apply",
           "proofLocator": "paired artifact migration previews target Markdown and deletes legacy sibling on apply",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/migration/staged-legacy-importer.test.cjs",
-      "currentTestCount": {
-        "value": 2,
-        "basis": "Two SCL01U deterministic graph and rejection scenarios."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 292,
-        "basis": "Observed normal Windows focused SCL01U fixture run."
-      },
-      "proposedValidationLane": "migration",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability",
-        "migration"
-      ],
-      "execution": {
-        "requiresBuild": true,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Each test owns an isolated temporary workspace and staged SQLite candidate.",
-        "ownedResources": [
-          "temp-filesystem-isolated"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "staged-legacy-import",
-          "behaviorId": "exact-snapshot-builds-repeatable-isolated-graph-and-evidence",
-          "proofLocator": "one exact legacy snapshot stages deterministic structured graph and historical Markdown Evidence",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "staged-legacy-import",
-          "behaviorId": "stale-or-dangling-input-is-rejected-before-staging",
-          "proofLocator": "staged import rejects stale snapshots and dangling Repair parents without leaving a candidate",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/migration/structured-provider-cutover.test.cjs",
-      "currentTestCount": {
-        "value": 3,
-        "basis": "Three SCL01Y fence, unknown-outcome and rollback migration fixtures."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 740,
-        "basis": "Observed normal Windows focused SCL01Y test receipt."
-      },
-      "proposedValidationLane": "migration",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability",
-        "migration"
-      ],
-      "execution": {
-        "requiresBuild": true,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Each case uses an isolated temporary SQLite workspace.",
-        "ownedResources": [
-          "temp-filesystem-isolated"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "provider-generation-cutover",
-          "behaviorId": "cutover-fences-legacy-and-selects-one-durable-generation",
-          "proofLocator": "cutover fences a late legacy writer, verifies backup and selects one durable structured generation",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "provider-generation-cutover",
-          "behaviorId": "stale-or-interrupted-selection-preserves-legacy-authority",
-          "proofLocator": "stale source and a failed pre-selection step leave legacy authority writable",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "provider-generation-cutover",
-          "behaviorId": "unknown-outcome-recovers-and-rollback-requires-untouched-state",
-          "proofLocator": "unknown post-selection outcome recovers from durable generation and rollback requires untouched structured state",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/migration/structured-state-qualification.test.cjs",
-      "currentTestCount": {
-        "value": 1,
-        "basis": "One SCL01Z synthetic cutover and restart qualification scenario."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 391,
-        "basis": "Observed normal Windows focused SCL01Z test receipt."
-      },
-      "proposedValidationLane": "migration",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability",
-        "migration"
-      ],
-      "execution": {
-        "requiresBuild": true,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "One isolated temporary SQLite workspace with no shared mutable resources.",
-        "ownedResources": [
-          "temp-filesystem-isolated"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "structured-state-qualification",
-          "behaviorId": "qualified-project-uses-structured-state-and-fences-legacy-scanners",
-          "proofLocator": "qualified Project uses structured truth after restart, while legacy scanners and cached snapshots are fenced",
           "proofRole": "primary"
         }
       ]
@@ -14010,8 +13592,8 @@
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 320,
-        "basis": "Observed normal Windows focused WRB01-04 entry test receipt before the landing assertion was added."
+        "milliseconds": 3760,
+        "basis": "Observed normal Windows focused WRB01-05 entry test receipt with real conventional adoption, Project State, Agent Harness checkouts, and MCP read."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "windows",
@@ -14054,8 +13636,8 @@
     {
       "testPath": "test/project-state/current-project-registration.test.cjs",
       "currentTestCount": {
-        "value": 3,
-        "basis": "WRB01-01 fresh registration, ambiguous identity, and interrupted-registration recovery scenarios."
+        "value": 4,
+        "basis": "WRB01-01 fresh registration, ambiguous identity, interrupted-registration recovery, and WRB01-05 rejection of a legacy source locator without migration."
       },
       "duration": {
         "kind": "measured",
@@ -14094,6 +13676,12 @@
         "current-proof-appropriate"
       ],
       "behaviorCoverage": [
+        {
+          "capabilityId": "current-project-entry-runtime",
+          "behaviorId": "current-project-discovery-uses-only-current-project-registration",
+          "proofLocator": "Current Project selector resolves only selected-project SPS registration and rejects selected-repository legacy locator without conversion",
+          "proofRole": "primary"
+        },
         {
           "capabilityId": "project-state-service",
           "behaviorId": "current-project-registration-establishes-one-idempotent-project-without-legacy-state-import",
@@ -20211,8 +19799,8 @@
     {
       "testPath": "test/work-intake/greenfield-source-bootstrap.test.cjs",
       "currentTestCount": {
-        "value": 3,
-        "basis": "SCL04 bootstrap, first Intake and incompatible partial retry fixtures."
+        "value": 1,
+        "basis": "WRB01-03 deterministic managed source baseline, tracked ignore behavior, descriptor registration, and idempotent reopen."
       },
       "duration": {
         "kind": "measured",
@@ -20253,12 +19841,6 @@
         "current-proof-appropriate"
       ],
       "behaviorCoverage": [
-        {
-          "capabilityId": "greenfield-source-bootstrap",
-          "behaviorId": "new-project-creates-main-dev-and-first-work-source",
-          "proofLocator": "greenfield Work Intake persists Project, bootstrap evidence and first work source",
-          "proofRole": "primary"
-        },
         {
           "capabilityId": "managed-project-source-topology",
           "behaviorId": "greenfield-source-bootstrap-establishes-deterministic-managed-main-dev-and-ignore-baseline",

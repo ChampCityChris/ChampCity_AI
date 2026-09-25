@@ -28,8 +28,8 @@ function setup(context) {
 }
 async function structuredProject(env) {
   const project = await env.state.createRecord(null, "Project", { name: "Synthetic", description: "Materialization fixture" });
-  await env.store.transaction(project.id, unit => unit.advanceProviderGeneration({ projectId: project.id, generation: 1,
-    authority: "structured", updatedAt: new Date().toISOString() }, null));
+  await env.state.createRecord(project.id, "ProjectResource", { resourceType: "source-repository", provider: "git",
+    logicalName: repositoryId, locator: "selected-project", role: "project-source" });
   return project.id;
 }
 async function workflowWithBaseline(env, projectId, title, revision = env.r1) {
