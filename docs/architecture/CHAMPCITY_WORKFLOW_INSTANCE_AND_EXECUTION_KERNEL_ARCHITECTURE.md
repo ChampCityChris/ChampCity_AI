@@ -56,6 +56,8 @@ No Workflow must finish merely so another Workflow can be created, assessed, pla
 
 The durable product/software project.
 
+Current Project registration and selection are Project runtime state, not Repository identity. A ProjectResource with `resourceType: current-project-registration` identifies the selected Current Project. A separate `source-repository` ProjectResource is optional infrastructure and exists only when a Git Repository is present. Non-Git Current Projects are valid. Workflows use source baselines, SourceBindings, or materialized SourceLines only when their Project has a source Repository and the Workflow semantics require source.
+
 ### Workflow Definition
 
 The reusable lifecycle definition for a kind of work.

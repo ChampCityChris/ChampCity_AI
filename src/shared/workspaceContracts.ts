@@ -65,7 +65,7 @@ export type WorkspaceSelection =
 export interface CurrentProjectRuntimeContext {
   projectId: string;
   projectName: string;
-  repositoryId: string;
+  repositoryId: string | null;
   projectRoot: string;
   mode: "existing" | "greenfield";
   created: boolean;

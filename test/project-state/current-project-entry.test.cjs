@@ -80,6 +80,7 @@ test("Greenfield entry validates an empty container, establishes SPS and registe
   const current = await api.registerCurrentProject("greenfield", "New Project");
   assert.equal(current.projectId, selectedCurrentProjectId(selected));
   assert.equal(current.projectName, "New Project");
+  assert.equal(current.repositoryId, CURRENT_PROJECT_REPOSITORY_ID);
   assert.equal(current.created, true);
   assert.deepEqual(checkouts.map(checkout => [checkout.role, checkout.projectRelativePath]).sort(), [["dev", "Dev"], ["main", "Main"]]);
   assert.equal(fs.existsSync(path.join(selected, ".git")), false);
@@ -183,13 +184,14 @@ test("Existing conventional Project entry preserves source and historical Markdo
   const { api } = mainPreloadHarness(["project:registerCurrent"], {
     getRequiredWorkspaceRoot: () => selected,
     registerCurrentProject,
-    getAgentHarnessServiceHostClient: () => harness,
+    getAgentHarnessServiceHostClient: () => harness, CURRENT_PROJECT_REPOSITORY_ID,
     createSourceControlService,
     establishManagedProjectSource,
     fs, path, MANAGED_PROJECT_SOURCE_PATHS,
   });
   const current = await api.registerCurrentProject("existing");
   assert.equal(current.projectId, selectedCurrentProjectId(selected));
+  assert.equal(current.repositoryId, CURRENT_PROJECT_REPOSITORY_ID);
   assert.equal(current.mode, "existing");
   assert.equal(current.created, true);
   assert.equal(fs.existsSync(path.join(selected, ".git")), false);

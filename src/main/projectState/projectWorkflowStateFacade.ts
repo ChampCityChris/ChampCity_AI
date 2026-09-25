@@ -18,12 +18,13 @@ export interface ProjectPlanInput {
 export function createProjectWorkflowStateFacade(store: ProjectStateStore, principal: PrincipalRef) {
   const state = createProjectStateService(store, principal);
   return {
-    async createProject(input: { name: string; purpose: string; repository: { provider: string; repositoryId: string; locator: string } }) {
+    async createProject(input: { name: string; purpose: string; repository?: { provider: string; repositoryId: string; locator: string; role?: string } }) {
       const project = await state.createRecord(null, "Project", { name: input.name, description: input.purpose });
-      const resource = await state.createRecord(project.id, "ProjectResource", { resourceType: "source-repository",
-        provider: input.repository.provider, logicalName: input.repository.repositoryId, locator: input.repository.locator, role: "project-source" });
-      await state.createRelationship(project.id, resource.id, "relates_to", project.id);
-      return { project, repository: resource };
+      const repository = input.repository ? await state.createRecord(project.id, "ProjectResource", { resourceType: "source-repository",
+        provider: input.repository.provider, logicalName: input.repository.repositoryId, locator: input.repository.locator,
+        role: input.repository.role ?? "project-source" }) : null;
+      if (repository) await state.createRelationship(project.id, repository.id, "relates_to", project.id);
+      return { project, repository };
     },
     async getProject(projectId: ProjectId) {
       const project = await state.getRecord(projectId, projectId);

@@ -377,13 +377,17 @@ ipcMain.handle("project:registerCurrent", async (_event, mode: "existing" | "gre
         agentHarness.registerRepositoryCheckout(workspaceId, checkout) };
     const result = await createSourceControlService({ repositoryId: CURRENT_PROJECT_REPOSITORY_ID, repositoryRoot: root, checkoutRegistration }).bootstrapProjectSource();
     if (!result.ok) throw new Error(result.error.message);
-    registration = await registerCurrentProject(root, mode, projectName === undefined ? {} : { projectName });
+    registration = await registerCurrentProject(root, mode, { ...(projectName === undefined ? {} : { projectName }), sourceRepositoryId: CURRENT_PROJECT_REPOSITORY_ID });
   } else {
-    registration = await registerCurrentProject(root, mode, projectName === undefined ? {} : { projectName });
+    const hasConventionalGit = fs.existsSync(path.join(root, ".git"));
+    const hasManagedRepository = fs.existsSync(path.join(root, MANAGED_PROJECT_SOURCE_PATHS.repositoryMetadataRelativePath));
+    registration = await registerCurrentProject(root, mode, { ...(projectName === undefined ? {} : { projectName }),
+      ...(hasConventionalGit || hasManagedRepository ? { sourceRepositoryId: CURRENT_PROJECT_REPOSITORY_ID } : {}) });
     workspace = await agentHarness.registerWorkspace(root);
   }
-  const repositoryId = registration.projectResource.body.logicalName;
+  const repositoryId = registration.repositoryResource?.body.logicalName ?? null;
   if (mode === "existing" && (fs.existsSync(path.join(root, ".git")) || fs.existsSync(path.join(root, MANAGED_PROJECT_SOURCE_PATHS.repositoryMetadataRelativePath)))) {
+    if (!repositoryId) throw new Error("Git-backed Existing Project has no registered source Repository identity.");
     const checkoutRegistration = { registerRepositoryCheckout: (workspaceId: string, checkout: import("../shared/sourceLifecycleContracts").RepositoryCheckout) =>
       agentHarness.registerRepositoryCheckout(workspaceId, checkout) };
     await establishManagedProjectSource({ projectRoot: root, repositoryId, workspaceId: workspace.workspace.workspaceId,
