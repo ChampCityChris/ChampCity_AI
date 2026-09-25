@@ -58,6 +58,7 @@ test("conventional Project adoption preserves source, Git history, remotes, and 
     assert.equal(fs.readFileSync(path.join(adopted.mainCheckoutRoot, "untracked.txt"), "utf8"), "keep untracked content\n");
     assert.match(git(adopted.mainCheckoutRoot, "status", "--porcelain"), /README\.md/);
     assert.match(git(adopted.mainCheckoutRoot, "status", "--porcelain"), /untracked\.txt/);
+    assert.equal(git(adopted.devCheckoutRoot, "status", "--porcelain"), "");
     assert.equal(fs.readFileSync(path.join(root, ".champcity", "project-state.sqlite"), "utf8"), "preserve project state\n");
     assert.equal(fs.existsSync(path.join(root, ".champcity", "checkouts")), false);
     const reopened = await establishManagedProjectSource({ projectRoot: root, repositoryId: "project-source-1",
@@ -67,16 +68,86 @@ test("conventional Project adoption preserves source, Git history, remotes, and 
   } finally { await harness.stop().catch(() => undefined); }
 });
 
-test("unsafe branch and managed-path conflicts fail before changing a conventional Project", async context => {
-  const { root } = fixture(context, "managed-project-conflict-");
+test("main-only conventional Project adoption creates Dev at the exact Main revision", async context => {
+  const { root } = fixture(context, "managed-project-main-only-");
   git(root, "branch", "-D", "dev");
+  const mainRevision = git(root, "rev-parse", "refs/heads/main");
+  const beforeRefs = git(root, "for-each-ref", "--format=%(refname)%00%(objectname)", "refs/heads", "refs/remotes", "refs/tags");
+  const beforeRemotes = git(root, "remote", "-v");
   const source = path.join(root, "README.md");
+  fs.writeFileSync(path.join(root, "untracked.txt"), "main working state\n");
   const before = fs.readFileSync(source, "utf8");
-  await assert.rejects(establishManagedProjectSource({ projectRoot: root, repositoryId: "project-source-2", workspaceId: "project",
-    checkoutRegistration: { registerRepositoryCheckout: async () => { throw new Error("must not register"); } } }), /both main and dev refs/);
-  assert.equal(fs.readFileSync(source, "utf8"), before);
+  fs.writeFileSync(source, "dirty main content\n");
+  const harness = new AgentHarnessService({ userDataRoot: path.join(path.dirname(root), "userdata") });
+  try {
+    const workspace = await harness.registerWorkspaceRoot(root);
+    const adopted = await establishManagedProjectSource({ projectRoot: root, repositoryId: "project-source-main-only",
+      workspaceId: workspace.workspace.workspaceId, checkoutRegistration: {
+        registerRepositoryCheckout: (workspaceId, checkout) => harness.registerRepositoryCheckout(workspaceId, checkout),
+      } });
+    assert.equal(adopted.materialized, true);
+    const expectedRefs = [...beforeRefs.split(/\r?\n/), `refs/heads/dev\0${mainRevision}`].sort().join("\n");
+    assert.equal(git(adopted.repositoryMetadataRoot, "for-each-ref", "--format=%(refname)%00%(objectname)", "refs/heads", "refs/remotes", "refs/tags"), expectedRefs);
+    assert.equal(git(adopted.mainCheckoutRoot, "rev-parse", "HEAD"), mainRevision);
+    assert.equal(git(adopted.devCheckoutRoot, "rev-parse", "HEAD"), mainRevision);
+    assert.equal(git(adopted.mainCheckoutRoot, "status", "--porcelain").includes("README.md"), true);
+    assert.equal(git(adopted.mainCheckoutRoot, "status", "--porcelain").includes("untracked.txt"), true);
+    assert.equal(git(adopted.devCheckoutRoot, "status", "--porcelain"), "");
+    assert.equal(git(adopted.mainCheckoutRoot, "remote", "-v"), beforeRemotes);
+    assert.equal(fs.readFileSync(path.join(adopted.mainCheckoutRoot, "README.md"), "utf8"), "dirty main content\n");
+    assert.equal(fs.readFileSync(path.join(adopted.mainCheckoutRoot, "untracked.txt"), "utf8"), "main working state\n");
+    assert.equal(fs.readFileSync(path.join(adopted.devCheckoutRoot, "README.md"), "utf8").replace(/\r?\n/g, "\n"), before);
+  } finally { await harness.stop().catch(() => undefined); }
+});
+
+test("dev-current conventional adoption keeps dirty and untracked bytes on Dev and leaves Main clean", async context => {
+  const { temp, root } = fixture(context, "managed-project-dev-current-");
+  fs.writeFileSync(path.join(root, "main-only.txt"), "main revision\n");
+  git(root, "add", "main-only.txt");
+  git(root, "commit", "-m", "main-specific");
+  const mainRevision = git(root, "rev-parse", "refs/heads/main");
+  const devRevision = git(root, "rev-parse", "refs/heads/dev");
+  git(root, "checkout", "dev");
+  fs.writeFileSync(path.join(root, "README.md"), "dirty dev content\n");
+  fs.writeFileSync(path.join(root, "untracked.txt"), "dev working state\n");
+  const beforeRefs = git(root, "for-each-ref", "--format=%(refname)%00%(objectname)", "refs/heads", "refs/remotes", "refs/tags");
+  const harness = new AgentHarnessService({ userDataRoot: path.join(temp, "userdata") });
+  try {
+    const workspace = await harness.registerWorkspaceRoot(root);
+    const adopted = await establishManagedProjectSource({ projectRoot: root, repositoryId: "project-source-dev-current",
+      workspaceId: workspace.workspace.workspaceId, checkoutRegistration: {
+        registerRepositoryCheckout: (workspaceId, checkout) => harness.registerRepositoryCheckout(workspaceId, checkout),
+      } });
+    assert.equal(git(adopted.repositoryMetadataRoot, "for-each-ref", "--format=%(refname)%00%(objectname)", "refs/heads", "refs/remotes", "refs/tags"), beforeRefs);
+    assert.equal(git(adopted.devCheckoutRoot, "rev-parse", "HEAD"), devRevision);
+    assert.equal(git(adopted.mainCheckoutRoot, "rev-parse", "HEAD"), mainRevision);
+    assert.equal(git(adopted.devCheckoutRoot, "status", "--porcelain").includes("README.md"), true);
+    assert.equal(git(adopted.devCheckoutRoot, "status", "--porcelain").includes("untracked.txt"), true);
+    assert.equal(git(adopted.mainCheckoutRoot, "status", "--porcelain"), "");
+    assert.equal(fs.readFileSync(path.join(adopted.devCheckoutRoot, "README.md"), "utf8"), "dirty dev content\n");
+    assert.equal(fs.readFileSync(path.join(adopted.devCheckoutRoot, "untracked.txt"), "utf8"), "dev working state\n");
+    assert.equal(fs.readFileSync(path.join(adopted.mainCheckoutRoot, "README.md"), "utf8").replace(/\r?\n/g, "\n"), "baseline\n");
+    assert.equal(fs.readFileSync(path.join(adopted.mainCheckoutRoot, "main-only.txt"), "utf8").replace(/\r?\n/g, "\n"), "main revision\n");
+  } finally { await harness.stop().catch(() => undefined); }
+});
+
+test("unsupported conventional branch fails before changing branch refs or source bytes", async context => {
+  const { root } = fixture(context, "managed-project-feature-");
+  git(root, "checkout", "-b", "feature/task");
+  fs.writeFileSync(path.join(root, "README.md"), "dirty feature content\n");
+  fs.writeFileSync(path.join(root, "untracked.txt"), "feature working state\n");
+  const beforeRefs = git(root, "for-each-ref", "--format=%(refname)%00%(objectname)", "refs/heads", "refs/remotes", "refs/tags");
+  const beforeStatus = git(root, "status", "--porcelain");
+  await assert.rejects(establishManagedProjectSource({ projectRoot: root, repositoryId: "project-source-feature", workspaceId: "project",
+    checkoutRegistration: { registerRepositoryCheckout: async () => { throw new Error("must not register"); } } }), /currently on 'feature\/task'.*only main or dev/);
+  assert.equal(git(root, "branch", "--show-current"), "feature/task");
+  assert.equal(git(root, "for-each-ref", "--format=%(refname)%00%(objectname)", "refs/heads", "refs/remotes", "refs/tags"), beforeRefs);
+  assert.equal(git(root, "status", "--porcelain"), beforeStatus);
+  assert.equal(fs.readFileSync(path.join(root, "README.md"), "utf8"), "dirty feature content\n");
+  assert.equal(fs.readFileSync(path.join(root, "untracked.txt"), "utf8"), "feature working state\n");
   assert.equal(fs.existsSync(path.join(root, ".git")), true);
   assert.equal(fs.existsSync(path.join(root, "Main")), false);
+  assert.equal(fs.existsSync(path.join(root, "Dev")), false);
   assert.equal(fs.existsSync(path.join(root, ".champcity", "repository.git")), false);
 });
 

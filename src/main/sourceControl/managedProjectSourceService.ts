@@ -129,8 +129,9 @@ export async function establishManagedProjectSource(input: {
   if (fs.existsSync(path.join(root, ".gitmodules")) || fs.existsSync(path.join(gitDir, "objects", "info", "alternates")))
     fail("STALE_SOURCE", "Repositories with submodules or external object alternates require manual topology adoption.");
 
-  const [top, resolvedGitDir, mainRef, devRef, worktrees, refs, remotes] = await Promise.all([
+  const [top, resolvedGitDir, currentBranch, mainRef, devRef, worktrees, refs, remotes] = await Promise.all([
     git(root, ["rev-parse", "--show-toplevel"]), git(root, ["rev-parse", "--absolute-git-dir"]),
+    git(root, ["branch", "--show-current"]),
     git(root, ["show-ref", "--verify", "--hash", "refs/heads/main"], { optional: true }),
     git(root, ["show-ref", "--verify", "--hash", "refs/heads/dev"], { optional: true }),
     git(root, ["worktree", "list", "--porcelain"]),
@@ -139,7 +140,14 @@ export async function establishManagedProjectSource(input: {
   ]);
   if (!top || path.resolve(top) !== path.resolve(root) || !resolvedGitDir || path.resolve(resolvedGitDir) !== path.resolve(gitDir))
     fail("WORKSPACE_ACCESS_DENIED", "Selected Project is not the exact root of its conventional Git Repository.");
-  if (!mainRef || !devRef) fail("STALE_SOURCE", "Existing Project must already contain both main and dev refs; no branch history will be invented.");
+  if (currentBranch !== "main" && currentBranch !== "dev") {
+    const boundedBranch = currentBranch ? currentBranch.slice(0, 80) : "detached HEAD";
+    fail("STALE_SOURCE", `Conventional Project is currently on '${boundedBranch}'; adoption supports only main or dev and source was not changed.`);
+  }
+  if (!mainRef) fail("STALE_SOURCE", "Conventional Project must contain a main ref before adoption; source was not changed.");
+  const createDevRef = !devRef && currentBranch === "main";
+  if (!devRef && !createDevRef) fail("STALE_SOURCE", "A dev ref is required when the current branch cannot establish the main baseline; source was not changed.");
+  if (!refs || !remotes) fail("STALE_SOURCE", "Conventional Repository refs and remotes could not be inspected; source was not changed.");
   if (worktrees?.split(/\r?\n/).filter(line => line.startsWith("worktree ")).length !== 1)
     fail("STALE_SOURCE", "Repository has additional linked worktrees; normalize them before Project topology adoption.");
   for (const reserved of ["Main", "Dev", ".champcity/repository.git"]) {
@@ -154,6 +162,10 @@ export async function establishManagedProjectSource(input: {
   let originalMetadataMoved = false;
   let devCreated = false;
   let mainCreated = false;
+  const dirtyRole = currentBranch as "main" | "dev";
+  const cleanRole = dirtyRole === "main" ? "dev" : "main";
+  const receiverRoot = dirtyRole === "main" ? topology.mainCheckoutRoot : topology.devCheckoutRoot;
+  const cleanCheckoutRoot = cleanRole === "main" ? topology.mainCheckoutRoot : topology.devCheckoutRoot;
   const stagingOriginal = path.join(appRoot, `original-git-${createHash("sha256").update(input.repositoryId).digest("hex").slice(0, 12)}`);
   const sourceEntries = fs.readdirSync(root).filter(name => name !== ".git" && name !== ".champcity");
   let stage = "copy Repository metadata";
@@ -162,18 +174,24 @@ export async function establishManagedProjectSource(input: {
     stage = "prepare bare Repository metadata";
     const bare = await git(root, ["config", "core.bare", "true"], { optional: true, gitDir: metadataRoot });
     if (bare !== "") fail("STALE_SOURCE", "Repository common metadata could not be prepared as a bare Git directory.");
-    stage = "create Main checkout";
-    await git(root, ["worktree", "add", "--no-checkout", topology.mainCheckoutRoot, "main"], { gitDir: metadataRoot });
-    mainCreated = true;
-    await git(topology.mainCheckoutRoot, ["reset", "--mixed", "main"]);
-    stage = "create Dev checkout";
-    await git(root, ["worktree", "add", topology.devCheckoutRoot, "dev"], { gitDir: metadataRoot });
-    devCreated = true;
-    stage = "move Project source entries into Main";
+    if (createDevRef) {
+      stage = "create copied Dev ref at the exact Main revision";
+      await git(root, ["update-ref", "refs/heads/dev", mainRef], { gitDir: metadataRoot });
+    }
+    stage = `create ${dirtyRole} working-state receiver`;
+    await git(root, ["worktree", "add", "--no-checkout", receiverRoot, dirtyRole], { gitDir: metadataRoot });
+    if (dirtyRole === "main") mainCreated = true;
+    else devCreated = true;
+    await git(receiverRoot, ["reset", "--mixed", dirtyRole]);
+    stage = `create clean ${cleanRole} checkout`;
+    await git(root, ["worktree", "add", cleanCheckoutRoot, cleanRole], { gitDir: metadataRoot });
+    if (cleanRole === "main") mainCreated = true;
+    else devCreated = true;
+    stage = `move Project source entries into ${dirtyRole}`;
     for (const name of sourceEntries) {
       const source = path.join(root, name);
-      const destination = path.join(topology.mainCheckoutRoot, name);
-      if (fs.existsSync(destination)) fail("WORKSPACE_ACCESS_DENIED", `Main checkout conflicts with existing source entry '${name}'.`);
+      const destination = path.join(receiverRoot, name);
+      if (fs.existsSync(destination)) fail("WORKSPACE_ACCESS_DENIED", `${dirtyRole} checkout conflicts with existing source entry '${name}'.`);
       fs.renameSync(source, destination);
       moved.push(name);
     }
@@ -189,7 +207,8 @@ export async function establishManagedProjectSource(input: {
       git(topology.mainCheckoutRoot, ["for-each-ref", "--format=%(refname)%00%(objectname)", "refs/heads", "refs/remotes", "refs/tags"]),
       git(topology.mainCheckoutRoot, ["remote", "-v"]),
     ]);
-    if (refs !== afterRefs || remotes !== afterRemotes)
+    const expectedRefs = createDevRef ? [...refs.split(/\r?\n/), `refs/heads/dev\0${mainRef}`].sort().join("\n") : refs;
+    if (expectedRefs !== afterRefs || remotes !== afterRemotes)
       fail("STALE_SOURCE", "Repository refs or remote configuration changed during adoption; inspect the recovery metadata.");
     const rootGit = await git(root, ["rev-parse", "--show-toplevel"], { optional: true });
     if (rootGit && path.resolve(rootGit) === path.resolve(root))
@@ -197,7 +216,7 @@ export async function establishManagedProjectSource(input: {
 
   } catch (error) {
     for (const name of moved.reverse()) {
-      const source = path.join(topology.mainCheckoutRoot, name);
+      const source = path.join(receiverRoot, name);
       const destination = path.join(root, name);
       if (fs.existsSync(source) && !fs.existsSync(destination)) fs.renameSync(source, destination);
     }

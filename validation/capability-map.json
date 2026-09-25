@@ -18138,8 +18138,8 @@
     {
       "testPath": "test/source-control/managed-project-source.test.cjs",
       "currentTestCount": {
-        "value": 4,
-        "basis": "WRB01-02 conventional adoption, refs/remotes and dirty-content preservation, Agent Harness registration, idempotent reopen, and fail-before-mutation scenarios."
+        "value": 6,
+        "basis": "WRB01-02 conventional adoption, refs/remotes and dirty-content preservation, Agent Harness registration, idempotent reopen, fail-before-mutation, and main-only baseline scenarios; WRB01-R01-02 adds Dev-current preservation and unsupported-branch preflight."
       },
       "duration": {
         "kind": "measured",
@@ -18184,7 +18184,7 @@
         {
           "capabilityId": "managed-project-source-topology",
           "behaviorId": "conventional-project-adoption-preserves-source-and-registers-durable-main-dev-checkouts",
-          "proofLocator": "conventional Git Project retains refs, remotes, tracked dirty and untracked content while exposing exact Main/Dev roots through Agent Harness",
+          "proofLocator": "main-current and dev-current adoption keep dirty tracked/untracked bytes on the matching branch, main-only creates Dev at exact Main revision, and unsupported branches fail before mutation",
           "proofRole": "primary"
         }
       ]
