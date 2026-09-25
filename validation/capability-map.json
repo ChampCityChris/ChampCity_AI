@@ -13613,8 +13613,8 @@
     {
       "testPath": "test/project-state/current-project-entry.test.cjs",
       "currentTestCount": {
-        "value": 7,
-        "basis": "WRB01 entry and repair proof; covers optional Repository identities, non-Git Existing Project registration, fail-closed Source Graph, managed Dev Source Graph/revision detail, WIR projection, and landing routes."
+        "value": 10,
+        "basis": "WRB01 entry and repair proof; covers source-before-SPS Existing Project validation and retry, optional Repository identities, non-Git registration, fail-closed Source Graph, managed Dev Source Graph/revision detail, WIR projection delegation, and landing routes."
       },
       "duration": {
         "kind": "measured",
@@ -13654,13 +13654,13 @@
         {
           "capabilityId": "current-project-entry-runtime",
           "behaviorId": "current-project-work-intake-uses-managed-dev-branch-inventory",
-          "proofLocator": "Current Work Intake projection returns the managed Dev branch inventory and current branch without treating the Project container as Git",
+          "proofLocator": "Current Project Work Intake IPC delegates without pre-resolving Dev; healthy Dev returns branch inventory, while unavailable Dev remains valid without branch evidence",
           "proofRole": "primary"
         },
         {
           "capabilityId": "current-project-entry-runtime",
           "behaviorId": "existing-entry-opens-historical-project-as-current-sps-identity",
-          "proofLocator": "Existing historical Project entry returns stable Current Project identity without legacy Workflow reconstruction",
+          "proofLocator": "Existing Project source candidates are validated before Current Project registration; conventional and managed identities attach only after proof, and established topology remains retryable after SPS failure",
           "proofRole": "primary"
         },
         {
@@ -13700,7 +13700,7 @@
         {
           "capabilityId": "work-intake-capture-source-preparation",
           "behaviorId": "structured-work-intake-projection-uses-managed-dev-branch-inventory",
-          "proofLocator": "Current Project IPC returns Dev branch choices while saved Work Intake state remains in the Project container",
+          "proofLocator": "Current Project IPC delegates without pre-resolving Dev; healthy managed Dev contributes branch choices while unavailable Dev leaves source identity visible and branch/base evidence empty",
           "proofRole": "primary"
         }
       ]
@@ -19943,8 +19943,8 @@
     {
       "testPath": "test/work-intake/structured-work-intake-capture.test.cjs",
       "currentTestCount": {
-        "value": 6,
-        "basis": "SCL02 capture and retry plus SCL03 exact dev and collision scenarios."
+        "value": 7,
+        "basis": "SCL02 capture and retry plus SCL03 exact Dev, collision, and unavailable managed Dev projection/save scenarios."
       },
       "duration": {
         "kind": "measured",
@@ -20000,7 +20000,7 @@
         {
           "capabilityId": "work-intake-capture-source-preparation",
           "behaviorId": "source-neutral-work-intake-returns-not-applicable-and-no-fabricated-repository",
-          "proofLocator": "source-backed and non-source Current Projects return not-applicable for WIR; non-source projection has no fabricated Repository or branches",
+          "proofLocator": "source-backed and non-source Current Projects return not-applicable for WIR; non-source projection has no fabricated Repository, while unavailable managed Dev retains semantic identity with no branch/base evidence and multiple intakes save",
           "proofRole": "primary"
         }
       ]

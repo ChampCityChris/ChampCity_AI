@@ -195,6 +195,63 @@ test("non-Git Existing Project entry registers SPS without a placeholder Reposit
   } finally { store.close(); await harness.stop().catch(() => undefined); }
 });
 
+test("Work Intake projection IPC delegates without pre-resolving managed Dev", async context => {
+  const selected = root(context);
+  const current = await registerCurrentProject(selected, "existing", { projectName: "Synthetic", sourceRepositoryId: CURRENT_PROJECT_REPOSITORY_ID });
+  let resolutionAttempts = 0;
+  let projectionArgs;
+  const expected = { authority: "structured", project: { projectId: current.project.id, repositoryId: CURRENT_PROJECT_REPOSITORY_ID, name: "Synthetic" },
+    suggestedProjectName: "Synthetic", branches: [], currentBranch: null, suggestedBase: null, intakes: [], currentIntake: null,
+    blockedReason: null, capturedIntakes: [], currentCapturedIntake: null };
+  const { api } = mainPreloadHarness(["workIntake:projection"], {
+    getRequiredWorkspaceRoot: () => selected,
+    selectedCurrentProjectId,
+    resolveManagedDevRepositoryCheckout: async () => { resolutionAttempts += 1; throw new Error("managed Dev unavailable"); },
+    getStructuredWorkIntakeProjection: async (...args) => { projectionArgs = args; return expected; },
+  });
+  assert.deepEqual(await api.getWorkIntakeProjection(), expected);
+  assert.deepEqual(projectionArgs, [selected, current.project.id]);
+  assert.equal(resolutionAttempts, 0);
+});
+
+test("invalid or redirected Existing Project source candidates fail before Current Project registration", async context => {
+  for (const kind of ["malformed conventional Git", "redirected conventional Git pointer", "invalid managed topology"]) {
+    const selected = root(context);
+    if (kind === "malformed conventional Git") fs.mkdirSync(path.join(selected, ".git"));
+    else if (kind === "redirected conventional Git pointer") {
+      const outside = root(context);
+      git(outside, "init", "-b", "main");
+      fs.writeFileSync(path.join(selected, ".git"), `gitdir: ${path.join(outside, ".git")}\n`);
+    }
+    else {
+      fs.mkdirSync(path.join(selected, ".champcity", "repository.git"), { recursive: true });
+      fs.mkdirSync(path.join(selected, "Main"));
+      fs.mkdirSync(path.join(selected, "Dev"));
+    }
+    const userData = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-harness-invalid-"));
+    context.after(() => fs.rmSync(userData, { recursive: true, force: true }));
+    const harness = new AgentHarnessService({ userDataRoot: userData });
+    harness.registerWorkspace = rootPath => harness.registerWorkspaceRoot(rootPath);
+    context.after(() => harness.stop().catch(() => undefined));
+    const { api } = mainPreloadHarness(["project:registerCurrent"], {
+      getRequiredWorkspaceRoot: () => selected, registerCurrentProject, selectedCurrentProjectId, CURRENT_PROJECT_REPOSITORY_ID,
+      getAgentHarnessServiceHostClient: () => harness, createSourceControlService, establishManagedProjectSource,
+      fs, path, MANAGED_PROJECT_SOURCE_PATHS,
+    });
+    await assert.rejects(api.registerCurrentProject("existing"), undefined, kind);
+    assert.equal(selectedCurrentProjectId(selected), null, kind);
+    const statePath = path.join(selected, ".champcity", "project-state.sqlite");
+    if (fs.existsSync(statePath)) {
+      const store = createSQLiteProjectStateStore(statePath);
+      try {
+        const projects = await store.listEntities(null, "Project");
+        assert.equal(projects.length, 0, kind);
+      } finally { store.close(); }
+    }
+    await harness.stop().catch(() => undefined);
+  }
+});
+
 test("Existing conventional Project entry preserves source and historical Markdown without Workflow reconstruction", async context => {
   const selected = root(context);
   git(selected, "init", "-b", "main");
@@ -214,6 +271,9 @@ test("Existing conventional Project entry preserves source and historical Markdo
   const harness = new AgentHarnessService({ userDataRoot: userData });
   harness.registerWorkspace = rootPath => harness.registerWorkspaceRoot(rootPath);
   context.after(() => harness.stop().catch(() => undefined));
+  const entryOrder = [];
+  const registerWorkspace = harness.registerWorkspace.bind(harness);
+  harness.registerWorkspace = async rootPath => { entryOrder.push("workspace"); return registerWorkspace(rootPath); };
   const checkouts = [];
   const registerCheckout = harness.registerRepositoryCheckout.bind(harness);
   harness.registerRepositoryCheckout = async (workspaceId, checkout) => {
@@ -223,13 +283,14 @@ test("Existing conventional Project entry preserves source and historical Markdo
   };
   const { api } = mainPreloadHarness(["project:registerCurrent"], {
     getRequiredWorkspaceRoot: () => selected,
-    registerCurrentProject,
+    registerCurrentProject: (...args) => { entryOrder.push("sps"); return registerCurrentProject(...args); },
     getAgentHarnessServiceHostClient: () => harness, CURRENT_PROJECT_REPOSITORY_ID,
     createSourceControlService,
-    establishManagedProjectSource,
+    establishManagedProjectSource: (...args) => { entryOrder.push("source-proof"); return establishManagedProjectSource(...args); },
     fs, path, MANAGED_PROJECT_SOURCE_PATHS,
   });
   const current = await api.registerCurrentProject("existing");
+  assert.deepEqual(entryOrder.slice(0, 3), ["workspace", "source-proof", "sps"]);
   assert.equal(current.projectId, selectedCurrentProjectId(selected));
   assert.equal(current.repositoryId, CURRENT_PROJECT_REPOSITORY_ID);
   assert.equal(current.mode, "existing");
@@ -259,6 +320,45 @@ test("Existing conventional Project entry preserves source and historical Markdo
     assert.equal((await state.listEntities(current.projectId, "WorkIntake")).length, 0);
     assert.equal((await state.listEntities(current.projectId, "Workflow")).length, 0);
   } finally { state.close(); await harness.stop().catch(() => undefined); }
+});
+
+test("managed source establishment remains retryable when SPS registration fails after adoption", async context => {
+  const selected = root(context);
+  git(selected, "init", "-b", "main");
+  git(selected, "config", "user.name", "Synthetic Test");
+  git(selected, "config", "user.email", "test@example.invalid");
+  fs.writeFileSync(path.join(selected, "README.md"), "baseline\n");
+  git(selected, "add", "README.md");
+  git(selected, "commit", "-m", "baseline");
+  git(selected, "branch", "dev");
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-harness-retry-"));
+  context.after(() => fs.rmSync(userData, { recursive: true, force: true }));
+  const harness = new AgentHarnessService({ userDataRoot: userData });
+  harness.registerWorkspace = rootPath => harness.registerWorkspaceRoot(rootPath);
+  context.after(() => harness.stop().catch(() => undefined));
+  let failRegistration = true;
+  const { api } = mainPreloadHarness(["project:registerCurrent"], {
+    getRequiredWorkspaceRoot: () => selected,
+    registerCurrentProject: (...args) => {
+      if (failRegistration) { failRegistration = false; throw new Error("synthetic SPS registration failure"); }
+      return registerCurrentProject(...args);
+    },
+    selectedCurrentProjectId, CURRENT_PROJECT_REPOSITORY_ID,
+    getAgentHarnessServiceHostClient: () => harness, createSourceControlService, establishManagedProjectSource,
+    fs, path, MANAGED_PROJECT_SOURCE_PATHS,
+  });
+  await assert.rejects(api.registerCurrentProject("existing"), /synthetic SPS registration failure/);
+  assert.equal(selectedCurrentProjectId(selected), null);
+  assert.equal(fs.existsSync(path.join(selected, ".git")), false);
+  assert.equal(fs.existsSync(path.join(selected, ".champcity", "repository.git")), true);
+  const retried = await api.registerCurrentProject("existing");
+  assert.equal(retried.repositoryId, CURRENT_PROJECT_REPOSITORY_ID);
+  assert.equal(selectedCurrentProjectId(selected), retried.projectId);
+  const store = createSQLiteProjectStateStore(path.join(selected, ".champcity", "project-state.sqlite"));
+  try {
+    const resources = (await store.listEntities(retried.projectId, "ProjectResource"));
+    assert.equal(resources.filter(row => row.entityType === "ProjectResource" && row.body.resourceType === "source-repository").length, 1);
+  } finally { store.close(); await harness.stop().catch(() => undefined); }
 });
 
 test("landing actions route New Project to Project Intake and Existing Project to the Hub", () => {

@@ -68,10 +68,15 @@ export async function getStructuredWorkIntakeProjection(root: string, projectId:
       const lineageIds = new Set(workflows.filter(row => row.entityType === "Workflow" && [...targetIds].some(targetId => workflows.some(target => target.entityType === "Workflow" && target.id === targetId && target.lineageId === row.lineageId))).map(row => row.id));
       return captured(item, repositoryId, checkpoints.filter(checkpoint => lineageIds.has(checkpoint.body.workflowId)));
     });
-    const sourceRoot = repositoryId ? repositoryRoot ?? await resolveManagedDevRepositoryCheckout(root) : null;
-    const branches = sourceRoot && repositoryId
-      ? await createSourceControlService({ repositoryRoot: sourceRoot, projectContainerRoot: root, repositoryId }).branches()
-      : null;
+    let branches: Awaited<ReturnType<ReturnType<typeof createSourceControlService>["branches"]>> | null = null;
+    if (repositoryId) {
+      try {
+        const sourceRoot = repositoryRoot ?? await resolveManagedDevRepositoryCheckout(root);
+        branches = await createSourceControlService({ repositoryRoot: sourceRoot, projectContainerRoot: root, repositoryId }).branches();
+      } catch {
+        // Source availability is optional evidence for Work Intake readiness.
+      }
+    }
     const available = branches?.ok ? branches.result.branches : [];
     const currentBranch = branches?.ok ? branches.result.currentBranch : null;
     const suggestedBase = available.find(item => item.name === "dev") ?? null;

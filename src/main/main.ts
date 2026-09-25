@@ -56,7 +56,7 @@ import { submitProjectIntakeForRepository } from "./projectIntake/projectIntakeS
 import { getWorkIntakeProjection, readWorkIntake, submitWorkIntake } from "./workIntake/workIntakeService";
 import { createSourceControlService } from "./sourceControl/sourceControlService";
 import { establishManagedProjectSource, resolveManagedDevRepositoryCheckout } from "./sourceControl/managedProjectSourceService";
-import { CURRENT_PROJECT_REPOSITORY_ID, currentProjectRepositoryId, registerCurrentProject, selectedCurrentProjectId } from "./projectState/currentProjectRegistrationService";
+import { CURRENT_PROJECT_REPOSITORY_ID, registerCurrentProject, selectedCurrentProjectId } from "./projectState/currentProjectRegistrationService";
 import { MANAGED_PROJECT_SOURCE_PATHS } from "../shared/sourceLifecycleContracts";
 import { selectedSourceGraphRepositoryId } from "./sourceControl/sourceGraphService";
 import type { SourceGraphOptions } from "../shared/sourceLifecycleContracts";
@@ -385,20 +385,20 @@ ipcMain.handle("project:registerCurrent", async (_event, mode: "existing" | "gre
     const hasManagedDev = fs.existsSync(path.join(root, MANAGED_PROJECT_SOURCE_PATHS.devCheckoutRelativePath));
     const hasManagedComponents = hasManagedMetadata || hasManagedMain || hasManagedDev;
     const hasManagedRepository = hasManagedMetadata && hasManagedMain && hasManagedDev;
-    if (!hasConventionalGit && hasManagedComponents && !hasManagedRepository)
+    if (hasManagedComponents && (!hasManagedRepository || hasConventionalGit))
       throw new Error("Existing Project has an incomplete managed source topology; no Current Project identity was changed.");
-    registration = await registerCurrentProject(root, mode, { ...(projectName === undefined ? {} : { projectName }),
-      ...(hasConventionalGit || hasManagedRepository ? { sourceRepositoryId: CURRENT_PROJECT_REPOSITORY_ID } : {}) });
     workspace = await agentHarness.registerWorkspace(root);
+    const hasSourceCandidate = hasConventionalGit || hasManagedComponents;
+    if (hasSourceCandidate) {
+      const checkoutRegistration = { registerRepositoryCheckout: (workspaceId: string, checkout: import("../shared/sourceLifecycleContracts").RepositoryCheckout) =>
+        agentHarness.registerRepositoryCheckout(workspaceId, checkout) };
+      await establishManagedProjectSource({ projectRoot: root, repositoryId: CURRENT_PROJECT_REPOSITORY_ID,
+        workspaceId: workspace.workspace.workspaceId, checkoutRegistration });
+    }
+    registration = await registerCurrentProject(root, mode, { ...(projectName === undefined ? {} : { projectName }),
+      ...(hasSourceCandidate ? { sourceRepositoryId: CURRENT_PROJECT_REPOSITORY_ID } : {}) });
   }
   const repositoryId = registration.repositoryResource?.body.logicalName ?? null;
-  if (mode === "existing" && (fs.existsSync(path.join(root, ".git")) || fs.existsSync(path.join(root, MANAGED_PROJECT_SOURCE_PATHS.repositoryMetadataRelativePath)))) {
-    if (!repositoryId) throw new Error("Git-backed Existing Project has no registered source Repository identity.");
-    const checkoutRegistration = { registerRepositoryCheckout: (workspaceId: string, checkout: import("../shared/sourceLifecycleContracts").RepositoryCheckout) =>
-      agentHarness.registerRepositoryCheckout(workspaceId, checkout) };
-    await establishManagedProjectSource({ projectRoot: root, repositoryId, workspaceId: workspace.workspace.workspaceId,
-      checkoutRegistration: { registerRepositoryCheckout: checkoutRegistration.registerRepositoryCheckout } });
-  }
   return { projectId: registration.project.id, projectName: registration.project.body.name, repositoryId,
     projectRoot: root, mode, created: registration.created };
 });
@@ -833,10 +833,7 @@ ipcMain.handle("sourceGraph:revisionDetail", async (_event, revisionId: string) 
 ipcMain.handle("workIntake:projection", async () => {
   const root = getRequiredWorkspaceRoot();
   const projectId = selectedCurrentProjectId(root);
-  if (projectId) {
-    const repositoryRoot = await currentProjectRepositoryId(root) ? await resolveManagedDevRepositoryCheckout(root) : undefined;
-    return getStructuredWorkIntakeProjection(root, projectId, repositoryRoot);
-  }
+  if (projectId) return getStructuredWorkIntakeProjection(root, projectId);
   return isGreenfieldProjectRoot(root) ? getGreenfieldWorkIntakeProjection(root) : getWorkIntakeProjection(root);
 });
 ipcMain.handle("workIntake:navigation", (_event, intakeId?: string) => getWorkIntakeNavigation(getRequiredWorkspaceRoot(), intakeId));

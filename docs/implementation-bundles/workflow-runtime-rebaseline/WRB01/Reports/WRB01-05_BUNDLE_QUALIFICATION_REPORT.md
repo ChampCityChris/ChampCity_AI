@@ -77,3 +77,16 @@ Conventional local Git adoption accepts a successful empty remote list and prese
 The generic legacy Work Intake fallback remains only for the no-Current-Project `workIntake:submit` branch. The Current Project entry and routing path do not call it. Legacy provider-generation residue on that unreplaced fallback remains a later retirement task. Direct conventional-root source fixtures remain explicit internal compatibility paths; the Current Project desktop path requires managed Dev.
 
 Both Repair02 checkpoints are complete. Human Architect review of WRB01 is the next step. Do not begin WRB02 before that review.
+
+## Repair03 — Source-Proof Ordering and Source-Neutral WIR Projection
+
+Repair03 closes the two integration misses identified in the Repair02 Architect review. Existing Project entry now registers the Agent Harness container, proves/establishes any source candidate under the canonical Repository ID, then attaches its SPS source capability. Invalid conventional/managed candidates fail before Current Project registration. If managed adoption completes but SPS registration fails, a later Existing Project entry verifies the established topology and completes registration. WIR projection IPC no longer pre-resolves Dev, and structured projection treats unavailable checkout/branch evidence as optional while preserving semantic Project/Repository identity and an unblocked intake form.
+
+- `npm run build` — restricted lane returned Vite/esbuild `spawn EPERM`; the equivalent normal Windows rerun passed (exit 0), including TypeScript, Vite, and branding assets. Existing chunk-size advisory only.
+- Focused WRB01 suite: `node --test test/project-state/current-project-registration.test.cjs test/project-state/current-project-entry.test.cjs test/source-control/managed-project-source.test.cjs test/work-intake/greenfield-source-bootstrap.test.cjs test/source-control/source-graph-projection.test.cjs test/work-intake/structured-work-intake-capture.test.cjs test/renderer/workflow-hub-shell.test.cjs test/validation/capability-map.test.cjs` — normal Windows lane, 51 passed, 0 failed.
+- Repair preview: `npm run validate:plan -- --profile repair --changes tmp/wrb01-r03-changes.json` — normal Windows lane, exit 0; 63 tests selected (3 static, 12 fast, 8 affected-capability, 40 integration), estimated 513,122 ms. Preview only. The broad repair profile was not run; focused evidence is the claimed qualification.
+- Updated existing test inventory counts and proof locators in `validation/capability-map.json`; no test file was added, retired, or consolidated.
+- Checkpoint: pending while this report is committed — `WRB01-R03 close source proof and source-neutral intake boundary`.
+- No Electron launch, packaging, external integration, or release qualification was run.
+
+Repair03 implementation and checkpointing complete. Human Architect review is the next workflow step. WRB02 has not started. See `Repair03/WRB01-R03_FINAL_REPORT.md` for file-level and safety details.

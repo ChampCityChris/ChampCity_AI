@@ -111,6 +111,41 @@ test("non-source Current Project accepts Work Intake with no fabricated Reposito
   assert.equal(projection.suggestedBase, null);
 });
 
+test("unavailable managed Dev leaves source-backed Work Intake projection valid and savable", async context => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-capture-unavailable-dev-"));
+  context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const project = await registerCurrentProject(root, "existing", { projectName: "Synthetic", sourceRepositoryId: "synthetic-source" });
+  const dev = path.join(root, "Dev");
+  fs.mkdirSync(dev);
+  const projection = await getStructuredWorkIntakeProjection(root, project.project.id);
+  assert.equal(projection.blockedReason, null);
+  assert.deepEqual(projection.project, { projectId: project.project.id, repositoryId: "synthetic-source", name: "Synthetic" });
+  assert.deepEqual(projection.branches, []);
+  assert.equal(projection.currentBranch, null);
+  assert.equal(projection.suggestedBase, null);
+  const invalidCheckoutProjection = await getStructuredWorkIntakeProjection(root, project.project.id, dev);
+  assert.equal(invalidCheckoutProjection.blockedReason, null);
+  assert.deepEqual(invalidCheckoutProjection.project, projection.project);
+  assert.deepEqual(invalidCheckoutProjection.branches, []);
+  assert.equal(invalidCheckoutProjection.currentBranch, null);
+  assert.equal(invalidCheckoutProjection.suggestedBase, null);
+  const first = await captureStructuredWorkIntake(root, project.project.id, submission(project.project.id));
+  const second = await captureStructuredWorkIntake(root, project.project.id, { ...submission(project.project.id), workRequest: "Save another request" });
+  assert.equal(first.source.state, "not-applicable");
+  assert.equal(second.source.state, "not-applicable");
+  assert.notEqual(first.intakeId, second.intakeId);
+  assert.equal((await retryStructuredWorkIntakeSource(root, project.project.id, first.intakeId)).source.state, "not-applicable");
+  const after = await getStructuredWorkIntakeProjection(root, project.project.id);
+  assert.equal(after.blockedReason, null);
+  assert.equal(after.capturedIntakes.length, 2);
+  assert.equal(after.capturedIntakes.every(item => item.source.state === "not-applicable"), true);
+  const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  try {
+    assert.equal((await store.listEntities(project.project.id, "SourceBinding")).length, 0);
+    assert.equal((await store.listEntities(project.project.id, "SourceBaseline")).length, 0);
+  } finally { store.close(); }
+});
+
 test("legacy branch collisions are irrelevant to Work Intake capture", async context => {
   const { root, projectId, head } = await fixture(context);
   const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
