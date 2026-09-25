@@ -3194,6 +3194,8 @@
       "capabilityId": "project-state-service",
       "description": "Deployment-neutral semantic Project State queries and typed commands.",
       "sourcePatterns": [
+        "src/main/projectState/currentProjectRegistrationService.ts",
+        "src/main/workIntake/structuredWorkIntakeService.ts",
         "src/shared/projectState/projectStateService.ts"
       ],
       "dependsOn": [
@@ -3216,6 +3218,10 @@
         {
           "behaviorId": "committed-event-feed-replays-with-idempotent-derived-cursor",
           "description": "Committed Project State events replay with an idempotent derived consumer cursor"
+        },
+        {
+          "behaviorId": "current-project-registration-establishes-one-idempotent-project-without-legacy-state-import",
+          "description": "Current Project registration creates or opens one SPS Project and source resource without importing legacy Markdown or creating Work Intake."
         },
         {
           "behaviorId": "current-project-state-view-derives-route-work-repair-validation-and-source",
@@ -13943,6 +13949,57 @@
           "capabilityId": "project-state-service",
           "behaviorId": "committed-event-feed-replays-with-idempotent-derived-cursor",
           "proofLocator": "committed feed replays by sequence and derived cursor is idempotent",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/current-project-registration.test.cjs",
+      "currentTestCount": {
+        "value": 3,
+        "basis": "WRB01-01 fresh registration, ambiguous identity, and interrupted-registration recovery scenarios."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 246,
+        "basis": "Observed normal Windows focused WRB01-01 test receipt."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Each scenario uses an isolated temporary Project State container.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "current-project-registration-establishes-one-idempotent-project-without-legacy-state-import",
+          "proofLocator": "fresh registration and reopen retain one exact Project identity; Markdown is not imported and Work Intake/Workflow remain absent",
           "proofRole": "primary"
         }
       ]
