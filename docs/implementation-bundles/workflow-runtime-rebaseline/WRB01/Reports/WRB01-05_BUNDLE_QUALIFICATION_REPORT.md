@@ -2,41 +2,44 @@
 
 ## Scope and checkpoints
 
-All five released WRB01 cards were executed sequentially on `dev`. Each card has one checkpoint commit. The branch started at the repository's current `dev` checkpoint and is now ready for Architect review.
+The five WRB01 implementation cards and three Repair01 cards were executed sequentially on `dev`, with one attributable checkpoint commit for each completed card. Repair01 stops here for Architect review; WRB02 has not started.
 
 | Card | Checkpoint | Result |
 | --- | --- | --- |
 | WRB01-01 | `c827a3a` | Established idempotent SPS Current Project registration and direct registration-based identity discovery. |
-| WRB01-02 | `09cc5fe` | Added safe conventional Git adoption into non-Git Project container with bare Repository metadata and sibling Main/Dev checkouts. |
+| WRB01-02 | `09cc5fe` | Added safe conventional Git adoption into a non-Git Project container with bare Repository metadata and sibling Main/Dev checkouts. |
 | WRB01-03 | `d2eeb8b` | Added deterministic Greenfield managed Main/Dev baseline with tracked repository-root `.gitignore`. |
 | WRB01-04 | `e217f29` | Wired landing IPC/preload/renderer entry to Current Project; Existing Project enters Hub, New Project enters Project Intake. |
-| WRB01-05 | pending | Removed current provider-generation discovery and zero-caller migration code/tests; checkpoint follows recorded incomplete affected-profile execution. |
+| WRB01-05 | `287176637cc8784c4a9552e9305c5795884fbe97` | Removed current provider-generation discovery and zero-caller migration code/tests. The affected profile did not produce a final receipt; no affected-profile pass is claimed. |
+| WRB01-R01-01 | `9fbb40456465d3724ca4ed3cb4a3384d43f4d48c` | Current identity now ignores abandoned Project rows, leaves old selected-repository state historical, and creates fresh SPS identity. Greenfield bootstraps managed source before registration and rejects an already-current Project. |
+| WRB01-R01-02 | `e4a61b696913e9c2737e0fa09b565c988a7bfe34` | Adoption preserves dirty state on the current main/dev branch, supports a main-only baseline, and rejects unsupported branches before source movement. The repair profile exposed one unrelated legacy Work Intake fixture failure described below. |
+| WRB01-R01-03 | Pending while this report is committed | Source Graph and Current Work Intake use managed Dev Git while Project metadata remains in SPS; Current Hub no longer exposes legacy Development/Issue recovery. Focused requalification passed; the broad affected profile was not run under the card's lean-test rule. |
 
-## Final production path
+## Final runtime path
 
-Landing actions call the constrained `project:registerCurrent` preload method. Main-process code validates the selected container, creates or opens the SPS Project and selected-project source resource, registers the Project container with Agent Harness, and registers exact Main/Dev RepositoryCheckout descriptors when source topology exists or is created. Greenfield creates the first deterministic commit in Main and the same starting commit on Dev. The Project container remains non-Git; `.champcity/repository.git` owns common Git metadata. Ordinary repository `.gitignore` behavior applies to the tracked baseline.
+Current Project identity is one SPS `ProjectResource` with resource type `source-repository` and locator `selected-project`. Historical Project rows, Workflows, and old `selected-repository` resources remain attached to their prior IDs and are not imported or attached to the new current Project. The current selection fails closed if multiple selected-project registrations exist.
 
-The renderer carries the returned Project ID, display name, source identity, selected root, and registration mode. Existing Project enters Workflow Hub. Start New Project enters Project Intake. Neither action creates WorkIntake or Workflow state. Existing historical Markdown remains a file and is not parsed into current SPS Workflow records. Agent Harness repository reads remain rooted at the Project container; Git operations use registered Main/Dev checkout descriptors.
+Greenfield entry registers the Project container with Agent Harness, establishes or verifies the deterministic managed Main/Dev baseline, then registers the fresh Current Project SPS identity. A compatible managed baseline without SPS registration can finish entry. Existing Project registers Current Project first, then performs managed adoption. The Project container remains non-Git; `.champcity/repository.git` owns the shared Git metadata.
 
-Current Project discovery now reads only the SPS `selected-project` resource locator. It no longer imports `structuredProviderCutover`, `stagedLegacyImporter`, `legacyEquivalenceVerification`, or `legacyAuthorityInventory`. Incompatible legacy source locators fail closed rather than being migrated. The four production modules and their five migration proof suites were removed after repository-wide production reference checks found no caller beyond the retired selector.
+Managed adoption inspects the conventional repository's current branch before mutation. Main-current dirty state remains in Main; Dev-current dirty state remains in Dev. If main is current and dev is absent, only the copied metadata gains `refs/heads/dev`, at the exact Main revision. Other refs, remotes, and tags remain unchanged. Unsupported current branches fail before source movement.
+
+The main-process Source Graph path resolves and validates the exact managed Dev checkout. Git branch/history and revision-detail reads use Dev; Current Project identity and structured workflow metadata use the Project container's SPS database. Current Work Intake branch inventory also comes from managed Dev. Missing, redirected, or non-Git Dev paths fail closed. Direct internal Source Control callers may omit the Project root for conventional single-root fixtures.
+
+The Current Project Hub now offers Start Work and Source Control only. Its legacy Development and Issue recovery cards and Hub navigation handler were removed. WRB02 remains outside this bundle.
 
 ## Qualification evidence
 
-- Production build: `npm run build` — normal Windows lane, passed, with the existing Vite chunk-size advisory.
-- Bundle-focused command: `node --test test/project-state/current-project-entry.test.cjs test/project-state/current-project-registration.test.cjs test/source-control/managed-project-source.test.cjs test/work-intake/greenfield-source-bootstrap.test.cjs test/work-intake/structured-work-intake-capture.test.cjs` — 17 passed, 0 failed. It proves Greenfield SPS registration/no WIR, Existing conventional repository adoption, non-Git Project root, Main/Dev checkouts, refs/remotes and dirty/untracked preservation, tracked/ignored baseline behavior, historical Markdown retention, stable reopen, Current Project-only identity, and Agent Harness reads from the Project container.
-- Capability catalog: `node --test test/validation/capability-map.test.cjs` — 5 passed, 0 failed; catalog identities and proof ownership match after migration-suite retirement.
-- WRB01-04 focused entry suite — 3 passed, 0 failed, including current Project ID and Main/Dev checkout registration through main/preload, historical Markdown entry without Workflow reconstruction, and Landing destinations.
-- WRB01-02 topology suite — 4 passed, 0 failed, including adoption rollback boundaries, source preservation, path conflict, and redirect rejection.
-- Removed modules/capability/test reference scan — no remaining production/catalog references to the deleted migration chain or provider-generation selector.
-- `npm run validate:plan -- --profile work-item --changes tmp/changes.json` � normal Windows lane, exit 0 against the exact final changed-path manifest.
-- `npm run test:affected -- --changes tmp/changes.json` � restricted lane returned `spawn EPERM`; normal Windows rerun produced no final receipt and was stopped. The profile is incomplete, not passed. The previously green build and focused proof results remain as reported above.
+- `npm run build` — normal Windows lane, exit 0. TypeScript and Vite build passed with the existing chunk-size advisory. The restricted lane returned the documented Vite/esbuild `spawn EPERM` and was not counted as a pass.
+- Focused WRB01-R01-03 vertical suite: `node --test test/project-state/current-project-registration.test.cjs test/project-state/current-project-entry.test.cjs test/source-control/managed-project-source.test.cjs test/work-intake/greenfield-source-bootstrap.test.cjs test/source-control/source-graph-projection.test.cjs test/work-intake/structured-work-intake-capture.test.cjs test/renderer/workflow-hub-shell.test.cjs test/validation/capability-map.test.cjs` — normal Windows lane, 39 passed, 0 failed. It covers Current Project identity and entry, managed Main/Dev adoption/bootstrap, public Source Graph and known revision detail, SPS metadata availability, managed Dev Work Intake branch projection, no legacy Hub recovery, and capability-map integrity.
+- `npm run validate:plan -- --profile repair --changes tmp/changes.json` — normal Windows lane, exit 0. The exact R01-03 path/capability preview selected 83 tests across 16 capabilities: 3 static, 12 fast, 16 affected-capability, and 52 integration tests, with a measured/estimated duration sum of about 528 seconds.
+- `npm run test:repair -- --changes tmp/changes.json` — not run. The preview is a broad multi-minute legacy/dependency sweep and includes `test/source-control/source-lifecycle-package.test.cjs`, which failed during R01-02 repair validation because its old `selected-repository` fixture expects generic legacy Work Intake source state `ready` but receives `unprepared`. R01-03's focused Current Project Work Intake capture/projection tests pass. The card directs recording broad plans and focused evidence instead of repeating a historical sweep; no affected-profile pass is claimed.
+- R01-01 repair profile: `npm run test:repair -- --changes tmp/changes.json` — normal Windows lane, passed, receipt status `passed`, 257,020 ms, no failure evidence.
+- R01-02 repair profile: `npm run test:repair -- --changes tmp/changes.json` — normal Windows lane, exit 1 after 273,931 ms. Build and focused managed-source tests passed; only failure was the generic legacy Work Intake fixture detailed above.
+- The focused R01-01 and R01-02 suite receipts and branch adoption results are recorded in their per-card Implementer Reports.
+- No Electron launch, packaging, external service integration, or release qualification was performed; none is required by Repair01.
 
-## Intermediate validation and resolution
+## Deferred validation item and final disposition
 
-Earlier card-level affected profiles selected still-active legacy Work Intake proofs and failed on their Project-root-Git or `ready` assumptions. Those failures were outside each earlier card's owned runtime boundary and were recorded in the respective Implementer Reports. WRB01-05 then retired the obsolete Greenfield Work Intake root-Git scenarios, moved remaining source-preparation test fixtures onto Current Project registration without provider-generation state, and removed migration-only proofs whose production modules had no remaining caller. The final affected-profile run did not produce a receipt; its incomplete status is recorded explicitly and no pass is claimed.
+The generic legacy Work Intake fixture failure is outside the Current Project managed Dev projection and branch-adoption proof. Its owning workflow must update or disposition that fixture. It is preserved as a validation limitation, not attributed as a managed-adoption failure. The final focused WRB01 repair suite passes; the R01-03 broad affected profile remains unexecuted because its plan is too broad under the lean-test rule.
 
-## Remaining deferred runtime and review
-
-The generic Work Intake and routed Work Intake surfaces remain outside the WRB01 landing path. The legacy `captureGreenfieldWorkIntake` fallback remains reachable only through generic `workIntake:submit` when no Current Project has been registered; it still writes its legacy provider-generation marker. WRB01 landing registers SPS before entering Project Intake, so this fallback does not participate in the new Current Project entry path. Further Work Intake retirement remains separate scope.
-
-No WRB02 work should begin until Architect review of this bundle is complete.
+Repair01 implementation and checkpointing are complete. Human Architect review is the next required workflow step. Do not begin WRB02 before that review.

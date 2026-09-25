@@ -117,7 +117,6 @@ test("Hub with no selected project renders project-selection shell without Devel
     workspace: { ok: false, workspaceRoot: null, reason: "No project selected." },
   }));
   const hubMarkup = renderToStaticMarkup(React.createElement(WorkflowHubWorkspace, {
-    onOpenWorkflow: () => undefined,
     onOpenSourceControl: () => undefined,
     projectName: "No Project Selected",
     workspace: { ok: false, workspaceRoot: null, reason: "No project selected." },
@@ -132,35 +131,21 @@ test("Hub with no selected project renders project-selection shell without Devel
   assert.doesNotMatch(hubMarkup, /Development|Current Required Workflow Step|Phase Loop|Work Card loop/);
 });
 
-test("Selected-project Hub exposes Source Control beside Work Intake and retains workflow recovery", () => {
+test("Selected-project Hub exposes Source Control and Work Intake without legacy workflow recovery", () => {
   const markup = renderToStaticMarkup(React.createElement(WorkflowHubWorkspace, {
-    onOpenWorkflow: () => undefined,
     onOpenSourceControl: () => undefined,
     projectName: "ChampCity_AI",
     workspace: { ok: true, workspaceRoot: "<PROJECT_REPO>" },
   }));
 
   assert.match(markup, /<h1 id="workspace-heading">Workflows<\/h1>/);
-  assert.match(markup, /Start a new body of work on ChampCity_AI, or continue existing work\./);
+  assert.match(markup, /Start new work on ChampCity_AI or inspect its Source Control\./);
   assert.match(markup, /aria-label="Start work"/);
   assert.match(markup, /Open Work Intake/);
   assert.match(markup, /Source Control/);
   assert.match(markup, /View source graph/);
-  assert.match(markup, /<details><summary>Continue legacy Development or Issue work<\/summary>/);
-  assert.match(markup, /aria-label="Existing workflow recovery"/);
-  assert.match(markup, /class="workflow-card"/);
-  assert.match(markup, /Development/);
-  assert.match(markup, /Plan, implement, review, and validate planned software development\./);
-  assert.match(markup, /Plan/);
-  assert.match(markup, /Build/);
-  assert.match(markup, /Prove/);
-  assert.match(markup, /Continue Development/);
-  assert.match(markup, /Issue Resolution/);
-  assert.match(markup, /Investigate and resolve problems in the current project baseline\./);
-  assert.match(markup, /Investigate/);
-  assert.match(markup, /Fix/);
-  assert.match(markup, /Verify/);
-  assert.match(markup, /Open Issue Resolution/);
+  assert.doesNotMatch(markup, /Continue legacy Development or Issue work|Existing workflow recovery|Continue Development|Open Issue Resolution/);
+  assert.doesNotMatch(markup, /Plan, implement, review, and validate planned software development\.|Investigate and resolve problems in the current project baseline\./);
   assert.doesNotMatch(markup, /Feature|Graphic|Brainstorm/);
 });
 

@@ -1545,6 +1545,9 @@
         "src/main/projectState/currentProjectRegistrationService.ts",
         "src/main/sourceControl/managedProjectSourceService.ts",
         "src/main/sourceControl/projectSourceBootstrap.ts",
+        "src/main/sourceControl/sourceControlService.ts",
+        "src/main/sourceControl/sourceGraphService.ts",
+        "src/main/workIntake/structuredWorkIntakeService.ts",
         "src/preload/index.ts",
         "src/renderer/app/App.tsx",
         "src/shared/workspaceContracts.ts"
@@ -1557,6 +1560,14 @@
         {
           "behaviorId": "current-project-discovery-uses-only-current-project-registration",
           "description": "Current Project discovery uses one active SPS selected-project source registration, ignores abandoned Project rows and legacy locators, and fails closed on duplicate current registrations."
+        },
+        {
+          "behaviorId": "current-project-source-graph-uses-managed-dev-and-project-state-metadata",
+          "description": "Current Project Source Graph and revision details read Git through the managed Dev checkout while structured metadata comes from Project State."
+        },
+        {
+          "behaviorId": "current-project-work-intake-uses-managed-dev-branch-inventory",
+          "description": "Current Project Work Intake branch inventory reads from managed Dev while Project State remains in the Project container."
         },
         {
           "behaviorId": "existing-entry-opens-historical-project-as-current-sps-identity",
@@ -4046,8 +4057,8 @@
           "description": "Saved Work Intake confirms capture without nesting the later routing lifecycle"
         },
         {
-          "behaviorId": "selected-project-hub-exposes-source-control-and-workflow-recovery",
-          "description": "Selected-project Hub exposes Source Control beside Work Intake and retains workflow recovery"
+          "behaviorId": "selected-project-hub-exposes-source-control-and-work-intake-without-legacy-workflow-recovery",
+          "description": "Selected-project Hub exposes Source Control and Work Intake without legacy Development or Issue recovery"
         },
         {
           "behaviorId": "source-control-workspace-renders-read-only-graph-navigation-and-integration-geometry",
@@ -4806,6 +4817,8 @@
       "description": "Structured Work Intake capture, separate SourceBinding preparation, blocked retry and renderer Save eligibility.",
       "sourcePatterns": [
         "src/main/main.ts",
+        "src/main/sourceControl/managedProjectSourceService.ts",
+        "src/main/sourceControl/sourceControlService.ts",
         "src/main/workIntake/structuredWorkIntakeService.ts",
         "src/preload/index.ts",
         "src/renderer/app/App.tsx",
@@ -4823,6 +4836,10 @@
         {
           "behaviorId": "dirty-checkout-captures-intake-and-retries-source",
           "description": "dirty primary checkout does not block structured Work Intake capture or source creation"
+        },
+        {
+          "behaviorId": "structured-work-intake-projection-uses-managed-dev-branch-inventory",
+          "description": "structured Work Intake projection reads current branch and branch choices from managed Dev while loading SPS state from the Project container"
         }
       ]
     },
@@ -13587,8 +13604,8 @@
     {
       "testPath": "test/project-state/current-project-entry.test.cjs",
       "currentTestCount": {
-        "value": 4,
-        "basis": "WRB01-04 Greenfield IPC/preload registration and Main/Dev binding, existing historical Project registration, and landing assertions; WRB01-R01-01 adds compatible-baseline retry and duplicate Greenfield rejection."
+        "value": 5,
+        "basis": "WRB01-04 entry registration and landing proof; WRB01-R01-01 identity/retry scenarios; WRB01-R01-03 adds fail-closed managed Dev resolution and public Current Project Source Graph/revision/Work Intake branch projection."
       },
       "duration": {
         "kind": "measured",
@@ -13600,9 +13617,9 @@
       "dependencies": {
         "electron": false,
         "filesystem": true,
-        "git": false,
+        "git": true,
         "network": false,
-        "process": false,
+        "process": true,
         "timing": false
       },
       "sourceInspectionClassification": "none",
@@ -13613,12 +13630,24 @@
         "platform": "windows",
         "externalCapabilities": [],
         "scheduling": "parallel-safe",
-        "schedulingReason": "Each scenario uses an isolated temporary Project container and stubbed Agent Harness registration.",
-        "ownedResources": ["temp-filesystem-isolated"]
+        "schedulingReason": "Each scenario uses an isolated temporary Project container, managed Git checkout, and Agent Harness registration.",
+        "ownedResources": ["bounded-child-process", "isolated-git-fixture", "temp-filesystem-isolated"]
       },
       "proofCharacteristics": ["behavioral"],
       "dispositionReasons": ["current-proof-appropriate"],
       "behaviorCoverage": [
+        {
+          "capabilityId": "current-project-entry-runtime",
+          "behaviorId": "current-project-source-graph-uses-managed-dev-and-project-state-metadata",
+          "proofLocator": "Public Source Graph and revision detail read managed Dev refs/commit while structured workflow bindings load from Project SPS",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "current-project-entry-runtime",
+          "behaviorId": "current-project-work-intake-uses-managed-dev-branch-inventory",
+          "proofLocator": "Current Work Intake projection returns the managed Dev branch inventory and current branch without treating the Project container as Git",
+          "proofRole": "primary"
+        },
         {
           "capabilityId": "current-project-entry-runtime",
           "behaviorId": "existing-entry-opens-historical-project-as-current-sps-identity",
@@ -13628,7 +13657,35 @@
         {
           "capabilityId": "current-project-entry-runtime",
           "behaviorId": "greenfield-entry-registers-current-project-and-enters-project-intake-with-main-dev",
-          "proofLocator": "Greenfield Project IPC registers SPS and Main/Dev through preload; landing route enters Project Intake without opening Work Intake",
+          "proofLocator": "Greenfield IPC registers SPS after managed Main/Dev bootstrap; public Source Graph/revision detail and Current Work Intake projection use Dev Git plus Project SPS while the container remains non-Git",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "source-graph-projects-bounded-branch-ancestry-and-workflow-meaning",
+          "proofLocator": "Current Project public Source Graph preserves separate Project State metadata and managed Dev Git topology",
+          "proofRole": "supporting",
+          "relationshipToPrimary": "complementary",
+          "primaryProof": {
+            "testPath": "test/source-control/source-graph-projection.test.cjs",
+            "proofLocator": "three concurrent Workflow source bindings, direct and routed admission, current identity after supersession, lineage history, includeCompleted filtering, bounded truncation and metadata fallback"
+          }
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "source-graph-revision-detail-is-read-only-and-bounded",
+          "proofLocator": "Current Project public revision-detail IPC inspects a known commit through managed Dev",
+          "proofRole": "supporting",
+          "relationshipToPrimary": "complementary",
+          "primaryProof": {
+            "testPath": "test/source-control/source-graph-projection.test.cjs",
+            "proofLocator": "exact revision changed-file detail is capped at 24 and leaves the selected source unchanged"
+          }
+        },
+        {
+          "capabilityId": "work-intake-capture-source-preparation",
+          "behaviorId": "structured-work-intake-projection-uses-managed-dev-branch-inventory",
+          "proofLocator": "Current Project IPC returns Dev branch choices while saved Work Intake state remains in the Project container",
           "proofRole": "primary"
         }
       ]
@@ -17794,8 +17851,8 @@
         },
         {
           "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "selected-project-hub-exposes-source-control-and-workflow-recovery",
-          "proofLocator": "Selected-project Hub exposes Source Control beside Work Intake and retains workflow recovery",
+          "behaviorId": "selected-project-hub-exposes-source-control-and-work-intake-without-legacy-workflow-recovery",
+          "proofLocator": "Selected-project Hub exposes Source Control and Work Intake while omitting legacy Development and Issue recovery cards",
           "proofRole": "primary"
         },
         {

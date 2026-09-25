@@ -133,7 +133,8 @@ export async function getSourceGraphRevisionDetail(root: string, revisionId: str
 }
 
 /** Backend-owned, read-only projection of local branch topology and available workflow semantics. */
-export async function getSourceGraph(root: string, repositoryId: string, options: SourceGraphOptions = {}): Promise<SourceGraph> {
+export async function getSourceGraph(root: string, repositoryId: string, options: SourceGraphOptions = {},
+  projectContainerRoot: string = root): Promise<SourceGraph> {
   const maxRevisions = bound(options.maxRevisions, 200, MAX_REVISIONS, "maxRevisions");
   const maxLines = bound(options.maxLines, 64, MAX_LINES, "maxLines");
   if (options.includeCompleted !== undefined && typeof options.includeCompleted !== "boolean")
@@ -150,8 +151,8 @@ export async function getSourceGraph(root: string, repositoryId: string, options
   const names = new Set(branches.map(row => row.name));
   let metadata: Metadata;
   try {
-    const projectId = selectedCurrentProjectId(root);
-    metadata = projectId ? await structuredMetadata(root, repositoryId, projectId, names, options.includeCompleted !== false)
+    const projectId = selectedCurrentProjectId(projectContainerRoot);
+    metadata = projectId ? await structuredMetadata(projectContainerRoot, repositoryId, projectId, names, options.includeCompleted !== false)
       : emptyMetadata("missing");
   } catch { metadata = emptyMetadata("unavailable"); }
   const sourceLines: SourceGraph["sourceLines"] = branches.map(row => ({ id: lineId(repositoryId, row.name),

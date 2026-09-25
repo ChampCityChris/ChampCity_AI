@@ -1,27 +1,12 @@
-import { ArrowRight, Bug, Code2, GitBranch } from "lucide-react";
-
-import {
-  workflowDefinitions,
-  type WorkflowDefinition,
-  type WorkflowId,
-} from "../../shared/workflowHubContracts";
+import { ArrowRight, Code2, GitBranch } from "lucide-react";
 import type { WorkspaceSelection } from "../../shared/workspaceContracts";
 
-const iconByKey = {
-  bug: Bug,
-  code: Code2,
-} satisfies Record<WorkflowDefinition["iconKey"], typeof Code2>;
-
 export function WorkflowHubWorkspace({
-  isEnteringDevelopment,
-  onOpenWorkflow,
   onStartWork,
   onOpenSourceControl,
   projectName,
   workspace,
 }: {
-  isEnteringDevelopment?: boolean;
-  onOpenWorkflow: (workflowId: WorkflowId) => void;
   onStartWork: () => void;
   onOpenSourceControl: () => void;
   projectName: string;
@@ -43,7 +28,7 @@ export function WorkflowHubWorkspace({
     <section className="workflow-hub-workspace" aria-labelledby="workspace-heading">
       <header className="workflow-hub-header">
         <h1 id="workspace-heading">Workflows</h1>
-        <p>{`Start a new body of work on ${projectName}, or continue existing work.`}</p>
+        <p>{`Start new work on ${projectName} or inspect its Source Control.`}</p>
       </header>
       <div className="workflow-card-grid" aria-label="Start work">
         <button className="workflow-card" type="button" onClick={onStartWork}>
@@ -59,57 +44,6 @@ export function WorkflowHubWorkspace({
           <span className="workflow-card-action">View source graph <ArrowRight aria-hidden="true" size={18} /></span>
         </button>
       </div>
-      <details>
-        <summary>Continue legacy Development or Issue work</summary>
-      <div className="workflow-card-grid" aria-label="Existing workflow recovery">
-        {workflowDefinitions
-          .slice()
-          .sort((left, right) => left.order - right.order)
-          .map((definition) => (
-            <WorkflowCard
-              definition={definition}
-              disabled={isEnteringDevelopment && definition.workflowId === "development"}
-              key={definition.workflowId}
-              onOpenWorkflow={onOpenWorkflow}
-            />
-          ))}
-      </div>
-      </details>
     </section>
-  );
-}
-
-function WorkflowCard({
-  definition,
-  disabled,
-  onOpenWorkflow,
-}: {
-  definition: WorkflowDefinition;
-  disabled?: boolean;
-  onOpenWorkflow: (workflowId: WorkflowId) => void;
-}): JSX.Element {
-  const Icon = iconByKey[definition.iconKey];
-  return (
-    <button
-      className="workflow-card"
-      disabled={disabled}
-      onClick={() => onOpenWorkflow(definition.workflowId)}
-      type="button"
-    >
-      <span className="workflow-card-icon" aria-hidden="true">
-        <Icon size={42} strokeWidth={1.7} />
-      </span>
-      <span className="workflow-card-title">{definition.label}</span>
-      <span className="workflow-card-description">{definition.description}</span>
-      <span className="workflow-card-tags" aria-label={`${definition.label} workflow capabilities`}>
-        {definition.tags.map((tag) => (
-          <span key={tag}>{tag}</span>
-        ))}
-      </span>
-      <span className="workflow-card-action">
-        {disabled ? "Opening Development..." : definition.entryLabel}
-        <ArrowRight aria-hidden="true" size={18} />
-      </span>
-    </button>
   );
 }

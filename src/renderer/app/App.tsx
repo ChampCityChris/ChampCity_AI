@@ -2731,24 +2731,6 @@ export function App(): JSX.Element {
     transitionToWorkflowStep(returnFromSettingsNavigationState(priorWorkflowWorkspaceId));
   }
 
-  async function openWorkflow(workflowId: WorkflowId): Promise<void> {
-    if (!workspace.ok) {
-      setDocumentError("Select a project before opening a workflow.");
-      return;
-    }
-    setIssueCloseActionFeedback("");
-    if (workflowId === "issue-resolution") {
-      setShellView("workflow");
-      setActiveWorkflowId("issue-resolution");
-      setActiveWorkspaceId(workspaceDefinitions[0].id);
-      await refreshIssueInventory(undefined, true);
-      return;
-    }
-    setShellView("workflow");
-    setActiveWorkflowId("development");
-    await refreshDocuments({ useResolver: true });
-  }
-
   async function openWorkIntake(): Promise<void> {
     try {
       setDecompositionContext(null);
@@ -4165,8 +4147,6 @@ export function App(): JSX.Element {
                 </div>
               ) : null}
               <WorkflowHubWorkspace
-                isEnteringDevelopment={isLoadingDocuments && activeWorkflowId === "development"}
-                onOpenWorkflow={(workflowId) => void openWorkflow(workflowId)}
                 onStartWork={() => void openWorkIntake()}
                 onOpenSourceControl={() => setShellView("source-control")}
                 projectName={projectDisplayName(workspace)}

@@ -28,7 +28,7 @@ import { bootstrapProjectSource as establishProjectSource } from "./projectSourc
 import { getSourceGraph, getSourceGraphRevisionDetail } from "./sourceGraphService";
 
 /** Called by trusted main-process services with a selected repository, without MCP/model mediation. */
-export function createSourceControlService(binding: { repositoryId: string; repositoryRoot: string; managedWorkspaces?: ManagedWorkspaceStore;
+export function createSourceControlService(binding: { repositoryId: string; repositoryRoot: string; projectContainerRoot?: string; managedWorkspaces?: ManagedWorkspaceStore;
   checkoutRegistration?: { workspaceId: string; registerRepositoryCheckout(workspaceId: string, checkout: RepositoryCheckout): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary> } }) {
   const repositoryId = binding.repositoryId;
   const root = path.resolve(binding.repositoryRoot);
@@ -113,7 +113,8 @@ export function createSourceControlService(binding: { repositoryId: string; repo
   const changedFiles = () => inspectGitChangedFiles(root);
 
   return {
-    getSourceGraph: (options?: SourceGraphOptions) => run("source-graph", false, () => getSourceGraph(root, repositoryId, options)),
+    getSourceGraph: (options?: SourceGraphOptions) => run("source-graph", false,
+      () => getSourceGraph(root, repositoryId, options, binding.projectContainerRoot)),
     getSourceGraphRevisionDetail: (revisionId: string) => run("source-graph-revision-detail", false,
       () => getSourceGraphRevisionDetail(root, revisionId)),
     bootstrapProjectSource: async (): Promise<SourceControlResult<ProjectSourceBootstrap>> => {

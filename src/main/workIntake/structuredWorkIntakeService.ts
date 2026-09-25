@@ -49,7 +49,7 @@ async function repositoryIdentity(store: ReturnType<typeof createSQLiteProjectSt
   return "selected-repository";
 }
 
-export async function getStructuredWorkIntakeProjection(root: string, projectId: string): Promise<WorkIntakeProjection> {
+export async function getStructuredWorkIntakeProjection(root: string, projectId: string, repositoryRoot: string = root): Promise<WorkIntakeProjection> {
   const store = createSQLiteProjectStateStore(path.join(fs.realpathSync(root), ".champcity", "project-state.sqlite"));
   try {
     const project = await store.getProject(projectId);
@@ -73,7 +73,7 @@ export async function getStructuredWorkIntakeProjection(root: string, projectId:
       const lineageIds = new Set(workflows.filter(row => row.entityType === "Workflow" && [...targetIds].some(targetId => workflows.some(target => target.entityType === "Workflow" && target.id === targetId && target.lineageId === row.lineageId))).map(row => row.id));
       return captured(item, repositoryId, checkpoints.filter(checkpoint => lineageIds.has(checkpoint.body.workflowId)));
     });
-    const source = createSourceControlService({ repositoryRoot: root, repositoryId });
+    const source = createSourceControlService({ repositoryRoot, projectContainerRoot: root, repositoryId });
     const branches = await source.branches();
     const available = branches.ok ? branches.result.branches : [];
     const currentBranch = branches.ok ? branches.result.currentBranch : null;

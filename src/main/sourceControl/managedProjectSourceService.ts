@@ -71,6 +71,23 @@ async function verifyExactCheckout(root: string, role: "main" | "dev", metadataR
     fail("STALE_SOURCE", `The ${role} path is not an exact ${role} checkout of the managed Repository.`);
 }
 
+/** Resolves only the durable managed Dev checkout; Project-container Git fallback is forbidden. */
+export async function resolveManagedDevRepositoryCheckout(projectRoot: string): Promise<string> {
+  const topology = resolveManagedProjectSourceTopology(projectRoot);
+  if (fs.existsSync(path.join(topology.projectContainerRoot, ".git")) ||
+    !fs.existsSync(topology.repositoryMetadataRoot) || !fs.existsSync(topology.devCheckoutRoot))
+    fail("STALE_SOURCE", "Managed Dev RepositoryCheckout is unavailable; establish managed Project source first.");
+  try {
+    const bare = await git(topology.repositoryMetadataRoot, ["rev-parse", "--is-bare-repository"], { optional: true });
+    if (bare !== "true") fail("STALE_SOURCE", "Managed Repository metadata is not available.");
+    await verifyExactCheckout(topology.devCheckoutRoot, "dev", topology.repositoryMetadataRoot);
+    return topology.devCheckoutRoot;
+  } catch (error) {
+    if (error instanceof AgentHarnessError) throw error;
+    fail("STALE_SOURCE", "Managed Dev RepositoryCheckout is missing, redirected, or invalid.");
+  }
+}
+
 async function registerCheckouts(input: {
   root: string; repositoryId: string; workspaceId: string; registration: ManagedProjectCheckoutRegistration; materialized: boolean;
 }): Promise<ManagedProjectSourceResult> {

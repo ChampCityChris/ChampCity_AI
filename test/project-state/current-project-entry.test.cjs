@@ -8,9 +8,14 @@ const { mainPreloadHarness, loadProductionFunctions } = require("../support/prod
 const { MANAGED_PROJECT_SOURCE_PATHS } = require("../../dist/shared/sourceLifecycleContracts.js");
 const { AgentHarnessService } = require("../../dist/main/agentHarness/runtime/agentHarnessService.js");
 const { CURRENT_PROJECT_REPOSITORY_ID, registerCurrentProject, selectedCurrentProjectId } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
+const { selectedSourceGraphRepositoryId } = require("../../dist/main/sourceControl/sourceGraphService.js");
+const { resolveManagedDevRepositoryCheckout } = require("../../dist/main/sourceControl/managedProjectSourceService.js");
 const { createSourceControlService } = require("../../dist/main/sourceControl/sourceControlService.js");
 const { establishManagedProjectSource } = require("../../dist/main/sourceControl/managedProjectSourceService.js");
 const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
+const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
+const { getGreenfieldWorkIntakeProjection, getStructuredWorkIntakeProjection, isGreenfieldProjectRoot } = require("../../dist/main/workIntake/structuredWorkIntakeService.js");
+const { getWorkIntakeProjection } = require("../../dist/main/workIntake/workIntakeService.js");
 const rendererSource = fs.readFileSync(path.resolve(__dirname, "../../src/renderer/app/App.tsx"), "utf8");
 
 function root(context) {
@@ -19,6 +24,25 @@ function root(context) {
   return selected;
 }
 function git(rootPath, ...args) { return execFileSync("git", args, { cwd: rootPath, encoding: "utf8" }).trim(); }
+
+test("Current Project managed Dev resolver fails closed for missing and non-Git checkout paths", async context => {
+  const missing = root(context);
+  await assert.rejects(resolveManagedDevRepositoryCheckout(missing), /Managed Dev RepositoryCheckout is unavailable/);
+  const nonGit = root(context);
+  const nonGitMetadata = path.join(nonGit, ".champcity", "repository.git");
+  fs.mkdirSync(path.dirname(nonGitMetadata));
+  execFileSync("git", ["init", "--bare", nonGitMetadata], { cwd: nonGit, stdio: "ignore" });
+  fs.mkdirSync(path.join(nonGit, "Dev"));
+  await assert.rejects(resolveManagedDevRepositoryCheckout(nonGit));
+  const redirected = root(context);
+  const redirectedMetadata = path.join(redirected, ".champcity", "repository.git");
+  fs.mkdirSync(path.dirname(redirectedMetadata));
+  execFileSync("git", ["init", "--bare", redirectedMetadata], { cwd: redirected, stdio: "ignore" });
+  const outside = path.join(redirected, "outside");
+  fs.mkdirSync(outside);
+  fs.symlinkSync(outside, path.join(redirected, "Dev"), "junction");
+  await assert.rejects(resolveManagedDevRepositoryCheckout(redirected), /redirect/);
+});
 
 test("Greenfield entry validates an empty container, establishes SPS and registers Main/Dev without Work Intake", async context => {
   const selected = root(context);
@@ -36,12 +60,18 @@ test("Greenfield entry validates an empty container, establishes SPS and registe
   };
   const { assertGreenfieldProjectEntry } = loadProductionFunctions("src/main/main.ts", ["assertGreenfieldProjectEntry"],
     { fs, path, MANAGED_PROJECT_SOURCE_PATHS });
-  const { api, invocations } = mainPreloadHarness(["project:registerCurrent"], {
+  const { api, invocations } = mainPreloadHarness(["project:registerCurrent", "sourceGraph:get", "sourceGraph:revisionDetail", "workIntake:projection"], {
     getRequiredWorkspaceRoot: () => selected,
     assertGreenfieldProjectEntry,
     registerCurrentProject,
     selectedCurrentProjectId,
     CURRENT_PROJECT_REPOSITORY_ID,
+    resolveManagedDevRepositoryCheckout,
+    selectedSourceGraphRepositoryId,
+    getStructuredWorkIntakeProjection,
+    isGreenfieldProjectRoot,
+    getGreenfieldWorkIntakeProjection,
+    getWorkIntakeProjection,
     getAgentHarnessServiceHostClient: () => harness,
     createSourceControlService,
     establishManagedProjectSource,
@@ -58,8 +88,42 @@ test("Greenfield entry validates an empty container, establishes SPS and registe
   try {
     assert.equal((await state.listEntities(current.projectId, "WorkIntake")).length, 0);
     assert.equal((await state.listEntities(current.projectId, "Workflow")).length, 0);
-  } finally { state.close(); await harness.stop().catch(() => undefined); }
-  assert.deepEqual(invocations.map(call => call.channel), ["project:registerCurrent"]);
+  } finally { state.close(); }
+  const devRoot = path.join(selected, "Dev");
+  const baseRevision = git(devRoot, "rev-parse", "HEAD");
+  git(devRoot, "config", "user.name", "Synthetic Test");
+  git(devRoot, "config", "user.email", "test@example.invalid");
+  fs.writeFileSync(path.join(devRoot, "graph-proof.txt"), "known graph revision\n");
+  git(devRoot, "add", "graph-proof.txt");
+  git(devRoot, "commit", "-m", "graph proof");
+  const featureRevision = git(devRoot, "rev-parse", "HEAD");
+  git(devRoot, "branch", "feature/graph-proof", featureRevision);
+  const graphState = createSQLiteProjectStateStore(path.join(selected, ".champcity", "project-state.sqlite"));
+  try {
+    const service = createProjectStateService(graphState, { principalId: "test", principalType: "human", role: "Operator" });
+    const workflow = await service.createWorkflow(current.projectId, { workflowType: "feature-capability", title: "Graph metadata", currentWorkspace: "development" });
+    const baseline = await service.createWorkflowSourceBaseline(current.projectId, workflow.id,
+      { repositoryId: CURRENT_PROJECT_REPOSITORY_ID, integrationTargetSourceLineId: "dev", baseRevisionId: baseRevision });
+    const binding = await service.createWorkflowSourceBinding(current.projectId, workflow.id, baseline.id);
+    await service.updateSourceBinding(current.projectId, binding.id, { preparationState: "preparing" }, 1);
+    await service.updateSourceBinding(current.projectId, binding.id, { preparationState: "ready", workSourceLineId: "feature/graph-proof",
+      currentRevisionId: featureRevision, repositoryCheckoutId: "workflow-graph-proof" }, 2);
+  } finally { graphState.close(); }
+  const graphResponse = await api.getSourceGraph({ maxRevisions: 20 });
+  assert.equal(graphResponse.ok, true, JSON.stringify(graphResponse));
+  assert.deepEqual(graphResponse.result.sourceLines.map(line => line.providerBranchName), ["dev", "feature/graph-proof", "main"]);
+  assert.equal(graphResponse.result.providerDiagnostics.metadata, "available");
+  assert.equal(graphResponse.result.workflowBindings[0].currentRevisionId, featureRevision);
+  assert.equal(fs.existsSync(path.join(selected, ".git")), false);
+  assert.equal(path.resolve(await resolveManagedDevRepositoryCheckout(selected)), path.resolve(devRoot));
+  const detail = await api.getSourceGraphRevisionDetail(featureRevision);
+  assert.equal(detail.ok, true, JSON.stringify(detail));
+  assert.deepEqual(detail.result.changedFiles, [{ path: "graph-proof.txt", status: "A" }]);
+  const projection = await api.getWorkIntakeProjection();
+  assert.equal(projection.currentBranch, "dev");
+  assert.equal(projection.branches[0].name, "dev");
+  assert.deepEqual(invocations.map(call => call.channel), ["project:registerCurrent", "sourceGraph:get", "sourceGraph:revisionDetail", "workIntake:projection"]);
+  await harness.stop().catch(() => undefined);
   assert.throws(() => assertGreenfieldProjectEntry(path.dirname(selected)), /empty Project container/);
   await assert.rejects(api.registerCurrentProject("greenfield", "Duplicate"), /cannot reopen a Current Project/);
 });
