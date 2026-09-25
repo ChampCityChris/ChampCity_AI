@@ -2627,6 +2627,22 @@
       ]
     },
     {
+      "capabilityId": "managed-project-source-topology",
+      "description": "Existing Git Projects safely materialize the durable Project container, Repository metadata, Main/Dev checkouts, and Agent Harness registrations.",
+      "sourcePatterns": [
+        "src/main/sourceControl/managedProjectSourceService.ts"
+      ],
+      "dependsOn": [
+        "agent-harness-repository-operations"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "conventional-project-adoption-preserves-source-and-registers-durable-main-dev-checkouts",
+          "description": "Conventional Git adoption preserves source state and registers exact managed Main and Dev checkouts."
+        }
+      ]
+    },
+    {
       "capabilityId": "phase-execution-workflow",
       "description": "Phase map, interview, planning, validation, close, and renderer transition behavior.",
       "sourcePatterns": [
@@ -18445,6 +18461,60 @@
           "capabilityId": "workflow-lifecycle-resolution",
           "behaviorId": "pending-canonical-architect-interview-becomes-current-review-document",
           "proofLocator": "pending canonical Architect Interview becomes current review document",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/source-control/managed-project-source.test.cjs",
+      "currentTestCount": {
+        "value": 4,
+        "basis": "WRB01-02 conventional adoption, refs/remotes and dirty-content preservation, Agent Harness registration, idempotent reopen, and fail-before-mutation scenarios."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 4000,
+        "basis": "Observed normal Windows focused WRB01-02 test receipt."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "windows",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "windows",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Each scenario uses an isolated temporary Git Project and its own Agent Harness registry.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "managed-project-source-topology",
+          "behaviorId": "conventional-project-adoption-preserves-source-and-registers-durable-main-dev-checkouts",
+          "proofLocator": "conventional Git Project retains refs, remotes, tracked dirty and untracked content while exposing exact Main/Dev roots through Agent Harness",
           "proofRole": "primary"
         }
       ]
