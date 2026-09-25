@@ -1,7 +1,7 @@
 # Workflow Topology Recovery — Repair Work Card Plan
 
 **Package ID:** WTR  
-**Status:** Adopted milestone map; bounded cards released one at a time after Architect review  
+**Status:** WTR01-WTR02 completed; WTR03-WTR25 micro-card forecast superseded by the post-WTR02 vertical bundle re-baseline  
 **Target Implementer:** GPT 6.0 Luna Medium  
 **Architecture:** `docs/architecture/CHAMPCITY_WORKFLOW_INSTANCE_AND_EXECUTION_KERNEL_ARCHITECTURE.md`  
 **Operator decisions:** `OPERATOR_DECISIONS_2026-09-23.md`  
@@ -262,17 +262,13 @@ The final proof must establish:
 
 ## 5. Immediate release boundary
 
-**WTR01, WTR02A, WTR02B, WTR02C, WTR02D, WTR02E, WTR02F, and WTR02G are closed. WTR02H is the only card currently authored/released for implementation.**
+**WTR01 and WTR02 are closed at dev checkpoint f72bc436cd55de39671977de790b139a611e096c.**
 
-The Operator has authorized the one attributable card-local checkpoint commit required by this WTR package after each card's bounded implementation, validation, and Implementer Report. That routine checkpoint does not require a second Git approval.
+The WTR03-WTR25 sections above remain historical architecture/dependency inventory, not executable implementation authorization.
 
-No WTR03 or later implementation is authorized until:
+Current implementation authority is defined by:
 
-- WTR02H is implemented by Luna Medium;
-- focused validation/report/checkpoint are complete;
-- the Architect reviews WTR02H;
-- any WTR02H repair is closed;
-- WTR02H is formally closed;
-- the Architect performs the required post-H re-baseline.
+- `docs/implementation-bundles/workflow-runtime-rebaseline/REBASELINE_2026-09-24.md`
+- the currently released WRB bundle under `docs/implementation-bundles/workflow-runtime-rebaseline/`
 
-After WTR02H is implemented, reviewed, and closed, stop the current micro-card sequence. Before WTR03 implementation begins, the Architect must re-baseline WTR03-WTR25 into a smaller set of vertical implementation bundles for sequential Luna execution with human Architect review at bundle boundaries.
+WRB bundles are executed sequentially by Luna with per-card focused validation, Implementer Reports, and checkpoint commits, followed by human Architect review at the bundle boundary.
