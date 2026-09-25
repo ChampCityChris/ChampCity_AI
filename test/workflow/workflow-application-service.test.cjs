@@ -103,6 +103,37 @@ test("source-backed direct start records the exact managed Dev commit and leaves
   } finally { env.store.close(); }
 });
 
+test("Project Creation is created once for the exact Project with registry workspace and optional lazy source binding", async context => {
+  const plain = await setup(context);
+  try {
+    const application = createWorkflowApplicationService();
+    const first = await application.ensureProjectCreationWorkflow(plain.root);
+    const reopened = await application.ensureProjectCreationWorkflow(plain.root);
+    assert.equal(first.workflow.workflowId, reopened.workflow.workflowId);
+    assert.equal(first.workflow.title, "Workflow Application Fixture");
+    assert.equal(first.workflow.workflowType, "project-creation");
+    assert.equal(first.workflow.currentWorkspace, "project-intake");
+    assert.equal((await plain.store.listEntities(plain.projectId, "Workflow")).length, 1);
+    assert.equal((await plain.store.listEntities(plain.projectId, "SourceBaseline")).length, 0);
+  } finally { plain.store.close(); }
+
+  const source = await setup(context, { sourceRepositoryId: "project-creation-repository" });
+  try {
+    const bootstrapped = await bootstrapProjectSource(source.root, "project-creation-repository");
+    const created = await createWorkflowApplicationService().ensureProjectCreationWorkflow(source.root);
+    const baseline = (await source.store.listEntities(source.projectId, "SourceBaseline"))[0];
+    const binding = (await source.store.listEntities(source.projectId, "SourceBinding"))[0];
+    assert.equal(baseline.body.workflowId, created.workflow.workflowId);
+    assert.equal(baseline.body.repositoryId, "project-creation-repository");
+    assert.equal(baseline.body.integrationTargetSourceLineId, "dev");
+    assert.equal(baseline.body.baseRevisionId, bootstrapped.integrationTarget.headRevisionId);
+    assert.equal(binding.body.workflowId, created.workflow.workflowId);
+    assert.equal(binding.body.preparationState, "unprepared");
+    assert.equal(binding.body.workSourceLineId, undefined);
+    assert.equal(fs.existsSync(path.join(source.root, ".champcity", "checkouts")), false);
+  } finally { source.store.close(); }
+});
+
 test("failed Dev inspection and non-source Projects never create partial source state", async context => {
   const source = await setup(context, { sourceRepositoryId: "missing-dev-repository" });
   const application = createWorkflowApplicationService({ readDevRevision: async () => { throw Error("invalid Dev"); } });

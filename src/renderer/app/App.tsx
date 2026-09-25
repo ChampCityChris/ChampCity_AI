@@ -480,7 +480,8 @@ export function App(): JSX.Element {
   const architectBrowserWorkspaceAvailable =
     isVisibleArchitectOutputWorkspace || isWorkCardReportReview;
   const isDevelopmentForeground =
-    shellView === "workflow" && activeWorkflowId === "development";
+    shellView === "workflow" && ((workflowInstance?.workflowType === "project-creation" &&
+      selectedWorkflowId === workflowInstance.workflowId) || (!currentProject && activeWorkflowId === "development"));
   const isIssueResolutionForeground =
     shellView === "workflow" && activeWorkflowId === "issue-resolution";
   const isIssueCodexExecutionForeground =
@@ -2530,8 +2531,14 @@ export function App(): JSX.Element {
     }));
 
     if (destination === "project-intake-capture") {
+      if (!project?.projectCreationWorkflowId) throw Error("Project Creation Workflow identity is unavailable.");
+      const opened = await window.champcity.getWorkflow(project.projectCreationWorkflowId);
+      if (opened.workflow.workflowType !== "project-creation" || opened.workflow.workflowId !== project.projectCreationWorkflowId)
+        throw Error("Project Creation Workflow identity could not be verified.");
+      setSelectedWorkflowId(opened.workflow.workflowId);
+      setWorkflowInstance(opened.workflow);
       setShellView("workflow");
-      setActiveWorkflowId("development");
+      setActiveWorkflowId(null);
       setActiveWorkspaceId("project-intake-capture");
       setPriorWorkflowWorkspaceId("project-intake-capture");
       return;
@@ -2702,7 +2709,7 @@ export function App(): JSX.Element {
     }
     if (destinationWorkspaceId !== settingsWorkspaceId) {
       setShellView("workflow");
-      setActiveWorkflowId("development");
+      setActiveWorkflowId(isDevelopmentForeground ? null : "development");
     }
     setActiveWorkspaceId(destinationWorkspaceId);
     if (destinationWorkspaceId !== settingsWorkspaceId) {
@@ -2820,7 +2827,11 @@ export function App(): JSX.Element {
       }
       setWorkflowInstance(result.workflow);
       setActiveWorkflowId(null);
-      setShellView("workflow-instance");
+      if (result.workflow.workflowType === "project-creation") {
+        setActiveWorkspaceId("project-intake-capture");
+        setPriorWorkflowWorkspaceId("project-intake-capture");
+        setShellView("workflow");
+      } else setShellView("workflow-instance");
     } catch (failure) {
       setWorkflowHubError(failure instanceof Error ? failure.message : "Workflow could not be opened.");
     }
@@ -4232,11 +4243,13 @@ export function App(): JSX.Element {
                   if (workIntakeProjection.authority === "structured") {
                     const refreshedProjection = await window.champcity.getWorkIntakeProjection();
                     const captured = refreshedProjection.capturedIntakes?.find(item => item.intakeId === intakeId);
-                    const inventory = await window.champcity.listWorkflows();
+                    const inventory = await refreshWorkflowInventory();
+                    if (!inventory) throw Error("Workflow inventory could not be refreshed after saving Work Intake.");
                     const routing = inventory.groups.find(group => group.workflowType === "work-intake-routing")?.workflows.find(item => item.workIntakeId === intakeId);
                     if (!captured || !routing) throw Error("Saved Work Intake routing identity is unavailable.");
                     setWorkIntakeProjection({ ...refreshedProjection, currentCapturedIntake: captured });
                     setSelectedWorkIntakeId(intakeId);
+                    setSelectedWorkflowId(routing.workflowId);
                     setSelectedRoutingWorkflowId(routing.workflowId);
                     setActiveWorkIntakeStageId("routing");
                   } else {

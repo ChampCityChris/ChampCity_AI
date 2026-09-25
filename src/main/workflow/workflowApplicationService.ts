@@ -154,5 +154,31 @@ export function createWorkflowApplicationService(dependencies: {
     });
   }
 
-  return { listCurrentProjectWorkflows, getCurrentProjectWorkflow, startDirectWorkflow };
+  async function ensureProjectCreationWorkflow(projectRoot: string): Promise<{ workflow: WorkflowInstanceSummary }> {
+    return withCurrentProject(projectRoot, async (store, projectId) => {
+      const project = await store.getProject(projectId);
+      if (!project) throw Error("Selected Current Project State is unavailable.");
+      const all = (await store.listEntities(projectId, "Workflow"))
+        .filter((record): record is WorkflowRecord => record.entityType === "Workflow");
+      const existing = all.filter(record => record.body.workflowType === "project-creation" && currentInstance(record));
+      if (existing.length > 1) throw Error("Current Project has ambiguous Project Creation Workflows.");
+      let workflow: WorkflowRecord;
+      if (existing.length === 1) workflow = existing[0];
+      else {
+        if (all.some(record => record.body.workflowType === "project-creation"))
+          throw Error("Project Creation history is retired and cannot be reopened as a new Workflow.");
+        const definition = getWorkflowTypeDefinition("project-creation")!;
+        const repositoryId = await resolveRepositoryId(projectRoot);
+        const sourceSeed = repositoryId ? { repositoryId, integrationTargetSourceLineId: "dev", baseRevisionId: await readDevRevision(projectRoot) } : undefined;
+        const created = await createProjectStateService(store, operator).createProjectCreationWorkflow(projectId,
+          { title: project.body.name, ...(sourceSeed ? { sourceSeed } : {}) });
+        workflow = created.workflow;
+        if (workflow.body.currentWorkspace !== definition.entryWorkspace) throw Error("Project Creation entry workspace does not match its registry.");
+      }
+      const active = all.filter(record => currentInstance(record));
+      return { workflow: provenanceFor(active, await store.listRelationships(projectId))(workflow) };
+    });
+  }
+
+  return { listCurrentProjectWorkflows, getCurrentProjectWorkflow, startDirectWorkflow, ensureProjectCreationWorkflow };
 }

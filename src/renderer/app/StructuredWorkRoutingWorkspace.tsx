@@ -91,7 +91,7 @@ export function StructuredWorkRoutingWorkspace({ intakeId, routingWorkflowId, br
     className="work-intake-stage-workspace work-routing-workspace" documentColumnClassName="work-intake-document-column"
     eyebrow="Work Intake" heading="Routing" summary="Review the request, consider Architect advice, and choose a route."
     browserPanel={browserPanel}
-    browserActions={<section className="figma-browser-actions-panel" aria-label="Routing browser actions">
+    browserActions={model?.closed ? null : <section className="figma-browser-actions-panel" aria-label="Routing browser actions">
       <header><span>Browser Actions</span></header>
       <div className="figma-browser-actions-row">
         <button type="button" className="primary-action" disabled={busy} onClick={onReloadBrowser}><RefreshCw aria-hidden="true" size={14} />Reload ChatGPT</button>

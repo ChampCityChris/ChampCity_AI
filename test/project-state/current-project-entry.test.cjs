@@ -14,6 +14,7 @@ const { createSourceControlService } = require("../../dist/main/sourceControl/so
 const { establishManagedProjectSource } = require("../../dist/main/sourceControl/managedProjectSourceService.js");
 const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
 const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
+const { createWorkflowApplicationService } = require("../../dist/main/workflow/workflowApplicationService.js");
 const { getGreenfieldWorkIntakeProjection, getStructuredWorkIntakeProjection, isGreenfieldProjectRoot } = require("../../dist/main/workIntake/structuredWorkIntakeService.js");
 const { getWorkIntakeProjection } = require("../../dist/main/workIntake/workIntakeService.js");
 const rendererSource = fs.readFileSync(path.resolve(__dirname, "../../src/renderer/app/App.tsx"), "utf8");
@@ -82,6 +83,7 @@ test("Greenfield entry validates an empty container, establishes SPS and registe
     getWorkIntakeProjection,
     getAgentHarnessServiceHostClient: () => harness,
     createSourceControlService,
+    createWorkflowApplicationService,
     establishManagedProjectSource,
     fs, path, MANAGED_PROJECT_SOURCE_PATHS,
   });
@@ -90,6 +92,7 @@ test("Greenfield entry validates an empty container, establishes SPS and registe
   assert.equal(current.projectName, "New Project");
   assert.equal(current.repositoryId, CURRENT_PROJECT_REPOSITORY_ID);
   assert.equal(current.created, true);
+  assert.ok(current.projectCreationWorkflowId);
   assert.deepEqual(checkouts.map(checkout => [checkout.role, checkout.projectRelativePath]).sort(), [["dev", "Dev"], ["main", "Main"]]);
   assert.equal(fs.existsSync(path.join(selected, ".git")), false);
   assert.equal(fs.existsSync(path.join(selected, ".champcity", "repository.git")), true);
@@ -99,7 +102,20 @@ test("Greenfield entry validates an empty container, establishes SPS and registe
     assert.equal(resources.filter(row => row.body.resourceType === "current-project-registration").length, 1);
     assert.equal(resources.filter(row => row.body.resourceType === "source-repository").length, 1);
     assert.equal((await state.listEntities(current.projectId, "WorkIntake")).length, 0);
-    assert.equal((await state.listEntities(current.projectId, "Workflow")).length, 0);
+    const workflows = (await state.listEntities(current.projectId, "Workflow")).filter(row => row.entityType === "Workflow");
+    assert.equal(workflows.length, 1);
+    assert.equal(workflows[0].id, current.projectCreationWorkflowId);
+    assert.equal(workflows[0].body.workflowType, "project-creation");
+    assert.equal(workflows[0].body.title, "New Project");
+    assert.equal(workflows[0].body.currentWorkspace, "project-intake");
+    const baselines = (await state.listEntities(current.projectId, "SourceBaseline")).filter(row => row.entityType === "SourceBaseline");
+    const bindings = (await state.listEntities(current.projectId, "SourceBinding")).filter(row => row.entityType === "SourceBinding");
+    assert.equal(baselines.length, 1);
+    assert.equal(baselines[0].body.workflowId, current.projectCreationWorkflowId);
+    assert.equal(baselines[0].body.repositoryId, CURRENT_PROJECT_REPOSITORY_ID);
+    assert.equal(baselines[0].body.integrationTargetSourceLineId, "dev");
+    assert.equal(bindings.length, 1);
+    assert.equal(bindings[0].body.preparationState, "unprepared");
   } finally { state.close(); }
   const devRoot = path.join(selected, "Dev");
   const baseRevision = git(devRoot, "rev-parse", "HEAD");
@@ -125,7 +141,7 @@ test("Greenfield entry validates an empty container, establishes SPS and registe
   assert.equal(graphResponse.ok, true, JSON.stringify(graphResponse));
   assert.deepEqual(graphResponse.result.sourceLines.map(line => line.providerBranchName), ["dev", "feature/graph-proof", "main"]);
   assert.equal(graphResponse.result.providerDiagnostics.metadata, "available");
-  assert.equal(graphResponse.result.workflowBindings[0].currentRevisionId, featureRevision);
+  assert.ok(graphResponse.result.workflowBindings.some(binding => binding.currentRevisionId === featureRevision));
   assert.equal(fs.existsSync(path.join(selected, ".git")), false);
   assert.equal(path.resolve(await resolveManagedDevRepositoryCheckout(selected)), path.resolve(devRoot));
   const detail = await api.getSourceGraphRevisionDetail(featureRevision);
@@ -137,7 +153,15 @@ test("Greenfield entry validates an empty container, establishes SPS and registe
   assert.deepEqual(invocations.map(call => call.channel), ["project:registerCurrent", "sourceGraph:get", "sourceGraph:revisionDetail", "workIntake:projection"]);
   await harness.stop().catch(() => undefined);
   assert.throws(() => assertGreenfieldProjectEntry(path.dirname(selected)), /empty Project container/);
-  await assert.rejects(api.registerCurrentProject("greenfield", "Duplicate"), /cannot reopen a Current Project/);
+  const reopened = await api.registerCurrentProject("greenfield", "Duplicate");
+  assert.equal(reopened.projectCreationWorkflowId, current.projectCreationWorkflowId);
+  const reopenedState = createSQLiteProjectStateStore(path.join(selected, ".champcity", "project-state.sqlite"));
+  try {
+    const workflows = (await reopenedState.listEntities(current.projectId, "Workflow")).filter(row => row.entityType === "Workflow");
+    assert.equal(workflows.filter(row => row.body.workflowType === "project-creation").length, 1);
+    assert.equal(workflows.find(row => row.body.workflowType === "project-creation").id, current.projectCreationWorkflowId);
+  }
+  finally { reopenedState.close(); }
 });
 
 test("Greenfield entry finishes registration for a compatible managed baseline without Current Project SPS", async context => {
@@ -158,6 +182,7 @@ test("Greenfield entry finishes registration for a compatible managed baseline w
   const { api } = mainPreloadHarness(["project:registerCurrent"], {
     getRequiredWorkspaceRoot: () => selected, assertGreenfieldProjectEntry, registerCurrentProject, selectedCurrentProjectId, CURRENT_PROJECT_REPOSITORY_ID,
     getAgentHarnessServiceHostClient: () => harness, createSourceControlService, establishManagedProjectSource,
+    createWorkflowApplicationService,
     fs, path, MANAGED_PROJECT_SOURCE_PATHS,
   });
   const current = await api.registerCurrentProject("greenfield", "Recovered Greenfield");
@@ -369,6 +394,11 @@ test("landing actions route New Project to Project Intake and Existing Project t
   assert.match(start, /registerCurrentProject\("greenfield"\)/);
   assert.match(start, /activateWorkspaceSelection\(selection, "project-intake-capture", project\)/);
   assert.doesNotMatch(start, /openWorkIntake/);
+  const activate = rendererSource.slice(rendererSource.indexOf("async function activateWorkspaceSelection"), rendererSource.indexOf("function clearRepositoryDerivedState"));
+  assert.match(activate, /getWorkflow\(project\.projectCreationWorkflowId\)/);
+  assert.match(activate, /setSelectedWorkflowId\(opened\.workflow\.workflowId\)/);
+  assert.match(activate, /workflowType !== "project-creation"/);
+  assert.match(rendererSource, /selectedWorkflowId === workflowInstance\.workflowId/);
   assert.match(open, /registerCurrentProject\("existing"\)/);
   assert.match(open, /activateWorkspaceSelection\(selection, "workflow-hub", project\)/);
 });

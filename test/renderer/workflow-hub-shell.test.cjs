@@ -151,6 +151,22 @@ test("Selected-project Hub groups independent Workflow instances and direct star
   assert.equal((markup.match(/class="workflow-type-group"/g) ?? []).length, 7);
 });
 
+test("Hub represents the one-time Project Creation instance without a direct-start action", () => {
+  const instance = { workflowId: "project-create-1", workflowType: "project-creation", title: "New product",
+    lineageId: "lineage-project-create-1", workflowState: "active", lifecycleState: "active", currentWorkspace: "project-intake",
+    createdAt: "2026-01-01", updatedAt: "2026-01-01" };
+  const markup = renderToStaticMarkup(React.createElement(WorkflowHubWorkspace, {
+    onOpenSourceControl: () => undefined, onOpenWorkflow: () => undefined, onStartWorkflow: async () => undefined,
+    onStartWorkIntake: () => undefined, projectName: "New product", sourceControlAvailable: true,
+    inventory: { groups: [{ workflowType: "project-creation", workflows: [instance] }] }, selectedWorkflowId: instance.workflowId,
+    loading: false, error: "", workspace: { ok: true, workspaceRoot: "<PROJECT_REPO>" },
+  }));
+  assert.match(markup, /Project Creation \/ Greenfield/);
+  assert.match(markup, /New product/);
+  assert.match(markup, /aria-label="Open New product \(project-/);
+  assert.doesNotMatch(markup, /\+ Start Project Creation/);
+});
+
 test("Hub actions preserve exact Workflow identity and route WIR rows to their exact intake", () => {
   const source = fs.readFileSync(path.join(repoRoot, "src/renderer/app/App.tsx"), "utf8");
   const ts = require("typescript");
@@ -165,11 +181,15 @@ test("Hub actions preserve exact Workflow identity and route WIR rows to their e
   assert.match(declarations.get("startDirectWorkflow"), /getWorkflow\(created\.workflow\.workflowId\)/);
   assert.match(declarations.get("startDirectWorkflow"), /setSelectedWorkflowId\(opened\.workflow\.workflowId\)/);
   assert.match(declarations.get("openCurrentWorkflow"), /getWorkflow\(workflowId\)/);
+  assert.match(declarations.get("openCurrentWorkflow"), /workflowType === "project-creation"/);
+  assert.match(declarations.get("activateWorkspaceSelection"), /projectCreationWorkflowId/);
+  assert.match(declarations.get("activateWorkspaceSelection"), /setSelectedWorkflowId\(opened\.workflow\.workflowId\)/);
   assert.match(declarations.get("openCurrentWorkflow"), /openWorkIntakeForWorkflow\(result\.workflow\.workIntakeId, result\.workflow\.workflowId\)/);
   assert.match(declarations.get("openWorkIntakeForWorkflow"), /item\.intakeId === intakeId/);
   assert.match(declarations.get("openWorkIntakeForWorkflow"), /setShellView\("work-intake"\)/);
   assert.match(source, /onStartWorkIntake=\{\(\) => void openWorkIntake\(\)\}/);
   assert.match(source, /onOpenWorkflow=\{workflowId => void openCurrentWorkflow\(workflowId\)\}/);
+  assert.match(source, /setSelectedWorkflowId\(routing\.workflowId\)/);
   assert.doesNotMatch(declarations.get("startDirectWorkflow"), /startWorkIntake|createWorkIntake|submitWorkIntake/);
 });
 

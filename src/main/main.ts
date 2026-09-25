@@ -61,6 +61,7 @@ import { MANAGED_PROJECT_SOURCE_PATHS } from "../shared/sourceLifecycleContracts
 import { selectedSourceGraphRepositoryId } from "./sourceControl/sourceGraphService";
 import { registerWorkflowApplicationIpc } from "./workflow/workflowApplicationIpc";
 import { registerStructuredWorkRoutingIpc } from "./workflow/structuredWorkRoutingIpc";
+import { createWorkflowApplicationService } from "./workflow/workflowApplicationService";
 import type { SourceGraphOptions } from "../shared/sourceLifecycleContracts";
 import { captureGreenfieldWorkIntake, captureStructuredWorkIntake, getGreenfieldWorkIntakeProjection, getStructuredWorkIntakeProjection, isGreenfieldProjectRoot, retryStructuredWorkIntakeSource } from "./workIntake/structuredWorkIntakeService";
 import { getWorkIntakeNavigation } from "./workIntake/workIntakeNavigationService";
@@ -365,21 +366,25 @@ ipcMain.handle("workspace:clear", (): WorkspaceSelection => {
 ipcMain.handle("project:registerCurrent", async (_event, mode: "existing" | "greenfield", projectName?: string) => {
   if (mode !== "existing" && mode !== "greenfield") throw new Error("A current Project registration mode is required.");
   const root = getRequiredWorkspaceRoot();
-  if (mode === "greenfield") {
-    if (selectedCurrentProjectId(root)) throw new Error("Start New Project cannot reopen a Current Project; use Existing Project.");
-    assertGreenfieldProjectEntry(root);
-  }
   const agentHarness = getAgentHarnessServiceHostClient();
   let workspace: Awaited<ReturnType<typeof agentHarness.registerWorkspace>>;
   let registration;
   if (mode === "greenfield") {
-    workspace = await agentHarness.registerWorkspace(root);
-    const checkoutRegistration = { workspaceId: workspace.workspace.workspaceId,
-      registerRepositoryCheckout: (workspaceId: string, checkout: import("../shared/sourceLifecycleContracts").RepositoryCheckout) =>
-        agentHarness.registerRepositoryCheckout(workspaceId, checkout) };
-    const result = await createSourceControlService({ repositoryId: CURRENT_PROJECT_REPOSITORY_ID, repositoryRoot: root, checkoutRegistration }).bootstrapProjectSource();
-    if (!result.ok) throw new Error(result.error.message);
-    registration = await registerCurrentProject(root, mode, { ...(projectName === undefined ? {} : { projectName }), sourceRepositoryId: CURRENT_PROJECT_REPOSITORY_ID });
+    const existingProjectId = selectedCurrentProjectId(root);
+    if (existingProjectId) {
+      registration = await registerCurrentProject(root, mode);
+      if (registration.project.body.description !== "Greenfield Project")
+        throw new Error("Start New Project cannot reopen an Existing Project; use Existing Project.");
+    } else {
+      assertGreenfieldProjectEntry(root);
+      workspace = await agentHarness.registerWorkspace(root);
+      const checkoutRegistration = { workspaceId: workspace.workspace.workspaceId,
+        registerRepositoryCheckout: (workspaceId: string, checkout: import("../shared/sourceLifecycleContracts").RepositoryCheckout) =>
+          agentHarness.registerRepositoryCheckout(workspaceId, checkout) };
+      const result = await createSourceControlService({ repositoryId: CURRENT_PROJECT_REPOSITORY_ID, repositoryRoot: root, checkoutRegistration }).bootstrapProjectSource();
+      if (!result.ok) throw new Error(result.error.message);
+      registration = await registerCurrentProject(root, mode, { ...(projectName === undefined ? {} : { projectName }), sourceRepositoryId: CURRENT_PROJECT_REPOSITORY_ID });
+    }
   } else {
     const hasConventionalGit = fs.existsSync(path.join(root, ".git"));
     const hasManagedMetadata = fs.existsSync(path.join(root, MANAGED_PROJECT_SOURCE_PATHS.repositoryMetadataRelativePath));
@@ -400,9 +405,12 @@ ipcMain.handle("project:registerCurrent", async (_event, mode: "existing" | "gre
     registration = await registerCurrentProject(root, mode, { ...(projectName === undefined ? {} : { projectName }),
       ...(hasSourceCandidate ? { sourceRepositoryId: CURRENT_PROJECT_REPOSITORY_ID } : {}) });
   }
+  const projectCreation = mode === "greenfield"
+    ? await createWorkflowApplicationService().ensureProjectCreationWorkflow(root) : null;
   const repositoryId = registration.repositoryResource?.body.logicalName ?? null;
   return { projectId: registration.project.id, projectName: registration.project.body.name, repositoryId,
-    projectRoot: root, mode, created: registration.created };
+    projectRoot: root, mode, created: registration.created,
+    ...(projectCreation ? { projectCreationWorkflowId: projectCreation.workflow.workflowId } : {}) };
 });
 
 function assertGreenfieldProjectEntry(root: string): void {

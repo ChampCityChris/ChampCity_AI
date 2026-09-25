@@ -1548,6 +1548,7 @@
         "src/main/sourceControl/sourceControlService.ts",
         "src/main/sourceControl/sourceGraphService.ts",
         "src/main/workIntake/structuredWorkIntakeService.ts",
+        "src/main/workflow/workflowApplicationService.ts",
         "src/preload/index.ts",
         "src/renderer/app/App.tsx",
         "src/shared/workspaceContracts.ts"
@@ -1575,7 +1576,7 @@
         },
         {
           "behaviorId": "greenfield-entry-registers-current-project-and-enters-project-intake-with-main-dev",
-          "description": "Greenfield entry establishes a deterministic managed baseline before SPS identity, can finish an existing compatible baseline, rejects an already-current Project, and creates no Work Intake."
+          "description": "Greenfield entry establishes a deterministic managed baseline before SPS identity, can finish an existing compatible baseline, and creates one idempotent Project Creation Workflow without creating Work Intake."
         },
         {
           "behaviorId": "non-source-current-project-hub-omits-source-control-and-fails-closed-on-source-graph",
@@ -17604,8 +17605,8 @@
     {
       "testPath": "test/renderer/work-intake-routed-workspaces.test.cjs",
       "currentTestCount": {
-        "value": 32,
-        "basis": "Thirty-two rendered capability scenarios include structured Work Intake and WIR presentation."
+        "value": 33,
+        "basis": "Thirty-three rendered capability scenarios include structured Work Intake, WIR presentation, and closed routing history."
       },
       "duration": {
         "kind": "measured",
@@ -17837,8 +17838,8 @@
     {
       "testPath": "test/renderer/workflow-hub-shell.test.cjs",
       "currentTestCount": {
-        "value": 10,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 11,
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit plus Project Creation instance representation proof."
       },
       "duration": {
         "kind": "measured",
@@ -20473,8 +20474,8 @@
     {
       "testPath": "test/workflow/workflow-application-service.test.cjs",
       "currentTestCount": {
-        "value": 6,
-        "basis": "Six production-service scenarios cover exact Workflow instances, managed Dev baseline capture, failed source inspection, and structured WIR promotion, freshness, and handoff."
+        "value": 7,
+        "basis": "Seven production-service scenarios cover exact Workflow instances, idempotent Project Creation, managed Dev baseline capture, failed source inspection, and structured WIR promotion, freshness, and handoff."
       },
       "duration": {
         "kind": "estimated",

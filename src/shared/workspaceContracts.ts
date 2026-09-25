@@ -69,6 +69,7 @@ export interface CurrentProjectRuntimeContext {
   projectRoot: string;
   mode: "existing" | "greenfield";
   created: boolean;
+  projectCreationWorkflowId?: string;
 }
 
 export interface McpWorkspaceBinding {

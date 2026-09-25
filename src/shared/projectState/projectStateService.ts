@@ -279,6 +279,40 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return store.transaction(projectId, unit => createSubstantiveWorkflowInUnitOfWork(unit, projectId, input, context));
   }
 
+  async function createProjectCreationWorkflow(projectId: ProjectId, input: { title: string; sourceSeed?: SubstantiveWorkflowCreationInput["sourceSeed"] }, context?: MutationContext) {
+    exactInput(input, ["title", "sourceSeed"]);
+    if (typeof input.title !== "string" || !input.title.trim() || input.title.trim().length > 200)
+      fail("Workflow title must contain 1 to 200 characters.");
+    const definition = getWorkflowTypeDefinition("project-creation");
+    if (!definition) fail("Project Creation Workflow type is unavailable.");
+    return store.transaction(projectId, async unit => {
+      if (!await unit.getProject(projectId)) fail("Owning Project does not exist.");
+      const workflow = await createWorkflowRecord(unit, projectId, { workflowType: "project-creation", title: input.title.trim(),
+        currentWorkspace: definition.entryWorkspace, workflowState: "active" }, context);
+      let sourceBaseline: ProjectStateRecord<"SourceBaseline"> | null = null;
+      let sourceBinding: ProjectStateRecord<"SourceBinding"> | null = null;
+      if (input.sourceSeed !== undefined) {
+        exactInput(input.sourceSeed, ["repositoryId", "integrationTargetSourceLineId", "baseRevisionId"]);
+        const body: EntityBodyMap["SourceBaseline"] = { workflowId: workflow.id, ...input.sourceSeed };
+        sourceBaseline = createProjectStateEntity({ entityType: "SourceBaseline", projectId, body, principal: trustedPrincipal });
+        await unit.saveEntity(sourceBaseline, null);
+        await recordMutation(unit, { projectId, entityId: sourceBaseline.id, fromVersion: null, toVersion: 1,
+          operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: sourceBaseline.createdAt,
+          changedFields: Object.keys(sourceBaseline.body), defaultReason: "Capture Workflow SourceBaseline", context });
+        await linkSemantic(unit, projectId, sourceBaseline, workflow, "baselines_source", context);
+        const bindingBody: EntityBodyMap["SourceBinding"] = { workflowId: workflow.id, sourceBaselineId: sourceBaseline.id, preparationState: "unprepared" };
+        assertSourceBindingBody(bindingBody, sourceBaseline.body);
+        sourceBinding = createProjectStateEntity({ entityType: "SourceBinding", projectId, body: bindingBody, principal: trustedPrincipal });
+        await unit.saveEntity(sourceBinding, null);
+        await recordMutation(unit, { projectId, entityId: sourceBinding.id, fromVersion: null, toVersion: 1,
+          operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: sourceBinding.createdAt,
+          changedFields: Object.keys(sourceBinding.body), defaultReason: "Create SourceBinding", context });
+        await linkSemantic(unit, projectId, sourceBinding, workflow, "binds_source", context, [sourceBaseline]);
+      }
+      return { workflow, sourceBaseline, sourceBinding };
+    });
+  }
+
   async function createWorkIntake(projectId: ProjectId, input: Omit<EntityBodyMap["WorkIntake"], "intakeState">, context?: MutationContext) {
     exactInput(input, ["request", "desiredOutcome", "constraints", "evidenceContext", "requestedIntegrationTarget", "hasExistingSourceOrPlanning"]);
     return store.transaction(projectId, async unit => {
@@ -1861,7 +1895,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return pending.sort((a, b) => a.targetId.localeCompare(b.targetId) || a.criterionId.localeCompare(b.criterionId));
   }
 
-  return { createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
+  return { createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
     createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, createIntegrationRecord, advanceIntegrationRecord,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, completeWorkItem, completePhase,

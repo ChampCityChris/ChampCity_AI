@@ -92,6 +92,18 @@ test("structured WIR workspace embeds Architect handoff and exposes only the six
   assert.doesNotMatch(markup, /Greenfield|Work branch|Integrate into branch|source preparation/);
 });
 
+test("closed structured WIR shows completed history and exact target action without routing controls", () => {
+  const model = { projectId: "project-1", intakeId: "intake-closed", routingWorkflowId: "wir-closed", request: "Improve search",
+    desiredOutcome: "Relevant results", constraints: [], evidenceContext: [], intakeRecordVersion: 2, intakeState: "closed", workflowState: "closed",
+    assessment: null, reviewState: "accepted", selectedRoute: "feature-change", targetWorkflowId: "target-exact", closed: true };
+  const element = withState([model, "feature-change", "", false, "", ""], () => StructuredWorkRoutingWorkspace({ intakeId: model.intakeId,
+    routingWorkflowId: model.routingWorkflowId, browserPanel: null, onReloadBrowser() {}, onReturn() {}, onRouted(id) { assert.equal(id, "target-exact"); } }));
+  const markup = renderToStaticMarkup(element);
+  assert.match(markup, /This Work Intake is closed\./);
+  assert.match(markup, /Open routed Workflow/);
+  assert.doesNotMatch(markup, /Routing browser actions|Prepare Handoff|Decision rationale|Override Route/);
+});
+
 test("routed rail has exact stage order and explains blocked stages", () => {
   const ids = ["intake", "routing", "assessment", "plan", "execution", "integration"];
   const labels = ["Intake", "Routing", "Architect Assessment", "Plan", "Execution", "Integration"];
