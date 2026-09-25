@@ -14,6 +14,9 @@ import type {
 } from "../shared/workspaceContracts";
 
 const api: ChampCityApi = {
+  listWorkflows: () => ipcRenderer.invoke("workflow:list") as ReturnType<ChampCityApi["listWorkflows"]>,
+  startWorkflow: (request) => ipcRenderer.invoke("workflow:start", request) as ReturnType<ChampCityApi["startWorkflow"]>,
+  getWorkflow: (workflowId) => ipcRenderer.invoke("workflow:get", workflowId) as ReturnType<ChampCityApi["getWorkflow"]>,
   getSourceGraph: (options) => ipcRenderer.invoke("sourceGraph:get", options),
   getSourceGraphRevisionDetail: (revisionId) => ipcRenderer.invoke("sourceGraph:revisionDetail", revisionId),
   getWorkIntakeNavigation: (intakeId) => ipcRenderer.invoke("workIntake:navigation", intakeId),

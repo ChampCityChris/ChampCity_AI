@@ -59,6 +59,7 @@ import { establishManagedProjectSource, resolveManagedDevRepositoryCheckout } fr
 import { CURRENT_PROJECT_REPOSITORY_ID, registerCurrentProject, selectedCurrentProjectId } from "./projectState/currentProjectRegistrationService";
 import { MANAGED_PROJECT_SOURCE_PATHS } from "../shared/sourceLifecycleContracts";
 import { selectedSourceGraphRepositoryId } from "./sourceControl/sourceGraphService";
+import { registerWorkflowApplicationIpc } from "./workflow/workflowApplicationIpc";
 import type { SourceGraphOptions } from "../shared/sourceLifecycleContracts";
 import { captureGreenfieldWorkIntake, captureStructuredWorkIntake, getGreenfieldWorkIntakeProjection, getStructuredWorkIntakeProjection, isGreenfieldProjectRoot, retryStructuredWorkIntakeSource } from "./workIntake/structuredWorkIntakeService";
 import { getWorkIntakeNavigation } from "./workIntake/workIntakeNavigationService";
@@ -817,6 +818,10 @@ ipcMain.handle(
     });
   },
 );
+
+registerWorkflowApplicationIpc({ handle: (channel, listener) => {
+  ipcMain.handle(channel, (event, ...args) => listener(event, ...args));
+} }, getRequiredWorkspaceRoot);
 
 ipcMain.handle("sourceGraph:get", async (_event, options?: SourceGraphOptions) => {
   const root = getRequiredWorkspaceRoot();

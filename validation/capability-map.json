@@ -3813,10 +3813,13 @@
         "src/main/workIntake/workIntakeNavigationService.ts",
         "src/main/workPlanning/routedIssueLineageService.ts",
         "src/renderer/app/**",
+        "src/renderer/app/WorkflowHubWorkspace.tsx",
+        "src/renderer/app/WorkflowInstanceWorkspace.tsx",
         "src/renderer/styles.css",
         "src/shared/routedIssueLineageContracts.ts",
         "src/shared/routedWorkflowContracts.ts",
         "src/shared/workIntakeNavigationContracts.ts",
+        "src/shared/workflowHubContracts.ts",
         "src/shared/workspaces/**"
       ],
       "dependsOn": [

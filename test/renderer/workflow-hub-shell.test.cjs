@@ -11,9 +11,7 @@ const { FigmaSidebar } = loader.loadRendererSourceModule("src/renderer/app/figma
 const { LandingWorkspace } = loader.loadRendererSourceModule("src/renderer/app/LandingWorkspace.tsx");
 const { NestedWorkflowRail } = loader.loadRendererSourceModule("src/renderer/app/NestedWorkflowRail.tsx");
 const { WorkflowHubWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowHubWorkspace.tsx");
-const {
-  workflowDefinitions,
-} = loader.loadRendererSourceModule("src/shared/workflowHubContracts.ts");
+const { WORKFLOW_TYPE_REGISTRY } = loader.loadRendererSourceModule("src/shared/projectState/workflowTypeRegistry.ts");
 
 const repoRoot = path.join(__dirname, "..", "..");
 
@@ -78,28 +76,9 @@ test("Workflow Hub registry exposes only the functional peer workflows", () => {
     assert.equal(isWorkRouteId(unknown), false);
     assert.equal(getWorkRouteProfile(unknown), undefined);
   }
-  assert.deepEqual(
-    workflowDefinitions.map(({ workflowId, label, description, tags }) => ({
-      workflowId,
-      label,
-      description,
-      tags,
-    })),
-    [
-      {
-        workflowId: "development",
-        label: "Development",
-        description: "Plan, implement, review, and validate planned software development.",
-        tags: ["Plan", "Build", "Prove"],
-      },
-      {
-        workflowId: "issue-resolution",
-        label: "Issue Resolution",
-        description: "Investigate and resolve problems in the current project baseline.",
-        tags: ["Investigate", "Fix", "Verify"],
-      },
-    ],
-  );
+  assert.deepEqual(Object.values(WORKFLOW_TYPE_REGISTRY).filter(row => row.directStart).map(row => row.workflowType), [
+    "feature-capability", "refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype", "issue-resolution",
+  ]);
 });
 
 test("Hub with no selected project renders project-selection shell without Development lifecycle status", () => {
@@ -118,8 +97,12 @@ test("Hub with no selected project renders project-selection shell without Devel
   }));
   const hubMarkup = renderToStaticMarkup(React.createElement(WorkflowHubWorkspace, {
     onOpenSourceControl: () => undefined,
+    onOpenWorkflow: () => undefined,
+    onStartWorkflow: async () => undefined,
+    onStartWorkIntake: () => undefined,
     projectName: "No Project Selected",
     sourceControlAvailable: false,
+    inventory: null, selectedWorkflowId: null, loading: false, error: "",
     workspace: { ok: false, workspaceRoot: null, reason: "No project selected." },
   }));
 
@@ -132,33 +115,95 @@ test("Hub with no selected project renders project-selection shell without Devel
   assert.doesNotMatch(hubMarkup, /Development|Current Required Workflow Step|Phase Loop|Work Card loop/);
 });
 
-test("Selected-project Hub exposes Source Control and Work Intake without legacy workflow recovery", () => {
+test("Selected-project Hub groups independent Workflow instances and direct starts", () => {
+  const instance = (workflowId, workflowType, title, lifecycleState = "active") => ({
+    workflowId, workflowType, title, lineageId: `lineage-${workflowId}`, workflowState: lifecycleState === "closed" ? "closed" : "intake",
+    lifecycleState, currentWorkspace: "feature-intake", createdAt: "2026-01-01", updatedAt: "2026-01-01",
+  });
   const markup = renderToStaticMarkup(React.createElement(WorkflowHubWorkspace, {
     onOpenSourceControl: () => undefined,
+    onOpenWorkflow: () => undefined,
+    onStartWorkflow: async () => undefined,
+    onStartWorkIntake: () => undefined,
     projectName: "ChampCity_AI",
     sourceControlAvailable: true,
+    inventory: { groups: [
+      { workflowType: "feature-capability", workflows: [instance("feature-1111", "feature-capability", "Improve onboarding"), instance("feature-2222", "feature-capability", "Add dashboard", "closed")] },
+      { workflowType: "issue-resolution", workflows: [instance("issue-1111", "issue-resolution", "Startup crash"), instance("issue-2222", "issue-resolution", "Broken export")] },
+      { workflowType: "work-intake-routing", workflows: [instance("wir-1111", "work-intake-routing", "Route request")] },
+    ] }, selectedWorkflowId: "feature-2222", loading: false, error: "",
     workspace: { ok: true, workspaceRoot: "<PROJECT_REPO>" },
   }));
 
   assert.match(markup, /<h1 id="workspace-heading">Workflows<\/h1>/);
-  assert.match(markup, /Start new work on ChampCity_AI or inspect its Source Control\./);
-  assert.match(markup, /aria-label="Start work"/);
-  assert.match(markup, /Open Work Intake/);
+  assert.match(markup, /Feature \/ Capability/);
+  assert.match(markup, /\+ Start Feature/);
+  assert.match(markup, /Improve onboarding/);
+  assert.match(markup, /Add dashboard/);
+  assert.match(markup, /Completed/);
+  assert.match(markup, /aria-label="Open Add dashboard \(feature-\)/);
+  assert.match(markup, /\+ Help Me Route New Work/);
+  assert.match(markup, /Broken export/);
+  assert.match(markup, /2 instances/);
   assert.match(markup, /Source Control/);
-  assert.match(markup, /View source graph/);
   assert.doesNotMatch(markup, /Continue legacy Development or Issue work|Existing workflow recovery|Continue Development|Open Issue Resolution/);
   assert.doesNotMatch(markup, /Plan, implement, review, and validate planned software development\.|Investigate and resolve problems in the current project baseline\./);
-  assert.doesNotMatch(markup, /Feature|Graphic|Brainstorm/);
+  assert.equal((markup.match(/class="workflow-type-group"/g) ?? []).length, 7);
 });
 
-test("non-source Current Project Hub omits Source Control and remains source-neutral", () => {
+test("Hub actions preserve exact Workflow identity and route WIR rows to their exact intake", () => {
+  const source = fs.readFileSync(path.join(repoRoot, "src/renderer/app/App.tsx"), "utf8");
+  const ts = require("typescript");
+  const ast = ts.createSourceFile("App.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const declarations = new Map();
+  function visit(node) {
+    if (ts.isFunctionDeclaration(node) && node.name) declarations.set(node.name.text, node.getText(ast));
+    ts.forEachChild(node, visit);
+  }
+  visit(ast);
+  assert.match(declarations.get("startDirectWorkflow"), /startWorkflow\(request\)/);
+  assert.match(declarations.get("startDirectWorkflow"), /getWorkflow\(created\.workflow\.workflowId\)/);
+  assert.match(declarations.get("startDirectWorkflow"), /setSelectedWorkflowId\(opened\.workflow\.workflowId\)/);
+  assert.match(declarations.get("openCurrentWorkflow"), /getWorkflow\(workflowId\)/);
+  assert.match(declarations.get("openCurrentWorkflow"), /openWorkIntakeForWorkflow\(result\.workflow\.workIntakeId\)/);
+  assert.match(declarations.get("openWorkIntakeForWorkflow"), /item\.intakeId === intakeId/);
+  assert.match(declarations.get("openWorkIntakeForWorkflow"), /setShellView\("work-intake"\)/);
+  assert.match(source, /onStartWorkIntake=\{\(\) => void openWorkIntake\(\)\}/);
+  assert.match(source, /onOpenWorkflow=\{workflowId => void openCurrentWorkflow\(workflowId\)\}/);
+  assert.doesNotMatch(declarations.get("startDirectWorkflow"), /startWorkIntake|createWorkIntake|submitWorkIntake/);
+});
+
+test("non-source Current Project Hub omits Source Control", () => {
   const markup = renderToStaticMarkup(React.createElement(WorkflowHubWorkspace, {
-    onOpenSourceControl: () => undefined, projectName: "Notes Project", sourceControlAvailable: false,
+    onOpenSourceControl: () => undefined, onOpenWorkflow: () => undefined, onStartWorkflow: async () => undefined,
+    onStartWorkIntake: () => undefined, inventory: { groups: [] }, selectedWorkflowId: null, loading: false, error: "",
+    projectName: "Notes Project", sourceControlAvailable: false,
     workspace: { ok: true, workspaceRoot: "<PROJECT_REPO>" },
   }));
-  assert.match(markup, /Start new work on Notes Project\./);
-  assert.match(markup, /Open Work Intake/);
   assert.doesNotMatch(markup, /Source Control|View source graph/);
+  assert.match(markup, /\+ New Issue/);
+});
+
+test("Workflow IPC accepts exact bounded arguments and binds calls to the main-selected project", async () => {
+  const { registerWorkflowApplicationIpc } = require("../../dist/main/workflow/workflowApplicationIpc.js");
+  const handlers = new Map();
+  const calls = [];
+  const service = {
+    listCurrentProjectWorkflows: async root => { calls.push(["list", root]); return { groups: [] }; },
+    startDirectWorkflow: async (root, request) => { calls.push(["start", root, request]); return { workflow: { workflowId: "wf-1" } }; },
+    getCurrentProjectWorkflow: async (root, id) => { calls.push(["get", root, id]); return { workflow: { workflowId: id } }; },
+  };
+  registerWorkflowApplicationIpc({ handle: (channel, handler) => handlers.set(channel, handler) }, () => "<PROJECT_REPO>", service);
+  assert.deepEqual(await handlers.get("workflow:list")({},), { groups: [] });
+  await assert.rejects(handlers.get("workflow:list")({}, "renderer-root"), /does not accept renderer arguments/);
+  assert.deepEqual(await handlers.get("workflow:start")({}, { workflowType: "feature-capability", title: "A feature" }), { workflow: { workflowId: "wf-1" } });
+  await assert.rejects(handlers.get("workflow:start")({}, { workflowType: "feature-capability", title: "A", projectRoot: "elsewhere" }), /only Workflow type and title/);
+  assert.deepEqual(await handlers.get("workflow:get")({}, "exact-workflow-id"), { workflow: { workflowId: "exact-workflow-id" } });
+  await assert.rejects(handlers.get("workflow:get")({}, "   "), /Exact Workflow ID/);
+  assert.deepEqual(calls, [
+    ["list", "<PROJECT_REPO>"], ["start", "<PROJECT_REPO>", { workflowType: "feature-capability", title: "A feature" }],
+    ["get", "<PROJECT_REPO>", "exact-workflow-id"],
+  ]);
 });
 
 test("Hub sidebar omits Development lifecycle fields while Development sidebar owns them", () => {

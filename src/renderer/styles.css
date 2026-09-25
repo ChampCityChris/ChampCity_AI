@@ -5267,6 +5267,288 @@ body {
   font-weight: 720;
 }
 
+.workflow-hub-header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.workflow-source-control-action,
+.workflow-start-action,
+.workflow-start-form-actions button,
+.workflow-instance-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 12px;
+  color: var(--foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.workflow-source-control-action:hover,
+.workflow-start-action:hover,
+.workflow-instance-back:hover {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+}
+
+.workflow-inventory {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.workflow-type-group {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.06);
+}
+
+.workflow-type-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.workflow-type-header > div {
+  display: grid;
+  gap: 4px;
+}
+
+.workflow-type-header h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 740;
+}
+
+.workflow-type-header span,
+.workflow-type-empty {
+  color: var(--figma-shell-muted);
+  font-size: 12px;
+}
+
+.workflow-type-empty {
+  margin: 0;
+}
+
+.workflow-instance-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workflow-instance-item {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--background) 55%, var(--card));
+}
+
+.workflow-instance-item.is-completed {
+  background: color-mix(in srgb, var(--muted) 34%, var(--card));
+  opacity: 0.76;
+}
+
+.workflow-instance-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 62px;
+  padding: 10px 12px;
+  color: var(--foreground);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: inherit;
+  cursor: pointer;
+}
+
+.workflow-instance-row:hover,
+.workflow-instance-row:focus-visible,
+.workflow-instance-row.is-selected {
+  outline: 2px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  outline-offset: -2px;
+}
+
+.workflow-instance-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.workflow-instance-main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.workflow-instance-main > span {
+  color: var(--figma-shell-muted);
+  font-size: 12px;
+  text-transform: capitalize;
+}
+
+.workflow-instance-status {
+  padding: 4px 8px;
+  color: var(--figma-shell-primary);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 720;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.workflow-instance-status.is-completed {
+  color: var(--figma-shell-muted);
+  background: color-mix(in srgb, var(--muted) 80%, transparent);
+}
+
+.workflow-instance-open {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workflow-start-form {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--background) 58%, var(--card));
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+
+.workflow-start-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workflow-start-form input {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  color: var(--foreground);
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+}
+
+.workflow-start-form p,
+.workflow-hub-error {
+  margin: 0;
+  color: var(--destructive, #b42318);
+  font-size: 13px;
+}
+
+.workflow-start-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.workflow-instance-workspace {
+  display: grid;
+  align-content: start;
+  gap: 24px;
+  min-height: 100%;
+  padding: 28px;
+  color: var(--foreground);
+  background: var(--background);
+}
+
+.workflow-instance-shell-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.workflow-instance-shell-header p {
+  margin: 0 0 6px;
+  color: var(--figma-shell-muted);
+  font-size: 13px;
+}
+
+.workflow-instance-shell-header h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.workflow-instance-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.workflow-instance-details > div {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+
+.workflow-instance-details dt {
+  color: var(--figma-shell-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workflow-instance-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+
+.workflow-instance-shell-note {
+  color: var(--figma-shell-muted);
+  font-size: 14px;
+}
+
+@media (max-width: 680px) {
+  .workflow-hub-header,
+  .workflow-instance-shell-header {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .workflow-instance-shell-header {
+    flex-direction: column;
+  }
+
+  .workflow-instance-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .workflow-instance-open {
+    display: none;
+  }
+}
+
 .issue-resolution-navigation .figma-pipeline-nav {
   background: var(--nav-pipeline);
 }

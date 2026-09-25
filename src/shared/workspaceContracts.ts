@@ -1399,6 +1399,9 @@ export interface WorkspaceMigrationResult {
 }
 
 export interface ChampCityApi {
+  listWorkflows: () => Promise<import("./workflowApplicationContracts").WorkflowInventory>;
+  startWorkflow: (request: import("./workflowApplicationContracts").DirectWorkflowStartRequest) => Promise<import("./workflowApplicationContracts").DirectWorkflowStartResult>;
+  getWorkflow: (workflowId: string) => Promise<import("./workflowApplicationContracts").WorkflowOpenResult>;
   getSourceGraph: (options?: import("./sourceLifecycleContracts").SourceGraphOptions) => Promise<import("./sourceControlContracts").SourceControlResult<import("./sourceLifecycleContracts").SourceGraph>>;
   getSourceGraphRevisionDetail: (revisionId: string) => Promise<import("./sourceControlContracts").SourceControlResult<import("./sourceLifecycleContracts").SourceGraphRevisionDetail>>;
   getWorkIntakeNavigation: (intakeId?: string) => Promise<import("./workIntakeNavigationContracts").WorkIntakeNavigationProjection>;

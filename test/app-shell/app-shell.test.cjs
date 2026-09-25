@@ -11,7 +11,6 @@ const { loadProductionFunctions, mainPreloadHarness } = require("../support/prod
 test("old implementation and rejected manifest paths are absent", () => {
   const absentPaths = [
     "src/shared/workflow",
-    "src/main/workflow",
     "src/main/artifacts",
     "src/main/contextPackets",
     "scripts/migration/historical-corpus-v1",
