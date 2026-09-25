@@ -55,6 +55,9 @@ import { resolveFirstNonApprovedDocument } from "./documents/firstNonApprovedRes
 import { submitProjectIntakeForRepository } from "./projectIntake/projectIntakeService";
 import { getWorkIntakeProjection, readWorkIntake, submitWorkIntake } from "./workIntake/workIntakeService";
 import { createSourceControlService } from "./sourceControl/sourceControlService";
+import { establishManagedProjectSource } from "./sourceControl/managedProjectSourceService";
+import { registerCurrentProject } from "./projectState/currentProjectRegistrationService";
+import { MANAGED_PROJECT_SOURCE_PATHS } from "../shared/sourceLifecycleContracts";
 import { selectedSourceGraphRepositoryId } from "./sourceControl/sourceGraphService";
 import type { SourceGraphOptions } from "../shared/sourceLifecycleContracts";
 import { captureGreenfieldWorkIntake, captureStructuredWorkIntake, getGreenfieldWorkIntakeProjection, getStructuredWorkIntakeProjection, isGreenfieldProjectRoot, retryStructuredWorkIntakeSource, selectedStructuredProjectId } from "./workIntake/structuredWorkIntakeService";
@@ -356,6 +359,37 @@ ipcMain.handle("workspace:clear", (): WorkspaceSelection => {
   sessionActiveWorkspace.deactivate(deactivateSelectedWorkspaceRuntime);
   return clearSelectedWorkspace(getUserDataRoot());
 });
+
+ipcMain.handle("project:registerCurrent", async (_event, mode: "existing" | "greenfield", projectName?: string) => {
+  if (mode !== "existing" && mode !== "greenfield") throw new Error("A current Project registration mode is required.");
+  const root = getRequiredWorkspaceRoot();
+  if (mode === "greenfield") assertGreenfieldProjectEntry(root);
+  const registration = await registerCurrentProject(root, mode, projectName === undefined ? {} : { projectName });
+  const repositoryId = registration.projectResource.body.logicalName;
+  const agentHarness = getAgentHarnessServiceHostClient();
+  const workspace = await agentHarness.registerWorkspace(root);
+  const checkoutRegistration = { workspaceId: workspace.workspace.workspaceId,
+    registerRepositoryCheckout: (workspaceId: string, checkout: import("../shared/sourceLifecycleContracts").RepositoryCheckout) =>
+      agentHarness.registerRepositoryCheckout(workspaceId, checkout) };
+  if (mode === "greenfield") {
+    const result = await createSourceControlService({ repositoryId, repositoryRoot: root, checkoutRegistration }).bootstrapProjectSource();
+    if (!result.ok) throw new Error(result.error.message);
+  } else if (fs.existsSync(path.join(root, ".git")) || fs.existsSync(path.join(root, MANAGED_PROJECT_SOURCE_PATHS.repositoryMetadataRelativePath))) {
+    await establishManagedProjectSource({ projectRoot: root, repositoryId, workspaceId: workspace.workspace.workspaceId,
+      checkoutRegistration: { registerRepositoryCheckout: checkoutRegistration.registerRepositoryCheckout } });
+  }
+  return { projectId: registration.project.id, projectName: registration.project.body.name, repositoryId,
+    projectRoot: root, mode, created: registration.created };
+});
+
+function assertGreenfieldProjectEntry(root: string): void {
+  const metadata = path.join(root, MANAGED_PROJECT_SOURCE_PATHS.repositoryMetadataRelativePath);
+  if (fs.existsSync(metadata)) return;
+  const entries = fs.readdirSync(root);
+  if (entries.some(entry => entry !== ".champcity")) throw new Error("Start New Project requires an empty Project container.");
+  for (const name of ["Main", "Dev"]) if (fs.existsSync(path.join(root, name)))
+    throw new Error("Start New Project found conflicting managed source paths.");
+}
 
 ipcMain.handle("app:info", (): AppInfo => {
   return appInfo;

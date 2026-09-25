@@ -1534,6 +1534,33 @@
       ]
     },
     {
+      "capabilityId": "current-project-entry-runtime",
+      "description": "Landing entry paths establish exact Current Project identity and managed Main/Dev source topology before entering Project Intake or Workflow Hub.",
+      "sourcePatterns": [
+        "src/main/main.ts",
+        "src/main/projectState/currentProjectRegistrationService.ts",
+        "src/main/sourceControl/managedProjectSourceService.ts",
+        "src/main/sourceControl/projectSourceBootstrap.ts",
+        "src/preload/index.ts",
+        "src/renderer/app/App.tsx",
+        "src/shared/workspaceContracts.ts"
+      ],
+      "dependsOn": [
+        "managed-project-source-topology",
+        "project-state-service"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "existing-entry-opens-historical-project-as-current-sps-identity",
+          "description": "Existing Project landing entry registers SPS identity and preserves historical Markdown without legacy Workflow reconstruction."
+        },
+        {
+          "behaviorId": "greenfield-entry-registers-current-project-and-enters-project-intake-with-main-dev",
+          "description": "Greenfield landing entry establishes SPS identity, a deterministic managed source baseline, and Project Intake without Work Intake creation."
+        }
+      ]
+    },
+    {
       "capabilityId": "desktop-application-shell",
       "description": "Desktop shell, native boundaries, navigation, clipboard, dialogs, identity, and local context menus.",
       "sourcePatterns": [
@@ -13971,6 +13998,55 @@
           "capabilityId": "project-state-service",
           "behaviorId": "committed-event-feed-replays-with-idempotent-derived-cursor",
           "proofLocator": "committed feed replays by sequence and derived cursor is idempotent",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/project-state/current-project-entry.test.cjs",
+      "currentTestCount": {
+        "value": 3,
+        "basis": "WRB01-04 Greenfield IPC/preload registration and Main/Dev binding, existing historical Project registration, and landing destination assertions."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 320,
+        "basis": "Observed normal Windows focused WRB01-04 entry test receipt before the landing assertion was added."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "windows",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": ["capability", "integration"],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "windows",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Each scenario uses an isolated temporary Project container and stubbed Agent Harness registration.",
+        "ownedResources": ["temp-filesystem-isolated"]
+      },
+      "proofCharacteristics": ["behavioral"],
+      "dispositionReasons": ["current-proof-appropriate"],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "current-project-entry-runtime",
+          "behaviorId": "existing-entry-opens-historical-project-as-current-sps-identity",
+          "proofLocator": "Existing historical Project entry returns stable Current Project identity without legacy Workflow reconstruction",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "current-project-entry-runtime",
+          "behaviorId": "greenfield-entry-registers-current-project-and-enters-project-intake-with-main-dev",
+          "proofLocator": "Greenfield Project IPC registers SPS and Main/Dev through preload; landing route enters Project Intake without opening Work Intake",
           "proofRole": "primary"
         }
       ]

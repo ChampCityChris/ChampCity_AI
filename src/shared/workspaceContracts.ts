@@ -62,6 +62,15 @@ export type WorkspaceSelection =
       reason: string;
     };
 
+export interface CurrentProjectRuntimeContext {
+  projectId: string;
+  projectName: string;
+  repositoryId: string;
+  projectRoot: string;
+  mode: "existing" | "greenfield";
+  created: boolean;
+}
+
 export interface McpWorkspaceBinding {
   mcpWorkspaceId: string;
   label?: string;
@@ -1420,6 +1429,7 @@ export interface ChampCityApi {
   readGithubEvidence: (request: GithubEvidenceRequest) => Promise<GithubEvidence>;
   getSelectedWorkspace: () => Promise<WorkspaceSelection>;
   chooseWorkspaceFolder: () => Promise<WorkspaceSelection>;
+  registerCurrentProject: (mode: "existing" | "greenfield", projectName?: string) => Promise<CurrentProjectRuntimeContext>;
   clearSelectedWorkspace: () => Promise<WorkspaceSelection>;
   getAppInfo: () => Promise<AppInfo>;
   getAgentHarnessStatus: () => Promise<AgentHarnessStatus>;

@@ -7,6 +7,7 @@ import {
   type CloseReturnSelectionProjection,
   type CodexImplementerExecutionModel,
   type CurrentWorkspaceModel,
+  type CurrentProjectRuntimeContext,
   type DevelopmentPostMutationProjection,
   type AgentHarnessAuthenticationMode,
   type AgentHarnessSettingsInput,
@@ -224,7 +225,7 @@ export const settingsWorkspaceId = "settings" as WorkspaceId;
 
 type ShellView = "landing" | "workflow-hub" | "workflow" | "settings" | "work-intake" | "source-control";
 type SettingsReturnShellView = Exclude<ShellView, "landing" | "settings">;
-type ProjectEntryDestination = "workflow-hub" | "project-intake-capture" | "work-intake";
+type ProjectEntryDestination = "workflow-hub" | "project-intake-capture";
 
 const fallbackWorkspace: WorkspaceSelection = {
   ok: false,
@@ -304,6 +305,7 @@ export function App(): JSX.Element {
   const [settingsReturnWorkflowId, setSettingsReturnWorkflowId] =
     useState<WorkflowId | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceSelection>(fallbackWorkspace);
+  const [currentProject, setCurrentProject] = useState<CurrentProjectRuntimeContext | null>(null);
   const [agentHarnessStatus, setAgentHarnessStatus] =
     useState<AgentHarnessStatus | null>(null);
   const [agentHarnessServiceHostLifecycleStatus, setAgentHarnessServiceHostLifecycleStatus] =
@@ -2465,10 +2467,10 @@ export function App(): JSX.Element {
     setIsChoosing(true);
     setDocumentError("");
     try {
-      await activateWorkspaceSelection(
-        await window.champcity.chooseWorkspaceFolder(),
-        "workflow-hub",
-      );
+      const selection = await window.champcity.chooseWorkspaceFolder();
+      if (!selection.ok) { setDocumentError(selection.reason); return; }
+      const project = await window.champcity.registerCurrentProject("existing");
+      await activateWorkspaceSelection(selection, "workflow-hub", project);
     } catch (error) {
       setDocumentError(error instanceof Error ? error.message : "Existing project could not be opened.");
     } finally {
@@ -2480,10 +2482,10 @@ export function App(): JSX.Element {
     setIsChoosing(true);
     setDocumentError("");
     try {
-      await activateWorkspaceSelection(
-        await window.champcity.chooseWorkspaceFolder(),
-        "work-intake",
-      );
+      const selection = await window.champcity.chooseWorkspaceFolder();
+      if (!selection.ok) { setDocumentError(selection.reason); return; }
+      const project = await window.champcity.registerCurrentProject("greenfield");
+      await activateWorkspaceSelection(selection, "project-intake-capture", project);
     } catch (error) {
       setDocumentError(error instanceof Error ? error.message : "New project directory could not be selected.");
     } finally {
@@ -2494,6 +2496,7 @@ export function App(): JSX.Element {
   async function activateWorkspaceSelection(
     selection: WorkspaceSelection,
     destination: ProjectEntryDestination,
+    project: CurrentProjectRuntimeContext | null = null,
   ): Promise<void> {
     if (!selection.ok) {
       setDocumentError(selection.reason);
@@ -2501,6 +2504,7 @@ export function App(): JSX.Element {
     }
 
     clearRepositoryDerivedState();
+    setCurrentProject(project);
     setWorkspace(selection);
     if (selection.mcpRegistrationError) {
       setDocumentError(`Project selected, but MCP registration failed: ${selection.mcpRegistrationError}`);
@@ -2510,10 +2514,6 @@ export function App(): JSX.Element {
       projectRepository: selection.workspaceRoot,
     }));
 
-    if (destination === "work-intake") {
-      await openWorkIntake();
-      return;
-    }
     if (destination === "project-intake-capture") {
       setShellView("workflow");
       setActiveWorkflowId("development");
@@ -4470,6 +4470,7 @@ export function App(): JSX.Element {
           {!usesFigmaWorkspaceBody ? (
             <CurrentWorkspaceBanner
               activeWorkspaceLabel={activeWorkspace.label}
+              currentProject={currentProject}
               model={currentModel}
               resolverResult={resolverResult}
               suppress={isWorkCardReportReview}
@@ -6782,11 +6783,13 @@ function projectDisplayName(selection: WorkspaceSelection): string {
 
 function CurrentWorkspaceBanner({
   activeWorkspaceLabel,
+  currentProject,
   model,
   resolverResult,
   suppress,
 }: {
   activeWorkspaceLabel: string;
+  currentProject: CurrentProjectRuntimeContext | null;
   model: CurrentWorkspaceModel | null;
   resolverResult: FirstNonApprovedResult | null;
   suppress?: boolean;
@@ -6802,7 +6805,8 @@ function CurrentWorkspaceBanner({
     ? workspaceDefinitions.find((definition) => definition.id === model.activeWorkspaceId)?.label
     : null;
   return (
-    <section className="current-workspace-banner" aria-label="Current required workflow step">
+    <section className="current-workspace-banner" aria-label="Current required workflow step" data-project-id={currentProject?.projectId}>
+      {currentProject ? <div><span>Current Project</span><strong>{currentProject.projectName}</strong><small>{currentProject.projectId}</small></div> : null}
       <div>
         <span>Current Required Workflow Step</span>
         <strong>{requiredWorkspaceLabel ?? current?.owningWorkspace ?? activeWorkspaceLabel}</strong>

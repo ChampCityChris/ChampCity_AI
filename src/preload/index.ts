@@ -44,6 +44,7 @@ const api: ChampCityApi = {
   readGithubEvidence: (request) => ipcRenderer.invoke("githubProvider:read", request),
   getSelectedWorkspace: () => ipcRenderer.invoke("workspace:get") as Promise<WorkspaceSelection>,
   chooseWorkspaceFolder: () => ipcRenderer.invoke("workspace:choose") as Promise<WorkspaceSelection>,
+  registerCurrentProject: (mode, projectName) => ipcRenderer.invoke("project:registerCurrent", mode, projectName) as ReturnType<ChampCityApi["registerCurrentProject"]>,
   clearSelectedWorkspace: () => ipcRenderer.invoke("workspace:clear") as Promise<WorkspaceSelection>,
   getAppInfo: () => ipcRenderer.invoke("app:info") as Promise<AppInfo>,
   getAgentHarnessStatus: () => ipcRenderer.invoke("agentHarness:status") as Promise<AgentHarnessStatus>,
