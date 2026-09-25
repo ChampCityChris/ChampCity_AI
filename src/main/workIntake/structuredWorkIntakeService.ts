@@ -5,9 +5,11 @@ import { DatabaseSync } from "node:sqlite";
 import type { CapturedWorkIntake, WorkIntakeProjection, WorkIntakeSubmission } from "../../shared/workIntakeContracts";
 import type { SourceReadiness } from "../../shared/sourceLifecycleContracts";
 import type { ProjectStateRecord } from "../../shared/projectState/domainContracts";
+import { currentProjectRepositoryId } from "../projectState/currentProjectRegistrationService";
 import { createProjectStateService } from "../../shared/projectState/projectStateService";
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
 import { createSourceControlService } from "../sourceControl/sourceControlService";
+import { resolveManagedDevRepositoryCheckout } from "../sourceControl/managedProjectSourceService";
 
 const principal = { principalId: "local-operator", principalType: "human" as const, role: "Operator" };
 const diagnostic = (code: string) => code.replace(/[^A-Z0-9_-]/gi, "_").slice(0, 64) || "SOURCE_PREPARATION_FAILED";
@@ -31,30 +33,23 @@ export function getGreenfieldWorkIntakeProjection(root: string): WorkIntakeProje
     capturedIntakes: [], currentCapturedIntake: null };
 }
 
-function captured(intake: ProjectStateRecord<"WorkIntake">, repositoryId: string,
+function captured(intake: ProjectStateRecord<"WorkIntake">, repositoryId: string | null,
   checkpoints: ProjectStateRecord<"SourceCheckpoint">[] = []): CapturedWorkIntake {
   return { intakeId: intake.id, projectId: intake.projectId, workRequest: intake.body.request,
     desiredOutcome: intake.body.desiredOutcome, knownConstraints: intake.body.constraints[0] ?? "",
-    repositoryReviewContext: intake.body.evidenceContext[0] ?? "", source: { state: "unprepared", repositoryId, workIntakeId: intake.id },
-    sourceCheckpoints: checkpoints.map(item => ({ boundaryId: item.body.boundaryId, kind: item.body.checkpointKind,
+    repositoryReviewContext: intake.body.evidenceContext[0] ?? "", source: { state: "not-applicable", workIntakeId: intake.id },
+    sourceCheckpoints: repositoryId ? checkpoints.map(item => ({ boundaryId: item.body.boundaryId, kind: item.body.checkpointKind,
       state: item.body.checkpointState,
       ...(item.body.resultingRevisionId ? { revision: { repositoryId,
-        revisionId: item.body.resultingRevisionId } } : {}) })) };
+        revisionId: item.body.resultingRevisionId } } : {}) })) : [] };
 }
 
-async function repositoryIdentity(store: ReturnType<typeof createSQLiteProjectStateStore>, projectId: string): Promise<string> {
-  const resources = await store.listEntities(projectId, "ProjectResource");
-  const resource = resources.find(item => item.entityType === "ProjectResource" && item.body.resourceType === "source-repository");
-  if (resource?.entityType === "ProjectResource") return resource.body.logicalName;
-  return "selected-repository";
-}
-
-export async function getStructuredWorkIntakeProjection(root: string, projectId: string, repositoryRoot: string = root): Promise<WorkIntakeProjection> {
+export async function getStructuredWorkIntakeProjection(root: string, projectId: string, repositoryRoot?: string): Promise<WorkIntakeProjection> {
   const store = createSQLiteProjectStateStore(path.join(fs.realpathSync(root), ".champcity", "project-state.sqlite"));
   try {
     const project = await store.getProject(projectId);
     if (!project) throw Error("Selected structured Project is unavailable.");
-    const repositoryId = await repositoryIdentity(store, projectId);
+    const repositoryId = await currentProjectRepositoryId(root);
     const intakes = (await store.listEntities(projectId, "WorkIntake"))
       .filter((item): item is ProjectStateRecord<"WorkIntake"> => item.entityType === "WorkIntake" && item.lifecycleState === "active")
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -73,10 +68,12 @@ export async function getStructuredWorkIntakeProjection(root: string, projectId:
       const lineageIds = new Set(workflows.filter(row => row.entityType === "Workflow" && [...targetIds].some(targetId => workflows.some(target => target.entityType === "Workflow" && target.id === targetId && target.lineageId === row.lineageId))).map(row => row.id));
       return captured(item, repositoryId, checkpoints.filter(checkpoint => lineageIds.has(checkpoint.body.workflowId)));
     });
-    const source = createSourceControlService({ repositoryRoot, projectContainerRoot: root, repositoryId });
-    const branches = await source.branches();
-    const available = branches.ok ? branches.result.branches : [];
-    const currentBranch = branches.ok ? branches.result.currentBranch : null;
+    const sourceRoot = repositoryId ? repositoryRoot ?? await resolveManagedDevRepositoryCheckout(root) : null;
+    const branches = sourceRoot && repositoryId
+      ? await createSourceControlService({ repositoryRoot: sourceRoot, projectContainerRoot: root, repositoryId }).branches()
+      : null;
+    const available = branches?.ok ? branches.result.branches : [];
+    const currentBranch = branches?.ok ? branches.result.currentBranch : null;
     const suggestedBase = available.find(item => item.name === "dev") ?? null;
     return { authority: "structured", project: { projectId, repositoryId, name: project.body.name }, suggestedProjectName: project.body.name,
       branches: suggestedBase ? [suggestedBase] : [], currentBranch, suggestedBase, intakes: [], currentIntake: null, blockedReason: null,
@@ -89,7 +86,7 @@ async function prepare(root: string, projectId: string, intakeId: string): Promi
   try {
     const intake = await store.getEntity(projectId, intakeId);
     if (intake?.entityType !== "WorkIntake") throw Error("Saved Work Intake is unavailable.");
-    const repositoryId = await repositoryIdentity(store, projectId);
+    const repositoryId = await currentProjectRepositoryId(root);
     return captured(intake, repositoryId);
   } finally { store.close(); }
 }

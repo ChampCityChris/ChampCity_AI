@@ -4148,8 +4148,9 @@ export function App(): JSX.Element {
               ) : null}
               <WorkflowHubWorkspace
                 onStartWork={() => void openWorkIntake()}
-                onOpenSourceControl={() => setShellView("source-control")}
+                onOpenSourceControl={() => { if (currentProject?.repositoryId) setShellView("source-control"); }}
                 projectName={projectDisplayName(workspace)}
+                sourceControlAvailable={currentProject?.repositoryId !== null && currentProject?.repositoryId !== undefined}
                 workspace={workspace}
               />
               {documentError ? <p role="alert">{documentError}</p> : null}

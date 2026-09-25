@@ -56,7 +56,7 @@ import { submitProjectIntakeForRepository } from "./projectIntake/projectIntakeS
 import { getWorkIntakeProjection, readWorkIntake, submitWorkIntake } from "./workIntake/workIntakeService";
 import { createSourceControlService } from "./sourceControl/sourceControlService";
 import { establishManagedProjectSource, resolveManagedDevRepositoryCheckout } from "./sourceControl/managedProjectSourceService";
-import { CURRENT_PROJECT_REPOSITORY_ID, registerCurrentProject, selectedCurrentProjectId } from "./projectState/currentProjectRegistrationService";
+import { CURRENT_PROJECT_REPOSITORY_ID, currentProjectRepositoryId, registerCurrentProject, selectedCurrentProjectId } from "./projectState/currentProjectRegistrationService";
 import { MANAGED_PROJECT_SOURCE_PATHS } from "../shared/sourceLifecycleContracts";
 import { selectedSourceGraphRepositoryId } from "./sourceControl/sourceGraphService";
 import type { SourceGraphOptions } from "../shared/sourceLifecycleContracts";
@@ -380,7 +380,13 @@ ipcMain.handle("project:registerCurrent", async (_event, mode: "existing" | "gre
     registration = await registerCurrentProject(root, mode, { ...(projectName === undefined ? {} : { projectName }), sourceRepositoryId: CURRENT_PROJECT_REPOSITORY_ID });
   } else {
     const hasConventionalGit = fs.existsSync(path.join(root, ".git"));
-    const hasManagedRepository = fs.existsSync(path.join(root, MANAGED_PROJECT_SOURCE_PATHS.repositoryMetadataRelativePath));
+    const hasManagedMetadata = fs.existsSync(path.join(root, MANAGED_PROJECT_SOURCE_PATHS.repositoryMetadataRelativePath));
+    const hasManagedMain = fs.existsSync(path.join(root, MANAGED_PROJECT_SOURCE_PATHS.mainCheckoutRelativePath));
+    const hasManagedDev = fs.existsSync(path.join(root, MANAGED_PROJECT_SOURCE_PATHS.devCheckoutRelativePath));
+    const hasManagedComponents = hasManagedMetadata || hasManagedMain || hasManagedDev;
+    const hasManagedRepository = hasManagedMetadata && hasManagedMain && hasManagedDev;
+    if (!hasConventionalGit && hasManagedComponents && !hasManagedRepository)
+      throw new Error("Existing Project has an incomplete managed source topology; no Current Project identity was changed.");
     registration = await registerCurrentProject(root, mode, { ...(projectName === undefined ? {} : { projectName }),
       ...(hasConventionalGit || hasManagedRepository ? { sourceRepositoryId: CURRENT_PROJECT_REPOSITORY_ID } : {}) });
     workspace = await agentHarness.registerWorkspace(root);
@@ -828,7 +834,7 @@ ipcMain.handle("workIntake:projection", async () => {
   const root = getRequiredWorkspaceRoot();
   const projectId = selectedCurrentProjectId(root);
   if (projectId) {
-    const repositoryRoot = await resolveManagedDevRepositoryCheckout(root);
+    const repositoryRoot = await currentProjectRepositoryId(root) ? await resolveManagedDevRepositoryCheckout(root) : undefined;
     return getStructuredWorkIntakeProjection(root, projectId, repositoryRoot);
   }
   return isGreenfieldProjectRoot(root) ? getGreenfieldWorkIntakeProjection(root) : getWorkIntakeProjection(root);

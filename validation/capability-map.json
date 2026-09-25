@@ -1535,7 +1535,7 @@
     },
     {
       "capabilityId": "current-project-entry-runtime",
-      "description": "Landing entry establishes fresh Current Project identity independent of historical Project rows; Greenfield entry bootstraps managed Main/Dev before SPS registration and rejects already-current Projects.",
+      "description": "Landing entry establishes Current Project registration independently from optional Repository identity; Greenfield entry bootstraps managed Main/Dev before SPS registration.",
       "sourcePatterns": [
         "src/main/main.ts",
         "src/main/migrations/legacyAuthorityInventory.ts",
@@ -1559,7 +1559,7 @@
       "behaviors": [
         {
           "behaviorId": "current-project-discovery-uses-only-current-project-registration",
-          "description": "Current Project discovery uses one active SPS selected-project source registration, ignores abandoned Project rows and legacy locators, and fails closed on duplicate current registrations."
+          "description": "Current Project discovery uses one active canonical current-project-registration resource on an active Project, ignores obsolete Repository markers, and fails closed on duplicates."
         },
         {
           "behaviorId": "current-project-source-graph-uses-managed-dev-and-project-state-metadata",
@@ -1571,11 +1571,15 @@
         },
         {
           "behaviorId": "existing-entry-opens-historical-project-as-current-sps-identity",
-          "description": "Existing Project landing entry registers SPS identity and preserves historical Markdown without legacy Workflow reconstruction."
+          "description": "Existing Project landing entry registers SPS identity and preserves historical Markdown without legacy Workflow reconstruction; non-Git Projects have no Repository identity."
         },
         {
           "behaviorId": "greenfield-entry-registers-current-project-and-enters-project-intake-with-main-dev",
           "description": "Greenfield entry establishes a deterministic managed baseline before SPS identity, can finish an existing compatible baseline, rejects an already-current Project, and creates no Work Intake."
+        },
+        {
+          "behaviorId": "non-source-current-project-hub-omits-source-control-and-fails-closed-on-source-graph",
+          "description": "Non-source Current Project Hub omits Source Control and Source Graph fails before managed Dev resolution."
         }
       ]
     },
@@ -1934,7 +1938,7 @@
     },
     {
       "capabilityId": "existing-project-dev-work-source",
-      "description": "Existing-project work sources start at the exact local dev ref without switching or cleaning the selected checkout.",
+      "description": "Substantive routed target Workflows own optional source bindings; source-neutral Work Intake owns no SourceLine.",
       "sourcePatterns": [
         "src/main/planExecution/workItemCheckpointService.ts",
         "src/main/workIntake/structuredWorkIntakeService.ts",
@@ -1945,8 +1949,8 @@
       ],
       "behaviors": [
         {
-          "behaviorId": "dirty-dev-creates-exact-independent-work-source",
-          "description": "two Work Intake source lines use exact successive dev revisions without changing dirty primary checkout"
+          "behaviorId": "routed-target-workflows-own-independent-source-bindings",
+          "description": "routed target Workflows receive independent source bindings while Work Intake stays source-not-applicable"
         }
       ]
     },
@@ -4058,7 +4062,7 @@
         },
         {
           "behaviorId": "selected-project-hub-exposes-source-control-and-work-intake-without-legacy-workflow-recovery",
-          "description": "Selected-project Hub exposes Source Control and Work Intake without legacy Development or Issue recovery"
+          "description": "Selected-project Hub exposes Source Control only when the Current Project has optional source backing, and keeps Work Intake without legacy workflow recovery"
         },
         {
           "behaviorId": "source-control-workspace-renders-read-only-graph-navigation-and-integration-geometry",
@@ -4814,12 +4818,13 @@
     },
     {
       "capabilityId": "work-intake-capture-source-preparation",
-      "description": "Structured Work Intake capture, separate SourceBinding preparation, blocked retry and renderer Save eligibility.",
+      "description": "Source-neutral Work Intake capture, source-not-applicable readiness, optional managed Dev branch projection and renderer Save eligibility.",
       "sourcePatterns": [
         "src/main/main.ts",
         "src/main/sourceControl/managedProjectSourceService.ts",
         "src/main/sourceControl/sourceControlService.ts",
         "src/main/workIntake/structuredWorkIntakeService.ts",
+        "src/main/workIntake/workIntakeService.ts",
         "src/preload/index.ts",
         "src/renderer/app/App.tsx",
         "src/renderer/app/WorkIntakeWorkspace.tsx",
@@ -4834,8 +4839,12 @@
       ],
       "behaviors": [
         {
-          "behaviorId": "dirty-checkout-captures-intake-and-retries-source",
-          "description": "dirty primary checkout does not block structured Work Intake capture or source creation"
+          "behaviorId": "dirty-checkout-captures-intake-without-owning-source",
+          "description": "dirty primary checkout does not block structured Work Intake capture, which owns no SourceLine"
+        },
+        {
+          "behaviorId": "source-neutral-work-intake-returns-not-applicable-and-no-fabricated-repository",
+          "description": "WIR returns source-not-applicable regardless of Project source backing and non-source Projects have no fabricated Repository or branches"
         },
         {
           "behaviorId": "structured-work-intake-projection-uses-managed-dev-branch-inventory",
@@ -13604,8 +13613,8 @@
     {
       "testPath": "test/project-state/current-project-entry.test.cjs",
       "currentTestCount": {
-        "value": 5,
-        "basis": "WRB01-04 entry registration and landing proof; WRB01-R01-01 identity/retry scenarios; WRB01-R01-03 adds fail-closed managed Dev resolution and public Current Project Source Graph/revision/Work Intake branch projection."
+        "value": 7,
+        "basis": "WRB01 entry and repair proof; covers optional Repository identities, non-Git Existing Project registration, fail-closed Source Graph, managed Dev Source Graph/revision detail, WIR projection, and landing routes."
       },
       "duration": {
         "kind": "measured",
@@ -13657,7 +13666,13 @@
         {
           "capabilityId": "current-project-entry-runtime",
           "behaviorId": "greenfield-entry-registers-current-project-and-enters-project-intake-with-main-dev",
-          "proofLocator": "Greenfield IPC registers SPS after managed Main/Dev bootstrap; public Source Graph/revision detail and Current Work Intake projection use Dev Git plus Project SPS while the container remains non-Git",
+          "proofLocator": "Greenfield IPC registers Current Project and one optional Repository after managed Main/Dev bootstrap; Source Graph/revision detail and Work Intake projection use managed Dev plus Project SPS",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "current-project-entry-runtime",
+          "behaviorId": "non-source-current-project-hub-omits-source-control-and-fails-closed-on-source-graph",
+          "proofLocator": "Non-Git Existing Project IPC returns null repositoryId and only the registration marker; Source Graph rejects before managed Dev resolution",
           "proofRole": "primary"
         },
         {
@@ -17764,7 +17779,7 @@
     {
       "testPath": "test/renderer/workflow-hub-shell.test.cjs",
       "currentTestCount": {
-        "value": 9,
+        "value": 10,
         "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
@@ -17852,7 +17867,7 @@
         {
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "selected-project-hub-exposes-source-control-and-work-intake-without-legacy-workflow-recovery",
-          "proofLocator": "Selected-project Hub exposes Source Control and Work Intake while omitting legacy Development and Issue recovery cards",
+          "proofLocator": "Source-backed Current Project exposes Source Control; non-source Current Project keeps Work Intake and omits the source card; neither restores Development or Issue recovery",
           "proofRole": "primary"
         },
         {
@@ -18195,7 +18210,7 @@
     {
       "testPath": "test/source-control/managed-project-source.test.cjs",
       "currentTestCount": {
-        "value": 6,
+        "value": 7,
         "basis": "WRB01-02 conventional adoption, refs/remotes and dirty-content preservation, Agent Harness registration, idempotent reopen, fail-before-mutation, and main-only baseline scenarios; WRB01-R01-02 adds Dev-current preservation and unsupported-branch preflight."
       },
       "duration": {
@@ -19928,7 +19943,7 @@
     {
       "testPath": "test/work-intake/structured-work-intake-capture.test.cjs",
       "currentTestCount": {
-        "value": 5,
+        "value": 6,
         "basis": "SCL02 capture and retry plus SCL03 exact dev and collision scenarios."
       },
       "duration": {
@@ -19972,14 +19987,20 @@
       "behaviorCoverage": [
         {
           "capabilityId": "existing-project-dev-work-source",
-          "behaviorId": "dirty-dev-creates-exact-independent-work-source",
-          "proofLocator": "two Work Intake source lines use exact successive dev revisions without changing dirty primary checkout",
+          "behaviorId": "routed-target-workflows-own-independent-source-bindings",
+          "proofLocator": "WIR has no source state; substantive routed target Workflows own separate SourceBaseline and SourceBinding records",
           "proofRole": "primary"
         },
         {
           "capabilityId": "work-intake-capture-source-preparation",
-          "behaviorId": "dirty-checkout-captures-intake-and-retries-source",
-          "proofLocator": "dirty primary checkout does not block structured Work Intake capture or source creation",
+          "behaviorId": "dirty-checkout-captures-intake-without-owning-source",
+          "proofLocator": "dirty primary checkout does not block source-neutral structured Work Intake capture",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "work-intake-capture-source-preparation",
+          "behaviorId": "source-neutral-work-intake-returns-not-applicable-and-no-fabricated-repository",
+          "proofLocator": "source-backed and non-source Current Projects return not-applicable for WIR; non-source projection has no fabricated Repository or branches",
           "proofRole": "primary"
         }
       ]

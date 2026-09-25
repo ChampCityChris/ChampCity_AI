@@ -88,6 +88,7 @@ export interface ProjectSourceBootstrap {
 
 /** Workflow state is persisted independently; this reports only source preparation. */
 export type SourceReadiness =
+  | { state: "not-applicable"; workIntakeId: string }
   | { state: "unprepared" | "preparing"; repositoryId: string; workIntakeId: string }
   | { state: "ready"; repositoryId: string; workIntakeId: string; binding: WorkSourceBinding }
   | { state: "blocked"; repositoryId: string; workIntakeId: string; code: string; message: string; inspectionRequired: boolean };

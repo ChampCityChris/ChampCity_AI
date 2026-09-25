@@ -164,7 +164,7 @@ export async function establishManagedProjectSource(input: {
   if (!mainRef) fail("STALE_SOURCE", "Conventional Project must contain a main ref before adoption; source was not changed.");
   const createDevRef = !devRef && currentBranch === "main";
   if (!devRef && !createDevRef) fail("STALE_SOURCE", "A dev ref is required when the current branch cannot establish the main baseline; source was not changed.");
-  if (!refs || !remotes) fail("STALE_SOURCE", "Conventional Repository refs and remotes could not be inspected; source was not changed.");
+  if (!refs || remotes === null) fail("STALE_SOURCE", "Conventional Repository refs and remotes could not be inspected; source was not changed.");
   if (worktrees?.split(/\r?\n/).filter(line => line.startsWith("worktree ")).length !== 1)
     fail("STALE_SOURCE", "Repository has additional linked worktrees; normalize them before Project topology adoption.");
   for (const reserved of ["Main", "Dev", ".champcity/repository.git"]) {

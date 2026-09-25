@@ -117,6 +117,7 @@ export async function submitWorkIntake(root: string, input: WorkIntakeSubmission
   const project: WorkProjectIdentity = existingProject ?? {
     projectId: `project-${randomUUID()}`, repositoryId: `repository-${randomUUID()}`, name: input.projectName.trim(),
   };
+  if (!project.repositoryId) throw Error("Legacy branch-based Work Intake requires a source Repository.");
   const intakeId = `intake-${randomUUID()}`;
   const branchService = createWorkIntakeBranchService({ repositoryId: project.repositoryId, repositoryRoot: root });
   return branchService.establish({ intakeId, baseBranch: input.baseBranch, baseCommit: input.baseCommit }, (binding) => {

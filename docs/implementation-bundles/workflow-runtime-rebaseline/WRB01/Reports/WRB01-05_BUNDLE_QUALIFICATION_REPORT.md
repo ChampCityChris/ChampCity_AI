@@ -1,5 +1,7 @@
 # WRB01 Bundle Qualification Report
 
+**Current disposition update (2026-09-25):** WRB01-R02-01 and WRB01-R02-02 are now complete. The earlier Repair01-only stop statement and R01 identity description below are historical; the final current identity and qualification evidence are recorded in the Repair02 addendum at the end of this report. Human Architect review is next. WRB02 has not started.
+
 ## Scope and checkpoints
 
 The five WRB01 implementation cards and three Repair01 cards were executed sequentially on `dev`, with one attributable checkpoint commit for each completed card. Repair01 stops here for Architect review; WRB02 has not started.
@@ -43,3 +45,35 @@ The Current Project Hub now offers Start Work and Source Control only. Its legac
 The generic legacy Work Intake fixture failure is outside the Current Project managed Dev projection and branch-adoption proof. Its owning workflow must update or disposition that fixture. It is preserved as a validation limitation, not attributed as a managed-adoption failure. The final focused WRB01 repair suite passes; the R01-03 broad affected profile remains unexecuted because its plan is too broad under the lean-test rule.
 
 Repair01 implementation and checkpointing are complete. Human Architect review is the next required workflow step. Do not begin WRB02 before that review.
+
+## Repair02 — Optional Source Foundation
+
+Repair02 followed the cards sequentially, with one checkpoint per card:
+
+| Card | Checkpoint | Result |
+| --- | --- | --- |
+| WRB01-R02-01 | `9d14f0d` | Separated the canonical Current Project registration marker from optional Repository identity. Non-Git Projects have no Repository resource; inactive, duplicate, and obsolete R01 markers do not select a Project. |
+| WRB01-R02-02 | Pending while this report is committed | Completed optional-source entry and Hub behavior, source-neutral WIR readiness and projections, local-only Git adoption, fail-closed Source Graph access, and focused WRB01 requalification. See `Repair02/Reports/WRB01-R02-02_FINAL_QUALIFICATION_REPORT.md`. |
+
+### Current runtime identity and source ownership
+
+Current Project selection requires exactly one active `current-project-registration` ProjectResource on an active Project. A source-backed Project may also have one active `source-repository` ProjectResource with the managed Repository locator. A non-source Current Project is valid and carries no placeholder Repository ID. The obsolete R01 `source-repository + selected-project` marker remains historical and is not migrated.
+
+Source Control appears in the Project Hub only when the Current Project has its optional Repository resource. Its desktop Source Graph and revision detail paths resolve repository identity from that resource and use the managed Dev checkout. Non-source Source Graph requests fail before managed Dev resolution. MCP Project-container access remains separate from Git checkout identity.
+
+Work Intake Routing is source-neutral. Capture and retry return `source: not-applicable` for both source-backed and non-source Projects. A non-source Work Intake projection returns null Repository identity and no branches/current branch/suggested base. Routing decisions own no SourceBaseline, SourceBinding, SourceLine, or source checkpoint; routed substantive Workflows own source records where needed.
+
+Conventional local Git adoption accepts a successful empty remote list and preserves it as empty. Existing source-backed Projects retain Main/Dev registration, refs, remotes, and dirty/untracked user state. Greenfield remains a fresh SPS Current Project with managed Main/Dev and tracked `.gitignore`.
+
+### Final focused qualification
+
+- `npm run build` — normal Windows lane, exit 0; TypeScript, Vite, and branding copy passed with the existing chunk-size advisory. The restricted run produced the documented Vite/esbuild `spawn EPERM`; the normal Windows rerun passed.
+- `node --test test/project-state/current-project-registration.test.cjs test/project-state/current-project-entry.test.cjs test/source-control/managed-project-source.test.cjs test/work-intake/greenfield-source-bootstrap.test.cjs test/source-control/source-graph-projection.test.cjs test/work-intake/structured-work-intake-capture.test.cjs test/renderer/workflow-hub-shell.test.cjs test/source-control/source-lifecycle-package.test.cjs test/validation/capability-map.test.cjs` — final normal Windows focused suite passed 48/48.
+- Repair-plan preview command: `npm run validate:plan -- --profile repair --changes tmp/wrb01-r02-02-changes.json` — normal Windows lane, exit 0; preview selected 97 tests (3 static, 12 fast, 21 affected-capability, 61 integration), estimated 775176 ms (~12m55s). The expanded profile was not run. The focused owned qualification above is the acceptance evidence for Repair02; no expanded repair-profile pass is claimed.
+- No Electron launch, packaging, external integrations, or release qualification was run.
+
+### Deferred runtime and disposition
+
+The generic legacy Work Intake fallback remains only for the no-Current-Project `workIntake:submit` branch. The Current Project entry and routing path do not call it. Legacy provider-generation residue on that unreplaced fallback remains a later retirement task. Direct conventional-root source fixtures remain explicit internal compatibility paths; the Current Project desktop path requires managed Dev.
+
+Both Repair02 checkpoints are complete. Human Architect review of WRB01 is the next step. Do not begin WRB02 before that review.

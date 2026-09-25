@@ -86,7 +86,8 @@ export async function currentProjectRepositoryId(projectRoot: string): Promise<s
     const source = sources[0];
     if (!source) return null;
     if (source.entityType !== "ProjectResource" || source.body.provider !== "git" || source.body.locator !== "managed-repository" ||
-      source.body.role !== "project-source") throw Error("Current Project source Repository registration is invalid.");
+      source.body.role !== "project-source" || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(source.body.logicalName))
+      throw Error("Current Project source Repository registration is invalid.");
     return source.body.logicalName;
   } finally { store.close(); }
 }
@@ -127,7 +128,8 @@ export async function registerCurrentProject(projectRoot: string, mode: CurrentP
     if (sources.length === 1) {
       const source = sources[0];
       if (source.entityType !== "ProjectResource" || source.body.provider !== "git" || source.body.locator !== "managed-repository" ||
-        source.body.role !== "project-source" || (options.sourceRepositoryId !== undefined && source.body.logicalName !== options.sourceRepositoryId))
+        source.body.role !== "project-source" || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(source.body.logicalName) ||
+        (options.sourceRepositoryId !== undefined && source.body.logicalName !== options.sourceRepositoryId))
         throw Error("Existing source Repository registration is incompatible with the Current Project contract.");
     } else if (options.sourceRepositoryId) {
       const repository = await state.createRecord(projectId, "ProjectResource", { resourceType: "source-repository", provider: "git",

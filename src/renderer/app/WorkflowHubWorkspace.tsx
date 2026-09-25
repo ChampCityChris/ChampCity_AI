@@ -5,11 +5,13 @@ export function WorkflowHubWorkspace({
   onStartWork,
   onOpenSourceControl,
   projectName,
+  sourceControlAvailable,
   workspace,
 }: {
   onStartWork: () => void;
   onOpenSourceControl: () => void;
   projectName: string;
+  sourceControlAvailable: boolean;
   workspace: WorkspaceSelection;
 }): JSX.Element {
   if (!workspace.ok) {
@@ -28,7 +30,7 @@ export function WorkflowHubWorkspace({
     <section className="workflow-hub-workspace" aria-labelledby="workspace-heading">
       <header className="workflow-hub-header">
         <h1 id="workspace-heading">Workflows</h1>
-        <p>{`Start new work on ${projectName} or inspect its Source Control.`}</p>
+        <p>{sourceControlAvailable ? `Start new work on ${projectName} or inspect its Source Control.` : `Start new work on ${projectName}.`}</p>
       </header>
       <div className="workflow-card-grid" aria-label="Start work">
         <button className="workflow-card" type="button" onClick={onStartWork}>
@@ -37,12 +39,12 @@ export function WorkflowHubWorkspace({
           <span className="workflow-card-description">Describe the change or problem. Review the recommended route, approve its Plan, and carry the work through implementation and integration.</span>
           <span className="workflow-card-action">Open Work Intake <ArrowRight aria-hidden="true" size={18} /></span>
         </button>
-        <button className="workflow-card" type="button" onClick={onOpenSourceControl}>
+        {sourceControlAvailable ? <button className="workflow-card" type="button" onClick={onOpenSourceControl}>
           <span className="workflow-card-icon" aria-hidden="true"><GitBranch size={42} strokeWidth={1.7} /></span>
           <span className="workflow-card-title">Source Control</span>
           <span className="workflow-card-description">See how Work Intake lines, hotfixes, and integration targets relate to the repository history.</span>
           <span className="workflow-card-action">View source graph <ArrowRight aria-hidden="true" size={18} /></span>
-        </button>
+        </button> : null}
       </div>
     </section>
   );

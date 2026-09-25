@@ -6,8 +6,7 @@ import { AgentHarnessError } from "../agentHarness/core/errors";
 import { runBoundedGit } from "../agentHarness/repository/boundedGit";
 import { inspectGitCommit } from "../agentHarness/repository/gitMutations";
 import { createSQLiteProjectStateReader } from "../projectState/sqliteProjectStateStore";
-import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
-import { readWorkProjectIdentity } from "../workIntake/workIntakeService";
+import { currentProjectRepositoryId, selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
 import type { WorkflowType } from "../../shared/projectState/workflowTypeRegistry";
 import type { SourceGraphRevisionDetail } from "../../shared/sourceLifecycleContracts";
 
@@ -102,26 +101,10 @@ async function structuredMetadata(root: string, repositoryId: string, projectId:
 
 /** Resolve the selected app identity without deriving it from a display branch label. */
 export async function selectedSourceGraphRepositoryId(root: string): Promise<string> {
-  try {
-    const projectId = selectedCurrentProjectId(root);
-    if (projectId) {
-      const reader = createSQLiteProjectStateReader(path.join(root, ".champcity", "project-state.sqlite"));
-      try {
-        const resources = await reader.listEntities(projectId, "ProjectResource");
-        const resource = resources.find(row => row.entityType === "ProjectResource" && row.body.resourceType === "source-repository");
-        if (resource?.entityType === "ProjectResource") return resource.body.logicalName;
-        const bindings = await reader.listEntities(projectId, "SourceBinding");
-        const binding = bindings.find(row => row.entityType === "SourceBinding");
-        if (binding?.entityType === "SourceBinding") {
-          const baseline = await reader.getEntity(projectId, binding.body.sourceBaselineId);
-          if (baseline?.entityType === "SourceBaseline") return baseline.body.repositoryId;
-        }
-      } finally { reader.close(); }
-    } else {
-      return readWorkProjectIdentity(root)?.repositoryId ?? "selected-repository";
-    }
-  } catch { /* Mechanical topology remains available without workflow metadata. */ }
-  return "selected-repository";
+  if (!selectedCurrentProjectId(root)) throw new AgentHarnessError("STALE_SOURCE", "Source Control requires a registered Current Project.");
+  const repositoryId = await currentProjectRepositoryId(root);
+  if (!repositoryId) throw new AgentHarnessError("STALE_SOURCE", "Source Control is unavailable because this Current Project has no source Repository.");
+  return repositoryId;
 }
 
 export async function getSourceGraphRevisionDetail(root: string, revisionId: string): Promise<SourceGraphRevisionDetail> {

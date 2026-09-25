@@ -5,7 +5,7 @@ import type { SourceCheckpoint } from "./sourceLifecycleContracts";
 
 export interface WorkProjectIdentity {
   projectId: string;
-  repositoryId: string;
+  repositoryId: string | null;
   name: string;
 }
 

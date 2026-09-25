@@ -119,6 +119,7 @@ test("Hub with no selected project renders project-selection shell without Devel
   const hubMarkup = renderToStaticMarkup(React.createElement(WorkflowHubWorkspace, {
     onOpenSourceControl: () => undefined,
     projectName: "No Project Selected",
+    sourceControlAvailable: false,
     workspace: { ok: false, workspaceRoot: null, reason: "No project selected." },
   }));
 
@@ -135,6 +136,7 @@ test("Selected-project Hub exposes Source Control and Work Intake without legacy
   const markup = renderToStaticMarkup(React.createElement(WorkflowHubWorkspace, {
     onOpenSourceControl: () => undefined,
     projectName: "ChampCity_AI",
+    sourceControlAvailable: true,
     workspace: { ok: true, workspaceRoot: "<PROJECT_REPO>" },
   }));
 
@@ -147,6 +149,16 @@ test("Selected-project Hub exposes Source Control and Work Intake without legacy
   assert.doesNotMatch(markup, /Continue legacy Development or Issue work|Existing workflow recovery|Continue Development|Open Issue Resolution/);
   assert.doesNotMatch(markup, /Plan, implement, review, and validate planned software development\.|Investigate and resolve problems in the current project baseline\./);
   assert.doesNotMatch(markup, /Feature|Graphic|Brainstorm/);
+});
+
+test("non-source Current Project Hub omits Source Control and remains source-neutral", () => {
+  const markup = renderToStaticMarkup(React.createElement(WorkflowHubWorkspace, {
+    onOpenSourceControl: () => undefined, projectName: "Notes Project", sourceControlAvailable: false,
+    workspace: { ok: true, workspaceRoot: "<PROJECT_REPO>" },
+  }));
+  assert.match(markup, /Start new work on Notes Project\./);
+  assert.match(markup, /Open Work Intake/);
+  assert.doesNotMatch(markup, /Source Control|View source graph/);
 });
 
 test("Hub sidebar omits Development lifecycle fields while Development sidebar owns them", () => {

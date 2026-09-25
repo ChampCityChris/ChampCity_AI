@@ -100,6 +100,23 @@ test("main-only conventional Project adoption creates Dev at the exact Main revi
   } finally { await harness.stop().catch(() => undefined); }
 });
 
+test("conventional local Project adoption preserves an empty remote set", async context => {
+  const { temp, root } = fixture(context, "managed-project-local-only-");
+  git(root, "remote", "remove", "origin");
+  assert.equal(git(root, "remote", "-v"), "");
+  const harness = new AgentHarnessService({ userDataRoot: path.join(temp, "userdata") });
+  try {
+    const workspace = await harness.registerWorkspaceRoot(root);
+    const adopted = await establishManagedProjectSource({ projectRoot: root, repositoryId: "local-only-project",
+      workspaceId: workspace.workspace.workspaceId, checkoutRegistration: {
+        registerRepositoryCheckout: (workspaceId, checkout) => harness.registerRepositoryCheckout(workspaceId, checkout),
+      } });
+    assert.equal(adopted.materialized, true);
+    assert.equal(git(adopted.mainCheckoutRoot, "remote", "-v"), "");
+    assert.equal(git(adopted.devCheckoutRoot, "remote", "-v"), "");
+  } finally { await harness.stop().catch(() => undefined); }
+});
+
 test("dev-current conventional adoption keeps dirty and untracked bytes on Dev and leaves Main clean", async context => {
   const { temp, root } = fixture(context, "managed-project-dev-current-");
   fs.writeFileSync(path.join(root, "main-only.txt"), "main revision\n");

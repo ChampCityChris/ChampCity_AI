@@ -7,7 +7,7 @@ const test = require("node:test");
 const { mainPreloadHarness, loadProductionFunctions } = require("../support/production-execution.cjs");
 const { MANAGED_PROJECT_SOURCE_PATHS } = require("../../dist/shared/sourceLifecycleContracts.js");
 const { AgentHarnessService } = require("../../dist/main/agentHarness/runtime/agentHarnessService.js");
-const { CURRENT_PROJECT_REPOSITORY_ID, registerCurrentProject, selectedCurrentProjectId } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
+const { CURRENT_PROJECT_REPOSITORY_ID, currentProjectRepositoryId, registerCurrentProject, selectedCurrentProjectId } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
 const { selectedSourceGraphRepositoryId } = require("../../dist/main/sourceControl/sourceGraphService.js");
 const { resolveManagedDevRepositoryCheckout } = require("../../dist/main/sourceControl/managedProjectSourceService.js");
 const { createSourceControlService } = require("../../dist/main/sourceControl/sourceControlService.js");
@@ -44,6 +44,13 @@ test("Current Project managed Dev resolver fails closed for missing and non-Git 
   await assert.rejects(resolveManagedDevRepositoryCheckout(redirected), /redirect/);
 });
 
+test("non-source Current Project Source Graph fails with bounded source-unavailable behavior", async context => {
+  const selected = root(context);
+  const current = await registerCurrentProject(selected, "existing");
+  assert.equal(current.repositoryResource, null);
+  await assert.rejects(selectedSourceGraphRepositoryId(selected), /no source Repository/);
+});
+
 test("Greenfield entry validates an empty container, establishes SPS and registers Main/Dev without Work Intake", async context => {
   const selected = root(context);
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-harness-"));
@@ -64,6 +71,7 @@ test("Greenfield entry validates an empty container, establishes SPS and registe
     getRequiredWorkspaceRoot: () => selected,
     assertGreenfieldProjectEntry,
     registerCurrentProject,
+    currentProjectRepositoryId,
     selectedCurrentProjectId,
     CURRENT_PROJECT_REPOSITORY_ID,
     resolveManagedDevRepositoryCheckout,
@@ -87,6 +95,9 @@ test("Greenfield entry validates an empty container, establishes SPS and registe
   assert.equal(fs.existsSync(path.join(selected, ".champcity", "repository.git")), true);
   const state = createSQLiteProjectStateStore(path.join(selected, ".champcity", "project-state.sqlite"));
   try {
+    const resources = (await state.listEntities(current.projectId, "ProjectResource")).filter(row => row.entityType === "ProjectResource");
+    assert.equal(resources.filter(row => row.body.resourceType === "current-project-registration").length, 1);
+    assert.equal(resources.filter(row => row.body.resourceType === "source-repository").length, 1);
     assert.equal((await state.listEntities(current.projectId, "WorkIntake")).length, 0);
     assert.equal((await state.listEntities(current.projectId, "Workflow")).length, 0);
   } finally { state.close(); }
@@ -155,6 +166,35 @@ test("Greenfield entry finishes registration for a compatible managed baseline w
   assert.equal(current.projectName, "Recovered Greenfield");
 });
 
+test("non-Git Existing Project entry registers SPS without a placeholder Repository", async context => {
+  const selected = root(context);
+  fs.writeFileSync(path.join(selected, "NOTES.md"), "Historical project notes stay as files.\n");
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-harness-"));
+  context.after(() => fs.rmSync(userData, { recursive: true, force: true }));
+  const harness = new AgentHarnessService({ userDataRoot: userData });
+  harness.registerWorkspace = rootPath => harness.registerWorkspaceRoot(rootPath);
+  context.after(() => harness.stop().catch(() => undefined));
+  const { api } = mainPreloadHarness(["project:registerCurrent", "sourceGraph:get"], {
+    getRequiredWorkspaceRoot: () => selected, registerCurrentProject, selectedCurrentProjectId, CURRENT_PROJECT_REPOSITORY_ID,
+    getAgentHarnessServiceHostClient: () => harness, createSourceControlService, establishManagedProjectSource,
+    selectedSourceGraphRepositoryId, resolveManagedDevRepositoryCheckout: async () => { throw new Error("managed Dev should not be resolved without Source Control capability"); },
+    fs, path, MANAGED_PROJECT_SOURCE_PATHS,
+  });
+  const current = await api.registerCurrentProject("existing");
+  assert.equal(current.repositoryId, null);
+  assert.equal(current.projectId, selectedCurrentProjectId(selected));
+  await assert.rejects(api.getSourceGraph(), /no source Repository/);
+  assert.equal(fs.readFileSync(path.join(selected, "NOTES.md"), "utf8"), "Historical project notes stay as files.\n");
+  const store = createSQLiteProjectStateStore(path.join(selected, ".champcity", "project-state.sqlite"));
+  try {
+    const resources = (await store.listEntities(current.projectId, "ProjectResource")).filter(row => row.entityType === "ProjectResource");
+    assert.equal(resources.filter(row => row.body.resourceType === "current-project-registration").length, 1);
+    assert.equal(resources.filter(row => row.body.resourceType === "source-repository").length, 0);
+    assert.equal((await store.listEntities(current.projectId, "WorkIntake")).length, 0);
+    assert.equal((await store.listEntities(current.projectId, "Workflow")).length, 0);
+  } finally { store.close(); await harness.stop().catch(() => undefined); }
+});
+
 test("Existing conventional Project entry preserves source and historical Markdown without Workflow reconstruction", async context => {
   const selected = root(context);
   git(selected, "init", "-b", "main");
@@ -213,6 +253,9 @@ test("Existing conventional Project entry preserves source and historical Markdo
   assert.match(mcpRead.payload.content, /Historical record stays a file/);
   const state = createSQLiteProjectStateStore(path.join(selected, ".champcity", "project-state.sqlite"));
   try {
+    const resources = (await state.listEntities(current.projectId, "ProjectResource")).filter(row => row.entityType === "ProjectResource");
+    assert.equal(resources.filter(row => row.body.resourceType === "current-project-registration").length, 1);
+    assert.equal(resources.filter(row => row.body.resourceType === "source-repository").length, 1);
     assert.equal((await state.listEntities(current.projectId, "WorkIntake")).length, 0);
     assert.equal((await state.listEntities(current.projectId, "Workflow")).length, 0);
   } finally { state.close(); await harness.stop().catch(() => undefined); }
