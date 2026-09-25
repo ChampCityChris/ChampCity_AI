@@ -14,6 +14,10 @@ import type {
 } from "../shared/workspaceContracts";
 
 const api: ChampCityApi = {
+  getStructuredWorkRouting: (intakeId, workflowId) => ipcRenderer.invoke("structuredWIR:get", intakeId, workflowId) as ReturnType<ChampCityApi["getStructuredWorkRouting"]>,
+  prepareStructuredWorkRouting: (intakeId, workflowId) => ipcRenderer.invoke("structuredWIR:prepare", intakeId, workflowId) as ReturnType<ChampCityApi["prepareStructuredWorkRouting"]>,
+  decideStructuredWorkRouting: (intakeId, workflowId, input) => ipcRenderer.invoke("structuredWIR:decide", intakeId, workflowId, input) as ReturnType<ChampCityApi["decideStructuredWorkRouting"]>,
+  copyStructuredWorkRouting: (intakeId, workflowId) => ipcRenderer.invoke("structuredWIR:copy", intakeId, workflowId) as ReturnType<ChampCityApi["copyStructuredWorkRouting"]>,
   listWorkflows: () => ipcRenderer.invoke("workflow:list") as ReturnType<ChampCityApi["listWorkflows"]>,
   startWorkflow: (request) => ipcRenderer.invoke("workflow:start", request) as ReturnType<ChampCityApi["startWorkflow"]>,
   getWorkflow: (workflowId) => ipcRenderer.invoke("workflow:get", workflowId) as ReturnType<ChampCityApi["getWorkflow"]>,

@@ -1399,6 +1399,10 @@ export interface WorkspaceMigrationResult {
 }
 
 export interface ChampCityApi {
+  getStructuredWorkRouting: (intakeId: string, routingWorkflowId: string) => Promise<import("./structuredWorkRoutingContracts").StructuredWorkRoutingModel>;
+  prepareStructuredWorkRouting: (intakeId: string, routingWorkflowId: string) => Promise<import("./structuredWorkRoutingContracts").StructuredWorkRoutingModel>;
+  decideStructuredWorkRouting: (intakeId: string, routingWorkflowId: string, input: import("./structuredWorkRoutingContracts").StructuredWorkRoutingDecisionInput) => Promise<import("./structuredWorkRoutingContracts").StructuredWorkRoutingModel>;
+  copyStructuredWorkRouting: (intakeId: string, routingWorkflowId: string) => Promise<{ copied: true }>;
   listWorkflows: () => Promise<import("./workflowApplicationContracts").WorkflowInventory>;
   startWorkflow: (request: import("./workflowApplicationContracts").DirectWorkflowStartRequest) => Promise<import("./workflowApplicationContracts").DirectWorkflowStartResult>;
   getWorkflow: (workflowId: string) => Promise<import("./workflowApplicationContracts").WorkflowOpenResult>;

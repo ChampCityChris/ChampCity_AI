@@ -3326,6 +3326,10 @@
           "description": "Structured export preserves canonical versions, relationships and provenance"
         },
         {
+          "behaviorId": "structured-wir-handoff-is-atomic-and-retry-safe",
+          "description": "Structured WIR accepts only Existing-Project routes, preserves revision requests without a target, and atomically creates and links one new target while closing intake and WIR."
+        },
+        {
           "behaviorId": "typed-decision-validation-and-evidence-commands-derive-trusted-attribution-and-enforce-relationsh",
           "description": "typed Decision, Validation and Evidence commands derive trusted attribution and enforce relationships"
         },
@@ -4070,6 +4074,10 @@
         {
           "behaviorId": "source-control-workspace-renders-read-only-graph-navigation-and-integration-geometry",
           "description": "Source Control uses native read-only controls and lays out feature and hotfix integration ancestry"
+        },
+        {
+          "behaviorId": "structured-wir-routing-uses-embedded-architect-and-six-route-set",
+          "description": "Structured Work Intake omits branch ownership controls, while the WIR workspace presents the embedded Architect and six Existing-Project route choices."
         },
         {
           "behaviorId": "top-phases-rail-stays-in-progress-while-phase-execution-remains-active",
@@ -4862,6 +4870,7 @@
         "src/main/workflow/**",
         "src/shared/projectState/projectStateService.ts",
         "src/shared/projectState/workflowTypeRegistry.ts",
+        "src/shared/structuredWorkRoutingContracts.ts",
         "src/shared/workflowApplicationContracts.ts",
         "test/workflow/workflow-application-service.test.cjs"
       ],
@@ -4878,6 +4887,10 @@
         {
           "behaviorId": "source-backed-direct-workflow-captures-exact-dev-baseline-with-lazy-binding",
           "description": "A source-backed direct start atomically captures the exact managed Dev revision and an unprepared SourceBinding without materializing a checkout."
+        },
+        {
+          "behaviorId": "structured-wir-assessment-promotion-and-freshness",
+          "description": "Current Project WIR promotes an Architect draft once, detects intake and optional Dev revision changes, and requires exact Dev preflight before source-backed handoff."
         },
         {
           "behaviorId": "workflow-inventory-resolves-unambiguous-wir-provenance-and-fails-closed",
@@ -15001,8 +15014,8 @@
     {
       "testPath": "test/project-state/work-intake-routing.test.cjs",
       "currentTestCount": {
-        "value": 6,
-        "basis": "Three Work Intake, assessment and reroute scenarios across in-memory and SQLite adapters introduced by SCL01M."
+        "value": 8,
+        "basis": "Eight focused scenarios across in-memory and SQLite adapters, including structured WIR atomic handoff and independent targets."
       },
       "duration": {
         "kind": "measured",
@@ -15051,6 +15064,12 @@
           "capabilityId": "project-state-service",
           "behaviorId": "route-assessment-validates-evidence-ownership-and-vocabulary-atomically",
           "proofLocator": "route assessment validates evidence ownership and unsupported routes atomically",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "structured-wir-handoff-is-atomic-and-retry-safe",
+          "proofLocator": "in-memory and SQLite tests reject greenfield, deduplicate correlated assessments, record a revision request, retry one atomic handoff, and create independent accepted and overridden targets",
           "proofRole": "primary"
         },
         {
@@ -17585,8 +17604,8 @@
     {
       "testPath": "test/renderer/work-intake-routed-workspaces.test.cjs",
       "currentTestCount": {
-        "value": 30,
-        "basis": "Observed WIR-UX07 focused Windows run."
+        "value": 32,
+        "basis": "Thirty-two rendered capability scenarios include structured Work Intake and WIR presentation."
       },
       "duration": {
         "kind": "measured",
@@ -17805,6 +17824,12 @@
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "saved-work-intake-does-not-nest-routing-lifecycle",
           "proofLocator": "saved Intake is a capture confirmation without a child routing lifecycle",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "structured-wir-routing-uses-embedded-architect-and-six-route-set",
+          "proofLocator": "rendered structured intake saves without a base branch or source preparation controls; structured WIR renders embedded Architect handoff actions and excludes Greenfield",
           "proofRole": "primary"
         }
       ]
@@ -20448,8 +20473,8 @@
     {
       "testPath": "test/workflow/workflow-application-service.test.cjs",
       "currentTestCount": {
-        "value": 3,
-        "basis": "Three focused production-service scenarios cover exact instance inventory and provenance, managed Dev baseline capture, and source inspection failure."
+        "value": 6,
+        "basis": "Six production-service scenarios cover exact Workflow instances, managed Dev baseline capture, failed source inspection, and structured WIR promotion, freshness, and handoff."
       },
       "duration": {
         "kind": "estimated",
@@ -20503,6 +20528,12 @@
           "capabilityId": "workflow-application-service",
           "behaviorId": "source-backed-direct-workflow-captures-exact-dev-baseline-with-lazy-binding",
           "proofLocator": "source-backed direct start captures exact managed Dev HEAD despite untracked files and creates only SourceBaseline and unprepared SourceBinding",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "structured-wir-assessment-promotion-and-freshness",
+          "proofLocator": "production service tests exercise non-source and source-backed assessment promotion, service refresh, intake and Dev staleness, revision instructions, failed preflight atomicity, and target baseline shape",
           "proofRole": "primary"
         },
         {

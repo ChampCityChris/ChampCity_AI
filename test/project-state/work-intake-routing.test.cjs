@@ -72,12 +72,12 @@ function register(name, factory) {
     const { intake } = await service.createWorkIntake(project.id, intakeInput);
     const firstAssessment = await advisor.recordRouteAssessment(project.id, intake.id, assessment("feature-change"));
     assert.equal((await service.getCurrentWorkRoute(project.id, intake.id)), null);
-    assert.equal((await service.getRecord(project.id, intake.id)).body.intakeState, "assessing");
+    assert.equal((await service.getRecord(project.id, intake.id)).body.intakeState, "captured");
     await assert.rejects(advisor.recordRouteDecision(project.id, intake.id, { route: "feature-change", assessmentId: firstAssessment.id }), /human Operator/);
     const firstDecision = await service.recordRouteDecision(project.id, intake.id, { route: "feature-change", assessmentId: firstAssessment.id });
     assert.equal(firstDecision.body.rationale, "");
     assert.equal((await service.getCurrentWorkRoute(project.id, intake.id)).route, "feature-change");
-    await service.advanceWorkIntake(project.id, intake.id, "active", 3);
+    assert.equal((await service.getRecord(project.id, intake.id)).body.intakeState, "routed");
     const secondAssessment = await advisor.recordRouteAssessment(project.id, intake.id, { ...assessment("issue-resolution"), alternate: "refactor-migration" });
     assert.equal((await service.getCurrentWorkRoute(project.id, intake.id)).decisionId, firstDecision.id);
     const secondDecision = await service.recordRouteDecision(project.id, intake.id, { route: "issue-resolution", assessmentId: secondAssessment.id, rationale: "Reroute after review" });
@@ -96,11 +96,8 @@ function register(name, factory) {
     assert.equal(summary.targetWorkflowId, null);
     assert.equal(summary.routeDecisionIds.length, 3);
     assert.equal(summary.desiredOutcome, intakeInput.desiredOutcome);
-    await service.advanceWorkIntake(project.id, intake.id, "active", 6);
-    const closed = await service.advanceWorkIntake(project.id, intake.id, "closed", 7);
-    assert.equal(closed.lifecycleState, "closed");
-    const summaryAfterClose = await service.getWorkIntakeSummary(project.id, intake.id);
-    assert.equal((await service.getRecord(project.id, summaryAfterClose.routingWorkflowId)).body.workflowState, "closed");
+    assert.equal((await service.getRecord(project.id, intake.id)).lifecycleState, "active");
+    assert.equal((await service.getRecord(project.id, (await service.getWorkIntakeSummary(project.id, intake.id)).routingWorkflowId)).body.workflowState, "active");
   });
 
   test(`${name}: route assessment validates evidence ownership and unsupported routes atomically`, async context => {
@@ -113,11 +110,52 @@ function register(name, factory) {
     const otherWork = await service.createRecord(other.id, "WorkItem", { workItemKind: "feature", title: "Other", objective: "Other", workState: "ready" });
     const otherEvidence = await service.recordEvidence(other.id, otherWork.id, { evidenceType: "note", description: "Other", mediaType: "text/plain", payloadRef: "digest:other", digest: "a".repeat(64) });
     const before = (await store.listStateChanges(project.id)).length;
-    await assert.rejects(advisor.recordRouteAssessment(project.id, intake.id, assessment("unknown")), /Unsupported Work Intake route/);
+    await assert.rejects(advisor.recordRouteAssessment(project.id, intake.id, assessment("unknown")), /Unsupported Existing-Project Work Intake route/);
     await assert.rejects(advisor.recordRouteAssessment(project.id, intake.id, assessment("feature-change", [otherEvidence.id])), /does not exist/);
     assert.equal((await store.listStateChanges(project.id)).length, before);
     assert.equal((await service.getWorkRouteHistory(project.id, intake.id)).assessments.length, 0);
     await assert.rejects(service.recordRouteDecision(project.id, intake.id, { route: "feature-change", assessmentId: otherEvidence.id }), /does not exist/);
+  });
+
+  test(`${name}: structured WIR revisions and handoffs are typed, atomic, and create independent targets`, async context => {
+    const store = factory(context);
+    const service = createProjectStateService(store, operator);
+    const advisor = createProjectStateService(store, architect);
+    const project = await service.createRecord(null, "Project", { name: "Synthetic", description: "Project" });
+    const first = await service.createWorkIntake(project.id, intakeInput);
+    const firstAssessment = await advisor.recordRouteAssessment(project.id, first.intake.id, assessment("feature-change"),
+      { correlationId: "architect-submission-1", causationId: `work-intake-record-version:${first.intake.recordVersion}` });
+    assert.equal((await advisor.recordRouteAssessment(project.id, first.intake.id, assessment("feature-change"),
+      { correlationId: "architect-submission-1", causationId: `work-intake-record-version:${first.intake.recordVersion}` })).id, firstAssessment.id);
+    await assert.rejects(advisor.recordRouteAssessment(project.id, first.intake.id, assessment("greenfield")), /Unsupported Existing-Project/);
+    await assert.rejects(service.recordRouteDecision(project.id, first.intake.id, { route: "greenfield", assessmentId: firstAssessment.id }), /Unsupported Existing-Project/);
+    const revision = await service.recordWorkIntakeRouteRevisionRequest(project.id, first.intake.id,
+      { assessmentId: firstAssessment.id, rationale: "Clarify whether the integration boundary is in scope." }, { correlationId: "operator-revision-1" });
+    assert.equal(revision.body.outcome, "revision_requested");
+    assert.equal((await service.getRecord(project.id, first.intake.id)).body.intakeState, "captured");
+    assert.equal((await store.listRelationships(project.id, "routes_to")).filter(edge => edge.fromEntityId === first.workflow.id).length, 0);
+    await assert.rejects(service.completeWorkIntakeRouteHandoff(project.id, { intakeId: first.intake.id, routingWorkflowId: first.workflow.id,
+      assessmentId: firstAssessment.id, disposition: "override", route: "feature-change", rationale: "Same route is not an override.", targetTitle: "Invalid" }), /different supported WIR route/);
+    const routed = await service.completeWorkIntakeRouteHandoff(project.id, { intakeId: first.intake.id, routingWorkflowId: first.workflow.id,
+      assessmentId: firstAssessment.id, disposition: "accept", route: "feature-change", rationale: "Accept the assessment.", targetTitle: "Capability" },
+      { correlationId: "operator-handoff-1" });
+    assert.equal(routed.workflow.body.workflowType, "feature-capability");
+    assert.equal((await service.completeWorkIntakeRouteHandoff(project.id, { intakeId: first.intake.id, routingWorkflowId: first.workflow.id,
+      assessmentId: firstAssessment.id, disposition: "accept", route: "feature-change", rationale: "Accept the assessment.", targetTitle: "Capability" },
+      { correlationId: "operator-handoff-1" })).workflow.id, routed.workflow.id);
+    assert.equal((await service.getRecord(project.id, first.intake.id)).lifecycleState, "closed");
+    assert.equal((await service.getRecord(project.id, first.workflow.id)).lifecycleState, "closed");
+    assert.equal((await service.getWorkRouteHistory(project.id, first.intake.id)).decisions.at(-1).body.outcome, "feature-change");
+    const second = await service.createWorkIntake(project.id, { ...intakeInput, request: "Second request" });
+    const secondAssessment = await advisor.recordRouteAssessment(project.id, second.intake.id, assessment("feature-change"),
+      { correlationId: "architect-submission-2", causationId: `work-intake-record-version:${second.intake.recordVersion}` });
+    const overridden = await service.completeWorkIntakeRouteHandoff(project.id, { intakeId: second.intake.id, routingWorkflowId: second.workflow.id,
+      assessmentId: secondAssessment.id, disposition: "override", route: "issue-resolution", rationale: "Observed defect needs investigation.", targetTitle: "Defect" });
+    assert.equal(overridden.workflow.body.workflowType, "issue-resolution");
+    assert.notEqual(overridden.workflow.id, routed.workflow.id);
+    assert.equal((await store.listRelationships(project.id, "routes_to")).filter(edge => edge.toEntityId === routed.workflow.id || edge.toEntityId === overridden.workflow.id).length, 2);
+    assert.equal((await store.listEntities(project.id, "SourceBaseline")).length, 0);
+    assert.equal((await store.listEntities(project.id, "SourceBinding")).length, 0);
   });
 }
 

@@ -144,6 +144,7 @@ import { SourceControlWorkspace } from "./SourceControlWorkspace";
 import { WorkIntakeWorkspace } from "./WorkIntakeWorkspace";
 import { WorkIntakeRoutingRail } from "./WorkIntakeRoutingRail";
 import { WorkRoutingWorkspace } from "./WorkRoutingWorkspace";
+import { StructuredWorkRoutingWorkspace } from "./StructuredWorkRoutingWorkspace";
 import { WorkArchitectAssessmentWorkspace } from "./WorkArchitectAssessmentWorkspace";
 import { WorkPlanWorkspace } from "./WorkPlanWorkspace";
 import { WorkItemDecompositionWorkspace, type DecompositionReturnTarget } from "./WorkItemDecompositionWorkspace";
@@ -296,6 +297,7 @@ export function App(): JSX.Element {
   const [workIntakeProjection, setWorkIntakeProjection] = useState<WorkIntakeProjection | null>(null);
   const [workIntakeNavigation, setWorkIntakeNavigation] = useState<WorkIntakeNavigationProjection | null>(null);
   const [selectedWorkIntakeId, setSelectedWorkIntakeId] = useState<string | null>(null);
+  const [selectedRoutingWorkflowId, setSelectedRoutingWorkflowId] = useState<string | null>(null);
   const [activeWorkIntakeStageId, setActiveWorkIntakeStageId] = useState<WorkIntakeStageId>("intake");
   const [decompositionContext, setDecompositionContext] = useState<{ intakeId: string; workItemId: string; returnTarget: DecompositionReturnTarget } | null>(null);
   const [decompositionReturnFeedback, setDecompositionReturnFeedback] = useState("");
@@ -2550,6 +2552,7 @@ export function App(): JSX.Element {
     setWorkIntakeProjection(null);
     setWorkIntakeNavigation(null);
     setSelectedWorkIntakeId(null);
+    setSelectedRoutingWorkflowId(null);
     setActiveWorkIntakeStageId("intake");
     const clearedPostSubmitState = clearProjectIntakePostSubmitReviewState({
       confirmation: projectIntakeConfirmation,
@@ -2781,7 +2784,7 @@ export function App(): JSX.Element {
     }
   }
 
-  async function openWorkIntakeForWorkflow(intakeId: string): Promise<void> {
+  async function openWorkIntakeForWorkflow(intakeId: string, routingWorkflowId: string): Promise<void> {
     const projection = await window.champcity.getWorkIntakeProjection();
     if (projection.authority === "structured") {
       const captured = projection.capturedIntakes?.find(item => item.intakeId === intakeId);
@@ -2789,7 +2792,8 @@ export function App(): JSX.Element {
       setWorkIntakeProjection({ ...projection, currentCapturedIntake: captured });
       setWorkIntakeNavigation(null);
       setSelectedWorkIntakeId(intakeId);
-      setActiveWorkIntakeStageId("intake");
+      setSelectedRoutingWorkflowId(routingWorkflowId);
+      setActiveWorkIntakeStageId("routing");
       setActiveWorkflowId(null);
       setShellView("work-intake");
       return;
@@ -2811,7 +2815,7 @@ export function App(): JSX.Element {
       if (result.workflow.workflowType === "work-intake-routing") {
         if (!result.workflow.workIntakeId) throw Error("The Work Intake for this Workflow is unavailable.");
         setWorkflowInstance(null);
-        await openWorkIntakeForWorkflow(result.workflow.workIntakeId);
+        await openWorkIntakeForWorkflow(result.workflow.workIntakeId, result.workflow.workflowId);
         return;
       }
       setWorkflowInstance(result.workflow);
@@ -2833,6 +2837,21 @@ export function App(): JSX.Element {
     setWorkflowInstance(opened.workflow);
     setActiveWorkflowId(null);
     setShellView("workflow-instance");
+  }
+
+  async function openRoutedTargetWorkflow(workflowId: string): Promise<void> {
+    try {
+      const refreshed = await refreshWorkflowInventory(workflowId);
+      if (!refreshed || !refreshed.groups.some(group => group.workflows.some(item => item.workflowId === workflowId)))
+        throw Error("The routed target Workflow was not available in the refreshed Current Project inventory.");
+      const opened = await window.champcity.getWorkflow(workflowId);
+      setSelectedWorkflowId(opened.workflow.workflowId);
+      setWorkflowInstance(opened.workflow);
+      setActiveWorkflowId(null);
+      setShellView("workflow-instance");
+    } catch (failure) {
+      setWorkflowHubError(failure instanceof Error ? failure.message : "Routed Workflow could not be opened.");
+    }
   }
 
   async function openWorkIntake(): Promise<void> {
@@ -2907,6 +2926,7 @@ export function App(): JSX.Element {
   function returnToWorkflowHub(): void {
     setShellView("workflow-hub");
     setActiveWorkflowId(null);
+    setSelectedRoutingWorkflowId(null);
   }
 
   async function refreshIssueInventory(
@@ -4209,9 +4229,25 @@ export function App(): JSX.Element {
             ) : activeWorkIntakeStageId === "intake" || !selectedWorkIntakeId ? (
       <WorkIntakeWorkspace key={`${workspace.workspaceRoot}-${selectedWorkIntakeId ?? "new"}`} projection={workIntakeProjection}
                 onReturn={returnToWorkflowHub} onSaved={async (intakeId) => {
-                  await refreshWorkIntakeNavigation(intakeId);
-                  if (workIntakeProjection.authority !== "structured") setActiveWorkIntakeStageId("routing");
+                  if (workIntakeProjection.authority === "structured") {
+                    const refreshedProjection = await window.champcity.getWorkIntakeProjection();
+                    const captured = refreshedProjection.capturedIntakes?.find(item => item.intakeId === intakeId);
+                    const inventory = await window.champcity.listWorkflows();
+                    const routing = inventory.groups.find(group => group.workflowType === "work-intake-routing")?.workflows.find(item => item.workIntakeId === intakeId);
+                    if (!captured || !routing) throw Error("Saved Work Intake routing identity is unavailable.");
+                    setWorkIntakeProjection({ ...refreshedProjection, currentCapturedIntake: captured });
+                    setSelectedWorkIntakeId(intakeId);
+                    setSelectedRoutingWorkflowId(routing.workflowId);
+                    setActiveWorkIntakeStageId("routing");
+                  } else {
+                    await refreshWorkIntakeNavigation(intakeId);
+                    setActiveWorkIntakeStageId("routing");
+                  }
                 }} />
+            ) : activeWorkIntakeStageId === "routing" && workIntakeProjection.authority === "structured" && selectedRoutingWorkflowId ? (
+              <StructuredWorkRoutingWorkspace intakeId={selectedWorkIntakeId} routingWorkflowId={selectedRoutingWorkflowId}
+                browserPanel={routedArchitectBrowserPanel} onReloadBrowser={() => void reloadArchitectBrowser()}
+                onReturn={returnToWorkflowHub} onRouted={workflowId => void openRoutedTargetWorkflow(workflowId)} />
             ) : activeWorkIntakeStageId === "routing" && workIntakeNavigation?.issueAssessmentExternallyOwned && workIntakeNavigation.selectedRouteId === "issue-resolution" ? (
               <RoutedIssueBridge intakeId={selectedWorkIntakeId} onOpenIssue={openRoutedIssueResolution} />
             ) : activeWorkIntakeStageId === "routing" ? (

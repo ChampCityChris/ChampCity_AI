@@ -1,5 +1,5 @@
 import type { DispositionState, EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef, ProjectId, ProjectStateEntity, ProjectStateRecord, TestLifecycleAssessmentStatus, ValidationMode, WorkflowState, WorkIntakeState, WorkRoute } from "./domainContracts";
-import { getWorkflowTypeDefinition, type WorkflowType } from "./workflowTypeRegistry";
+import { getWorkflowTypeDefinition, workflowTypeForWorkRoute, type ExistingProjectWorkRoute, type WorkflowType } from "./workflowTypeRegistry";
 import { assertSupersession } from "./domainInvariants";
 import { createProjectStateEntity, ENTITY_TYPE_REGISTRY, ProjectStateDomainError, validateProjectStateEntity } from "./entityTypeRegistry";
 import { createRelationship as createDomainRelationship, RELATIONSHIP_REGISTRY, type ProjectStateRelationship, type RelationshipType } from "./relationshipRegistry";
@@ -63,6 +63,11 @@ const restrictedGenericTypes = new Set<EntityType>(["Decision", "Validation", "E
 function fail(message: string): never { throw new ProjectStateDomainError(message); }
 const dispositionOutcomes = new Set<DispositionState>(["advisory", "proposed", "approved", "revision_requested", "accepted", "rejected", "revoked"]);
 const workRoutes = new Set<WorkRoute>(["greenfield", "feature-change", "refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype", "issue-resolution"]);
+function intakeRecordVersionSource(record: ProjectStateEntity): number | null {
+  if (record.entityType !== "RouteAssessment") return null;
+  const match = /^work-intake-record-version:(\d+)(?:;dev-head:[a-f0-9]{40}(?:[a-f0-9]{24})?)?$/i.exec(record.provenance.sourceRef ?? "");
+  return match ? Number(match[1]) : null;
+}
 const lifecycleAssessmentStatuses = new Set<TestLifecycleAssessmentStatus>(["PRESERVE", "REWRITE_CANDIDATE", "SPLIT_CANDIDATE", "CONSOLIDATE_CANDIDATE", "MIGRATE_CANDIDATE", "RETIRE_CANDIDATE", "QUARANTINE_CANDIDATE", "NEEDS_TESTER_REVIEW"]);
 /** Consumers persist this cursor in their own derived store; Project State never owns that checkpoint. */
 export function advanceDerivedEventCursor(cursor: DerivedEventCursor, event: ProjectStateOutboxEvent): DerivedEventCursor {
@@ -218,7 +223,8 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       fail(`Project already has its non-repeatable ${input.workflowType} Workflow.`);
     const record = createProjectStateEntity({ entityType: "Workflow", projectId,
       body: { workflowType: input.workflowType, title: input.title, currentWorkspace: input.currentWorkspace,
-        workflowState: input.workflowState ?? "active" }, principal: trustedPrincipal });
+        workflowState: input.workflowState ?? "active" }, principal: trustedPrincipal,
+      provenance: { origin: "native", ...(context?.correlationId ? { correlationId: context.correlationId } : {}) } });
     await unit.saveEntity(record, null);
     await recordMutation(unit, { projectId, entityId: record.id, fromVersion: null, toVersion: 1,
       operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: record.createdAt,
@@ -709,19 +715,35 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     }, "implements_work_item", context);
   }
 
-  async function recordRouteAssessment(projectId: ProjectId, intakeId: EntityId, input: Omit<EntityBodyMap["RouteAssessment"], "workIntakeId">, context?: MutationContext) {
+  async function recordRouteAssessment(projectId: ProjectId, intakeId: EntityId, input: Omit<EntityBodyMap["RouteAssessment"], "workIntakeId" | "recommendation" | "alternate"> & { recommendation: ExistingProjectWorkRoute; alternate?: ExistingProjectWorkRoute }, context?: MutationContext) {
     exactInput(input, ["recommendation", "traits", "rationale", "alternate", "evidenceIds"]);
     if (!Array.isArray(input.evidenceIds)) fail("Route assessment evidence identities are required.");
     return store.transaction(projectId, async unit => {
       const intake = await requiredRecord(unit, projectId, intakeId);
       if (intake.entityType !== "WorkIntake" || intake.lifecycleState !== "active") fail("Active Work Intake is required for route assessment.");
-      if (!workRoutes.has(input.recommendation) || (input.alternate !== undefined && !workRoutes.has(input.alternate))) fail("Unsupported Work Intake route.");
+      if (!workflowTypeForWorkRoute(input.recommendation) || (input.alternate !== undefined && !workflowTypeForWorkRoute(input.alternate))) fail("Unsupported Existing-Project Work Intake route.");
+      if (context?.correlationId) {
+        const existing = (await unit.listEntities(projectId, "RouteAssessment"))
+          .find(item => item.entityType === "RouteAssessment" && item.provenance.correlationId === context.correlationId);
+        if (existing) {
+          if (existing.entityType !== "RouteAssessment") fail("Route assessment correlation record has an invalid type.");
+          const expected = { ...input, workIntakeId: intakeId };
+          if (existing.body.workIntakeId !== intakeId || intakeRecordVersionSource(existing) !== intake.recordVersion ||
+            existing.body.recommendation !== expected.recommendation || existing.body.rationale !== expected.rationale ||
+            existing.body.alternate !== expected.alternate || JSON.stringify(existing.body.traits) !== JSON.stringify(expected.traits) ||
+            JSON.stringify(existing.body.evidenceIds) !== JSON.stringify(expected.evidenceIds))
+            fail("Route assessment correlation ID already belongs to different assessment content.");
+          return existing;
+        }
+      }
       for (const evidenceId of input.evidenceIds) {
         const evidence = await requiredRecord(unit, projectId, evidenceId);
         if (evidence.entityType !== "Evidence") fail("Route assessment evidence reference must identify Evidence.");
       }
       const assessment = createProjectStateEntity({ entityType: "RouteAssessment", projectId,
-        body: { ...input, workIntakeId: intakeId }, principal: trustedPrincipal });
+        body: { ...input, workIntakeId: intakeId }, principal: trustedPrincipal,
+        provenance: { origin: "native", ...(context?.correlationId ? { correlationId: context.correlationId } : {}),
+          sourceRef: context?.causationId ?? `work-intake-record-version:${intake.recordVersion}` } });
       await unit.saveEntity(assessment, null);
       await recordMutation(unit, { projectId, entityId: assessment.id, fromVersion: null, toVersion: 1,
         operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: assessment.createdAt,
@@ -732,27 +754,19 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       await recordMutation(unit, { projectId, entityId: assessment.id, fromVersion: 1, toVersion: 1,
         operation: "relationship-create", eventType: PROJECT_STATE_EVENT_TYPES.relationshipCreate, occurredAt: edge.createdAt,
         changedFields: ["relationship:assesses_route"], defaultReason: "Link route assessment", context, relationshipId: edge.id });
-      if (intake.body.intakeState !== "assessing") {
-        const now = new Date().toISOString();
-        const next = validateProjectStateEntity({ ...intake, recordVersion: intake.recordVersion + 1,
-          updatedAt: now, updatedBy: trustedPrincipal, body: { ...intake.body, intakeState: "assessing" } });
-        await unit.saveEntity(next, intake.recordVersion);
-        await recordMutation(unit, { projectId, entityId: intake.id, fromVersion: intake.recordVersion, toVersion: next.recordVersion,
-          operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now,
-          changedFields: ["intakeState"], defaultReason: "Assess Work Intake route", context });
-      }
       return assessment;
     });
   }
 
-  async function recordRouteDecision(projectId: ProjectId, intakeId: EntityId, input: { route: WorkRoute; assessmentId: EntityId; rationale?: string }, context?: MutationContext) {
+  async function recordRouteDecision(projectId: ProjectId, intakeId: EntityId, input: { route: ExistingProjectWorkRoute; assessmentId: EntityId; rationale?: string }, context?: MutationContext) {
     exactInput(input, ["route", "assessmentId", "rationale"]);
     if (trustedPrincipal.principalType !== "human" || trustedPrincipal.role !== "Operator") fail("Only the human Operator can select a Work Intake route.");
-    if (!workRoutes.has(input.route)) fail("Unsupported Work Intake route.");
+    if (!workflowTypeForWorkRoute(input.route)) fail("Unsupported Existing-Project Work Intake route.");
     return store.transaction(projectId, async unit => {
       const intake = await requiredRecord(unit, projectId, intakeId);
       const assessment = await requiredRecord(unit, projectId, input.assessmentId);
       if (intake.entityType !== "WorkIntake" || intake.lifecycleState !== "active" || assessment.entityType !== "RouteAssessment" || assessment.body.workIntakeId !== intakeId) fail("Route decision requires an active Work Intake and its assessment.");
+      if (intakeRecordVersionSource(assessment) !== intake.recordVersion) fail("Route assessment is stale because the Work Intake changed.");
       const assessed = (await unit.listRelationships(projectId, "assesses_route"))
         .some(edge => edge.fromEntityId === assessment.id && edge.toEntityId === intakeId && !edge.endedAt);
       if (!assessed) fail("Route assessment is not linked to this Work Intake.");
@@ -781,6 +795,124 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
           changedFields: ["intakeState"], defaultReason: "Route Work Intake", context });
       }
       return decision;
+    });
+  }
+
+  async function recordWorkIntakeRouteRevisionRequest(projectId: ProjectId, intakeId: EntityId,
+    input: { assessmentId: EntityId; rationale: string }, context?: MutationContext) {
+    exactInput(input, ["assessmentId", "rationale"]);
+    if (trustedPrincipal.principalType !== "human" || trustedPrincipal.role !== "Operator") fail("Only the human Operator can request a routing revision.");
+    if (typeof input.rationale !== "string" || !input.rationale.trim() || input.rationale.trim().length > 4000) fail("Bounded revision instructions are required.");
+    return store.transaction(projectId, async unit => {
+      const intake = await requiredRecord(unit, projectId, intakeId);
+      const assessment = await requiredRecord(unit, projectId, input.assessmentId);
+      if (intake.entityType !== "WorkIntake" || intake.lifecycleState !== "active" || assessment.entityType !== "RouteAssessment" || assessment.body.workIntakeId !== intakeId)
+        fail("Route revision requires an active Work Intake and its RouteAssessment.");
+      if (intakeRecordVersionSource(assessment) !== intake.recordVersion) fail("Route assessment is stale because the Work Intake changed.");
+      if (context?.correlationId) {
+        const existing = (await unit.listStateChanges(projectId)).find(change => change.correlationId === context.correlationId && change.operation === "create");
+        if (existing) {
+          const record = await unit.getEntity(projectId, existing.entityId);
+          if (record?.entityType === "Decision" && record.body.decisionType === "work-intake-route" && record.body.outcome === "revision_requested" && record.body.rationale === input.rationale.trim()) return record;
+          fail("Route revision correlation ID already belongs to a different operation.");
+        }
+      }
+      const now = new Date().toISOString();
+      const decision = createProjectStateEntity({ entityType: "Decision", projectId,
+        body: decisionBody({ decisionType: "work-intake-route", outcome: "revision_requested", decisionScope: `work-intake:${intakeId}`, rationale: input.rationale.trim() }, trustedPrincipal, now), principal: trustedPrincipal });
+      await unit.saveEntity(decision, null);
+      await recordMutation(unit, { projectId, entityId: decision.id, fromVersion: null, toVersion: 1, operation: "create",
+        eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: decision.createdAt, changedFields: Object.keys(decision.body),
+        defaultReason: "Request Work Intake route revision", context });
+      for (const [relationshipType, target] of [["governs", intake], ["derived_from", assessment]] as const) {
+        const edge = createDomainRelationship({ projectId, fromEntityId: decision.id, relationshipType, toEntityId: target.id, createdBy: trustedPrincipal },
+          id => id === decision.id ? decision : id === target.id ? target : undefined);
+        await unit.saveRelationship(edge);
+        await recordMutation(unit, { projectId, entityId: decision.id, fromVersion: 1, toVersion: 1, operation: "relationship-create",
+          eventType: PROJECT_STATE_EVENT_TYPES.relationshipCreate, occurredAt: edge.createdAt, changedFields: [`relationship:${relationshipType}`],
+          defaultReason: `Link Work Intake route revision ${relationshipType}`, context, relationshipId: edge.id });
+      }
+      return decision;
+    });
+  }
+
+  async function completeWorkIntakeRouteHandoff(projectId: ProjectId, input: {
+    intakeId: EntityId; routingWorkflowId: EntityId; assessmentId: EntityId; disposition: "accept" | "override";
+    route: ExistingProjectWorkRoute; rationale: string; targetTitle: string;
+    sourceSeed?: { repositoryId: string; integrationTargetSourceLineId: string; baseRevisionId: string };
+  }, context?: MutationContext) {
+    exactInput(input, ["intakeId", "routingWorkflowId", "assessmentId", "disposition", "route", "rationale", "targetTitle", "sourceSeed"]);
+    if (trustedPrincipal.principalType !== "human" || trustedPrincipal.role !== "Operator") fail("Only the human Operator can hand off routed work.");
+    if (!workflowTypeForWorkRoute(input.route) || !["accept", "override"].includes(input.disposition)) fail("A supported Existing-Project route and disposition are required.");
+    if (typeof input.rationale !== "string" || !input.rationale.trim() || input.rationale.trim().length > 4000) fail("Bounded Operator rationale is required.");
+    const targetType = workflowTypeForWorkRoute(input.route)!;
+    const targetDefinition = getWorkflowTypeDefinition(targetType)!;
+    if (typeof input.targetTitle !== "string" || !input.targetTitle.trim() || input.targetTitle.trim().length > 200) fail("Target Workflow title must contain 1 to 200 characters.");
+    return store.transaction(projectId, async unit => {
+      if (context?.correlationId) {
+        const changes = await unit.listStateChanges(projectId);
+        const createdWorkflows = await Promise.all(changes.filter(change => change.correlationId === context.correlationId && change.operation === "create")
+          .map(change => unit.getEntity(projectId, change.entityId)));
+        const priorTarget = createdWorkflows.find(record => record?.entityType === "Workflow" && record.body.workflowType !== "work-intake-routing");
+        if (priorTarget?.entityType === "Workflow") {
+          const edges = (await unit.listRelationships(projectId, "routes_to")).filter(edge => edge.fromEntityId === input.routingWorkflowId && edge.toEntityId === priorTarget.id && !edge.endedAt);
+          const target = edges.length === 1 ? priorTarget : null;
+          if (target?.provenance.correlationId === context.correlationId) return { workflow: target, route: input.route, alreadyCompleted: true };
+          fail("Route handoff correlation ID already belongs to a different operation.");
+        }
+      }
+      const intake = await requiredRecord(unit, projectId, input.intakeId);
+      const routing = await requiredRecord(unit, projectId, input.routingWorkflowId);
+      const assessment = await requiredRecord(unit, projectId, input.assessmentId);
+      if (intake.entityType !== "WorkIntake" || intake.lifecycleState !== "active" || !["captured", "assessing"].includes(intake.body.intakeState)) fail("An active unrouted Work Intake is required.");
+      if (routing.entityType !== "Workflow" || routing.body.workflowType !== "work-intake-routing" || routing.lifecycleState !== "active" || routing.body.workflowState === "closed" || routing.body.workflowState === "cancelled") fail("Exact active WIR Workflow is required.");
+      if (assessment.entityType !== "RouteAssessment" || assessment.body.workIntakeId !== intake.id || intakeRecordVersionSource(assessment) !== intake.recordVersion) fail("Current RouteAssessment for this Work Intake is required.");
+      const starts = (await unit.listRelationships(projectId, "initiates")).filter(edge => edge.fromEntityId === intake.id && !edge.endedAt);
+      if (starts.length !== 1 || starts[0].toEntityId !== routing.id) fail("Work Intake must initiate this exact WIR Workflow.");
+      const assesses = (await unit.listRelationships(projectId, "assesses_route")).some(edge => edge.fromEntityId === assessment.id && edge.toEntityId === intake.id && !edge.endedAt);
+      if (!assesses) fail("RouteAssessment is not linked to this Work Intake.");
+      const latestAssessment = (await unit.listEntities(projectId, "RouteAssessment"))
+        .filter(item => item.entityType === "RouteAssessment" && item.body.workIntakeId === intake.id && item.lifecycleState === "active")
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id))[0];
+      if (!latestAssessment || latestAssessment.id !== assessment.id) fail("RouteAssessment is no longer current.");
+      if (input.disposition === "accept" && input.route !== assessment.body.recommendation) fail("Accept must use the current RouteAssessment recommendation.");
+      if (input.disposition === "override" && input.route === assessment.body.recommendation) fail("Override must select a different supported WIR route.");
+      const allIntakes = (await unit.listRelationships(projectId, "routes_to")).filter(edge => edge.fromEntityId === routing.id && !edge.endedAt);
+      if (allIntakes.length) fail("WIR already has a routed target Workflow.");
+      const now = new Date().toISOString();
+      const decision = createProjectStateEntity({ entityType: "Decision", projectId,
+        body: decisionBody({ decisionType: "work-intake-route", outcome: input.route, decisionScope: `work-intake:${intake.id}`, rationale: input.rationale.trim() }, trustedPrincipal, now), principal: trustedPrincipal });
+      await unit.saveEntity(decision, null);
+      await recordMutation(unit, { projectId, entityId: decision.id, fromVersion: null, toVersion: 1, operation: "create",
+        eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: decision.createdAt, changedFields: Object.keys(decision.body), defaultReason: "Decide Work Intake route", context });
+      for (const [relationshipType, target] of [["governs", intake], ["derived_from", assessment]] as const) {
+        const edge = createDomainRelationship({ projectId, fromEntityId: decision.id, relationshipType, toEntityId: target.id, createdBy: trustedPrincipal },
+          id => id === decision.id ? decision : id === target.id ? target : undefined);
+        await unit.saveRelationship(edge);
+        await recordMutation(unit, { projectId, entityId: decision.id, fromVersion: 1, toVersion: 1, operation: "relationship-create",
+          eventType: PROJECT_STATE_EVENT_TYPES.relationshipCreate, occurredAt: edge.createdAt, changedFields: [`relationship:${relationshipType}`], defaultReason: `Link route ${relationshipType}`, context, relationshipId: edge.id });
+      }
+      const created = await createSubstantiveWorkflowInUnitOfWork(unit, projectId, {
+        workflowType: targetType, title: input.targetTitle.trim(), entryWorkspace: targetDefinition.entryWorkspace,
+        ...(input.sourceSeed ? { sourceSeed: input.sourceSeed } : {}),
+      }, context);
+      const routeEdge = createDomainRelationship({ projectId, fromEntityId: routing.id, relationshipType: "routes_to", toEntityId: created.workflow.id, createdBy: trustedPrincipal },
+        id => id === routing.id ? routing : id === created.workflow.id ? created.workflow : undefined);
+      await unit.saveRelationship(routeEdge);
+      await recordMutation(unit, { projectId, entityId: routing.id, fromVersion: routing.recordVersion, toVersion: routing.recordVersion,
+        operation: "relationship-create", eventType: PROJECT_STATE_EVENT_TYPES.relationshipCreate, occurredAt: routeEdge.createdAt,
+        changedFields: ["relationship:routes_to"], defaultReason: "Link WIR target Workflow", context, relationshipId: routeEdge.id });
+      const closedIntake = validateProjectStateEntity({ ...intake, recordVersion: intake.recordVersion + 1, lifecycleState: "closed", closedAt: now,
+        updatedAt: now, updatedBy: trustedPrincipal, body: { ...intake.body, intakeState: "closed" } });
+      await unit.saveEntity(closedIntake, intake.recordVersion);
+      await recordMutation(unit, { projectId, entityId: intake.id, fromVersion: intake.recordVersion, toVersion: closedIntake.recordVersion,
+        operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now, changedFields: ["intakeState", "lifecycleState", "closedAt"], defaultReason: "Close routed Work Intake", context });
+      const closedRouting = validateProjectStateEntity({ ...routing, recordVersion: routing.recordVersion + 1, lifecycleState: "closed", closedAt: now,
+        updatedAt: now, updatedBy: trustedPrincipal, body: { ...routing.body, workflowState: "closed" } });
+      await unit.saveEntity(closedRouting, routing.recordVersion);
+      await recordMutation(unit, { projectId, entityId: routing.id, fromVersion: routing.recordVersion, toVersion: closedRouting.recordVersion,
+        operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now, changedFields: ["workflowState", "lifecycleState", "closedAt"], defaultReason: "Close routed WIR Workflow", context });
+      return { workflow: created.workflow, route: input.route, alreadyCompleted: false };
     });
   }
 
@@ -1729,7 +1861,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return pending.sort((a, b) => a.targetId.localeCompare(b.targetId) || a.criterionId.localeCompare(b.criterionId));
   }
 
-  return { createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision,
+  return { createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
     createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, createIntegrationRecord, advanceIntegrationRecord,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, completeWorkItem, completePhase,

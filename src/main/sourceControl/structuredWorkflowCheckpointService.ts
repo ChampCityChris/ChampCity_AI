@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { EntityBodyMap, ProjectStateRecord, WorkRoute } from "../../shared/projectState/domainContracts";
+import { workflowTypeForWorkRoute } from "../../shared/projectState/workflowTypeRegistry";
 import { createProjectStateService, type DecisionInput } from "../../shared/projectState/projectStateService";
 import type { CheckpointResult } from "../../shared/sourceLifecycleContracts";
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
@@ -68,6 +69,7 @@ async function assertWorkOwner(store: Store, projectId: string, workflowId: stri
 /** WIR routing persists its decision without creating source lifecycle evidence. */
 export async function selectStructuredWorkRoute(root: string, projectId: string, intakeId: string,
   input: { route: WorkRoute; assessmentId: string; rationale: string }): Promise<WorkflowCheckpointResult<ProjectStateRecord<"Decision">>> {
+  if (!workflowTypeForWorkRoute(input.route)) throw Error("Greenfield is unavailable in Existing-Project Work Intake routing.");
   const { selected, store } = open(root, projectId);
   try {
     const state = createProjectStateService(store, operator);
@@ -78,7 +80,7 @@ export async function selectStructuredWorkRoute(root: string, projectId: string,
     if (prior.length > 1 || prior.length === 1 &&
       (prior[0].body.outcome !== input.route || prior[0].body.rationale !== input.rationale))
       throw Error("Route assessment already has a conflicting Operator decision.");
-    const saved = prior[0] ?? await state.recordRouteDecision(projectId, intakeId, input);
+    const saved = prior[0] ?? await state.recordRouteDecision(projectId, intakeId, { ...input, route: input.route as Exclude<WorkRoute, "greenfield"> });
     if (saved.entityType !== "Decision") throw Error("Route decision type changed.");
     const checkpoint: CheckpointResult = { state: "not-required", checkpointId: null, revision: null, message: "Routing decision does not own source." };
     return { record: saved, checkpoint };

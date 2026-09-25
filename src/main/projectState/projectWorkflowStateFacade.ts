@@ -1,5 +1,5 @@
-import type { EntityBodyMap, PrincipalRef, ProjectId, WorkRoute } from "../../shared/projectState/domainContracts";
-import type { WorkflowType } from "../../shared/projectState/workflowTypeRegistry";
+import type { EntityBodyMap, PrincipalRef, ProjectId } from "../../shared/projectState/domainContracts";
+import type { ExistingProjectWorkRoute, WorkflowType } from "../../shared/projectState/workflowTypeRegistry";
 import { WORKFLOW_TYPE_REGISTRY } from "../../shared/projectState/workflowTypeRegistry";
 import { createProjectStateService } from "../../shared/projectState/projectStateService";
 import type { ProjectStateStore } from "../../shared/projectState/projectStateStore";
@@ -92,10 +92,10 @@ export function createProjectWorkflowStateFacade(store: ProjectStateStore, princ
     async captureWorkIntake(projectId: ProjectId, input: Omit<EntityBodyMap["WorkIntake"], "intakeState">) {
       return (await state.createWorkIntake(projectId, input)).intake;
     },
-    async assessWorkIntakeRoute(projectId: ProjectId, intakeId: string, input: Omit<EntityBodyMap["RouteAssessment"], "workIntakeId">) {
+    async assessWorkIntakeRoute(projectId: ProjectId, intakeId: string, input: Omit<EntityBodyMap["RouteAssessment"], "workIntakeId" | "recommendation" | "alternate"> & { recommendation: ExistingProjectWorkRoute; alternate?: ExistingProjectWorkRoute }) {
       return state.recordRouteAssessment(projectId, intakeId, input);
     },
-    async selectWorkIntakeRoute(projectId: ProjectId, intakeId: string, input: { route: WorkRoute; assessmentId: string; rationale: string }) {
+    async selectWorkIntakeRoute(projectId: ProjectId, intakeId: string, input: { route: ExistingProjectWorkRoute; assessmentId: string; rationale: string }) {
       return state.recordRouteDecision(projectId, intakeId, input);
     },
     async getWorkIntake(projectId: ProjectId, intakeId: string) {

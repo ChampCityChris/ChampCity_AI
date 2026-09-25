@@ -5,6 +5,7 @@ const test = require("node:test");
 const { loadRendererSourceModule } = require("./renderer-source-loader.cjs");
 
 const { WorkIntakeWorkspace } = loadRendererSourceModule("src/renderer/app/WorkIntakeWorkspace.tsx");
+const { StructuredWorkRoutingWorkspace } = loadRendererSourceModule("src/renderer/app/StructuredWorkRoutingWorkspace.tsx");
 const { WorkIntakeRoutingRail } = loadRendererSourceModule("src/renderer/app/WorkIntakeRoutingRail.tsx");
 const { shouldAttachArchitectSurface } = loadRendererSourceModule("src/renderer/app/architectSurfaceEligibility.ts");
 const { WorkRoutingWorkspace } = loadRendererSourceModule("src/renderer/app/WorkRoutingWorkspace.tsx");
@@ -56,6 +57,39 @@ test("saved Intake is a capture confirmation without a child routing lifecycle",
     WorkIntakeWorkspace({ projection, onReturn() {}, async onSaved() {} })));
   assert.match(markup, /Work Intake saved/);
   assert.doesNotMatch(markup, /Advisory routing assessment|Operator route decision|Route planning/);
+});
+
+test("structured Work Intake has no branch ownership controls and saves without a base branch", () => {
+  const value = { projectId: "project-1", projectName: "Product", workRequest: "Improve search", desiredOutcome: "Relevant results",
+    knownConstraints: "Keep existing data", hasExistingSourceOrPlanning: true, repositoryReviewContext: "", baseBranch: "", baseCommit: "" };
+  const projection = { authority: "structured", project: { projectId: "project-1" }, suggestedBase: null, suggestedProjectName: "Product", branches: [] };
+  const element = withState([value, null, "", false], () => WorkIntakeWorkspace({ projection, onReturn() {}, async onSaved() {} }));
+  const markup = renderToStaticMarkup(element);
+  assert.doesNotMatch(markup, /Integrate into branch|creates the work branch|Retry source preparation/);
+  assert.match(markup, /Project State keeps the saved request for routing/);
+  const submit = React.Children.toArray(element.props.children)[0];
+  assert.ok(submit);
+  const form = React.Children.toArray(submit.props.children).find(child => child?.type === "form");
+  const saveButton = React.Children.toArray(form.props.children).flatMap(child => React.Children.toArray(child?.props?.children))
+    .find(child => child?.props?.type === "submit");
+  assert.ok(saveButton);
+  assert.equal(saveButton.props.disabled, false);
+});
+
+test("structured WIR workspace embeds Architect handoff and exposes only the six Existing-Project routes", () => {
+  const browser = React.createElement("div", { "aria-label": "Embedded ChatGPT browser" });
+  const model = { projectId: "project-1", intakeId: "intake-1", routingWorkflowId: "workflow-1", request: "Improve search",
+    desiredOutcome: "Relevant results", constraints: [], evidenceContext: [], intakeRecordVersion: 1, intakeState: "captured", workflowState: "active",
+    assessment: { assessmentId: "assessment-1", recommendation: "feature-change", traits: [], rationale: "A bounded change.", evidenceNotes: "", sourceRecordVersion: 1, stale: false },
+    reviewState: "none", selectedRoute: null, targetWorkflowId: null, closed: false };
+  const element = withState([model, "feature-change", "", false, "", ""], () => StructuredWorkRoutingWorkspace({ intakeId: "intake-1",
+    routingWorkflowId: "workflow-1", browserPanel: browser, onReloadBrowser() {}, onReturn() {}, onRouted() {} }));
+  const markup = renderToStaticMarkup(element);
+  assert.match(markup, /Embedded ChatGPT browser/);
+  assert.match(markup, /Prepare Handoff|Copy Handoff|Refresh|Reload ChatGPT/);
+  for (const route of ["Feature / Capability", "Refactor / Migration", "Integration / Composition", "Infrastructure / Platform", "Research / Prototype", "Issue Resolution"])
+    assert.ok(markup.includes(route), `missing ${route}`);
+  assert.doesNotMatch(markup, /Greenfield|Work branch|Integrate into branch|source preparation/);
 });
 
 test("routed rail has exact stage order and explains blocked stages", () => {

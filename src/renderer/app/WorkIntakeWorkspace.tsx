@@ -49,14 +49,14 @@ export function WorkIntakeWorkspace({ projection, onReturn, onSaved }: {
     <div className="work-intake-content">
     <header className="work-intake-header">
       <div><h1 id="workspace-heading">Work Intake</h1>
-        <p>Describe the work and the outcome you need. Source preparation follows the saved intake.</p></div>
+        <p>{projection.authority === "structured" ? "Describe the work and the outcome you need. Project State keeps the saved request for routing." : "Describe the work and the outcome you need. Source preparation follows the saved intake."}</p></div>
       <button className="icon-button" type="button" onClick={onReturn} disabled={busy}>Back to workflows</button>
     </header>
     {saved ? <section className="intake-confirmation" role="status" aria-label="Work Intake submission confirmation">
       <h2>Work Intake saved</h2>
       <p>{saved.workRequest}</p>
       {"source" in saved ? <>
-        <p>Source preparation: {saved.source.state}</p>
+        {saved.source.state !== "not-applicable" ? <p>Source preparation: {saved.source.state}</p> : null}
         {saved.source.state === "blocked" ? <p>{saved.source.message}</p> : null}
         {saved.source.state === "ready" ? <p>Work source: {saved.source.binding.sourceLine.sourceLineId}</p> : null}
         {saved.source.state === "blocked" ? <button type="button" disabled={busy}
@@ -65,13 +65,13 @@ export function WorkIntakeWorkspace({ projection, onReturn, onSaved }: {
       </> : <><p>Work branch: {saved.branchBinding.workBranch}</p><p>Base branch: {saved.branchBinding.baseBranch}</p></>}
     </section> : <form className="intake-form" aria-busy={busy} onSubmit={(event) => { event.preventDefault(); void submit(); }}>
       <label>Project name<input value={value.projectName} readOnly={!!projection.project} required onChange={(event) => update("projectName", event.target.value)} /></label>
-      <label>Integrate into branch<select value={value.baseBranch} required={projection.authority !== "structured"} onChange={(event) => {
+      {projection.authority !== "structured" ? <label>Integrate into branch<select value={value.baseBranch} required onChange={(event) => {
         const base = projection.branches.find(({ name }) => name === event.target.value);
         if (base) setValue((current) => ({ ...current, baseBranch: base.name, baseCommit: base.commit }));
       }}>
         {projection.branches.map(({ name }) => <option key={name} value={name}>{name}</option>)}
-      </select></label>
-      <p className="figma-intake-full">The selected branch is the starting point and integration target. ChampCity creates the work branch automatically.</p>
+      </select></label> : null}
+      {projection.authority !== "structured" ? <p className="figma-intake-full">The selected branch is the starting point and integration target. ChampCity creates the work branch automatically.</p> : null}
       <label className="figma-intake-full">Work request, problem, or change<textarea value={value.workRequest} required onChange={(event) => update("workRequest", event.target.value)} /></label>
       <label className="figma-intake-full">Desired outcome<textarea value={value.desiredOutcome} required onChange={(event) => update("desiredOutcome", event.target.value)} /></label>
       <label className="figma-intake-full">Non-negotiable constraints<textarea value={value.knownConstraints} onChange={(event) => update("knownConstraints", event.target.value)} /></label>

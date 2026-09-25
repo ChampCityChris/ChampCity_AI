@@ -165,7 +165,7 @@ test("Hub actions preserve exact Workflow identity and route WIR rows to their e
   assert.match(declarations.get("startDirectWorkflow"), /getWorkflow\(created\.workflow\.workflowId\)/);
   assert.match(declarations.get("startDirectWorkflow"), /setSelectedWorkflowId\(opened\.workflow\.workflowId\)/);
   assert.match(declarations.get("openCurrentWorkflow"), /getWorkflow\(workflowId\)/);
-  assert.match(declarations.get("openCurrentWorkflow"), /openWorkIntakeForWorkflow\(result\.workflow\.workIntakeId\)/);
+  assert.match(declarations.get("openCurrentWorkflow"), /openWorkIntakeForWorkflow\(result\.workflow\.workIntakeId, result\.workflow\.workflowId\)/);
   assert.match(declarations.get("openWorkIntakeForWorkflow"), /item\.intakeId === intakeId/);
   assert.match(declarations.get("openWorkIntakeForWorkflow"), /setShellView\("work-intake"\)/);
   assert.match(source, /onStartWorkIntake=\{\(\) => void openWorkIntake\(\)\}/);

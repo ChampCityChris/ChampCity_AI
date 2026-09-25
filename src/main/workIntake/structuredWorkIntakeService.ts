@@ -51,7 +51,7 @@ export async function getStructuredWorkIntakeProjection(root: string, projectId:
     if (!project) throw Error("Selected structured Project is unavailable.");
     const repositoryId = await currentProjectRepositoryId(root);
     const intakes = (await store.listEntities(projectId, "WorkIntake"))
-      .filter((item): item is ProjectStateRecord<"WorkIntake"> => item.entityType === "WorkIntake" && item.lifecycleState === "active")
+      .filter((item): item is ProjectStateRecord<"WorkIntake"> => item.entityType === "WorkIntake" && (item.lifecycleState === "active" || item.lifecycleState === "closed"))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     const checkpoints = (await store.listEntities(projectId, "SourceCheckpoint"))
       .filter((item): item is ProjectStateRecord<"SourceCheckpoint"> => item.entityType === "SourceCheckpoint")
