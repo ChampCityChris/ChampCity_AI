@@ -26,6 +26,7 @@ function register(name, factory) {
     const first = await service.createRecord(project.id, "WorkItem", workBody("First"));
     const second = await service.createRecord(project.id, "WorkItem", workBody("Second"));
     const repair = await service.createRecord(project.id, "WorkItem", { ...workBody("Repair"), workItemKind: "repair" });
+    for (const item of [second, repair]) await service.createRelationship(project.id, item.id, "part_of", targetWorkflow.id);
     const phase = await service.createRecord(project.id, "Phase", { title: "Phase", objective: "Deliver", phaseState: "active", sequence: 1 });
     await service.createRelationship(project.id, phase.id, "part_of", targetWorkflow.id);
     await service.createRelationship(project.id, first.id, "part_of", phase.id);
@@ -83,6 +84,7 @@ function register(name, factory) {
     const work = await service.createRecord(project.id, "WorkItem", workBody("Feature"));
     const repair = await service.createRecord(project.id, "WorkItem", { ...workBody("Repair"), workItemKind: "repair" });
     await service.createRelationship(project.id, work.id, "part_of", phase.id);
+    await service.createRelationship(project.id, repair.id, "part_of", target.id);
     await service.createRelationship(project.id, repair.id, "repairs", work.id);
     const implementation = await service.recordImplementation(project.id, work.id, { summary: "Done", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
     const validation = await service.recordValidation(project.id, work.id, { validationType: "test", method: "automated", outcome: "pass", summary: "Pass", sourceBaselineRef: "revision-a" });

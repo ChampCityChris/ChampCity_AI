@@ -4732,6 +4732,7 @@
         "src/shared/structuredWorkRoutingContracts.ts",
         "src/shared/workflowApplicationContracts.ts",
         "test/workflow/workflow-application-service.test.cjs",
+        "test/workflow/workflow-execution-application-service.test.cjs",
         "test/workflow/workflow-planning-ipc.test.cjs"
       ],
       "dependsOn": [
@@ -4747,6 +4748,10 @@
         {
           "behaviorId": "feature-and-issue-planning-ipc-preserves-exact-workflow-argument-contracts",
           "description": "Feature and Issue planning IPC accepts the exact preload argument shape, rejects malformed arity and bounded actions before service calls, and renderer JSON parse failures surface without disposition."
+        },
+        {
+          "behaviorId": "feature-and-issue-share-exact-workflow-execution-projection-and-lazy-source-boundary",
+          "description": "Feature and Issue Workflows share exact-ID execution projections, dependency and Phase readiness, current-Workflow Repair ownership, and lazy source preparation without source fabrication"
         },
         {
           "behaviorId": "feature-planning-persists-exact-workflow-intake-and-normalizes-reviewed-graph",
@@ -20279,6 +20284,60 @@
           "capabilityId": "workflow-application-service",
           "behaviorId": "workflow-inventory-resolves-unambiguous-wir-provenance-and-fails-closed",
           "proofLocator": "WIR and routed target summaries resolve WorkIntake and source Workflow provenance with a shared core DTO",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/workflow/workflow-execution-application-service.test.cjs",
+      "currentTestCount": {
+        "value": 3,
+        "basis": "Three WRB04-01 scenarios prove shared Feature/Issue projection and Workflow isolation, phased/dependency eligibility with lazy idempotent source preparation, and non-source execution without Git fabrication."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 454,
+        "basis": "Observed per-file TAP duration on the supported Windows normal lane during WRB04-01."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "integration",
+        "production-path"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Each scenario owns an isolated temporary Current Project and SQLite state store; source preparation uses a bounded synthetic callback.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "production-path"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "feature-and-issue-share-exact-workflow-execution-projection-and-lazy-source-boundary",
+          "proofLocator": "Feature and Issue return one projection shape under exact Workflow IDs; concurrent plans remain isolated; dependencies and owning Phase gate readiness; source preparation is lazy and idempotent; non-source mutation blocks without Git state.",
           "proofRole": "primary"
         }
       ]

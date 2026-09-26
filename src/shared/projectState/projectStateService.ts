@@ -503,6 +503,33 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const to = await requiredRecord(unit, projectId, toEntityId);
       const active = (await unit.listRelationships(projectId, relationshipType)).filter(edge => !edge.endedAt);
       if (active.some(edge => edge.fromEntityId === fromEntityId && edge.toEntityId === toEntityId)) fail("Relationship already exists.");
+      if (relationshipType === "repairs") {
+        if (from.entityType !== "WorkItem" || to.entityType !== "WorkItem" || !["repair", "fix"].includes(from.body.workItemKind)) fail("Only a Repair or Fix Work Item can repair another Work Item.");
+        const membership = (await unit.listRelationships(projectId, "part_of")).filter(edge => !edge.endedAt);
+        const ownerOf = async (id: EntityId): Promise<ProjectStateRecord<"Workflow"> | null> => {
+          let cursor: EntityId | undefined = id; const seen = new Set<EntityId>();
+          while (cursor && !seen.has(cursor)) {
+            seen.add(cursor);
+            const parents = membership.filter(edge => edge.fromEntityId === cursor);
+            if (parents.length !== 1) return null;
+            const parent = await unit.getEntity(projectId, parents[0].toEntityId);
+            if (parent?.entityType === "Workflow") {
+              const lineage = (await unit.listEntities(projectId, "Workflow")).filter((record): record is ProjectStateRecord<"Workflow"> => record.entityType === "Workflow" && record.lineageId === parent.lineageId);
+              const current = lineage.filter(record => record.lifecycleState === "active" && !["closed", "cancelled"].includes(record.body.workflowState));
+              return current.length === 1 ? current[0] as ProjectStateRecord<"Workflow"> : null;
+            }
+            if (parent?.entityType !== "Phase") return null;
+            cursor = parent.id;
+          }
+          return null;
+        };
+        const [repairOwner, targetOwner] = await Promise.all([ownerOf(fromEntityId), ownerOf(toEntityId)]);
+        const current = (owner: ProjectStateRecord<"Workflow"> | null) => owner?.lifecycleState === "active" && !["closed", "cancelled"].includes(owner.body.workflowState);
+        if (!current(repairOwner) || !current(targetOwner) || repairOwner!.id !== targetOwner!.id) fail("Repair and target must belong to the same unique current exact Workflow.");
+        const lineage = (await unit.listEntities(projectId, "Workflow")).filter((record): record is ProjectStateRecord<"Workflow"> => record.entityType === "Workflow" && record.lineageId === repairOwner!.lineageId);
+        const currentOwners = lineage.filter(record => record.lifecycleState === "active" && !["closed", "cancelled"].includes(record.body.workflowState));
+        if (currentOwners.length !== 1 || currentOwners[0].id !== repairOwner!.id) fail("Repair owner is not the unique current Workflow in its lineage.");
+      }
       if (relationshipType === "workflow_member") {
         if (active.some(edge => edge.fromEntityId === fromEntityId)) fail("Planning record already belongs to a Workflow.");
         if ((await unit.listRelationships(projectId, "workflow_member")).some(edge => edge.fromEntityId === fromEntityId)) fail("Planning record Workflow ownership history cannot be reassigned.");
@@ -1898,17 +1925,22 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
 
   async function getWorkflowExecutionPlan(projectId: ProjectId, workflowId: EntityId): Promise<WorkflowExecutionPlanView> {
     const workflow = await requiredRecord(store, projectId, workflowId);
-    if (workflow.entityType !== "Workflow" || workflow.body.workflowType === "work-intake-routing") fail("Workflow planning query requires a substantive Workflow.");
+    if (workflow.entityType !== "Workflow" || workflow.body.workflowType === "work-intake-routing" || workflow.lifecycleState !== "active" || ["closed", "cancelled"].includes(workflow.body.workflowState)) fail("Workflow planning query requires a current nonterminal substantive Workflow.");
+    const lineageWorkflows = (await store.listEntities(projectId, "Workflow"))
+      .filter((record): record is ProjectStateRecord<"Workflow"> => record.entityType === "Workflow" && record.lineageId === workflow.lineageId);
+    const currentLineage = lineageWorkflows.filter(record => record.lifecycleState === "active" && !["closed", "cancelled"].includes(record.body.workflowState));
+    if (currentLineage.length !== 1 || currentLineage[0].id !== workflowId) fail("Workflow planning query requires the unique current Workflow identity.");
     const edges = (await store.listRelationships(projectId)).filter(edge => !edge.endedAt);
-    const members = new Set(edges.filter(edge => edge.relationshipType === "part_of" && edge.toEntityId === workflowId).map(edge => edge.fromEntityId));
-    const solutionIds = new Set(edges.filter(edge => edge.relationshipType === "workflow_member" && edge.toEntityId === workflowId).map(edge => edge.fromEntityId));
+    const workflowIds = new Set(lineageWorkflows.map(record => record.id));
+    const members = new Set(edges.filter(edge => edge.relationshipType === "part_of" && workflowIds.has(edge.toEntityId)).map(edge => edge.fromEntityId));
+    const solutionIds = new Set(edges.filter(edge => edge.relationshipType === "workflow_member" && workflowIds.has(edge.toEntityId)).map(edge => edge.fromEntityId));
     const parent = new Map(edges.filter(edge => edge.relationshipType === "part_of").map(edge => [edge.fromEntityId, edge.toEntityId]));
     const phases = (await store.listEntities(projectId, "Phase")).filter((r): r is ProjectStateRecord<"Phase"> => r.entityType === "Phase" && members.has(r.id) && !["superseded", "voided"].includes(r.lifecycleState));
     const phaseIds = new Set(phases.map(phase => phase.id));
     const workItems = (await store.listEntities(projectId, "WorkItem")).filter((r): r is ProjectStateRecord<"WorkItem"> => r.entityType === "WorkItem" && (members.has(r.id) || phaseIds.has(parent.get(r.id) ?? "")) && !["superseded", "voided"].includes(r.lifecycleState));
     const solutions = (await store.listEntities(projectId, "BoundedSolution")).filter((r): r is ProjectStateRecord<"BoundedSolution"> => r.entityType === "BoundedSolution" && solutionIds.has(r.id) && !["superseded", "voided"].includes(r.lifecycleState));
     const ownedWork = new Set(workItems.map(r => r.id)); const ownedPhases = new Set(phases.map(r => r.id));
-    for (const work of workItems) { const p = parent.get(work.id); const owner = p && ownedPhases.has(p) ? parent.get(p) : p; if (owner !== workflowId) fail("Invalid cross-Workflow planning membership."); }
+    for (const work of workItems) { const p = parent.get(work.id); const owner = p && ownedPhases.has(p) ? parent.get(p) : p; if (!owner || !workflowIds.has(owner)) fail("Invalid cross-Workflow planning membership."); }
     const dependencies = edges.filter(edge => edge.relationshipType === "depends_on" && (ownedWork.has(edge.fromEntityId) || ownedWork.has(edge.toEntityId)));
     if (dependencies.some(edge => !ownedWork.has(edge.fromEntityId) || !ownedWork.has(edge.toEntityId))) fail("Invalid cross-Workflow dependency in Project State.");
     const criterionOwners = new Set<EntityId>([...ownedWork, ...ownedPhases, ...solutionIds]);
@@ -1918,9 +1950,11 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     const phaseViews = phases.sort((a, b) => a.body.sequence - b.body.sequence || a.id.localeCompare(b.id)).map(record => ({ record, phaseId: record.id, sequence: record.body.sequence, workItemIds: workItems.filter(w => parent.get(w.id) === record.id).map(w => w.id).sort(), criterionIds: edges.filter(e => e.relationshipType === "defines_criterion" && e.fromEntityId === record.id).map(e => e.toEntityId).sort() }));
     const decisionIds = new Set(edges.filter(e => e.relationshipType === "governs" && [workflowId, ...solutionIds].includes(e.toEntityId)).map(e => e.fromEntityId));
     const decisions = (await store.listEntities(projectId, "Decision")).filter((r): r is ProjectStateRecord<"Decision"> => r.entityType === "Decision" && decisionIds.has(r.id) && r.body.decisionType === "planning-acceptance" && r.body.outcome === "accepted");
-    const direct = workItems.filter(w => parent.get(w.id) === workflowId);
+    const direct = workItems.filter(w => workflowIds.has(parent.get(w.id) ?? ""));
+    const repairEdges = edges.filter(e => e.relationshipType === "repairs" && (ownedWork.has(e.fromEntityId) || ownedWork.has(e.toEntityId)));
+    if (repairEdges.some(edge => !ownedWork.has(edge.fromEntityId) || !ownedWork.has(edge.toEntityId))) fail("Invalid cross-Workflow Repair membership in Project State.");
     return { workflow, solutions, phases: phaseViews, directWorkItems: direct, workItemsByPhase: Object.fromEntries(phaseViews.map(p => [p.phaseId, workItems.filter(w => parent.get(w.id) === p.phaseId)])), criteria: projectedCriteria, decisions,
-      directWorkItemIds: direct.map(w => w.id).sort(), dependencyIds: dependencies.map(e => ({ from: e.fromEntityId, to: e.toEntityId })), repairIds: edges.filter(e => e.relationshipType === "repairs" && ownedWork.has(e.fromEntityId) && ownedWork.has(e.toEntityId)).map(e => ({ from: e.fromEntityId, to: e.toEntityId })) };
+      directWorkItemIds: direct.map(w => w.id).sort(), dependencyIds: dependencies.map(e => ({ from: e.fromEntityId, to: e.toEntityId })), repairIds: repairEdges.map(e => ({ from: e.fromEntityId, to: e.toEntityId })) };
   }
 
   async function getWorkItemCompletionEligibility(projectId: ProjectId, workItemId: EntityId, currentSourceBaselineRef?: string): Promise<CompletionEligibility> {

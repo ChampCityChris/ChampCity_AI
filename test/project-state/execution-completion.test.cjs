@@ -236,6 +236,8 @@ function register(name, factory) {
     const parent = await service.createRecord(project.id, "WorkItem", workBody("Parent"));
     const dependency = await service.createRecord(project.id, "WorkItem", workBody("Dependency"));
     const repair = await service.createRecord(project.id, "WorkItem", workBody("Repair", "repair"));
+    const workflow = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Execution owner", currentWorkspace: "work-item-map" });
+    for (const workItem of [parent, dependency, repair]) await service.createRelationship(project.id, workItem.id, "part_of", workflow.id);
     await service.createRelationship(project.id, parent.id, "depends_on", dependency.id);
     await service.createRelationship(project.id, repair.id, "repairs", parent.id);
     await assert.rejects(service.createRelationship(project.id, dependency.id, "depends_on", parent.id), /cycle/);

@@ -26,6 +26,8 @@ async function fixture(store) {
   const work = await service.createRecord(project.id, "WorkItem", { workItemKind: "feature", title: "Feature", objective: "Implement route", workState: "implemented" });
   const repair = await service.createRecord(project.id, "WorkItem", { workItemKind: "repair", title: "Repair", objective: "Fix route", workState: "ready" });
   const fix = await service.createRecord(project.id, "WorkItem", { workItemKind: "fix", title: "Fix", objective: "Fix issue", workState: "ready" });
+  const workflow = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Projection owner", currentWorkspace: "work-item-map" });
+  for (const item of [work, repair, fix]) await service.createRelationship(project.id, item.id, "part_of", workflow.id);
   await service.createRelationship(project.id, repair.id, "repairs", work.id);
   const implementation = await service.recordImplementation(project.id, work.id, { summary: "Implemented route", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
   const validation = await service.recordValidation(project.id, work.id, { validationType: "test", method: "automated", outcome: "pass", summary: "Route passed" });

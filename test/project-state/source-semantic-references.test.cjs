@@ -171,7 +171,16 @@ function register(name, factory) {
     assert.equal(integration.body.targetSourceLineId, "target-line");
     const validation = await service.recordValidation(project.id, integration.id, { validationType: "integration", method: "automated", outcome: "pass", summary: "Candidate checked", sourceBaselineRef: "candidate" });
     const repair = await service.createRecord(project.id, "WorkItem", { ...workBody, workItemKind: "repair", title: "Repair" });
-    await service.createRelationship(project.id, repair.id, "part_of", binding.body.workflowId);
+    await assert.rejects(service.createRelationship(project.id, repair.id, "part_of", binding.body.workflowId), /current implementation Workflow/);
+    // The source records remain lineage-owned by the superseded Workflow, while new Repair execution belongs to its unique current successor.
+    await service.createRelationship(project.id, repair.id, "part_of", successor.id);
+    await service.createRelationship(project.id, repair.id, "repairs", work.id);
+    await assert.rejects(service.createRelationship(project.id, repair.id, "repairs", foreignWork.id), /same unique current exact Workflow/);
+    const currentPlan = await service.getWorkflowExecutionPlan(project.id, successor.id);
+    assert.ok(currentPlan.directWorkItems.some(item => item.id === work.id));
+    assert.ok(currentPlan.directWorkItems.some(item => item.id === repair.id));
+    assert.deepEqual(currentPlan.repairIds, [{ from: repair.id, to: work.id }]);
+    await assert.rejects(service.getWorkflowExecutionPlan(project.id, binding.body.workflowId), /current nonterminal substantive Workflow/);
     const validating = await service.advanceIntegrationRecord(project.id, integration.id, { integrationState: "validating", validationIds: [validation.id] }, 1);
     assert.deepEqual(validating.body.validationIds, [validation.id]);
     const repairing = await service.advanceIntegrationRecord(project.id, integration.id, { integrationState: "repairing", repairWorkItemIds: [repair.id] }, 2);
