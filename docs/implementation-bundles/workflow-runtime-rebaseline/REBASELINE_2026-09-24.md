@@ -26,7 +26,7 @@ Outcome: selecting a Project establishes one current Structured Project State ru
 ### WRB02 — Workflow Application, Inventory, and Routing
 Outcome: users create/list/open exact Workflow instances directly; WIR is routing-only and hands off to the same target creation service.
 
-**Status:** RELEASED — five-card bundle under `docs/implementation-bundles/workflow-runtime-rebaseline/WRB02/`, starting from WRB01 closure checkpoint `76ecb4f97ca8aa52b46fdfc95f25e186af20bc4b`. Architect review occurs after WRB02-05.
+**Status:** IMPLEMENTED / UNDER REPAIR — five-card implementation reached `ee064aaa562cb548bd59ae3642ea39aea5d69650`; bounded Repair01 is released under `WRB02/Repair01/`. WRB03 remains blocked until final WRB02 Architect disposition.
 
 ### WRB03 — Workflow Planning Normalization
 Outcome: Workflow-specific intake/assessment/planning writes canonical SPS WorkItems/Phases/Criteria. Initial qualification families are Feature/Capability and Issue Resolution plus WIR-routed Feature convergence.
