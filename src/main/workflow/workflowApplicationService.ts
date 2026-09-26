@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { ProjectId, ProjectStateRecord } from "../../shared/projectState/domainContracts";
 import { getWorkflowTypeDefinition, WORKFLOW_TYPE_IDS, type WorkflowType } from "../../shared/projectState/workflowTypeRegistry";
-import { createProjectStateService } from "../../shared/projectState/projectStateService";
+import { createProjectStateService, type WorkflowPlanningGraph } from "../../shared/projectState/projectStateService";
 import type { ProjectStateStore } from "../../shared/projectState/projectStateStore";
 import type { DirectWorkflowStartRequest, WorkflowInstanceSummary, WorkflowInventory, WorkflowOpenResult } from "../../shared/workflowApplicationContracts";
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
@@ -137,6 +137,32 @@ export function createWorkflowApplicationService(dependencies: {
     });
   }
 
+  async function getWorkflowPlanningContext(projectRoot: string, workflowId: string) {
+    return withCurrentProject(projectRoot, async (store, projectId) => {
+      const workflow = requireWorkflow(await store.getEntity(projectId, workflowId));
+      if (workflow.lifecycleState !== "active" || workflow.body.workflowState !== "active" || ["work-intake-routing", "project-creation"].includes(workflow.body.workflowType)) throw Error("Planning context requires a current implementation Workflow.");
+      const relationships = await store.listRelationships(projectId);
+      const baselineEdges = relationships.filter(edge => !edge.endedAt && edge.relationshipType === "baselines_source" && edge.toEntityId === workflowId);
+      const bindingEdges = relationships.filter(edge => !edge.endedAt && edge.relationshipType === "binds_source" && edge.toEntityId === workflowId);
+      if (baselineEdges.length > 1 || bindingEdges.length > 1 || (bindingEdges.length && !baselineEdges.length)) throw Error("Current Workflow has ambiguous or incomplete source planning context.");
+      const baselineEdge = baselineEdges[0]; const bindingEdge = bindingEdges[0];
+      const [baseline, binding] = await Promise.all([baselineEdge ? store.getEntity(projectId, baselineEdge.fromEntityId) : null, bindingEdge ? store.getEntity(projectId, bindingEdge.fromEntityId) : null]);
+      if (baseline && (baseline.entityType !== "SourceBaseline" || baseline.body.workflowId !== workflowId)) throw Error("Current Workflow SourceBaseline identity is inconsistent.");
+      if (binding && (binding.entityType !== "SourceBinding" || binding.body.workflowId !== workflowId || binding.body.sourceBaselineId !== baseline?.id)) throw Error("Current Workflow SourceBinding identity is inconsistent.");
+      const routed = relationships.some(edge => !edge.endedAt && edge.relationshipType === "routes_to" && edge.toEntityId === workflowId);
+      return { workflow: workflowSummary(workflow), provenance: routed ? "routed" as const : "direct" as const,
+        source: baseline?.entityType === "SourceBaseline" ? { baseline, binding: binding?.entityType === "SourceBinding" ? binding : null } : null };
+    });
+  }
+
+  async function getAcceptedWorkflowPlanningGraph(projectRoot: string, workflowId: string) {
+    return withCurrentProject(projectRoot, (store, projectId) => createProjectStateService(store, operator).getWorkflowExecutionPlan(projectId, workflowId));
+  }
+
+  async function acceptReviewedWorkflowPlanningGraph(projectRoot: string, graph: WorkflowPlanningGraph) {
+    return withCurrentProject(projectRoot, (store, projectId) => createProjectStateService(store, operator).acceptWorkflowPlanningGraph(projectId, graph));
+  }
+
   async function startDirectWorkflow(projectRoot: string, input: DirectWorkflowStartRequest): Promise<{ workflow: WorkflowInstanceSummary }> {
     if (!input || typeof input !== "object" || Object.keys(input).some(key => !["workflowType", "title"].includes(key)))
       throw Error("Direct Workflow request has unsupported fields.");
@@ -198,5 +224,5 @@ export function createWorkflowApplicationService(dependencies: {
     });
   }
 
-  return { listCurrentProjectWorkflows, getCurrentProjectWorkflow, startDirectWorkflow, ensureProjectCreationWorkflow, completeIncompleteGreenfieldInitialization };
+  return { listCurrentProjectWorkflows, getCurrentProjectWorkflow, getWorkflowPlanningContext, getAcceptedWorkflowPlanningGraph, acceptReviewedWorkflowPlanningGraph, startDirectWorkflow, ensureProjectCreationWorkflow, completeIncompleteGreenfieldInitialization };
 }

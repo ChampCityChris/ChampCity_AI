@@ -40,6 +40,16 @@ test("direct Workflow creation preserves exact identity, concurrent instances, p
     const migration = await application.startDirectWorkflow(env.root, { workflowType: "refactor-migration", title: "Migration" });
     assert.notEqual(featureA.workflow.workflowId, featureB.workflow.workflowId);
     assert.equal(featureA.workflow.currentWorkspace, "feature-intake");
+    const planningContext = await application.getWorkflowPlanningContext(env.root, featureA.workflow.workflowId);
+    assert.equal(planningContext.workflow.workflowId, featureA.workflow.workflowId);
+    assert.equal(planningContext.provenance, "direct");
+    assert.equal(planningContext.source, null);
+    const acceptedPlan = await application.acceptReviewedWorkflowPlanningGraph(env.root, { workflowId: featureA.workflow.workflowId, topology: "direct",
+      solution: { title: "Feature plan", objective: "Implement", scopeIn: ["feature"], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [],
+      workItems: [{ key: "candidate-1", kind: "feature", title: "Implement feature", objective: "Deliver the feature", dependencyKeys: [], criteria: [] }] });
+    assert.equal(acceptedPlan.workflow.body.currentWorkspace, "work-item-map");
+    assert.equal(acceptedPlan.directWorkItems.length, 1);
+    assert.equal(acceptedPlan.solutions.length, 1);
     await assert.rejects(application.startDirectWorkflow(env.root, { workflowType: "project-creation", title: "No" }), /not available for direct start/);
     await assert.rejects(application.startDirectWorkflow(env.root, { workflowType: "work-intake-routing", title: "No" }), /not available for direct start/);
     await assert.rejects(application.startDirectWorkflow(env.root, { workflowType: "feature-capability", title: "  " }), /title must contain/);
@@ -95,6 +105,16 @@ test("source-backed direct start records the exact managed Dev commit and leaves
     assert.equal(bindings.length, 1);
     assert.equal(bindings[0].body.preparationState, "unprepared");
     assert.equal(bindings[0].body.workSourceLineId, undefined);
+    const sourceContext = await application.getWorkflowPlanningContext(env.root, result.workflow.workflowId);
+    assert.equal(sourceContext.source.baseline.id, baselines[0].id);
+    assert.equal(sourceContext.source.binding.id, bindings[0].id);
+    const sourcePlan = await application.acceptReviewedWorkflowPlanningGraph(env.root, { workflowId: result.workflow.workflowId, topology: "direct",
+      solution: { title: "Source plan", objective: "Plan without materializing", scopeIn: ["change"], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [],
+      workItems: [{ key: "candidate-1", kind: "feature", title: "Change", objective: "Implement", dependencyKeys: [], criteria: [] }] });
+    assert.equal(sourcePlan.workflow.body.currentWorkspace, "work-item-map");
+    assert.equal((await env.store.listEntities(env.projectId, "SourceBinding")).find(record => record.entityType === "SourceBinding").body.preparationState, "unprepared");
+    assert.equal((await env.store.listEntities(env.projectId, "SourceCheckpoint")).length, 0);
+    assert.equal((await env.store.listEntities(env.projectId, "IntegrationRecord")).length, 0);
     assert.equal(path.resolve(git(dev, "rev-parse", "--show-toplevel")), path.resolve(dev));
     assert.equal(git(dev, "branch", "--show-current"), "dev");
     assert.equal(git(dev, "rev-parse", "HEAD"), source.integrationTarget.headRevisionId);

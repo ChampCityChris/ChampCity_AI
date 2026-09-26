@@ -46,6 +46,20 @@ export interface ValidationFreshness { validationId: EntityId; targetEntityId: E
 export interface CriterionValidationStatus { criterionId: EntityId; policy: EntityBodyMap["Criterion"]["validationPolicy"]; satisfied: boolean; validationId: EntityId | null; reason: "current-pass" | "no-current-validation" | "latest-validation-not-pass" | "deferred-to-phase" | "operator-decision-required" }
 export interface CompletionEligibility { entityId: EntityId; eligible: boolean; blockers: string[] }
 export interface ExecutionPlanView { phases: { phaseId: EntityId; sequence: number; workItemIds: EntityId[]; criterionIds: EntityId[] }[]; directWorkItemIds: EntityId[]; dependencyIds: { from: EntityId; to: EntityId }[]; repairIds: { from: EntityId; to: EntityId }[] }
+export interface WorkflowPlanningGraph {
+  workflowId: EntityId; topology: "direct" | "phased";
+  solution: { title: string; objective: string; scopeIn: string[]; scopeOut: string[]; constraints: string[]; assumptions: string[]; risks: string[] };
+  solutionCriteria: Array<{ statement: string; criticality: "required" | "optional" | "informational"; verificationIntent: string; validationPolicy: EntityBodyMap["Criterion"]["validationPolicy"] }>;
+  phases?: Array<{ key: string; title: string; objective: string; sequence: number; criteria?: Array<{ statement: string; criticality: "required" | "optional" | "informational"; verificationIntent: string; validationPolicy: EntityBodyMap["Criterion"]["validationPolicy"] }> }>;
+  workItems: Array<{ key: string; kind: EntityBodyMap["WorkItem"]["workItemKind"]; title: string; objective: string; phaseKey?: string; dependencyKeys: string[]; criteria: Array<{ statement: string; criticality: "required" | "optional" | "informational"; verificationIntent: string; validationPolicy: EntityBodyMap["Criterion"]["validationPolicy"] }> }>;
+}
+export interface WorkflowExecutionPlanView extends ExecutionPlanView {
+  workflow: ProjectStateRecord<"Workflow">; solutions: ProjectStateRecord<"BoundedSolution">[];
+  phases: Array<ExecutionPlanView["phases"][number] & { record: ProjectStateRecord<"Phase"> }>;
+  directWorkItems: ProjectStateRecord<"WorkItem">[]; workItemsByPhase: Record<string, ProjectStateRecord<"WorkItem">[]>;
+  criteria: { ownerId: EntityId; record: ProjectStateRecord<"Criterion"> }[];
+  decisions: ProjectStateRecord<"Decision">[];
+}
 export interface CurrentWorkRoute { route: WorkRoute; decisionId: EntityId; assessmentId: EntityId | null; effectiveAt: string }
 export interface WorkIntakeSummary { intakeId: EntityId; request: string; desiredOutcome: string; constraints: string[]; evidenceContext: string[]; intakeState: WorkIntakeState; requestedIntegrationTarget: string; routingWorkflowId: EntityId; targetWorkflowId: EntityId | null; currentRoute: CurrentWorkRoute | null; assessmentIds: EntityId[]; routeDecisionIds: EntityId[] }
 export interface WorkRouteHistory { assessments: ProjectStateRecord<"RouteAssessment">[]; decisions: ProjectStateRecord<"Decision">[]; relationships: ProjectStateRelationship[] }
@@ -476,6 +490,10 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const to = await requiredRecord(unit, projectId, toEntityId);
       const active = (await unit.listRelationships(projectId, relationshipType)).filter(edge => !edge.endedAt);
       if (active.some(edge => edge.fromEntityId === fromEntityId && edge.toEntityId === toEntityId)) fail("Relationship already exists.");
+      if (relationshipType === "workflow_member") {
+        if (active.some(edge => edge.fromEntityId === fromEntityId)) fail("Planning record already belongs to a Workflow.");
+        if (from.entityType === "BoundedSolution" && active.some(edge => edge.toEntityId === toEntityId)) fail("Workflow already has an accepted planning graph.");
+      }
       if (relationshipType === "repairs" && (from.entityType !== "WorkItem" || !["repair", "fix"].includes(from.body.workItemKind))) fail("Only a Repair or Fix Work Item can repair another Work Item.");
       if (relationshipType === "part_of" && active.some(edge => edge.fromEntityId === fromEntityId)) fail("A Work Item already has an active parent.");
       if (["depends_on", "part_of", "repairs"].includes(relationshipType)) {
@@ -486,6 +504,37 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
           if (visited.size === size) break;
         }
         if (visited.has(fromEntityId)) fail("Execution relationship would form a cycle.");
+      }
+      if (relationshipType === "depends_on") {
+        const allMembership = (await unit.listRelationships(projectId, "part_of")).filter(edge => !edge.endedAt);
+        const workflowOwner = async (id: EntityId): Promise<EntityId | null> => {
+          let cursor: EntityId | undefined = id; const seen = new Set<EntityId>();
+          while (cursor && !seen.has(cursor)) { seen.add(cursor); const edge = allMembership.find(item => item.fromEntityId === cursor); if (!edge) return null; const target = edge.toEntityId; const record = target === fromEntityId ? from : target === toEntityId ? to : await unit.getEntity(projectId, target); if (record?.entityType === "Workflow") return target; cursor = target; }
+          return null;
+        };
+        const ownerA = await workflowOwner(fromEntityId); const ownerB = await workflowOwner(toEntityId);
+        if ((ownerA || ownerB) && ownerA !== ownerB) fail("Dependencies cannot cross Workflow ownership.");
+      }
+      if (["part_of", "depends_on", "defines_criterion", "implements"].includes(relationshipType)) {
+        const all = (await unit.listRelationships(projectId)).filter(edge => !edge.endedAt);
+        const findWorkflowOwner = async (entityId: EntityId, seen = new Set<EntityId>()): Promise<EntityId | null> => {
+          if (seen.has(entityId)) return null;
+          seen.add(entityId);
+          const canonical = all.find(edge => edge.relationshipType === "workflow_member" && edge.fromEntityId === entityId);
+          if (canonical) return canonical.toEntityId;
+          const parent = all.find(edge => edge.relationshipType === "part_of" && edge.fromEntityId === entityId);
+          if (parent) {
+            const record = await unit.getEntity(projectId, parent.toEntityId);
+            if (record?.entityType === "Workflow") return record.id;
+            return findWorkflowOwner(parent.toEntityId, seen);
+          }
+          const criterionOwner = all.find(edge => edge.relationshipType === "defines_criterion" && edge.toEntityId === entityId);
+          if (criterionOwner) return findWorkflowOwner(criterionOwner.fromEntityId, seen);
+          return null;
+        };
+        const ownerId = relationshipType === "part_of" ? await findWorkflowOwner(toEntityId) ?? (to.entityType === "Workflow" ? to.id : null) : await findWorkflowOwner(fromEntityId);
+        if (ownerId && all.some(edge => edge.relationshipType === "workflow_member" && edge.toEntityId === ownerId && !edge.endedAt))
+          fail("An accepted Workflow planning graph cannot be changed through generic relationships.");
       }
       const edge = createDomainRelationship({ projectId, fromEntityId, relationshipType, toEntityId, createdBy: trustedPrincipal }, id => id === fromEntityId ? from : id === toEntityId ? to : undefined);
       await unit.saveRelationship(edge);
@@ -1636,6 +1685,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       .sort((a, b) => (sequence.get(a.id) ?? 0) - (sequence.get(b.id) ?? 0) || a.id.localeCompare(b.id));
   }
 
+  /** Transitional Project-wide query retained for legacy completion callers; Current Project planning uses getWorkflowExecutionPlan. */
   async function getExecutionPlan(projectId: ProjectId): Promise<ExecutionPlanView> {
     const phases = (await store.listEntities(projectId, "Phase"))
       .filter((record): record is ProjectStateRecord<"Phase"> => record.entityType === "Phase" && record.lifecycleState !== "superseded" && record.lifecycleState !== "voided")
@@ -1667,6 +1717,85 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       repairIds: active.filter(edge => edge.relationshipType === "repairs").map(edge => ({ from: edge.fromEntityId, to: edge.toEntityId }))
         .sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to)),
     };
+  }
+
+  async function acceptWorkflowPlanningGraph(projectId: ProjectId, graph: WorkflowPlanningGraph, context?: MutationContext): Promise<WorkflowExecutionPlanView> {
+    exactInput(graph, ["workflowId", "topology", "solution", "solutionCriteria", "phases", "workItems"]);
+    await store.transaction(projectId, async unit => {
+      if (trustedPrincipal.principalType !== "human" || trustedPrincipal.role !== "Operator") fail("Workflow planning acceptance requires the Operator principal.");
+      if (!await unit.getProject(projectId)) fail("Owning Project does not exist.");
+      const workflow = await requiredRecord(unit, projectId, graph.workflowId);
+      if (workflow.entityType !== "Workflow" || workflow.lifecycleState !== "active" || workflow.body.workflowState !== "active" ||
+          ["work-intake-routing", "project-creation"].includes(workflow.body.workflowType)) fail("Planning requires a current active implementation Workflow.");
+      const existing = (await unit.listRelationships(projectId, "workflow_member")).some(edge => edge.toEntityId === workflow.id && !edge.endedAt);
+      if (existing) fail("A canonical planning graph has already been accepted for this Workflow.");
+      if (!Array.isArray(graph.solutionCriteria) || graph.solutionCriteria.length > 64 || !Array.isArray(graph.workItems) || graph.workItems.length < 1 || graph.workItems.length > 128) fail("Planning graph exceeds its bounds.");
+      const phases = graph.phases ?? [];
+      if (!Array.isArray(phases) || phases.length > 32) fail("Planning phases exceed their bounds.");
+      if (graph.topology === "direct" && phases.length) fail("Direct topology cannot contain Phases.");
+      if (graph.topology === "phased" && phases.length < 1) fail("Phased topology requires Phases.");
+      if (!["direct", "phased"].includes(graph.topology)) fail("Unsupported planning topology.");
+      const validKey = (key: unknown) => typeof key === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(key);
+      const phaseKeys = new Set<string>();
+      const sequences = new Set<number>();
+      for (const phase of phases) { exactInput(phase, ["key", "title", "objective", "sequence", "criteria"]); if (!validKey(phase.key) || phaseKeys.has(phase.key) || !Number.isSafeInteger(phase.sequence) || phase.sequence < 1 || phase.sequence > 32 || sequences.has(phase.sequence)) fail("Invalid or duplicate Phase candidate/sequence."); phaseKeys.add(phase.key); sequences.add(phase.sequence); if (!Array.isArray(phase.criteria ?? []) || (phase.criteria?.length ?? 0) > 64) fail("Phase criteria exceed their bounds."); }
+      const workKeys = new Set<string>();
+      const byKey = new Map<string, typeof graph.workItems[number]>();
+      for (const work of graph.workItems) { exactInput(work, ["key", "kind", "title", "objective", "phaseKey", "dependencyKeys", "criteria"]); if (!validKey(work.key) || workKeys.has(work.key) || !Array.isArray(work.dependencyKeys) || work.dependencyKeys.length > 128 || !Array.isArray(work.criteria) || work.criteria.length > 64 || (work.phaseKey !== undefined && !phaseKeys.has(work.phaseKey))) fail("Invalid Work Item candidate."); workKeys.add(work.key); byKey.set(work.key, work); if (graph.topology === "phased" && !work.phaseKey) fail("Every phased Work Item must belong to one declared Phase."); if (graph.topology === "direct" && work.phaseKey) fail("Direct Work Items cannot have Phase membership."); }
+      for (const work of graph.workItems) for (const key of work.dependencyKeys) if (!byKey.has(key) || key === work.key) fail("Work Item dependency key is invalid.");
+      const marks = new Map<string, number>(); const visit = (key: string) => { if (marks.get(key) === 1) fail("Dependency graph contains a cycle."); if (marks.get(key) === 2) return; marks.set(key, 1); for (const dependency of byKey.get(key)!.dependencyKeys) visit(dependency); marks.set(key, 2); }; for (const key of workKeys) visit(key);
+      const criteria = [...graph.solutionCriteria, ...phases.flatMap(phase => phase.criteria ?? []), ...graph.workItems.flatMap(work => work.criteria)];
+      if (criteria.length > 512) fail("Planning graph exceeds its total Criterion bound.");
+      const policies = new Set(["deterministic", "semantic_ai", "visual_human", "deferred_visual_phase", "operator_decision"]);
+      for (const criterion of criteria) { exactInput(criterion, ["statement", "criticality", "verificationIntent", "validationPolicy"]); if (!policies.has(criterion.validationPolicy)) fail("Criterion validation policy is required and must be supported."); }
+      const kindsByWorkflow: Record<WorkflowType, readonly string[]> = { "feature-capability": ["feature", "fix", "maintenance"], "issue-resolution": ["fix", "repair"], "refactor-migration": ["migration", "maintenance"], "integration-composition": ["feature", "fix", "maintenance"], "infrastructure-platform": ["feature", "fix", "maintenance"], "research-prototype": ["feature", "maintenance"], "project-creation": [], "work-intake-routing": [] };
+      if (graph.workItems.some(item => !kindsByWorkflow[workflow.body.workflowType].includes(item.kind))) fail("Unsupported Work Item kind for this Workflow family.");
+      const now = new Date().toISOString();
+      const create = async <T extends EntityType>(entityType: T, body: EntityBodyMap[T]) => { const record = createProjectStateEntity({ entityType, projectId, body, principal: trustedPrincipal }); await unit.saveEntity(record as ProjectStateEntity, null); await recordMutation(unit, { projectId, entityId: record.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: record.createdAt, changedFields: Object.keys(record.body), defaultReason: `Accept Workflow planning ${entityType}`, context }); return record as ProjectStateRecord<T>; };
+      const link = async (from: ProjectStateEntity, type: RelationshipType, to: ProjectStateEntity) => linkSemantic(unit, projectId, from, to, type, context);
+      const solution = await create("BoundedSolution", { ...graph.solution, solutionState: "active" });
+      await link(solution, "workflow_member", workflow);
+      const addCriteria = async (owner: ProjectStateEntity, list: WorkflowPlanningGraph["solutionCriteria"]) => { for (const item of list) { const record = await create("Criterion", { ...item, criterionState: "active" }); await link(owner, "defines_criterion", record); } };
+      await addCriteria(solution, graph.solutionCriteria);
+      const phaseRecords = new Map<string, ProjectStateRecord<"Phase">>();
+      for (const phase of [...phases].sort((a, b) => a.sequence - b.sequence)) { const record = await create("Phase", { title: phase.title, objective: phase.objective, phaseState: "planned", sequence: phase.sequence }); phaseRecords.set(phase.key, record); await link(record, "part_of", workflow); await addCriteria(record, phase.criteria ?? []); }
+      const workRecords = new Map<string, ProjectStateRecord<"WorkItem">>();
+      for (const work of graph.workItems) { const record = await create("WorkItem", { workItemKind: work.kind, title: work.title, objective: work.objective, workState: "planned" }); workRecords.set(work.key, record); await link(record, "part_of", work.phaseKey ? phaseRecords.get(work.phaseKey)! : workflow); await link(record, "implements", solution); await addCriteria(record, work.criteria); }
+      for (const work of graph.workItems) for (const dependency of work.dependencyKeys) await link(workRecords.get(work.key)!, "depends_on", workRecords.get(dependency)!);
+      const decision = await create("Decision", decisionBody({ decisionType: "planning-acceptance", outcome: "accepted", decisionScope: `Workflow:${workflow.id}`, rationale: "Operator accepted the reviewed canonical planning graph." }, trustedPrincipal, now));
+      await link(decision, "governs", workflow); await link(decision, "governs", solution);
+      const nextWorkflow = validateProjectStateEntity({ ...workflow, recordVersion: workflow.recordVersion + 1, updatedAt: now, updatedBy: trustedPrincipal, body: { ...workflow.body, currentWorkspace: "work-item-map" } }) as ProjectStateRecord<"Workflow">;
+      await unit.saveEntity(nextWorkflow, workflow.recordVersion); await recordMutation(unit, { projectId, entityId: workflow.id, fromVersion: workflow.recordVersion, toVersion: nextWorkflow.recordVersion, operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now, changedFields: ["currentWorkspace"], defaultReason: "Advance accepted Workflow plan", context });
+      return workflow.id;
+    });
+    return getWorkflowExecutionPlan(projectId, graph.workflowId);
+  }
+
+  async function getWorkflowExecutionPlan(projectId: ProjectId, workflowId: EntityId): Promise<WorkflowExecutionPlanView> {
+    const workflow = await requiredRecord(store, projectId, workflowId);
+    if (workflow.entityType !== "Workflow" || workflow.body.workflowType === "work-intake-routing") fail("Workflow planning query requires a substantive Workflow.");
+    const edges = (await store.listRelationships(projectId)).filter(edge => !edge.endedAt);
+    const members = new Set(edges.filter(edge => edge.relationshipType === "part_of" && edge.toEntityId === workflowId).map(edge => edge.fromEntityId));
+    const solutionIds = new Set(edges.filter(edge => edge.relationshipType === "workflow_member" && edge.toEntityId === workflowId).map(edge => edge.fromEntityId));
+    const parent = new Map(edges.filter(edge => edge.relationshipType === "part_of").map(edge => [edge.fromEntityId, edge.toEntityId]));
+    const phases = (await store.listEntities(projectId, "Phase")).filter((r): r is ProjectStateRecord<"Phase"> => r.entityType === "Phase" && members.has(r.id) && !["superseded", "voided"].includes(r.lifecycleState));
+    const phaseIds = new Set(phases.map(phase => phase.id));
+    const workItems = (await store.listEntities(projectId, "WorkItem")).filter((r): r is ProjectStateRecord<"WorkItem"> => r.entityType === "WorkItem" && (members.has(r.id) || phaseIds.has(parent.get(r.id) ?? "")) && !["superseded", "voided"].includes(r.lifecycleState));
+    const solutions = (await store.listEntities(projectId, "BoundedSolution")).filter((r): r is ProjectStateRecord<"BoundedSolution"> => r.entityType === "BoundedSolution" && solutionIds.has(r.id) && !["superseded", "voided"].includes(r.lifecycleState));
+    const ownedWork = new Set(workItems.map(r => r.id)); const ownedPhases = new Set(phases.map(r => r.id));
+    for (const work of workItems) { const p = parent.get(work.id); const owner = p && ownedPhases.has(p) ? parent.get(p) : p; if (owner !== workflowId) fail("Invalid cross-Workflow planning membership."); }
+    const dependencies = edges.filter(edge => edge.relationshipType === "depends_on" && (ownedWork.has(edge.fromEntityId) || ownedWork.has(edge.toEntityId)));
+    if (dependencies.some(edge => !ownedWork.has(edge.fromEntityId) || !ownedWork.has(edge.toEntityId))) fail("Invalid cross-Workflow dependency in Project State.");
+    const criterionOwners = new Set<EntityId>([...ownedWork, ...ownedPhases, ...solutionIds]);
+    const criteria = (await store.listRelationships(projectId, "defines_criterion")).filter(edge => !edge.endedAt && criterionOwners.has(edge.fromEntityId)).map(edge => ({ ownerId: edge.fromEntityId, criterionId: edge.toEntityId }));
+    const criterionRecords = await store.listEntities(projectId, "Criterion"); const criterionById = new Map(criterionRecords.filter((r): r is ProjectStateRecord<"Criterion"> => r.entityType === "Criterion").map(r => [r.id, r]));
+    const projectedCriteria = criteria.map(item => ({ ownerId: item.ownerId, record: criterionById.get(item.criterionId)! })).filter(item => item.record);
+    const phaseViews = phases.sort((a, b) => a.body.sequence - b.body.sequence || a.id.localeCompare(b.id)).map(record => ({ record, phaseId: record.id, sequence: record.body.sequence, workItemIds: workItems.filter(w => parent.get(w.id) === record.id).map(w => w.id).sort(), criterionIds: edges.filter(e => e.relationshipType === "defines_criterion" && e.fromEntityId === record.id).map(e => e.toEntityId).sort() }));
+    const decisionIds = new Set(edges.filter(e => e.relationshipType === "governs" && [workflowId, ...solutionIds].includes(e.toEntityId)).map(e => e.fromEntityId));
+    const decisions = (await store.listEntities(projectId, "Decision")).filter((r): r is ProjectStateRecord<"Decision"> => r.entityType === "Decision" && decisionIds.has(r.id) && r.body.decisionType === "planning-acceptance" && r.body.outcome === "accepted");
+    const direct = workItems.filter(w => parent.get(w.id) === workflowId);
+    return { workflow, solutions, phases: phaseViews, directWorkItems: direct, workItemsByPhase: Object.fromEntries(phaseViews.map(p => [p.phaseId, workItems.filter(w => parent.get(w.id) === p.phaseId)])), criteria: projectedCriteria, decisions,
+      directWorkItemIds: direct.map(w => w.id).sort(), dependencyIds: dependencies.map(e => ({ from: e.fromEntityId, to: e.toEntityId })), repairIds: edges.filter(e => e.relationshipType === "repairs" && ownedWork.has(e.fromEntityId) && ownedWork.has(e.toEntityId)).map(e => ({ from: e.fromEntityId, to: e.toEntityId })) };
   }
 
   async function getWorkItemCompletionEligibility(projectId: ProjectId, workItemId: EntityId, currentSourceBaselineRef?: string): Promise<CompletionEligibility> {
@@ -1901,6 +2030,6 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, completeWorkItem, completePhase,
     getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, renderView, exportStructuredProjectState, getAuthoritativeContext, getCommittedEventFeed, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
     getEffectiveDisposition, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus,
-    getImplementationAttempts, getExecutionPlan, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,
+    getImplementationAttempts, getExecutionPlan, getWorkflowExecutionPlan, acceptWorkflowPlanningGraph, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,
     getWorkRouteHistory, getCurrentWorkRoute, getWorkIntakeSummary, getSourceSemanticView, getRegressionObligationView };
 }

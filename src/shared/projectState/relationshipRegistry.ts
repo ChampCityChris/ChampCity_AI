@@ -47,6 +47,7 @@ export const RELATIONSHIP_REGISTRY = Object.freeze({
   routes_to: rule(["Workflow"], ["Workflow"], true),
   supersedes: rule(nonProject, nonProject, true),
   supports: rule(["Evidence"], all, true),
+  workflow_member: rule(["BoundedSolution", "Finding", "RootCause"], ["Workflow"], true),
 });
 
 export type RelationshipType = keyof typeof RELATIONSHIP_REGISTRY;
@@ -75,6 +76,8 @@ export function validateRelationship(
   if (from.projectId !== relationship.projectId || to.projectId !== relationship.projectId) fail("Relationship endpoints must belong to one Project.");
   if (!definition.from.includes(from.entityType) || !definition.to.includes(to.entityType)) fail("Relationship direction or endpoint type is invalid.");
   if (relationship.relationshipType === "part_of" && from.entityType === "Phase" && to.entityType !== "Workflow") fail("Phase membership must target a Workflow.");
+  if (relationship.relationshipType === "part_of" && to.entityType === "Workflow" && (to.body.workflowType === "work-intake-routing" || to.body.workflowType === "project-creation" || to.lifecycleState !== "active" || to.body.workflowState !== "active")) fail("Planning membership requires a current implementation Workflow.");
+  if (relationship.relationshipType === "workflow_member" && (to.entityType !== "Workflow" || to.body.workflowType === "work-intake-routing" || to.body.workflowType === "project-creation" || to.lifecycleState !== "active" || to.body.workflowState !== "active")) fail("Planning membership requires a current substantive implementation Workflow.");
   if (relationship.relationshipType === "routes_to" && (from.entityType !== "Workflow" || to.entityType !== "Workflow" || from.body.workflowType !== "work-intake-routing" || to.body.workflowType === "work-intake-routing")) fail("routes_to requires a Work Intake routing Workflow source and a non-routing Workflow target.");
   if (relationship.relationshipType === "baselines_source" && (to.entityType !== "Workflow" || to.body.workflowType === "work-intake-routing")) fail("baselines_source requires a substantive Workflow target.");
   if (relationship.relationshipType === "baselines_source" && from.entityType === "SourceBaseline" && from.body.workflowId !== to.id) fail("SourceBaseline body Workflow must match its provenance endpoint.");

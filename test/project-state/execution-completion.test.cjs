@@ -23,6 +23,55 @@ function sqliteFixture(context) {
 }
 
 function register(name, factory) {
+  test(`${name}: reviewed Workflow planning graph normalizes atomically and projects by exact Workflow`, async context => {
+    const store = factory(context);
+    const service = createProjectStateService(store, operator);
+    const project = await service.createRecord(null, "Project", { name: "Planning", description: "Synthetic" });
+    const first = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Same", currentWorkspace: "feature-intake" });
+    const second = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Same", currentWorkspace: "feature-intake" });
+    const criterion = { statement: "Works", criticality: "required", verificationIntent: "Run proof", validationPolicy: "deterministic" };
+    const accepted = await service.acceptWorkflowPlanningGraph(project.id, { workflowId: first.id, topology: "phased",
+      solution: { title: "Solution", objective: "Deliver", scopeIn: ["feature"], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [criterion],
+      phases: [{ key: "p1", title: "Phase", objective: "Build", sequence: 1, criteria: [criterion] }],
+      workItems: [{ key: "temp-a", kind: "feature", title: "A", objective: "A", phaseKey: "p1", dependencyKeys: [], criteria: [criterion] }, { key: "temp-b", kind: "feature", title: "B", objective: "B", phaseKey: "p1", dependencyKeys: ["temp-a"], criteria: [] }] });
+    assert.equal(accepted.workflow.body.currentWorkspace, "work-item-map");
+    assert.equal(accepted.phases.length, 1);
+    assert.equal(accepted.phases[0].sequence, 1);
+    assert.equal(accepted.workItemsByPhase[accepted.phases[0].phaseId].length, 2);
+    assert.equal(accepted.criteria.length, 3);
+    assert.ok(accepted.decisions.some(item => item.body.decisionType === "planning-acceptance" && item.body.outcome === "accepted"));
+    assert.ok(accepted.solutions[0].id !== "temp-a");
+    assert.equal((await service.getWorkflowExecutionPlan(project.id, second.id)).solutions.length, 0);
+    const before = (await store.listEntities(project.id)).length;
+    await assert.rejects(service.acceptWorkflowPlanningGraph(project.id, { workflowId: second.id, topology: "direct",
+      solution: { title: "Invalid", objective: "Invalid", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [],
+      workItems: [{ key: "a", kind: "feature", title: "A", objective: "A", dependencyKeys: ["missing"], criteria: [] }] }), /dependency key/);
+    assert.equal((await store.listEntities(project.id)).length, before);
+    assert.equal((await service.getRecord(project.id, second.id)).body.currentWorkspace, "feature-intake");
+    await assert.rejects(service.acceptWorkflowPlanningGraph(project.id, { workflowId: second.id, topology: "direct",
+      solution: { title: "Invalid policy", objective: "Invalid", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [],
+      workItems: [{ key: "a", kind: "feature", title: "A", objective: "A", dependencyKeys: [], criteria: [{ statement: "Must be explicit", criticality: "required", verificationIntent: "Verify" }] }] }), /validation policy/);
+    assert.equal((await store.listEntities(project.id)).length, before);
+    const secondPlan = await service.acceptWorkflowPlanningGraph(project.id, { workflowId: second.id, topology: "phased",
+      solution: { title: "Second solution", objective: "Isolated", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [],
+      phases: [{ key: "p2", title: "Second phase", objective: "Independent", sequence: 1 }],
+      workItems: [{ key: "second-work", kind: "feature", title: "Second work", objective: "Independent", phaseKey: "p2", dependencyKeys: [], criteria: [] }] });
+    assert.equal(secondPlan.phases[0].sequence, 1);
+    assert.equal(secondPlan.workItemsByPhase[secondPlan.phases[0].phaseId].length, 1);
+    assert.notEqual(secondPlan.phases[0].phaseId, accepted.phases[0].phaseId);
+    const latePhase = await service.createRecord(project.id, "Phase", { title: "Late", objective: "Must not append", phaseState: "planned", sequence: 2 });
+    await assert.rejects(service.createRelationship(project.id, latePhase.id, "part_of", second.id), /accepted Workflow planning graph cannot be changed/);
+    const outsider = await service.createRecord(project.id, "WorkItem", workBody("Other Workflow"));
+    const third = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Other", currentWorkspace: "feature-intake" });
+    await service.createRelationship(project.id, outsider.id, "part_of", third.id);
+    await assert.rejects(service.createRelationship(project.id, accepted.workItemsByPhase[accepted.phases[0].phaseId][0].id, "depends_on", outsider.id), /cannot cross Workflow ownership/);
+    const wir = await service.createWorkflow(project.id, { workflowType: "work-intake-routing", title: "Routing", currentWorkspace: "work-intake" });
+    await assert.rejects(service.acceptWorkflowPlanningGraph(project.id, { workflowId: wir.id, topology: "direct", solution: {}, solutionCriteria: [], workItems: [] }), /current active implementation Workflow/);
+    await assert.rejects(service.getWorkflowExecutionPlan(project.id, wir.id), /substantive Workflow/);
+    const projectCreation = await service.createWorkflow(project.id, { workflowType: "project-creation", title: "Project", currentWorkspace: "project-intake" });
+    await assert.rejects(service.acceptWorkflowPlanningGraph(project.id, { workflowId: projectCreation.id, topology: "direct", solution: {}, solutionCriteria: [], workItems: [] }), /current active implementation Workflow/);
+  });
+
   test(`${name}: Workflow repeatability, lifetime uniqueness and type stability follow registry policy`, async context => {
     const store = factory(context);
     const service = createProjectStateService(store, operator);

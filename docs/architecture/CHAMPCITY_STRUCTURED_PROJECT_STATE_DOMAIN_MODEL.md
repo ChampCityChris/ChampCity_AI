@@ -501,7 +501,7 @@ Canonical relationship vocabulary should include at minimum:
 | `defines_criterion` | BoundedSolution/WorkItem → Criterion |
 | `implements` | WorkItem → BoundedSolution |
 | `repairs` | WorkItem → WorkItem |
-| `part_of` | WorkItem → WorkItem |
+| `part_of` | WorkItem → WorkItem/Phase/Workflow; Phase → Workflow |
 | `depends_on` | WorkItem → WorkItem |
 | `blocks` | Entity → Entity |
 | `evaluates` | Validation → Criterion/WorkItem/Solution |
@@ -510,6 +510,9 @@ Canonical relationship vocabulary should include at minimum:
 | `derived_from` | Entity → Entity |
 | `supersedes` | Successor → Predecessor |
 | `relates_to` | Entity → Entity |
+| `workflow_member` | BoundedSolution/Finding/RootCause → exact substantive Workflow |
+
+Workflow front-half planning records use `workflow_member` for exact Workflow ownership. A Bounded Solution, Finding, or Root Cause used in a current planning graph belongs to one Workflow; the predicate cannot target Work Intake Routing or Project Creation. `Phase → Workflow` and direct `WorkItem → Workflow` continue to use `part_of`; phased work uses `WorkItem → Phase`. Workflow identity scopes phase sequence numbers and dependency edges.
 
 Relationship types should be centrally registered by the Product Core rather than invented ad hoc by models.
 
