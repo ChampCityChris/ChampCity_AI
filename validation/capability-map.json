@@ -4712,13 +4712,17 @@
         "src/main/featurePlanning/**",
         "src/main/issuePlanning/**",
         "src/main/workflow/**",
+        "src/renderer/app/FeaturePlanningWorkspace.tsx",
+        "src/renderer/app/IssueWorkflowPlanningWorkspace.tsx",
+        "src/renderer/app/planningDraftAction.ts",
         "src/shared/featurePlanningContracts.ts",
         "src/shared/issuePlanningContracts.ts",
         "src/shared/projectState/projectStateService.ts",
         "src/shared/projectState/workflowTypeRegistry.ts",
         "src/shared/structuredWorkRoutingContracts.ts",
         "src/shared/workflowApplicationContracts.ts",
-        "test/workflow/workflow-application-service.test.cjs"
+        "test/workflow/workflow-application-service.test.cjs",
+        "test/workflow/workflow-planning-ipc.test.cjs"
       ],
       "dependsOn": [
         "current-project-entry-runtime",
@@ -4729,6 +4733,10 @@
         {
           "behaviorId": "current-workflow-inventory-and-direct-start-use-exact-independent-instance-identity",
           "description": "Current Project inventory lists exact active and closed Workflow instances, and direct starts create concurrent exact identities."
+        },
+        {
+          "behaviorId": "feature-and-issue-planning-ipc-preserves-exact-workflow-argument-contracts",
+          "description": "Feature and Issue planning IPC accepts the exact preload argument shape, rejects malformed arity and bounded actions before service calls, and renderer JSON parse failures surface without disposition."
         },
         {
           "behaviorId": "feature-planning-persists-exact-workflow-intake-and-normalizes-reviewed-graph",
@@ -20249,6 +20257,60 @@
           "capabilityId": "workflow-application-service",
           "behaviorId": "workflow-inventory-resolves-unambiguous-wir-provenance-and-fails-closed",
           "proofLocator": "WIR and routed target summaries resolve WorkIntake and source Workflow provenance with a shared core DTO",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/workflow/workflow-planning-ipc.test.cjs",
+      "currentTestCount": {
+        "value": 3,
+        "basis": "Three focused IPC and renderer guard scenarios added by WRB03-R01-01."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 500,
+        "basis": "Initial estimate for stubbed listener and renderer guard proof; update from a supported Windows receipt."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": false,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "integration",
+        "production-path"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Uses captured in-memory IPC listeners and a pure renderer action guard; no shared mutable resources.",
+        "ownedResources": [
+          "pure-stateless"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "production-path"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "feature-and-issue-planning-ipc-preserves-exact-workflow-argument-contracts",
+          "proofLocator": "Captured Feature and Issue IPC listeners receive separate Workflow ID and payload arguments; invalid arity/actions reject, and malformed renderer JSON sets visible error without calling disposition.",
           "proofRole": "primary"
         }
       ]
