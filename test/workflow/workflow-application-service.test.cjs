@@ -14,8 +14,11 @@ const { bootstrapProjectSource } = require("../../dist/main/sourceControl/projec
 const { createStructuredWorkRoutingService } = require("../../dist/main/workflow/structuredWorkRoutingService.js");
 const { createFeaturePlanningService } = require("../../dist/main/featurePlanning/featurePlanningService.js");
 const { createIssuePlanningService } = require("../../dist/main/issuePlanning/issuePlanningService.js");
+const { registerFeaturePlanningIpc } = require("../../dist/main/featurePlanning/featurePlanningIpc.js");
+const { registerIssuePlanningIpc } = require("../../dist/main/issuePlanning/issuePlanningIpc.js");
 
 const operator = { principalId: "test-operator", principalType: "human", role: "Operator" };
+const acceptedAssessment = { currentProductBaseline: "Current behavior", requestedCapabilityDelta: "Requested outcome", behaviorContractsToPreserve: "Existing contract", affectedArchitectureIntegrationPoints: "Feature surfaces", compatibilityRollout: "No migration", regressionBoundary: "Focused regression", excludedFutureWork: "Out of scope" };
 const database = root => path.join(root, ".champcity", "project-state.sqlite");
 const git = (root, ...args) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
 
@@ -31,6 +34,23 @@ async function setup(context, options = {}) {
 }
 
 function groups(inventory) { return new Map(inventory.groups.map(group => [group.workflowType, group.workflows])); }
+
+test("registered Feature and Issue IPC handlers persist intake using preload argument shapes", async context => {
+  const env = await setup(context); const app = createWorkflowApplicationService(); const feature = createFeaturePlanningService(); const issue = createIssuePlanningService();
+  const handlers = new Map(); const registry = { handle: (channel, listener) => handlers.set(channel, listener) };
+  registerFeaturePlanningIpc(registry, () => env.root, () => {}, feature);
+  registerIssuePlanningIpc(registry, () => env.root, () => {}, issue);
+  try {
+    const featureWorkflow = await app.startDirectWorkflow(env.root, { workflowType: "feature-capability", title: "IPC Feature" });
+    const featureIntake = { requestedCapability: "Export", baseline: "None", scopeIn: "CSV", scopeOut: "PDF", constraints: "Stable API", preservation: "Reports", affectedSurfaces: "UI", evidence: "Cases", compatibilityRollout: "Flag" };
+    const featureResult = await handlers.get("featurePlanning:saveIntake")({}, featureWorkflow.workflow.workflowId, featureIntake);
+    assert.equal(featureResult.intake.requestedCapability, "Export");
+    const issueWorkflow = await app.startDirectWorkflow(env.root, { workflowType: "issue-resolution", title: "IPC Issue" });
+    const issueIntake = { title: "Crash", observed: "App exits", expected: "App stays open", reproduction: "Open settings", environment: "Windows", impact: "Blocked", constraints: "No data loss" };
+    const issueResult = await handlers.get("issuePlanning:saveIntake")({}, issueWorkflow.workflow.workflowId, issueIntake);
+    assert.equal(issueResult.intake.title, "Crash");
+  } finally { env.store.close(); }
+});
 
 test("direct Workflow creation preserves exact identity, concurrent instances, provenance, and current history", async context => {
   const env = await setup(context);
@@ -232,7 +252,7 @@ test("structured WIR promotes one Architect assessment and atomically opens an e
     await targetPlanner.saveIntake(env.root, completed.targetWorkflowId, { requestedCapability: "Routed capability", baseline: "Current behavior", scopeIn: "Bounded addition", scopeOut: "Unrelated changes", constraints: "Preserve contracts", preservation: "Existing behavior", affectedSurfaces: "Feature surface", evidence: "Synthetic route evidence", compatibilityRollout: "No migration" });
     await targetPlanner.prepare(env.root, completed.targetWorkflowId, "assessment");
     await targetPlanner.act(env.root, completed.targetWorkflowId, { type: "save-draft", content: "Assess the routed capability." });
-    await targetPlanner.act(env.root, completed.targetWorkflowId, { type: "decide", stage: "assessment", outcome: "accept", rationale: "Accept routed assessment." });
+    await targetPlanner.act(env.root, completed.targetWorkflowId, { type: "decide", stage: "assessment", outcome: "accept", rationale: "Accept routed assessment.", assessment: acceptedAssessment });
     const routedGraph = { workflowId: completed.targetWorkflowId, topology: "phased", solution: { title: "Routed capability", objective: "Deliver routed result", scopeIn: ["bounded addition"], scopeOut: ["unrelated changes"], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [{ statement: "Preserve existing behavior", criticality: "required", verificationIntent: "Run the preserved behavior suite", validationPolicy: "deterministic" }], phases: [{ key: "routed-phase", title: "Capability phase", objective: "Deliver capability", sequence: 1 }], workItems: [{ key: "routed-work", kind: "feature", title: "Implement routed addition", objective: "Deliver the addition", phaseKey: "routed-phase", dependencyKeys: [], criteria: [] }] };
     await targetPlanner.act(env.root, completed.targetWorkflowId, { type: "save-draft", content: "Reviewed routed Feature graph." });
     const routedPlan = await targetPlanner.act(env.root, completed.targetWorkflowId, { type: "decide", stage: "plan", outcome: "accept", rationale: "Accept routed plan.", graph: routedGraph });
@@ -354,9 +374,16 @@ test("Feature planning persists exact Workflow intake, keeps revision noncanonic
     assert.equal((await feature.get(env.root, direct.workflow.workflowId)).assessmentState, "revision-requested");
     await feature.prepare(env.root, direct.workflow.workflowId, "assessment");
     await feature.act(env.root, direct.workflow.workflowId, { type: "save-draft", content: "Assessment current." });
-    await feature.act(env.root, direct.workflow.workflowId, { type: "decide", stage: "assessment", outcome: "accept", rationale: "Assessment approved." });
+    await feature.act(env.root, direct.workflow.workflowId, { type: "decide", stage: "assessment", outcome: "accept", rationale: "Assessment approved.", assessment: acceptedAssessment });
     assert.equal((await workflows.getCurrentProjectWorkflow(env.root, direct.workflow.workflowId)).workflow.currentWorkspace, "feature-planning");
-    assert.equal((await createFeaturePlanningService().get(env.root, direct.workflow.workflowId)).stage, "plan");
+    const reopened = await createFeaturePlanningService().get(env.root, direct.workflow.workflowId);
+    assert.equal(reopened.stage, "plan");
+    assert.equal(reopened.acceptedAssessment.length, 7);
+    const acceptedAssessmentOwnership = await env.store.listRelationships(env.projectId, "workflow_member");
+    assert.ok(reopened.acceptedAssessment.every(record => acceptedAssessmentOwnership.some(edge => edge.fromEntityId === record.id && edge.toEntityId === direct.workflow.workflowId && !edge.endedAt)));
+    const planningHandoff = await feature.prepare(env.root, direct.workflow.workflowId, "plan");
+    assert.match(planningHandoff.draft.instruction, /Exact accepted Feature assessment from SPS/);
+    assert.match(planningHandoff.draft.instruction, /Current Product Baseline/);
     await feature.act(env.root, direct.workflow.workflowId, { type: "save-draft", content: "plan draft placeholder" });
     const graph = { workflowId: direct.workflow.workflowId, topology: "direct", solution: { title: "CSV export", objective: "Export reports", scopeIn: ["CSV"], scopeOut: ["PDF"], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [], workItems: [{ key: "export", kind: "feature", title: "Implement CSV export", objective: "Deliver export", dependencyKeys: [], criteria: [] }] };
     const accepted = await feature.act(env.root, direct.workflow.workflowId, { type: "decide", stage: "plan", outcome: "accept", rationale: "Accept feature graph", graph });
@@ -383,7 +410,7 @@ test("concurrent same-title direct Features accept and reopen isolated canonical
       await planner.saveIntake(env.root, workflow.workflowId, { requestedCapability: `${label} request`, baseline: `${label} baseline`, scopeIn: `${label} scope`, scopeOut: "Unrelated", constraints: "Preserve interface", preservation: "Existing behavior", affectedSurfaces: `${label} surface`, evidence: `${label} evidence`, compatibilityRollout: "No migration" });
       await planner.prepare(env.root, workflow.workflowId, "assessment");
       await planner.act(env.root, workflow.workflowId, { type: "save-draft", content: `${label} assessment` });
-      await planner.act(env.root, workflow.workflowId, { type: "decide", stage: "assessment", outcome: "accept", rationale: `${label} assessment accepted` });
+      await planner.act(env.root, workflow.workflowId, { type: "decide", stage: "assessment", outcome: "accept", rationale: `${label} assessment accepted`, assessment: { ...acceptedAssessment, requestedCapabilityDelta: `${label} outcome` } });
       const graph = { workflowId: workflow.workflowId, topology: "direct", solution: { title: `${label} solution`, objective: `${label} outcome`, scopeIn: [`${label} scope`], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [{ statement: `${label} criterion`, criticality: "required", verificationIntent: `Verify ${label}`, validationPolicy: "deterministic" }], workItems: [{ key: `${label}-work`, kind: "feature", title: `${label} work`, objective: `${label} result`, dependencyKeys: [], criteria: [] }] };
       await planner.act(env.root, workflow.workflowId, { type: "save-draft", content: `${label} reviewed graph` });
       return planner.act(env.root, workflow.workflowId, { type: "decide", stage: "plan", outcome: "accept", rationale: `${label} plan accepted`, graph });
@@ -393,6 +420,7 @@ test("concurrent same-title direct Features accept and reopen isolated canonical
     assert.notEqual(a.acceptedPlan.solutions[0].id, b.acceptedPlan.solutions[0].id);
     assert.notEqual(a.acceptedPlan.directWorkItems[0].id, b.acceptedPlan.directWorkItems[0].id);
     assert.notEqual(a.acceptedPlan.criteria[0].record.id, b.acceptedPlan.criteria[0].record.id);
+    assert.ok(!(await planner.get(env.root, second.workflow.workflowId)).acceptedArchitecture.some(record => record.entityType === "BoundedSolution" && record.id === a.acceptedPlan.solutions[0].id));
     assert.equal((await planner.get(env.root, first.workflow.workflowId)).stage, "work-item-map");
     assert.equal((await planner.get(env.root, second.workflow.workflowId)).stage, "work-item-map");
     assert.deepEqual((await planner.get(env.root, first.workflow.workflowId)).intake.requestedCapability, "alpha request");

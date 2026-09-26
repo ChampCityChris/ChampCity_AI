@@ -41,6 +41,16 @@ export interface SubstantiveWorkflowCreationInput {
 export interface DecisionInput { decisionType: string; outcome: string; decisionScope: string; rationale?: string; effectiveAt?: string }
 export interface IssueRootCauseCandidateInput { title: string; statement: string; rationale: string; confidence?: number; findingIds: EntityId[]; evidenceIds: EntityId[] }
 export interface IssueRcaAcceptanceInput { workflowId: EntityId; rationale: string; rootCauses: IssueRootCauseCandidateInput[] }
+export interface FeatureAssessmentCandidate {
+  currentProductBaseline: string;
+  requestedCapabilityDelta: string;
+  behaviorContractsToPreserve: string;
+  affectedArchitectureIntegrationPoints: string;
+  compatibilityRollout: string;
+  regressionBoundary: string;
+  excludedFutureWork: string;
+}
+export interface FeatureAssessmentAcceptanceInput { workflowId: EntityId; rationale: string; assessment: FeatureAssessmentCandidate }
 export interface EffectiveDisposition { state: DispositionState; decisionId: EntityId | null; effectiveAt: string | null }
 export interface RequiredOperatorDecision { criterionId: EntityId; targetId: EntityId; currentDisposition: DispositionState }
 export type ValidationStaleReason = "target-version-changed" | "target-superseded" | "source-baseline-changed";
@@ -608,6 +618,53 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   async function recordDecision(projectId: ProjectId, targetId: EntityId, input: DecisionInput, context?: MutationContext) {
     const now = new Date().toISOString();
     return recordLinked(projectId, targetId, "Decision", decisionBody(input, trustedPrincipal, now), "governs", context);
+  }
+
+  async function acceptFeatureAssessment(projectId: ProjectId, input: FeatureAssessmentAcceptanceInput, context?: MutationContext) {
+    exactInput(input, ["workflowId", "rationale", "assessment"]);
+    if (trustedPrincipal.principalType !== "human" || trustedPrincipal.role !== "Operator") fail("Feature assessment acceptance requires the Operator principal.");
+    if (typeof input.rationale !== "string" || !input.rationale.trim() || new TextEncoder().encode(input.rationale).length > 4096 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(input.rationale)) fail("Feature assessment review rationale must be bounded text.");
+    exactInput(input.assessment, ["currentProductBaseline", "requestedCapabilityDelta", "behaviorContractsToPreserve", "affectedArchitectureIntegrationPoints", "compatibilityRollout", "regressionBoundary", "excludedFutureWork"]);
+    const dimensions: Array<[keyof FeatureAssessmentCandidate, string]> = [
+      ["currentProductBaseline", "Current Product Baseline"],
+      ["requestedCapabilityDelta", "Requested Capability Delta"],
+      ["behaviorContractsToPreserve", "Behavior and Contracts to Preserve"],
+      ["affectedArchitectureIntegrationPoints", "Affected Architecture and Integration Points"],
+      ["compatibilityRollout", "Compatibility and Rollout"],
+      ["regressionBoundary", "Regression Boundary"],
+      ["excludedFutureWork", "Excluded Future Work"],
+    ];
+    for (const [key] of dimensions) {
+      const value = input.assessment[key];
+      if (typeof value !== "string" || !value.trim() || value.length > 4096 || new TextEncoder().encode(value).length > 4096 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value)) fail(`Feature assessment ${key} must be complete bounded text.`);
+    }
+    return store.transaction(projectId, async unit => {
+      if (!await unit.getProject(projectId)) fail("Owning Project does not exist.");
+      const workflow = await requiredRecord(unit, projectId, input.workflowId);
+      if (workflow.entityType !== "Workflow" || workflow.body.workflowType !== "feature-capability" || workflow.lifecycleState !== "active" || workflow.body.workflowState !== "active" || workflow.body.currentWorkspace !== "feature-assessment") fail("Feature assessment acceptance requires the exact active Feature Workflow in its assessment workspace.");
+      const membership = (await unit.listRelationships(projectId, "workflow_member")).filter(edge => edge.toEntityId === workflow.id && !edge.endedAt);
+      const ownedIntake = (await unit.listEntities(projectId, "Finding")).filter((record): record is ProjectStateRecord<"Finding"> => record.entityType === "Finding" && record.lifecycleState === "active" && record.body.findingState === "current" && record.body.category === "feature-intake" && membership.some(edge => edge.fromEntityId === record.id));
+      const requiredIntakeTitles = ["Requested Capability Delta", "Current Product Baseline", "Scope In", "Scope Out", "Constraints", "Behavior and Contracts to Preserve", "Affected Architecture and Integration Points", "Evidence and Regression Boundary", "Compatibility and Rollout"];
+      if (requiredIntakeTitles.some(title => !ownedIntake.some(record => record.body.title === title))) fail("Feature assessment requires the complete current Intake owned by this exact Workflow.");
+      const now = new Date().toISOString();
+      const findings: ProjectStateRecord<"Finding">[] = [];
+      for (const [key, title] of dimensions) {
+        const record = createProjectStateEntity({ entityType: "Finding", projectId, body: { title, statement: input.assessment[key].trim(), category: "feature-assessment", impact: "Accepted Feature assessment context", observedAt: now, findingState: "current" }, principal: trustedPrincipal });
+        await unit.saveEntity(record, null);
+        await recordMutation(unit, { projectId, entityId: record.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: record.createdAt, changedFields: Object.keys(record.body), defaultReason: "Accept Feature assessment Finding", context });
+        await linkSemantic(unit, projectId, record, workflow, "workflow_member", context);
+        findings.push(record);
+      }
+      const decision = createProjectStateEntity({ entityType: "Decision", projectId, body: decisionBody({ decisionType: "feature-assessment-review", outcome: "accepted", decisionScope: workflow.id, rationale: input.rationale.trim() }, trustedPrincipal, now), principal: trustedPrincipal });
+      await unit.saveEntity(decision, null);
+      await recordMutation(unit, { projectId, entityId: decision.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: decision.createdAt, changedFields: Object.keys(decision.body), defaultReason: "Accept Feature assessment review", context });
+      await linkSemantic(unit, projectId, decision, workflow, "governs", context);
+      for (const finding of findings) await linkSemantic(unit, projectId, decision, finding, "governs", context);
+      const nextWorkflow = validateProjectStateEntity({ ...workflow, recordVersion: workflow.recordVersion + 1, updatedAt: now, updatedBy: trustedPrincipal, body: { ...workflow.body, currentWorkspace: "feature-planning" } }) as ProjectStateRecord<"Workflow">;
+      await unit.saveEntity(nextWorkflow, workflow.recordVersion);
+      await recordMutation(unit, { projectId, entityId: workflow.id, fromVersion: workflow.recordVersion, toVersion: nextWorkflow.recordVersion, operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now, changedFields: ["currentWorkspace"], defaultReason: "Advance accepted Feature assessment", context });
+      return { decision, findings, workflow: nextWorkflow };
+    });
   }
 
   async function acceptIssueRca(projectId: ProjectId, input: IssueRcaAcceptanceInput, context?: MutationContext) {
@@ -2098,6 +2155,6 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, completeWorkItem, completePhase,
     getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, renderView, exportStructuredProjectState, getAuthoritativeContext, getCommittedEventFeed, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
     getEffectiveDisposition, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus,
-    getImplementationAttempts, getExecutionPlan, getWorkflowExecutionPlan, acceptWorkflowPlanningGraph, acceptIssueRca, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,
+    getImplementationAttempts, getExecutionPlan, getWorkflowExecutionPlan, acceptWorkflowPlanningGraph, acceptFeatureAssessment, acceptIssueRca, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,
     getWorkRouteHistory, getCurrentWorkRoute, getWorkIntakeSummary, getSourceSemanticView, getRegressionObligationView };
 }

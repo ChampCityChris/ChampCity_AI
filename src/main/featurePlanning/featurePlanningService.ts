@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { FeatureIntakeInput } from "../../shared/featurePlanningContracts";
-import type { WorkflowPlanningGraph } from "../../shared/projectState/projectStateService";
+import type { FeatureAssessmentCandidate, WorkflowPlanningGraph } from "../../shared/projectState/projectStateService";
 import { createProjectStateService } from "../../shared/projectState/projectStateService";
+import { selectProjectArchitectureContext } from "../../shared/projectState/projectArchitectureContext";
 import type { ProjectStateStore } from "../../shared/projectState/projectStateStore";
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
 import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
@@ -36,15 +37,17 @@ export function createFeaturePlanningService(dependencies: { openStore?: (databa
       const state = createProjectStateService(store, operator); const relationships = await store.listRelationships(projectId);
       const owned = new Set(relationships.filter(edge => edge.relationshipType === "workflow_member" && edge.toEntityId === workflowId && !edge.endedAt).map(edge => edge.fromEntityId));
       const findings = (await store.listEntities(projectId, "Finding")).filter((item): item is import("../../shared/projectState/domainContracts").ProjectStateRecord<"Finding"> => item.entityType === "Finding" && item.body.category === "feature-intake" && owned.has(item.id));
-      const acceptedArchitecture = (await Promise.all([store.listEntities(projectId, "Decision"), store.listEntities(projectId, "BoundedSolution")])).flat()
-        .filter((item): item is import("../../shared/projectState/domainContracts").ProjectStateRecord<"Decision"> | import("../../shared/projectState/domainContracts").ProjectStateRecord<"BoundedSolution"> => item.lifecycleState === "active" &&
-          (item.entityType === "BoundedSolution" || (item.entityType === "Decision" && ["accepted", "approved"].includes(item.body.outcome) && !/route|work-intake/i.test(item.body.decisionType))));
+      const acceptedArchitecture = selectProjectArchitectureContext(projectId, await store.listEntities(projectId), relationships);
       const project = await store.getProject(projectId);
       const featureDecisions = (await store.listEntities(projectId, "Decision"))
         .filter((item): item is import("../../shared/projectState/domainContracts").ProjectStateRecord<"Decision"> => item.entityType === "Decision" && item.body.decisionType === "feature-assessment-review" &&
           relationships.some(edge => edge.relationshipType === "governs" && edge.fromEntityId === item.id && edge.toEntityId === workflowId && !edge.endedAt))
         .sort((a, b) => a.body.decidedAt.localeCompare(b.body.decidedAt));
       const latestAssessment = featureDecisions.at(-1);
+      const acceptedDecision = [...featureDecisions].reverse().find(item => item.body.outcome === "accepted");
+      const acceptedAssessment = acceptedDecision ? (await store.listEntities(projectId, "Finding")).filter(item => item.entityType === "Finding" && item.body.category === "feature-assessment" &&
+        relationships.some(edge => edge.relationshipType === "workflow_member" && edge.fromEntityId === item.id && edge.toEntityId === workflowId && !edge.endedAt) &&
+        relationships.some(edge => edge.relationshipType === "governs" && edge.fromEntityId === acceptedDecision.id && edge.toEntityId === item.id && !edge.endedAt)) : [];
       const latestIntakeUpdate = findings.reduce((latest, finding) => finding.updatedAt > latest ? finding.updatedAt : latest, "");
       const assessmentState = !latestAssessment || latestAssessment.body.decidedAt < latestIntakeUpdate ? "not-reviewed" :
         latestAssessment.body.outcome === "accepted" ? "accepted" : latestAssessment.body.outcome === "revision_requested" ? "revision-requested" : "rejected";
@@ -57,7 +60,7 @@ export function createFeaturePlanningService(dependencies: { openStore?: (databa
       const stage = plan ? "work-item-map" : workspaceStage;
       return { project: { projectId, name: project?.body.name ?? "Current Project" }, workflow: { workflowId, lineageId: workflow.lineageId, workflowType: workflow.body.workflowType, title: workflow.body.title, workflowState: workflow.body.workflowState, lifecycleState: workflow.lifecycleState, currentWorkspace: workflow.body.currentWorkspace, createdAt: workflow.createdAt, updatedAt: workflow.updatedAt },
         source: context.source ? { baselineId: context.source.baseline.id, revisionId: context.source.baseline.body.baseRevisionId, bindingPrepared: context.source.binding?.body.preparationState === "ready" } : null,
-        provenance: context.provenance, intake, findings, acceptedArchitecture, assessmentState, acceptedPlan: plan, stage, draft };
+        provenance: context.provenance, intake, findings, acceptedAssessment, acceptedArchitecture, assessmentState, acceptedPlan: plan, stage, draft };
     });
   }
   async function saveIntake(root: string, workflowId: string, intake: FeatureIntakeInput) {
@@ -80,18 +83,18 @@ export function createFeaturePlanningService(dependencies: { openStore?: (databa
     let projection = await get(root, workflowId);
     if (projection.workflow.currentWorkspace === "work-item-map") throw Error("Accepted Feature Work Item Map is read-only.");
     if (!projection.intake) throw Error("Save Feature Intake before preparing Architect work.");
-    if (stage === "plan" && projection.assessmentState !== "accepted") throw Error("Accept the current Feature assessment before preparing the plan.");
+    if (stage === "plan" && (projection.assessmentState !== "accepted" || !projection.acceptedAssessment.length)) throw Error("Accept the current Feature assessment before preparing the plan.");
     const workspace = stage === "assessment" ? "feature-assessment" : "feature-planning";
     await withState(root, workflowId, async (store, projectId, workflow) => { if (workflow.body.currentWorkspace !== workspace) await createProjectStateService(store, operator).reviseRecord(projectId, workflowId, { currentWorkspace: workspace }, workflow.recordVersion); });
     projection = await get(root, workflowId);
     const sections = stage === "assessment" ? fields.map(([, title]) => title).concat(["Excluded Future Work"]) : ["Baseline and Capability Delta", "Preservation and Regression Proof", "Affected Services State UI and Contracts", "Rollout and Compatibility", "Hard Dependencies and Excluded Work", "Feature Candidate Traceability"];
-    const instruction = [`# Feature ${stage} — exact Workflow ${workflowId}`, `Exact Project: ${projection.project.name} (${projection.project.projectId})`, `Exact Workflow: ${projection.workflow.title} (${workflowId})`, `Workflow type: feature-capability`, `SourceBaseline: ${projection.source ? `${projection.source.baselineId} at ${projection.source.revisionId}` : "non-source-backed"}`, `Routed provenance (context only): ${projection.provenance === "routed" ? "routed handoff" : "direct start"}`, `Authoritative SPS Feature Intake: ${JSON.stringify(projection.intake)}`, `Current accepted Project architecture and Decisions from SPS: ${JSON.stringify(projection.acceptedArchitecture)}`, `Cover these sections: ${sections.join("; ")}.`, stage === "plan" ? `Return one JSON WorkflowPlanningGraph for WRB03-01, workflowId exactly ${workflowId}. WorkItems kind feature by default; choose direct vs phased with rationale in solution.assumptions/risks. No execution, session, Git, validation-run, or Work Card mechanics.` : "Assess current baseline, capability delta, preservation, integration, compatibility, regression boundary, and excluded future work. Do not choose a route."].join("\n\n");
+    const instruction = [`# Feature ${stage} — exact Workflow ${workflowId}`, `Exact Project: ${projection.project.name} (${projection.project.projectId})`, `Exact Workflow: ${projection.workflow.title} (${workflowId})`, `Workflow type: feature-capability`, `SourceBaseline: ${projection.source ? `${projection.source.baselineId} at ${projection.source.revisionId}` : "non-source-backed"}`, `Routed provenance (context only): ${projection.provenance === "routed" ? "routed handoff" : "direct start"}`, `Authoritative SPS Feature Intake: ${JSON.stringify(projection.intake)}`, stage === "plan" ? `Exact accepted Feature assessment from SPS: ${JSON.stringify(projection.acceptedAssessment)}` : "", `Current accepted Project architecture and Decisions from SPS: ${JSON.stringify(projection.acceptedArchitecture)}`, `Cover these sections: ${sections.join("; ")}.`, stage === "plan" ? `Return one JSON WorkflowPlanningGraph for WRB03-01, workflowId exactly ${workflowId}. WorkItems kind feature by default; choose direct vs phased with rationale in solution.assumptions/risks. No execution, session, Git, validation-run, or Work Card mechanics.` : "Return JSON keys currentProductBaseline, requestedCapabilityDelta, behaviorAndContractsToPreserve, affectedArchitectureAndIntegrationPoints, compatibilityAndRollout, regressionBoundary, excludedFutureWork. Do not choose a route."].filter(Boolean).join("\n\n");
     const draft = { stage, instruction, content: "" } satisfies Draft;
     const key = draftKey(root, workflowId);
     drafts.set(key, draft);
     return { ...projection, draft };
   }
-  async function act(root: string, workflowId: string, action: { type: string; content?: string; stage?: "assessment" | "plan"; outcome?: "accept" | "revision" | "reject"; rationale?: string; graph?: WorkflowPlanningGraph }) {
+  async function act(root: string, workflowId: string, action: { type: string; content?: string; stage?: "assessment" | "plan"; outcome?: "accept" | "revision" | "reject"; rationale?: string; assessment?: FeatureAssessmentCandidate; graph?: WorkflowPlanningGraph }) {
     const key = draftKey(root, workflowId); const model = await get(root, workflowId);
     if (action.type === "prepare") return prepare(root, workflowId, action.stage as "assessment" | "plan");
     if (action.type === "save-draft") { const draft = drafts.get(key); if (!draft) throw Error("Prepare the current Architect cycle first.");
@@ -103,7 +106,8 @@ export function createFeaturePlanningService(dependencies: { openStore?: (databa
       const expectedWorkspace = stage === "assessment" ? "feature-assessment" : "feature-planning";
       if (draft.stage !== stage || model.workflow.currentWorkspace !== expectedWorkspace || (stage === "plan" && model.assessmentState !== "accepted")) throw Error("Feature disposition does not match the current Workflow workspace and assessment state.");
       if (action.outcome === "accept" && stage === "plan") { if (!action.graph || action.graph.workflowId !== workflowId) throw Error("Accepted graph must name the exact Feature Workflow."); await workflowApp.acceptReviewedWorkflowPlanningGraph(root, action.graph); }
-      else await withState(root, workflowId, async (store, projectId) => { await createProjectStateService(store, operator).recordDecision(projectId, workflowId, { decisionType: `feature-${stage}-review`, outcome: action.outcome === "accept" ? "accepted" : action.outcome === "revision" ? "revision_requested" : "rejected", decisionScope: workflowId, rationale: (action.rationale ?? "").slice(0, 8000) }); });
+      else if (action.outcome === "accept" && stage === "assessment") { if (!action.assessment) throw Error("Accepted Feature assessment must provide all seven structured dimensions."); await withState(root, workflowId, async (store, projectId) => createProjectStateService(store, operator).acceptFeatureAssessment(projectId, { workflowId, rationale: (action.rationale ?? "").slice(0, 4096), assessment: action.assessment! })); }
+      else await withState(root, workflowId, async (store, projectId) => { await createProjectStateService(store, operator).recordDecision(projectId, workflowId, { decisionType: `feature-${stage}-review`, outcome: action.outcome === "revision" ? "revision_requested" : "rejected", decisionScope: workflowId, rationale: (action.rationale ?? "").slice(0, 8000) }); });
       drafts.delete(key);
       if (action.outcome === "revision") return prepare(root, workflowId, stage);
       if (action.outcome === "accept" && stage === "assessment") return prepare(root, workflowId, "plan");

@@ -4,6 +4,7 @@ import path from "node:path";
 import type { IssueEvidenceInput, IssueIntakeInput } from "../../shared/issuePlanningContracts";
 import type { WorkflowPlanningGraph } from "../../shared/projectState/projectStateService";
 import { createProjectStateService } from "../../shared/projectState/projectStateService";
+import { selectProjectArchitectureContext } from "../../shared/projectState/projectArchitectureContext";
 import type { ProjectStateRecord } from "../../shared/projectState/domainContracts";
 import type { ProjectStateStore } from "../../shared/projectState/projectStateStore";
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
@@ -32,8 +33,7 @@ export function createIssuePlanningService(dependencies: { openStore?: (database
       const allRoots = (await store.listEntities(projectId, "RootCause")).filter((r): r is ProjectStateRecord<"RootCause"> => r.entityType === "RootCause" && r.lifecycleState === "active" && related(r.id));
       const evidenceIds = new Set(relations.filter(edge => edge.relationshipType === "supports" && [workflowId, ...findings.map(f => f.id), ...allRoots.map(r => r.id)].includes(edge.toEntityId) && !edge.endedAt).map(edge => edge.fromEntityId));
       const evidence = (await store.listEntities(projectId, "Evidence")).filter((r): r is ProjectStateRecord<"Evidence"> => r.entityType === "Evidence" && evidenceIds.has(r.id));
-      const acceptedArchitecture = (await Promise.all([store.listEntities(projectId, "Decision"), store.listEntities(projectId, "BoundedSolution")])).flat()
-        .filter((r): r is ProjectStateRecord<"Decision"> | ProjectStateRecord<"BoundedSolution"> => r.lifecycleState === "active" && (r.entityType === "BoundedSolution" || (r.entityType === "Decision" && ["accepted", "approved"].includes(r.body.outcome) && !/route|work-intake|issue-rca|issue-planning/i.test(r.body.decisionType))));
+      const acceptedArchitecture = selectProjectArchitectureContext(projectId, await store.listEntities(projectId), relations);
       const decisionSequences = new Map((await store.listOutbox(projectId)).filter(event => event.payload.operation === "create" && event.entityId).map(event => [event.entityId!, event.sequence]));
       const decisions = (await store.listEntities(projectId, "Decision")).filter((r): r is ProjectStateRecord<"Decision"> => r.entityType === "Decision" && r.lifecycleState === "active" && r.body.decisionType === "issue-rca-review" && relations.some(edge => edge.relationshipType === "governs" && edge.fromEntityId === r.id && edge.toEntityId === workflowId && !edge.endedAt)).sort((a,b)=>a.body.decidedAt.localeCompare(b.body.decidedAt) || (decisionSequences.get(a.id) ?? 0) - (decisionSequences.get(b.id) ?? 0));
       const acceptedRca = decisions.filter(r => r.body.outcome === "accepted").at(-1);

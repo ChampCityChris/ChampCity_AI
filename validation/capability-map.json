@@ -4726,6 +4726,7 @@
         "src/renderer/app/planningDraftAction.ts",
         "src/shared/featurePlanningContracts.ts",
         "src/shared/issuePlanningContracts.ts",
+        "src/shared/projectState/projectArchitectureContext.ts",
         "src/shared/projectState/projectStateService.ts",
         "src/shared/projectState/workflowTypeRegistry.ts",
         "src/shared/structuredWorkRoutingContracts.ts",
@@ -4749,7 +4750,7 @@
         },
         {
           "behaviorId": "feature-planning-persists-exact-workflow-intake-and-normalizes-reviewed-graph",
-          "description": "Direct and WIR-routed Feature Workflows share exact-ID SPS intake and Architect review; revisions create no plan and acceptance normalizes one canonical graph."
+          "description": "Direct and WIR-routed Feature Workflows share exact-ID intake, structured durable SPS assessment semantics, and accepted assessment-fed graph normalization; Project context excludes peer Workflow plans."
         },
         {
           "behaviorId": "issue-workflow-persists-evidence-and-accepted-rca-before-fix-graph-normalization",
@@ -20199,8 +20200,8 @@
     {
       "testPath": "test/workflow/workflow-application-service.test.cjs",
       "currentTestCount": {
-        "value": 10,
-        "basis": "Ten production-service scenarios cover exact Workflow instances, idempotent Project Creation, managed Dev baseline capture, failed source inspection, structured WIR promotion/freshness/handoff, exact Feature planning, Issue intake/evidence/RCA/fix graph, and lazy Issue source baseline."
+        "value": 12,
+        "basis": "Twelve production-service scenarios cover exact Workflow instances, registered Feature/Issue IPC mutations, idempotent Project Creation, managed Dev baseline capture, failed source inspection, structured WIR promotion/freshness/handoff, exact Feature planning, Issue intake/evidence/RCA/fix graph, and lazy Issue source baseline."
       },
       "duration": {
         "kind": "estimated",
@@ -20253,7 +20254,7 @@
         {
           "capabilityId": "workflow-application-service",
           "behaviorId": "feature-planning-persists-exact-workflow-intake-and-normalizes-reviewed-graph",
-          "proofLocator": "Feature planning production service test covers direct instance isolation, SPS intake, noncanonical revision, routed provenance, exact plan acceptance, feature item normalization, and map projection",
+          "proofLocator": "Feature planning production service test covers exact intake ownership, revision behavior, durable seven-record accepted assessment recovered after service recreation and included in planning handoff, routed provenance, exact plan acceptance, and peer-plan context isolation",
           "proofRole": "primary"
         },
         {

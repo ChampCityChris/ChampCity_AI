@@ -31,7 +31,7 @@ Outcome: users create/list/open exact Workflow instances directly; WIR is routin
 ### WRB03 — Workflow Planning Normalization
 Outcome: Workflow-specific intake/assessment/planning writes canonical SPS WorkItems/Phases/Criteria. Initial qualification families are Feature/Capability and Issue Resolution plus WIR-routed Feature convergence.
 
-**Status:** IMPLEMENTED / UNDER REPAIR01 — WRB03-01 through WRB03-05 reached `46da96bcd8d596b68b2924d0fa8dce8e11e06e9d`. Architect review accepted the core architecture and released bounded three-card Repair01 under `WRB03/Repair01/`. WRB04 remains blocked until final WRB03 Architect disposition.
+**Status:** Repair01 implemented through R01-03; final WRB03 Architect review pending. WRB03-01 through WRB03-05 reached `46da96bcd8d596b68b2924d0fa8dce8e11e06e9d`; Repair01 has three sequential checkpoint commits. WRB04 remains deferred until final WRB03 Architect disposition. See `WRB03/Reports/WRB03-05_BUNDLE_QUALIFICATION_REPORT.md` and `WRB03/Repair01/Reports/WRB03-R01-03_FINAL_QUALIFICATION_REPORT.md`.
 
 ### WRB04 — Shared Execution Kernel and Workspaces
 Outcome: Feature and Issue execute through one post-plan runtime and one reusable Workspace family from Work Item Map through integration/repair.

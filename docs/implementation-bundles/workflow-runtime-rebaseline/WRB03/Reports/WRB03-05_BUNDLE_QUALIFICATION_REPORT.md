@@ -61,3 +61,14 @@ WRB03 qualification is complete. Exact-instance Feature and Issue front halves c
 - Repository root and `dev` branch were verified. WRB03-04 was committed before WRB03-05 began; no unrelated working-tree edits were present.
 - Exact staged diff, secret/local-path scan, generated-file review, and `git diff --cached --check` are performed before the checkpoint commit. No local-machine path, secret, generated build output, or test fixture is intended for source control.
 - Checkpoint: pending this report's commit. No push, merge, release operation, or post-qualification WRB04 work is in scope.
+
+## Repair01 final qualification addendum
+
+Repair01 R01-01 through R01-03 has been implemented sequentially with one checkpoint per card. R01-03 promotes the seven bounded Feature assessment dimensions to exact-Workflow Finding records governed by one accepted SPS Decision; reopening recovers those records and plan preparation includes them. Revision requests keep the assessment loop without accepted semantic replacements. Feature and Issue planning share a relationship-based Project architecture selector that excludes Workflow-owned plans and selects only Project/ProjectResource-governed accepted context. A production-path proof invokes the registered Feature and Issue IPC handlers with preload-shaped mutation arguments. Existing direct, routed, Issue RCA, ownership, graph, read-only map, non-source, and WIR reopening evidence was re-run in focused suites.
+
+- `npm run build` — normal Windows lane, exit 0; TypeScript, Vite and asset copy passed with the existing large-chunk advisory.
+- `node --test test/workflow/workflow-application-service.test.cjs test/workflow/workflow-planning-ipc.test.cjs test/project-state/execution-completion.test.cjs test/renderer/workflow-hub-shell.test.cjs` — normal Windows lane, 46/47 on the first final combined run; the single failure was a stale relationship snapshot in a new assertion. After correction, the complete combined focused command passed 47/47; the service suite itself passed 12/12.
+- `npm run validate:plan -- --profile repair --changes tmp/wrb03-r01-03-changes.json` — preview exit 0 for exact changed paths and planning/workflow capabilities; preview only.
+- `git diff --check` — exit 0 at closure.
+
+Restricted build/test invocations returned `spawn EPERM`; equivalent checks were run in the normal Windows lane. The temporary validation change set remains ignored under `tmp/`. WRB04 remains explicitly deferred; no execution or integration implementation began. Detailed evidence is in `Repair01/Reports/WRB03-R01-03_FINAL_QUALIFICATION_REPORT.md`.
