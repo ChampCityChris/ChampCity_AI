@@ -31,7 +31,7 @@ Outcome: users create/list/open exact Workflow instances directly; WIR is routin
 ### WRB03 — Workflow Planning Normalization
 Outcome: Workflow-specific intake/assessment/planning writes canonical SPS WorkItems/Phases/Criteria. Initial qualification families are Feature/Capability and Issue Resolution plus WIR-routed Feature convergence.
 
-**Status:** RELEASED — five-card implementation bundle authored from WRB02 closure checkpoint dff9951225c319591ffe41b73a99621eb43c257c under WRB03/. Luna executes sequentially and stops after WRB03-05 for Architect review.
+**Status:** IMPLEMENTED — WRB03-01 through WRB03-05 checkpointed; pending Architect review. The bundle was authored from WRB02 closure checkpoint dff9951225c319591ffe41b73a99621eb43c257c under WRB03/.
 
 ### WRB04 — Shared Execution Kernel and Workspaces
 Outcome: Feature and Issue execute through one post-plan runtime and one reusable Workspace family from Work Item Map through integration/repair.

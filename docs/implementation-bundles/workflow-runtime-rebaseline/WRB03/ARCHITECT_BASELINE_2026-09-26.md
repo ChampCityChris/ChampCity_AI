@@ -53,7 +53,7 @@ At minimum:
 - every top-level Phase is part_of the exact Workflow;
 - every direct WorkItem is part_of the exact Workflow;
 - every phased WorkItem is part_of its exact Phase;
-- planning semantic records that otherwise have no owner path, such as BoundedSolution/Finding/RootCause, receive an explicit reviewed Workflow-membership relationship rather than relying on filename, title, route, or creation order;
+- planning semantic records that otherwise have no owner path, such as BoundedSolution/Finding/RootCause, receive an explicit reviewed Workflow-membership relationship (`workflow_member` for BoundedSolution) rather than relying on filename, title, route, or creation order;
 - dependencies may not cross Workflow ownership.
 
 Do not use relates_to as a substitute for an ownership invariant if a typed membership rule is required.

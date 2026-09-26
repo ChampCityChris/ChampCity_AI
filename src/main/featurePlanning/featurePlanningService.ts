@@ -92,12 +92,16 @@ export function createFeaturePlanningService(dependencies: { openStore?: (databa
     return { ...projection, draft };
   }
   async function act(root: string, workflowId: string, action: { type: string; content?: string; stage?: "assessment" | "plan"; outcome?: "accept" | "revision" | "reject"; rationale?: string; graph?: WorkflowPlanningGraph }) {
-    const key = draftKey(root, workflowId);
+    const key = draftKey(root, workflowId); const model = await get(root, workflowId);
     if (action.type === "prepare") return prepare(root, workflowId, action.stage as "assessment" | "plan");
-    if (action.type === "save-draft") { const draft = drafts.get(key); if (!draft) throw Error("Prepare the current Architect cycle first."); draft.content = String(action.content ?? "").slice(0, 200000); drafts.set(key, draft); return get(root, workflowId); }
+    if (action.type === "save-draft") { const draft = drafts.get(key); if (!draft) throw Error("Prepare the current Architect cycle first.");
+      const expectedWorkspace = draft.stage === "assessment" ? "feature-assessment" : "feature-planning";
+      if (model.workflow.currentWorkspace !== expectedWorkspace || (draft.stage === "plan" && model.assessmentState !== "accepted")) throw Error("The Feature Architect draft is stale for the current Workflow workspace and assessment state.");
+      draft.content = String(action.content ?? "").slice(0, 200000); drafts.set(key, draft); return get(root, workflowId); }
     if (action.type === "decide") {
       const stage = action.stage!; const draft = drafts.get(key); if (!draft?.content.trim()) throw Error("Refresh and review a non-empty Architect draft before disposition.");
-      if (draft.stage !== stage) throw Error("Disposition must match the current Architect planning stage.");
+      const expectedWorkspace = stage === "assessment" ? "feature-assessment" : "feature-planning";
+      if (draft.stage !== stage || model.workflow.currentWorkspace !== expectedWorkspace || (stage === "plan" && model.assessmentState !== "accepted")) throw Error("Feature disposition does not match the current Workflow workspace and assessment state.");
       if (action.outcome === "accept" && stage === "plan") { if (!action.graph || action.graph.workflowId !== workflowId) throw Error("Accepted graph must name the exact Feature Workflow."); await workflowApp.acceptReviewedWorkflowPlanningGraph(root, action.graph); }
       else await withState(root, workflowId, async (store, projectId) => { await createProjectStateService(store, operator).recordDecision(projectId, workflowId, { decisionType: `feature-${stage}-review`, outcome: action.outcome === "accept" ? "accepted" : action.outcome === "revision" ? "revision_requested" : "rejected", decisionScope: workflowId, rationale: (action.rationale ?? "").slice(0, 8000) }); });
       drafts.delete(key);

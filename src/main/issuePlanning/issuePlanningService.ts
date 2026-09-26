@@ -78,7 +78,10 @@ export function createIssuePlanningService(dependencies: { openStore?: (database
         catch (error) { fs.rmSync(absolute, { force: true }); throw error; }
       }
       const latestWorkflow = await store.getEntity(projectId, workflowId);
-      if (latestWorkflow?.entityType === "Workflow" && latestWorkflow.body.currentWorkspace === "issue-planning") await state.reviseRecord(projectId, workflowId, { currentWorkspace: "issue-rca" }, latestWorkflow.recordVersion);
+      if (latestWorkflow?.entityType === "Workflow" && latestWorkflow.body.currentWorkspace === "issue-planning") {
+        await state.reviseRecord(projectId, workflowId, { currentWorkspace: "issue-rca" }, latestWorkflow.recordVersion);
+      }
+      drafts.delete(keyFor(root, workflowId));
       return get(root, workflowId);
     });
   }
@@ -92,8 +95,12 @@ export function createIssuePlanningService(dependencies: { openStore?: (database
   }
   async function act(root: string, workflowId: string, action: { type: string; content?: string; outcome?: "accept" | "revision" | "reject"; rationale?: string; rootCauses?: RootCauseCandidate[]; graph?: WorkflowPlanningGraph }) {
     const key = keyFor(root, workflowId); const model = await get(root, workflowId);
-    if (action.type === "save-draft") { const draft = drafts.get(key); if (!draft) throw Error("Prepare the current Architect cycle first."); draft.content = String(action.content ?? "").slice(0, 200000); drafts.set(key, draft); return get(root, workflowId); }
+    if (action.type === "save-draft") { const draft = drafts.get(key); if (!draft) throw Error("Prepare the current Architect cycle first.");
+      const expectedWorkspace = draft.stage === "rca" ? "issue-rca" : "issue-planning";
+      if (model.workflow.currentWorkspace !== expectedWorkspace || (draft.stage === "plan" && model.rcaState !== "accepted")) throw Error("The Issue Architect draft is stale for the current Workflow workspace and RCA state.");
+      draft.content = String(action.content ?? "").slice(0, 200000); drafts.set(key, draft); return get(root, workflowId); }
     if (action.type === "decide-rca") {
+      if (model.workflow.currentWorkspace !== "issue-rca") throw Error("Issue RCA disposition requires the current RCA workspace.");
       const draft = drafts.get(key); if (draft?.stage !== "rca" || !draft.content.trim()) throw Error("Refresh a non-empty current RCA draft before disposition.");
       if (action.outcome === "accept") {
         const candidates = action.rootCauses; if (!Array.isArray(candidates) || !candidates.length || candidates.length > 12) throw Error("Accepted RCA requires bounded RootCause candidates.");
@@ -112,6 +119,7 @@ export function createIssuePlanningService(dependencies: { openStore?: (database
       drafts.delete(key); if (action.outcome === "revision") return prepare(root, workflowId, "rca"); return get(root, workflowId);
     }
     if (action.type === "decide-plan") {
+      if (model.workflow.currentWorkspace !== "issue-planning" || model.rcaState !== "accepted") throw Error("Correction planning requires the current plan workspace and an accepted current RCA.");
       const draft = drafts.get(key); if (draft?.stage !== "plan" || !draft.content.trim()) throw Error("Refresh a non-empty current correction plan before disposition.");
       if (action.outcome === "accept") { if (!action.graph || action.graph.workflowId !== workflowId) throw Error("Correction graph must name the exact Issue Workflow."); if (action.graph.workItems.some(item => item.kind !== "fix")) throw Error("Issue correction Work Items must use kind fix."); const graph = { ...action.graph, solutionAddresses: [...new Set([...model.rootCauses.map(item => item.id), ...model.findings.map(item => item.id)])] }; const plan = await workflowApp.acceptReviewedWorkflowPlanningGraph(root, graph); const stateResult = await get(root, workflowId); drafts.delete(key); return { ...stateResult, acceptedPlan: plan, stage: "work-item-map" as const }; }
       await withIssue(root, workflowId, async (store, projectId) => createProjectStateService(store, operator).recordDecision(projectId, workflowId, { decisionType: "issue-planning-review", outcome: action.outcome === "revision" ? "revision_requested" : "rejected", decisionScope: workflowId, rationale: (action.rationale ?? "").slice(0, 8000) }));
