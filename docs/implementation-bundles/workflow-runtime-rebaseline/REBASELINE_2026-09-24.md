@@ -31,12 +31,14 @@ Outcome: users create/list/open exact Workflow instances directly; WIR is routin
 ### WRB03 — Workflow Planning Normalization
 Outcome: Workflow-specific intake/assessment/planning writes canonical SPS WorkItems/Phases/Criteria. Initial qualification families are Feature/Capability and Issue Resolution plus WIR-routed Feature convergence.
 
-**Status:** Repair01 implemented through R01-03; final WRB03 Architect review pending. WRB03-01 through WRB03-05 reached `46da96bcd8d596b68b2924d0fa8dce8e11e06e9d`; Repair01 has three sequential checkpoint commits. WRB04 remains deferred until final WRB03 Architect disposition. See `WRB03/Reports/WRB03-05_BUNDLE_QUALIFICATION_REPORT.md` and `WRB03/Repair01/Reports/WRB03-R01-03_FINAL_QUALIFICATION_REPORT.md`.
+**Status:** CLOSED — WRB03 core reached `46da96bcd8d596b68b2924d0fa8dce8e11e06e9d`; Repair01 completed and was accepted at `495c9aca43bd6c90be4abfece01ed9e40fd4c82e`. Final disposition: `WRB03/FINAL_ARCHITECT_DISPOSITION_2026-09-26.md`.
 
 ### WRB04 — Shared Execution Kernel and Workspaces
 Outcome: Feature and Issue execute through one post-plan runtime and one reusable Workspace family from Work Item Map through integration/repair.
 
-**Deferred entry defect:** Integration candidate storage/ownership still assumes a conventional primary checkout with a directory .git. Current Project managed Dev is a linked worktree. WRB04 must normalize the candidate engine on exact Git common-directory identity and prove managed Dev → candidate → Dev integration without changing the non-Git Project-container boundary. Evidence: docs/implementation-bundles/workflow-runtime-rebaseline/WRB02/Repair01/ARCHITECT_REVIEW_2026-09-26.md.
+**Status:** RELEASED — five-card bundle authored from WRB03 closure checkpoint `495c9aca43bd6c90be4abfece01ed9e40fd4c82e` under `WRB04/`. It includes shared exact-Workflow execution, Implementer checkpoints, Tester/Test Lifecycle Determination, Validator/Repair, Phase/Workflow completion, linked-worktree integration repair, exact-Workflow integration, and UI convergence.
+
+**Mandatory entry debt:** integration candidate storage/ownership must be normalized from a physical `.git` assumption to exact Git common-directory identity for managed linked-worktree `Dev/`. WRB04 also owns modernization/retirement of the stale repair fixture that attaches new repair work to a superseded Workflow.
 
 ### WRB05 — Product Completion, Remaining Workflow Front Halves, and Retirement
 Outcome: Greenfield completes through the shared kernel; remaining front halves use the proven normalization contract; Hub/Source Control present concurrent instances; obsolete runtime/migration paths retire; final qualification runs. This bundle may be split after WRB04 based on the actual shared-kernel surface.
