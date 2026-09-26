@@ -21,20 +21,22 @@ Luna stops early only for an architectural contradiction, an invariant that cann
 ### WRB01 — Current Project Runtime Foundation
 Outcome: selecting a Project establishes one current Structured Project State runtime and coherent managed Project source topology. Existing Project Registration and Greenfield Project Creation no longer enter WIR or legacy migration.
 
-**Status:** CLOSED — accepted after Repair03 at implementation checkpoint `4c1f13e4d4550ac958f85c0f715d1a0f4a4f46f0`.
+**Status:** CLOSED — accepted after Repair03 at implementation checkpoint 4c1f13e4d4550ac958f85c0f715d1a0f4a4f46f0.
 
 ### WRB02 — Workflow Application, Inventory, and Routing
 Outcome: users create/list/open exact Workflow instances directly; WIR is routing-only and hands off to the same target creation service.
 
-**Status:** IMPLEMENTED / UNDER REPAIR — five-card implementation reached `ee064aaa562cb548bd59ae3642ea39aea5d69650`; bounded Repair01 is released under `WRB02/Repair01/`. WRB03 remains blocked until final WRB02 Architect disposition.
+**Status:** CLOSED — core implementation reached ee064aaa562cb548bd59ae3642ea39aea5d69650; Repair01 completed at dff9951225c319591ffe41b73a99621eb43c257c and is accepted by FINAL_ARCHITECT_DISPOSITION_2026-09-26.md.
 
 ### WRB03 — Workflow Planning Normalization
 Outcome: Workflow-specific intake/assessment/planning writes canonical SPS WorkItems/Phases/Criteria. Initial qualification families are Feature/Capability and Issue Resolution plus WIR-routed Feature convergence.
 
+**Status:** RELEASED — five-card implementation bundle authored from WRB02 closure checkpoint dff9951225c319591ffe41b73a99621eb43c257c under WRB03/. Luna executes sequentially and stops after WRB03-05 for Architect review.
+
 ### WRB04 — Shared Execution Kernel and Workspaces
 Outcome: Feature and Issue execute through one post-plan runtime and one reusable Workspace family from Work Item Map through integration/repair.
 
-**Deferred entry defect:** Integration candidate storage/ownership still assumes a conventional primary checkout with a directory `.git`. Current Project managed Dev is a linked worktree. WRB04 must normalize the candidate engine on exact Git common-directory identity and prove managed Dev → candidate → Dev integration without changing the non-Git Project-container boundary. Evidence: `docs/implementation-bundles/workflow-runtime-rebaseline/WRB02/Repair01/ARCHITECT_REVIEW_2026-09-26.md`.
+**Deferred entry defect:** Integration candidate storage/ownership still assumes a conventional primary checkout with a directory .git. Current Project managed Dev is a linked worktree. WRB04 must normalize the candidate engine on exact Git common-directory identity and prove managed Dev → candidate → Dev integration without changing the non-Git Project-container boundary. Evidence: docs/implementation-bundles/workflow-runtime-rebaseline/WRB02/Repair01/ARCHITECT_REVIEW_2026-09-26.md.
 
 ### WRB05 — Product Completion, Remaining Workflow Front Halves, and Retirement
 Outcome: Greenfield completes through the shared kernel; remaining front halves use the proven normalization contract; Hub/Source Control present concurrent instances; obsolete runtime/migration paths retire; final qualification runs. This bundle may be split after WRB04 based on the actual shared-kernel surface.

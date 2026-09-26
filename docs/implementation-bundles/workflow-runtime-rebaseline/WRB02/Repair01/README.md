@@ -1,15 +1,23 @@
-# WRB02-R01 — Workflow Application and Routing Repair Bundle
+# WRB02 Repair01 — Workflow Application Repair
 
 **Parent bundle:** WRB02 — Workflow Application, Inventory, and Routing  
-**Starting checkpoint:** `ee064aaa562cb548bd59ae3642ea39aea5d69650`  
+**Starting checkpoint:** ee064aaa562cb548bd59ae3642ea39aea5d69650  
 **Implementer:** GPT 6.0 Luna Medium  
-**Review cadence:** R01-01 accepted. R01-02 stopped on a production integration-kernel defect outside WRB02 ownership. R01-03 is released to close WRB02 and route that defect to WRB04.
+**Final checkpoint:** dff9951225c319591ffe41b73a99621eb43c257c  
+**Status:** CLOSED / ACCEPTED
 
 ## Sequence
 
 1. WRB02-R01-01 — Restore Greenfield entry and completed WIR semantics
 2. WRB02-R01-02 — Restore source lifecycle proof and requalify WRB02
+3. WRB02-R01-03 — Close WRB02 and route the discovered integration-kernel defect to WRB04
 
-R01-02's passing source-materialization modernization is retained. Its diagnostic structured-integration fixture change is not a WRB02 deliverable because the discovered defect belongs to the WRB04 shared execution/integration kernel.
+R01-01 was accepted at bc7be408e8ca54ac0805b87815566fd293acf22c.
 
-After R01-03: STOP for final Architect closure. Do not begin WRB03 until WRB02 is closed.
+R01-02 modernized and passed the Workflow source-materialization proof. Its structured-integration diagnostic exposed a production integration candidate assumption outside WRB02 ownership: managed Dev is a linked worktree while integrationGit assumes a physical root/.git directory.
+
+R01-03 retained the passing materialization proof, removed the intentionally-red diagnostic fixture experiment, recorded the integration defect as a WRB04 entry condition, and completed the bounded WRB02 qualification record.
+
+Final Architect disposition is recorded in ../FINAL_ARCHITECT_DISPOSITION_2026-09-26.md.
+
+WRB03 is authorized after this closure.
