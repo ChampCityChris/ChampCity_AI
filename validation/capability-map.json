@@ -4705,7 +4705,9 @@
       "capabilityId": "workflow-application-service",
       "description": "Current Project exact Workflow instance inventory, direct start, source baseline capture, and route provenance.",
       "sourcePatterns": [
+        "src/main/featurePlanning/**",
         "src/main/workflow/**",
+        "src/shared/featurePlanningContracts.ts",
         "src/shared/projectState/projectStateService.ts",
         "src/shared/projectState/workflowTypeRegistry.ts",
         "src/shared/structuredWorkRoutingContracts.ts",
@@ -4721,6 +4723,10 @@
         {
           "behaviorId": "current-workflow-inventory-and-direct-start-use-exact-independent-instance-identity",
           "description": "Current Project inventory lists exact active and closed Workflow instances, and direct starts create concurrent exact identities."
+        },
+        {
+          "behaviorId": "feature-planning-persists-exact-workflow-intake-and-normalizes-reviewed-graph",
+          "description": "Direct and WIR-routed Feature Workflows share exact-ID SPS intake and Architect review; revisions create no plan and acceptance normalizes one canonical graph."
         },
         {
           "behaviorId": "source-backed-direct-workflow-captures-exact-dev-baseline-with-lazy-binding",
@@ -20148,8 +20154,8 @@
     {
       "testPath": "test/workflow/workflow-application-service.test.cjs",
       "currentTestCount": {
-        "value": 7,
-        "basis": "Seven production-service scenarios cover exact Workflow instances, idempotent Project Creation, managed Dev baseline capture, failed source inspection, and structured WIR promotion, freshness, and handoff."
+        "value": 8,
+        "basis": "Eight production-service scenarios cover exact Workflow instances, idempotent Project Creation, managed Dev baseline capture, failed source inspection, structured WIR promotion/freshness/handoff, and exact Feature intake/review/canonicalization."
       },
       "duration": {
         "kind": "estimated",
@@ -20197,6 +20203,12 @@
           "capabilityId": "workflow-application-service",
           "behaviorId": "current-workflow-inventory-and-direct-start-use-exact-independent-instance-identity",
           "proofLocator": "direct service calls create same-title concurrent Workflows, reject ineligible direct starts, list active and closed exact identities, and open by Workflow ID",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "feature-planning-persists-exact-workflow-intake-and-normalizes-reviewed-graph",
+          "proofLocator": "Feature planning production service test covers direct instance isolation, SPS intake, noncanonical revision, routed provenance, exact plan acceptance, feature item normalization, and map projection",
           "proofRole": "primary"
         },
         {

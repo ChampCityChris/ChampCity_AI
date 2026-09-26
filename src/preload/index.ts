@@ -14,6 +14,11 @@ import type {
 } from "../shared/workspaceContracts";
 
 const api: ChampCityApi = {
+  getFeaturePlanning: workflowId => ipcRenderer.invoke("featurePlanning:get", workflowId) as ReturnType<ChampCityApi["getFeaturePlanning"]>,
+  saveFeatureIntake: (workflowId, intake) => ipcRenderer.invoke("featurePlanning:saveIntake", workflowId, intake) as ReturnType<ChampCityApi["saveFeatureIntake"]>,
+  prepareFeaturePlanning: (workflowId, stage) => ipcRenderer.invoke("featurePlanning:prepare", workflowId, stage) as ReturnType<ChampCityApi["prepareFeaturePlanning"]>,
+  actOnFeaturePlanning: (workflowId, action) => ipcRenderer.invoke("featurePlanning:act", workflowId, action) as ReturnType<ChampCityApi["actOnFeaturePlanning"]>,
+  copyFeaturePlanningHandoff: workflowId => ipcRenderer.invoke("featurePlanning:copy", workflowId) as ReturnType<ChampCityApi["copyFeaturePlanningHandoff"]>,
   getStructuredWorkRouting: (intakeId, workflowId) => ipcRenderer.invoke("structuredWIR:get", intakeId, workflowId) as ReturnType<ChampCityApi["getStructuredWorkRouting"]>,
   prepareStructuredWorkRouting: (intakeId, workflowId) => ipcRenderer.invoke("structuredWIR:prepare", intakeId, workflowId) as ReturnType<ChampCityApi["prepareStructuredWorkRouting"]>,
   decideStructuredWorkRouting: (intakeId, workflowId, input) => ipcRenderer.invoke("structuredWIR:decide", intakeId, workflowId, input) as ReturnType<ChampCityApi["decideStructuredWorkRouting"]>,

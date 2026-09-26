@@ -12,6 +12,7 @@ const { registerCurrentProject } = require("../../dist/main/projectState/current
 const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
 const { bootstrapProjectSource } = require("../../dist/main/sourceControl/projectSourceBootstrap.js");
 const { createStructuredWorkRoutingService } = require("../../dist/main/workflow/structuredWorkRoutingService.js");
+const { createFeaturePlanningService } = require("../../dist/main/featurePlanning/featurePlanningService.js");
 
 const operator = { principalId: "test-operator", principalType: "human", role: "Operator" };
 const database = root => path.join(root, ".champcity", "project-state.sqlite");
@@ -296,5 +297,44 @@ test("structured WIR allows unavailable source during assessment and leaves no p
     assert.equal((await env.store.listRelationships(env.projectId, "routes_to")).filter(edge => edge.fromEntityId === captured.workflow.id).length, 0);
     assert.equal((await env.store.listEntities(env.projectId, "SourceBaseline")).length, 0);
     assert.equal((await env.store.listEntities(env.projectId, "SourceBinding")).length, 0);
+  } finally { env.store.close(); }
+});
+
+test("Feature planning persists exact Workflow intake, keeps revision noncanonical, and accepts one SPS graph", async context => {
+  const env = await setup(context);
+  const workflows = createWorkflowApplicationService();
+  const feature = createFeaturePlanningService();
+  try {
+    const direct = await workflows.startDirectWorkflow(env.root, { workflowType: "feature-capability", title: "Same title" });
+    const second = await workflows.startDirectWorkflow(env.root, { workflowType: "feature-capability", title: "Same title" });
+    const intake = { requestedCapability: "Add export", baseline: "No export today", scopeIn: "CSV export", scopeOut: "PDF", constraints: "Keep existing API stable", preservation: "Existing reports", affectedSurfaces: "Reports and toolbar", evidence: "Export acceptance cases", compatibilityRollout: "Feature flag" };
+    await feature.saveIntake(env.root, direct.workflow.workflowId, intake);
+    assert.deepEqual((await feature.get(env.root, direct.workflow.workflowId)).intake, intake);
+    assert.equal((await feature.get(env.root, second.workflow.workflowId)).intake, null);
+    assert.equal((await env.store.listEntities(env.projectId, "WorkIntake")).length, 0);
+    await assert.rejects(feature.prepare(env.root, direct.workflow.workflowId, "plan"), /Accept the current Feature assessment/);
+    await feature.prepare(env.root, direct.workflow.workflowId, "assessment");
+    await feature.act(env.root, direct.workflow.workflowId, { type: "save-draft", content: "Assessment accepted by Operator." });
+    await feature.act(env.root, direct.workflow.workflowId, { type: "decide", stage: "assessment", outcome: "revision", rationale: "Clarify rollout." });
+    assert.equal((await env.store.listEntities(env.projectId, "WorkItem")).length, 0);
+    assert.equal((await workflows.getCurrentProjectWorkflow(env.root, direct.workflow.workflowId)).workflow.currentWorkspace, "feature-intake");
+    assert.equal((await feature.get(env.root, direct.workflow.workflowId)).assessmentState, "revision-requested");
+    await feature.prepare(env.root, direct.workflow.workflowId, "assessment");
+    await feature.act(env.root, direct.workflow.workflowId, { type: "save-draft", content: "Assessment current." });
+    await feature.act(env.root, direct.workflow.workflowId, { type: "decide", stage: "assessment", outcome: "accept", rationale: "Assessment approved." });
+    await feature.act(env.root, direct.workflow.workflowId, { type: "save-draft", content: "plan draft placeholder" });
+    const graph = { workflowId: direct.workflow.workflowId, topology: "direct", solution: { title: "CSV export", objective: "Export reports", scopeIn: ["CSV"], scopeOut: ["PDF"], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [], workItems: [{ key: "export", kind: "feature", title: "Implement CSV export", objective: "Deliver export", dependencyKeys: [], criteria: [] }] };
+    const accepted = await feature.act(env.root, direct.workflow.workflowId, { type: "decide", stage: "plan", outcome: "accept", rationale: "Accept feature graph", graph });
+    assert.equal(accepted.stage, "work-item-map");
+    assert.equal(accepted.acceptedPlan.directWorkItems.length, 1);
+    assert.equal(accepted.acceptedPlan.directWorkItems[0].body.workItemKind, "feature");
+    assert.equal((await feature.get(env.root, second.workflow.workflowId)).stage, "intake");
+    const routedIntake = await env.state.createWorkIntake(env.projectId, { request: "Add export", desiredOutcome: "Export reports", constraints: [], evidenceContext: [], requestedIntegrationTarget: "dev" });
+    await env.state.linkWorkflowRouteTarget(env.projectId, routedIntake.workflow.id, second.workflow.workflowId);
+    const routedFeature = await feature.get(env.root, second.workflow.workflowId);
+    assert.equal(routedFeature.workflow.workflowId, second.workflow.workflowId);
+    assert.equal(routedFeature.provenance, "routed");
+    assert.equal(routedFeature.intake, null);
+    await assert.rejects(feature.act(env.root, direct.workflow.workflowId, { type: "decide", stage: "plan", outcome: "accept", rationale: "Duplicate", graph }), /non-empty Architect draft|Workflow is already planned|unavailable/);
   } finally { env.store.close(); }
 });

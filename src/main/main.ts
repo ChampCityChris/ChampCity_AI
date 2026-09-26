@@ -59,6 +59,7 @@ import { CURRENT_PROJECT_REPOSITORY_ID, registerCurrentProject, selectedCurrentP
 import { MANAGED_PROJECT_SOURCE_PATHS } from "../shared/sourceLifecycleContracts";
 import { selectedSourceGraphRepositoryId } from "./sourceControl/sourceGraphService";
 import { registerWorkflowApplicationIpc } from "./workflow/workflowApplicationIpc";
+import { registerFeaturePlanningIpc } from "./featurePlanning/featurePlanningIpc";
 import { registerStructuredWorkRoutingIpc } from "./workflow/structuredWorkRoutingIpc";
 import { createWorkflowApplicationService } from "./workflow/workflowApplicationService";
 import type { SourceGraphOptions } from "../shared/sourceLifecycleContracts";
@@ -817,6 +818,9 @@ ipcMain.handle(
 registerWorkflowApplicationIpc({ handle: (channel, listener) => {
   ipcMain.handle(channel, (event, ...args) => listener(event, ...args));
 } }, getRequiredWorkspaceRoot);
+registerFeaturePlanningIpc({ handle: (channel, listener) => {
+  ipcMain.handle(channel, (event, ...args) => listener(event, ...args));
+} }, getRequiredWorkspaceRoot, instruction => clipboard.writeText(instruction));
 registerStructuredWorkRoutingIpc({ handle: (channel, listener) => {
   ipcMain.handle(channel, (event, ...args) => listener(event, ...args));
 } }, getRequiredWorkspaceRoot, instruction => clipboard.writeText(instruction));

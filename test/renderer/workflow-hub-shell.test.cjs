@@ -11,6 +11,7 @@ const { FigmaSidebar } = loader.loadRendererSourceModule("src/renderer/app/figma
 const { LandingWorkspace } = loader.loadRendererSourceModule("src/renderer/app/LandingWorkspace.tsx");
 const { NestedWorkflowRail } = loader.loadRendererSourceModule("src/renderer/app/NestedWorkflowRail.tsx");
 const { WorkflowHubWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowHubWorkspace.tsx");
+const { FeaturePlanningWorkspace } = loader.loadRendererSourceModule("src/renderer/app/FeaturePlanningWorkspace.tsx");
 const { WORKFLOW_TYPE_REGISTRY } = loader.loadRendererSourceModule("src/shared/projectState/workflowTypeRegistry.ts");
 
 const repoRoot = path.join(__dirname, "..", "..");
@@ -39,6 +40,15 @@ test("fresh application shell presents the project-neutral landing actions witho
   assert.match(markup, /Open Existing Project/);
   assert.match(markup, /Start New Project/);
   assert.doesNotMatch(markup, /Project navigation|Workflow navigation|Available workflows/);
+});
+
+test("Feature workspace is keyed by exact Workflow identity and exposes only its planning front half", () => {
+  const workflow = { workflowId: "feature-exact-123", lineageId: "lineage", workflowType: "feature-capability", title: "Same title", workflowState: "active", lifecycleState: "active", currentWorkspace: "feature-intake", createdAt: "now", updatedAt: "now" };
+  const markup = renderToStaticMarkup(React.createElement(FeaturePlanningWorkspace, { workflow, onReturn: () => undefined, browserPanel: React.createElement("div", null, "Architect browser") }));
+  assert.match(markup, /feature-exact-123/);
+  assert.match(markup, /Feature Intake/);
+  assert.match(markup, /Architect browser/);
+  assert.doesNotMatch(markup, /Implement|Create Work Card|Checkpoint|Integrate|Close Workflow/);
 });
 
 test("landing selection feedback remains bounded to the landing surface", () => {

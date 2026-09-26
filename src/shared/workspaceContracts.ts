@@ -1400,6 +1400,11 @@ export interface WorkspaceMigrationResult {
 }
 
 export interface ChampCityApi {
+  getFeaturePlanning(workflowId: string): Promise<import("./featurePlanningContracts").FeaturePlanningProjection>;
+  saveFeatureIntake(workflowId: string, intake: import("./featurePlanningContracts").FeatureIntakeInput): Promise<import("./featurePlanningContracts").FeaturePlanningProjection>;
+  prepareFeaturePlanning(workflowId: string, stage: "assessment" | "plan"): Promise<import("./featurePlanningContracts").FeaturePlanningProjection>;
+  actOnFeaturePlanning(workflowId: string, action: import("./featurePlanningContracts").FeaturePlanningAction): Promise<import("./featurePlanningContracts").FeaturePlanningProjection>;
+  copyFeaturePlanningHandoff(workflowId: string): Promise<{ copied: boolean }>;
   getStructuredWorkRouting: (intakeId: string, routingWorkflowId: string) => Promise<import("./structuredWorkRoutingContracts").StructuredWorkRoutingModel>;
   prepareStructuredWorkRouting: (intakeId: string, routingWorkflowId: string) => Promise<import("./structuredWorkRoutingContracts").StructuredWorkRoutingModel>;
   decideStructuredWorkRouting: (intakeId: string, routingWorkflowId: string, input: import("./structuredWorkRoutingContracts").StructuredWorkRoutingDecisionInput) => Promise<import("./structuredWorkRoutingContracts").StructuredWorkRoutingModel>;
