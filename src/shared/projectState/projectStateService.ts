@@ -938,6 +938,105 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     }, "implements_work_item", context);
   }
 
+  /** Begin a canonical Work Item attempt under one exact current Workflow owner. */
+  async function beginWorkItemAttempt(projectId: ProjectId, workflowId: EntityId, workItemId: EntityId,
+    expectedWorkItemVersion: number, executionRef: string, context?: MutationContext) {
+    exactInput({ workflowId, workItemId, expectedWorkItemVersion, executionRef }, ["workflowId", "workItemId", "expectedWorkItemVersion", "executionRef"]);
+    if (!executionRef || executionRef.length > 128 || !Number.isSafeInteger(expectedWorkItemVersion) || expectedWorkItemVersion < 1) fail("Exact Work Item attempt identity is required.");
+    return store.transaction(projectId, async unit => {
+      const workflow = await requiredRecord(unit, projectId, workflowId);
+      if (workflow.entityType !== "Workflow" || workflow.lifecycleState !== "active" || ["closed", "cancelled"].includes(workflow.body.workflowState) || !["feature-capability", "issue-resolution"].includes(workflow.body.workflowType)) fail("A current Feature or Issue Workflow is required.");
+      const currentOwners = (await unit.listEntities(projectId, "Workflow")).filter(record => record.entityType === "Workflow" && record.lineageId === workflow.lineageId && record.lifecycleState === "active" && !["closed", "cancelled"].includes(record.body.workflowState));
+      if (currentOwners.length !== 1 || currentOwners[0].id !== workflowId) fail("Exact Workflow is not the unique current owner.");
+      const item = await requiredRecord(unit, projectId, workItemId);
+      if (item.entityType !== "WorkItem" || item.recordVersion !== expectedWorkItemVersion || !["planned", "ready"].includes(item.body.workState)) fail("Work Item is unavailable, stale, or already active.");
+      const edges = (await unit.listRelationships(projectId)).filter(edge => !edge.endedAt);
+      const plan = await getWorkflowExecutionPlan(projectId, workflowId);
+      const projectedWork = [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].find(candidate => candidate.id === workItemId);
+      if (!projectedWork) fail("Work Item does not belong to the exact Workflow execution plan.");
+      const membership = edges.filter(edge => edge.relationshipType === "part_of");
+      let parent = membership.find(edge => edge.fromEntityId === workItemId)?.toEntityId;
+      const seen = new Set<string>();
+      while (parent && !seen.has(parent)) {
+        if (parent === workflowId) break;
+        seen.add(parent);
+        parent = membership.find(edge => edge.fromEntityId === parent)?.toEntityId;
+      }
+      if (parent !== workflowId) fail("Work Item is not owned by the exact Workflow.");
+      const phase = plan.phases.find(candidate => candidate.workItemIds.includes(workItemId));
+      if (phase) {
+        if (["blocked", "cancelled", "closed"].includes(phase.record.body.phaseState)) fail("Work Item Phase is not executable.");
+        for (const prior of plan.phases.filter(candidate => candidate.sequence < phase.sequence)) {
+          if (prior.record.body.phaseState !== "closed" || prior.workItemIds.some(id => {
+            const predecessor = [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].find(candidate => candidate.id === id);
+            return predecessor?.body.workState !== "closed";
+          })) fail("An earlier Workflow Phase is incomplete.");
+        }
+      }
+      const disposition = await getEffectiveDisposition(projectId, workItemId);
+      if (["proposed", "revision_requested", "rejected", "revoked"].includes(disposition.state)) fail("Work Item has a blocking Decision.");
+      if (edges.some(edge => edge.relationshipType === "blocks" && edge.toEntityId === workItemId && edge.fromEntityId !== workItemId)) {
+        for (const edge of edges.filter(edge => edge.relationshipType === "blocks" && edge.toEntityId === workItemId)) {
+          const blocker = await unit.getEntity(projectId, edge.fromEntityId);
+          if (blocker?.lifecycleState === "active") fail("Work Item has an active blocking record.");
+        }
+      }
+      for (const edge of edges.filter(edge => edge.relationshipType === "depends_on" && edge.fromEntityId === workItemId)) {
+        const dependency = await requiredRecord(unit, projectId, edge.toEntityId);
+        if (dependency.entityType !== "WorkItem" || dependency.body.workState !== "closed") fail("Work Item dependencies are not complete.");
+      }
+      const prior = (await unit.listEntities(projectId, "ImplementationRecord")).filter(record => record.entityType === "ImplementationRecord" && record.body.executionRef === executionRef);
+      if (prior.length) fail("Execution identity has already been used.");
+      const now = new Date().toISOString();
+      const next = validateProjectStateEntity({ ...item, recordVersion: item.recordVersion + 1, updatedAt: now, updatedBy: trustedPrincipal,
+        body: { ...item.body, workState: "in_progress", startedAt: now } });
+      await unit.saveEntity(next, item.recordVersion);
+      await recordMutation(unit, { projectId, entityId: item.id, fromVersion: item.recordVersion, toVersion: next.recordVersion,
+        operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now, changedFields: ["startedAt", "workState"],
+        defaultReason: "Begin exact Work Item implementation attempt", context });
+      return { workflowId, workItemId, workItemVersion: next.recordVersion, executionRef };
+    });
+  }
+
+  /** Finish one exact attempt immutably; downstream validation owns completion. */
+  async function finishWorkItemAttempt(projectId: ProjectId, workflowId: EntityId, workItemId: EntityId,
+    executionRef: string, input: Omit<EntityBodyMap["ImplementationRecord"], "workItemId" | "executionRef">, context?: MutationContext) {
+    exactInput(input, ["summary", "deviations", "blockers", "residualRisks", "outcome"]);
+    if (!executionRef || executionRef.length > 128) fail("Exact execution reference is required.");
+    return store.transaction(projectId, async unit => {
+      const workflow = await requiredRecord(unit, projectId, workflowId);
+      const item = await requiredRecord(unit, projectId, workItemId);
+      if (workflow.entityType !== "Workflow" || item.entityType !== "WorkItem" || item.body.workState !== "in_progress" || !["feature-capability", "issue-resolution"].includes(workflow.body.workflowType)) fail("Exact active Workflow attempt is unavailable.");
+      const currentOwners = (await unit.listEntities(projectId, "Workflow")).filter(record => record.entityType === "Workflow" && record.lineageId === workflow.lineageId && record.lifecycleState === "active" && !["closed", "cancelled"].includes(record.body.workflowState));
+      if (currentOwners.length !== 1 || currentOwners[0].id !== workflowId) fail("Exact Workflow is not the unique current owner.");
+      const memberships = (await unit.listRelationships(projectId, "part_of")).filter(edge => !edge.endedAt);
+      let parent = memberships.find(edge => edge.fromEntityId === workItemId)?.toEntityId;
+      const seen = new Set<string>();
+      while (parent && parent !== workflowId && !seen.has(parent)) { seen.add(parent); parent = memberships.find(edge => edge.fromEntityId === parent)?.toEntityId; }
+      if (parent !== workflowId) fail("Work Item is not owned by the exact Workflow.");
+      const existing = (await unit.listEntities(projectId, "ImplementationRecord")).filter((record): record is ProjectStateRecord<"ImplementationRecord"> => record.entityType === "ImplementationRecord" && record.body.executionRef === executionRef);
+      if (existing.length) {
+        if (existing.length === 1 && existing[0].body.workItemId === workItemId && JSON.stringify({ ...existing[0].body, executionRef: undefined }) === JSON.stringify({ ...input, workItemId, executionRef: undefined })) return existing[0];
+        fail("Execution identity conflicts with immutable implementation evidence.");
+      }
+      const record = createProjectStateEntity({ entityType: "ImplementationRecord", projectId,
+        body: { ...input, workItemId, executionRef }, principal: trustedPrincipal });
+      await unit.saveEntity(record, null);
+      await recordMutation(unit, { projectId, entityId: record.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create,
+        occurredAt: record.createdAt, changedFields: Object.keys(record.body), defaultReason: "Record exact Work Item implementation attempt", context });
+      await linkSemantic(unit, projectId, record, item, "implements_work_item", context);
+      const state = input.outcome === "implemented" ? "validation_pending" : input.outcome === "blocked" ? "blocked" : "ready";
+      const now = new Date().toISOString();
+      const next = validateProjectStateEntity({ ...item, recordVersion: item.recordVersion + 1, updatedAt: now, updatedBy: trustedPrincipal,
+        body: { ...item.body, workState: state, ...(input.outcome === "implemented" ? { implementedAt: now } : {}) } });
+      await unit.saveEntity(next, item.recordVersion);
+      await recordMutation(unit, { projectId, entityId: item.id, fromVersion: item.recordVersion, toVersion: next.recordVersion, operation: "revise",
+        eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now, changedFields: ["workState", ...(input.outcome === "implemented" ? ["implementedAt"] : [])],
+        defaultReason: "Finish exact Work Item implementation attempt", context });
+      return record;
+    });
+  }
+
   async function recordRouteAssessment(projectId: ProjectId, intakeId: EntityId, input: Omit<EntityBodyMap["RouteAssessment"], "workIntakeId" | "recommendation" | "alternate"> & { recommendation: ExistingProjectWorkRoute; alternate?: ExistingProjectWorkRoute }, context?: MutationContext) {
     exactInput(input, ["recommendation", "traits", "rationale", "alternate", "evidenceIds"]);
     if (!Array.isArray(input.evidenceIds)) fail("Route assessment evidence identities are required.");
@@ -2186,7 +2285,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   return { createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
     createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, createIntegrationRecord, advanceIntegrationRecord,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
-    reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, completeWorkItem, completePhase,
+    reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, beginWorkItemAttempt, finishWorkItemAttempt, completeWorkItem, completePhase,
     getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, renderView, exportStructuredProjectState, getAuthoritativeContext, getCommittedEventFeed, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
     getEffectiveDisposition, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus,
     getImplementationAttempts, getExecutionPlan, getWorkflowExecutionPlan, acceptWorkflowPlanningGraph, acceptFeatureAssessment, acceptIssueRca, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,

@@ -68,3 +68,24 @@ export interface WorkflowExecutionPreparationResult {
   failureCode?: string;
   repositoryCheckoutId?: string;
 }
+
+export interface WorkItemExecutionContract {
+  contractId: string;
+  digest: string;
+  projectId: ProjectId;
+  workflowId: EntityId;
+  workItemId: EntityId;
+  workItemVersion: number;
+  objective: string;
+  solution: ProjectStateRecord<"BoundedSolution">;
+  phase: ProjectStateRecord<"Phase"> | null;
+  criteria: ProjectStateRecord<"Criterion">[];
+  dependencyIds: EntityId[];
+  scopeIn: string[];
+  scopeOut: string[];
+  constraints: string[];
+  affectedPaths: string[];
+  proofIntent: string[];
+  sourceMutation: "required" | "not-required";
+  sourceRevisionId: string | null;
+}

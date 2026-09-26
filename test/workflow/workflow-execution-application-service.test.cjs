@@ -61,6 +61,23 @@ test("Feature and Issue use the same exact-Workflow projection and isolate concu
   assert.equal("workIntakeId" in a, false);
   assert.equal(a.plan.workflow.id, feature.workflow.id);
   assert.equal(b.plan.workflow.id, issue.workflow.id);
+  const featureFirst = featurePlan.directWorkItems.find(item => item.body.title === "First");
+  const firstContract = await kernel.createWorkItemExecutionContract(env.root, feature.workflow.id, featureFirst.id,
+    { sourceMutation: "not-required", affectedPaths: ["src/feature.ts"], proofIntent: ["Run focused feature proof"] });
+  const issueContract = await kernel.createWorkItemExecutionContract(env.root, issue.workflow.id, issueParent.id,
+    { sourceMutation: "not-required", affectedPaths: [], proofIntent: ["Run focused issue proof"] });
+  assert.equal(firstContract.workflowId, feature.workflow.id);
+  assert.equal(firstContract.workItemId, featureFirst.id);
+  assert.equal(firstContract.workItemVersion, featureFirst.recordVersion);
+  assert.equal(firstContract.criteria.length, 1);
+  assert.equal(firstContract.solution.id, featurePlan.solutions[0].id);
+  assert.equal(firstContract.sourceRevisionId, null);
+  assert.equal(issueContract.workflowId, issue.workflow.id);
+  assert.notEqual(firstContract.contractId, issueContract.contractId);
+  assert.equal(firstContract.digest.length, 64);
+  await assert.rejects(kernel.createWorkItemExecutionContract(env.root, feature.workflow.id,
+    featurePlan.directWorkItems.find(item => item.body.title === "Second").id,
+    { sourceMutation: "not-required", affectedPaths: [], proofIntent: ["Must be ineligible"] }), /not eligible/);
 });
 
 test("phased readiness observes owning Phase and dependencies; source preparation remains lazy and bounded", async context => {

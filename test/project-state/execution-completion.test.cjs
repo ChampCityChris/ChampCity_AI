@@ -264,6 +264,48 @@ function register(name, factory) {
 register("in-memory Project State", () => createInMemoryProjectStateStore());
 register("SQLite Project State", sqliteFixture);
 
+test("typed exact Workflow attempt commands enforce dependencies and retain immutable attempts", async context => {
+  const store = sqliteFixture(context);
+  const service = createProjectStateService(store, operator);
+  const project = await service.createRecord(null, "Project", { name: "Exact attempts", description: "Synthetic" });
+  const workflow = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Exact", currentWorkspace: "feature-intake" });
+  const plan = await service.acceptWorkflowPlanningGraph(project.id, { workflowId: workflow.id, topology: "direct",
+    solution: { title: "Solution", objective: "Deliver", scopeIn: ["work"], scopeOut: [], constraints: [], assumptions: [], risks: [] },
+    solutionCriteria: [], workItems: [
+      { key: "first", kind: "feature", title: "Duplicate", objective: "First objective", dependencyKeys: [], criteria: [] },
+      { key: "second", kind: "feature", title: "Duplicate", objective: "Second objective", dependencyKeys: ["first"], criteria: [] },
+      { key: "third", kind: "feature", title: "Independent", objective: "Third objective", dependencyKeys: [], criteria: [] },
+    ] });
+  const first = plan.directWorkItems.find(item => item.body.objective === "First objective");
+  const second = plan.directWorkItems.find(item => item.body.objective === "Second objective");
+  await assert.rejects(service.beginWorkItemAttempt(project.id, workflow.id, second.id, second.recordVersion, "attempt:blocked"), /dependencies/);
+  const begun = await service.beginWorkItemAttempt(project.id, workflow.id, first.id, first.recordVersion, "attempt:one");
+  assert.equal(begun.workItemId, first.id);
+  const implementation = await service.finishWorkItemAttempt(project.id, workflow.id, first.id, "attempt:one",
+    { summary: "Implemented first", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+  assert.equal(implementation.body.workItemId, first.id);
+  assert.equal(implementation.body.executionRef, "attempt:one");
+  assert.equal((await service.getRecord(project.id, first.id)).body.workState, "validation_pending");
+  await assert.rejects(service.beginWorkItemAttempt(project.id, workflow.id, second.id, second.recordVersion, "attempt:two"), /stale|unavailable|dependencies/);
+  await assert.rejects(service.finishWorkItemAttempt(project.id, workflow.id, first.id, "attempt:one",
+    { summary: "Conflicting result", deviations: [], blockers: [], residualRisks: [], outcome: "failed" }), /unavailable|conflicts/);
+  assert.equal((await service.getImplementationAttempts(project.id, first.id)).length, 1);
+  const third = plan.directWorkItems.find(item => item.body.objective === "Third objective");
+  await service.beginWorkItemAttempt(project.id, workflow.id, third.id, third.recordVersion, "attempt:partial");
+  const partial = await service.finishWorkItemAttempt(project.id, workflow.id, third.id, "attempt:partial",
+    { summary: "Partial progress", deviations: [], blockers: [], residualRisks: ["Incomplete"], outcome: "partial" });
+  assert.equal(partial.body.outcome, "partial");
+  assert.equal((await service.getRecord(project.id, third.id)).body.workState, "ready");
+  const readyThird = await service.getRecord(project.id, third.id);
+  await service.beginWorkItemAttempt(project.id, workflow.id, third.id, readyThird.recordVersion, "attempt:failed");
+  await service.finishWorkItemAttempt(project.id, workflow.id, third.id, "attempt:failed",
+    { summary: "Retryable failure", deviations: [], blockers: [], residualRisks: [], outcome: "failed" });
+  assert.equal((await service.getImplementationAttempts(project.id, third.id)).length, 2);
+  assert.equal((await service.getRecord(project.id, third.id)).body.workState, "ready");
+  await assert.rejects(service.beginWorkItemAttempt(project.id, workflow.id, third.id,
+    (await service.getRecord(project.id, third.id)).recordVersion, "attempt:partial"), /already been used/);
+});
+
 function failOnSecondRootCauseSave(store) {
   let rootCauseWrites = 0;
   return new Proxy(store, {
