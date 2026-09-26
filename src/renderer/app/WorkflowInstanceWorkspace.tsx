@@ -25,6 +25,6 @@ export function WorkflowInstanceWorkspace({ workflow, onReturn }: {
       <div><dt>Instance</dt><dd>{workflow.workflowId}</dd></div>
       <div><dt>Origin</dt><dd>{workflow.routedSourceWorkflowId ? `Routed from Work Intake (${workflow.workIntakeId ?? "saved intake"})` : "Started directly"}</dd></div>
     </dl>
-    <p className="workflow-instance-shell-note">This Workflow is ready for its workflow-specific intake and planning workspace.</p>
+    <p className="workflow-instance-shell-note">{workflow.workflowType === "work-intake-routing" && stateLabel(workflow) === "Completed" ? "This Work Intake routing Workflow is complete. Its summary remains available for review." : "This Workflow is ready for its workflow-specific intake and planning workspace."}</p>
   </section>;
 }

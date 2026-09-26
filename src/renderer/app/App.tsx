@@ -146,6 +146,7 @@ import { SourceControlWorkspace } from "./SourceControlWorkspace";
 import { WorkIntakeWorkspace } from "./WorkIntakeWorkspace";
 import { StructuredWorkRoutingWorkspace } from "./StructuredWorkRoutingWorkspace";
 import { shouldAttachArchitectSurface } from "./architectSurfaceEligibility";
+import { shouldShowClosedWorkIntakeSummary, workflowPlanningSurface } from "./workflowPlanningDispatch";
 import type { WorkIntakeProjection } from "../../shared/workIntakeContracts";
 import { isWorkflowReviewDocument } from "./workflowReviewDocuments";
 import type { DirectWorkflowStartRequest, WorkflowInstanceSummary, WorkflowInventory } from "../../shared/workflowApplicationContracts";
@@ -478,7 +479,7 @@ export function App(): JSX.Element {
       developmentBrowserAvailable: architectBrowserWorkspaceAvailable, workCardRepair: isWorkCardRepair,
       issueForeground: isIssueResolutionForeground, issueStageId: activeIssueStageId, issueFixCardStepId: activeIssueFixCardStepId,
       workIntakeForeground: isWorkIntakeForeground, workIntakeStageId: selectedWorkIntakeId && selectedWorkflowId ? "routing" : "intake",
-      featureForeground: isWorkflowInstanceForeground && ["feature-capability", "issue-resolution"].includes(workflowInstance?.workflowType ?? "") });
+      featureForeground: isWorkflowInstanceForeground && workflowPlanningSurface(workflowInstance) !== "generic" });
   const isSettingsWorkspace = shellView === "settings";
   const currentIssue = useMemo(
     () => issueInventory?.issues.find((issue) => issue.issueId === selectedIssueId) ?? null,
@@ -2768,6 +2769,9 @@ export function App(): JSX.Element {
       const result = await window.champcity.getWorkflow(workflowId);
       setSelectedWorkflowId(result.workflow.workflowId);
       if (result.workflow.workflowType === "work-intake-routing") {
+        if (shouldShowClosedWorkIntakeSummary(result.workflow)) {
+          setWorkflowInstance(result.workflow); setActiveWorkflowId(null); setShellView("workflow-instance"); return;
+        }
         if (!result.workflow.workIntakeId) throw Error("The Work Intake for this Workflow is unavailable.");
         setWorkflowInstance(null);
         await openWorkIntakeForWorkflow(result.workflow.workIntakeId, result.workflow.workflowId);
@@ -4115,8 +4119,8 @@ export function App(): JSX.Element {
             <SourceControlWorkspace key={workspace.ok ? workspace.workspaceRoot : "none"}
               projectName={projectDisplayName(workspace)} onReturn={returnToWorkflowHub} />
           ) : isWorkflowInstanceForeground ? (
-            workflowInstance?.workflowType === "feature-capability" ? <FeaturePlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowHub} browserPanel={routedArchitectBrowserPanel} />
-              : workflowInstance?.workflowType === "issue-resolution" ? <IssueWorkflowPlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowHub} browserPanel={routedArchitectBrowserPanel} />
+            workflowInstance && workflowPlanningSurface(workflowInstance) === "feature" ? <FeaturePlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowHub} browserPanel={routedArchitectBrowserPanel} />
+              : workflowInstance && workflowPlanningSurface(workflowInstance) === "issue" ? <IssueWorkflowPlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowHub} browserPanel={routedArchitectBrowserPanel} />
               : workflowInstance ? <WorkflowInstanceWorkspace workflow={workflowInstance} onReturn={returnToWorkflowHub} />
               : <p role="status">Loading Workflow…</p>
           ) : isWorkflowHubForeground ? (

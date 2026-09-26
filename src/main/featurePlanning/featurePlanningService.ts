@@ -52,7 +52,9 @@ export function createFeaturePlanningService(dependencies: { openStore?: (databa
       const plan = workflow.body.currentWorkspace === "work-item-map" ? await state.getWorkflowExecutionPlan(projectId, workflowId) : null;
       const context = await workflowApp.getWorkflowPlanningContext(root, workflowId);
       const draft = drafts.get(draftKey(root, workflowId)) ?? null;
-      const stage = plan ? "work-item-map" : draft?.stage ?? (intake ? assessmentState === "accepted" ? "plan" : "assessment" : "intake");
+      const workspaceStage = workflow.body.currentWorkspace === "work-item-map" ? "work-item-map" : workflow.body.currentWorkspace === "feature-intake" ? "intake" :
+        workflow.body.currentWorkspace === "feature-assessment" ? "assessment" : workflow.body.currentWorkspace === "feature-planning" ? assessmentState === "accepted" ? "plan" : "assessment" : "intake";
+      const stage = plan ? "work-item-map" : workspaceStage;
       return { project: { projectId, name: project?.body.name ?? "Current Project" }, workflow: { workflowId, lineageId: workflow.lineageId, workflowType: workflow.body.workflowType, title: workflow.body.title, workflowState: workflow.body.workflowState, lifecycleState: workflow.lifecycleState, currentWorkspace: workflow.body.currentWorkspace, createdAt: workflow.createdAt, updatedAt: workflow.updatedAt },
         source: context.source ? { baselineId: context.source.baseline.id, revisionId: context.source.baseline.body.baseRevisionId, bindingPrepared: context.source.binding?.body.preparationState === "ready" } : null,
         provenance: context.provenance, intake, findings, acceptedArchitecture, assessmentState, acceptedPlan: plan, stage, draft };
@@ -61,6 +63,8 @@ export function createFeaturePlanningService(dependencies: { openStore?: (databa
   async function saveIntake(root: string, workflowId: string, intake: FeatureIntakeInput) {
     if (!intake || fields.some(([key]) => typeof intake[key] !== "string" || !(intake[key] as string).trim() || (intake[key] as string).length > 8000)) throw Error("Complete each bounded Feature Intake field (maximum 8,000 characters each).");
     return withState(root, workflowId, async (store, projectId) => {
+      const workflow = await store.getEntity(projectId, workflowId);
+      if (workflow?.entityType === "Workflow" && workflow.body.currentWorkspace === "work-item-map") throw Error("Accepted Feature Work Item Map is read-only.");
       const state = createProjectStateService(store, operator); const rels = await store.listRelationships(projectId);
       const prior = (await store.listEntities(projectId, "Finding")).filter((item): item is import("../../shared/projectState/domainContracts").ProjectStateRecord<"Finding"> => item.entityType === "Finding" && item.body.category === "feature-intake" && rels.some(edge => edge.relationshipType === "relates_to" && edge.fromEntityId === item.id && edge.toEntityId === workflowId && !edge.endedAt));
       for (const [key, title] of fields) {
@@ -68,13 +72,18 @@ export function createFeaturePlanningService(dependencies: { openStore?: (databa
         if (existing) await state.reviseRecord(projectId, existing.id, { statement, observedAt: new Date().toISOString() }, existing.recordVersion);
         else { const record = await state.createRecord(projectId, "Finding", { title, statement, category: "feature-intake", impact: "Feature planning context", observedAt: new Date().toISOString(), findingState: "current" }); await state.createRelationship(projectId, record.id, "relates_to", workflowId); }
       }
+      if (workflow?.entityType === "Workflow" && workflow.body.currentWorkspace !== "feature-intake") await state.reviseRecord(projectId, workflowId, { currentWorkspace: "feature-intake" }, workflow.recordVersion);
       drafts.delete(draftKey(root, workflowId)); return get(root, workflowId);
     });
   }
   async function prepare(root: string, workflowId: string, stage: "assessment" | "plan") {
-    const projection = await get(root, workflowId);
+    let projection = await get(root, workflowId);
+    if (projection.workflow.currentWorkspace === "work-item-map") throw Error("Accepted Feature Work Item Map is read-only.");
     if (!projection.intake) throw Error("Save Feature Intake before preparing Architect work.");
     if (stage === "plan" && projection.assessmentState !== "accepted") throw Error("Accept the current Feature assessment before preparing the plan.");
+    const workspace = stage === "assessment" ? "feature-assessment" : "feature-planning";
+    await withState(root, workflowId, async (store, projectId, workflow) => { if (workflow.body.currentWorkspace !== workspace) await createProjectStateService(store, operator).reviseRecord(projectId, workflowId, { currentWorkspace: workspace }, workflow.recordVersion); });
+    projection = await get(root, workflowId);
     const sections = stage === "assessment" ? fields.map(([, title]) => title).concat(["Excluded Future Work"]) : ["Baseline and Capability Delta", "Preservation and Regression Proof", "Affected Services State UI and Contracts", "Rollout and Compatibility", "Hard Dependencies and Excluded Work", "Feature Candidate Traceability"];
     const instruction = [`# Feature ${stage} — exact Workflow ${workflowId}`, `Exact Project: ${projection.project.name} (${projection.project.projectId})`, `Exact Workflow: ${projection.workflow.title} (${workflowId})`, `Workflow type: feature-capability`, `SourceBaseline: ${projection.source ? `${projection.source.baselineId} at ${projection.source.revisionId}` : "non-source-backed"}`, `Routed provenance (context only): ${projection.provenance === "routed" ? "routed handoff" : "direct start"}`, `Authoritative SPS Feature Intake: ${JSON.stringify(projection.intake)}`, `Current accepted Project architecture and Decisions from SPS: ${JSON.stringify(projection.acceptedArchitecture)}`, `Cover these sections: ${sections.join("; ")}.`, stage === "plan" ? `Return one JSON WorkflowPlanningGraph for WRB03-01, workflowId exactly ${workflowId}. WorkItems kind feature by default; choose direct vs phased with rationale in solution.assumptions/risks. No execution, session, Git, validation-run, or Work Card mechanics.` : "Assess current baseline, capability delta, preservation, integration, compatibility, regression boundary, and excluded future work. Do not choose a route."].join("\n\n");
     const draft = { stage, instruction, content: "" } satisfies Draft;

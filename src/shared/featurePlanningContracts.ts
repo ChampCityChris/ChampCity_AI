@@ -1,4 +1,4 @@
-import type { WorkflowPlanningGraph } from "./projectState/projectStateService";
+import type { WorkflowExecutionPlanView, WorkflowPlanningGraph } from "./projectState/projectStateService";
 import type { ProjectStateRecord } from "./projectState/domainContracts";
 import type { WorkflowInstanceSummary } from "./workflowApplicationContracts";
 
@@ -15,7 +15,7 @@ export interface FeaturePlanningProjection {
   findings: ProjectStateRecord<"Finding">[];
   acceptedArchitecture: Array<ProjectStateRecord<"Decision"> | ProjectStateRecord<"BoundedSolution">>;
   assessmentState: "not-reviewed" | "accepted" | "revision-requested" | "rejected";
-  acceptedPlan: unknown | null;
+  acceptedPlan: WorkflowExecutionPlanView | null;
   stage: "intake" | "assessment" | "plan" | "work-item-map";
   draft: { stage: "assessment" | "plan"; instruction: string; content: string } | null;
 }

@@ -11,11 +11,52 @@ const { FigmaSidebar } = loader.loadRendererSourceModule("src/renderer/app/figma
 const { LandingWorkspace } = loader.loadRendererSourceModule("src/renderer/app/LandingWorkspace.tsx");
 const { NestedWorkflowRail } = loader.loadRendererSourceModule("src/renderer/app/NestedWorkflowRail.tsx");
 const { WorkflowHubWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowHubWorkspace.tsx");
+const { WorkflowInstanceWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowInstanceWorkspace.tsx");
 const { FeaturePlanningWorkspace } = loader.loadRendererSourceModule("src/renderer/app/FeaturePlanningWorkspace.tsx");
 const { IssueWorkflowPlanningWorkspace } = loader.loadRendererSourceModule("src/renderer/app/IssueWorkflowPlanningWorkspace.tsx");
+const { workflowPlanningSurface, shouldShowClosedWorkIntakeSummary } = loader.loadRendererSourceModule("src/renderer/app/workflowPlanningDispatch.ts");
+const { WorkflowPlanningMap } = loader.loadRendererSourceModule("src/renderer/app/WorkflowPlanningMap.tsx");
 const { WORKFLOW_TYPE_REGISTRY } = loader.loadRendererSourceModule("src/shared/projectState/workflowTypeRegistry.ts");
 
 const repoRoot = path.join(__dirname, "..", "..");
+
+test("exact planning dispatch follows supported type and persisted currentWorkspace", () => {
+  for (const currentWorkspace of ["feature-intake", "feature-assessment", "feature-planning", "work-item-map"])
+    assert.equal(workflowPlanningSurface({ workflowType: "feature-capability", lifecycleState: "active", currentWorkspace }), "feature");
+  for (const currentWorkspace of ["issue-intake", "issue-rca", "issue-planning", "work-item-map"])
+    assert.equal(workflowPlanningSurface({ workflowType: "issue-resolution", lifecycleState: "active", currentWorkspace }), "issue");
+  assert.equal(workflowPlanningSurface({ workflowType: "issue-resolution", lifecycleState: "active", currentWorkspace: "feature-planning" }), "generic");
+  assert.equal(workflowPlanningSurface({ workflowType: "refactor-migration", lifecycleState: "active", currentWorkspace: "feature-planning" }), "generic");
+  assert.equal(workflowPlanningSurface({ workflowType: "feature-capability", lifecycleState: "closed", currentWorkspace: "work-item-map" }), "generic");
+  assert.equal(shouldShowClosedWorkIntakeSummary({ workflowType: "work-intake-routing", lifecycleState: "closed", currentWorkspace: "work-intake" }), true);
+  assert.equal(shouldShowClosedWorkIntakeSummary({ workflowType: "work-intake-routing", lifecycleState: "active", currentWorkspace: "work-intake" }), false);
+});
+
+test("accepted Work Item Map is readable and exposes no execution controls", () => {
+  const record = (id, body) => ({ id, body });
+  const markup = renderToStaticMarkup(React.createElement(WorkflowPlanningMap, { plan: {
+    phases: [{ phaseId: "phase-1", sequence: 1, workItemIds: ["work-1"], criterionIds: [], record: record("phase-1", { title: "Foundation", objective: "Establish base" }) }],
+    directWorkItems: [], workItemsByPhase: { "phase-1": [record("work-1", { title: "Add route", objective: "Expose route", workItemKind: "fix" })] },
+    dependencyIds: [{ from: "work-1", to: "work-2" }], repairIds: [], criteria: [], decisions: [],
+    solutions: [record("solution-1", { title: "Stable export", objective: "Export reliably", scopeIn: ["CSV"], scopeOut: ["PDF"] })],
+  } }));
+  assert.match(markup, /Phased/);
+  assert.match(markup, /Bounded Solution: Stable export/);
+  assert.match(markup, /Phase 1: Foundation/);
+  assert.match(markup, /Add route/);
+  assert.match(markup, /work-2/);
+  assert.match(markup, /read-only/i);
+  assert.doesNotMatch(markup, /<button|Implement|Checkpoint|Integrate/);
+});
+
+test("closed WIR stays on its completed exact-instance summary", () => {
+  const workflow = { workflowId: "wir-closed-12", lineageId: "lineage", workflowType: "work-intake-routing", title: "Completed routing", workflowState: "closed", lifecycleState: "closed", currentWorkspace: "work-intake", createdAt: "now", updatedAt: "now" };
+  const markup = renderToStaticMarkup(React.createElement(WorkflowInstanceWorkspace, { workflow, onReturn: () => undefined }));
+  assert.match(markup, /This Work Intake routing Workflow is complete/);
+  assert.match(markup, /Completed/);
+  assert.match(markup, /wir-closed-12/);
+  assert.doesNotMatch(markup, /ready for its workflow-specific intake/);
+});
 
 test("fresh composed renderer foregrounds landing without sidebar or workflow rails", () => {
   const markup = renderToStaticMarkup(React.createElement(App));

@@ -38,13 +38,15 @@ export function createIssuePlanningService(dependencies: { openStore?: (database
       const acceptedRca = decisions.filter(r => r.body.outcome === "accepted").at(-1); const marker = acceptedRca?.body.rationale.match(/\[canonical-root-causes:([0-9a-f,-]+)\]/i)?.[1];
       const acceptedRootIds = marker ? new Set(marker.split(",").filter(Boolean)) : new Set<string>();
       const roots = allRoots.filter(root => acceptedRootIds.has(root.id));
-      const lastDecision = decisions.at(-1); const lastIntakeUpdate = findings.filter(f => f.body.category === "issue-intake").reduce((latest, f) => f.updatedAt > latest ? f.updatedAt : latest, "");
-      const rcaState = !lastDecision || lastDecision.body.decidedAt < lastIntakeUpdate ? "not-reviewed" : lastDecision.body.outcome === "accepted" ? "accepted" : lastDecision.body.outcome === "revision_requested" ? "revision-requested" : "rejected";
+      const lastDecision = decisions.at(-1); const latestContextUpdate = [...findings.filter(f => f.body.category === "issue-intake").map(f => f.updatedAt), ...evidence.map(item => item.body.capturedAt)].reduce((latest, stamp) => stamp > latest ? stamp : latest, "");
+      const rcaState = !lastDecision || lastDecision.body.decidedAt < latestContextUpdate ? "not-reviewed" : lastDecision.body.outcome === "accepted" ? "accepted" : lastDecision.body.outcome === "revision_requested" ? "revision-requested" : "rejected";
       const entry = Object.fromEntries(intakeFields.map(([key, title]) => [key, findings.find(f => f.body.title === title)?.body.statement ?? ""])) as unknown as IssueIntakeInput;
       const intake = findings.some(f => f.body.category === "issue-intake") ? entry : null;
       const plan = workflow.body.currentWorkspace === "work-item-map" ? await createProjectStateService(store, operator).getWorkflowExecutionPlan(projectId, workflowId) : null;
       const context = await workflowApp.getWorkflowPlanningContext(root, workflowId); const draft = drafts.get(keyFor(root, workflowId)) ?? null;
-      const stage = plan ? "work-item-map" : draft?.stage ?? (intake ? rcaState === "accepted" ? "plan" : "rca" : "intake"); const project = await store.getProject(projectId);
+      const workspaceStage = workflow.body.currentWorkspace === "work-item-map" ? "work-item-map" : workflow.body.currentWorkspace === "issue-intake" ? "intake" :
+        workflow.body.currentWorkspace === "issue-rca" ? "rca" : workflow.body.currentWorkspace === "issue-planning" ? rcaState === "accepted" ? "plan" : "rca" : "intake";
+      const stage = plan ? "work-item-map" : workspaceStage; const project = await store.getProject(projectId);
       return { project: { projectId, name: project?.body.name ?? "Current Project" }, workflow: { workflowId, lineageId: workflow.lineageId, workflowType: "issue-resolution" as const, title: workflow.body.title, workflowState: workflow.body.workflowState, lifecycleState: workflow.lifecycleState, currentWorkspace: workflow.body.currentWorkspace, createdAt: workflow.createdAt, updatedAt: workflow.updatedAt }, provenance: context.provenance,
         source: context.source ? { baselineId: context.source.baseline.id, revisionId: context.source.baseline.body.baseRevisionId, bindingPrepared: context.source.binding?.body.preparationState === "ready" } : null,
         intake, findings, evidence, acceptedArchitecture, rootCauses: roots, rcaState, stage, draft, acceptedPlan: plan };
@@ -54,14 +56,17 @@ export function createIssuePlanningService(dependencies: { openStore?: (database
     if (!input || intakeFields.some(([key]) => typeof input[key] !== "string" || !(input[key] as string).trim() || (input[key] as string).length > 8000)) throw Error("Complete each Issue Intake field (maximum 8,000 characters each).");
     return withIssue(root, workflowId, async (store, projectId, workflow) => {
       const state = createProjectStateService(store, operator); const links = await store.listRelationships(projectId); const records = (await store.listEntities(projectId, "Finding")).filter((r): r is ProjectStateRecord<"Finding"> => r.entityType === "Finding" && r.body.category.startsWith("issue-") && links.some(edge => edge.relationshipType === "relates_to" && edge.fromEntityId === r.id && edge.toEntityId === workflowId && !edge.endedAt));
+      if (workflow.body.currentWorkspace !== "issue-intake") throw Error("Issue Intake is locked after Architect RCA preparation begins.");
       if (records.some(record => record.body.category === "issue-rca")) throw Error("Issue Intake cannot change after RCA review begins.");
       for (const [key, title] of intakeFields) { const value = input[key].trim(); const existing = records.find(r => r.body.title === title); if (existing) await state.reviseRecord(projectId, existing.id, { statement: value, observedAt: new Date().toISOString() }, existing.recordVersion); else { const finding = await state.createRecord(projectId, "Finding", { title, statement: value, category: "issue-intake", impact: "Issue planning context", observedAt: new Date().toISOString(), findingState: "current" }); await state.createRelationship(projectId, finding.id, "relates_to", workflow.id); } }
+      if (workflow.body.currentWorkspace !== "issue-intake") await state.reviseRecord(projectId, workflowId, { currentWorkspace: "issue-intake" }, workflow.recordVersion);
       drafts.delete(keyFor(root, workflowId)); return get(root, workflowId);
     });
   }
   async function addEvidence(root: string, workflowId: string, input: IssueEvidenceInput[]) {
     if (!Array.isArray(input) || input.length > 12) throw Error("Provide at most 12 evidence files.");
     return withIssue(root, workflowId, async (store, projectId, workflow) => {
+      if (workflow.body.currentWorkspace === "work-item-map") throw Error("Accepted Issue Work Item Map is read-only.");
       const state = createProjectStateService(store, operator); const relations = await store.listRelationships(projectId, "relates_to"); const findings = (await store.listEntities(projectId, "Finding")).filter((r): r is ProjectStateRecord<"Finding"> => r.entityType === "Finding" && r.body.category === "issue-intake" && relations.some(edge => edge.fromEntityId === r.id && edge.toEntityId === workflowId && !edge.endedAt));
       const observed = findings.find(r => r.body.title === "Observed behavior"); if (!observed) throw Error("Save Issue Intake before attaching evidence.");
       const directory = path.join(fs.realpathSync(root), ".champcity", "evidence"); fs.mkdirSync(directory, { recursive: true }); const resolved = fs.realpathSync(directory); const rootPath = fs.realpathSync(root); if (!resolved.startsWith(`${rootPath}${path.sep}`)) throw Error("Evidence directory escapes the selected Project.");
@@ -72,11 +77,16 @@ export function createIssuePlanningService(dependencies: { openStore?: (database
         try { const evidence = await state.recordEvidence(projectId, workflowId, { evidenceType: "issue-supplied", description: file.description.trim() || path.basename(file.name), mediaType: file.mediaType, payloadRef: `project-evidence:${path.posix.join(".champcity", "evidence", name)}`, digest: crypto.createHash("sha256").update(bytes).digest("hex"), size: bytes.length }); await state.createRelationship(projectId, evidence.id, "supports", observed.id); }
         catch (error) { fs.rmSync(absolute, { force: true }); throw error; }
       }
+      const latestWorkflow = await store.getEntity(projectId, workflowId);
+      if (latestWorkflow?.entityType === "Workflow" && latestWorkflow.body.currentWorkspace === "issue-planning") await state.reviseRecord(projectId, workflowId, { currentWorkspace: "issue-rca" }, latestWorkflow.recordVersion);
       return get(root, workflowId);
     });
   }
   async function prepare(root: string, workflowId: string, stage: "rca" | "plan") {
-    const model = await get(root, workflowId); if (!model.intake) throw Error("Save Issue Intake before preparing Architect work."); if (stage === "plan" && model.rcaState !== "accepted") throw Error("Accept the current Issue RCA before preparing correction planning.");
+    let model = await get(root, workflowId); if (model.workflow.currentWorkspace === "work-item-map") throw Error("Accepted Issue Work Item Map is read-only."); if (!model.intake) throw Error("Save Issue Intake before preparing Architect work."); if (stage === "plan" && model.rcaState !== "accepted") throw Error("Accept the current Issue RCA before preparing correction planning.");
+    const workspace = stage === "rca" ? "issue-rca" : "issue-planning";
+    await withIssue(root, workflowId, async (store, projectId, workflow) => { if (workflow.body.currentWorkspace !== workspace) await createProjectStateService(store, operator).reviseRecord(projectId, workflowId, { currentWorkspace: workspace }, workflow.recordVersion); });
+    model = await get(root, workflowId);
     const prompt = [`# Issue ${stage.toUpperCase()} — ${model.project.name} (${model.project.projectId})`, `Exact Issue Workflow: ${model.workflow.title} (${workflowId})`, `SourceBaseline: ${model.source ? `${model.source.baselineId} at ${model.source.revisionId}` : "non-source-backed"}`, `Routed provenance is historical context only: ${model.provenance}`, `Saved SPS Issue Intake: ${JSON.stringify(model.intake)}`, `Canonical Findings: ${JSON.stringify(model.findings)}`, `Canonical Evidence metadata: ${JSON.stringify(model.evidence)}`, `Accepted Project architecture and Decisions from SPS: ${JSON.stringify(model.acceptedArchitecture)}`, `Accepted RootCause state: ${JSON.stringify(model.rootCauses)}`, stage === "rca" ? "Return JSON {rootCauses:[{title,statement,rationale,confidence,findingIds,evidenceIds}]}. Each findingId/evidenceId must come from the provided canonical IDs. Explain the evidenced observed defect; do not recommend routes." : `Return JSON WorkflowPlanningGraph with exact workflowId ${workflowId}, solution scope, assumptions, risks, criteria, dependencies and direct/phased topology. WorkItem kind fix by default. BoundedSolution should address the accepted RootCause/Finding. No execution, session, Git, Fix Card, validation, or repair mechanics.`].join("\n\n");
     const draft = { stage, instruction: prompt, content: "" } satisfies Draft; drafts.set(keyFor(root, workflowId), draft); return { ...model, stage, draft };
   }
