@@ -14,6 +14,11 @@ const routes: ReadonlyArray<{ id: ExistingProjectWorkRoute; label: string }> = [
   { id: "issue-resolution", label: "Issue Resolution" },
 ];
 
+export function routeStructuredWIRTarget(targetWorkflowId: string | null, source: "load" | "refresh" | "live-decision" | "explicit-open",
+  onRouted: (workflowId: string) => void): void {
+  if (targetWorkflowId && (source === "live-decision" || source === "explicit-open")) onRouted(targetWorkflowId);
+}
+
 export function StructuredWorkRoutingWorkspace({ intakeId, routingWorkflowId, browserPanel, onReloadBrowser, onReturn, onRouted }: {
   intakeId: string;
   routingWorkflowId: string;
@@ -34,7 +39,7 @@ export function StructuredWorkRoutingWorkspace({ intakeId, routingWorkflowId, br
     const next = await window.champcity.getStructuredWorkRouting(intakeId, routingWorkflowId);
     setModel(next);
     setRoute(next.assessment?.recommendation ?? "feature-change");
-    if (next.targetWorkflowId) onRouted(next.targetWorkflowId);
+    routeStructuredWIRTarget(next.targetWorkflowId, "refresh", onRouted);
     if (showFeedback) setFeedback("Routing evidence refreshed from Project State.");
   }
 
@@ -44,7 +49,7 @@ export function StructuredWorkRoutingWorkspace({ intakeId, routingWorkflowId, br
       if (!current) return;
       setModel(next);
       setRoute(next.assessment?.recommendation ?? "feature-change");
-      if (next.targetWorkflowId) onRouted(next.targetWorkflowId);
+      routeStructuredWIRTarget(next.targetWorkflowId, "load", onRouted);
     }).catch(failure => { if (current) setError(failure instanceof Error ? failure.message : "Routing could not be loaded."); });
     return () => { current = false; };
   }, [intakeId, routingWorkflowId]);
@@ -74,8 +79,8 @@ export function StructuredWorkRoutingWorkspace({ intakeId, routingWorkflowId, br
         ...(disposition === "override" ? { route } : {}),
       });
       setModel(next); setRationale("");
-      if (next.targetWorkflowId) onRouted(next.targetWorkflowId);
-      else setFeedback("Revision instructions saved. Prepare the next Architect handoff here.");
+      routeStructuredWIRTarget(next.targetWorkflowId, "live-decision", onRouted);
+      if (!next.targetWorkflowId) setFeedback("Revision instructions saved. Prepare the next Architect handoff here.");
     } catch (failure) { setError(failure instanceof Error ? failure.message : "Route decision failed."); }
     finally { setBusy(false); }
   }
@@ -90,7 +95,7 @@ export function StructuredWorkRoutingWorkspace({ intakeId, routingWorkflowId, br
     bodyClassName="work-intake-doc-chat-workspace" browserColumnClassName="work-intake-browser-column"
     className="work-intake-stage-workspace work-routing-workspace" documentColumnClassName="work-intake-document-column"
     eyebrow="Work Intake" heading="Routing" summary="Review the request, consider Architect advice, and choose a route."
-    browserPanel={browserPanel}
+    browserPanel={model?.closed ? null : browserPanel}
     browserActions={model?.closed ? null : <section className="figma-browser-actions-panel" aria-label="Routing browser actions">
       <header><span>Browser Actions</span></header>
       <div className="figma-browser-actions-row">
@@ -124,7 +129,7 @@ export function StructuredWorkRoutingWorkspace({ intakeId, routingWorkflowId, br
           </div>
         </> : null}
         {model?.selectedRoute ? <p>Selected route: {routeLabel(model.selectedRoute)}</p> : null}
-        {model?.targetWorkflowId ? <button className="apply-button" type="button" onClick={() => onRouted(model.targetWorkflowId!)}>Open routed Workflow</button> : null}
+        {model?.targetWorkflowId ? <button className="apply-button" type="button" onClick={() => routeStructuredWIRTarget(model.targetWorkflowId, "explicit-open", onRouted)}>Open routed Workflow</button> : null}
         <button type="button" onClick={onReturn}>Back to Workflows</button>
       </section>
     </>}

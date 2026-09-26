@@ -180,5 +180,23 @@ export function createWorkflowApplicationService(dependencies: {
     });
   }
 
-  return { listCurrentProjectWorkflows, getCurrentProjectWorkflow, startDirectWorkflow, ensureProjectCreationWorkflow };
+  async function completeIncompleteGreenfieldInitialization(projectRoot: string): Promise<{ workflow: WorkflowInstanceSummary }> {
+    return withCurrentProject(projectRoot, async (store, projectId) => {
+      const project = await store.getProject(projectId);
+      if (!project || project.body.description !== "Greenfield Project")
+        throw Error("Start New Project cannot reopen this Current Project; use Existing Project.");
+      const repositoryId = await resolveRepositoryId(projectRoot);
+      if (!repositoryId) throw Error("Incomplete Greenfield initialization has no managed source baseline; open Existing Project.");
+      const baseRevisionId = await readDevRevision(projectRoot);
+      const all = (await store.listEntities(projectId, "Workflow"))
+        .filter((record): record is WorkflowRecord => record.entityType === "Workflow");
+      if (all.some(record => record.body.workflowType === "project-creation"))
+        throw Error("Project Creation is already established; use Existing Project to open its Workflow.");
+      const created = await createProjectStateService(store, operator).createProjectCreationWorkflow(projectId,
+        { title: project.body.name, sourceSeed: { repositoryId, integrationTargetSourceLineId: "dev", baseRevisionId } });
+      return { workflow: workflowSummary(created.workflow) };
+    });
+  }
+
+  return { listCurrentProjectWorkflows, getCurrentProjectWorkflow, startDirectWorkflow, ensureProjectCreationWorkflow, completeIncompleteGreenfieldInitialization };
 }

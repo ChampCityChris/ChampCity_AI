@@ -354,12 +354,14 @@ ipcMain.handle("project:registerCurrent", async (_event, mode: "existing" | "gre
   const agentHarness = getAgentHarnessServiceHostClient();
   let workspace: Awaited<ReturnType<typeof agentHarness.registerWorkspace>>;
   let registration;
+  let projectCreation: Awaited<ReturnType<ReturnType<typeof createWorkflowApplicationService>["ensureProjectCreationWorkflow"]>> | null = null;
   if (mode === "greenfield") {
     const existingProjectId = selectedCurrentProjectId(root);
     if (existingProjectId) {
       registration = await registerCurrentProject(root, mode);
       if (registration.project.body.description !== "Greenfield Project")
         throw new Error("Start New Project cannot reopen an Existing Project; use Existing Project.");
+      projectCreation = await createWorkflowApplicationService().completeIncompleteGreenfieldInitialization(root);
     } else {
       assertGreenfieldProjectEntry(root);
       workspace = await agentHarness.registerWorkspace(root);
@@ -369,6 +371,7 @@ ipcMain.handle("project:registerCurrent", async (_event, mode: "existing" | "gre
       const result = await createSourceControlService({ repositoryId: CURRENT_PROJECT_REPOSITORY_ID, repositoryRoot: root, checkoutRegistration }).bootstrapProjectSource();
       if (!result.ok) throw new Error(result.error.message);
       registration = await registerCurrentProject(root, mode, { ...(projectName === undefined ? {} : { projectName }), sourceRepositoryId: CURRENT_PROJECT_REPOSITORY_ID });
+      projectCreation = await createWorkflowApplicationService().ensureProjectCreationWorkflow(root);
     }
   } else {
     const hasConventionalGit = fs.existsSync(path.join(root, ".git"));
@@ -390,8 +393,6 @@ ipcMain.handle("project:registerCurrent", async (_event, mode: "existing" | "gre
     registration = await registerCurrentProject(root, mode, { ...(projectName === undefined ? {} : { projectName }),
       ...(hasSourceCandidate ? { sourceRepositoryId: CURRENT_PROJECT_REPOSITORY_ID } : {}) });
   }
-  const projectCreation = mode === "greenfield"
-    ? await createWorkflowApplicationService().ensureProjectCreationWorkflow(root) : null;
   const repositoryId = registration.repositoryResource?.body.logicalName ?? null;
   return { projectId: registration.project.id, projectName: registration.project.body.name, repositoryId,
     projectRoot: root, mode, created: registration.created,

@@ -149,17 +149,23 @@ test("Greenfield entry validates an empty container, establishes SPS and registe
   assert.equal(projection.currentBranch, undefined);
   assert.equal(projection.branches, undefined);
   assert.deepEqual(invocations.map(call => call.channel), ["project:registerCurrent", "sourceGraph:get", "sourceGraph:revisionDetail", "workIntake:projection"]);
-  await harness.stop().catch(() => undefined);
   assert.throws(() => assertGreenfieldProjectEntry(path.dirname(selected)), /empty Project container/);
-  const reopened = await api.registerCurrentProject("greenfield", "Duplicate");
-  assert.equal(reopened.projectCreationWorkflowId, current.projectCreationWorkflowId);
+  await assert.rejects(api.registerCurrentProject("greenfield", "Duplicate"), /already established; use Existing Project/);
   const reopenedState = createSQLiteProjectStateStore(path.join(selected, ".champcity", "project-state.sqlite"));
   try {
     const workflows = (await reopenedState.listEntities(current.projectId, "Workflow")).filter(row => row.entityType === "Workflow");
     assert.equal(workflows.filter(row => row.body.workflowType === "project-creation").length, 1);
     assert.equal(workflows.find(row => row.body.workflowType === "project-creation").id, current.projectCreationWorkflowId);
+    assert.equal((await reopenedState.listEntities(current.projectId, "ProjectResource")).filter(row => row.entityType === "ProjectResource").length, 2);
   }
   finally { reopenedState.close(); }
+  const inventory = await createWorkflowApplicationService().listCurrentProjectWorkflows(selected);
+  assert.ok(inventory.groups.flatMap(group => group.workflows).some(workflow => workflow.workflowId === current.projectCreationWorkflowId));
+  const existing = await api.registerCurrentProject("existing");
+  assert.equal(existing.projectId, current.projectId);
+  assert.equal((await createWorkflowApplicationService().getCurrentProjectWorkflow(selected, current.projectCreationWorkflowId)).workflow.workflowId,
+    current.projectCreationWorkflowId);
+  await harness.stop().catch(() => undefined);
 });
 
 test("Greenfield entry finishes registration for a compatible managed baseline without Current Project SPS", async context => {
@@ -187,6 +193,35 @@ test("Greenfield entry finishes registration for a compatible managed baseline w
   assert.equal(current.created, true);
   assert.equal(current.projectId, selectedCurrentProjectId(selected));
   assert.equal(current.projectName, "Recovered Greenfield");
+});
+
+test("incomplete Greenfield Current Project retries Project Creation once with its managed source", async context => {
+  const selected = root(context);
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-harness-"));
+  context.after(() => fs.rmSync(userData, { recursive: true, force: true }));
+  const harness = new AgentHarnessService({ userDataRoot: userData });
+  harness.registerWorkspace = rootPath => harness.registerWorkspaceRoot(rootPath);
+  context.after(() => harness.stop().catch(() => undefined));
+  const workspace = await harness.registerWorkspace(selected);
+  const checkoutRegistration = { workspaceId: workspace.workspace.workspaceId,
+    registerRepositoryCheckout: (workspaceId, checkout) => harness.registerRepositoryCheckout(workspaceId, checkout) };
+  const source = await createSourceControlService({ repositoryId: CURRENT_PROJECT_REPOSITORY_ID, repositoryRoot: selected, checkoutRegistration }).bootstrapProjectSource();
+  assert.equal(source.ok, true);
+  const registration = await registerCurrentProject(selected, "greenfield", { projectName: "Retry Greenfield", sourceRepositoryId: CURRENT_PROJECT_REPOSITORY_ID });
+  const { api } = mainPreloadHarness(["project:registerCurrent"], {
+    getRequiredWorkspaceRoot: () => selected, assertGreenfieldProjectEntry: () => undefined, registerCurrentProject, selectedCurrentProjectId,
+    CURRENT_PROJECT_REPOSITORY_ID, getAgentHarnessServiceHostClient: () => harness, createSourceControlService,
+    createWorkflowApplicationService, fs, path, MANAGED_PROJECT_SOURCE_PATHS,
+  });
+  const retried = await api.registerCurrentProject("greenfield", "Ignored replacement name");
+  assert.equal(retried.projectId, registration.project.id);
+  assert.ok(retried.projectCreationWorkflowId);
+  await assert.rejects(api.registerCurrentProject("greenfield"), /already established; use Existing Project/);
+  const store = createSQLiteProjectStateStore(path.join(selected, ".champcity", "project-state.sqlite"));
+  try {
+    assert.equal((await store.listEntities(registration.project.id, "Workflow")).filter(row => row.entityType === "Workflow").length, 1);
+    assert.equal((await store.listEntities(registration.project.id, "ProjectResource")).filter(row => row.entityType === "ProjectResource").length, 2);
+  } finally { store.close(); }
 });
 
 test("non-Git Existing Project entry registers SPS without a placeholder Repository", async context => {

@@ -324,7 +324,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: intake.createdAt,
         changedFields: Object.keys(intake.body), defaultReason: "Capture Work Intake", context });
       const workflow = createProjectStateEntity({ entityType: "Workflow", projectId,
-        body: { workflowType: "work-intake-routing", title: input.request, currentWorkspace: "work-intake",
+        body: { workflowType: "work-intake-routing", title: input.request.trim().slice(0, 200), currentWorkspace: "work-intake",
           workflowState: "active" }, principal: trustedPrincipal });
       await unit.saveEntity(workflow, null);
       await recordMutation(unit, { projectId, entityId: workflow.id, fromVersion: null, toVersion: 1,

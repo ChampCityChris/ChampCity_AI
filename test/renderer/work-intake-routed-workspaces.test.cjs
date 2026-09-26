@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const { loadRendererSourceModule } = require("./renderer-source-loader.cjs");
 
 const { WorkIntakeWorkspace } = loadRendererSourceModule("src/renderer/app/WorkIntakeWorkspace.tsx");
-const { StructuredWorkRoutingWorkspace } = loadRendererSourceModule("src/renderer/app/StructuredWorkRoutingWorkspace.tsx");
+const { StructuredWorkRoutingWorkspace, routeStructuredWIRTarget } = loadRendererSourceModule("src/renderer/app/StructuredWorkRoutingWorkspace.tsx");
 
 function withState(values, render) {
   const original = React.useState;
@@ -60,6 +60,18 @@ test("closed structured WIR offers the exact target without reopening route cont
   assert.match(markup, /This Work Intake is closed\./);
   assert.match(markup, /Open routed Workflow/);
   assert.doesNotMatch(markup, /Routing browser actions|Decision rationale|Override Route/);
+});
+
+test("WIR navigation stays on load and refresh, opens explicitly, and hands off after a live decision", () => {
+  const calls = [];
+  const onRouted = id => calls.push(id);
+  routeStructuredWIRTarget("target-exact", "load", onRouted);
+  routeStructuredWIRTarget("target-exact", "refresh", onRouted);
+  assert.deepEqual(calls, []);
+  routeStructuredWIRTarget("target-exact", "explicit-open", onRouted);
+  assert.deepEqual(calls, ["target-exact"]);
+  routeStructuredWIRTarget("new-target", "live-decision", onRouted);
+  assert.deepEqual(calls, ["target-exact", "new-target"]);
 });
 
 test("legacy Work Intake route and continuation IPC is not exposed", () => {

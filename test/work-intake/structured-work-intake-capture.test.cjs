@@ -9,6 +9,7 @@ const { createProjectStateService } = require("../../dist/shared/projectState/pr
 const { registerCurrentProject, selectedCurrentProjectId } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
 const { captureStructuredWorkIntake, getStructuredWorkIntakeProjection } =
   require("../../dist/main/workIntake/structuredWorkIntakeService.js");
+const { createWorkflowApplicationService } = require("../../dist/main/workflow/workflowApplicationService.js");
 
 const operator = { principalId: "operator", principalType: "human", role: "Operator" };
 function git(root, ...args) { return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim(); }
@@ -54,6 +55,25 @@ test("structured Work Intake capture persists without creating source state", as
   assert.equal(projection.suggestedBase, undefined);
   assert.equal(projection.currentCapturedIntake.intakeId, saved.intakeId);
   assert.equal(projection.currentCapturedIntake.source.state, "not-applicable");
+});
+
+test("long Work Intake request stays complete while its exact WIR inventory title is bounded", async context => {
+  const { root, projectId } = await fixture(context);
+  const request = `  ${"A specific long request. ".repeat(24)}  `;
+  const saved = await captureStructuredWorkIntake(root, projectId, { ...submission(projectId), workRequest: request });
+  assert.equal(saved.workRequest, request.trim());
+  const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  try {
+    const intake = await store.getEntity(projectId, saved.intakeId);
+    assert.equal(intake.body.request, request.trim());
+    const initiates = await store.listRelationships(projectId, "initiates");
+    const routingWorkflowId = initiates.find(edge => edge.fromEntityId === saved.intakeId).toEntityId;
+    const inventory = await createWorkflowApplicationService().listCurrentProjectWorkflows(root);
+    const wir = inventory.groups.flatMap(group => group.workflows).find(workflow => workflow.workflowId === routingWorkflowId);
+    assert.equal(wir.title, request.trim().slice(0, 200));
+    assert.equal(wir.workflowId, routingWorkflowId);
+    assert.equal(wir.workIntakeId, saved.intakeId);
+  } finally { store.close(); }
 });
 
 test("renderer Save eligibility depends on form validity and busy state", () => {
