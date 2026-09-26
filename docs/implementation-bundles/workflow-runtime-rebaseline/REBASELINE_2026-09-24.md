@@ -34,6 +34,8 @@ Outcome: Workflow-specific intake/assessment/planning writes canonical SPS WorkI
 ### WRB04 — Shared Execution Kernel and Workspaces
 Outcome: Feature and Issue execute through one post-plan runtime and one reusable Workspace family from Work Item Map through integration/repair.
 
+**Deferred entry defect:** Integration candidate storage/ownership still assumes a conventional primary checkout with a directory `.git`. Current Project managed Dev is a linked worktree. WRB04 must normalize the candidate engine on exact Git common-directory identity and prove managed Dev → candidate → Dev integration without changing the non-Git Project-container boundary. Evidence: `docs/implementation-bundles/workflow-runtime-rebaseline/WRB02/Repair01/ARCHITECT_REVIEW_2026-09-26.md`.
+
 ### WRB05 — Product Completion, Remaining Workflow Front Halves, and Retirement
 Outcome: Greenfield completes through the shared kernel; remaining front halves use the proven normalization contract; Hub/Source Control present concurrent instances; obsolete runtime/migration paths retire; final qualification runs. This bundle may be split after WRB04 based on the actual shared-kernel surface.
 

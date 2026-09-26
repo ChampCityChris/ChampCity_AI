@@ -7,36 +7,42 @@ const test = require("node:test");
 const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
 const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
 const { createWorkflowSourceMaterializationService } = require("../../dist/main/sourceControl/workflowSourceMaterializationService.js");
+const { registerCurrentProject, selectedCurrentProjectId } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
+const { bootstrapProjectSource } = require("../../dist/main/sourceControl/projectSourceBootstrap.js");
 
 const operator = { principalId: "operator", principalType: "human", role: "Operator" };
 const repositoryId = "repository-materialization";
 function git(root, ...args) { return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim(); }
-function setup(context) {
+async function setup(context) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-materialize-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const current = await registerCurrentProject(root, "existing", { projectName: "Materialization fixture", sourceRepositoryId: repositoryId });
+  const source = await bootstrapProjectSource(root, repositoryId);
+  const projectId = current.project.id;
+  assert.equal(selectedCurrentProjectId(root), projectId);
+  assert.equal(source.repositoryId, repositoryId);
+  assert.equal(fs.existsSync(path.join(root, ".git")), false);
   const dev = path.join(root, "Dev");
-  fs.mkdirSync(dev);
-  git(dev, "init", "-b", "dev");
   git(dev, "config", "user.email", "test@example.invalid");
   git(dev, "config", "user.name", "Materialization Test");
   fs.writeFileSync(path.join(dev, "base.txt"), "R1\n");
   git(dev, "add", "base.txt"); git(dev, "commit", "-m", "R1");
   const r1 = git(dev, "rev-parse", "HEAD");
-  fs.mkdirSync(path.join(root, ".champcity"));
   const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
-  return { root, dev, r1, store, state: createProjectStateService(store, operator) };
+  return { root, dev, r1, store, projectId, state: createProjectStateService(store, operator) };
 }
 async function structuredProject(env) {
-  const project = await env.state.createRecord(null, "Project", { name: "Synthetic", description: "Materialization fixture" });
-  await env.state.createRecord(project.id, "ProjectResource", { resourceType: "source-repository", provider: "git",
-    logicalName: repositoryId, locator: "selected-project", role: "project-source" });
-  return project.id;
+  assert.equal(selectedCurrentProjectId(env.root), env.projectId);
+  const resources = (await env.store.listEntities(env.projectId, "ProjectResource"))
+    .filter(row => row.entityType === "ProjectResource" && row.lifecycleState === "active");
+  assert.ok(resources.some(row => row.body.resourceType === "current-project-registration"));
+  assert.ok(resources.some(row => row.body.resourceType === "source-repository" && row.body.logicalName === repositoryId));
+  return env.projectId;
 }
 async function workflowWithBaseline(env, projectId, title, revision = env.r1) {
-  const workflow = await env.state.createWorkflow(projectId, { workflowType: "feature-capability", title, currentWorkspace: "development" });
-  const baseline = await env.state.createWorkflowSourceBaseline(projectId, workflow.id,
-    { repositoryId, integrationTargetSourceLineId: "dev", baseRevisionId: revision });
-  return { workflow, baseline };
+  const created = await env.state.createSubstantiveWorkflow(projectId, { workflowType: "feature-capability", title, entryWorkspace: "feature-intake",
+    sourceSeed: { repositoryId, integrationTargetSourceLineId: "dev", baseRevisionId: revision } });
+  return { workflow: created.workflow, baseline: created.sourceBaseline, binding: created.sourceBinding };
 }
 function materializer(env, projectId, register = async (_workspaceId, checkout) => ({ ...checkout, availability: "available", validationError: null })) {
   return createWorkflowSourceMaterializationService({ projectContainerRoot: env.root, projectId,
@@ -44,7 +50,7 @@ function materializer(env, projectId, register = async (_workspaceId, checkout) 
 }
 
 test("Workflow materialization preserves exact baseline across Dev advance, supersession, concurrent checkouts, and ready retries", async context => {
-  const env = setup(context);
+  const env = await setup(context);
   const projectId = await structuredProject(env);
   const { workflow: first, baseline } = await workflowWithBaseline(env, projectId, "First");
   fs.writeFileSync(path.join(env.dev, "base.txt"), "R2\n"); git(env.dev, "commit", "-am", "R2");
@@ -64,14 +70,23 @@ test("Workflow materialization preserves exact baseline across Dev advance, supe
     return { ...checkout, availability: "available", validationError: null };
   };
   const service = materializer(env, projectId, register);
+  assert.equal(createdSecond.baseline.body.workflowId, createdSecond.workflow.id);
+  assert.equal(createdSecond.binding.body.workflowId, createdSecond.workflow.id);
+  assert.equal(createdSecond.binding.body.preparationState, "unprepared");
   const [one, two] = await Promise.all([service.materialize(successor.id), service.materialize(createdSecond.workflow.id)]);
-  assert.equal(one.binding.body.workflowId, successor.id);
+  assert.equal(one.binding.body.workflowId, first.id);
   assert.equal(one.binding.body.sourceBaselineId, baseline.id);
   assert.equal(one.checkout.sourceLineId, `workflow/${first.id}`);
   assert.equal(one.checkout.workflowId, first.id);
   assert.equal(one.checkout.repositoryCheckoutId, `workflow-${first.id}`);
   assert.equal(one.checkout.projectRelativePath, `.champcity/checkouts/${first.id}`);
   assert.equal(two.checkout.sourceLineId, `workflow/${createdSecond.workflow.id}`);
+  assert.equal(two.binding.body.workflowId, createdSecond.workflow.id);
+  assert.equal(two.binding.body.sourceBaselineId, createdSecond.baseline.id);
+  assert.equal(two.binding.body.preparationState, "ready");
+  assert.equal(two.binding.body.workSourceLineId, `workflow/${createdSecond.workflow.id}`);
+  assert.equal(registrations.get(two.checkout.repositoryCheckoutId).workflowId, createdSecond.workflow.id);
+  assert.deepEqual(registrations.get(two.checkout.repositoryCheckoutId), two.checkout);
   assert.notEqual(one.binding.id, two.binding.id);
   assert.notEqual(one.checkout.projectRelativePath, two.checkout.projectRelativePath);
   assert.equal(git(env.dev, "rev-parse", "dev"), r2);
@@ -90,7 +105,7 @@ test("Workflow materialization preserves exact baseline across Dev advance, supe
 });
 
 test("ready binding with a missing checkout blocks without recreating it", async context => {
-  const env = setup(context);
+  const env = await setup(context);
   const projectId = await structuredProject(env);
   const { workflow } = await workflowWithBaseline(env, projectId, "Missing ready checkout");
   env.store.close();
@@ -113,7 +128,7 @@ test("ready binding with a missing checkout blocks without recreating it", async
 });
 
 test("ready semantic identity drift blocks before provider registration or source creation", async context => {
-  const env = setup(context);
+  const env = await setup(context);
   const projectId = await structuredProject(env);
   const { workflow } = await workflowWithBaseline(env, projectId, "Semantic ready drift");
   env.store.close();
@@ -141,7 +156,7 @@ test("ready semantic identity drift blocks before provider registration or sourc
 });
 
 test("blocked registration retry recovers exact branch and worktree; conflicting checkout path is preserved", async context => {
-  const env = setup(context);
+  const env = await setup(context);
   const projectId = await structuredProject(env);
   const { workflow } = await workflowWithBaseline(env, projectId, "Recover");
   env.store.close();
@@ -155,7 +170,7 @@ test("blocked registration retry recovers exact branch and worktree; conflicting
   registrationFails = false;
   assert.equal((await service.materialize(workflow.id)).binding.body.preparationState, "ready");
 
-  const conflict = setup(context);
+  const conflict = await setup(context);
   const conflictProjectId = await structuredProject(conflict);
   const conflicting = await workflowWithBaseline(conflict, conflictProjectId, "Conflict");
   const target = path.join(conflict.root, ".champcity", "checkouts", conflicting.workflow.id);
@@ -172,7 +187,7 @@ test("blocked registration retry recovers exact branch and worktree; conflicting
 });
 
 test("WIR, terminal Workflow, and missing baseline fail before branch or binding mutation", async context => {
-  const env = setup(context);
+  const env = await setup(context);
   const projectId = await structuredProject(env);
   const { workflow: wir } = await env.state.createWorkIntake(projectId, { request: "Route", desiredOutcome: "Route", constraints: [], evidenceContext: [], requestedIntegrationTarget: "dev" });
   const noBaseline = await env.state.createWorkflow(projectId, { workflowType: "feature-capability", title: "No baseline", currentWorkspace: "development" });

@@ -4,7 +4,7 @@
 
 - Card: Work Card WRB02-05, Qualify Workflow Application/Inventory/Routing and Fence the Legacy WIR Pipeline.
 - Approved repository root was verified as the active ChampCity_AI repository root; this report uses repository-relative paths only.
-- Branch: `dev`, tracking `origin/dev`; 115 commits ahead before this card checkpoint. No remote actions.
+- Branch: `dev`, tracking `origin/dev`; 119 commits ahead before R01-03. No remote actions.
 - WRB02 card checkpoints:
 
 | Card | Checkpoint SHA |
@@ -62,3 +62,12 @@ The validation capability map no longer claims the retired routed-stage and lega
 - No dependency, schema, migration, external integration, launch smoke, or compatibility adapter was added.
 - Final checkpoint commit message required by the card: `WRB02-05 qualify Workflow application inventory and routing`. Commit SHA is reported after creation.
 - Recommended next task: stop for Architect review of the completed WRB02 bundle; do not begin WRB03 in this run.
+
+## Repair01 closure update — R01-03
+
+- WRB02 application/routing architecture is accepted. R01-01 repaired the Project-entry, completed-WIR navigation, and title semantics defects; its focused proof passed 43/43 and build passed.
+- R01-02's modernized source-materialization fixture passed 5/5 and proves WRB02 substantive Workflow creation → SourceBaseline/SourceBinding ownership → exact-ID lazy materialization, retaining baseline, supersession, concurrent checkout, retry, conflict, and invalid-owner protections.
+- No production source-lifecycle incompatibility was found. The structured-integration diagnostic exposed a linked-worktree assumption in candidate storage/ownership; it was routed to WRB04 by architecture ownership. The diagnostic fixture experiment was removed from WRB02, and structured integration is not claimed as passed.
+- WRB04's entry defect and required managed Dev → candidate → Dev proof are recorded in `REBASELINE_2026-09-24.md`, with evidence in `WRB02/Repair01/ARCHITECT_REVIEW_2026-09-26.md`.
+- R01-03 ran the card-bounded build, focused R01-01 tests, source-materialization suite, Workflow type registry, exact validation-plan preview, and `git diff --check`; results are recorded in `WRB02/Repair01/Reports/WRB02-R01-03_CLOSURE_REPORT.md`.
+- WRB03 may proceed after this checkpoint and final Architect closure. No WRB03 implementation was started here.
