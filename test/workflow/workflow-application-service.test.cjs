@@ -335,6 +335,10 @@ test("Feature planning persists exact Workflow intake, keeps revision noncanonic
     const intake = { requestedCapability: "Add export", baseline: "No export today", scopeIn: "CSV export", scopeOut: "PDF", constraints: "Keep existing API stable", preservation: "Existing reports", affectedSurfaces: "Reports and toolbar", evidence: "Export acceptance cases", compatibilityRollout: "Feature flag" };
     await feature.saveIntake(env.root, direct.workflow.workflowId, intake);
     assert.deepEqual((await feature.get(env.root, direct.workflow.workflowId)).intake, intake);
+    const featureIntakeFindings = (await env.store.listEntities(env.projectId, "Finding")).filter(record => record.entityType === "Finding" && record.body.category === "feature-intake");
+    const featureOwnership = await env.store.listRelationships(env.projectId, "workflow_member");
+    assert.equal(featureIntakeFindings.length, 9);
+    assert.ok(featureIntakeFindings.every(record => featureOwnership.some(edge => edge.fromEntityId === record.id && edge.toEntityId === direct.workflow.workflowId && !edge.endedAt)));
     assert.equal((await workflows.getCurrentProjectWorkflow(env.root, direct.workflow.workflowId)).workflow.currentWorkspace, "feature-intake");
     assert.equal((await createFeaturePlanningService().get(env.root, direct.workflow.workflowId)).stage, "intake");
     assert.equal((await feature.get(env.root, second.workflow.workflowId)).intake, null);
@@ -410,6 +414,10 @@ test("Issue Workflow persists evidence and accepted RCA, keeps revision canonica
     const intake = { title: "Export crash", observed: "Export exits unexpectedly", expected: "Export succeeds", reproduction: "Click export after search", environment: "Desktop fixture", impact: "Report cannot be saved", constraints: "Preserve existing reports" };
     await issues.saveIntake(env.root, first.workflow.workflowId, intake);
     assert.deepEqual((await issues.get(env.root, first.workflow.workflowId)).intake, intake);
+    const issueOwnership = await env.store.listRelationships(env.projectId, "workflow_member");
+    const firstIssueFindings = (await env.store.listEntities(env.projectId, "Finding")).filter(record => record.entityType === "Finding" && record.body.category === "issue-intake");
+    assert.equal(firstIssueFindings.length, 7);
+    assert.ok(firstIssueFindings.every(record => issueOwnership.some(edge => edge.fromEntityId === record.id && edge.toEntityId === first.workflow.workflowId && !edge.endedAt)));
     assert.equal((await issues.get(env.root, second.workflow.workflowId)).intake, null);
     const wir = await env.state.createWorkIntake(env.projectId, { request: "Crash after export", desiredOutcome: "Restore export", constraints: [], evidenceContext: [], requestedIntegrationTarget: "dev" });
     await env.state.linkWorkflowRouteTarget(env.projectId, wir.workflow.id, second.workflow.workflowId);
@@ -441,12 +449,26 @@ test("Issue Workflow persists evidence and accepted RCA, keeps revision canonica
     const current = await issues.get(env.root, first.workflow.workflowId);
     const finding = current.findings.find(record => record.body.title === "Observed behavior");
     await issues.act(env.root, first.workflow.workflowId, { type: "save-draft", content: "RCA cites the persisted observed failure and reproduction evidence." });
+    const rootCauseCountBeforeFailure = (await env.store.listEntities(env.projectId, "RootCause")).length;
+    const decisionCountBeforeFailure = (await env.store.listEntities(env.projectId, "Decision")).length;
+    await assert.rejects(issues.act(env.root, first.workflow.workflowId, { type: "decide-rca", outcome: "accept", rationale: "Should remain atomic.", rootCauses: [
+      { title: "Valid first candidate", statement: "Would be written first in a non-atomic path.", rationale: "Supported.", findingIds: [finding.id], evidenceIds: [evidence.evidence[0].id] },
+      { title: "Foreign finding candidate", statement: "Cannot cross Issue owners.", rationale: "Rejected in preflight.", findingIds: [secondEvidence.findings.find(record => record.body.title === "Observed behavior").id], evidenceIds: [secondEvidence.evidence[0].id] },
+    ] }), /current Findings owned by this exact Issue Workflow/);
+    assert.equal((await env.store.listEntities(env.projectId, "RootCause")).length, rootCauseCountBeforeFailure);
+    assert.equal((await env.store.listEntities(env.projectId, "Decision")).length, decisionCountBeforeFailure);
+    assert.equal((await workflows.getCurrentProjectWorkflow(env.root, first.workflow.workflowId)).workflow.currentWorkspace, "issue-rca");
     const afterRca = await issues.act(env.root, first.workflow.workflowId, { type: "decide-rca", outcome: "accept", rationale: "Evidence supports the cause.", rootCauses: [{ title: "Export state exception", statement: "Export crashes when search state is populated.", rationale: "The reproduced state transition omits the export data shape.", confidence: 0.9, findingIds: [finding.id], evidenceIds: [evidence.evidence[0].id] }] });
     assert.equal(afterRca.stage, "plan");
     assert.equal((await workflows.getCurrentProjectWorkflow(env.root, first.workflow.workflowId)).workflow.currentWorkspace, "issue-planning");
     assert.equal((await createIssuePlanningService().get(env.root, first.workflow.workflowId)).stage, "plan");
     assert.equal(afterRca.rootCauses.length, 1);
     const links = await env.store.listRelationships(env.projectId);
+    assert.ok(links.some(edge => edge.relationshipType === "workflow_member" && edge.fromEntityId === afterRca.rootCauses[0].id && edge.toEntityId === first.workflow.workflowId));
+    const firstRcaDecision = (await env.store.listEntities(env.projectId, "Decision")).find(record => record.entityType === "Decision" && record.body.decisionType === "issue-rca-review" && record.body.outcome === "accepted" && links.some(edge => edge.relationshipType === "governs" && edge.fromEntityId === record.id && edge.toEntityId === first.workflow.workflowId));
+    assert.ok(firstRcaDecision);
+    assert.ok(links.some(edge => edge.relationshipType === "governs" && edge.fromEntityId === firstRcaDecision.id && edge.toEntityId === afterRca.rootCauses[0].id));
+    assert.doesNotMatch(firstRcaDecision.body.rationale, /canonical-root-causes/i);
     assert.ok(links.some(edge => edge.relationshipType === "explains" && edge.fromEntityId === afterRca.rootCauses[0].id && edge.toEntityId === finding.id));
     assert.ok(links.some(edge => edge.relationshipType === "supports" && edge.fromEntityId === evidence.evidence[0].id && edge.toEntityId === afterRca.rootCauses[0].id));
     await issues.prepare(env.root, first.workflow.workflowId, "rca");
@@ -461,16 +483,21 @@ test("Issue Workflow persists evidence and accepted RCA, keeps revision canonica
     const reviewedAgain = await issues.act(env.root, first.workflow.workflowId, { type: "decide-rca", outcome: "accept", rationale: "Accept clarified cause.", rootCauses: [revisedRoot] });
     assert.equal(reviewedAgain.rootCauses.length, 1);
     assert.notEqual(reviewedAgain.rootCauses[0].id, afterRca.rootCauses[0].id);
+    assert.equal((await issues.get(env.root, first.workflow.workflowId)).rootCauses.length, 1);
+    assert.equal((await issues.get(env.root, first.workflow.workflowId)).rootCauses[0].id, reviewedAgain.rootCauses[0].id);
     await issues.act(env.root, first.workflow.workflowId, { type: "save-draft", content: "Proposed correction plan draft." });
     await issues.act(env.root, first.workflow.workflowId, { type: "decide-plan", outcome: "revision", rationale: "Add deterministic regression coverage." });
     assert.equal((await env.store.listEntities(env.projectId, "WorkItem")).length, 0);
     const lateEvidence = await issues.addEvidence(env.root, first.workflow.workflowId, [{ name: "late.txt", mediaType: "text/plain", base64: Buffer.from("new RCA evidence").toString("base64"), description: "Evidence added after RCA acceptance" }]);
+    const latestEvidence = lateEvidence.evidence.find(record => record.body.description === "Evidence added after RCA acceptance");
+    const reproductionEvidence = evidence.evidence.find(record => record.body.description === "Reproduction log");
+    assert.ok(latestEvidence && reproductionEvidence);
     assert.equal((await issues.get(env.root, first.workflow.workflowId)).rcaState, "not-reviewed");
     await assert.rejects(issues.act(env.root, first.workflow.workflowId, { type: "decide-plan", outcome: "accept" }), /current plan workspace and an accepted current RCA/);
     assert.equal((await env.store.listEntities(env.projectId, "WorkItem")).length, 0);
     await issues.prepare(env.root, first.workflow.workflowId, "rca");
     await issues.act(env.root, first.workflow.workflowId, { type: "save-draft", content: "Re-review with the newly added evidence." });
-    const refreshedRca = await issues.act(env.root, first.workflow.workflowId, { type: "decide-rca", outcome: "accept", rationale: "Accept RCA with current evidence.", rootCauses: [{ title: "Search-dependent export mapping", statement: "Export crashes when search state is populated.", rationale: "The reproduction and newly added evidence confirm the missing state mapping.", findingIds: [finding.id], evidenceIds: [evidence.evidence[0].id, lateEvidence.evidence[0].id] }] });
+    const refreshedRca = await issues.act(env.root, first.workflow.workflowId, { type: "decide-rca", outcome: "accept", rationale: "Accept RCA with current evidence.", rootCauses: [{ title: "Search-dependent export mapping", statement: "Export crashes when search state is populated.", rationale: "The reproduction and newly added evidence confirm the missing state mapping.", findingIds: [finding.id], evidenceIds: [reproductionEvidence.id, latestEvidence.id] }] });
     assert.equal(refreshedRca.stage, "plan");
     const graph = { workflowId: first.workflow.workflowId, topology: "direct", solution: { title: "Restore Export", objective: "Export from populated search state", scopeIn: ["export state shape"], scopeOut: ["new formats"], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [], workItems: [{ key: "correct", kind: "fix", title: "Correct export state mapping", objective: "Prevent crash", dependencyKeys: [], criteria: [] }] };
     await issues.act(env.root, first.workflow.workflowId, { type: "save-draft", content: "Reviewed correction graph." });
@@ -479,6 +506,7 @@ test("Issue Workflow persists evidence and accepted RCA, keeps revision canonica
     const finalLinks = await env.store.listRelationships(env.projectId, "addresses");
     assert.ok(finalLinks.some(edge => edge.fromEntityId === accepted.acceptedPlan.solutions[0].id && edge.toEntityId === accepted.rootCauses[0].id));
     assert.equal((await issues.get(env.root, second.workflow.workflowId)).stage, "rca");
+    assert.equal((await issues.get(env.root, second.workflow.workflowId)).rootCauses.length, 0);
   } finally { env.store.close(); }
 });
 

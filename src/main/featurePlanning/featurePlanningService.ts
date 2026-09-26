@@ -34,7 +34,7 @@ export function createFeaturePlanningService(dependencies: { openStore?: (databa
   async function get(root: string, workflowId: string) {
     return withState(root, workflowId, async (store, projectId, workflow) => {
       const state = createProjectStateService(store, operator); const relationships = await store.listRelationships(projectId);
-      const owned = new Set(relationships.filter(edge => edge.relationshipType === "relates_to" && edge.toEntityId === workflowId && !edge.endedAt).map(edge => edge.fromEntityId));
+      const owned = new Set(relationships.filter(edge => edge.relationshipType === "workflow_member" && edge.toEntityId === workflowId && !edge.endedAt).map(edge => edge.fromEntityId));
       const findings = (await store.listEntities(projectId, "Finding")).filter((item): item is import("../../shared/projectState/domainContracts").ProjectStateRecord<"Finding"> => item.entityType === "Finding" && item.body.category === "feature-intake" && owned.has(item.id));
       const acceptedArchitecture = (await Promise.all([store.listEntities(projectId, "Decision"), store.listEntities(projectId, "BoundedSolution")])).flat()
         .filter((item): item is import("../../shared/projectState/domainContracts").ProjectStateRecord<"Decision"> | import("../../shared/projectState/domainContracts").ProjectStateRecord<"BoundedSolution"> => item.lifecycleState === "active" &&
@@ -66,11 +66,11 @@ export function createFeaturePlanningService(dependencies: { openStore?: (databa
       const workflow = await store.getEntity(projectId, workflowId);
       if (workflow?.entityType === "Workflow" && workflow.body.currentWorkspace === "work-item-map") throw Error("Accepted Feature Work Item Map is read-only.");
       const state = createProjectStateService(store, operator); const rels = await store.listRelationships(projectId);
-      const prior = (await store.listEntities(projectId, "Finding")).filter((item): item is import("../../shared/projectState/domainContracts").ProjectStateRecord<"Finding"> => item.entityType === "Finding" && item.body.category === "feature-intake" && rels.some(edge => edge.relationshipType === "relates_to" && edge.fromEntityId === item.id && edge.toEntityId === workflowId && !edge.endedAt));
+      const prior = (await store.listEntities(projectId, "Finding")).filter((item): item is import("../../shared/projectState/domainContracts").ProjectStateRecord<"Finding"> => item.entityType === "Finding" && item.body.category === "feature-intake" && rels.some(edge => edge.relationshipType === "workflow_member" && edge.fromEntityId === item.id && edge.toEntityId === workflowId && !edge.endedAt));
       for (const [key, title] of fields) {
         const statement = intake[key].trim(); const existing = prior.find(item => item.body.title === title);
         if (existing) await state.reviseRecord(projectId, existing.id, { statement, observedAt: new Date().toISOString() }, existing.recordVersion);
-        else { const record = await state.createRecord(projectId, "Finding", { title, statement, category: "feature-intake", impact: "Feature planning context", observedAt: new Date().toISOString(), findingState: "current" }); await state.createRelationship(projectId, record.id, "relates_to", workflowId); }
+        else { const record = await state.createRecord(projectId, "Finding", { title, statement, category: "feature-intake", impact: "Feature planning context", observedAt: new Date().toISOString(), findingState: "current" }); await state.createRelationship(projectId, record.id, "workflow_member", workflowId); }
       }
       if (workflow?.entityType === "Workflow" && workflow.body.currentWorkspace !== "feature-intake") await state.reviseRecord(projectId, workflowId, { currentWorkspace: "feature-intake" }, workflow.recordVersion);
       drafts.delete(draftKey(root, workflowId)); return get(root, workflowId);

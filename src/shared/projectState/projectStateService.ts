@@ -39,6 +39,8 @@ export interface SubstantiveWorkflowCreationInput {
   sourceSeed?: { repositoryId: string; integrationTargetSourceLineId: string; baseRevisionId: string };
 }
 export interface DecisionInput { decisionType: string; outcome: string; decisionScope: string; rationale?: string; effectiveAt?: string }
+export interface IssueRootCauseCandidateInput { title: string; statement: string; rationale: string; confidence?: number; findingIds: EntityId[]; evidenceIds: EntityId[] }
+export interface IssueRcaAcceptanceInput { workflowId: EntityId; rationale: string; rootCauses: IssueRootCauseCandidateInput[] }
 export interface EffectiveDisposition { state: DispositionState; decisionId: EntityId | null; effectiveAt: string | null }
 export interface RequiredOperatorDecision { criterionId: EntityId; targetId: EntityId; currentDisposition: DispositionState }
 export type ValidationStaleReason = "target-version-changed" | "target-superseded" | "source-baseline-changed";
@@ -493,7 +495,12 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       if (active.some(edge => edge.fromEntityId === fromEntityId && edge.toEntityId === toEntityId)) fail("Relationship already exists.");
       if (relationshipType === "workflow_member") {
         if (active.some(edge => edge.fromEntityId === fromEntityId)) fail("Planning record already belongs to a Workflow.");
-        if (from.entityType === "BoundedSolution" && active.some(edge => edge.toEntityId === toEntityId)) fail("Workflow already has an accepted planning graph.");
+        if ((await unit.listRelationships(projectId, "workflow_member")).some(edge => edge.fromEntityId === fromEntityId)) fail("Planning record Workflow ownership history cannot be reassigned.");
+        if (from.entityType === "BoundedSolution") {
+          for (const edge of active.filter(edge => edge.toEntityId === toEntityId)) {
+            if ((await unit.getEntity(projectId, edge.fromEntityId))?.entityType === "BoundedSolution") fail("Workflow already has an accepted planning graph.");
+          }
+        }
       }
       if (relationshipType === "repairs" && (from.entityType !== "WorkItem" || !["repair", "fix"].includes(from.body.workItemKind))) fail("Only a Repair or Fix Work Item can repair another Work Item.");
       if (relationshipType === "part_of" && active.some(edge => edge.fromEntityId === fromEntityId)) fail("A Work Item already has an active parent.");
@@ -601,6 +608,54 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   async function recordDecision(projectId: ProjectId, targetId: EntityId, input: DecisionInput, context?: MutationContext) {
     const now = new Date().toISOString();
     return recordLinked(projectId, targetId, "Decision", decisionBody(input, trustedPrincipal, now), "governs", context);
+  }
+
+  async function acceptIssueRca(projectId: ProjectId, input: IssueRcaAcceptanceInput, context?: MutationContext) {
+    exactInput(input, ["workflowId", "rationale", "rootCauses"]);
+    if (trustedPrincipal.principalType !== "human" || trustedPrincipal.role !== "Operator") fail("Issue RCA acceptance requires the Operator principal.");
+    if (typeof input.rationale !== "string" || !input.rationale.trim() || new TextEncoder().encode(input.rationale).length > 4096 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(input.rationale)) fail("Issue RCA review rationale must be bounded text.");
+    if (!Array.isArray(input.rootCauses) || input.rootCauses.length < 1 || input.rootCauses.length > 12) fail("Issue RCA requires between one and twelve RootCause candidates.");
+    return store.transaction(projectId, async unit => {
+      if (!await unit.getProject(projectId)) fail("Owning Project does not exist.");
+      const workflow = await requiredRecord(unit, projectId, input.workflowId);
+      if (workflow.entityType !== "Workflow" || workflow.body.workflowType !== "issue-resolution" || workflow.lifecycleState !== "active" || workflow.body.workflowState !== "active" || workflow.body.currentWorkspace !== "issue-rca")
+        fail("Issue RCA acceptance requires the exact active Issue Workflow in its RCA workspace.");
+      const memberships = (await unit.listRelationships(projectId, "workflow_member")).filter(edge => !edge.endedAt);
+      const ownedFindings = new Map((await unit.listEntities(projectId, "Finding")).filter((record): record is ProjectStateRecord<"Finding"> => record.entityType === "Finding" && record.lifecycleState === "active" && record.body.findingState === "current" && record.body.category.startsWith("issue-") && memberships.some(edge => edge.fromEntityId === record.id && edge.toEntityId === workflow.id)).map(record => [record.id, record]));
+      const evidenceRecords = new Map((await unit.listEntities(projectId, "Evidence")).filter((record): record is ProjectStateRecord<"Evidence"> => record.entityType === "Evidence" && record.lifecycleState === "active").map(record => [record.id, record]));
+      const supportEdges = (await unit.listRelationships(projectId, "supports")).filter(edge => !edge.endedAt);
+      const candidates = input.rootCauses.map(candidate => {
+        exactInput(candidate, ["title", "statement", "rationale", "confidence", "findingIds", "evidenceIds"]);
+        for (const [key, maximum] of [["title", 200], ["statement", 4096], ["rationale", 4096]] as const) if (typeof candidate[key] !== "string" || !candidate[key].trim() || candidate[key].length > maximum || new TextEncoder().encode(candidate[key] as string).length > 4096 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(candidate[key] as string)) fail(`RootCause ${key} must be bounded text.`);
+        if (candidate.confidence !== undefined && (typeof candidate.confidence !== "number" || !Number.isFinite(candidate.confidence) || candidate.confidence < 0 || candidate.confidence > 1)) fail("RootCause confidence must be between zero and one.");
+        if (!Array.isArray(candidate.findingIds) || candidate.findingIds.length < 1 || candidate.findingIds.length > 32 || new Set(candidate.findingIds).size !== candidate.findingIds.length || candidate.findingIds.some(id => !ownedFindings.has(id))) fail("RootCause must cite current Findings owned by this exact Issue Workflow.");
+        if (!Array.isArray(candidate.evidenceIds) || candidate.evidenceIds.length > 32 || new Set(candidate.evidenceIds).size !== candidate.evidenceIds.length) fail("RootCause Evidence references are invalid or exceed their bounds.");
+        const unsupportedEvidence = candidate.evidenceIds.find(id => !evidenceRecords.has(id) || !supportEdges.some(edge => edge.fromEntityId === id && (edge.toEntityId === workflow.id || ownedFindings.has(edge.toEntityId))));
+        if (unsupportedEvidence) fail("RootCause Evidence must be supported by the exact Issue Workflow context.");
+        return candidate;
+      });
+      const now = new Date().toISOString();
+      const createRoot = async (candidate: IssueRootCauseCandidateInput) => {
+        const root = createProjectStateEntity({ entityType: "RootCause", projectId, body: { title: candidate.title.trim(), statement: candidate.statement.trim(), rationale: candidate.rationale.trim(), ...(candidate.confidence === undefined ? {} : { confidence: candidate.confidence }), rootCauseState: "accepted" }, principal: trustedPrincipal });
+        await unit.saveEntity(root, null);
+        await recordMutation(unit, { projectId, entityId: root.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: root.createdAt, changedFields: Object.keys(root.body), defaultReason: "Accept Issue RootCause", context });
+        await linkSemantic(unit, projectId, root, workflow, "workflow_member", context);
+        for (const id of candidate.findingIds) await linkSemantic(unit, projectId, root, ownedFindings.get(id)!, "explains", context);
+        for (const id of candidate.evidenceIds) await linkSemantic(unit, projectId, evidenceRecords.get(id)!, root, "supports", context);
+        return root;
+      };
+      const roots = [] as ProjectStateRecord<"RootCause">[];
+      for (const candidate of candidates) roots.push(await createRoot(candidate));
+      const decision = createProjectStateEntity({ entityType: "Decision", projectId, body: decisionBody({ decisionType: "issue-rca-review", outcome: "accepted", decisionScope: workflow.id, rationale: input.rationale.trim() }, trustedPrincipal, now), principal: trustedPrincipal });
+      await unit.saveEntity(decision, null);
+      await recordMutation(unit, { projectId, entityId: decision.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: decision.createdAt, changedFields: Object.keys(decision.body), defaultReason: "Accept Issue RCA review", context });
+      await linkSemantic(unit, projectId, decision, workflow, "governs", context);
+      for (const root of roots) await linkSemantic(unit, projectId, decision, root, "governs", context);
+      const nextWorkflow = validateProjectStateEntity({ ...workflow, recordVersion: workflow.recordVersion + 1, updatedAt: now, updatedBy: trustedPrincipal, body: { ...workflow.body, currentWorkspace: "issue-planning" } }) as ProjectStateRecord<"Workflow">;
+      await unit.saveEntity(nextWorkflow, workflow.recordVersion);
+      await recordMutation(unit, { projectId, entityId: workflow.id, fromVersion: workflow.recordVersion, toVersion: nextWorkflow.recordVersion, operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now, changedFields: ["currentWorkspace"], defaultReason: "Advance accepted Issue RCA", context });
+      return { decision, rootCauses: roots, workflow: nextWorkflow };
+    });
   }
 
   async function supersedeDecision(projectId: ProjectId, decisionId: EntityId, input: DecisionInput, expectedRevision: number, context?: MutationContext) {
@@ -1730,11 +1785,17 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
           ["work-intake-routing", "project-creation"].includes(workflow.body.workflowType)) fail("Planning requires a current active implementation Workflow.");
       if (graph.solutionAddresses !== undefined) {
         if (!Array.isArray(graph.solutionAddresses) || graph.solutionAddresses.length > 128 || new Set(graph.solutionAddresses).size !== graph.solutionAddresses.length) fail("Solution address references are invalid or exceed their bounds.");
-        for (const id of graph.solutionAddresses) { const target = await requiredRecord(unit, projectId, id); const memberships = await unit.listRelationships(projectId, "relates_to");
-          if (!(target.entityType === "Finding" || target.entityType === "RootCause") || !memberships.some(edge => edge.fromEntityId === id && edge.toEntityId === workflow.id && !edge.endedAt)) fail("Solution address references must be Finding or RootCause records owned by this exact Workflow."); }
+        for (const id of graph.solutionAddresses) { const target = await requiredRecord(unit, projectId, id); const memberships = await unit.listRelationships(projectId, "workflow_member");
+          if (!(target.entityType === "Finding" || target.entityType === "RootCause") || target.lifecycleState !== "active" || !memberships.some(edge => edge.fromEntityId === id && edge.toEntityId === workflow.id && !edge.endedAt)) fail("Solution address references must be current Finding or RootCause records owned by this exact Workflow."); }
       }
-      const existing = (await unit.listRelationships(projectId, "workflow_member")).some(edge => edge.toEntityId === workflow.id && !edge.endedAt);
-      if (existing) fail("A canonical planning graph has already been accepted for this Workflow.");
+      const memberships = (await unit.listRelationships(projectId, "workflow_member")).filter(edge => edge.toEntityId === workflow.id && !edge.endedAt);
+      const solutionIds = new Set(memberships.map(edge => edge.fromEntityId));
+      const decisions = (await unit.listEntities(projectId, "Decision")).filter((record): record is ProjectStateRecord<"Decision"> => record.entityType === "Decision" && record.lifecycleState === "active" && record.body.decisionType === "planning-acceptance" && record.body.outcome === "accepted");
+      const governance = (await unit.listRelationships(projectId, "governs")).filter(edge => !edge.endedAt);
+      const memberRecords = await Promise.all([...solutionIds].map(id => unit.getEntity(projectId, id)));
+      const hasCanonicalGraph = memberRecords.some(record => record?.entityType === "BoundedSolution" && record.lifecycleState === "active" &&
+          decisions.some(decision => governance.some(link => link.fromEntityId === decision.id && link.toEntityId === workflow.id) && governance.some(link => link.fromEntityId === decision.id && link.toEntityId === record.id)));
+      if (hasCanonicalGraph) fail("A canonical planning graph has already been accepted for this Workflow.");
       if (!Array.isArray(graph.solutionCriteria) || graph.solutionCriteria.length > 64 || !Array.isArray(graph.workItems) || graph.workItems.length < 1 || graph.workItems.length > 128) fail("Planning graph exceeds its bounds.");
       const phases = graph.phases ?? [];
       if (!Array.isArray(phases) || phases.length > 32) fail("Planning phases exceed their bounds.");
@@ -2037,6 +2098,6 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, completeWorkItem, completePhase,
     getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, renderView, exportStructuredProjectState, getAuthoritativeContext, getCommittedEventFeed, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
     getEffectiveDisposition, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus,
-    getImplementationAttempts, getExecutionPlan, getWorkflowExecutionPlan, acceptWorkflowPlanningGraph, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,
+    getImplementationAttempts, getExecutionPlan, getWorkflowExecutionPlan, acceptWorkflowPlanningGraph, acceptIssueRca, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,
     getWorkRouteHistory, getCurrentWorkRoute, getWorkIntakeSummary, getSourceSemanticView, getRegressionObligationView };
 }

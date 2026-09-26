@@ -3164,7 +3164,8 @@
       "sourcePatterns": [
         "src/main/projectState/currentProjectRegistrationService.ts",
         "src/main/workIntake/structuredWorkIntakeService.ts",
-        "src/shared/projectState/projectStateService.ts"
+        "src/shared/projectState/projectStateService.ts",
+        "test/project-state/execution-completion.test.cjs"
       ],
       "dependsOn": [
         "project-state-domain",
@@ -3228,6 +3229,10 @@
           "description": "IntegrationRecord links incoming, Validation, Repair and result revisions"
         },
         {
+          "behaviorId": "issue-rca-acceptance-is-atomic-and-governed-by-explicit-workflow-relationships",
+          "description": "Issue RCA acceptance preflights exact Workflow-owned Findings and supported Evidence, then atomically creates owned RootCauses, explicit Decision governance, and the next Workflow stage."
+        },
+        {
           "behaviorId": "issued-decision-validation-and-evidence-require-typed-correction-policy",
           "description": "issued Decision, Validation and Evidence require typed correction policy"
         },
@@ -3246,6 +3251,10 @@
         {
           "behaviorId": "phased-plan-derives-nested-membership-and-milestone-proof",
           "description": "phased Plan view derives nested membership and milestone proof"
+        },
+        {
+          "behaviorId": "planning-semantic-ownership-and-canonical-plan-marker-are-workflow-scoped",
+          "description": "Feature and Issue Findings and RootCauses have one exact Workflow owner; only an accepted Workflow-owned BoundedSolution with its planning Decision marks a canonical plan, and addresses must be owned by that Workflow."
         },
         {
           "behaviorId": "policy-class-and-latest-fresh-validation-control-criterion-proof",
@@ -13754,13 +13763,13 @@
     {
       "testPath": "test/project-state/execution-completion.test.cjs",
       "currentTestCount": {
-        "value": 6,
-        "basis": "Three direct, phased and Repair execution scenarios across in-memory and SQLite adapters introduced by SCL01L."
+        "value": 10,
+        "basis": "Seven Project State scenarios run across in-memory and SQLite adapters, including exact Workflow semantic ownership, canonical plan detection and mid-transaction Issue RCA rollback proof."
       },
       "duration": {
-        "kind": "measured",
-        "milliseconds": 340,
-        "basis": "Observed normal Windows focused SCL01L test receipt."
+        "kind": "estimated",
+        "milliseconds": 1000,
+        "basis": "Updated estimate for the expanded in-memory and SQLite Project State scenarios pending a composed supported-Windows profile receipt."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -13808,8 +13817,20 @@
         },
         {
           "capabilityId": "project-state-service",
+          "behaviorId": "issue-rca-acceptance-is-atomic-and-governed-by-explicit-workflow-relationships",
+          "proofLocator": "Issue RCA typed command rolls back RootCause, relationship, Decision, and Workflow writes after an injected second RootCause save failure.",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
           "behaviorId": "phased-plan-derives-nested-membership-and-milestone-proof",
           "proofLocator": "phased plan derives nested membership and Phase milestone proof",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "planning-semantic-ownership-and-canonical-plan-marker-are-workflow-scoped",
+          "proofLocator": "pre-plan Workflow-owned Findings and RootCauses do not block first plan acceptance; cross-Workflow ownership and foreign solution addresses reject without mutation; second canonical acceptance rejects.",
           "proofRole": "primary"
         }
       ]

@@ -72,6 +72,65 @@ function register(name, factory) {
     await assert.rejects(service.acceptWorkflowPlanningGraph(project.id, { workflowId: projectCreation.id, topology: "direct", solution: {}, solutionCriteria: [], workItems: [] }), /current active implementation Workflow/);
   });
 
+  test(`${name}: pre-plan semantic Workflow owners do not block plan acceptance and cannot cross owners`, async context => {
+    const store = factory(context);
+    const service = createProjectStateService(store, operator);
+    const project = await service.createRecord(null, "Project", { name: "Owned planning", description: "Synthetic" });
+    const feature = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Feature", currentWorkspace: "feature-intake" });
+    const issue = await service.createWorkflow(project.id, { workflowType: "issue-resolution", title: "Issue", currentWorkspace: "issue-rca" });
+    const peerIssue = await service.createWorkflow(project.id, { workflowType: "issue-resolution", title: "Peer issue", currentWorkspace: "issue-rca" });
+    const routing = await service.createWorkflow(project.id, { workflowType: "work-intake-routing", title: "Routing", currentWorkspace: "work-intake" });
+    const projectCreation = await service.createWorkflow(project.id, { workflowType: "project-creation", title: "Creation", currentWorkspace: "project-intake" });
+    const featureFinding = await service.createRecord(project.id, "Finding", { title: "Feature intake", statement: "Feature context", category: "feature-intake", impact: "Planning context", observedAt: new Date().toISOString(), findingState: "current" });
+    const issueFinding = await service.createRecord(project.id, "Finding", { title: "Issue intake", statement: "Issue context", category: "issue-intake", impact: "Planning context", observedAt: new Date().toISOString(), findingState: "current" });
+    const root = await service.createRecord(project.id, "RootCause", { title: "Cause", statement: "Observed cause", rationale: "Evidence", rootCauseState: "accepted" });
+    await service.createRelationship(project.id, featureFinding.id, "workflow_member", feature.id);
+    await service.createRelationship(project.id, issueFinding.id, "workflow_member", issue.id);
+    await service.createRelationship(project.id, root.id, "workflow_member", issue.id);
+    await assert.rejects(service.createRelationship(project.id, featureFinding.id, "workflow_member", feature.id), /Relationship already exists/);
+    await assert.rejects(service.createRelationship(project.id, issueFinding.id, "workflow_member", peerIssue.id), /already belongs to a Workflow/);
+    const historicalOwnerFinding = await service.createRecord(project.id, "Finding", { title: "Historical owner", statement: "Ownership cannot be rebound", category: "issue-intake", impact: "Issue", observedAt: new Date().toISOString(), findingState: "current" });
+    const originalOwner = await service.createRelationship(project.id, historicalOwnerFinding.id, "workflow_member", issue.id);
+    await assert.rejects(service.endRelationship(project.id, originalOwner.id), /Immutable provenance relationship cannot be ended/);
+    await assert.rejects(service.createRelationship(project.id, historicalOwnerFinding.id, "workflow_member", peerIssue.id), /already belongs to a Workflow/);
+    assert.ok((await store.listRelationships(project.id, "workflow_member")).some(edge => edge.id === originalOwner.id && !edge.endedAt));
+    const invalidTargetFinding = await service.createRecord(project.id, "Finding", { title: "Invalid target", statement: "Must remain unowned", category: "issue-intake", impact: "Issue", observedAt: new Date().toISOString(), findingState: "current" });
+    await assert.rejects(service.createRelationship(project.id, invalidTargetFinding.id, "workflow_member", routing.id), /current substantive implementation Workflow/);
+    await assert.rejects(service.createRelationship(project.id, invalidTargetFinding.id, "workflow_member", projectCreation.id), /current substantive implementation Workflow/);
+    const graph = (workflowId, addresses, kind) => ({ workflowId, topology: "direct", solutionAddresses: addresses,
+      solution: { title: "Plan", objective: "Deliver", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [],
+      workItems: [{ key: "work", kind, title: "Work", objective: "Complete", dependencyKeys: [], criteria: [] }] });
+    const acceptedFeature = await service.acceptWorkflowPlanningGraph(project.id, graph(feature.id, [featureFinding.id], "feature"));
+    assert.equal(acceptedFeature.solutions.length, 1);
+    const acceptedIssue = await service.acceptWorkflowPlanningGraph(project.id, graph(issue.id, [issueFinding.id, root.id], "fix"));
+    assert.equal(acceptedIssue.solutions.length, 1);
+    const peerEvidence = await service.recordEvidence(project.id, peerIssue.id, { evidenceType: "issue-supplied", description: "Issue evidence", mediaType: "text/plain", payloadRef: "test:evidence", digest: "b".repeat(64) });
+    const before = (await store.listEntities(project.id)).length;
+    await assert.rejects(service.acceptWorkflowPlanningGraph(project.id, graph(peerIssue.id, [peerEvidence.id], "fix")), /must be current Finding or RootCause/);
+    assert.equal((await store.listEntities(project.id)).length, before);
+    await assert.rejects(service.acceptWorkflowPlanningGraph(project.id, graph(peerIssue.id, [root.id], "fix")), /owned by this exact Workflow/);
+    assert.equal((await store.listEntities(project.id)).length, before);
+    assert.equal((await store.getEntity(project.id, peerIssue.id)).body.currentWorkspace, "issue-rca");
+    await assert.rejects(service.acceptWorkflowPlanningGraph(project.id, graph(issue.id, [issueFinding.id, root.id], "fix")), /already been accepted/);
+  });
+
+  test(`${name}: Issue RCA command rolls back all writes after a controlled mid-command failure`, async context => {
+    const store = factory(context);
+    const service = createProjectStateService(failOnSecondRootCauseSave(store), operator);
+    const project = await service.createRecord(null, "Project", { name: "Atomic RCA", description: "Synthetic" });
+    const workflow = await service.createWorkflow(project.id, { workflowType: "issue-resolution", title: "Issue", currentWorkspace: "issue-rca" });
+    const finding = await service.createRecord(project.id, "Finding", { title: "Observed", statement: "Failure", category: "issue-intake", impact: "Issue", observedAt: new Date().toISOString(), findingState: "current" });
+    await service.createRelationship(project.id, finding.id, "workflow_member", workflow.id);
+    const evidence = await service.recordEvidence(project.id, workflow.id, { evidenceType: "issue-supplied", description: "Reproduction", mediaType: "text/plain", payloadRef: "test:evidence", digest: "a".repeat(64) });
+    await service.createRelationship(project.id, evidence.id, "supports", finding.id);
+    const candidate = title => ({ title, statement: "Explains the failure", rationale: "Evidence supports it", findingIds: [finding.id], evidenceIds: [evidence.id] });
+    await assert.rejects(service.acceptIssueRca(project.id, { workflowId: workflow.id, rationale: "Accept reviewed causes", rootCauses: [candidate("First"), candidate("Second")] }), /injected RootCause write failure/);
+    assert.equal((await store.listEntities(project.id, "RootCause")).length, 0);
+    assert.equal((await store.listEntities(project.id, "Decision")).filter(record => record.entityType === "Decision" && record.body.decisionType === "issue-rca-review").length, 0);
+    assert.equal((await store.getEntity(project.id, workflow.id)).body.currentWorkspace, "issue-rca");
+    assert.equal((await store.listRelationships(project.id, "workflow_member")).filter(edge => edge.toEntityId === workflow.id && edge.fromEntityId !== finding.id).length, 0);
+  });
+
   test(`${name}: Workflow repeatability, lifetime uniqueness and type stability follow registry policy`, async context => {
     const store = factory(context);
     const service = createProjectStateService(store, operator);
@@ -202,3 +261,23 @@ function register(name, factory) {
 
 register("in-memory Project State", () => createInMemoryProjectStateStore());
 register("SQLite Project State", sqliteFixture);
+
+function failOnSecondRootCauseSave(store) {
+  let rootCauseWrites = 0;
+  return new Proxy(store, {
+    get(target, property) {
+      if (property === "transaction") return (projectId, action) => target.transaction(projectId, unit => action(new Proxy(unit, {
+        get(unitTarget, unitProperty) {
+          if (unitProperty === "saveEntity") return (entity, expectedVersion, policy) => {
+            if (entity.entityType === "RootCause" && ++rootCauseWrites === 2) throw Error("injected RootCause write failure");
+            return unitTarget.saveEntity(entity, expectedVersion, policy);
+          };
+          const value = Reflect.get(unitTarget, unitProperty, unitTarget);
+          return typeof value === "function" ? value.bind(unitTarget) : value;
+        },
+      })));
+      const value = Reflect.get(target, property, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
