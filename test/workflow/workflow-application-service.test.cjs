@@ -13,6 +13,7 @@ const { createProjectStateService } = require("../../dist/shared/projectState/pr
 const { bootstrapProjectSource } = require("../../dist/main/sourceControl/projectSourceBootstrap.js");
 const { createStructuredWorkRoutingService } = require("../../dist/main/workflow/structuredWorkRoutingService.js");
 const { createFeaturePlanningService } = require("../../dist/main/featurePlanning/featurePlanningService.js");
+const { createIssuePlanningService } = require("../../dist/main/issuePlanning/issuePlanningService.js");
 
 const operator = { principalId: "test-operator", principalType: "human", role: "Operator" };
 const database = root => path.join(root, ".champcity", "project-state.sqlite");
@@ -336,5 +337,75 @@ test("Feature planning persists exact Workflow intake, keeps revision noncanonic
     assert.equal(routedFeature.provenance, "routed");
     assert.equal(routedFeature.intake, null);
     await assert.rejects(feature.act(env.root, direct.workflow.workflowId, { type: "decide", stage: "plan", outcome: "accept", rationale: "Duplicate", graph }), /non-empty Architect draft|Workflow is already planned|unavailable/);
+  } finally { env.store.close(); }
+});
+
+test("Issue Workflow persists evidence and accepted RCA, keeps revision canonical state, and normalizes fix graph", async context => {
+  const env = await setup(context); const workflows = createWorkflowApplicationService(); const issues = createIssuePlanningService();
+  try {
+    const first = await workflows.startDirectWorkflow(env.root, { workflowType: "issue-resolution", title: "Same incident" });
+    const second = await workflows.startDirectWorkflow(env.root, { workflowType: "issue-resolution", title: "Same incident" });
+    const intake = { title: "Export crash", observed: "Export exits unexpectedly", expected: "Export succeeds", reproduction: "Click export after search", environment: "Desktop fixture", impact: "Report cannot be saved", constraints: "Preserve existing reports" };
+    await issues.saveIntake(env.root, first.workflow.workflowId, intake);
+    assert.deepEqual((await issues.get(env.root, first.workflow.workflowId)).intake, intake);
+    assert.equal((await issues.get(env.root, second.workflow.workflowId)).intake, null);
+    const wir = await env.state.createWorkIntake(env.projectId, { request: "Crash after export", desiredOutcome: "Restore export", constraints: [], evidenceContext: [], requestedIntegrationTarget: "dev" });
+    await env.state.linkWorkflowRouteTarget(env.projectId, wir.workflow.id, second.workflow.workflowId);
+    const routed = await issues.get(env.root, second.workflow.workflowId);
+    assert.equal(routed.workflow.workflowId, second.workflow.workflowId);
+    assert.equal(routed.provenance, "routed");
+    assert.equal(routed.intake, null);
+    const evidence = await issues.addEvidence(env.root, first.workflow.workflowId, [{ name: "repro.txt", mediaType: "text/plain", base64: Buffer.from("reproduction evidence").toString("base64"), description: "Reproduction log" }]);
+    assert.equal(evidence.evidence.length, 1);
+    assert.match(evidence.evidence[0].body.payloadRef, /^project-evidence:/);
+    assert.equal(evidence.evidence[0].body.digest, require("node:crypto").createHash("sha256").update("reproduction evidence").digest("hex"));
+    await issues.prepare(env.root, first.workflow.workflowId, "rca");
+    await issues.act(env.root, first.workflow.workflowId, { type: "save-draft", content: "Initial RCA draft" });
+    await issues.act(env.root, first.workflow.workflowId, { type: "decide-rca", outcome: "revision", rationale: "Cite the reproduction log." });
+    assert.equal((await issues.get(env.root, first.workflow.workflowId)).rootCauses.length, 0);
+    assert.equal((await workflows.getCurrentProjectWorkflow(env.root, first.workflow.workflowId)).workflow.currentWorkspace, "issue-intake");
+    const current = await issues.get(env.root, first.workflow.workflowId);
+    const finding = current.findings.find(record => record.body.title === "Observed behavior");
+    await issues.act(env.root, first.workflow.workflowId, { type: "save-draft", content: "RCA cites the persisted observed failure and reproduction evidence." });
+    const afterRca = await issues.act(env.root, first.workflow.workflowId, { type: "decide-rca", outcome: "accept", rationale: "Evidence supports the cause.", rootCauses: [{ title: "Export state exception", statement: "Export crashes when search state is populated.", rationale: "The reproduced state transition omits the export data shape.", confidence: 0.9, findingIds: [finding.id], evidenceIds: [evidence.evidence[0].id] }] });
+    assert.equal(afterRca.stage, "plan");
+    assert.equal(afterRca.rootCauses.length, 1);
+    const links = await env.store.listRelationships(env.projectId);
+    assert.ok(links.some(edge => edge.relationshipType === "explains" && edge.fromEntityId === afterRca.rootCauses[0].id && edge.toEntityId === finding.id));
+    assert.ok(links.some(edge => edge.relationshipType === "supports" && edge.fromEntityId === evidence.evidence[0].id && edge.toEntityId === afterRca.rootCauses[0].id));
+    await issues.prepare(env.root, first.workflow.workflowId, "rca");
+    await issues.act(env.root, first.workflow.workflowId, { type: "save-draft", content: "Updated RCA review draft." });
+    await issues.act(env.root, first.workflow.workflowId, { type: "decide-rca", outcome: "revision", rationale: "Clarify the regression trigger." });
+    const unchangedRca = await issues.get(env.root, first.workflow.workflowId);
+    assert.equal(unchangedRca.rootCauses.length, 1);
+    assert.equal(unchangedRca.rootCauses[0].id, afterRca.rootCauses[0].id);
+    await assert.rejects(issues.prepare(env.root, first.workflow.workflowId, "plan"), /Accept the current Issue RCA/);
+    const revisedRoot = { title: "Search-dependent export mapping", statement: "Export crashes when search state is populated.", rationale: "The reproduction confirms the missing search state mapping.", confidence: 0.95, findingIds: [finding.id], evidenceIds: [evidence.evidence[0].id] };
+    await issues.act(env.root, first.workflow.workflowId, { type: "save-draft", content: "Revised RCA with clearer trigger." });
+    const reviewedAgain = await issues.act(env.root, first.workflow.workflowId, { type: "decide-rca", outcome: "accept", rationale: "Accept clarified cause.", rootCauses: [revisedRoot] });
+    assert.equal(reviewedAgain.rootCauses.length, 1);
+    assert.notEqual(reviewedAgain.rootCauses[0].id, afterRca.rootCauses[0].id);
+    await issues.act(env.root, first.workflow.workflowId, { type: "save-draft", content: "Proposed correction plan draft." });
+    await issues.act(env.root, first.workflow.workflowId, { type: "decide-plan", outcome: "revision", rationale: "Add deterministic regression coverage." });
+    assert.equal((await env.store.listEntities(env.projectId, "WorkItem")).length, 0);
+    const graph = { workflowId: first.workflow.workflowId, topology: "direct", solution: { title: "Restore Export", objective: "Export from populated search state", scopeIn: ["export state shape"], scopeOut: ["new formats"], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [], workItems: [{ key: "correct", kind: "fix", title: "Correct export state mapping", objective: "Prevent crash", dependencyKeys: [], criteria: [] }] };
+    await issues.act(env.root, first.workflow.workflowId, { type: "save-draft", content: "Reviewed correction graph." });
+    const accepted = await issues.act(env.root, first.workflow.workflowId, { type: "decide-plan", outcome: "accept", rationale: "Accept correction graph.", graph });
+    assert.equal(accepted.stage, "work-item-map"); assert.equal(accepted.acceptedPlan.directWorkItems[0].body.workItemKind, "fix");
+    const finalLinks = await env.store.listRelationships(env.projectId, "addresses");
+    assert.ok(finalLinks.some(edge => edge.fromEntityId === accepted.acceptedPlan.solutions[0].id && edge.toEntityId === accepted.rootCauses[0].id));
+    assert.equal((await issues.get(env.root, second.workflow.workflowId)).stage, "intake");
+  } finally { env.store.close(); }
+});
+
+test("source-backed Issue Workflow planning exposes its exact lazy SourceBaseline without materializing source", async context => {
+  const env = await setup(context, { sourceRepositoryId: "issue-workflow-repository" });
+  try {
+    const source = await bootstrapProjectSource(env.root, "issue-workflow-repository");
+    const started = await createWorkflowApplicationService().startDirectWorkflow(env.root, { workflowType: "issue-resolution", title: "Source-backed incident" });
+    const projection = await createIssuePlanningService().get(env.root, started.workflow.workflowId);
+    assert.equal(projection.source.revisionId, source.integrationTarget.headRevisionId);
+    assert.equal(projection.source.bindingPrepared, false);
+    assert.equal((await env.store.listEntities(env.projectId, "SourceBinding"))[0].body.preparationState, "unprepared");
   } finally { env.store.close(); }
 });

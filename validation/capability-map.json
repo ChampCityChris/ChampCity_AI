@@ -3814,6 +3814,10 @@
           "description": "event bursts coalesce to one matching foreground refresh and ignore stale/domain-mismatched hints"
         },
         {
+          "behaviorId": "exact-issue-workflow-hub-navigation-renders-sps-front-half",
+          "description": "Opening an exact Issue Workflow from the Hub presents the SPS-backed intake/RCA/planning front half without execution controls."
+        },
+        {
           "behaviorId": "execution-context-dashboard-preserves-parent-work-card-state-during-repair",
           "description": "execution context dashboard preserves parent Work Card state during repair"
         },
@@ -4706,8 +4710,10 @@
       "description": "Current Project exact Workflow instance inventory, direct start, source baseline capture, and route provenance.",
       "sourcePatterns": [
         "src/main/featurePlanning/**",
+        "src/main/issuePlanning/**",
         "src/main/workflow/**",
         "src/shared/featurePlanningContracts.ts",
+        "src/shared/issuePlanningContracts.ts",
         "src/shared/projectState/projectStateService.ts",
         "src/shared/projectState/workflowTypeRegistry.ts",
         "src/shared/structuredWorkRoutingContracts.ts",
@@ -4727,6 +4733,10 @@
         {
           "behaviorId": "feature-planning-persists-exact-workflow-intake-and-normalizes-reviewed-graph",
           "description": "Direct and WIR-routed Feature Workflows share exact-ID SPS intake and Architect review; revisions create no plan and acceptance normalizes one canonical graph."
+        },
+        {
+          "behaviorId": "issue-workflow-persists-evidence-and-accepted-rca-before-fix-graph-normalization",
+          "description": "Exact Issue Workflow intake, evidence, RCA, and correction planning persist in SPS; revisions preserve canonical RCA and accepted plans normalize fix Work Items."
         },
         {
           "behaviorId": "source-backed-direct-workflow-captures-exact-dev-baseline-with-lazy-binding",
@@ -17301,8 +17311,8 @@
     {
       "testPath": "test/renderer/workflow-hub-shell.test.cjs",
       "currentTestCount": {
-        "value": 11,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit plus Project Creation instance representation proof."
+        "value": 15,
+        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit plus Project Creation, Feature, and Issue exact-workflow rendering proofs."
       },
       "duration": {
         "kind": "measured",
@@ -17348,6 +17358,12 @@
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "development-rail-renders-workflow-phase-and-work-card-navigation",
           "proofLocator": "Development rail renders workflow, phase, and Work Card navigation",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "exact-issue-workflow-hub-navigation-renders-sps-front-half",
+          "proofLocator": "Issue Workflow workspace uses exact Workflow identity and keeps execution actions out of the front half",
           "proofRole": "primary"
         },
         {
@@ -20154,8 +20170,8 @@
     {
       "testPath": "test/workflow/workflow-application-service.test.cjs",
       "currentTestCount": {
-        "value": 8,
-        "basis": "Eight production-service scenarios cover exact Workflow instances, idempotent Project Creation, managed Dev baseline capture, failed source inspection, structured WIR promotion/freshness/handoff, and exact Feature intake/review/canonicalization."
+        "value": 10,
+        "basis": "Ten production-service scenarios cover exact Workflow instances, idempotent Project Creation, managed Dev baseline capture, failed source inspection, structured WIR promotion/freshness/handoff, exact Feature planning, Issue intake/evidence/RCA/fix graph, and lazy Issue source baseline."
       },
       "duration": {
         "kind": "estimated",
@@ -20209,6 +20225,12 @@
           "capabilityId": "workflow-application-service",
           "behaviorId": "feature-planning-persists-exact-workflow-intake-and-normalizes-reviewed-graph",
           "proofLocator": "Feature planning production service test covers direct instance isolation, SPS intake, noncanonical revision, routed provenance, exact plan acceptance, feature item normalization, and map projection",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "issue-workflow-persists-evidence-and-accepted-rca-before-fix-graph-normalization",
+          "proofLocator": "Issue Workflow production service tests cover exact-ID isolation, hashed evidence ownership, RCA revision/acceptance semantics, source baseline laziness, and exact fix graph acceptance",
           "proofRole": "primary"
         },
         {

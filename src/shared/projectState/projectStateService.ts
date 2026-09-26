@@ -48,6 +48,7 @@ export interface CompletionEligibility { entityId: EntityId; eligible: boolean; 
 export interface ExecutionPlanView { phases: { phaseId: EntityId; sequence: number; workItemIds: EntityId[]; criterionIds: EntityId[] }[]; directWorkItemIds: EntityId[]; dependencyIds: { from: EntityId; to: EntityId }[]; repairIds: { from: EntityId; to: EntityId }[] }
 export interface WorkflowPlanningGraph {
   workflowId: EntityId; topology: "direct" | "phased";
+  solutionAddresses?: EntityId[];
   solution: { title: string; objective: string; scopeIn: string[]; scopeOut: string[]; constraints: string[]; assumptions: string[]; risks: string[] };
   solutionCriteria: Array<{ statement: string; criticality: "required" | "optional" | "informational"; verificationIntent: string; validationPolicy: EntityBodyMap["Criterion"]["validationPolicy"] }>;
   phases?: Array<{ key: string; title: string; objective: string; sequence: number; criteria?: Array<{ statement: string; criticality: "required" | "optional" | "informational"; verificationIntent: string; validationPolicy: EntityBodyMap["Criterion"]["validationPolicy"] }> }>;
@@ -1720,13 +1721,18 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   async function acceptWorkflowPlanningGraph(projectId: ProjectId, graph: WorkflowPlanningGraph, context?: MutationContext): Promise<WorkflowExecutionPlanView> {
-    exactInput(graph, ["workflowId", "topology", "solution", "solutionCriteria", "phases", "workItems"]);
+    exactInput(graph, ["workflowId", "topology", "solutionAddresses", "solution", "solutionCriteria", "phases", "workItems"]);
     await store.transaction(projectId, async unit => {
       if (trustedPrincipal.principalType !== "human" || trustedPrincipal.role !== "Operator") fail("Workflow planning acceptance requires the Operator principal.");
       if (!await unit.getProject(projectId)) fail("Owning Project does not exist.");
       const workflow = await requiredRecord(unit, projectId, graph.workflowId);
       if (workflow.entityType !== "Workflow" || workflow.lifecycleState !== "active" || workflow.body.workflowState !== "active" ||
           ["work-intake-routing", "project-creation"].includes(workflow.body.workflowType)) fail("Planning requires a current active implementation Workflow.");
+      if (graph.solutionAddresses !== undefined) {
+        if (!Array.isArray(graph.solutionAddresses) || graph.solutionAddresses.length > 128 || new Set(graph.solutionAddresses).size !== graph.solutionAddresses.length) fail("Solution address references are invalid or exceed their bounds.");
+        for (const id of graph.solutionAddresses) { const target = await requiredRecord(unit, projectId, id); const memberships = await unit.listRelationships(projectId, "relates_to");
+          if (!(target.entityType === "Finding" || target.entityType === "RootCause") || !memberships.some(edge => edge.fromEntityId === id && edge.toEntityId === workflow.id && !edge.endedAt)) fail("Solution address references must be Finding or RootCause records owned by this exact Workflow."); }
+      }
       const existing = (await unit.listRelationships(projectId, "workflow_member")).some(edge => edge.toEntityId === workflow.id && !edge.endedAt);
       if (existing) fail("A canonical planning graph has already been accepted for this Workflow.");
       if (!Array.isArray(graph.solutionCriteria) || graph.solutionCriteria.length > 64 || !Array.isArray(graph.workItems) || graph.workItems.length < 1 || graph.workItems.length > 128) fail("Planning graph exceeds its bounds.");
@@ -1755,6 +1761,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const link = async (from: ProjectStateEntity, type: RelationshipType, to: ProjectStateEntity) => linkSemantic(unit, projectId, from, to, type, context);
       const solution = await create("BoundedSolution", { ...graph.solution, solutionState: "active" });
       await link(solution, "workflow_member", workflow);
+      for (const id of graph.solutionAddresses ?? []) await link(solution, "addresses", await requiredRecord(unit, projectId, id));
       const addCriteria = async (owner: ProjectStateEntity, list: WorkflowPlanningGraph["solutionCriteria"]) => { for (const item of list) { const record = await create("Criterion", { ...item, criterionState: "active" }); await link(owner, "defines_criterion", record); } };
       await addCriteria(solution, graph.solutionCriteria);
       const phaseRecords = new Map<string, ProjectStateRecord<"Phase">>();

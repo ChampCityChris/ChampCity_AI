@@ -12,6 +12,7 @@ const { LandingWorkspace } = loader.loadRendererSourceModule("src/renderer/app/L
 const { NestedWorkflowRail } = loader.loadRendererSourceModule("src/renderer/app/NestedWorkflowRail.tsx");
 const { WorkflowHubWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowHubWorkspace.tsx");
 const { FeaturePlanningWorkspace } = loader.loadRendererSourceModule("src/renderer/app/FeaturePlanningWorkspace.tsx");
+const { IssueWorkflowPlanningWorkspace } = loader.loadRendererSourceModule("src/renderer/app/IssueWorkflowPlanningWorkspace.tsx");
 const { WORKFLOW_TYPE_REGISTRY } = loader.loadRendererSourceModule("src/shared/projectState/workflowTypeRegistry.ts");
 
 const repoRoot = path.join(__dirname, "..", "..");
@@ -49,6 +50,15 @@ test("Feature workspace is keyed by exact Workflow identity and exposes only its
   assert.match(markup, /Feature Intake/);
   assert.match(markup, /Architect browser/);
   assert.doesNotMatch(markup, /Implement|Create Work Card|Checkpoint|Integrate|Close Workflow/);
+});
+
+test("Issue Workflow workspace uses exact Workflow identity and keeps execution actions out of the front half", () => {
+  const workflow = { workflowId: "issue-exact-987", lineageId: "lineage", workflowType: "issue-resolution", title: "Same incident", workflowState: "active", lifecycleState: "active", currentWorkspace: "issue-intake", createdAt: "now", updatedAt: "now" };
+  const markup = renderToStaticMarkup(React.createElement(IssueWorkflowPlanningWorkspace, { workflow, onReturn: () => undefined, browserPanel: React.createElement("div", null, "Architect browser") }));
+  assert.match(markup, /issue-exact-987/);
+  assert.match(markup, /Issue Intake/);
+  assert.match(markup, /Architect browser/);
+  assert.doesNotMatch(markup, /Create Fix Card|Implement|Checkpoint|Integrate|Close Issue/);
 });
 
 test("landing selection feedback remains bounded to the landing surface", () => {

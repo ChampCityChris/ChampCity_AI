@@ -1400,6 +1400,12 @@ export interface WorkspaceMigrationResult {
 }
 
 export interface ChampCityApi {
+  getIssueWorkflowPlanning(workflowId: string): Promise<import("./issuePlanningContracts").IssuePlanningProjection>;
+  saveIssueWorkflowIntake(workflowId: string, intake: import("./issuePlanningContracts").IssueIntakeInput): Promise<import("./issuePlanningContracts").IssuePlanningProjection>;
+  addIssueWorkflowEvidence(workflowId: string, files: import("./issuePlanningContracts").IssueEvidenceInput[]): Promise<import("./issuePlanningContracts").IssuePlanningProjection>;
+  prepareIssueWorkflowPlanning(workflowId: string, stage: "rca" | "plan"): Promise<import("./issuePlanningContracts").IssuePlanningProjection>;
+  actOnIssueWorkflowPlanning(workflowId: string, action: import("./issuePlanningContracts").IssuePlanningAction): Promise<import("./issuePlanningContracts").IssuePlanningProjection>;
+  copyIssueWorkflowPlanningHandoff(workflowId: string): Promise<{ copied: boolean }>;
   getFeaturePlanning(workflowId: string): Promise<import("./featurePlanningContracts").FeaturePlanningProjection>;
   saveFeatureIntake(workflowId: string, intake: import("./featurePlanningContracts").FeatureIntakeInput): Promise<import("./featurePlanningContracts").FeaturePlanningProjection>;
   prepareFeaturePlanning(workflowId: string, stage: "assessment" | "plan"): Promise<import("./featurePlanningContracts").FeaturePlanningProjection>;

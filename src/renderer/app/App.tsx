@@ -141,6 +141,7 @@ import { LandingWorkspace } from "./LandingWorkspace";
 import { WorkflowHubWorkspace } from "./WorkflowHubWorkspace";
 import { WorkflowInstanceWorkspace } from "./WorkflowInstanceWorkspace";
 import { FeaturePlanningWorkspace } from "./FeaturePlanningWorkspace";
+import { IssueWorkflowPlanningWorkspace } from "./IssueWorkflowPlanningWorkspace";
 import { SourceControlWorkspace } from "./SourceControlWorkspace";
 import { WorkIntakeWorkspace } from "./WorkIntakeWorkspace";
 import { StructuredWorkRoutingWorkspace } from "./StructuredWorkRoutingWorkspace";
@@ -477,7 +478,7 @@ export function App(): JSX.Element {
       developmentBrowserAvailable: architectBrowserWorkspaceAvailable, workCardRepair: isWorkCardRepair,
       issueForeground: isIssueResolutionForeground, issueStageId: activeIssueStageId, issueFixCardStepId: activeIssueFixCardStepId,
       workIntakeForeground: isWorkIntakeForeground, workIntakeStageId: selectedWorkIntakeId && selectedWorkflowId ? "routing" : "intake",
-      featureForeground: isWorkflowInstanceForeground && workflowInstance?.workflowType === "feature-capability" });
+      featureForeground: isWorkflowInstanceForeground && ["feature-capability", "issue-resolution"].includes(workflowInstance?.workflowType ?? "") });
   const isSettingsWorkspace = shellView === "settings";
   const currentIssue = useMemo(
     () => issueInventory?.issues.find((issue) => issue.issueId === selectedIssueId) ?? null,
@@ -4115,6 +4116,7 @@ export function App(): JSX.Element {
               projectName={projectDisplayName(workspace)} onReturn={returnToWorkflowHub} />
           ) : isWorkflowInstanceForeground ? (
             workflowInstance?.workflowType === "feature-capability" ? <FeaturePlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowHub} browserPanel={routedArchitectBrowserPanel} />
+              : workflowInstance?.workflowType === "issue-resolution" ? <IssueWorkflowPlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowHub} browserPanel={routedArchitectBrowserPanel} />
               : workflowInstance ? <WorkflowInstanceWorkspace workflow={workflowInstance} onReturn={returnToWorkflowHub} />
               : <p role="status">Loading Workflow…</p>
           ) : isWorkflowHubForeground ? (
