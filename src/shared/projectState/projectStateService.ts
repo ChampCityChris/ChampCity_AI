@@ -916,8 +916,8 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const workflow = await requiredRecord(unit, projectId, workflowId);
       await requireCurrentSourceWorkflow(unit, projectId, workflow);
       const workItem = await requiredRecord(unit, projectId, workItemId);
-      if (workItem.entityType !== "WorkItem" || workItem.lifecycleState !== "active" || workItem.body.workState !== "implemented")
-        fail("TesterResult requires an active implemented WorkItem.");
+      if (workItem.entityType !== "WorkItem" || workItem.lifecycleState !== "active" || !["implemented", "validation_pending"].includes(workItem.body.workState))
+        fail("TesterResult requires an active validation-pending or implemented WorkItem.");
       const memberships = (await unit.listRelationships(projectId, "part_of")).filter(edge => !edge.endedAt);
       let cursor: EntityId | undefined = workItemId;
       const visited = new Set<EntityId>();

@@ -75,6 +75,24 @@ test("Feature and Issue use the same exact-Workflow projection and isolate concu
   assert.equal(issueContract.workflowId, issue.workflow.id);
   assert.notEqual(firstContract.contractId, issueContract.contractId);
   assert.equal(firstContract.digest.length, 64);
+  const attempt = await kernel.beginWorkItemAttempt(env.root, feature.workflow.id, featureFirst.id, featureFirst.recordVersion, "tester-contract-execution");
+  await kernel.finishWorkItemAttempt(env.root, feature.workflow.id, featureFirst.id, attempt.executionRef,
+    { summary: "Implementation complete", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+  const testerContract = await kernel.createTesterWorkItemExecutionContract(env.root, feature.workflow.id, featureFirst.id,
+    { sourceMutation: "not-required", affectedPaths: ["src/feature.ts"], proofIntent: ["Assess permanent proof"] });
+  assert.equal(testerContract.workItemId, featureFirst.id);
+  assert.equal(testerContract.workItemVersion, (await env.state.getRecord(env.projectId, featureFirst.id)).recordVersion);
+  await assert.rejects(kernel.createTesterWorkItemExecutionContract(env.root, feature.workflow.id,
+    featurePlan.directWorkItems.find(item => item.body.title === "Second").id,
+    { sourceMutation: "not-required", affectedPaths: [], proofIntent: ["No implementation exists yet"] }), /not eligible/);
+  const laterImplementer = createProjectStateService(env.store, { principalId: "later-implementer", principalType: "agent", role: "Implementer" });
+  await laterImplementer.recordImplementation(env.projectId, featureFirst.id,
+    { summary: "Later attempt failed", deviations: [], blockers: ["execution stopped"], residualRisks: [], outcome: "failed", executionRef: "later-failed-attempt" });
+  await assert.rejects(kernel.createTesterWorkItemExecutionContract(env.root, feature.workflow.id, featureFirst.id,
+    { sourceMutation: "not-required", affectedPaths: [], proofIntent: ["Latest implementation attempt failed"] }), /latest successful implementation/);
+  await assert.rejects(kernel.createWorkItemExecutionContract(env.root, feature.workflow.id, featureFirst.id,
+    { sourceMutation: "not-required", affectedPaths: [], proofIntent: ["Implementer path remains closed"] }), /not eligible/);
+  assert.equal((await env.state.getRecord(env.projectId, featureFirst.id)).body.workState, "validation_pending");
   await assert.rejects(kernel.createWorkItemExecutionContract(env.root, feature.workflow.id,
     featurePlan.directWorkItems.find(item => item.body.title === "Second").id,
     { sourceMutation: "not-required", affectedPaths: [], proofIntent: ["Must be ineligible"] }), /not eligible/);

@@ -109,6 +109,7 @@ import {
   resolveCurrentAdvisoryReviewPrompt,
 } from "./currentWorkflow/currentWorkflowService";
 import { codexImplementerExecutionService } from "./workCardBuilding/codexImplementerExecutionService";
+import { CodexTesterExecutionService } from "./workCardBuilding/codexTesterExecutionService";
 import { requireBoundMcpWorkspace } from "./integrations/mcpWorkspacePromptContract";
 import {
   migrateWorkspaceToCanonicalMarkdownV1,
@@ -1013,6 +1014,18 @@ ipcMain.handle("currentWorkflow:getPhaseValidationActionProjection", (): PhaseVa
 ipcMain.handle("codexImplementer:getStatus", (): Promise<CodexImplementerExecutionModel> => {
   return codexImplementerExecutionService.getStatus(getRequiredWorkspaceRoot());
 });
+
+const codexTesterExecutionService = new CodexTesterExecutionService();
+
+ipcMain.handle("codexTester:getWorkflowWorkItemStatus", (_event, workflowId: string, workItemId: string, implementationRecordId: string) =>
+  codexTesterExecutionService.getStatus(getRequiredWorkspaceRoot(), { workflowId, workItemId, implementationRecordId }));
+ipcMain.handle("codexTester:startWorkflowWorkItem", (_event, workflowId: string, workItemId: string, implementationRecordId: string, selection: CodexModelSelection) =>
+  codexTesterExecutionService.start(getRequiredWorkspaceRoot(), { workflowId, workItemId, implementationRecordId }, selection));
+ipcMain.handle("codexTester:cancel", () => codexTesterExecutionService.cancel(getRequiredWorkspaceRoot()));
+ipcMain.handle("codexTester:respondToApproval", (_event, requestId: string, decision: "approve" | "deny") =>
+  codexTesterExecutionService.respondToApproval(getRequiredWorkspaceRoot(), requestId, decision));
+ipcMain.handle("codexTester:respondToUserInput", (_event, requestId: string, answers: Record<string, string[]>) =>
+  codexTesterExecutionService.respondToUserInput(getRequiredWorkspaceRoot(), requestId, answers));
 
 ipcMain.handle("codexImplementer:getWorkflowWorkItemStatus", (_event, workflowId: string, workItemId: string): Promise<CodexImplementerExecutionModel> => {
   return codexImplementerExecutionService.getStatus(getRequiredWorkspaceRoot(), { ownerKind: "workflow-work-item", workflowId, workItemId });

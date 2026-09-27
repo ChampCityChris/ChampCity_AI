@@ -1298,6 +1298,24 @@ export interface CodexImplementerExecutionModel {
   developmentEnvironmentPreflight: DevelopmentEnvironmentPreflightResult | null;
 }
 
+export interface CodexTesterExecutionModel {
+  state: CodexImplementerExecutionState;
+  workflowId: string;
+  workItemId: string;
+  implementationRecordId: string;
+  projectId: string | null;
+  testerResultId: string | null;
+  candidateRevisionId: string | null;
+  checkpointState: "not-required" | "pending" | "committed" | "blocked" | "inspection-required" | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  eventTail: string[];
+  failureReason: string | null;
+  runtimeState: CodexRuntimeStateModel | null;
+  pendingApproval: CodexPendingApprovalModel | null;
+  pendingUserInput: CodexPendingUserInputModel | null;
+}
+
 export function codexImplementerAvailabilityLabel(
   execution: Pick<CodexImplementerExecutionModel, "state" | "canRunAgain"> | null,
 ): "Ready" | "Unavailable" {
@@ -1588,10 +1606,15 @@ export interface ChampCityApi {
   getPhaseValidationActionProjection: () => Promise<PhaseValidationActionProjection>;
   getCodexImplementerExecutionStatus: () => Promise<CodexImplementerExecutionModel>;
   getWorkflowWorkItemCodexExecutionStatus: (workflowId: string, workItemId: string) => Promise<CodexImplementerExecutionModel>;
+  getWorkflowWorkItemTesterStatus: (workflowId: string, workItemId: string, implementationRecordId: string) => Promise<CodexTesterExecutionModel>;
   getCodexManagedRuntimeStatus: () => Promise<CodexManagedRuntimeStatus>;
   setCodexModelSelection: (selection: CodexModelSelection) => Promise<CodexManagedRuntimeStatus>;
   startCodexImplementerExecution: (selection: CodexModelSelection) => Promise<CodexImplementerExecutionModel>;
   startWorkflowWorkItemCodexExecution: (workflowId: string, workItemId: string, selection: CodexModelSelection) => Promise<CodexImplementerExecutionModel>;
+  startWorkflowWorkItemTester: (workflowId: string, workItemId: string, implementationRecordId: string, selection: CodexModelSelection) => Promise<CodexTesterExecutionModel>;
+  cancelWorkflowWorkItemTester: () => Promise<CodexTesterExecutionModel>;
+  respondToWorkflowWorkItemTesterApproval: (requestId: string, decision: "approve" | "deny") => Promise<CodexTesterExecutionModel>;
+  respondToWorkflowWorkItemTesterInput: (requestId: string, answers: Record<string, string[]>) => Promise<CodexTesterExecutionModel>;
   startCodexEnvironmentResolution: () => Promise<CodexImplementerExecutionModel>;
   respondToCodexApproval: (response: CodexApprovalResponse) => Promise<CodexImplementerExecutionModel>;
   respondToCodexUserInput: (response: CodexUserInputResponse) => Promise<CodexImplementerExecutionModel>;

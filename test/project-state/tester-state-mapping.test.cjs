@@ -87,8 +87,8 @@ function register(name, factory) {
     const { service, project } = await setup(store);
     const implementer = createProjectStateService(store, { principalId: "implementer-agent", principalType: "agent", role: "Implementer" });
     const workflow = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Tester result", currentWorkspace: "development" });
-    async function implementedWork(title) {
-      const work = await service.createRecord(project.id, "WorkItem", { workItemKind: "feature", title, objective: "Validate bounded work", workState: "implemented" });
+    async function implementedWork(title, workState = "implemented") {
+      const work = await service.createRecord(project.id, "WorkItem", { workItemKind: "feature", title, objective: "Validate bounded work", workState });
       await service.createRelationship(project.id, work.id, "part_of", workflow.id);
       const implementation = await implementer.recordImplementation(project.id, work.id, {
         summary: "Implementation complete", deviations: [], blockers: [], residualRisks: [], outcome: "implemented", executionRef: `execution-${title}`,
@@ -103,6 +103,13 @@ function register(name, factory) {
     assert.equal(unchangedResult.body.candidateRevisionId, "revision-unchanged");
     assert.equal(unchangedResult.body.checkpointState, "not-required");
     assert.equal((await service.getRelationships(project.id, unchangedResult.id)).map(edge => edge.relationshipType).sort().join(","), "assesses_work_item,records_attempt");
+    const inProgress = await implementedWork("Successful attempt awaiting downstream completion", "validation_pending");
+    const inProgressResult = await service.createTesterResult(project.id, workflow.id, inProgress.work.id, inProgress.implementation.id, {
+      implementerRevisionId: "revision-before-downstream-completion", recommendation: "reuse-existing-proof", affectedCapabilityIds: ["validation-execution"],
+      permanentTestPaths: [], determinationEvidence: ["Exact successful implementation is available for testing."], unknowns: [], rationale: "Tester may assess the active attempt before 03F completion.",
+    });
+    assert.equal(inProgressResult.body.checkpointState, "not-required");
+    assert.equal((await service.getRecord(project.id, inProgress.work.id)).body.workState, "validation_pending", "TesterResult does not complete the WorkItem");
     await assert.rejects(service.createTesterResult(project.id, workflow.id, unchanged.work.id, unchanged.implementation.id, {
       implementerRevisionId: "revision-unchanged", recommendation: "reuse-existing-proof", affectedCapabilityIds: [],
       permanentTestPaths: [], determinationEvidence: ["Retry"], unknowns: [], rationale: "Duplicate.",

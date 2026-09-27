@@ -9,6 +9,7 @@ const {
   CODEX_AUTH_UNAVAILABLE_MESSAGE,
   CODEX_RUNTIME_UNAVAILABLE_MESSAGE,
 } = require("../../dist/main/workCardBuilding/codexImplementerExecutionService.js");
+const { isEligibleTesterPath, parseTesterResult } = require("../../dist/main/workCardBuilding/codexTesterExecutionService.js");
 const {
   generateCurrentHandoff,
   getCurrentWorkspaceModel,
@@ -130,6 +131,18 @@ test("Codex Implementer service starts App Server thread from current Implement 
   assert.match(captured.prompt, /human interaction such as UAC approval.*resumable interaction boundary/);
   assert.doesNotMatch(captured.prompt, /Application-verified development environment:/);
   assert.equal(captured.turnOptions.signal instanceof AbortSignal, true);
+});
+
+test("Tester result contract accepts only permanent test paths and application-owned capability attribution", () => {
+  assert.equal(isEligibleTesterPath("test/work-card-building/example.test.cjs"), true);
+  for (const path of ["src/main/index.test.ts", "test/fixtures/sample.test.ts", "test/a.test.json", "test/../src/main/a.test.ts", "C:/repo/test/a.test.ts"]) {
+    assert.equal(isEligibleTesterPath(path), false, path);
+  }
+  const result = parseTesterResult(JSON.stringify({ recommendation: "permanent-proof-change-warranted", permanentTestPaths: [],
+    determinationEvidence: ["bounded evidence"], unknowns: [], rationale: "Permanent regression proof is warranted." }));
+  assert.deepEqual(result.permanentTestPaths, []);
+  assert.throws(() => parseTesterResult(JSON.stringify({ recommendation: "no-permanent-test-required", affectedCapabilityIds: ["invented"],
+    permanentTestPaths: [], determinationEvidence: ["bounded evidence"], unknowns: [], rationale: "Unsupported capability attribution." })));
 });
 
 test("Codex Implementer idle status polling is side-effect free and does not provision environment", async () => {
@@ -2120,6 +2133,7 @@ test("exact source-neutral Feature and Issue WorkItem selectors use fake App Ser
   const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
   const { registerCurrentProject } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
   const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
+  const { CodexTesterExecutionService } = require("../../dist/main/workCardBuilding/codexTesterExecutionService.js");
   const root = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "champcity-wrb04-02c-"));
   const registration = await registerCurrentProject(root, "existing", { projectName: "Exact Codex fixture" });
   const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
@@ -2328,6 +2342,7 @@ for (const workflow of ["development", "issue"]) {
 }
 
 test("source-backed exact Workflow WorkItem uses its registered checkout and checkpoints only attributed changes", async t => {
+  const { CodexTesterExecutionService } = require("../../dist/main/workCardBuilding/codexTesterExecutionService.js");
   const { execFileSync } = require("node:child_process");
   const { runtimeFixture, selection } = require("../support/codex-runtime.cjs");
   const { createWorkflowExecutionApplicationService } = require("../../dist/main/workflow/workflowExecutionApplicationService.js");
@@ -2339,7 +2354,14 @@ test("source-backed exact Workflow WorkItem uses its registered checkout and che
   const dev = path.join(root, "Dev"); fs.mkdirSync(dev);
   const git = (...args) => execFileSync("git", args, { cwd: dev, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
   git("init", "-b", "dev"); git("config", "user.name", "Test Operator"); git("config", "user.email", "operator@example.invalid");
-  fs.writeFileSync(path.join(dev, "feature.txt"), "baseline\n"); git("add", "feature.txt"); git("commit", "-m", "baseline");
+  fs.mkdirSync(path.join(dev, "test"), { recursive: true });
+  fs.writeFileSync(path.join(dev, "test", "seed.test.cjs"), "// Existing permanent test proof\n");
+  fs.mkdirSync(path.join(dev, "validation"), { recursive: true });
+  fs.writeFileSync(path.join(dev, "validation", "capability-map.json"), JSON.stringify({ schemaVersion: 4,
+    capabilities: [{ capabilityId: "feature-behavior", sourcePatterns: ["feature.txt"] }],
+    tests: [{ testPath: "test/seed.test.cjs", proposedValidationLane: "fast", duration: { kind: "estimated", milliseconds: 100 },
+      execution: { ownedResources: ["temp-filesystem-isolated"] }, behaviorCoverage: [{ capabilityId: "feature-behavior", behaviorId: "feature-behavior-is-protected", proofRole: "primary" }] }] }));
+  fs.writeFileSync(path.join(dev, "feature.txt"), "baseline\n"); git("add", "--all"); git("commit", "-m", "baseline");
   const revision = git("rev-parse", "HEAD");
   fs.writeFileSync(path.join(root, ".champcity", "mcp-workspace-binding.json"), JSON.stringify({ mcpWorkspaceId: "source-execution-fixture", gitBacked: true }));
   const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
@@ -2360,7 +2382,7 @@ test("source-backed exact Workflow WorkItem uses its registered checkout and che
     sourceSeed: { repositoryId: "source-execution-repository", integrationTargetSourceLineId: "dev", baseRevisionId: revision } });
   const unrelatedPlan = await state.acceptWorkflowPlanningGraph(project.project.id, { workflowId: unrelated.workflow.id, topology: "direct",
     solution: { title: "Other", objective: "Other", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [], phases: [],
-    workItems: [{ key: "unrelated-item", kind: "fix", title: "Unrelated", objective: "Not this checkout", dependencyKeys: [], criteria: [] }] });
+    workItems: [{ key: "unrelated-item", kind: "fix", title: "Same title", objective: "Not this checkout", dependencyKeys: [], criteria: [] }] });
   const fixture = runtimeFixture(); await fixture.ready;
   let appServerCalls = 0; let checkoutRegistrations = 0; const captured = [];
   const service = new CodexImplementerExecutionService(async () => {
@@ -2409,6 +2431,71 @@ test("source-backed exact Workflow WorkItem uses its registered checkout and che
   assert.ok(checkpointLinks.some(edge => edge.fromEntityId === checkpoints[0].id && edge.toEntityId === records[0].id));
   const exactBinding = bindings.find(binding => binding.body.workflowId === created.workflow.id);
   assert.equal(exactBinding.body.currentRevisionId, checkpoints[0].body.resultingRevisionId);
+  const testerOptions = [];
+  let testerAppServerCalls = 0;
+  const tester = new CodexTesterExecutionService(async () => { testerAppServerCalls++; return ({
+    startThread(options) { testerOptions.push(options); return { id: "tester-thread", async runStreamed(prompt) {
+      assert.match(prompt, /Bounded lifecycle determination/);
+      assert.match(prompt, /ValidationCatalog proof covers affected capabilities: test\/seed\.test\.cjs/);
+      fs.writeFileSync(path.join(options.workingDirectory, "test", "feature.test.cjs"), "// Tester-owned permanent proof\n");
+      return { events: (async function* () {
+        yield { type: "item.completed", item: { type: "file_change", changes: [{ path: "test/feature.test.cjs" }], status: "completed" } };
+        yield { type: "item.completed", item: { type: "agent_message", text: JSON.stringify({ recommendation: "permanent-proof-change-warranted",
+          permanentTestPaths: ["test/feature.test.cjs"], determinationEvidence: ["Tester reviewed the exact implementation revision."], unknowns: [], rationale: "The behavior needs permanent regression proof." }) } };
+        yield { type: "turn.completed" };
+      })() };
+    } }; }
+  }); });
+  const testerIds = { workflowId: created.workflow.id, workItemId: item.id, implementationRecordId: records[0].id };
+  const sourceNeutral = await state.createSubstantiveWorkflow(project.project.id, { workflowType: "feature-capability", title: "Source neutral Tester", entryWorkspace: "feature-intake" });
+  const neutralWork = await state.createRecord(project.project.id, "WorkItem", { workItemKind: "feature", title: "Same title", objective: "No source anchor", workState: "validation_pending" });
+  await state.createRelationship(project.project.id, neutralWork.id, "part_of", sourceNeutral.workflow.id);
+  const neutralImplementer = createProjectStateService(store, { principalId: "neutral-implementer", principalType: "agent", role: "Implementer" });
+  const neutralImplementation = await neutralImplementer.recordImplementation(project.project.id, neutralWork.id,
+    { summary: "Implementation complete", deviations: [], blockers: [], residualRisks: [], outcome: "implemented", executionRef: "neutral-execution" });
+  const neutralStatus = await tester.getStatus(root, { workflowId: sourceNeutral.workflow.id, workItemId: neutralWork.id, implementationRecordId: neutralImplementation.id });
+  assert.equal(neutralStatus.state, "unavailable");
+  assert.match(neutralStatus.failureReason, /source-backed|SourceBinding|binding/i);
+  const exactCheckout = path.join(root, ".champcity", "checkouts", created.workflow.id);
+  const dirtyFile = path.join(exactCheckout, "pre-existing-dirty.txt");
+  fs.writeFileSync(dirtyFile, "dirty before Tester\n");
+  const dirtyStatus = await tester.getStatus(root, testerIds);
+  assert.equal(dirtyStatus.state, "unavailable");
+  assert.match(dirtyStatus.failureReason, /dirty/i);
+  assert.equal(testerAppServerCalls, 0);
+  fs.unlinkSync(dirtyFile);
+  const testerReady = await tester.getStatus(root, testerIds);
+  assert.equal(testerReady.state, "ready", testerReady.failureReason);
+  const testerStarted = await tester.start(root, testerIds, selection);
+  assert.equal(testerStarted.state, "running");
+  let testerCompleted;
+  for (let attempt = 0; attempt < 300; attempt += 1) {
+    testerCompleted = await tester.getStatus(root, testerIds);
+    if (testerCompleted.state !== "running") break;
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  assert.equal(testerCompleted.state, "completed", testerCompleted.failureReason);
+  assert.equal(testerCompleted.failureReason, null);
+  assert.equal(testerCompleted.checkpointState, "committed");
+  assert.ok(testerCompleted.testerResultId);
+  assert.ok(testerCompleted.candidateRevisionId);
+  assert.equal(testerOptions[0].sandboxMode, "workspace-write");
+  assert.equal(testerOptions[0].networkAccessEnabled, false);
+  assert.deepEqual(testerOptions[0].writableRoots, [path.join(testerOptions[0].workingDirectory, "test")]);
+  const testerResult = await state.getRecord(project.project.id, testerCompleted.testerResultId);
+  assert.equal(testerResult.body.implementationRecordId, records[0].id);
+  assert.deepEqual(testerResult.body.affectedCapabilityIds, ["feature-behavior"]);
+  assert.equal(testerResult.body.checkpointState, "committed");
+  assert.deepEqual(testerResult.body.permanentTestPaths, ["test/feature.test.cjs"]);
+  const testerCheckpoints = (await store.listEntities(project.project.id, "SourceCheckpoint")).filter(row => row.entityType === "SourceCheckpoint" && row.body.checkpointKind === "tester");
+  assert.equal(testerCheckpoints.length, 1);
+  assert.equal(testerCheckpoints[0].body.checkpointState, "committed");
+  assert.equal(testerCheckpoints[0].body.resultingRevisionId, testerCompleted.candidateRevisionId);
+  assert.equal(testerResult.body.sourceCheckpointId, testerCheckpoints[0].id);
+  assert.ok((await store.listRelationships(project.project.id, "checkpoints")).some(edge => edge.fromEntityId === testerCheckpoints[0].id && edge.toEntityId === testerResult.id));
+  const bindingAfterTester = await state.getRecord(project.project.id, exactBinding.id);
+  assert.equal(bindingAfterTester.body.currentRevisionId, testerCompleted.candidateRevisionId);
+  assert.equal(exactBinding.body.currentRevisionId, checkpoints[0].body.resultingRevisionId, "pre-tester binding snapshot remains on the implementation revision");
   assert.equal(git("branch", "--show-current"), "dev");
   assert.equal(appServerCalls, 1);
   const unsafeSelector = { ownerKind: "workflow-work-item", workflowId: created.workflow.id, workItemId: unsafeItem.id };
@@ -2419,7 +2506,7 @@ test("source-backed exact Workflow WorkItem uses its registered checkout and che
   assert.match(unsafeCompleted.checkpoint.message, /attribution|path/i);
   const finalRecords = await store.listEntities(project.project.id, "ImplementationRecord");
   const finalCheckpoints = await store.listEntities(project.project.id, "SourceCheckpoint");
-  assert.equal(finalRecords.length, 2); assert.equal(finalCheckpoints.length, 1);
+  assert.equal(finalRecords.length, 3); assert.equal(finalCheckpoints.length, 2);
   assert.equal(finalRecords.find(record => record.body.workItemId === unsafeItem.id).body.outcome, "implemented");
   assert.ok(fs.existsSync(path.join(root, ".champcity", "runtime", "work-item-attempts", `${finalRecords.find(record => record.body.workItemId === unsafeItem.id).body.executionRef}.json`)));
   assert.equal(checkoutRegistrations, 3);

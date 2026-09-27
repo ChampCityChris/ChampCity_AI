@@ -380,6 +380,8 @@ const api: ChampCityApi = {
     ) as ReturnType<ChampCityApi["getCodexImplementerExecutionStatus"]>,
   getWorkflowWorkItemCodexExecutionStatus: (workflowId, workItemId) =>
     ipcRenderer.invoke("codexImplementer:getWorkflowWorkItemStatus", workflowId, workItemId) as ReturnType<ChampCityApi["getWorkflowWorkItemCodexExecutionStatus"]>,
+  getWorkflowWorkItemTesterStatus: (workflowId, workItemId, implementationRecordId) =>
+    ipcRenderer.invoke("codexTester:getWorkflowWorkItemStatus", workflowId, workItemId, implementationRecordId) as ReturnType<ChampCityApi["getWorkflowWorkItemTesterStatus"]>,
   getCodexManagedRuntimeStatus: () => ipcRenderer.invoke("codexRuntime:getStatus"),
   setCodexModelSelection: (selection) => ipcRenderer.invoke("codexRuntime:setSelection", selection),
   startCodexImplementerExecution: (selection) =>
@@ -389,6 +391,13 @@ const api: ChampCityApi = {
     ) as ReturnType<ChampCityApi["startCodexImplementerExecution"]>,
   startWorkflowWorkItemCodexExecution: (workflowId, workItemId, selection) =>
     ipcRenderer.invoke("codexImplementer:startWorkflowWorkItem", workflowId, workItemId, selection) as ReturnType<ChampCityApi["startWorkflowWorkItemCodexExecution"]>,
+  startWorkflowWorkItemTester: (workflowId, workItemId, implementationRecordId, selection) =>
+    ipcRenderer.invoke("codexTester:startWorkflowWorkItem", workflowId, workItemId, implementationRecordId, selection) as ReturnType<ChampCityApi["startWorkflowWorkItemTester"]>,
+  cancelWorkflowWorkItemTester: () => ipcRenderer.invoke("codexTester:cancel") as ReturnType<ChampCityApi["cancelWorkflowWorkItemTester"]>,
+  respondToWorkflowWorkItemTesterApproval: (requestId, decision) =>
+    ipcRenderer.invoke("codexTester:respondToApproval", requestId, decision) as ReturnType<ChampCityApi["respondToWorkflowWorkItemTesterApproval"]>,
+  respondToWorkflowWorkItemTesterInput: (requestId, answers) =>
+    ipcRenderer.invoke("codexTester:respondToUserInput", requestId, answers) as ReturnType<ChampCityApi["respondToWorkflowWorkItemTesterInput"]>,
   startCodexEnvironmentResolution: () =>
     ipcRenderer.invoke(
       "codexImplementer:startEnvironmentResolution",

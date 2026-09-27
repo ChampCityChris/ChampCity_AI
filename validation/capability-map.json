@@ -1517,6 +1517,18 @@
           "description": "switching Issue execution context clears only Issue presentation and rejects a stale status response"
         },
         {
+          "behaviorId": "tester-checkpoint-requires-file-change-events-to-equal-the-exact-managed-checkout-delta",
+          "description": "Tester checkpoint requires completed file-change events to equal the exact managed checkout delta"
+        },
+        {
+          "behaviorId": "tester-role-runtime-restricts-write-root-and-checkpoints-exact-test-edits-through-03c",
+          "description": "Tester role runtime restricts its write root and checkpoints exact test edits through 03C"
+        },
+        {
+          "behaviorId": "tester-semantic-result-rejects-model-owned-capability-attribution-and-restricts-permanent-test-paths",
+          "description": "Tester semantic result rejects model-owned capability attribution and restricts permanent test paths"
+        },
+        {
           "behaviorId": "unavailable-preferred-selection-and-stale-saved-selections-never-use-the-catalog-default",
           "description": "unavailable preferred selection and stale saved selections never use the catalog default"
         },
@@ -3298,6 +3310,10 @@
           "description": "Structured WIR accepts only Existing-Project routes, preserves revision requests without a target, and atomically creates and links one new target while closing intake and WIR."
         },
         {
+          "behaviorId": "tester-result-accepts-active-validation-pending-work-item-with-latest-successful-implementation-without-completing-it",
+          "description": "TesterResult accepts an active validation-pending WorkItem with its latest successful ImplementationRecord without completing it"
+        },
+        {
           "behaviorId": "tester-result-binds-exact-workflow-workitem-and-implementation-revision",
           "description": "TesterResult binds the exact current Workflow, WorkItem, Implementer principal, and implementation revision."
         },
@@ -4781,6 +4797,10 @@
         {
           "behaviorId": "structured-wir-assessment-promotion-and-freshness",
           "description": "Current Project WIR promotes an Architect draft once, detects intake and optional Dev revision changes, and requires exact Dev preflight before source-backed handoff."
+        },
+        {
+          "behaviorId": "tester-only-contract-projection-reads-validation-pending-work-item-without-enabling-implementer-attempts",
+          "description": "Tester-only contract projection reads a validation-pending WorkItem without enabling Implementer attempts"
         },
         {
           "behaviorId": "workflow-inventory-resolves-unambiguous-wir-provenance-and-fails-closed",
@@ -14619,12 +14639,12 @@
       "testPath": "test/project-state/tester-state-mapping.test.cjs",
       "currentTestCount": {
         "value": 8,
-        "basis": "Three Tester state mapping scenarios plus one durable TesterResult scenario, each exercised through in-memory and SQLite adapters."
+        "basis": "Eight TAP tests across in-memory and SQLite adapters; covers validation_pending TesterResult without WorkItem completion."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 172,
-        "basis": "Observed normal Windows focused SCL01O test receipt."
+        "milliseconds": 417,
+        "basis": "Measured by WRB04-03D exact-path work-item validation receipt 250e43ed-aa26-4aa1-bd42-afa6c33ac805."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -14674,6 +14694,12 @@
           "capabilityId": "project-state-service",
           "behaviorId": "regression-obligation-lifecycle-and-typed-assessment-remain-historical",
           "proofLocator": "obligation lifecycle and typed assessment remain historical",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "tester-result-accepts-active-validation-pending-work-item-with-latest-successful-implementation-without-completing-it",
+          "proofLocator": "TesterResult binds an active validation-pending WorkItem to its latest successful implementation before downstream completion",
           "proofRole": "primary"
         },
         {
@@ -18615,13 +18641,13 @@
     {
       "testPath": "test/work-card-building/codex-implementer-execution-service.test.cjs",
       "currentTestCount": {
-        "value": 29,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 32,
+        "basis": "Observed TAP summary in WRB04-03D exact-path work-item validation receipt."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 26153,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
+        "milliseconds": 111430,
+        "basis": "Measured by WRB04-03D exact-path work-item validation receipt 250e43ed-aa26-4aa1-bd42-afa6c33ac805."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -18817,6 +18843,24 @@
           "capabilityId": "codex-implementation-runtime",
           "behaviorId": "issue-repair-codex-completion-and-retry-preserve-root-fix-card-and-exact-repair-identities",
           "proofLocator": "Issue Repair Codex completion and retry preserve root Fix Card and exact Repair identities",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "codex-implementation-runtime",
+          "behaviorId": "tester-checkpoint-requires-file-change-events-to-equal-the-exact-managed-checkout-delta",
+          "proofLocator": "Source-backed Tester runtime restricts its writable root and commits only the exactly attributed test edit through 03C",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "codex-implementation-runtime",
+          "behaviorId": "tester-role-runtime-restricts-write-root-and-checkpoints-exact-test-edits-through-03c",
+          "proofLocator": "Source-backed Workflow WorkItem Tester execution uses the exact test-only writable root and commits attributed edits through the structured Tester checkpoint",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "codex-implementation-runtime",
+          "behaviorId": "tester-semantic-result-rejects-model-owned-capability-attribution-and-restricts-permanent-test-paths",
+          "proofLocator": "Tester result contract accepts only permanent test paths and application-owned capability attribution",
           "proofRole": "primary"
         },
         {
@@ -20368,12 +20412,12 @@
       "testPath": "test/workflow/workflow-execution-application-service.test.cjs",
       "currentTestCount": {
         "value": 3,
-        "basis": "Three WRB04-01 scenarios prove shared Feature/Issue projection and Workflow isolation, phased/dependency eligibility with lazy idempotent source preparation, and non-source execution without Git fabrication."
+        "basis": "Three TAP tests; includes Tester-only read contract eligibility after the exact implementation attempt."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 454,
-        "basis": "Observed per-file TAP duration on the supported Windows normal lane during WRB04-01."
+        "milliseconds": 634,
+        "basis": "Measured by WRB04-03D exact-path work-item validation receipt 250e43ed-aa26-4aa1-bd42-afa6c33ac805."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -20414,6 +20458,12 @@
           "capabilityId": "workflow-application-service",
           "behaviorId": "feature-and-issue-share-exact-workflow-execution-projection-and-lazy-source-boundary",
           "proofLocator": "Feature and Issue return one projection shape under exact Workflow IDs; concurrent plans remain isolated; dependencies and owning Phase gate readiness; source preparation is lazy and idempotent; non-source mutation blocks without Git state.",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "tester-only-contract-projection-reads-validation-pending-work-item-without-enabling-implementer-attempts",
+          "proofLocator": "Tester-only contract projection reads the exact validation-pending WorkItem while the Implementer contract remains ineligible",
           "proofRole": "primary"
         }
       ]

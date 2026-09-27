@@ -157,9 +157,9 @@ export function createWorkflowExecutionApplicationService(dependencies: {
     }
   }
 
-  async function createWorkItemExecutionContract(projectRoot: string, workflowId: EntityId, workItemId: EntityId, input: {
+  async function buildWorkItemExecutionContract(projectRoot: string, workflowId: EntityId, workItemId: EntityId, input: {
     sourceMutation: "required" | "not-required"; affectedPaths: string[]; proofIntent: string[];
-  }): Promise<WorkItemExecutionContract> {
+  }, allowValidationPending: boolean): Promise<WorkItemExecutionContract> {
     if (!input || !["required", "not-required"].includes(input.sourceMutation) || !Array.isArray(input.affectedPaths) || !Array.isArray(input.proofIntent))
       throw Error("A bounded Work Item execution contract is required.");
     for (const value of [...input.affectedPaths, ...input.proofIntent]) if (typeof value !== "string" || !value.trim() || value.length > 512) throw Error("Execution contract details must be bounded text.");
@@ -170,7 +170,12 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       if (input.sourceMutation === "required" && projection.source.state !== "ready") throw Error("Source-backed execution requires a prepared exact Workflow checkout.");
       const item = projection.items.find(candidate => candidate.record.id === workItemId);
       if (!item) throw Error("Exact Work Item is not part of the selected Workflow plan.");
-      if (!item.eligibility.eligible || !["planned", "ready"].includes(item.record.body.workState)) throw Error("Work Item is not eligible for an implementation contract.");
+      const allowedStates = allowValidationPending ? ["validation_pending", "implemented"] : ["planned", "ready"];
+      if (!item.eligibility.eligible || !allowedStates.includes(item.record.body.workState)) throw Error("Work Item is not eligible for this execution contract.");
+      if (allowValidationPending) {
+        const attempts = await createProjectStateService(store, operator).getImplementationAttempts(projectId, workItemId);
+        if (attempts.at(-1)?.body.outcome !== "implemented") throw Error("Tester contract requires the latest successful implementation attempt.");
+      }
       if (plan.solutions.length !== 1) throw Error("Accepted BoundedSolution is missing or ambiguous.");
       const phase = item.phaseId ? plan.phases.find(candidate => candidate.phaseId === item.phaseId)?.record ?? null : null;
       const criteria = plan.criteria.filter(candidate => candidate.ownerId === workItemId).map(candidate => candidate.record).sort((a, b) => a.id.localeCompare(b.id));
@@ -185,6 +190,18 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       const digest = createHash("sha256").update(serialized).digest("hex");
       return { contractId: `work-item-contract:${digest}`, digest, ...body };
     });
+  }
+
+  async function createWorkItemExecutionContract(projectRoot: string, workflowId: EntityId, workItemId: EntityId, input: {
+    sourceMutation: "required" | "not-required"; affectedPaths: string[]; proofIntent: string[];
+  }): Promise<WorkItemExecutionContract> {
+    return buildWorkItemExecutionContract(projectRoot, workflowId, workItemId, input, false);
+  }
+
+  async function createTesterWorkItemExecutionContract(projectRoot: string, workflowId: EntityId, workItemId: EntityId, input: {
+    sourceMutation: "required" | "not-required"; affectedPaths: string[]; proofIntent: string[];
+  }): Promise<WorkItemExecutionContract> {
+    return buildWorkItemExecutionContract(projectRoot, workflowId, workItemId, input, true);
   }
 
   async function createSourceNeutralWorkItemExecutionContract(projectRoot: string, workflowId: EntityId, workItemId: EntityId, input: {
@@ -223,5 +240,6 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       .finishWorkItemAttempt(projectId, workflowId, workItemId, executionRef, result));
   }
 
-  return { getExecutionProjection, prepareExecution, createWorkItemExecutionContract, createSourceNeutralWorkItemExecutionContract, beginWorkItemAttempt, finishWorkItemAttempt };
+  return { getExecutionProjection, prepareExecution, createWorkItemExecutionContract, createTesterWorkItemExecutionContract,
+    createSourceNeutralWorkItemExecutionContract, beginWorkItemAttempt, finishWorkItemAttempt };
 }
