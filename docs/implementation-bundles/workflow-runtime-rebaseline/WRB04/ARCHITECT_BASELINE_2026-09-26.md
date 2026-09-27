@@ -93,15 +93,37 @@ Work Card planning is a bounded execution-contract elaboration for one exact Wor
 
 The Architect may:
 - clarify implementation boundaries;
-- decompose an oversized WorkItem into bounded child/sibling WorkItems when evidence requires it;
-- define implementation handoff detail;
+- identify affected files/services/contracts and focused proof intent;
+- decompose an oversized **pre-execution** WorkItem into bounded replacement WorkItems when evidence requires it;
 - surface a material scope/architecture conflict to the Operator.
 
+### Decomposition semantics
+
+WorkItem decomposition is **not** `supersedes`.
+
+`supersedes` retains its one-current-record-per-lineage semantic versioning contract.
+
+Accepted decomposition uses immutable:
+
+```text
+original WorkItem -> decomposed_into -> replacement WorkItem[]
+```
+
+The original becomes non-executable historical state with `lifecycleState = voided` and `workState = cancelled`. Each replacement receives a new lineage, remains owned by the same exact Workflow/Phase, and implements the accepted BoundedSolution.
+
+Decomposition is allowed only before implementation/validation/checkpoint/Repair evidence exists for the source WorkItem.
+
+Criteria must be explicitly transferred, elevated to an existing aggregate owner, or split into explicit replacement Criteria. Dependencies touching the source must be explicitly remapped. The complete resulting graph is preflighted and committed atomically.
+
+Do not turn the source into a generic container WorkItem and do not expand one lineage into multiple current successors.
+
+See `WRB04-02B_ARCHITECT_CLARIFICATION_2026-09-26.md`.
+
 Any accepted decomposition must be canonical SPS:
-- exact WorkItem ownership retained;
+- exact WorkItem ownership retained through replacement records;
 - dependencies/membership updated through typed commands;
 - no cross-Workflow records;
-- accepted plan intent/Criteria preserved or explicitly superseded;
+- accepted plan intent and every required Criterion obligation preserved;
 - no Markdown-only candidate becomes execution authority.
 
 Human-readable Work Cards may remain generated handoff artifacts.

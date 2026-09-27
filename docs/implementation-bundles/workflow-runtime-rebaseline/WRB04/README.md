@@ -2,7 +2,7 @@
 
 **Starting checkpoint:** `495c9aca43bd6c90be4abfece01ed9e40fd4c82e`
 **Implementer:** GPT 6.0 Luna Medium
-**Status:** IN PROGRESS — WRB04-01 complete; WRB04-02 family split into bounded sequential cards.
+**Status:** IN PROGRESS — WRB04-01 and WRB04-02 complete; WRB04-02B revised/re-released after decomposition-domain clarification.
 **Review cadence:** execute released cards sequentially; Architect review after WRB04-05.
 
 ## Outcome
@@ -13,21 +13,25 @@ WRB04 includes exact Workflow/WorkItem execution ownership, lazy source material
 
 ## Sequence
 
-1. WRB04-01 — Establish exact-Workflow shared execution application kernel and lazy source boundary
+1. WRB04-01 — Establish exact-Workflow shared execution application kernel and lazy source boundary  
    **Complete:** `ae6eb789f829e2c7320827eb24767709cc458bcd`
-2. WRB04-02 — Canonical WorkItem execution contract and typed attempt state
-3. WRB04-02B — Typed same-Workflow WorkItem decomposition
+2. WRB04-02 — Canonical WorkItem execution contract and typed attempt state  
+   **Complete:** `b40c8d26ba699a9a02a2861118dc8de2845e495b`
+3. WRB04-02B — Typed same-Workflow WorkItem decomposition  
+   **Revised/re-released:** explicit `decomposed_into` policy; see `WRB04-02B_ARCHITECT_CLARIFICATION_2026-09-26.md`
 4. WRB04-02C — Exact source-neutral Codex WorkItem runtime
 5. WRB04-02D — Exact Workflow checkout and structured implementation checkpoint
 6. WRB04-03 — Implement Tester/Determination, Validator, Repair loop, and typed completion
 7. WRB04-04 — Normalize Phase/Workflow completion and exact-Workflow integration, including linked-worktree candidate repair
 8. WRB04-05 — Converge shared execution Workspaces, fence legacy execution, and qualify Feature/Issue end-to-end
 
-WRB04-02 through WRB04-02D are sequential. Do not load a later card before the prior card is completed and committed. WRB04-03 is blocked until WRB04-02D completes.
+WRB04-02B through WRB04-02D are sequential. Do not load a later card before the prior card is completed and committed. WRB04-03 is blocked until WRB04-02D completes.
 
 ## WRB04-02 rebaseline
 
 The first WRB04-02 specification asked the Implementer to adapt the existing Codex runtime without specifying an exact selector/context/finalization path. The Implementer correctly stopped at the legacy identity boundary. The revised architecture was then split into four bounded cards: canonical contract/attempt state, typed decomposition, source-neutral exact runtime, and source-backed checkpointing. See `WRB04-02_ARCHITECT_CLARIFICATION_2026-09-26.md` for the evidence and correction.
+
+WRB04-02B then exposed a second Architect specification miss: one-to-many decomposition cannot be represented by the Project State `supersedes` lineage contract. The corrected policy keeps `supersedes` one-to-one and introduces immutable `decomposed_into` structural ancestry with a voided/cancelled historical source and new-lineage replacement WorkItems.
 
 ## Execution rules
 
@@ -35,6 +39,7 @@ The first WRB04-02 specification asked the Implementer to adapt the existing Cod
 - No intermediate Architect review unless an architectural contradiction cannot be bounded within the owning card.
 - Do not preserve obsolete WorkIntake/Markdown execution authority for compatibility.
 - Do not wrap the new exact path in `routed-development` or legacy Issue selectors.
+- Do not expand `supersedes` into one-to-many decomposition semantics.
 - Do not weaken exact current Workflow ownership to satisfy stale repair fixtures.
 - Do not turn Tester into an Operator approval gate.
 - Use focused tests and exact validation-plan previews under the lean-test policy.
