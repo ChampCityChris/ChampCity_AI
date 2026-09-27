@@ -59,7 +59,8 @@ const reason = (error: unknown) => error instanceof Error && !/(?:[A-Za-z]:[\\/]
 
 function baseModel(state: CodexImplementerExecutionModel["state"], failureReason: string | null = null): CodexImplementerExecutionModel {
   return { state, executionKind: "integration-repair", lastRunState: null, canRunAgain: state === "ready", canResolveEnvironment: false,
-    retryBlocker: failureReason, integrationMode: "app-server-stdio", phaseId: null, workCardId: null, workCardTitle: null,
+    retryBlocker: failureReason, integrationMode: "app-server-stdio", phaseId: null, workflowId: null, workItemId: null,
+    workItemVersion: null, executionContractDigest: null, sourceMode: null, workCardId: null, workCardTitle: null,
     projectRoot: null, formalWorkCardPath: null, formalWorkCardRevision: null, formalWorkCardSha256: null,
     implementerReportPath: null, implementerReportRevision: null, implementerReportSha256: null,
     startedAt: null, completedAt: null, elapsedMs: null, eventTail: [], stderrTail: [], finalResponseTail: [],

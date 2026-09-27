@@ -1,6 +1,7 @@
 import type { DispositionState, EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef, ProjectId, ProjectStateEntity, ProjectStateRecord, TestLifecycleAssessmentStatus, ValidationMode, WorkflowState, WorkIntakeState, WorkRoute } from "./domainContracts";
 import { getWorkflowTypeDefinition, workflowTypeForWorkRoute, type ExistingProjectWorkRoute, type WorkflowType } from "./workflowTypeRegistry";
 import { assertSupersession } from "./domainInvariants";
+import { isTesterOwnedPath } from "./testerOwnedPathPolicy";
 import { createProjectStateEntity, ENTITY_TYPE_REGISTRY, ProjectStateDomainError, validateProjectStateEntity } from "./entityTypeRegistry";
 import { createRelationship as createDomainRelationship, RELATIONSHIP_REGISTRY, type ProjectStateRelationship, type RelationshipType } from "./relationshipRegistry";
 import type { ProjectStateOutboxEvent, ProjectStateStore, ProjectStateUnitOfWork, StateChange } from "./projectStateStore";
@@ -126,10 +127,7 @@ function validateTestPath(path: string) {
   if (typeof path !== "string" || path.length > 512 || !/^test\/(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+\.test\.cjs$/.test(path) || path.split("/").includes("..")) fail("Permanent test locator must be a repository-relative test path.");
 }
 function validateTesterOwnedPath(path: string) {
-  if (typeof path !== "string" || path.length > 512 || path.includes("\\") || path.startsWith("/") ||
-    path.split("/").some(part => part === "" || part === "." || part === "..") ||
-    !/^test\/(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+\.(?:test|spec)\.(?:c|m)?(?:js|ts)$/.test(path) ||
-    /(^|\/)(\.git|\.champcity|node_modules|dist|build|coverage|tmp)(\/|$)/i.test(path)) {
+  if (!isTesterOwnedPath(path)) {
     fail("Tester result paths must stay within test-owned repository surfaces.");
   }
 }
@@ -899,10 +897,12 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   async function createTesterResult(projectId: ProjectId, workflowId: EntityId, workItemId: EntityId,
-    implementationRecordId: EntityId, input: Pick<EntityBodyMap["TesterResult"], "implementerRevisionId" | "recommendation" | "affectedCapabilityIds" | "permanentTestPaths" | "determinationEvidence" | "unknowns" | "rationale">,
+    implementationRecordId: EntityId, input: Pick<EntityBodyMap["TesterResult"], "sourceMode" | "recommendation" | "affectedCapabilityIds" | "permanentTestPaths" | "determinationEvidence" | "unknowns" | "rationale"> & { implementerRevisionId?: string },
     context?: MutationContext) {
-    exactInput(input, ["implementerRevisionId", "recommendation", "affectedCapabilityIds", "permanentTestPaths", "determinationEvidence", "unknowns", "rationale"]);
+    exactInput(input, ["sourceMode", "implementerRevisionId", "recommendation", "affectedCapabilityIds", "permanentTestPaths", "determinationEvidence", "unknowns", "rationale"]);
     if (trustedPrincipal.role !== "Tester") fail("TesterResult creation requires the Tester role.");
+    if (input.sourceMode !== "source-backed" && input.sourceMode !== "source-neutral") fail("TesterResult source mode is invalid.");
+    if (input.sourceMode === "source-backed" && !input.implementerRevisionId || input.sourceMode === "source-neutral" && input.implementerRevisionId !== undefined) fail("TesterResult source revision does not match its source mode.");
     if (!Array.isArray(input.affectedCapabilityIds) || input.affectedCapabilityIds.length > 128 ||
       input.affectedCapabilityIds.some(id => typeof id !== "string" || !/^[a-z0-9][a-z0-9-]{0,127}$/.test(id)) ||
       new Set(input.affectedCapabilityIds).size !== input.affectedCapabilityIds.length) fail("TesterResult capability IDs must be unique bounded catalog identities.");
@@ -916,8 +916,8 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const workflow = await requiredRecord(unit, projectId, workflowId);
       await requireCurrentSourceWorkflow(unit, projectId, workflow);
       const workItem = await requiredRecord(unit, projectId, workItemId);
-      if (workItem.entityType !== "WorkItem" || workItem.lifecycleState !== "active" || !["implemented", "validation_pending"].includes(workItem.body.workState))
-        fail("TesterResult requires an active validation-pending or implemented WorkItem.");
+      if (workItem.entityType !== "WorkItem" || workItem.lifecycleState !== "active" || workItem.body.workState !== "validation_pending")
+        fail("TesterResult requires the exact active validation-pending WorkItem.");
       const memberships = (await unit.listRelationships(projectId, "part_of")).filter(edge => !edge.endedAt);
       let cursor: EntityId | undefined = workItemId;
       const visited = new Set<EntityId>();
@@ -942,15 +942,29 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
           record.body.workItemId === workItemId && attemptEdges.some(edge => edge.fromEntityId === record.id))
         .sort((a, b) => (creationSequence.get(a.id) ?? 0) - (creationSequence.get(b.id) ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
       if (attempts.at(-1)?.id !== implementationRecordId) fail("TesterResult must target the current successful implementation attempt.");
+      const sourceBindings = (await unit.listEntities(projectId, "SourceBinding")).filter((record): record is ProjectStateRecord<"SourceBinding"> =>
+        record.entityType === "SourceBinding" && record.lifecycleState === "active" && record.body.workflowId === workflowId);
+      if (input.sourceMode === "source-backed") {
+        const checkpointLinks = (await unit.listRelationships(projectId, "checkpoints")).filter(edge => edge.toEntityId === implementationRecordId && !edge.endedAt);
+        const checkpoints = (await Promise.all(checkpointLinks.map(edge => unit.getEntity(projectId, edge.fromEntityId))))
+          .filter((record): record is ProjectStateRecord<"SourceCheckpoint"> => record?.entityType === "SourceCheckpoint" && record.body.checkpointKind === "implementation" && record.body.checkpointState === "committed");
+        if (sourceBindings.length !== 1 || sourceBindings[0].body.preparationState !== "ready" || sourceBindings[0].body.currentRevisionId !== input.implementerRevisionId || checkpoints.length !== 1 || checkpoints[0].body.resultingRevisionId !== input.implementerRevisionId)
+          fail("Source-backed TesterResult requires its current committed implementation checkpoint and ready SourceBinding.");
+      } else if (sourceBindings.length !== 0 || input.permanentTestPaths.length !== 0) {
+        fail("Source-neutral TesterResult cannot claim repository proof paths or a SourceBinding.");
+      }
       if ((await unit.listEntities(projectId, "TesterResult")).some(record => record.entityType === "TesterResult" &&
         record.body.implementationRecordId === implementationRecordId)) fail("TesterResult already exists for this implementation attempt.");
+      if (input.sourceMode === "source-neutral" && (input.recommendation === "permanent-proof-change-warranted" || input.permanentTestPaths.length > 0))
+        fail("Source-neutral Tester cannot claim permanent repository proof changes.");
       const checkpointState = input.permanentTestPaths.length === 0 ? "not-required" : "pending";
       const body: EntityBodyMap["TesterResult"] = {
-        workflowId, workItemId, implementationRecordId, implementerRevisionId: input.implementerRevisionId,
+        workflowId, workItemId, implementationRecordId, sourceMode: input.sourceMode,
+        ...(input.implementerRevisionId ? { implementerRevisionId: input.implementerRevisionId } : {}),
         recommendation: input.recommendation, affectedCapabilityIds: [...input.affectedCapabilityIds].sort(),
         permanentTestPaths: [...input.permanentTestPaths].sort(), determinationEvidence: input.determinationEvidence,
         unknowns: input.unknowns, rationale: input.rationale.trim(), checkpointState,
-        ...(checkpointState === "not-required" ? { candidateRevisionId: input.implementerRevisionId } : {}),
+        ...(checkpointState === "not-required" && input.implementerRevisionId ? { candidateRevisionId: input.implementerRevisionId } : {}),
       };
       const result = createProjectStateEntity({ entityType: "TesterResult", projectId, body, principal: trustedPrincipal });
       await unit.saveEntity(result, null);
@@ -1657,7 +1671,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       };
       if (input.checkpointKind === "implementation" && (target.entityType !== "ImplementationRecord" || !belongs(target.body.workItemId))) fail("Implementation checkpoint target is outside the owning Workflow lineage.");
       if (input.checkpointKind === "disposition" && !(target.entityType === "Workflow" ? lineageIds.has(target.id) : target.entityType === "WorkItem" && belongs(target.id))) fail("Disposition checkpoint target is outside the owning Workflow lineage.");
-      if (input.checkpointKind === "tester" && (target.entityType !== "TesterResult" || target.body.workflowId !== workflowId ||
+      if (input.checkpointKind === "tester" && (target.entityType !== "TesterResult" || target.body.sourceMode !== "source-backed" || target.body.workflowId !== workflowId ||
         target.body.checkpointState !== "pending" || target.body.candidateRevisionId || target.body.sourceCheckpointId ||
         target.body.permanentTestPaths.length === 0 || target.body.implementerRevisionId !== input.expectedRevisionId || !belongs(target.body.workItemId)))
         fail("Tester checkpoint requires the exact pending TesterResult and its Implementer revision.");
@@ -1704,7 +1718,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return store.transaction(projectId, async unit => {
       const result = await requiredRecord(unit, projectId, testerResultId);
       const checkpoint = await requiredRecord(unit, projectId, checkpointId);
-      if (result.entityType !== "TesterResult" || result.recordVersion !== expectedRevision || result.body.checkpointState !== "pending" ||
+      if (result.entityType !== "TesterResult" || result.body.sourceMode !== "source-backed" || result.recordVersion !== expectedRevision || result.body.checkpointState !== "pending" ||
         result.body.candidateRevisionId || result.body.sourceCheckpointId || checkpoint.entityType !== "SourceCheckpoint" ||
         checkpoint.body.checkpointKind !== "tester" || checkpoint.body.checkpointState !== "committed" ||
         checkpoint.body.workflowId !== result.body.workflowId || checkpoint.body.expectedRevisionId !== result.body.implementerRevisionId ||

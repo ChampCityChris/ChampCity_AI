@@ -393,11 +393,12 @@ const api: ChampCityApi = {
     ipcRenderer.invoke("codexImplementer:startWorkflowWorkItem", workflowId, workItemId, selection) as ReturnType<ChampCityApi["startWorkflowWorkItemCodexExecution"]>,
   startWorkflowWorkItemTester: (workflowId, workItemId, implementationRecordId, selection) =>
     ipcRenderer.invoke("codexTester:startWorkflowWorkItem", workflowId, workItemId, implementationRecordId, selection) as ReturnType<ChampCityApi["startWorkflowWorkItemTester"]>,
-  cancelWorkflowWorkItemTester: () => ipcRenderer.invoke("codexTester:cancel") as ReturnType<ChampCityApi["cancelWorkflowWorkItemTester"]>,
-  respondToWorkflowWorkItemTesterApproval: (requestId, decision) =>
-    ipcRenderer.invoke("codexTester:respondToApproval", requestId, decision) as ReturnType<ChampCityApi["respondToWorkflowWorkItemTesterApproval"]>,
-  respondToWorkflowWorkItemTesterInput: (requestId, answers) =>
-    ipcRenderer.invoke("codexTester:respondToUserInput", requestId, answers) as ReturnType<ChampCityApi["respondToWorkflowWorkItemTesterInput"]>,
+  cancelWorkflowWorkItemTester: (workflowId, workItemId, implementationRecordId) =>
+    ipcRenderer.invoke("codexTester:cancel", workflowId, workItemId, implementationRecordId) as ReturnType<ChampCityApi["cancelWorkflowWorkItemTester"]>,
+  respondToWorkflowWorkItemTesterApproval: (workflowId, workItemId, implementationRecordId, requestId, decision) =>
+    ipcRenderer.invoke("codexTester:respondToApproval", workflowId, workItemId, implementationRecordId, requestId, decision) as ReturnType<ChampCityApi["respondToWorkflowWorkItemTesterApproval"]>,
+  respondToWorkflowWorkItemTesterInput: (workflowId, workItemId, implementationRecordId, requestId, answers) =>
+    ipcRenderer.invoke("codexTester:respondToUserInput", workflowId, workItemId, implementationRecordId, requestId, answers) as ReturnType<ChampCityApi["respondToWorkflowWorkItemTesterInput"]>,
   startCodexEnvironmentResolution: () =>
     ipcRenderer.invoke(
       "codexImplementer:startEnvironmentResolution",
@@ -417,9 +418,10 @@ const api: ChampCityApi = {
       "codexImplementer:respondToMcpElicitation",
       response,
     ) as ReturnType<ChampCityApi["respondToCodexMcpElicitation"]>,
-  cancelCodexImplementerExecution: () =>
+  cancelCodexImplementerExecution: (identity) =>
     ipcRenderer.invoke(
       "codexImplementer:cancel",
+      identity,
     ) as ReturnType<ChampCityApi["cancelCodexImplementerExecution"]>,
   generateCurrentHandoff: () =>
     ipcRenderer.invoke(

@@ -1021,11 +1021,12 @@ ipcMain.handle("codexTester:getWorkflowWorkItemStatus", (_event, workflowId: str
   codexTesterExecutionService.getStatus(getRequiredWorkspaceRoot(), { workflowId, workItemId, implementationRecordId }));
 ipcMain.handle("codexTester:startWorkflowWorkItem", (_event, workflowId: string, workItemId: string, implementationRecordId: string, selection: CodexModelSelection) =>
   codexTesterExecutionService.start(getRequiredWorkspaceRoot(), { workflowId, workItemId, implementationRecordId }, selection));
-ipcMain.handle("codexTester:cancel", () => codexTesterExecutionService.cancel(getRequiredWorkspaceRoot()));
-ipcMain.handle("codexTester:respondToApproval", (_event, requestId: string, decision: "approve" | "deny") =>
-  codexTesterExecutionService.respondToApproval(getRequiredWorkspaceRoot(), requestId, decision));
-ipcMain.handle("codexTester:respondToUserInput", (_event, requestId: string, answers: Record<string, string[]>) =>
-  codexTesterExecutionService.respondToUserInput(getRequiredWorkspaceRoot(), requestId, answers));
+ipcMain.handle("codexTester:cancel", (_event, workflowId: string, workItemId: string, implementationRecordId: string) =>
+  codexTesterExecutionService.cancel(getRequiredWorkspaceRoot(), { workflowId, workItemId, implementationRecordId }));
+ipcMain.handle("codexTester:respondToApproval", (_event, workflowId: string, workItemId: string, implementationRecordId: string, requestId: string, decision: "approve" | "deny") =>
+  codexTesterExecutionService.respondToApproval(getRequiredWorkspaceRoot(), { workflowId, workItemId, implementationRecordId }, requestId, decision));
+ipcMain.handle("codexTester:respondToUserInput", (_event, workflowId: string, workItemId: string, implementationRecordId: string, requestId: string, answers: Record<string, string[]>) =>
+  codexTesterExecutionService.respondToUserInput(getRequiredWorkspaceRoot(), { workflowId, workItemId, implementationRecordId }, requestId, answers));
 
 ipcMain.handle("codexImplementer:getWorkflowWorkItemStatus", (_event, workflowId: string, workItemId: string): Promise<CodexImplementerExecutionModel> => {
   return codexImplementerExecutionService.getStatus(getRequiredWorkspaceRoot(), { ownerKind: "workflow-work-item", workflowId, workItemId });
@@ -1060,6 +1061,7 @@ ipcMain.handle(
       getRequiredWorkspaceRoot(),
       response.requestId,
       response.answers,
+      response.workflowId && response.workItemId ? { ownerKind: "workflow-work-item", workflowId: response.workflowId, workItemId: response.workItemId } : undefined,
     );
   },
 );
@@ -1071,6 +1073,7 @@ ipcMain.handle(
       getRequiredWorkspaceRoot(),
       response.requestId,
       response.decision,
+      response.workflowId && response.workItemId ? { ownerKind: "workflow-work-item", workflowId: response.workflowId, workItemId: response.workItemId } : undefined,
     );
   },
 );
@@ -1085,12 +1088,13 @@ ipcMain.handle(
         action: response.action,
         content: response.content,
       },
+      response.workflowId && response.workItemId ? { ownerKind: "workflow-work-item", workflowId: response.workflowId, workItemId: response.workItemId } : undefined,
     );
   },
 );
 
-ipcMain.handle("codexImplementer:cancel", (): Promise<CodexImplementerExecutionModel> => {
-  return codexImplementerExecutionService.cancel(getRequiredWorkspaceRoot());
+ipcMain.handle("codexImplementer:cancel", (_event, identity?: { workflowId: string; workItemId: string }): Promise<CodexImplementerExecutionModel> => {
+  return codexImplementerExecutionService.cancel(getRequiredWorkspaceRoot(), identity ? { ownerKind: "workflow-work-item", ...identity } : undefined);
 });
 
 ipcMain.handle("currentWorkflow:generateHandoff", (): RuntimeActionResult => {

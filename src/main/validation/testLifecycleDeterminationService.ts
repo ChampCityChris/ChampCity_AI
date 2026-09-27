@@ -13,7 +13,8 @@ export interface TestLifecycleCatalogProof {
 
 export interface TestLifecycleDeterminationInput {
   workItemId: string;
-  implementerRevision: string;
+  implementationRecordId: string;
+  implementerRevision?: string;
   changedPaths: string[];
   affectedCapabilityIds: string[];
   catalogProof: TestLifecycleCatalogProof[];
@@ -26,7 +27,8 @@ export interface TestLifecycleDeterminationInput {
 
 export interface TestLifecycleDeterminationResult {
   workItemId: string;
-  implementerRevision: string;
+  implementationRecordId: string;
+  implementerRevision?: string;
   changedPaths: string[];
   affectedCapabilityIds: string[];
   consideredProof: Array<{ testPath: string; behaviorIds: string[]; proofRole?: string; validationLane?: string; durationMs?: number; ownedResources?: string[] }>;
@@ -57,7 +59,8 @@ function safeRepoPath(value: string): boolean {
 /** Produce bounded advisory lifecycle evidence; this function never reads or mutates repository state. */
 export function determineTestLifecycle(input: TestLifecycleDeterminationInput): TestLifecycleDeterminationResult {
   requiredText(input?.workItemId, "WorkItem ID");
-  requiredText(input?.implementerRevision, "Implementer revision");
+  requiredText(input?.implementationRecordId, "Implementation record identity");
+  if (input.implementerRevision !== undefined) requiredText(input.implementerRevision, "Implementer revision");
   const changedPaths = uniqueSorted(input.changedPaths, "Changed paths");
   if (changedPaths.some(path => !safeRepoPath(path))) throw new Error("Changed paths must be safe repository-relative paths.");
   const affectedCapabilityIds = uniqueSorted(input.affectedCapabilityIds, "Affected capability IDs");
@@ -112,7 +115,8 @@ export function determineTestLifecycle(input: TestLifecycleDeterminationInput): 
   if (affectedCapabilityIds.length === 0) unknowns.push("Affected capability ownership is unknown.");
   if (matchingObligations.length === 0) unknowns.push("No current RegressionObligation was supplied for the affected capabilities.");
   if (priorLifecycleStatuses.length > 0) evidence.push(`Prior lifecycle assessments supplied: ${priorLifecycleStatuses.join(", ")}.`);
-  return { workItemId: input.workItemId, implementerRevision: input.implementerRevision, changedPaths,
+  return { workItemId: input.workItemId, implementationRecordId: input.implementationRecordId,
+    ...(input.implementerRevision ? { implementerRevision: input.implementerRevision } : {}), changedPaths,
     affectedCapabilityIds, consideredProof: matchingProof, consideredObligations: matchingObligations,
     priorLifecycleStatuses, recommendation, evidence, unknowns };
 }

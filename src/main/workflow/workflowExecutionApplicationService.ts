@@ -170,7 +170,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       if (input.sourceMutation === "required" && projection.source.state !== "ready") throw Error("Source-backed execution requires a prepared exact Workflow checkout.");
       const item = projection.items.find(candidate => candidate.record.id === workItemId);
       if (!item) throw Error("Exact Work Item is not part of the selected Workflow plan.");
-      const allowedStates = allowValidationPending ? ["validation_pending", "implemented"] : ["planned", "ready"];
+      const allowedStates = allowValidationPending ? ["validation_pending"] : ["planned", "ready"];
       if (!item.eligibility.eligible || !allowedStates.includes(item.record.body.workState)) throw Error("Work Item is not eligible for this execution contract.");
       if (allowValidationPending) {
         const attempts = await createProjectStateService(store, operator).getImplementationAttempts(projectId, workItemId);
@@ -206,7 +206,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
 
   async function createSourceNeutralWorkItemExecutionContract(projectRoot: string, workflowId: EntityId, workItemId: EntityId, input: {
     affectedPaths: string[]; proofIntent: string[];
-  }): Promise<WorkItemExecutionContract> {
+  }, allowValidationPending = false): Promise<WorkItemExecutionContract> {
     return withCurrentProject(projectRoot, async (store, projectId) => {
       const plan = await exactPlan(store, projectId, workflowId);
       const projection = await project(store, projectId, plan);
@@ -215,7 +215,12 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       for (const value of [...input.affectedPaths, ...input.proofIntent]) if (typeof value !== "string" || !value.trim() || value.length > 512) throw Error("Execution contract details must be bounded text.");
       const item = projection.items.find(candidate => candidate.record.id === workItemId);
       if (!item) throw Error("Exact Work Item is not part of the selected Workflow plan.");
-      if (!item.eligibility.eligible || !["planned", "ready"].includes(item.record.body.workState)) throw Error("Work Item is not eligible for an implementation contract.");
+      if ((!allowValidationPending && (!item.eligibility.eligible || !["planned", "ready"].includes(item.record.body.workState))) ||
+        (allowValidationPending && item.record.body.workState !== "validation_pending")) throw Error("Work Item is not eligible for this source-neutral execution contract.");
+      if (allowValidationPending) {
+        const attempts = await createProjectStateService(store, operator).getImplementationAttempts(projectId, workItemId);
+        if (attempts.at(-1)?.body.outcome !== "implemented") throw Error("Tester contract requires the latest successful implementation attempt.");
+      }
       if (plan.solutions.length !== 1) throw Error("Accepted BoundedSolution is missing or ambiguous.");
       const phase = item.phaseId ? plan.phases.find(candidate => candidate.phaseId === item.phaseId)?.record ?? null : null;
       const criteria = plan.criteria.filter(candidate => candidate.ownerId === workItemId).map(candidate => candidate.record).sort((a, b) => a.id.localeCompare(b.id));

@@ -1248,17 +1248,23 @@ export interface CodexPendingMcpElicitationModel {
 export interface CodexUserInputResponse {
   requestId: string;
   answers: Record<string, string[]>;
+  workflowId?: string;
+  workItemId?: string;
 }
 
 export interface CodexMcpElicitationResponse {
   requestId: string;
   action: "accept" | "decline" | "cancel";
   content: unknown | null;
+  workflowId?: string;
+  workItemId?: string;
 }
 
 export interface CodexApprovalResponse {
   requestId: string;
   decision: "approve" | "deny";
+  workflowId?: string;
+  workItemId?: string;
 }
 
 export interface CodexImplementerExecutionModel {
@@ -1271,6 +1277,11 @@ export interface CodexImplementerExecutionModel {
   retryBlocker: string | null;
   integrationMode: CodexImplementerIntegrationMode;
   phaseId: string | null;
+  workflowId: string | null;
+  workItemId: string | null;
+  workItemVersion: number | null;
+  executionContractDigest: string | null;
+  sourceMode: "source-backed" | "source-neutral" | null;
   workCardId: string | null;
   workCardTitle: string | null;
   projectRoot: string | null;
@@ -1303,6 +1314,7 @@ export interface CodexTesterExecutionModel {
   workflowId: string;
   workItemId: string;
   implementationRecordId: string;
+  sourceMode: "source-backed" | "source-neutral" | null;
   projectId: string | null;
   testerResultId: string | null;
   candidateRevisionId: string | null;
@@ -1612,14 +1624,14 @@ export interface ChampCityApi {
   startCodexImplementerExecution: (selection: CodexModelSelection) => Promise<CodexImplementerExecutionModel>;
   startWorkflowWorkItemCodexExecution: (workflowId: string, workItemId: string, selection: CodexModelSelection) => Promise<CodexImplementerExecutionModel>;
   startWorkflowWorkItemTester: (workflowId: string, workItemId: string, implementationRecordId: string, selection: CodexModelSelection) => Promise<CodexTesterExecutionModel>;
-  cancelWorkflowWorkItemTester: () => Promise<CodexTesterExecutionModel>;
-  respondToWorkflowWorkItemTesterApproval: (requestId: string, decision: "approve" | "deny") => Promise<CodexTesterExecutionModel>;
-  respondToWorkflowWorkItemTesterInput: (requestId: string, answers: Record<string, string[]>) => Promise<CodexTesterExecutionModel>;
+  cancelWorkflowWorkItemTester: (workflowId: string, workItemId: string, implementationRecordId: string) => Promise<CodexTesterExecutionModel>;
+  respondToWorkflowWorkItemTesterApproval: (workflowId: string, workItemId: string, implementationRecordId: string, requestId: string, decision: "approve" | "deny") => Promise<CodexTesterExecutionModel>;
+  respondToWorkflowWorkItemTesterInput: (workflowId: string, workItemId: string, implementationRecordId: string, requestId: string, answers: Record<string, string[]>) => Promise<CodexTesterExecutionModel>;
   startCodexEnvironmentResolution: () => Promise<CodexImplementerExecutionModel>;
   respondToCodexApproval: (response: CodexApprovalResponse) => Promise<CodexImplementerExecutionModel>;
   respondToCodexUserInput: (response: CodexUserInputResponse) => Promise<CodexImplementerExecutionModel>;
   respondToCodexMcpElicitation: (response: CodexMcpElicitationResponse) => Promise<CodexImplementerExecutionModel>;
-  cancelCodexImplementerExecution: () => Promise<CodexImplementerExecutionModel>;
+  cancelCodexImplementerExecution: (identity?: { workflowId: string; workItemId: string }) => Promise<CodexImplementerExecutionModel>;
   generateCurrentHandoff: () => Promise<RuntimeActionResult>;
   getWorkCardMapProjection: (
     phaseId: string,

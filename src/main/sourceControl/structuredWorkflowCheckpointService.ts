@@ -119,7 +119,7 @@ export async function checkpointStructuredTesterResult(root: string, projectId: 
   const { selected, store } = open(root, projectId);
   try {
     const result = await store.getEntity(projectId, testerResultId);
-    if (result?.entityType !== "TesterResult" || result.body.checkpointState !== "pending" || result.body.candidateRevisionId || result.body.sourceCheckpointId || !result.body.permanentTestPaths.length)
+    if (result?.entityType !== "TesterResult" || result.body.sourceMode !== "source-backed" || result.body.checkpointState !== "pending" || result.body.candidateRevisionId || result.body.sourceCheckpointId || !result.body.implementerRevisionId || !result.body.permanentTestPaths.length)
       throw Error("A pending TesterResult with changed permanent test paths is required.");
     await assertWorkOwner(store, projectId, result.body.workflowId, result.body.workItemId);
     const binding = await bindingForWorkflow(store, projectId, result.body.workflowId);

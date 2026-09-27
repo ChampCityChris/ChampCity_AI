@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { ProjectStateRecord } from "../../shared/projectState/domainContracts";
+import { isTesterOwnedPath } from "../../shared/projectState/testerOwnedPathPolicy";
 import { createProjectStateService } from "../../shared/projectState/projectStateService";
 import type { CheckpointResult, DispositionCheckpointRequest, ImplementationCheckpointRequest, TesterCheckpointRequest } from "../../shared/sourceLifecycleContracts";
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
@@ -77,8 +78,7 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
       !Array.isArray(request.attributablePaths) || request.attributablePaths.length > 256 ||
       request.attributablePaths.some(item => !safePath(item)) ||
       (kind !== "disposition" && request.attributablePaths.length === 0) ||
-      (kind === "tester" && request.attributablePaths.some(item =>
-        !/^test\/(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+\.(?:test|spec)\.(?:c|m)?(?:js|ts)$/.test(item)))) return blocked("Checkpoint request is invalid.");
+      (kind === "tester" && request.attributablePaths.some(item => !isTesterOwnedPath(item)))) return blocked("Checkpoint request is invalid.");
     const paths = [...new Set(request.attributablePaths)].sort();
     if (paths.length !== request.attributablePaths.length) return blocked("Checkpoint paths must be unique.");
     const store = createSQLiteProjectStateStore(path.join(selected, ".champcity", "project-state.sqlite"));

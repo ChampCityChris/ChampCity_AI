@@ -1230,9 +1230,16 @@
       "capabilityId": "codex-implementation-runtime",
       "description": "Managed Codex app-server initialization, transport, execution, review, and renderer presentation.",
       "sourcePatterns": [
+        ".gitignore",
+        "README.md",
+        "docs/implementation-bundles/workflow-runtime-rebaseline/WRB04/**",
+        "src/main/main.ts",
         "src/main/workCardBuilding/**",
+        "src/main/workCardBuilding/workflowExecutionLease.ts",
+        "src/preload/index.ts",
         "src/renderer/app/WorkCardBuildingReviewWorkspace.tsx",
         "src/shared/workItemCheckpointContracts.ts",
+        "src/shared/workspaceContracts.ts",
         "test/support/windows-test.cjs"
       ],
       "dependsOn": [
@@ -1423,6 +1430,10 @@
         {
           "behaviorId": "deterministic-report-resolver-preserves-revisionary-style-work-card-target-convention",
           "description": "deterministic report resolver preserves Revisionary-style Work Card target convention"
+        },
+        {
+          "behaviorId": "exact-implementer-tester-runtime-uses-checkout-scoped-leases-and-source-neutral-lifecycle",
+          "description": "Exact Implementer and Tester contexts route by Workflow and WorkItem identity; shared leases isolate mutation by checkout, and source-neutral attempts reach Tester without fabricated source records."
         },
         {
           "behaviorId": "execution-stays-blocked-until-startup-selects-its-final-runtime",
@@ -3177,6 +3188,7 @@
       "sourcePatterns": [
         "src/main/projectState/currentProjectRegistrationService.ts",
         "src/main/workIntake/structuredWorkIntakeService.ts",
+        "src/shared/projectState/**",
         "src/shared/projectState/projectStateService.ts",
         "test/project-state/execution-completion.test.cjs"
       ],
@@ -3999,6 +4011,7 @@
         "src/main/planExecution/routedDevelopmentExecutionService.ts",
         "src/main/sourceControl/semanticCheckpointService.ts",
         "src/main/sourceControl/structuredWorkflowCheckpointService.ts",
+        "src/main/validation/testLifecycleDeterminationService.ts",
         "src/main/workCardPlanning/workItemDecompositionService.ts",
         "src/main/workIntake/workRouteDecisionService.ts",
         "src/main/workPlanning/workIssueRoutingService.ts",
@@ -4008,6 +4021,7 @@
         "src/shared/workItemDecompositionContracts.ts",
         "src/shared/workPlanningContracts.ts",
         "src/shared/workRouteDecisionContracts.ts",
+        "test/source-control/semantic-checkpoint-service.test.cjs",
         "test/support/work-intake-fixtures.cjs"
       ],
       "dependsOn": [
@@ -4033,6 +4047,10 @@
         {
           "behaviorId": "structured-workflow-dispositions-share-source-line",
           "description": "typed route, implementation and review mutations checkpoint one Work Intake SourceLine"
+        },
+        {
+          "behaviorId": "tester-checkpoint-commits-exact-bounded-test-support-and-catalog-path-set",
+          "description": "Tester checkpoint commits the exact attributed set across permanent tests, fixtures, support data, and the one allowed capability catalog."
         },
         {
           "behaviorId": "tester-checkpoint-commits-exact-test-paths-and-advances-candidate-revision",
@@ -4750,6 +4768,7 @@
         "src/main/featurePlanning/**",
         "src/main/issuePlanning/**",
         "src/main/workflow/**",
+        "src/main/workflow/workflowExecutionApplicationService.ts",
         "src/renderer/app/FeaturePlanningWorkspace.tsx",
         "src/renderer/app/IssueWorkflowPlanningWorkspace.tsx",
         "src/renderer/app/planningDraftAction.ts",
@@ -18829,6 +18848,12 @@
         },
         {
           "capabilityId": "codex-implementation-runtime",
+          "behaviorId": "exact-implementer-tester-runtime-uses-checkout-scoped-leases-and-source-neutral-lifecycle",
+          "proofLocator": "Exact source-backed and source-neutral WorkItems use the bounded Tester lifecycle; exact lease behavior checks same-checkout exclusion, independent checkout/worker concurrency, release, and stale-owner recovery.",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "codex-implementation-runtime",
           "behaviorId": "issue-fix-card-codex-status-isolates-running-and-terminal-sessions-by-exact-context",
           "proofLocator": "Issue Fix Card Codex status isolates running and terminal sessions by exact context",
           "proofRole": "primary"
@@ -18867,6 +18892,12 @@
           "capabilityId": "codex-implementation-runtime",
           "behaviorId": "workflow-renderer-facing-preload-main-start-reaches-the-real-transport-with-exact-model-and-effo",
           "proofLocator": "${workflow} renderer-facing preload/main start reaches the real transport with exact model and effort",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "semantic-source-checkpoints",
+          "behaviorId": "tester-checkpoint-commits-exact-bounded-test-support-and-catalog-path-set",
+          "proofLocator": "Exact Tester lifecycle test attributes and commits the same complete changed-path set across test, fixture, and validation catalog paths.",
           "proofRole": "primary"
         }
       ]

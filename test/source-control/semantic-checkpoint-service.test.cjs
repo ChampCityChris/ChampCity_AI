@@ -29,7 +29,7 @@ async function fixture(context) {
   const baseline = await state.createWorkflowSourceBaseline(project.id, workflow.id, { repositoryId, integrationTargetSourceLineId: "dev", baseRevisionId: head });
   const phase = await state.createRecord(project.id, "Phase", { title: "Phase", objective: "Deliver", phaseState: "active", sequence: 1 });
   await state.createRelationship(project.id, phase.id, "part_of", workflow.id);
-  const work = await state.createRecord(project.id, "WorkItem", { workItemKind: "feature", title: "Feature", objective: "Implement", workState: "implemented" });
+  const work = await state.createRecord(project.id, "WorkItem", { workItemKind: "feature", title: "Feature", objective: "Implement", workState: "validation_pending" });
   await state.createRelationship(project.id, work.id, "part_of", phase.id);
   const implementation = await state.recordImplementation(project.id, work.id, { summary: "Implemented", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
   const decision = await state.recordDecision(project.id, work.id, { decisionType: "accept", outcome: "accepted", rationale: "Reviewed", decisionScope: "work-item" });
@@ -106,10 +106,14 @@ test("disposition creates an evidenced empty revision on the owning Workflow che
 
 test("Tester checkpoint commits only the pending TesterResult test paths and advances its candidate revision", async context => {
   const f = await fixture(context);
+  fs.writeFileSync(path.join(f.checkout, "feature.txt"), "implementation proof anchor\n");
+  const implementationCheckpoint = await createImplementationCheckpoint(f.root, f.projectId, implementation(f));
+  assert.equal(implementationCheckpoint.state, "committed", JSON.stringify(implementationCheckpoint));
+  const implementationRevision = implementationCheckpoint.revision.revisionId;
   const store = createSQLiteProjectStateStore(path.join(f.root, ".champcity", "project-state.sqlite"));
   const tester = createProjectStateService(store, { principalId: "tester-agent", principalType: "agent", role: "Tester" });
   const result = await tester.createTesterResult(f.projectId, f.workflowId, f.workId, f.implementationId, {
-    implementerRevisionId: f.head, recommendation: "permanent-proof-change-warranted", affectedCapabilityIds: ["semantic-source-checkpoints"],
+    sourceMode: "source-backed", implementerRevisionId: implementationRevision, recommendation: "permanent-proof-change-warranted", affectedCapabilityIds: ["semantic-source-checkpoints"],
     permanentTestPaths: ["test/source-control/tester-checkpoint.test.cjs"], determinationEvidence: ["No existing proof covers the new checkpoint boundary."],
     unknowns: [], rationale: "Add permanent checkpoint regression proof.",
   });
@@ -118,12 +122,12 @@ test("Tester checkpoint commits only the pending TesterResult test paths and adv
   fs.mkdirSync(path.dirname(path.join(f.checkout, testPath)), { recursive: true });
   fs.writeFileSync(path.join(f.checkout, testPath), "test proof\n");
   const request = { boundaryId: `tester-result:${result.id}`, workflowId: f.workflowId, targetEntityId: result.id,
-    sourceLineId: f.line, expectedRevisionId: f.head, repositoryCheckoutId: f.checkoutId, attributablePaths: [testPath] };
+    sourceLineId: f.line, expectedRevisionId: implementationRevision, repositoryCheckoutId: f.checkoutId, attributablePaths: [testPath] };
   assert.equal((await createTesterCheckpoint(f.root, f.projectId, { ...request, attributablePaths: ["src/main/production.ts"] })).state, "blocked");
   const extraPath = "test/source-control/unattributed.test.cjs";
   fs.writeFileSync(path.join(f.checkout, extraPath), "unattributed\n");
   assert.notEqual((await createTesterCheckpoint(f.root, f.projectId, request)).state, "committed");
-  assert.equal(git(f.checkout, "rev-parse", "HEAD"), f.head);
+  assert.equal(git(f.checkout, "rev-parse", "HEAD"), implementationRevision);
   fs.rmSync(path.join(f.checkout, extraPath));
   const completed = await checkpointStructuredTesterResult(f.root, f.projectId, result.id);
   const checkpoint = completed.checkpoint;
@@ -138,7 +142,7 @@ test("Tester checkpoint commits only the pending TesterResult test paths and adv
     assert.equal(savedResult.body.candidateRevisionId, checkpoint.revision.revisionId);
     assert.equal(savedResult.body.sourceCheckpointId, checkpoint.checkpointId);
     assert.equal(savedCheckpoint.body.checkpointKind, "tester");
-    assert.equal(savedCheckpoint.body.expectedRevisionId, f.head);
+    assert.equal(savedCheckpoint.body.expectedRevisionId, implementationRevision);
     assert.equal(savedCheckpoint.body.resultingRevisionId, checkpoint.revision.revisionId);
     assert.equal(binding.body.currentRevisionId, checkpoint.revision.revisionId);
   } finally { verify.close(); }

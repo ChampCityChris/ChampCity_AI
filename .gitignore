@@ -21,6 +21,7 @@ pnpm-debug.log*
 
 
 # Local ChampCity governance/history state and bulky handoff packages
+.champcity/
 /archive/
 /planning/
 /issues/

@@ -55,6 +55,7 @@ import {
   type WindowsEnvironmentRefreshResult,
 } from "../developmentEnvironment/windowsEnvironmentRefresh";
 import { createWorkflowExecutionApplicationService } from "../workflow/workflowExecutionApplicationService";
+import { acquireWorkflowExecutionLease, workflowExecutionLeaseKey } from "./workflowExecutionLease";
 import type { WorkItemExecutionContract } from "../../shared/workflowApplicationContracts";
 import { createWorkflowSourceMaterializationService } from "../sourceControl/workflowSourceMaterializationService";
 import { createImplementationCheckpoint } from "../sourceControl/semanticCheckpointService";
@@ -92,7 +93,17 @@ export interface CodexAppServerExecutionAdapter {
 
 export type CodexAppServerExecutionAdapterFactory = CodexAppServerAdapterFactory;
 
-interface WorkCardExecutionContext {
+interface WorkflowWorkItemExecutionData {
+  workflowId: string;
+  workItemId: string;
+  contract: WorkItemExecutionContract;
+  executionRef?: string;
+  workerDirectory?: string;
+  evidencePacketPath?: string;
+  resultOutcome?: "implemented" | "partial" | "blocked" | "failed" | "abandoned";
+  sourceBacked?: { checkoutRoot: string; repositoryCheckoutId: string; sourceLineId: string; expectedRevisionId: string; attributablePaths: string[]; attributionFailure?: string };
+}
+interface ExecutionContextFields {
   ownerKind?: "development" | "issue" | "routed-development" | "workflow-work-item";
   intakeId?: string;
   planId?: string;
@@ -102,30 +113,52 @@ interface WorkCardExecutionContext {
   rootFixCardId?: string;
   currentImplementationId?: string;
   repairId?: string;
+  workflowId?: string;
+  workItemId?: string;
+  workItemVersion?: number;
+  executionContract?: WorkItemExecutionContract;
+  executionContractDigest?: string;
+  sourceMode?: "source-backed" | "source-neutral";
   phaseId: string | null;
   workCardId: string;
   workCardTitle: string;
   projectRoot: string;
-  formalWorkCardPath: string;
-  formalWorkCardRevision: number;
-  formalWorkCardSha256: string;
-  implementationContractType: "formal-work-card" | "repair-work-card" | "fix-card";
-  implementationContractLabel: string;
-  implementerReportPath: string;
-  implementerReportRevision: number;
-  implementerReportSha256: string;
+  formalWorkCardPath?: string;
+  formalWorkCardRevision?: number;
+  formalWorkCardSha256?: string;
+  implementationContractType?: "formal-work-card" | "repair-work-card" | "fix-card";
+  implementationContractLabel?: string;
+  implementerReportPath?: string;
+  implementerReportRevision?: number;
+  implementerReportSha256?: string;
   developmentEnvironmentPreflight: DevelopmentEnvironmentPreflightResult | null;
-  workflowWorkItem?: {
-    workflowId: string;
-    workItemId: string;
-    contract: WorkItemExecutionContract;
-    executionRef?: string;
-    workerDirectory?: string;
-    evidencePacketPath?: string;
-    resultOutcome?: "implemented" | "partial" | "blocked" | "failed" | "abandoned";
-    sourceBacked?: { checkoutRoot: string; repositoryCheckoutId: string; sourceLineId: string; expectedRevisionId: string; attributablePaths: string[]; attributionFailure?: string };
-  };
+  workflowWorkItem?: WorkflowWorkItemExecutionData;
 }
+interface LegacyWorkCardExecutionContext extends ExecutionContextFields {
+  ownerKind?: "development" | "issue" | "routed-development";
+  formalWorkCardPath: string; formalWorkCardRevision: number; formalWorkCardSha256: string;
+  implementationContractType: "formal-work-card" | "repair-work-card" | "fix-card"; implementationContractLabel: string;
+  implementerReportPath: string; implementerReportRevision: number; implementerReportSha256: string;
+  workflowWorkItem?: never;
+}
+interface WorkflowWorkItemExecutionContext extends ExecutionContextFields {
+  ownerKind: "workflow-work-item";
+  currentProjectRoot: string;
+  executionRoot: string;
+  projectId: string;
+  workflowId: string;
+  workItemId: string;
+  workItemVersion: number;
+  executionContract: WorkItemExecutionContract;
+  executionContractDigest: string;
+  sourceMode: "source-backed" | "source-neutral";
+  attemptEvidenceIdentity?: string;
+  formalWorkCardPath?: never; formalWorkCardRevision?: never; formalWorkCardSha256?: never;
+  implementationContractType?: never; implementationContractLabel?: never;
+  implementerReportPath?: never; implementerReportRevision?: never; implementerReportSha256?: never;
+  workflowWorkItem: WorkflowWorkItemExecutionData;
+}
+type WorkCardExecutionContext = LegacyWorkCardExecutionContext | WorkflowWorkItemExecutionContext;
 /** The Integration Repair owner carries source scope instead of a Work Card and Implementer Report. */
 export type CodexExecutionContext = WorkCardExecutionContext | IntegrationRepairExecutionContext;
 type ExecutionContext = WorkCardExecutionContext;
@@ -140,7 +173,7 @@ export type CodexExecutionSelector = IssueExecutionSelector | { ownerKind: "work
   | { ownerKind: "routed-development"; intakeId: string; workItemId: string }
   | { ownerKind: "integration-repair"; intakeId: string; candidateId: string; repairId: string };
 
-interface SessionRecord extends ExecutionContext {
+interface SessionFields {
   checkpointCapture?: WorkItemCheckpointCapture;
   checkpoint?: WorkItemCheckpointResult;
   selection?: CodexModelSelection;
@@ -167,6 +200,7 @@ interface SessionRecord extends ExecutionContext {
   executionPromise: Promise<void> | null;
   cancellationRequested: boolean;
 }
+type SessionRecord = ExecutionContext & SessionFields;
 
 type TerminalCodexImplementerExecutionState = Exclude<
   CodexImplementerExecutionState,
@@ -187,6 +221,7 @@ interface FinalReportEvidence {
 
 export class CodexImplementerExecutionService {
   private readonly sessionsByWorkspaceRoot = new Map<string, SessionRecord>();
+  private readonly exactSessionsByOwner = new Map<string, SessionRecord>();
   private readonly preflightByWorkspaceRoot = new Map<string, DevelopmentEnvironmentPreflightResult>();
   private shutdownPromise: Promise<void> | null = null;
   private sourceCheckoutRegistration: ((projectRoot: string, projectId: string) => Promise<import("../sourceControl/workflowSourceMaterializationService").RepositoryCheckoutRegistrationPort>) | null = null;
@@ -286,20 +321,23 @@ export class CodexImplementerExecutionService {
   }
 
   private async startWithSelection(workspaceRoot: string, selector: CodexExecutionSelector | undefined, selection: CodexModelSelection | undefined, environment: boolean): Promise<CodexImplementerExecutionModel> {
-    const active = this.sessionsByWorkspaceRoot.get(workspaceKey(workspaceRoot));
+    const exact = selector?.ownerKind === "workflow-work-item";
+    if (exact && environment) return { ...await this.getStatus(workspaceRoot, selector), failureReason: "Environment resolution is not available in exact Workflow WorkItem execution." };
+    const sessionKey = exact ? exactExecutionOwnerKey(workspaceRoot, selector.workflowId, selector.workItemId) : workspaceKey(workspaceRoot);
+    const active = (exact ? this.exactSessionsByOwner : this.sessionsByWorkspaceRoot).get(sessionKey);
     if (active?.state === "running") {
       const context = await this.resolvePreflightContext(workspaceRoot, selector);
       if (!(context instanceof Error) && !sameExecutionContext(active, context)) return busyModelForDifferentContext(context, active);
       return { ...await this.getStatus(workspaceRoot, selector), failureReason: "Codex execution is already running for this workspace.", canRunAgain: false, retryBlocker: "Codex execution is already running for this workspace." };
     }
     let lease;
-    try { lease = this.runtimeManager.acquire(selection); }
+    try { lease = exact ? this.runtimeManager.acquireConcurrentExact(selection) : this.runtimeManager.acquire(selection); }
     catch (error) { return unavailableFromPreflight(error instanceof Error ? error : new Error(String(error))); }
     try {
       const result = environment
         ? await this.startEnvironmentSelected(workspaceRoot, selector, lease.selection)
         : await this.startSelected(workspaceRoot, selector, lease.selection);
-      const session = this.sessionsByWorkspaceRoot.get(workspaceKey(workspaceRoot));
+      const session = (exact ? this.exactSessionsByOwner : this.sessionsByWorkspaceRoot).get(sessionKey);
       if (session?.state === "running" && session.executionPromise) {
         void session.executionPromise.then(lease.release, lease.release);
       } else lease.release();
@@ -353,7 +391,7 @@ export class CodexImplementerExecutionService {
       this.preflightByWorkspaceRoot.set(preflightCacheKey, provisioningPreflight);
       developmentEnvironmentPreflight = await this.preflightService.runPreflight({
         workspaceRoot: context.projectRoot,
-        formalWorkCardPath: context.formalWorkCardPath,
+        formalWorkCardPath: context.formalWorkCardPath!,
       });
       this.preflightByWorkspaceRoot.set(preflightCacheKey, developmentEnvironmentPreflight);
     } catch (error) {
@@ -439,7 +477,7 @@ export class CodexImplementerExecutionService {
       cancellationRequested: false,
     };
     this.sessionsByWorkspaceRoot.set(key, session);
-    try { session.checkpointCapture = await captureWorkItemCheckpoint(session.projectRoot, session); }
+    try { if (session.ownerKind !== "workflow-work-item") session.checkpointCapture = await captureWorkItemCheckpoint(session.projectRoot, session); }
     catch { session.checkpoint = { status: "blocked", message: "Source checkpoint capture failed; implementation may continue, but Git state will be preserved for inspection.", remote: "not-requested", receipts: [] }; }
     if (session.ownerKind === "routed-development" && (!session.checkpointCapture || session.checkpointCapture.contractSha256 !== session.formalWorkCardSha256)) {
       session.state = "failed"; session.completedAt = this.now(); session.failureReason = "Current routed source checkpoint context could not be captured; refresh the Work Item before implementation.";
@@ -513,9 +551,10 @@ export class CodexImplementerExecutionService {
         throw Error("Exact Codex WorkItem source contract is inconsistent with its Workflow source state.");
       return {
         ownerKind: "workflow-work-item", phaseId: contract.phase?.id ?? null, workCardId: contract.workItemId, workCardTitle: contract.objective,
-        projectRoot, formalWorkCardPath: "", formalWorkCardRevision: 0, formalWorkCardSha256: contract.digest,
-        implementationContractType: "formal-work-card", implementationContractLabel: "Exact Workflow WorkItem execution contract",
-        implementerReportPath: "", implementerReportRevision: 0, implementerReportSha256: contract.digest,
+        projectRoot, currentProjectRoot: projectRoot, executionRoot: sourceBacked?.checkoutRoot ?? projectRoot,
+        projectId: contract.projectId, workflowId: contract.workflowId, workItemId: contract.workItemId,
+        workItemVersion: contract.workItemVersion, executionContract: contract, executionContractDigest: contract.digest,
+        sourceMode: sourceBacked ? "source-backed" : "source-neutral",
         developmentEnvironmentPreflight: null,
         workflowWorkItem: { workflowId: contract.workflowId, workItemId: contract.workItemId, contract, ...(sourceBacked ? { sourceBacked } : {}) },
       };
@@ -523,20 +562,19 @@ export class CodexImplementerExecutionService {
   }
 
   private async getWorkflowWorkItemStatus(workspaceRoot: string, selector: Extract<CodexExecutionSelector, { ownerKind: "workflow-work-item" }>): Promise<CodexImplementerExecutionModel> {
-    const active = this.sessionsByWorkspaceRoot.get(workspaceKey(workspaceRoot));
+    const active = this.exactSessionsByOwner.get(exactExecutionOwnerKey(workspaceRoot, selector.workflowId, selector.workItemId));
     if (active?.workflowWorkItem?.workflowId === selector.workflowId && active.workflowWorkItem.workItemId === selector.workItemId) {
       const canRunAgain = active.state === "failed" || active.state === "cancelled" || active.workflowWorkItem.resultOutcome === "partial" || active.workflowWorkItem.resultOutcome === "failed";
       return modelFromSession(active, this.now(), { canRunAgain, retryBlocker: canRunAgain ? null : "Refresh the exact WorkItem state before another implementation attempt." });
     }
     const context = await this.resolveWorkflowWorkItemContext(workspaceRoot, selector);
     if (context instanceof Error) return unavailableFromPreflight(context);
-    if (active?.state === "running") return busyModelForDifferentContext(context, active);
     return readyModel(context);
   }
 
   private async startWorkflowWorkItemSelected(workspaceRoot: string, selector: Extract<CodexExecutionSelector, { ownerKind: "workflow-work-item" }>, selection: CodexModelSelection): Promise<CodexImplementerExecutionModel> {
-    const key = workspaceKey(workspaceRoot);
-    const active = this.sessionsByWorkspaceRoot.get(key);
+    const key = exactExecutionOwnerKey(workspaceRoot, selector.workflowId, selector.workItemId);
+    const active = this.exactSessionsByOwner.get(key);
     if (active?.state === "running") {
       if (active.workflowWorkItem?.workflowId === selector.workflowId && active.workflowWorkItem.workItemId === selector.workItemId) {
         return modelFromSession(active, this.now(), { canRunAgain: false, retryBlocker: "Codex execution is already running for this WorkItem." });
@@ -550,16 +588,23 @@ export class CodexImplementerExecutionService {
     const executionRef = crypto.randomUUID();
     const runtimeDirectory = path.join(context.projectRoot, ".champcity", "runtime");
     const workerDirectory = exact.sourceBacked?.checkoutRoot ?? path.join(runtimeDirectory, "work-item-workers", executionRef);
+    const leaseResource = workflowExecutionLeaseKey(exact.sourceBacked ? "source-backed" : "source-neutral", exact.sourceBacked?.checkoutRoot ?? workerDirectory);
+    const executionLease = acquireWorkflowExecutionLease(leaseResource, `implementer:${exact.workflowId}:${exact.workItemId}`, this.now());
+    if (!executionLease) return unavailableModelFromContext(context, "Another source-mutating role owns this exact Workflow checkout.");
     const evidenceDirectory = path.join(runtimeDirectory, "work-item-attempts");
     const evidencePacketPath = path.join(evidenceDirectory, `${executionRef}.json`);
     const startedAt = this.now();
     const kernel = this.workflowExecutionServiceFactory();
     try {
       await kernel.beginWorkItemAttempt(context.projectRoot, exact.workflowId, exact.workItemId, exact.contract.workItemVersion, executionRef);
-    } catch (error) { return unavailableModelFromContext(context, error instanceof Error ? error.message : String(error)); }
+    } catch (error) { executionLease.release(); return unavailableModelFromContext(context, error instanceof Error ? error.message : String(error)); }
     exact.executionRef = executionRef;
     exact.workerDirectory = workerDirectory;
     exact.evidencePacketPath = evidencePacketPath;
+    if (context.ownerKind === "workflow-work-item") {
+      context.executionRoot = workerDirectory;
+      context.attemptEvidenceIdentity = executionRef;
+    }
     try {
       ensureRuntimeDirectory(context.projectRoot, runtimeDirectory, exact.sourceBacked ? undefined : workerDirectory);
       let appServer: CodexAppServerExecutionAdapter;
@@ -567,6 +612,7 @@ export class CodexImplementerExecutionService {
       catch (error) {
         const message = messageForCodexFailure(error);
         await this.persistAndFinishWorkflowAttempt(context, selection, startedAt, { summary: "Codex App Server could not start.", deviations: [], blockers: [message], residualRisks: [], outcome: "failed" });
+        executionLease.release();
         return unavailableModelFromContext(context, message);
       }
       const executionPolicy = this.policyResolver({ executionKind: "workflow-work-item-implementation", workspaceRoot: workerDirectory });
@@ -580,13 +626,16 @@ export class CodexImplementerExecutionService {
           ? { status: "blocked", message: "Source-backed checkpoint is pending validated completion.", remote: "not-requested", receipts: [] }
           : { status: "not-required", message: "Source-neutral WorkItem execution does not create a SourceCheckpoint.", remote: "not-requested", receipts: [] },
       };
-      this.sessionsByWorkspaceRoot.set(key, session);
+      this.exactSessionsByOwner.set(key, session);
       session.executionPromise = this.executeWithAppServer(session, appServer);
+      const renewLease = setInterval(executionLease.renew, 60_000); renewLease.unref?.();
+      void session.executionPromise.finally(() => { clearInterval(renewLease); executionLease.release(); });
       void session.executionPromise;
       return modelFromSession(session, this.now(), { canRunAgain: false, retryBlocker: "Codex execution is already running for this WorkItem." });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await this.persistAndFinishWorkflowAttempt(context, selection, startedAt, { summary: "Source-neutral Codex setup failed.", deviations: [], blockers: [message], residualRisks: [], outcome: "failed" }).catch(() => undefined);
+      executionLease.release();
       return unavailableModelFromContext(context, message);
     }
   }
@@ -636,7 +685,7 @@ export class CodexImplementerExecutionService {
     if (!preflight || preflight.state !== "resolution-required") {
       preflight = await this.preflightService.runPreflight({
         workspaceRoot: context.projectRoot,
-        formalWorkCardPath: context.formalWorkCardPath,
+        formalWorkCardPath: context.formalWorkCardPath!,
       });
       this.preflightByWorkspaceRoot.set(preflightCacheKey, preflight);
     }
@@ -702,11 +751,13 @@ export class CodexImplementerExecutionService {
     workspaceRoot: string,
     requestId: string,
     answers: Record<string, string[]>,
+    selector?: CodexExecutionSelector,
   ): Promise<CodexImplementerExecutionModel> {
-    const key = workspaceKey(workspaceRoot);
-    const active = this.sessionsByWorkspaceRoot.get(key);
+    const exact = selector?.ownerKind === "workflow-work-item";
+    const key = exact ? exactExecutionOwnerKey(workspaceRoot, selector.workflowId, selector.workItemId) : workspaceKey(workspaceRoot);
+    const active = (exact ? this.exactSessionsByOwner : this.sessionsByWorkspaceRoot).get(key);
     if (!active || active.state !== "running") {
-      const status = await this.getStatus(workspaceRoot);
+      const status = await this.getStatus(workspaceRoot, selector);
       return {
         ...status,
         failureReason: "No Codex execution is waiting for user input in the selected workspace.",
@@ -742,11 +793,13 @@ export class CodexImplementerExecutionService {
     workspaceRoot: string,
     requestId: string,
     decision: CodexApprovalResponse["decision"],
+    selector?: CodexExecutionSelector,
   ): Promise<CodexImplementerExecutionModel> {
-    const key = workspaceKey(workspaceRoot);
-    const active = this.sessionsByWorkspaceRoot.get(key);
+    const exact = selector?.ownerKind === "workflow-work-item";
+    const key = exact ? exactExecutionOwnerKey(workspaceRoot, selector.workflowId, selector.workItemId) : workspaceKey(workspaceRoot);
+    const active = (exact ? this.exactSessionsByOwner : this.sessionsByWorkspaceRoot).get(key);
     if (!active || active.state !== "running") {
-      const status = await this.getStatus(workspaceRoot);
+      const status = await this.getStatus(workspaceRoot, selector);
       return {
         ...status,
         failureReason: "No Codex execution is waiting for approval in the selected workspace.",
@@ -782,11 +835,13 @@ export class CodexImplementerExecutionService {
     workspaceRoot: string,
     requestId: string,
     response: Omit<CodexMcpElicitationResponse, "requestId">,
+    selector?: CodexExecutionSelector,
   ): Promise<CodexImplementerExecutionModel> {
-    const key = workspaceKey(workspaceRoot);
-    const active = this.sessionsByWorkspaceRoot.get(key);
+    const exact = selector?.ownerKind === "workflow-work-item";
+    const key = exact ? exactExecutionOwnerKey(workspaceRoot, selector.workflowId, selector.workItemId) : workspaceKey(workspaceRoot);
+    const active = (exact ? this.exactSessionsByOwner : this.sessionsByWorkspaceRoot).get(key);
     if (!active || active.state !== "running") {
-      const status = await this.getStatus(workspaceRoot);
+      const status = await this.getStatus(workspaceRoot, selector);
       return {
         ...status,
         failureReason: "No Codex execution is waiting for MCP elicitation input in the selected workspace.",
@@ -818,11 +873,12 @@ export class CodexImplementerExecutionService {
     });
   }
 
-  async cancel(workspaceRoot: string): Promise<CodexImplementerExecutionModel> {
-    const key = workspaceKey(workspaceRoot);
-    const active = this.sessionsByWorkspaceRoot.get(key);
+  async cancel(workspaceRoot: string, selector?: CodexExecutionSelector): Promise<CodexImplementerExecutionModel> {
+    const exact = selector?.ownerKind === "workflow-work-item";
+    const key = exact ? exactExecutionOwnerKey(workspaceRoot, selector.workflowId, selector.workItemId) : workspaceKey(workspaceRoot);
+    const active = (exact ? this.exactSessionsByOwner : this.sessionsByWorkspaceRoot).get(key);
     if (!active || active.state !== "running") {
-      const status = await this.getStatus(workspaceRoot);
+      const status = await this.getStatus(workspaceRoot, selector);
       return {
         ...status,
         failureReason: "No Codex execution is running for the selected workspace.",
@@ -851,7 +907,7 @@ export class CodexImplementerExecutionService {
   }
 
   private async shutdownActiveExecutionsOnce(): Promise<void> {
-    const runningSessions = [...this.sessionsByWorkspaceRoot.values()]
+    const runningSessions = [...this.sessionsByWorkspaceRoot.values(), ...this.exactSessionsByOwner.values()]
       .filter((session) => session.state === "running");
     await Promise.all(runningSessions.map(async (session) => {
       session.cancellationRequested = true;
@@ -982,7 +1038,7 @@ export class CodexImplementerExecutionService {
           appendTail(session.eventTail, "environment-resolution.preflight.rerun requested");
           const rerun = await this.preflightService.runPreflight({
             workspaceRoot: session.projectRoot,
-            formalWorkCardPath: session.formalWorkCardPath,
+            formalWorkCardPath: session.formalWorkCardPath!,
           });
           this.preflightByWorkspaceRoot.set(preflightKey(session), rerun);
           session.developmentEnvironmentPreflight = rerun;
@@ -1498,6 +1554,11 @@ function readyModel(context: ExecutionContext): CodexImplementerExecutionModel {
     state: "ready",
     canRunAgain: true,
     phaseId: context.phaseId,
+    workflowId: exactWorkflowWorkItem ? context.workflowId ?? null : null,
+    workItemId: exactWorkflowWorkItem ? context.workItemId ?? null : null,
+    workItemVersion: exactWorkflowWorkItem ? context.workItemVersion ?? null : null,
+    executionContractDigest: exactWorkflowWorkItem ? context.executionContractDigest ?? null : null,
+    sourceMode: exactWorkflowWorkItem ? context.sourceMode ?? null : null,
     workCardId: context.workCardId,
     workCardTitle: context.workCardTitle,
     formalWorkCardPath: exactWorkflowWorkItem ? null : context.formalWorkCardPath,
@@ -1596,6 +1657,11 @@ function baseModel(projectRoot: string | null): CodexImplementerExecutionModel {
     retryBlocker: null,
     integrationMode: "app-server-stdio",
     phaseId: null,
+    workflowId: null,
+    workItemId: null,
+    workItemVersion: null,
+    executionContractDigest: null,
+    sourceMode: null,
     workCardId: null,
     workCardTitle: null,
     projectRoot,
@@ -1653,6 +1719,11 @@ function modelFromSession(
     retryBlocker: environmentReady ? retryReadiness.retryBlocker : null,
     integrationMode: "app-server-stdio",
     phaseId: session.phaseId,
+    workflowId: exactWorkflowWorkItem ? session.workflowId ?? null : null,
+    workItemId: exactWorkflowWorkItem ? session.workItemId ?? null : null,
+    workItemVersion: exactWorkflowWorkItem ? session.workItemVersion ?? null : null,
+    executionContractDigest: exactWorkflowWorkItem ? session.executionContractDigest ?? null : null,
+    sourceMode: exactWorkflowWorkItem ? session.sourceMode ?? null : null,
     workCardId: session.workCardId,
     workCardTitle: session.workCardTitle,
     projectRoot: session.projectRoot,
@@ -1689,6 +1760,13 @@ function isTerminalState(
 }
 
 function sameExecutionContext(left: ExecutionContext, right: ExecutionContext): boolean {
+  if (left.ownerKind === "workflow-work-item" || right.ownerKind === "workflow-work-item") {
+    return left.ownerKind === "workflow-work-item" && right.ownerKind === "workflow-work-item" &&
+      left.workflowId === right.workflowId && left.workItemId === right.workItemId &&
+      left.executionContractDigest === right.executionContractDigest && left.sourceMode === right.sourceMode &&
+      left.workflowWorkItem.sourceBacked?.repositoryCheckoutId === right.workflowWorkItem.sourceBacked?.repositoryCheckoutId &&
+      left.workflowWorkItem.sourceBacked?.expectedRevisionId === right.workflowWorkItem.sourceBacked?.expectedRevisionId;
+  }
   return (
     left.ownerKind === right.ownerKind &&
     left.issueId === right.issueId && left.intakeId === right.intakeId && left.planId === right.planId && left.planRevision === right.planRevision && left.rootWorkItemId === right.rootWorkItemId &&
@@ -1705,6 +1783,9 @@ function sameExecutionContext(left: ExecutionContext, right: ExecutionContext): 
 }
 
 function preflightKey(context: ExecutionContext): string {
+  if (context.ownerKind === "workflow-work-item") return [workspaceKey(context.currentProjectRoot), context.ownerKind,
+    context.workflowId, context.workItemId, context.executionContractDigest, context.sourceMode,
+    context.workflowWorkItem.sourceBacked?.repositoryCheckoutId ?? "", context.workflowWorkItem.sourceBacked?.expectedRevisionId ?? ""].join("::");
   return [
     workspaceKey(context.projectRoot),
     context.ownerKind ?? "development",
@@ -1734,6 +1815,7 @@ function busyModelForDifferentContext(
 }
 
 function executionContextLabel(context: ExecutionContext): string {
+  if (context.ownerKind === "workflow-work-item") return `Workflow ${context.workflowId} WorkItem ${context.workItemId}`;
   if (context.ownerKind === "issue" && context.issueId) {
     return `${context.issueId} ${context.workCardId}`;
   }
@@ -1744,6 +1826,7 @@ async function refreshReportEvidence(
   session: SessionRecord,
   terminalState: CodexImplementerExecutionState,
 ): Promise<void> {
+  if (session.ownerKind === "workflow-work-item") return;
   const evidence = await readStableFinalReportEvidence(session.projectRoot, session.implementerReportPath);
   session.reportSha256After = evidence.sha256;
   session.reportUpdated = Boolean(
@@ -1842,6 +1925,12 @@ function sameFinalReportEvidence(left: FinalReportEvidence, right: FinalReportEv
 }
 
 async function finalReportReadinessBlocker(session: SessionRecord): Promise<string | null> {
+  if (session.ownerKind === "workflow-work-item") {
+    if (!session.workflowId || !session.workItemId || !session.workflowWorkItem?.executionRef || !session.executionContractDigest) {
+      return "Exact Workflow WorkItem execution identity is incomplete; attempt finalization cannot be verified.";
+    }
+    return null;
+  }
   if (session.ownerKind === "issue" && session.issueId) {
     if (!session.rootFixCardId || !session.currentImplementationId) {
       return "Issue Codex execution identity is incomplete; final report readiness cannot be resolved.";
@@ -1914,6 +2003,10 @@ function sha256ForRelativePath(workspaceRoot: string, relativePath: string): str
 
 function workspaceKey(workspaceRoot: string): string {
   return path.resolve(workspaceRoot).toLowerCase();
+}
+
+function exactExecutionOwnerKey(workspaceRoot: string, workflowId: string, workItemId: string): string {
+  return `${workspaceKey(workspaceRoot)}::workflow-work-item::${workflowId}::${workItemId}`;
 }
 
 function appendTail(tail: string[], value: string): void {
