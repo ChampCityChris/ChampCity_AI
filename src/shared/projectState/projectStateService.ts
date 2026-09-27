@@ -100,7 +100,7 @@ export const PROJECT_STATE_EVENT_TYPES = Object.freeze({
   relationshipEnd: "project-state.relationship-ended",
 });
 
-const restrictedGenericTypes = new Set<EntityType>(["Decision", "Validation", "Evidence"]);
+const restrictedGenericTypes = new Set<EntityType>(["Decision", "Validation", "Evidence", "TesterResult"]);
 function fail(message: string): never { throw new ProjectStateDomainError(message); }
 const dispositionOutcomes = new Set<DispositionState>(["advisory", "proposed", "approved", "revision_requested", "accepted", "rejected", "revoked"]);
 const workRoutes = new Set<WorkRoute>(["greenfield", "feature-change", "refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype", "issue-resolution"]);
@@ -124,6 +124,14 @@ export function advanceDerivedEventCursor(cursor: DerivedEventCursor, event: Pro
 }
 function validateTestPath(path: string) {
   if (typeof path !== "string" || path.length > 512 || !/^test\/(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+\.test\.cjs$/.test(path) || path.split("/").includes("..")) fail("Permanent test locator must be a repository-relative test path.");
+}
+function validateTesterOwnedPath(path: string) {
+  if (typeof path !== "string" || path.length > 512 || path.includes("\\") || path.startsWith("/") ||
+    path.split("/").some(part => part === "" || part === "." || part === "..") ||
+    !(path.startsWith("test/") || path.startsWith("validation/") || path.startsWith("scripts/validation/")) ||
+    /(^|\/)(\.git|\.champcity|node_modules|dist|build|coverage|tmp)(\/|$)/i.test(path)) {
+    fail("Tester result paths must stay within test-owned repository surfaces.");
+  }
 }
 function canonicalInstant(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
@@ -238,7 +246,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   async function createRecord<T extends EntityType>(projectId: ProjectId | null, entityType: T, content: EntityBodyMap[T], context?: MutationContext) {
-    if (restrictedGenericTypes.has(entityType)) fail("Decision, Validation and Evidence require typed commands.");
+    if (restrictedGenericTypes.has(entityType)) fail("Decision, Validation, Evidence and TesterResult require typed commands.");
     if (entityType === "ImplementationRecord" || entityType === "Workflow") fail("ImplementationRecord and Workflow require typed commands.");
     if (entityType === "WorkIntake" || entityType === "RouteAssessment") fail("Work Intake and Route Assessment require typed commands.");
     if (["SourceBaseline", "SourceBinding", "SourceCheckpoint", "IntegrationRecord"].includes(entityType)) fail("Source semantic records require typed commands.");
@@ -466,7 +474,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const previous = await requiredRecord(unit, projectId, entityId);
       if (previous.entityType === "Project" || previous.recordVersion !== expectedRevision) fail("Supersession target is unavailable or stale.");
       if (previous.lifecycleState !== "active" && previous.lifecycleState !== "closed") fail("Only a current active or closed record can be superseded.");
-      if (restrictedGenericTypes.has(previous.entityType)) fail("Issued Decision, Validation and Evidence require a typed correction policy.");
+      if (restrictedGenericTypes.has(previous.entityType)) fail("Issued Decision, Validation, Evidence and TesterResult require a typed correction policy.");
       if (previous.entityType === "ImplementationRecord") fail("Implementation attempts are immutable; record a new attempt.");
       if (previous.entityType === "WorkIntake" || previous.entityType === "RouteAssessment") fail("Work Intake retains identity and Route Assessments remain historical records.");
       if (["SourceBaseline", "SourceBinding", "SourceCheckpoint", "IntegrationRecord"].includes(previous.entityType)) fail("Source semantic records retain their identity and revision history.");
@@ -888,6 +896,71 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         targetEntityId: target.id, targetRecordVersion: target.recordVersion,
         performedBy: trustedPrincipal, performedAt: new Date().toISOString() };
     }, "evaluates", context);
+  }
+
+  async function createTesterResult(projectId: ProjectId, workflowId: EntityId, workItemId: EntityId,
+    implementationRecordId: EntityId, input: Pick<EntityBodyMap["TesterResult"], "implementerRevisionId" | "recommendation" | "affectedCapabilityIds" | "permanentTestPaths" | "determinationEvidence" | "unknowns" | "rationale">,
+    context?: MutationContext) {
+    exactInput(input, ["implementerRevisionId", "recommendation", "affectedCapabilityIds", "permanentTestPaths", "determinationEvidence", "unknowns", "rationale"]);
+    if (trustedPrincipal.role !== "Tester") fail("TesterResult creation requires the Tester role.");
+    if (!Array.isArray(input.affectedCapabilityIds) || input.affectedCapabilityIds.length > 128 ||
+      input.affectedCapabilityIds.some(id => typeof id !== "string" || !/^[a-z0-9][a-z0-9-]{0,127}$/.test(id)) ||
+      new Set(input.affectedCapabilityIds).size !== input.affectedCapabilityIds.length) fail("TesterResult capability IDs must be unique bounded catalog identities.");
+    if (!Array.isArray(input.permanentTestPaths) || input.permanentTestPaths.length > 128 ||
+      new Set(input.permanentTestPaths).size !== input.permanentTestPaths.length) fail("TesterResult permanent test paths must be unique and bounded.");
+    input.permanentTestPaths.forEach(validateTesterOwnedPath);
+    if (!Array.isArray(input.determinationEvidence) || input.determinationEvidence.length === 0 || input.determinationEvidence.length > 128 ||
+      !Array.isArray(input.unknowns) || input.unknowns.length > 128) fail("TesterResult evidence and unknowns must be bounded lists.");
+    if (typeof input.rationale !== "string" || !input.rationale.trim()) fail("TesterResult rationale is required.");
+    return store.transaction(projectId, async unit => {
+      const workflow = await requiredRecord(unit, projectId, workflowId);
+      await requireCurrentSourceWorkflow(unit, projectId, workflow);
+      const workItem = await requiredRecord(unit, projectId, workItemId);
+      if (workItem.entityType !== "WorkItem" || workItem.lifecycleState !== "active" || workItem.body.workState !== "implemented")
+        fail("TesterResult requires an active implemented WorkItem.");
+      const memberships = (await unit.listRelationships(projectId, "part_of")).filter(edge => !edge.endedAt);
+      let cursor: EntityId | undefined = workItemId;
+      const visited = new Set<EntityId>();
+      while (cursor !== workflowId && cursor && !visited.has(cursor)) {
+        visited.add(cursor);
+        const parents = memberships.filter(edge => edge.fromEntityId === cursor);
+        if (parents.length !== 1) { cursor = undefined; break; }
+        cursor = parents[0].toEntityId;
+      }
+      if (cursor !== workflowId) fail("TesterResult WorkItem is not owned by the exact current Workflow.");
+      const implementation = await requiredRecord(unit, projectId, implementationRecordId);
+      if (implementation.entityType !== "ImplementationRecord" || implementation.body.workItemId !== workItemId || implementation.body.outcome !== "implemented")
+        fail("TesterResult requires a successful ImplementationRecord for its WorkItem.");
+      if (implementation.createdBy.principalId === trustedPrincipal.principalId) fail("Tester principal must be distinct from the implementation attempt principal.");
+      const attemptEdges = (await unit.listRelationships(projectId, "implements_work_item"))
+        .filter(edge => edge.toEntityId === workItemId && !edge.endedAt);
+      const creationSequence = new Map((await unit.listOutbox(projectId))
+        .filter(event => event.entityId && event.payload.operation === "create")
+        .map(event => [event.entityId as string, event.sequence]));
+      const attempts = (await unit.listEntities(projectId, "ImplementationRecord"))
+        .filter((record): record is ProjectStateRecord<"ImplementationRecord"> => record.entityType === "ImplementationRecord" &&
+          record.body.workItemId === workItemId && attemptEdges.some(edge => edge.fromEntityId === record.id))
+        .sort((a, b) => (creationSequence.get(a.id) ?? 0) - (creationSequence.get(b.id) ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+      if (attempts.at(-1)?.id !== implementationRecordId) fail("TesterResult must target the current successful implementation attempt.");
+      if ((await unit.listEntities(projectId, "TesterResult")).some(record => record.entityType === "TesterResult" &&
+        record.body.implementationRecordId === implementationRecordId)) fail("TesterResult already exists for this implementation attempt.");
+      const checkpointState = input.permanentTestPaths.length === 0 ? "not-required" : "pending";
+      const body: EntityBodyMap["TesterResult"] = {
+        workflowId, workItemId, implementationRecordId, implementerRevisionId: input.implementerRevisionId,
+        recommendation: input.recommendation, affectedCapabilityIds: [...input.affectedCapabilityIds].sort(),
+        permanentTestPaths: [...input.permanentTestPaths].sort(), determinationEvidence: input.determinationEvidence,
+        unknowns: input.unknowns, rationale: input.rationale.trim(), checkpointState,
+        ...(checkpointState === "not-required" ? { candidateRevisionId: input.implementerRevisionId } : {}),
+      };
+      const result = createProjectStateEntity({ entityType: "TesterResult", projectId, body, principal: trustedPrincipal });
+      await unit.saveEntity(result, null);
+      await recordMutation(unit, { projectId, entityId: result.id, fromVersion: null, toVersion: 1,
+        operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: result.createdAt,
+        changedFields: Object.keys(result.body), defaultReason: "Record Tester result", context });
+      await linkSemantic(unit, projectId, result, workItem, "assesses_work_item", context, [workflow, implementation]);
+      await linkSemantic(unit, projectId, result, implementation, "records_attempt", context, [workflow, workItem]);
+      return result;
+    });
   }
 
   async function recordImplementationProof(projectId: ProjectId, targetId: EntityId,
@@ -2522,7 +2595,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
 
   return { createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
     createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, createIntegrationRecord, advanceIntegrationRecord,
-    createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
+    createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, createTesterResult, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,
     getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, renderView, exportStructuredProjectState, getAuthoritativeContext, getCommittedEventFeed, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
     getEffectiveDisposition, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus,

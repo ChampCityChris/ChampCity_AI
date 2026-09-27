@@ -81,6 +81,58 @@ function register(name, factory) {
     assert.equal((await service.getRegressionObligationView(project.id, first.id)).permanentReferences[0].id, reference.id);
     assert.equal((await service.getLineage(project.id, replacement.successor.id)).records.length, 4);
   });
+
+  test(`${name}: TesterResult binds the exact Workflow, WorkItem, and implementation revision`, async context => {
+    const store = factory(context);
+    const { service, project } = await setup(store);
+    const implementer = createProjectStateService(store, { principalId: "implementer-agent", principalType: "agent", role: "Implementer" });
+    const workflow = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Tester result", currentWorkspace: "development" });
+    async function implementedWork(title) {
+      const work = await service.createRecord(project.id, "WorkItem", { workItemKind: "feature", title, objective: "Validate bounded work", workState: "implemented" });
+      await service.createRelationship(project.id, work.id, "part_of", workflow.id);
+      const implementation = await implementer.recordImplementation(project.id, work.id, {
+        summary: "Implementation complete", deviations: [], blockers: [], residualRisks: [], outcome: "implemented", executionRef: `execution-${title}`,
+      });
+      return { work, implementation };
+    }
+    const unchanged = await implementedWork("Unchanged candidate");
+    const unchangedResult = await service.createTesterResult(project.id, workflow.id, unchanged.work.id, unchanged.implementation.id, {
+      implementerRevisionId: "revision-unchanged", recommendation: "reuse-existing-proof", affectedCapabilityIds: ["validation-execution"],
+      permanentTestPaths: [], determinationEvidence: ["Mapped permanent proof covers the changed behavior."], unknowns: [], rationale: "Existing permanent proof is sufficient.",
+    });
+    assert.equal(unchangedResult.body.candidateRevisionId, "revision-unchanged");
+    assert.equal(unchangedResult.body.checkpointState, "not-required");
+    assert.equal((await service.getRelationships(project.id, unchangedResult.id)).map(edge => edge.relationshipType).sort().join(","), "assesses_work_item,records_attempt");
+    await assert.rejects(service.createTesterResult(project.id, workflow.id, unchanged.work.id, unchanged.implementation.id, {
+      implementerRevisionId: "revision-unchanged", recommendation: "reuse-existing-proof", affectedCapabilityIds: [],
+      permanentTestPaths: [], determinationEvidence: ["Retry"], unknowns: [], rationale: "Duplicate.",
+    }), /already exists/);
+
+    const changed = await implementedWork("Changed candidate");
+    const pending = await service.createTesterResult(project.id, workflow.id, changed.work.id, changed.implementation.id, {
+      implementerRevisionId: "revision-before-tests", recommendation: "permanent-proof-change-warranted", affectedCapabilityIds: ["validation-execution"],
+      permanentTestPaths: ["test/validation/new-proof.test.cjs"], determinationEvidence: ["No mapped permanent proof covers this behavior."], unknowns: [], rationale: "Add durable proof.",
+    });
+    assert.equal(pending.body.checkpointState, "pending");
+    assert.equal(pending.body.candidateRevisionId, undefined);
+    await assert.rejects(service.reviseRecord(project.id, pending.id, { rationale: "Bypass" }, 1), /Immutable semantic records/);
+    await assert.rejects(service.createRecord(project.id, "TesterResult", {}), /typed commands/);
+
+    const unfinished = await service.createRecord(project.id, "WorkItem", { workItemKind: "feature", title: "Not implemented", objective: "Wait", workState: "planned" });
+    await service.createRelationship(project.id, unfinished.id, "part_of", workflow.id);
+    await assert.rejects(service.createTesterResult(project.id, workflow.id, unfinished.id, unchanged.implementation.id, {
+      implementerRevisionId: "revision", recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [],
+      determinationEvidence: ["Evidence"], unknowns: [], rationale: "No result.",
+    }), /implemented WorkItem/);
+    await assert.rejects(service.createTesterResult(project.id, workflow.id, changed.work.id, unchanged.implementation.id, {
+      implementerRevisionId: "revision", recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [],
+      determinationEvidence: ["Evidence"], unknowns: [], rationale: "Wrong attempt.",
+    }), /for its WorkItem/);
+    await assert.rejects(service.createTesterResult(project.id, workflow.id, changed.work.id, changed.implementation.id, {
+      implementerRevisionId: "revision", recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: ["src/main/production.ts"],
+      determinationEvidence: ["Evidence"], unknowns: [], rationale: "Unsafe path.",
+    }), /test-owned repository surfaces/);
+  });
 }
 
 register("in-memory Project State", () => createInMemoryProjectStateStore());

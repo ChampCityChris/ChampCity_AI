@@ -1,9 +1,6 @@
-export type TestLifecycleRecommendation =
-  | "reuse-existing-proof"
-  | "permanent-proof-change-warranted"
-  | "lifecycle-review-candidate"
-  | "no-permanent-test-required"
-  | "production-defect-suspected";
+import type { TesterRecommendation } from "../../shared/projectState/domainContracts";
+
+export type TestLifecycleRecommendation = TesterRecommendation;
 
 export interface TestLifecycleCatalogProof {
   testPath: string;

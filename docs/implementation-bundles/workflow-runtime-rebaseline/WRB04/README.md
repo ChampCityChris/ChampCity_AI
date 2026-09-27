@@ -2,7 +2,7 @@
 
 **Starting checkpoint:** `495c9aca43bd6c90be4abfece01ed9e40fd4c82e`
 **Implementer:** GPT 6.0 Luna Medium
-**Status:** IN PROGRESS — WRB04-01 through WRB04-02D complete; WRB04-03A active after decomposition of the cross-domain WRB04-03 specification.
+**Status:** IN PROGRESS — WRB04-01 through WRB04-03B complete; WRB04-03C is next and remains unopened until 03B is committed.
 **Review cadence:** execute released cards sequentially; Architect review after WRB04-05.
 
 ## Outcome
@@ -22,15 +22,17 @@ WRB04 includes exact Workflow/WorkItem execution ownership, lazy source material
 4. WRB04-02C — Exact source-neutral Codex WorkItem runtime
 5. WRB04-02D — Exact Workflow checkout and structured implementation checkpoint
 6. WRB04-03A — Bounded Test Lifecycle Determination Engine
-7. WRB04-03B — Tester role execution and test-only source checkpoint
-8. WRB04-03C — Independent WorkItem Validator
-9. WRB04-03D — Canonical Repair loop and typed WorkItem completion
-10. WRB04-04 — Normalize Phase/Workflow completion and exact-Workflow integration, including linked-worktree candidate repair
-11. WRB04-05 — Converge shared execution Workspaces, fence legacy execution, and qualify Feature/Issue end-to-end
+7. WRB04-03B — Typed durable Tester result
+8. WRB04-03C — Test-only source checkpoint
+9. WRB04-03D — Tester role execution and restricted test workspace
+10. WRB04-03E — Independent WorkItem Validator
+11. WRB04-03F — Canonical Repair loop and typed WorkItem completion
+12. WRB04-04 — Normalize Phase/Workflow completion and exact-Workflow integration, including linked-worktree candidate repair
+13. WRB04-05 — Converge shared execution Workspaces, fence legacy execution, and qualify Feature/Issue end-to-end
 
-WRB04-02B through WRB04-02D are sequential and complete. WRB04-03A was opened only after WRB04-02D completed and committed.
+WRB04-02B through WRB04-02D are sequential and complete. WRB04-03A opened after WRB04-02D committed; WRB04-03B opened after 03A committed and is ready for its required checkpoint commit.
 
-WRB04-03 was decomposed after rereading its revised specification: it combined five distinct contracts (determination, Tester execution/checkpoint, independent validation, Repair creation/re-entry, and WorkItem completion). The child-card titles above are the planned sequence; author/open each child card only when it becomes next, after the preceding child is completed and committed. Do not load WRB04-04 until 03D is complete and committed.
+WRB04-03 was decomposed after rereading its revised specification: it combined determination, durable Tester result, test-only source checkpoint, Tester execution, independent validation, Repair creation/re-entry, and WorkItem completion. The child-card titles above are the planned sequence; author/open each child card only when it becomes next, after the preceding child is completed and committed. Do not load WRB04-04 until 03F is complete and committed.
 
 ## WRB04-02 rebaseline
 

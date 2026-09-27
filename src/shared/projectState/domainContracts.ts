@@ -24,6 +24,7 @@ export type WorkIntakeState = "captured" | "assessing" | "routed" | "active" | "
 export type WorkRoute = "greenfield" | "feature-change" | "refactor-migration" | "integration-composition" | "infrastructure-platform" | "research-prototype" | "issue-resolution";
 import type { WorkflowType } from "./workflowTypeRegistry";
 export type TestLifecycleAssessmentStatus = "PRESERVE" | "REWRITE_CANDIDATE" | "SPLIT_CANDIDATE" | "CONSOLIDATE_CANDIDATE" | "MIGRATE_CANDIDATE" | "RETIRE_CANDIDATE" | "QUARANTINE_CANDIDATE" | "NEEDS_TESTER_REVIEW";
+export type TesterRecommendation = "reuse-existing-proof" | "permanent-proof-change-warranted" | "lifecycle-review-candidate" | "no-permanent-test-required" | "production-defect-suspected";
 export const PROJECT_STATE_SCHEMA_VERSION = 1 as const;
 
 export interface RecordEnvelope<T extends EntityType = EntityType> {
@@ -60,6 +61,7 @@ export interface EntityBodyMap {
   Criterion: { statement: string; criticality: "required" | "optional" | "informational"; verificationIntent: string; validationPolicy: ValidationPolicyClass; criterionState: string };
   WorkItem: { workItemKind: WorkItemKind; title: string; objective: string; workState: WorkState; startedAt?: string; implementedAt?: string };
   ImplementationRecord: { workItemId: EntityId; summary: string; deviations: string[]; blockers: string[]; residualRisks: string[]; outcome: ImplementationOutcome; executionRef?: string };
+  TesterResult: { workflowId: EntityId; workItemId: EntityId; implementationRecordId: EntityId; implementerRevisionId: string; recommendation: TesterRecommendation; affectedCapabilityIds: string[]; permanentTestPaths: string[]; determinationEvidence: string[]; unknowns: string[]; rationale: string; checkpointState: "not-required" | "pending" | "committed" | "blocked"; candidateRevisionId?: string; sourceCheckpointId?: EntityId };
   Validation: { validationType: string; method: string; validationMode: ValidationMode; outcome: "pass" | "fail" | "blocked" | "inconclusive"; targetEntityId: EntityId; targetRecordVersion: number; sourceBaselineRef?: string; assessmentStatus?: TestLifecycleAssessmentStatus; performedBy: PrincipalRef; performedAt: string; summary: string };
   Evidence: { evidenceType: string; description: string; capturedAt: string; capturedBy: PrincipalRef; mediaType: string; payloadRef: string; digest: string; size?: number; sourceBaselineRef?: string };
   Decision: { decisionType: string; outcome: string; rationale: string; decisionRole: string; decisionScope: string; decidedBy: PrincipalRef; decidedAt: string; effectiveAt: string };

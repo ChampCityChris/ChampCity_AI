@@ -3298,6 +3298,10 @@
           "description": "Structured WIR accepts only Existing-Project routes, preserves revision requests without a target, and atomically creates and links one new target while closing intake and WIR."
         },
         {
+          "behaviorId": "tester-result-binds-exact-workflow-workitem-and-implementation-revision",
+          "description": "TesterResult binds the exact current Workflow, WorkItem, Implementer principal, and implementation revision."
+        },
+        {
           "behaviorId": "typed-decision-validation-and-evidence-commands-derive-trusted-attribution-and-enforce-relationsh",
           "description": "typed Decision, Validation and Evidence commands derive trusted attribution and enforce relationships"
         },
@@ -14610,8 +14614,8 @@
     {
       "testPath": "test/project-state/tester-state-mapping.test.cjs",
       "currentTestCount": {
-        "value": 6,
-        "basis": "Three Tester state mapping scenarios across in-memory and SQLite adapters introduced by SCL01O."
+        "value": 8,
+        "basis": "Three Tester state mapping scenarios plus one durable TesterResult scenario, each exercised through in-memory and SQLite adapters."
       },
       "duration": {
         "kind": "measured",
@@ -14666,6 +14670,12 @@
           "capabilityId": "project-state-service",
           "behaviorId": "regression-obligation-lifecycle-and-typed-assessment-remain-historical",
           "proofLocator": "obligation lifecycle and typed assessment remain historical",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
+          "behaviorId": "tester-result-binds-exact-workflow-workitem-and-implementation-revision",
+          "proofLocator": "TesterResult binds the exact Workflow, WorkItem, Implementer principal, and implementation revision",
           "proofRole": "primary"
         }
       ]

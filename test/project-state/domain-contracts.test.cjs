@@ -23,6 +23,9 @@ const bodies = {
   Criterion: { statement: "Observable", criticality: "required", verificationIntent: "Prove the result", validationPolicy: "deterministic", criterionState: "active" },
   WorkItem: { workItemKind: "feature", title: "Work", objective: "Objective", workState: "ready" },
   ImplementationRecord: { workItemId: linkedId, summary: "Done", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" },
+  TesterResult: { workflowId: linkedId, workItemId: linkedId, implementationRecordId: linkedId, implementerRevisionId: "revision",
+    recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [], determinationEvidence: ["Catalog proof reviewed"],
+    unknowns: [], rationale: "Existing proof covers the affected behavior", checkpointState: "not-required", candidateRevisionId: "revision" },
   Validation: { validationType: "test", method: "automated", validationMode: "deterministic", outcome: "pass", targetEntityId: linkedId, targetRecordVersion: 1, performedBy: principal, performedAt: now, summary: "Passed" },
   Evidence: { evidenceType: "test-output", description: "Output", capturedAt: now, capturedBy: principal, mediaType: "text/plain", payloadRef: "sha256:payload", digest: "a".repeat(64) },
   Decision: { decisionType: "proceed", outcome: "approved", rationale: "Reason", decisionRole: "Operator", decisionScope: "project", decidedBy: principal, decidedAt: now, effectiveAt: now },
@@ -34,6 +37,9 @@ const bodies = {
 
 test("all adopted Project State types have registered bounded schemas and application-issued envelopes", () => {
   assert.deepEqual(Object.keys(ENTITY_TYPE_REGISTRY).sort(), Object.keys(bodies).sort());
+  const tester = createProjectStateEntity({ entityType: "TesterResult", projectId: linkedId, body: bodies.TesterResult, principal });
+  assert.throws(() => validateProjectStateEntity({ ...tester, body: { ...tester.body, candidateRevisionId: "another-revision" } }), /Unchanged Tester result/);
+  assert.throws(() => validateProjectStateEntity({ ...tester, body: { ...tester.body, checkpointState: "pending", candidateRevisionId: undefined } }), /Pending or blocked Tester result/);
   const project = createProjectStateEntity({ entityType: "Project", body: bodies.Project, principal });
   assert.equal(project.projectId, project.id);
   for (const [entityType, body] of Object.entries(bodies)) {
@@ -97,15 +103,24 @@ test("relationship registry enforces direction, endpoint existence, Project owne
   const other = createProjectStateEntity({ entityType: "Finding", projectId: randomUUID(), body: bodies.Finding, principal });
   const intake = createProjectStateEntity({ entityType: "WorkIntake", projectId, body: bodies.WorkIntake, principal });
   const workflow = createProjectStateEntity({ entityType: "Workflow", projectId, body: bodies.Workflow, principal });
+  const workItem = createProjectStateEntity({ entityType: "WorkItem", projectId, body: { ...bodies.WorkItem, workState: "implemented" }, principal });
+  const implementation = createProjectStateEntity({ entityType: "ImplementationRecord", projectId,
+    body: { ...bodies.ImplementationRecord, workItemId: workItem.id }, principal });
+  const testerResult = createProjectStateEntity({ entityType: "TesterResult", projectId, body: {
+    ...bodies.TesterResult, workflowId: workflow.id, workItemId: workItem.id, implementationRecordId: implementation.id,
+  }, principal });
   const baseline = createProjectStateEntity({ entityType: "SourceBaseline", projectId, body: { ...bodies.SourceBaseline, workflowId: workflow.id }, principal });
   const source = createProjectStateEntity({ entityType: "SourceBinding", projectId, body: { workflowId: workflow.id, sourceBaselineId: baseline.id, preparationState: "unprepared" }, principal });
-  const entities = new Map([finding, cause, other, intake, source, workflow, baseline].map(entity => [entity.id, entity]));
+  const entities = new Map([finding, cause, other, intake, source, workflow, baseline, workItem, implementation, testerResult].map(entity => [entity.id, entity]));
   const lookup = id => entities.get(id);
   const link = createRelationship({ projectId, fromEntityId: cause.id, relationshipType: "explains", toEntityId: finding.id, createdBy: principal }, lookup);
   assert.equal(validateRelationship(link, lookup).id, link.id);
   assert.throws(() => assertRelationshipEnd(link, now), /Immutable provenance/);
   assert.equal(createRelationship({ projectId, fromEntityId: source.id, relationshipType: "binds_source", toEntityId: workflow.id, createdBy: principal }, lookup).relationshipType, "binds_source");
   assert.throws(() => createRelationship({ projectId, fromEntityId: source.id, relationshipType: "binds_source", toEntityId: intake.id, createdBy: principal }, lookup), /direction or endpoint/);
+  assert.equal(createRelationship({ projectId, fromEntityId: testerResult.id, relationshipType: "assesses_work_item", toEntityId: workItem.id, createdBy: principal }, lookup).relationshipType, "assesses_work_item");
+  assert.equal(createRelationship({ projectId, fromEntityId: testerResult.id, relationshipType: "records_attempt", toEntityId: implementation.id, createdBy: principal }, lookup).relationshipType, "records_attempt");
+  assert.throws(() => createRelationship({ projectId, fromEntityId: testerResult.id, relationshipType: "assesses_work_item", toEntityId: workflow.id, createdBy: principal }, lookup), /direction or endpoint/);
   const successor = { ...workflow, id: randomUUID(), lineageId: workflow.lineageId };
   const successorBinding = createProjectStateEntity({ entityType: "SourceBinding", projectId,
     body: { workflowId: successor.id, sourceBaselineId: baseline.id, preparationState: "unprepared" }, principal });

@@ -26,6 +26,7 @@ export const ENTITY_TYPE_REGISTRY: Readonly<Record<EntityType, EntityDefinition>
   Criterion: { schemaVersion: 1, required: { statement: text, criticality: ["required", "optional", "informational"], verificationIntent: text, validationPolicy: ["deterministic", "semantic_ai", "visual_human", "deferred_visual_phase", "operator_decision"], criterionState: text }, immutableAfterCreation: false },
   WorkItem: { schemaVersion: 1, required: { workItemKind: ["feature", "fix", "repair", "migration", "maintenance"], title: text, objective: text, workState: ["planned", "ready", "in_progress", "implemented", "blocked", "validation_pending", "closed", "cancelled"] }, optional: { startedAt: instant, implementedAt: instant }, immutableAfterCreation: false },
   ImplementationRecord: { schemaVersion: 1, required: { workItemId: id, summary: text, deviations: textList, blockers: textList, residualRisks: textList, outcome: ["implemented", "partial", "blocked", "failed", "abandoned"] }, optional: { executionRef: text }, immutableAfterCreation: true },
+  TesterResult: { schemaVersion: 1, required: { workflowId: id, workItemId: id, implementationRecordId: id, implementerRevisionId: "source-ref", recommendation: ["reuse-existing-proof", "permanent-proof-change-warranted", "lifecycle-review-candidate", "no-permanent-test-required", "production-defect-suspected"], affectedCapabilityIds: textList, permanentTestPaths: textList, determinationEvidence: textList, unknowns: textList, rationale: text, checkpointState: ["not-required", "pending", "committed", "blocked"] }, optional: { candidateRevisionId: "source-ref", sourceCheckpointId: id }, immutableAfterCreation: false },
   Validation: { schemaVersion: 1, required: { validationType: text, method: text, validationMode: ["deterministic", "semantic_ai", "visual_human"], outcome: ["pass", "fail", "blocked", "inconclusive"], targetEntityId: id, targetRecordVersion: "version", performedBy: "principal", performedAt: instant, summary: text }, optional: { sourceBaselineRef: text, assessmentStatus: ["PRESERVE", "REWRITE_CANDIDATE", "SPLIT_CANDIDATE", "CONSOLIDATE_CANDIDATE", "MIGRATE_CANDIDATE", "RETIRE_CANDIDATE", "QUARANTINE_CANDIDATE", "NEEDS_TESTER_REVIEW"] }, immutableAfterCreation: true },
   Evidence: { schemaVersion: 1, required: { evidenceType: text, description: text, capturedAt: instant, capturedBy: "principal", mediaType: text, payloadRef: text, digest: "digest" }, optional: { size: "number", sourceBaselineRef: "source-ref" }, immutableAfterCreation: true },
   Decision: { schemaVersion: 1, required: { decisionType: text, outcome: text, rationale: text, decisionRole: text, decisionScope: text, decidedBy: "principal", decidedAt: instant, effectiveAt: instant }, immutableAfterCreation: true },
@@ -119,6 +120,15 @@ export function validateProjectStateEntity(value: unknown): ProjectStateEntity {
     // An Operator may record a simple acceptance without entering free-text reasoning.
     if (type === "Decision" && key === "rationale" && body[key] === "") continue;
     if (body[key] !== undefined) checkField(body[key], rule, `record.body.${key}`);
+  }
+  if (type === "TesterResult") {
+    const tester = body as unknown as EntityBodyMap["TesterResult"];
+    if (tester.checkpointState === "not-required" &&
+      (tester.candidateRevisionId !== tester.implementerRevisionId || tester.sourceCheckpointId !== undefined)) fail("Unchanged Tester result must use its Implementer revision and have no source checkpoint.");
+    if ((tester.checkpointState === "pending" || tester.checkpointState === "blocked") &&
+      (tester.permanentTestPaths.length === 0 || tester.candidateRevisionId !== undefined)) fail("Pending or blocked Tester result requires changed test paths and no candidate revision.");
+    if (tester.checkpointState === "committed" &&
+      (tester.permanentTestPaths.length === 0 || !tester.candidateRevisionId || !tester.sourceCheckpointId)) fail("Checkpointed Tester result requires changed paths, candidate revision, and checkpoint identity.");
   }
   let bytes: number;
   try { bytes = encoder.encode(JSON.stringify(record)).length; } catch { return fail("Record cannot be serialized."); }

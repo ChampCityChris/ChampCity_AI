@@ -18,7 +18,7 @@ interface RelationshipDefinition {
   immutableProvenance: boolean;
 }
 
-const all: readonly EntityType[] = ["Project", "ProjectResource", "WorkIntake", "RouteAssessment", "Workflow", "SourceBaseline", "Phase", "Finding", "RootCause", "BoundedSolution", "Criterion", "WorkItem", "ImplementationRecord", "Validation", "Evidence", "Decision", "RegressionObligation", "SourceBinding", "SourceCheckpoint", "IntegrationRecord"];
+const all: readonly EntityType[] = ["Project", "ProjectResource", "WorkIntake", "RouteAssessment", "Workflow", "SourceBaseline", "Phase", "Finding", "RootCause", "BoundedSolution", "Criterion", "WorkItem", "ImplementationRecord", "TesterResult", "Validation", "Evidence", "Decision", "RegressionObligation", "SourceBinding", "SourceCheckpoint", "IntegrationRecord"];
 const nonProject = all.filter(type => type !== "Project");
 const rule = (from: readonly EntityType[], to: readonly EntityType[], immutableProvenance = false): RelationshipDefinition => ({ from, to, immutableProvenance });
 
@@ -26,6 +26,7 @@ const rule = (from: readonly EntityType[], to: readonly EntityType[], immutableP
 export const RELATIONSHIP_REGISTRY = Object.freeze({
   addresses: rule(["BoundedSolution"], ["RootCause", "Finding"]),
   assesses_route: rule(["RouteAssessment"], ["WorkIntake"], true),
+  assesses_work_item: rule(["TesterResult"], ["WorkItem"], true),
   baselines_source: rule(["SourceBaseline"], ["Workflow"], true),
   binds_source: rule(["SourceBinding"], ["Workflow"], true),
   blocks: rule(nonProject, nonProject),
@@ -43,6 +44,7 @@ export const RELATIONSHIP_REGISTRY = Object.freeze({
   integrates: rule(["IntegrationRecord"], ["Workflow", "SourceBinding", "WorkItem", "ImplementationRecord"], true),
   part_of: rule(["WorkItem", "Phase"], ["WorkItem", "Phase", "Workflow"]),
   proves: rule(["ProjectResource"], ["RegressionObligation"], true),
+  records_attempt: rule(["TesterResult"], ["ImplementationRecord"], true),
   relates_to: rule(all, all),
   repairs: rule(["WorkItem"], ["WorkItem"], true),
   routes_to: rule(["Workflow"], ["Workflow"], true),
