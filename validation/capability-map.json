@@ -1232,6 +1232,7 @@
       "sourcePatterns": [
         "src/main/workCardBuilding/**",
         "src/renderer/app/WorkCardBuildingReviewWorkspace.tsx",
+        "src/shared/workItemCheckpointContracts.ts",
         "test/support/windows-test.cjs"
       ],
       "dependsOn": [

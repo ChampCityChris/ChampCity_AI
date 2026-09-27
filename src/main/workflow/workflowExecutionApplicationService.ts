@@ -182,5 +182,41 @@ export function createWorkflowExecutionApplicationService(dependencies: {
     });
   }
 
-  return { getExecutionProjection, prepareExecution, createWorkItemExecutionContract };
+  async function createSourceNeutralWorkItemExecutionContract(projectRoot: string, workflowId: EntityId, workItemId: EntityId, input: {
+    affectedPaths: string[]; proofIntent: string[];
+  }): Promise<WorkItemExecutionContract> {
+    return withCurrentProject(projectRoot, async (store, projectId) => {
+      const plan = await exactPlan(store, projectId, workflowId);
+      const projection = await project(store, projectId, plan);
+      if (projection.source.state !== "non-source") throw Error("Exact Codex WorkItem mode requires a source-neutral Workflow.");
+      if (!Array.isArray(input?.affectedPaths) || !Array.isArray(input?.proofIntent)) throw Error("A bounded source-neutral execution contract is required.");
+      for (const value of [...input.affectedPaths, ...input.proofIntent]) if (typeof value !== "string" || !value.trim() || value.length > 512) throw Error("Execution contract details must be bounded text.");
+      const item = projection.items.find(candidate => candidate.record.id === workItemId);
+      if (!item) throw Error("Exact Work Item is not part of the selected Workflow plan.");
+      if (!item.eligibility.eligible || !["planned", "ready"].includes(item.record.body.workState)) throw Error("Work Item is not eligible for an implementation contract.");
+      if (plan.solutions.length !== 1) throw Error("Accepted BoundedSolution is missing or ambiguous.");
+      const phase = item.phaseId ? plan.phases.find(candidate => candidate.phaseId === item.phaseId)?.record ?? null : null;
+      const criteria = plan.criteria.filter(candidate => candidate.ownerId === workItemId).map(candidate => candidate.record).sort((a, b) => a.id.localeCompare(b.id));
+      const solution = plan.solutions[0];
+      const body = { projectId, workflowId, workItemId, workItemVersion: item.record.recordVersion, objective: item.record.body.objective,
+        solution, phase, criteria, dependencyIds: item.dependencyIds, scopeIn: [...solution.body.scopeIn], scopeOut: [...solution.body.scopeOut],
+        constraints: [...solution.body.constraints], affectedPaths: [...input.affectedPaths].sort(), proofIntent: [...input.proofIntent],
+        sourceMutation: "not-required" as const, sourceRevisionId: null };
+      const digest = createHash("sha256").update(JSON.stringify(body)).digest("hex");
+      return { contractId: `work-item-contract:${digest}`, digest, ...body };
+    });
+  }
+
+  async function beginWorkItemAttempt(projectRoot: string, workflowId: EntityId, workItemId: EntityId, expectedVersion: number, executionRef: string) {
+    return withCurrentProject(projectRoot, (store, projectId) => createProjectStateService(store, operator)
+      .beginWorkItemAttempt(projectId, workflowId, workItemId, expectedVersion, executionRef));
+  }
+
+  async function finishWorkItemAttempt(projectRoot: string, workflowId: EntityId, workItemId: EntityId, executionRef: string,
+    result: { summary: string; deviations: string[]; blockers: string[]; residualRisks: string[]; outcome: "implemented" | "partial" | "blocked" | "failed" | "abandoned" }) {
+    return withCurrentProject(projectRoot, (store, projectId) => createProjectStateService(store, operator)
+      .finishWorkItemAttempt(projectId, workflowId, workItemId, executionRef, result));
+  }
+
+  return { getExecutionProjection, prepareExecution, createWorkItemExecutionContract, createSourceNeutralWorkItemExecutionContract, beginWorkItemAttempt, finishWorkItemAttempt };
 }

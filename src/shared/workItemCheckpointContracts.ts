@@ -1,7 +1,7 @@
 import type { SourceControlReceipt } from "./sourceControlContracts";
 
 export interface WorkItemCheckpointResult {
-  status: "committed" | "blocked" | "failed" | "not-applicable";
+  status: "committed" | "blocked" | "failed" | "not-applicable" | "not-required";
   message: string;
   checkpointId?: string;
   receiptPath?: string;

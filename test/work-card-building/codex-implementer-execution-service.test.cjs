@@ -1641,6 +1641,17 @@ async function waitForState(service, root, expectedState, attempts = 40) {
   return status;
 }
 
+async function waitForSelectorState(service, root, selector, expectedState, attempts = 40) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const status = await service.getStatus(root, selector);
+    if (status.state === expectedState) return status;
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  const status = await service.getStatus(root, selector);
+  assert.equal(status.state, expectedState);
+  return status;
+}
+
 async function waitForIssueState(service, root, selector, expectedState) {
   for (let attempt = 0; attempt < 40; attempt += 1) {
     const status = await service.getStatus(root, selector);
@@ -2102,6 +2113,146 @@ function writeSubstantiveImplementerReport(root, {
   });
 }
 
+
+test("exact source-neutral Feature and Issue WorkItem selectors use fake App Server and typed attempt finalization", async (t) => {
+  const { runtimeFixture, selection } = require("../support/codex-runtime.cjs");
+  const { createWorkflowExecutionApplicationService } = require("../../dist/main/workflow/workflowExecutionApplicationService.js");
+  const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
+  const { registerCurrentProject } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
+  const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
+  const root = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "champcity-wrb04-02c-"));
+  const registration = await registerCurrentProject(root, "existing", { projectName: "Exact Codex fixture" });
+  const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  t.after(() => { store.close(); fs.rmSync(root, { recursive: true, force: true }); });
+  const principal = { principalId: "test-operator", principalType: "human", role: "Operator" };
+  const state = createProjectStateService(store, principal);
+  const createGraph = (workflowId, kind, objective) => ({ workflowId, topology: "direct",
+    solution: { title: "Accepted solution", objective: "Deliver accepted result", scopeIn: ["bounded"], scopeOut: [], constraints: [], assumptions: [], risks: [] },
+    solutionCriteria: [], phases: [], workItems: [{ key: "same-title", kind, title: "Same title", objective, dependencyKeys: [], criteria: [
+      { statement: "Required behavior", criticality: "required", verificationIntent: "Verify the accepted behavior", validationPolicy: "deterministic" },
+    ] }, { key: "retryable", kind, title: "Retryable", objective: `${objective} retryable`, dependencyKeys: [], criteria: [] }] });
+  const feature = await state.createSubstantiveWorkflow(registration.project.id, { workflowType: "feature-capability", title: "Feature", entryWorkspace: "feature-intake" });
+  const issue = await state.createSubstantiveWorkflow(registration.project.id, { workflowType: "issue-resolution", title: "Issue", entryWorkspace: "issue-intake" });
+  const featurePlan = await state.acceptWorkflowPlanningGraph(registration.project.id, createGraph(feature.workflow.id, "feature", "Feature objective"));
+  const issuePlan = await state.acceptWorkflowPlanningGraph(registration.project.id, createGraph(issue.workflow.id, "fix", "Issue objective"));
+  const featureItem = featurePlan.directWorkItems.find(item => item.body.title === "Same title");
+  const issueItem = issuePlan.directWorkItems.find(item => item.body.title === "Same title");
+  const partialItem = featurePlan.directWorkItems.find(item => item.body.title === "Retryable");
+  const failedItem = issuePlan.directWorkItems.find(item => item.body.title === "Retryable");
+  const legacyCalls = [];
+  const currentModule = require("../../dist/main/currentWorkflow/currentWorkflowService.js");
+  const routedModule = require("../../dist/main/planExecution/routedImplementerContext.js");
+  const issueModule = require("../../dist/main/issueResolution/issueResolutionService.js");
+  const docsModule = require("../../dist/main/documents/planningDocumentService.js");
+  const originals = [currentModule.getCurrentWorkspaceModel, routedModule.resolveRoutedImplementerContext, issueModule.resolveIssueFixCardCodexExecutionContext, docsModule.listPlanningDocuments, docsModule.evaluateDocumentFreshness];
+  currentModule.getCurrentWorkspaceModel = () => { legacyCalls.push("current"); throw Error("legacy current workspace resolver called"); };
+  routedModule.resolveRoutedImplementerContext = () => { legacyCalls.push("routed"); throw Error("legacy routed resolver called"); };
+  issueModule.resolveIssueFixCardCodexExecutionContext = () => { legacyCalls.push("issue-card"); throw Error("legacy Issue card resolver called"); };
+  docsModule.listPlanningDocuments = () => { legacyCalls.push("markdown"); throw Error("legacy Markdown discovery called"); };
+  docsModule.evaluateDocumentFreshness = () => { legacyCalls.push("freshness"); throw Error("legacy report freshness called"); };
+  t.after(() => {
+    currentModule.getCurrentWorkspaceModel = originals[0]; routedModule.resolveRoutedImplementerContext = originals[1];
+    issueModule.resolveIssueFixCardCodexExecutionContext = originals[2]; docsModule.listPlanningDocuments = originals[3]; docsModule.evaluateDocumentFreshness = originals[4];
+  });
+  const captured = [];
+  let appServerCalls = 0;
+  const fixture = runtimeFixture();
+  await fixture.ready;
+  const service = new CodexImplementerExecutionService(async () => {
+    appServerCalls++;
+    return { startThread(options) {
+      const call = { options };
+      captured.push(call);
+      return { id: `fake-${appServerCalls}`, async runStreamed(prompt) {
+        call.prompt = prompt;
+        return { events: (async function* () {
+          if (appServerCalls === 4) {
+            yield { type: "item.completed", item: { type: "agent_message", text: "This is not semantic completion JSON." } };
+            yield { type: "turn.completed" };
+            return;
+          }
+          yield { type: "item.completed", item: { type: "agent_message", text: JSON.stringify({ summary: appServerCalls === 3 ? "Partial semantic WorkItem" : "Completed semantic WorkItem", deviations: [], blockers: [], residualRisks: [], outcome: appServerCalls === 3 ? "partial" : "implemented" }) } };
+          yield { type: "turn.completed" };
+        })() };
+      } };
+    } };
+  }, undefined, input => { assert.equal(input.executionKind, "workflow-work-item-implementation"); return { sandboxMode: "workspace-write", approvalPolicy: "on-request", approvalsReviewer: "user", networkAccessEnabled: false }; }, undefined, undefined,
+  fixture.manager, () => createWorkflowExecutionApplicationService());
+  for (const [workflowId, item] of [[feature.workflow.id, featureItem], [issue.workflow.id, issueItem]]) {
+    const selector = { ownerKind: "workflow-work-item", workflowId, workItemId: item.id };
+    const ready = await service.getStatus(root, selector);
+    assert.equal(ready.state, "ready");
+    assert.equal(ready.workCardId, item.id);
+    assert.equal(ready.formalWorkCardPath, null);
+    const started = await service.start(root, selector, selection);
+    assert.equal(started.state, "running");
+    const completed = await waitForSelectorState(service, root, selector, "completed");
+    assert.equal(completed.failureReason, null);
+    assert.equal(completed.checkpoint.status, "not-required");
+    assert.equal(completed.reportUpdated, true);
+    assert.equal(captured.at(-1).options.workingDirectory, path.join(root, ".champcity", "runtime", "work-item-workers", path.basename(captured.at(-1).options.workingDirectory)));
+    assert.notEqual(captured.at(-1).options.workingDirectory, root);
+    assert.deepEqual(captured.at(-1).options.writableRoots, [captured.at(-1).options.workingDirectory]);
+    assert.equal(captured.at(-1).options.sandboxMode, "workspace-write");
+    assert.equal(captured.at(-1).options.approvalPolicy, "on-request");
+    assert.equal(captured.at(-1).options.networkAccessEnabled, false);
+    assert.match(captured.at(-1).prompt, new RegExp(`Workflow ID: ${workflowId}`));
+    assert.match(captured.at(-1).prompt, new RegExp(`WorkItem ID: ${item.id}`));
+    assert.match(captured.at(-1).prompt, /source-neutral/);
+    assert.match(captured.at(-1).prompt, /exactly one JSON object/);
+  }
+  assert.deepEqual(legacyCalls, []);
+  assert.equal(appServerCalls, 2);
+  const records = await store.listEntities(registration.project.id, "ImplementationRecord");
+  assert.equal(records.length, 2);
+  assert.ok(records.every(record => record.body.outcome === "implemented" && record.body.executionRef));
+  const currentItems = await store.listEntities(registration.project.id, "WorkItem");
+  assert.ok(currentItems.filter(item => [featureItem.id, issueItem.id].includes(item.id)).every(item => item.body.workState === "validation_pending"));
+  assert.equal((await store.listEntities(registration.project.id, "SourceCheckpoint")).length, 0);
+  const packets = fs.readdirSync(path.join(root, ".champcity", "runtime", "work-item-attempts"));
+  assert.equal(packets.length, 2);
+  for (const packetFile of packets) {
+    const packet = JSON.parse(fs.readFileSync(path.join(root, ".champcity", "runtime", "work-item-attempts", packetFile), "utf8"));
+    assert.equal(packet.schemaVersion, 1);
+    assert.equal(packet.contractDigest.length, 64);
+    assert.equal(packet.result.outcome, "implemented");
+  }
+
+  const partialSelector = { ownerKind: "workflow-work-item", workflowId: feature.workflow.id, workItemId: partialItem.id };
+  const partialStarted = await service.start(root, partialSelector, selection);
+  assert.equal(partialStarted.state, "running", partialStarted.failureReason);
+  const partialCompletion = await waitForSelectorState(service, root, partialSelector, "completed");
+  assert.equal(partialCompletion.canRunAgain, true);
+  const partialRecord = (await store.listEntities(registration.project.id, "ImplementationRecord")).find(record => record.body.workItemId === partialItem.id);
+  assert.equal(partialRecord.body.outcome, "partial");
+  assert.equal((await store.getEntity(registration.project.id, partialItem.id)).body.workState, "ready");
+
+  const failedSelector = { ownerKind: "workflow-work-item", workflowId: issue.workflow.id, workItemId: failedItem.id };
+  const failedStarted = await service.start(root, failedSelector, selection);
+  assert.equal(failedStarted.state, "running", failedStarted.failureReason);
+  const failedCompletion = await waitForSelectorState(service, root, failedSelector, "failed");
+  assert.equal(failedCompletion.checkpoint.status, "not-required");
+  const failedRecord = (await store.listEntities(registration.project.id, "ImplementationRecord")).find(record => record.body.workItemId === failedItem.id);
+  assert.equal(failedRecord.body.outcome, "failed");
+  assert.equal((await store.getEntity(registration.project.id, failedItem.id)).body.workState, "ready");
+
+  const currentIssueItem = await store.getEntity(registration.project.id, issueItem.id);
+  const blocked = await state.reviseRecord(registration.project.id, issueItem.id, { ...currentIssueItem.body, workState: "blocked" }, currentIssueItem.recordVersion);
+  const blockedStart = await service.start(root, { ownerKind: "workflow-work-item", workflowId: issue.workflow.id, workItemId: blocked.id }, selection);
+  assert.equal(blockedStart.state, "unavailable");
+  assert.equal(appServerCalls, 4);
+  const sourceWorkflow = await state.createSubstantiveWorkflow(registration.project.id, { workflowType: "feature-capability", title: "Source-backed", entryWorkspace: "feature-intake" });
+  const sourceBaseline = await state.createWorkflowSourceBaseline(registration.project.id, sourceWorkflow.workflow.id, { repositoryId: "source-backed", integrationTargetSourceLineId: "dev", baseRevisionId: "base" });
+  await state.createWorkflowSourceBinding(registration.project.id, sourceWorkflow.workflow.id, sourceBaseline.id);
+  const sourcePlan = await state.acceptWorkflowPlanningGraph(registration.project.id, createGraph(sourceWorkflow.workflow.id, "feature", "Source-backed objective"));
+  const sourceRejected = await service.start(root, { ownerKind: "workflow-work-item", workflowId: sourceWorkflow.workflow.id, workItemId: sourcePlan.directWorkItems[0].id }, selection);
+  assert.equal(sourceRejected.state, "unavailable");
+  assert.match(sourceRejected.failureReason, /source-neutral/i);
+  const sourceMutationRejected = await service.start(root, { ownerKind: "workflow-work-item", workflowId: feature.workflow.id, workItemId: featureItem.id, sourceMutation: "required" }, selection);
+  assert.equal(sourceMutationRejected.state, "unavailable");
+  assert.match(sourceMutationRejected.failureReason, /source mutation options are not accepted/i);
+  assert.equal(appServerCalls, 4);
+});
 
 // Existing lifecycle tests explicitly supply the new runtime identity through a per-test fixture.
 function createService(...args) {

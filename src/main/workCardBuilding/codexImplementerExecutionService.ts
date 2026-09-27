@@ -54,6 +54,8 @@ import {
   refreshWindowsProcessEnvironment,
   type WindowsEnvironmentRefreshResult,
 } from "../developmentEnvironment/windowsEnvironmentRefresh";
+import { createWorkflowExecutionApplicationService } from "../workflow/workflowExecutionApplicationService";
+import type { WorkItemExecutionContract } from "../../shared/workflowApplicationContracts";
 
 export const CODEX_RUNTIME_UNAVAILABLE_MESSAGE =
   "Codex App Server or local Codex runtime is not available from this application environment. Install Codex locally, authenticate it, then refresh.";
@@ -84,7 +86,7 @@ export interface CodexAppServerExecutionAdapter {
 export type CodexAppServerExecutionAdapterFactory = CodexAppServerAdapterFactory;
 
 interface WorkCardExecutionContext {
-  ownerKind?: "development" | "issue" | "routed-development";
+  ownerKind?: "development" | "issue" | "routed-development" | "workflow-work-item";
   intakeId?: string;
   planId?: string;
   planRevision?: number;
@@ -106,6 +108,15 @@ interface WorkCardExecutionContext {
   implementerReportRevision: number;
   implementerReportSha256: string;
   developmentEnvironmentPreflight: DevelopmentEnvironmentPreflightResult | null;
+  workflowWorkItem?: {
+    workflowId: string;
+    workItemId: string;
+    contract: WorkItemExecutionContract;
+    executionRef?: string;
+    workerDirectory?: string;
+    evidencePacketPath?: string;
+    resultOutcome?: "implemented" | "partial" | "blocked" | "failed" | "abandoned";
+  };
 }
 /** The Integration Repair owner carries source scope instead of a Work Card and Implementer Report. */
 export type CodexExecutionContext = WorkCardExecutionContext | IntegrationRepairExecutionContext;
@@ -117,7 +128,8 @@ interface IssueExecutionSelector {
   fixCardId: string;
   currentImplementationId?: string;
 }
-export type CodexExecutionSelector = IssueExecutionSelector | { ownerKind: "routed-development"; intakeId: string; workItemId: string }
+export type CodexExecutionSelector = IssueExecutionSelector | { ownerKind: "workflow-work-item"; workflowId: string; workItemId: string }
+  | { ownerKind: "routed-development"; intakeId: string; workItemId: string }
   | { ownerKind: "integration-repair"; intakeId: string; candidateId: string; repairId: string };
 
 interface SessionRecord extends ExecutionContext {
@@ -180,6 +192,7 @@ export class CodexImplementerExecutionService {
     private readonly parentEnvironmentRefresh: () => Promise<WindowsEnvironmentRefreshResult> =
       refreshWindowsProcessEnvironment,
     private readonly runtimeManager: CodexRuntimeManager = codexRuntimeManager,
+    private readonly workflowExecutionServiceFactory: typeof createWorkflowExecutionApplicationService = createWorkflowExecutionApplicationService,
   ) {}
 
   getRunningRoutedSession(workspaceRoot: string, intakeId: string) {
@@ -189,6 +202,7 @@ export class CodexImplementerExecutionService {
   }
 
   async getStatus(workspaceRoot: string, selector?: CodexExecutionSelector): Promise<CodexImplementerExecutionModel> {
+    if (selector?.ownerKind === "workflow-work-item") return this.getWorkflowWorkItemStatus(workspaceRoot, selector);
     const key = workspaceKey(workspaceRoot);
     const runningOrCompleted = this.sessionsByWorkspaceRoot.get(key);
     if (runningOrCompleted) {
@@ -267,6 +281,7 @@ export class CodexImplementerExecutionService {
   }
 
   private async startSelected(workspaceRoot: string, selector: CodexExecutionSelector | undefined, selection: CodexModelSelection): Promise<CodexImplementerExecutionModel> {
+    if (selector?.ownerKind === "workflow-work-item") return this.startWorkflowWorkItemSelected(workspaceRoot, selector, selection);
     const key = workspaceKey(workspaceRoot);
     const active = this.sessionsByWorkspaceRoot.get(key);
     const context = await this.resolvePreflightContext(workspaceRoot, selector);
@@ -410,6 +425,112 @@ export class CodexImplementerExecutionService {
       canRunAgain: false,
       retryBlocker: "Codex execution is already running for this workspace.",
     });
+  }
+
+  private async resolveWorkflowWorkItemContext(workspaceRoot: string, selector: Extract<CodexExecutionSelector, { ownerKind: "workflow-work-item" }>): Promise<ExecutionContext | Error> {
+    try {
+      if (!selector || Object.keys(selector).sort().join("|") !== ["ownerKind", "workflowId", "workItemId"].sort().join("|") ||
+        typeof selector.workflowId !== "string" || typeof selector.workItemId !== "string" || !selector.workflowId.trim() || !selector.workItemId.trim())
+        throw Error("Exact workflowId and workItemId are required; source mutation options are not accepted by this execution mode.");
+      const projectRoot = fs.realpathSync(path.resolve(workspaceRoot));
+      const kernel = this.workflowExecutionServiceFactory();
+      const contract = await kernel.createSourceNeutralWorkItemExecutionContract(projectRoot, selector.workflowId, selector.workItemId,
+        { affectedPaths: [], proofIntent: ["Return semantic completion for the exact accepted WorkItem contract."] });
+      if (contract.sourceMutation !== "not-required" || contract.sourceRevisionId !== null) throw Error("Exact Codex WorkItem execution rejects source-mutating or source-backed contracts.");
+      return {
+        ownerKind: "workflow-work-item", phaseId: contract.phase?.id ?? null, workCardId: contract.workItemId, workCardTitle: contract.objective,
+        projectRoot, formalWorkCardPath: "", formalWorkCardRevision: 0, formalWorkCardSha256: contract.digest,
+        implementationContractType: "formal-work-card", implementationContractLabel: "Exact Workflow WorkItem execution contract",
+        implementerReportPath: "", implementerReportRevision: 0, implementerReportSha256: contract.digest,
+        developmentEnvironmentPreflight: null,
+        workflowWorkItem: { workflowId: contract.workflowId, workItemId: contract.workItemId, contract },
+      };
+    } catch (error) { return error instanceof Error ? error : Error(String(error)); }
+  }
+
+  private async getWorkflowWorkItemStatus(workspaceRoot: string, selector: Extract<CodexExecutionSelector, { ownerKind: "workflow-work-item" }>): Promise<CodexImplementerExecutionModel> {
+    const active = this.sessionsByWorkspaceRoot.get(workspaceKey(workspaceRoot));
+    if (active?.workflowWorkItem?.workflowId === selector.workflowId && active.workflowWorkItem.workItemId === selector.workItemId) {
+      const canRunAgain = active.state === "failed" || active.state === "cancelled" || active.workflowWorkItem.resultOutcome === "partial" || active.workflowWorkItem.resultOutcome === "failed";
+      return modelFromSession(active, this.now(), { canRunAgain, retryBlocker: canRunAgain ? null : "Refresh the exact WorkItem state before another implementation attempt." });
+    }
+    const context = await this.resolveWorkflowWorkItemContext(workspaceRoot, selector);
+    if (context instanceof Error) return unavailableFromPreflight(context);
+    if (active?.state === "running") return busyModelForDifferentContext(context, active);
+    return readyModel(context);
+  }
+
+  private async startWorkflowWorkItemSelected(workspaceRoot: string, selector: Extract<CodexExecutionSelector, { ownerKind: "workflow-work-item" }>, selection: CodexModelSelection): Promise<CodexImplementerExecutionModel> {
+    const key = workspaceKey(workspaceRoot);
+    const active = this.sessionsByWorkspaceRoot.get(key);
+    if (active?.state === "running") {
+      if (active.workflowWorkItem?.workflowId === selector.workflowId && active.workflowWorkItem.workItemId === selector.workItemId) {
+        return modelFromSession(active, this.now(), { canRunAgain: false, retryBlocker: "Codex execution is already running for this WorkItem." });
+      }
+      const requested = await this.resolveWorkflowWorkItemContext(workspaceRoot, selector);
+      return requested instanceof Error ? unavailableFromPreflight(requested) : busyModelForDifferentContext(requested, active);
+    }
+    const context = await this.resolveWorkflowWorkItemContext(workspaceRoot, selector);
+    if (context instanceof Error) return unavailableFromPreflight(context);
+    const exact = context.workflowWorkItem!;
+    const executionRef = crypto.randomUUID();
+    const runtimeDirectory = path.join(context.projectRoot, ".champcity", "runtime");
+    const workerDirectory = path.join(runtimeDirectory, "work-item-workers", executionRef);
+    const evidenceDirectory = path.join(runtimeDirectory, "work-item-attempts");
+    const evidencePacketPath = path.join(evidenceDirectory, `${executionRef}.json`);
+    const startedAt = this.now();
+    const kernel = this.workflowExecutionServiceFactory();
+    try {
+      await kernel.beginWorkItemAttempt(context.projectRoot, exact.workflowId, exact.workItemId, exact.contract.workItemVersion, executionRef);
+    } catch (error) { return unavailableModelFromContext(context, error instanceof Error ? error.message : String(error)); }
+    exact.executionRef = executionRef;
+    exact.workerDirectory = workerDirectory;
+    exact.evidencePacketPath = evidencePacketPath;
+    try {
+      ensureRuntimeDirectory(context.projectRoot, runtimeDirectory, workerDirectory);
+      let appServer: CodexAppServerExecutionAdapter;
+      try { appServer = await this.appServerFactory(); }
+      catch (error) {
+        const message = messageForCodexFailure(error);
+        await this.persistAndFinishWorkflowAttempt(context, selection, startedAt, { summary: "Codex App Server could not start.", deviations: [], blockers: [message], residualRisks: [], outcome: "failed" });
+        return unavailableModelFromContext(context, message);
+      }
+      const executionPolicy = this.policyResolver({ executionKind: "workflow-work-item-implementation", workspaceRoot: workerDirectory });
+      const session: SessionRecord = {
+        ...context, selection, executionKind: "workflow-work-item-implementation", executionPolicy, state: "running", startedAt, completedAt: null,
+        eventTail: [], stderrTail: [], finalResponseTail: [], approvalTail: [], runtimeDenialTail: [],
+        runtimeState: appServer.getRuntimeState?.() ?? null, pendingApproval: null, pendingUserInput: null, pendingMcpElicitation: null,
+        failureReason: null, reportUpdated: false, reportSha256After: null, abortController: new AbortController(), threadAdapter: null,
+        appServerAdapter: appServer, executionPromise: null, cancellationRequested: false,
+        checkpoint: { status: "not-required", message: "Source-neutral WorkItem execution does not create a SourceCheckpoint.", remote: "not-requested", receipts: [] },
+      };
+      this.sessionsByWorkspaceRoot.set(key, session);
+      session.executionPromise = this.executeWithAppServer(session, appServer);
+      void session.executionPromise;
+      return modelFromSession(session, this.now(), { canRunAgain: false, retryBlocker: "Codex execution is already running for this WorkItem." });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await this.persistAndFinishWorkflowAttempt(context, selection, startedAt, { summary: "Source-neutral Codex setup failed.", deviations: [], blockers: [message], residualRisks: [], outcome: "failed" }).catch(() => undefined);
+      return unavailableModelFromContext(context, message);
+    }
+  }
+
+  private async persistAndFinishWorkflowAttempt(context: ExecutionContext, selection: CodexModelSelection | undefined, startedAt: number,
+    result: { summary: string; deviations: string[]; blockers: string[]; residualRisks: string[]; outcome: "implemented" | "partial" | "blocked" | "failed" | "abandoned" }): Promise<void> {
+    const exact = context.workflowWorkItem;
+    if (!exact?.executionRef || !exact.evidencePacketPath || !exact.workerDirectory) throw Error("Exact WorkItem attempt evidence identity is incomplete.");
+    const packet = { schemaVersion: 1, projectId: exact.contract.projectId, workflowId: exact.workflowId, workItemId: exact.workItemId,
+      executionRef: exact.executionRef, contractDigest: exact.contract.digest, startedAt: new Date(startedAt).toISOString(), completedAt: new Date(this.now()).toISOString(),
+      model: selection?.model ?? null, reasoningEffort: selection?.reasoningEffort ?? null, result };
+    const bytes = Buffer.from(JSON.stringify(packet));
+    if (bytes.length > 48 * 1024) throw Error("Source-neutral WorkItem attempt evidence exceeds its bounded size.");
+    const runtimeRoot = fs.realpathSync(path.join(context.projectRoot, ".champcity", "runtime"));
+    const packetParent = path.dirname(exact.evidencePacketPath);
+    fs.mkdirSync(packetParent, { recursive: true });
+    const packetDirectory = fs.realpathSync(path.dirname(exact.evidencePacketPath));
+    if (!packetDirectory.toLowerCase().startsWith(`${runtimeRoot.toLowerCase()}${path.sep.toLowerCase()}`)) throw Error("Attempt evidence escaped the Current Project runtime directory.");
+    fs.writeFileSync(exact.evidencePacketPath, bytes, { flag: "wx" });
+    await this.workflowExecutionServiceFactory().finishWorkItemAttempt(context.projectRoot, exact.workflowId, exact.workItemId, exact.executionRef, result);
   }
 
   async startEnvironmentResolution(workspaceRoot: string, selector?: CodexExecutionSelector): Promise<CodexImplementerExecutionModel> {
@@ -672,7 +793,9 @@ export class CodexImplementerExecutionService {
   }
 
   private async executeWithAppServer(session: SessionRecord, appServer: CodexAppServerExecutionAdapter): Promise<void> {
-    const prompt = session.executionKind === "environment-resolution"
+    const prompt = session.workflowWorkItem
+      ? buildWorkflowWorkItemCodexPrompt(session.workflowWorkItem.contract, session.workflowWorkItem.executionRef!)
+      : session.executionKind === "environment-resolution"
       ? buildCodexEnvironmentResolutionPrompt(session)
       : buildCodexImplementerPrompt(session);
     let terminalState: CodexImplementerExecutionState = "failed";
@@ -680,13 +803,13 @@ export class CodexImplementerExecutionService {
     let thread: CodexThreadAdapter | null = null;
     try {
       thread = appServer.startThread({
-        workingDirectory: session.projectRoot,
+        workingDirectory: session.workflowWorkItem?.workerDirectory ?? session.projectRoot,
         model: session.selection?.model,
         reasoningEffort: session.selection?.reasoningEffort,
         skipGitRepoCheck: true,
         ...threadOptionsFromCodexImplementerPolicy(session.executionPolicy),
         writableRoots: session.executionPolicy.sandboxMode === "workspace-write"
-          ? [session.projectRoot]
+          ? [session.workflowWorkItem?.workerDirectory ?? session.projectRoot]
           : undefined,
       });
       session.threadAdapter = thread;
@@ -799,13 +922,29 @@ export class CodexImplementerExecutionService {
           session.developmentEnvironmentPreflight = failedRefreshPreflight;
         }
       }
-      if (session.executionKind === "work-card-implementation") {
+      if (session.workflowWorkItem) {
+        const parsed = terminalState === "completed" ? parseWorkflowWorkItemCompletion(session.finalResponseTail.at(-1) ?? "") : null;
+        const result = parsed ?? (terminalState === "cancelled"
+          ? { summary: "Codex execution was cancelled.", deviations: [], blockers: ["Execution cancelled before a semantic result was returned."], residualRisks: [], outcome: "abandoned" as const }
+          : { summary: "Codex execution did not produce a valid semantic completion.", deviations: [], blockers: [terminalFailureReason ?? "Codex execution failed."], residualRisks: [], outcome: "failed" as const });
+        session.workflowWorkItem.resultOutcome = result.outcome;
+        try {
+          await this.persistAndFinishWorkflowAttempt(session, session.selection, session.startedAt ?? this.now(), result);
+          if (terminalState === "completed" && !parsed) {
+            terminalState = "failed";
+            session.failureReason = "Codex returned invalid or missing source-neutral semantic completion JSON.";
+          }
+        } catch (error) {
+          terminalState = "failed";
+          session.failureReason = `Typed WorkItem attempt finalization failed: ${messageForCodexFailure(error)}`;
+        }
+      } else if (session.executionKind === "work-card-implementation") {
         await refreshReportEvidence(session, terminalState);
       }
-      if (session.executionKind === "work-card-implementation" && terminalState === "completed" && !session.reportUpdated) {
+      if (!session.workflowWorkItem && session.executionKind === "work-card-implementation" && terminalState === "completed" && !session.reportUpdated) {
         session.failureReason = "Codex completed, but the Implementer Report was not updated.";
       }
-      if (session.executionKind === "work-card-implementation" && session.checkpointCapture && !session.checkpoint) {
+      if (!session.workflowWorkItem && session.executionKind === "work-card-implementation" && session.checkpointCapture && !session.checkpoint) {
         session.checkpoint = await completePlanWorkItemSource(session.projectRoot, { capture: session.checkpointCapture,
           implementationSucceeded: terminalState === "completed", reportReady: session.reportUpdated && !session.failureReason,
           synchronize: Boolean(session.checkpointCapture.binding.remote) });
@@ -823,6 +962,7 @@ export class CodexImplementerExecutionService {
         throw new Error("Selected workspace root is not a readable directory.");
       }
       if (selector?.ownerKind === "integration-repair") throw new Error("Integration Repair uses its bounded isolated execution owner.");
+      if (selector?.ownerKind === "workflow-work-item") return await this.resolveWorkflowWorkItemContext(projectRoot, selector);
       if (selector?.ownerKind === "issue") {
         const issueContext = resolveIssueFixCardCodexExecutionContext(
           projectRoot,
@@ -949,6 +1089,60 @@ export class CodexImplementerExecutionService {
 }
 
 export const codexImplementerExecutionService = new CodexImplementerExecutionService();
+
+export function buildWorkflowWorkItemCodexPrompt(contract: WorkItemExecutionContract, executionRef: string): string {
+  return `You are the Implementer for one exact ChampCity Workflow WorkItem.
+
+Authority and identity:
+- The human Operator is the only authority. Use only this exact application-owned execution contract; do not infer identity from titles or discover legacy Work Cards, Issue Fix Cards, Markdown plans, or report files.
+- Workflow ID: ${contract.workflowId}
+- WorkItem ID: ${contract.workItemId}
+- WorkItem record version: ${contract.workItemVersion}
+- Execution reference: ${executionRef}
+- Contract digest: ${contract.digest}
+- Accepted contract:
+${JSON.stringify(contract, null, 2)}
+
+Execution boundary:
+- The Current Project container is application state and evidence storage. Your working directory is a separate empty runtime worker directory and is not a source repository.
+- This contract is explicitly source-neutral. Do not read or modify project source, create a Git repository, run Git commands, or claim source changes, commits, checkpoints, or permanent validation.
+- Do not create or modify files. Return exactly one JSON object as your final response, with only these fields: summary (string), deviations (string array), blockers (string array), residualRisks (string array), outcome (implemented|partial|blocked|failed).
+- Keep the result concise and report only semantic work actually performed. Do not claim ValidationCatalog or Tester proof; implementation-local evidence does not replace independent validation.
+- If the objective cannot be completed within this source-neutral boundary, use partial, blocked, or failed and explain why in blockers.
+`;
+}
+
+function parseWorkflowWorkItemCompletion(text: string): { summary: string; deviations: string[]; blockers: string[]; residualRisks: string[]; outcome: "implemented" | "partial" | "blocked" | "failed" } | null {
+  if (typeof text !== "string" || Buffer.byteLength(text, "utf8") > 32 * 1024) return null;
+  try {
+    const value = JSON.parse(text) as Record<string, unknown>;
+    const keys = ["summary", "deviations", "blockers", "residualRisks", "outcome"].sort();
+    if (!value || typeof value !== "object" || Object.keys(value).sort().join("|") !== keys.join("|") ||
+      typeof value.summary !== "string" || !value.summary.trim() || value.summary.length > 4096 ||
+      !["implemented", "partial", "blocked", "failed"].includes(String(value.outcome))) return null;
+    for (const name of ["deviations", "blockers", "residualRisks"] as const) {
+      const list = value[name];
+      if (!Array.isArray(list) || list.length > 32 || list.some(item => typeof item !== "string" || !item.trim() || item.length > 2000)) return null;
+    }
+    return { summary: value.summary.trim(), deviations: value.deviations as string[], blockers: value.blockers as string[],
+      residualRisks: value.residualRisks as string[], outcome: value.outcome as "implemented" | "partial" | "blocked" | "failed" };
+  } catch { return null; }
+}
+
+function ensureRuntimeDirectory(projectRoot: string, runtimeDirectory: string, workerDirectory: string): void {
+  const canonicalRoot = fs.realpathSync(projectRoot);
+  const isWithin = (parent: string, child: string) => child.toLowerCase().startsWith(`${parent.toLowerCase()}${path.sep.toLowerCase()}`);
+  const stateDirectory = path.join(canonicalRoot, ".champcity");
+  fs.mkdirSync(stateDirectory, { recursive: true });
+  const canonicalState = fs.realpathSync(stateDirectory);
+  if (!isWithin(canonicalRoot, canonicalState)) throw Error("Current Project application state escaped its container.");
+  fs.mkdirSync(runtimeDirectory, { recursive: true });
+  const runtimeRoot = fs.realpathSync(runtimeDirectory);
+  if (!isWithin(canonicalState, runtimeRoot)) throw Error("Current Project runtime directory escaped its application state.");
+  fs.mkdirSync(workerDirectory, { recursive: true });
+  const workerRoot = fs.realpathSync(workerDirectory);
+  if (!isWithin(canonicalRoot, runtimeRoot) || !isWithin(runtimeRoot, workerRoot)) throw Error("Source-neutral runtime directory escaped its Current Project container.");
+}
 
 export function buildCodexImplementerPrompt(context: ExecutionContext): string {
   const contractDocumentLabel = context.implementationContractType === "formal-work-card"
@@ -1147,6 +1341,7 @@ async function loadCodexAppServerExecutionAdapter(): Promise<CodexAppServerExecu
 }
 
 function readyModel(context: ExecutionContext): CodexImplementerExecutionModel {
+  const exactWorkflowWorkItem = context.ownerKind === "workflow-work-item";
   return {
     ...baseModel(context.projectRoot),
     state: "ready",
@@ -1154,12 +1349,12 @@ function readyModel(context: ExecutionContext): CodexImplementerExecutionModel {
     phaseId: context.phaseId,
     workCardId: context.workCardId,
     workCardTitle: context.workCardTitle,
-    formalWorkCardPath: context.formalWorkCardPath,
-    formalWorkCardRevision: context.formalWorkCardRevision,
-    formalWorkCardSha256: context.formalWorkCardSha256,
-    implementerReportPath: context.implementerReportPath,
-    implementerReportRevision: context.implementerReportRevision,
-    implementerReportSha256: context.implementerReportSha256,
+    formalWorkCardPath: exactWorkflowWorkItem ? null : context.formalWorkCardPath,
+    formalWorkCardRevision: exactWorkflowWorkItem ? null : context.formalWorkCardRevision,
+    formalWorkCardSha256: exactWorkflowWorkItem ? null : context.formalWorkCardSha256,
+    implementerReportPath: exactWorkflowWorkItem ? null : context.implementerReportPath,
+    implementerReportRevision: exactWorkflowWorkItem ? null : context.implementerReportRevision,
+    implementerReportSha256: exactWorkflowWorkItem ? null : context.implementerReportSha256,
     developmentEnvironmentPreflight: context.developmentEnvironmentPreflight,
   };
 }
@@ -1283,6 +1478,7 @@ function modelFromSession(
   now: number,
   retryReadiness: RetryReadiness,
 ): CodexImplementerExecutionModel {
+  const exactWorkflowWorkItem = session.ownerKind === "workflow-work-item";
   const completedAt = session.completedAt ? new Date(session.completedAt).toISOString() : null;
   const elapsedEnd = session.completedAt ?? now;
   const lastRunState = isTerminalState(session.state) ? session.state : null;
@@ -1297,7 +1493,9 @@ function modelFromSession(
     checkpoint: session.checkpoint,
     executionKind: session.executionKind,
     lastRunState,
-    canRunAgain: session.executionKind === "work-card-implementation"
+    canRunAgain: exactWorkflowWorkItem
+      ? retryReadiness.canRunAgain
+      : session.executionKind === "work-card-implementation"
       ? retryReadiness.canRunAgain
       : retryReadiness.canRunAgain && environmentReady,
     canResolveEnvironment,
@@ -1307,12 +1505,12 @@ function modelFromSession(
     workCardId: session.workCardId,
     workCardTitle: session.workCardTitle,
     projectRoot: session.projectRoot,
-    formalWorkCardPath: session.formalWorkCardPath,
-    formalWorkCardRevision: session.formalWorkCardRevision,
-    formalWorkCardSha256: session.formalWorkCardSha256,
-    implementerReportPath: session.implementerReportPath,
-    implementerReportRevision: session.implementerReportRevision,
-    implementerReportSha256: session.implementerReportSha256,
+    formalWorkCardPath: exactWorkflowWorkItem ? null : session.formalWorkCardPath,
+    formalWorkCardRevision: exactWorkflowWorkItem ? null : session.formalWorkCardRevision,
+    formalWorkCardSha256: exactWorkflowWorkItem ? null : session.formalWorkCardSha256,
+    implementerReportPath: exactWorkflowWorkItem ? null : session.implementerReportPath,
+    implementerReportRevision: exactWorkflowWorkItem ? null : session.implementerReportRevision,
+    implementerReportSha256: exactWorkflowWorkItem ? null : session.implementerReportSha256,
     startedAt: session.startedAt ? new Date(session.startedAt).toISOString() : null,
     completedAt,
     elapsedMs: session.startedAt ? Math.max(0, elapsedEnd - session.startedAt) : null,
@@ -1326,8 +1524,9 @@ function modelFromSession(
     pendingUserInput: session.pendingUserInput,
     pendingMcpElicitation: session.pendingMcpElicitation,
     failureReason: session.failureReason,
-    reportUpdated: session.reportUpdated,
-    reportSha256After: session.reportSha256After,
+    reportUpdated: exactWorkflowWorkItem ? Boolean(session.workflowWorkItem?.evidencePacketPath && fs.existsSync(session.workflowWorkItem.evidencePacketPath)) : session.reportUpdated,
+    reportSha256After: exactWorkflowWorkItem && session.workflowWorkItem?.evidencePacketPath && fs.existsSync(session.workflowWorkItem.evidencePacketPath)
+      ? crypto.createHash("sha256").update(fs.readFileSync(session.workflowWorkItem.evidencePacketPath)).digest("hex") : session.reportSha256After,
     developmentEnvironmentPreflight: session.developmentEnvironmentPreflight,
   };
 }

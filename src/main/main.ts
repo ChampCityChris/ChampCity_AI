@@ -1013,11 +1013,19 @@ ipcMain.handle("codexImplementer:getStatus", (): Promise<CodexImplementerExecuti
   return codexImplementerExecutionService.getStatus(getRequiredWorkspaceRoot());
 });
 
+ipcMain.handle("codexImplementer:getWorkflowWorkItemStatus", (_event, workflowId: string, workItemId: string): Promise<CodexImplementerExecutionModel> => {
+  return codexImplementerExecutionService.getStatus(getRequiredWorkspaceRoot(), { ownerKind: "workflow-work-item", workflowId, workItemId });
+});
+
 ipcMain.handle("codexRuntime:getStatus", () => codexRuntimeManager.getStatus());
 ipcMain.handle("codexRuntime:setSelection", (_event, selection: unknown) => codexRuntimeManager.setSelection(selection));
 
 ipcMain.handle("codexImplementer:start", (_event, selection: CodexModelSelection): Promise<CodexImplementerExecutionModel> => {
   return codexImplementerExecutionService.start(getRequiredWorkspaceRoot(), undefined, selection);
+});
+
+ipcMain.handle("codexImplementer:startWorkflowWorkItem", (_event, workflowId: string, workItemId: string, selection: CodexModelSelection): Promise<CodexImplementerExecutionModel> => {
+  return codexImplementerExecutionService.start(getRequiredWorkspaceRoot(), { ownerKind: "workflow-work-item", workflowId, workItemId }, selection);
 });
 
 ipcMain.handle("codexImplementer:startEnvironmentResolution", (): Promise<CodexImplementerExecutionModel> => {

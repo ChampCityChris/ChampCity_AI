@@ -1149,6 +1149,7 @@ export type CodexImplementerExecutionState =
 export type CodexImplementerIntegrationMode = "app-server-stdio";
 export type CodexImplementerExecutionKind =
   | "work-card-implementation"
+  | "workflow-work-item-implementation"
   | "environment-resolution"
   | "integration-repair";
 
@@ -1586,9 +1587,11 @@ export interface ChampCityApi {
   getCurrentWorkspaceModel: () => Promise<CurrentWorkspaceModel>;
   getPhaseValidationActionProjection: () => Promise<PhaseValidationActionProjection>;
   getCodexImplementerExecutionStatus: () => Promise<CodexImplementerExecutionModel>;
+  getWorkflowWorkItemCodexExecutionStatus: (workflowId: string, workItemId: string) => Promise<CodexImplementerExecutionModel>;
   getCodexManagedRuntimeStatus: () => Promise<CodexManagedRuntimeStatus>;
   setCodexModelSelection: (selection: CodexModelSelection) => Promise<CodexManagedRuntimeStatus>;
   startCodexImplementerExecution: (selection: CodexModelSelection) => Promise<CodexImplementerExecutionModel>;
+  startWorkflowWorkItemCodexExecution: (workflowId: string, workItemId: string, selection: CodexModelSelection) => Promise<CodexImplementerExecutionModel>;
   startCodexEnvironmentResolution: () => Promise<CodexImplementerExecutionModel>;
   respondToCodexApproval: (response: CodexApprovalResponse) => Promise<CodexImplementerExecutionModel>;
   respondToCodexUserInput: (response: CodexUserInputResponse) => Promise<CodexImplementerExecutionModel>;

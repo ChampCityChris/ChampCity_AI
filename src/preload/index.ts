@@ -378,6 +378,8 @@ const api: ChampCityApi = {
     ipcRenderer.invoke(
       "codexImplementer:getStatus",
     ) as ReturnType<ChampCityApi["getCodexImplementerExecutionStatus"]>,
+  getWorkflowWorkItemCodexExecutionStatus: (workflowId, workItemId) =>
+    ipcRenderer.invoke("codexImplementer:getWorkflowWorkItemStatus", workflowId, workItemId) as ReturnType<ChampCityApi["getWorkflowWorkItemCodexExecutionStatus"]>,
   getCodexManagedRuntimeStatus: () => ipcRenderer.invoke("codexRuntime:getStatus"),
   setCodexModelSelection: (selection) => ipcRenderer.invoke("codexRuntime:setSelection", selection),
   startCodexImplementerExecution: (selection) =>
@@ -385,6 +387,8 @@ const api: ChampCityApi = {
       "codexImplementer:start",
       selection,
     ) as ReturnType<ChampCityApi["startCodexImplementerExecution"]>,
+  startWorkflowWorkItemCodexExecution: (workflowId, workItemId, selection) =>
+    ipcRenderer.invoke("codexImplementer:startWorkflowWorkItem", workflowId, workItemId, selection) as ReturnType<ChampCityApi["startWorkflowWorkItemCodexExecution"]>,
   startCodexEnvironmentResolution: () =>
     ipcRenderer.invoke(
       "codexImplementer:startEnvironmentResolution",
