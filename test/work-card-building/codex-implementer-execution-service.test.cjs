@@ -2247,7 +2247,7 @@ test("exact source-neutral Feature and Issue WorkItem selectors use fake App Ser
   const sourcePlan = await state.acceptWorkflowPlanningGraph(registration.project.id, createGraph(sourceWorkflow.workflow.id, "feature", "Source-backed objective"));
   const sourceRejected = await service.start(root, { ownerKind: "workflow-work-item", workflowId: sourceWorkflow.workflow.id, workItemId: sourcePlan.directWorkItems[0].id }, selection);
   assert.equal(sourceRejected.state, "unavailable");
-  assert.match(sourceRejected.failureReason, /source-neutral/i);
+  assert.match(sourceRejected.failureReason, /SOURCE_CHECKOUT_PREPARATION_UNAVAILABLE/i);
   const sourceMutationRejected = await service.start(root, { ownerKind: "workflow-work-item", workflowId: feature.workflow.id, workItemId: featureItem.id, sourceMutation: "required" }, selection);
   assert.equal(sourceMutationRejected.state, "unavailable");
   assert.match(sourceMutationRejected.failureReason, /source mutation options are not accepted/i);
@@ -2326,3 +2326,102 @@ for (const workflow of ["development", "issue"]) {
     await service.shutdownActiveExecutions();
   });
 }
+
+test("source-backed exact Workflow WorkItem uses its registered checkout and checkpoints only attributed changes", async t => {
+  const { execFileSync } = require("node:child_process");
+  const { runtimeFixture, selection } = require("../support/codex-runtime.cjs");
+  const { createWorkflowExecutionApplicationService } = require("../../dist/main/workflow/workflowExecutionApplicationService.js");
+  const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
+  const { registerCurrentProject } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
+  const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
+  const root = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "champcity-wrb04-02d-source-execution-"));
+  const project = await registerCurrentProject(root, "existing", { projectName: "Source execution fixture" });
+  const dev = path.join(root, "Dev"); fs.mkdirSync(dev);
+  const git = (...args) => execFileSync("git", args, { cwd: dev, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  git("init", "-b", "dev"); git("config", "user.name", "Test Operator"); git("config", "user.email", "operator@example.invalid");
+  fs.writeFileSync(path.join(dev, "feature.txt"), "baseline\n"); git("add", "feature.txt"); git("commit", "-m", "baseline");
+  const revision = git("rev-parse", "HEAD");
+  fs.writeFileSync(path.join(root, ".champcity", "mcp-workspace-binding.json"), JSON.stringify({ mcpWorkspaceId: "source-execution-fixture", gitBacked: true }));
+  const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  const state = createProjectStateService(store, { principalId: "test-operator", principalType: "human", role: "Operator" });
+  t.after(() => { store.close(); fs.rmSync(root, { recursive: true, force: true }); });
+  const created = await state.createSubstantiveWorkflow(project.project.id, { workflowType: "feature-capability", title: "Source exact", entryWorkspace: "feature-intake" });
+  const baseline = await state.createWorkflowSourceBaseline(project.project.id, created.workflow.id, { repositoryId: "source-execution-repository", integrationTargetSourceLineId: "dev", baseRevisionId: revision });
+  await state.createWorkflowSourceBinding(project.project.id, created.workflow.id, baseline.id);
+  const plan = await state.acceptWorkflowPlanningGraph(project.project.id, { workflowId: created.workflow.id, topology: "direct",
+    solution: { title: "Accepted", objective: "Implement the source change", scopeIn: ["feature.txt"], scopeOut: [], constraints: [], assumptions: [], risks: [] },
+    solutionCriteria: [], phases: [], workItems: [
+      { key: "source-item", kind: "feature", title: "Same title", objective: "Change feature.txt", dependencyKeys: [], criteria: [] },
+      { key: "unsafe-item", kind: "feature", title: "Unsafe attribution", objective: "Change a source file", dependencyKeys: [], criteria: [] },
+    ] });
+  const item = plan.directWorkItems.find(candidate => candidate.body.title === "Same title");
+  const unsafeItem = plan.directWorkItems.find(candidate => candidate.body.title === "Unsafe attribution");
+  const unrelated = await state.createSubstantiveWorkflow(project.project.id, { workflowType: "issue-resolution", title: "Unrelated source", entryWorkspace: "issue-intake",
+    sourceSeed: { repositoryId: "source-execution-repository", integrationTargetSourceLineId: "dev", baseRevisionId: revision } });
+  const unrelatedPlan = await state.acceptWorkflowPlanningGraph(project.project.id, { workflowId: unrelated.workflow.id, topology: "direct",
+    solution: { title: "Other", objective: "Other", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [], phases: [],
+    workItems: [{ key: "unrelated-item", kind: "fix", title: "Unrelated", objective: "Not this checkout", dependencyKeys: [], criteria: [] }] });
+  const fixture = runtimeFixture(); await fixture.ready;
+  let appServerCalls = 0; let checkoutRegistrations = 0; const captured = [];
+  const service = new CodexImplementerExecutionService(async () => {
+    appServerCalls++;
+    return { startThread(options) { captured.push(options); return { id: "source-thread", async runStreamed() {
+      fs.writeFileSync(path.join(options.workingDirectory, appServerCalls === 1 ? "feature.txt" : "unreported.txt"), "implemented\n");
+      return { events: (async function* () {
+        yield { type: "item.completed", item: { type: "file_change", changes: [{ path: appServerCalls === 1 ? "feature.txt" : "../outside.txt" }], status: "completed" } };
+        yield { type: "item.completed", item: { type: "agent_message", text: JSON.stringify({ summary: "Implemented the exact source WorkItem", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" }) } };
+        yield { type: "turn.completed" };
+      })() };
+    } }; } };
+  }, undefined, () => ({ sandboxMode: "workspace-write", approvalPolicy: "on-request", approvalsReviewer: "user", networkAccessEnabled: false }),
+  undefined, undefined, fixture.manager, dependencies => createWorkflowExecutionApplicationService(dependencies));
+  service.configureSourceCheckoutRegistration(async () => ({ registerRepositoryCheckout: async (_workspaceId, checkout) => {
+    checkoutRegistrations++;
+    return { ...checkout, ...(checkout.workflowId === unrelated.workflow.id ? { projectRelativePath: `.champcity/checkouts/${created.workflow.id}` } : {}),
+      availability: "available", validationError: null };
+  } }));
+  const unrelatedStart = await service.start(root, { ownerKind: "workflow-work-item", workflowId: unrelated.workflow.id, workItemId: unrelatedPlan.directWorkItems[0].id }, selection);
+  assert.equal(unrelatedStart.state, "unavailable");
+  assert.equal(appServerCalls, 0);
+  assert.equal((await store.listEntities(project.project.id, "ImplementationRecord")).length, 0);
+  const selector = { ownerKind: "workflow-work-item", workflowId: created.workflow.id, workItemId: item.id };
+  const started = await service.start(root, selector, selection);
+  assert.equal(started.state, "running", started.failureReason);
+  const completed = await waitForSelectorState(service, root, selector, "completed", 300);
+  assert.equal(completed.failureReason, null);
+  assert.equal(completed.checkpoint.status, "committed", completed.checkpoint.message);
+  assert.notEqual(captured[0].workingDirectory, root);
+  assert.equal(captured[0].workingDirectory, path.join(root, ".champcity", "checkouts", created.workflow.id));
+  assert.deepEqual(captured[0].writableRoots, [captured[0].workingDirectory]);
+  assert.match(captured[0].workingDirectory, /checkouts/);
+  const records = await store.listEntities(project.project.id, "ImplementationRecord");
+  const checkpoints = await store.listEntities(project.project.id, "SourceCheckpoint");
+  const bindings = await store.listEntities(project.project.id, "SourceBinding");
+  assert.equal(records.length, 1, "one exact implementation record after the first source run");
+  assert.equal(checkpoints.length, 1, "one structured checkpoint after the first source run");
+  assert.equal(bindings.length, 2, "one source binding for each source-backed Workflow");
+  assert.equal(records[0].body.workItemId, item.id); assert.equal(records[0].body.outcome, "implemented");
+  const packet = JSON.parse(fs.readFileSync(path.join(root, ".champcity", "runtime", "work-item-attempts", `${records[0].body.executionRef}.json`), "utf8"));
+  assert.equal(packet.result.summary, "Implemented the exact source WorkItem");
+  assert.equal(checkpoints[0].body.workflowId, created.workflow.id);
+  assert.equal(checkpoints[0].body.checkpointState, "committed");
+  const checkpointLinks = await store.listRelationships(project.project.id, "checkpoints");
+  assert.ok(checkpointLinks.some(edge => edge.fromEntityId === checkpoints[0].id && edge.toEntityId === records[0].id));
+  const exactBinding = bindings.find(binding => binding.body.workflowId === created.workflow.id);
+  assert.equal(exactBinding.body.currentRevisionId, checkpoints[0].body.resultingRevisionId);
+  assert.equal(git("branch", "--show-current"), "dev");
+  assert.equal(appServerCalls, 1);
+  const unsafeSelector = { ownerKind: "workflow-work-item", workflowId: created.workflow.id, workItemId: unsafeItem.id };
+  const unsafeStart = await service.start(root, unsafeSelector, selection);
+  assert.equal(unsafeStart.state, "running");
+  const unsafeCompleted = await waitForSelectorState(service, root, unsafeSelector, "failed", 300);
+  assert.equal(unsafeCompleted.checkpoint.status, "blocked");
+  assert.match(unsafeCompleted.checkpoint.message, /attribution|path/i);
+  const finalRecords = await store.listEntities(project.project.id, "ImplementationRecord");
+  const finalCheckpoints = await store.listEntities(project.project.id, "SourceCheckpoint");
+  assert.equal(finalRecords.length, 2); assert.equal(finalCheckpoints.length, 1);
+  assert.equal(finalRecords.find(record => record.body.workItemId === unsafeItem.id).body.outcome, "implemented");
+  assert.ok(fs.existsSync(path.join(root, ".champcity", "runtime", "work-item-attempts", `${finalRecords.find(record => record.body.workItemId === unsafeItem.id).body.executionRef}.json`)));
+  assert.equal(checkoutRegistrations, 3);
+  assert.equal(appServerCalls, 2);
+});

@@ -5,6 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
+const { registerCurrentProject } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
 const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
 const { createWorkflowSourceMaterializationService } = require("../../dist/main/sourceControl/workflowSourceMaterializationService.js");
 const { selectStructuredWorkRoute, recordStructuredImplementation, recordStructuredWorkDisposition } = require("../../dist/main/sourceControl/structuredWorkflowCheckpointService.js");
@@ -19,10 +20,10 @@ test("WIR route decisions do not checkpoint; implementation and disposition use 
   git(dev, "config", "user.name", "Test Operator"); git(dev, "config", "user.email", "operator@example.invalid");
   fs.writeFileSync(path.join(dev, "feature.txt"), "baseline\n"); git(dev, "add", "feature.txt"); git(dev, "commit", "-m", "baseline");
   const baseRevision = git(dev, "rev-parse", "HEAD"); fs.mkdirSync(path.join(root, ".champcity"));
+  const registration = await registerCurrentProject(root, "existing", { projectName: "Structured workflow", sourceRepositoryId: repositoryId });
   const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
   const state = createProjectStateService(store, operator);
-  const project = await state.createRecord(null, "Project", { name: "Structured workflow", description: "Lineage ownership fixture" });
-  await state.createRecord(project.id, "ProjectResource", { resourceType: "source-repository", provider: "git", logicalName: repositoryId, locator: "selected-project", role: "project-source" });
+  const project = registration.project;
   const { intake, workflow: routing } = await state.createWorkIntake(project.id, { request: "Implement", desiredOutcome: "Working", constraints: [], evidenceContext: [], requestedIntegrationTarget: "dev" });
   const assessment = await state.recordRouteAssessment(project.id, intake.id, { recommendation: "feature-change", traits: [], rationale: "Feature", evidenceIds: [] });
   const route = await selectStructuredWorkRoute(root, project.id, intake.id, { route: "feature-change", assessmentId: assessment.id, rationale: "Choose feature" });
@@ -32,6 +33,11 @@ test("WIR route decisions do not checkpoint; implementation and disposition use 
 
   const target = await state.createWorkflow(project.id, { workflowType: "feature-capability", title: "Feature", currentWorkspace: "development" });
   await state.linkWorkflowRouteTarget(project.id, routing.id, target.id);
+  const work = await state.createRecord(project.id, "WorkItem", { workItemKind: "feature", title: "Owned", objective: "Implement", workState: "implemented" });
+  await state.createRelationship(project.id, work.id, "part_of", target.id);
+  const other = await state.createSubstantiveWorkflow(project.id, { workflowType: "issue-resolution", title: "Other", entryWorkspace: "issue-intake" });
+  const wrong = await state.createRecord(project.id, "WorkItem", { workItemKind: "feature", title: "Wrong", objective: "Reject", workState: "implemented" });
+  await state.createRelationship(project.id, wrong.id, "part_of", other.workflow.id);
   const baseline = await state.createWorkflowSourceBaseline(project.id, target.id, { repositoryId, integrationTargetSourceLineId: "dev", baseRevisionId: baseRevision });
   const successor = (await state.supersedeRecord(project.id, target.id, { ...target.body, title: "Feature successor" }, 1)).successor;
   const materializer = createWorkflowSourceMaterializationService({ projectContainerRoot: root, projectId: project.id, mcpWorkspaceId: "project",
@@ -42,10 +48,6 @@ test("WIR route decisions do not checkpoint; implementation and disposition use 
   const sourceLineId = materialized.binding.body.workSourceLineId;
   const currentStore = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
   const currentState = createProjectStateService(currentStore, operator);
-  const work = await currentState.createRecord(project.id, "WorkItem", { workItemKind: "feature", title: "Owned", objective: "Implement", workState: "implemented" });
-  await currentState.createRelationship(project.id, work.id, "part_of", successor.id);
-  const wrong = await currentState.createRecord(project.id, "WorkItem", { workItemKind: "feature", title: "Wrong", objective: "Reject", workState: "implemented" });
-  await currentState.createRelationship(project.id, wrong.id, "part_of", routing.id);
   currentStore.close();
 
   const implementationInput = { summary: "Feature implemented", deviations: [], blockers: [], residualRisks: [], outcome: "implemented", executionRef: "execution-target" };

@@ -2,6 +2,7 @@ import type { LifecycleState, WorkflowState } from "./projectState/domainContrac
 import type { WorkflowType } from "./projectState/workflowTypeRegistry";
 import type { EntityId, ProjectId, ProjectStateRecord } from "./projectState/domainContracts";
 import type { WorkflowExecutionPlanView } from "./projectState/projectStateService";
+import type { RepositoryCheckout } from "./sourceLifecycleContracts";
 
 export interface WorkflowInstanceSummary {
   workflowId: string;
@@ -67,6 +68,8 @@ export interface WorkflowExecutionPreparationResult {
   currentRevisionId: string | null;
   failureCode?: string;
   repositoryCheckoutId?: string;
+  sourceBinding?: ProjectStateRecord<"SourceBinding">;
+  repositoryCheckout?: RepositoryCheckout;
 }
 
 export interface WorkItemExecutionContract {

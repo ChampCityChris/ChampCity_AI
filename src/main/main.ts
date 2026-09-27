@@ -109,6 +109,7 @@ import {
   resolveCurrentAdvisoryReviewPrompt,
 } from "./currentWorkflow/currentWorkflowService";
 import { codexImplementerExecutionService } from "./workCardBuilding/codexImplementerExecutionService";
+import { requireBoundMcpWorkspace } from "./integrations/mcpWorkspacePromptContract";
 import {
   migrateWorkspaceToCanonicalMarkdownV1,
   previewWorkspaceMigrationToCanonicalMarkdownV1,
@@ -1025,6 +1026,13 @@ ipcMain.handle("codexImplementer:start", (_event, selection: CodexModelSelection
 });
 
 ipcMain.handle("codexImplementer:startWorkflowWorkItem", (_event, workflowId: string, workItemId: string, selection: CodexModelSelection): Promise<CodexImplementerExecutionModel> => {
+  codexImplementerExecutionService.configureSourceCheckoutRegistration(async (projectRoot, _projectId) => {
+    const binding = requireBoundMcpWorkspace(projectRoot);
+    const agentHarness = getAgentHarnessServiceHostClient();
+    const registered = await agentHarness.registerWorkspace(projectRoot);
+    if (registered.workspace.workspaceId !== binding.workspaceId) throw new Error("Selected Project and Agent Harness workspace identities do not match.");
+    return { registerRepositoryCheckout: (workspaceId, checkout) => agentHarness.registerRepositoryCheckout(workspaceId, checkout) };
+  });
   return codexImplementerExecutionService.start(getRequiredWorkspaceRoot(), { ownerKind: "workflow-work-item", workflowId, workItemId }, selection);
 });
 

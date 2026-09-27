@@ -20,7 +20,9 @@ function isCurrentWorkflow(record: WorkflowRecord): boolean {
 export function createWorkflowExecutionApplicationService(dependencies: {
   openStore?: (databasePath: string) => ProjectStateStore & { close(): void };
   selectedProjectId?: typeof selectedCurrentProjectId;
-  materializeWorkflowSource?: (projectRoot: string, projectId: ProjectId, workflowId: EntityId) => Promise<{ binding: ProjectStateRecord<"SourceBinding"> }>;
+  materializeWorkflowSource?: (projectRoot: string, projectId: ProjectId, workflowId: EntityId) => Promise<{
+    binding: ProjectStateRecord<"SourceBinding">; checkout: import("../../shared/sourceLifecycleContracts").RepositoryCheckout;
+  }>;
 } = {}) {
   const openStore = dependencies.openStore ?? createSQLiteProjectStateStore;
   const getSelectedProjectId = dependencies.selectedProjectId ?? selectedCurrentProjectId;
@@ -138,14 +140,17 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       ? { state: "blocked", currentRevisionId: null, failureCode: "SOURCE_CAPABILITY_UNAVAILABLE" }
       : { state: "non-source", currentRevisionId: null };
     if (!request.sourceMutating) return { state: view.source.state, currentRevisionId: view.source.currentRevisionId, ...(view.source.failureCode ? { failureCode: view.source.failureCode } : {}) };
-    if (view.source.state === "ready") return { state: "ready", currentRevisionId: view.source.currentRevisionId };
     if (!dependencies.materializeWorkflowSource) return { state: "blocked", currentRevisionId: null, failureCode: "SOURCE_CHECKOUT_PREPARATION_UNAVAILABLE" };
     try {
       const result = await dependencies.materializeWorkflowSource(fs.realpathSync(projectRoot), view.projectId, workflowId);
       const refreshed = await getExecutionProjection(projectRoot, workflowId);
-      if (refreshed.source.state !== "ready")
+      if (refreshed.source.state !== "ready" || result.binding.projectId !== view.projectId || result.binding.entityType !== "SourceBinding" ||
+        result.binding.lifecycleState !== "active" || result.binding.body.workflowId !== workflowId ||
+        result.binding.body.preparationState !== "ready" || result.binding.body.currentRevisionId !== refreshed.source.currentRevisionId ||
+        result.binding.body.repositoryCheckoutId !== result.checkout.repositoryCheckoutId || result.checkout.workflowId !== workflowId || result.checkout.role !== "workflow")
         return { state: "blocked", currentRevisionId: null, failureCode: "SOURCE_MATERIALIZATION_IDENTITY_MISMATCH" };
-      return { state: "ready", currentRevisionId: refreshed.source.currentRevisionId, repositoryCheckoutId: result.binding.body.repositoryCheckoutId };
+      return { state: "ready", currentRevisionId: refreshed.source.currentRevisionId, repositoryCheckoutId: result.binding.body.repositoryCheckoutId,
+        sourceBinding: result.binding, repositoryCheckout: result.checkout };
     } catch (error) {
       const failureCode = (error as Error & { materializationCode?: string }).materializationCode ?? "REPOSITORY_CHECKOUT_MATERIALIZATION_FAILED";
       return { state: "blocked", currentRevisionId: null, failureCode };

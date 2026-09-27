@@ -97,11 +97,14 @@ test("phased readiness observes owning Phase and dependencies; source preparatio
   const kernel = createWorkflowExecutionApplicationService({ materializeWorkflowSource: async (_root, projectId, workflowId) => {
     preparations++;
     const current = await env.store.getEntity(projectId, binding.id);
+    if (current.body.preparationState === "ready") return { binding: current, checkout: { repositoryCheckoutId: `checkout-${workflowId}`, repositoryId: "repo-kernel", sourceLineId: `workflow/${workflowId}`,
+      role: "workflow", projectRelativePath: `.champcity/checkouts/${workflowId}`, workflowId } };
     await env.state.updateSourceBinding(projectId, binding.id, { preparationState: "preparing" }, current.recordVersion);
     const preparing = await env.store.getEntity(projectId, binding.id);
     const ready = await env.state.updateSourceBinding(projectId, binding.id,
       { preparationState: "ready", workSourceLineId: `workflow/${workflowId}`, currentRevisionId: "base-revision", repositoryCheckoutId: `checkout-${workflowId}` }, preparing.recordVersion);
-    return { binding: ready };
+    return { binding: ready, checkout: { repositoryCheckoutId: `checkout-${workflowId}`, repositoryId: "repo-kernel", sourceLineId: `workflow/${workflowId}`,
+      role: "workflow", projectRelativePath: `.champcity/checkouts/${workflowId}`, workflowId } };
   } });
   const before = await kernel.getExecutionProjection(env.root, created.workflow.id);
   assert.equal(before.source.state, "unprepared");
@@ -115,7 +118,7 @@ test("phased readiness observes owning Phase and dependencies; source preparatio
   assert.equal(prepared.currentRevisionId, "base-revision");
   assert.equal(prepared.repositoryCheckoutId, `checkout-${created.workflow.id}`);
   assert.equal((await kernel.prepareExecution(env.root, created.workflow.id, { sourceMutating: true })).state, "ready");
-  assert.equal(preparations, 1);
+  assert.equal(preparations, 2);
 });
 
 test("non-source workflows remain source-neutral and reject source mutation without Git fabrication", async context => {

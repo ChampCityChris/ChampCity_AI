@@ -56,6 +56,13 @@ import {
 } from "../developmentEnvironment/windowsEnvironmentRefresh";
 import { createWorkflowExecutionApplicationService } from "../workflow/workflowExecutionApplicationService";
 import type { WorkItemExecutionContract } from "../../shared/workflowApplicationContracts";
+import { createWorkflowSourceMaterializationService } from "../sourceControl/workflowSourceMaterializationService";
+import { createImplementationCheckpoint } from "../sourceControl/semanticCheckpointService";
+import { resolveManagedWorkflowCheckoutPath } from "../sourceControl/projectSourceTopology";
+import { workflowSourceLineName } from "../sourceControl/workSourceNaming";
+import { requireBoundMcpWorkspace } from "../integrations/mcpWorkspacePromptContract";
+import { runBoundedGit } from "../agentHarness/repository/boundedGit";
+import { workflowRepositoryCheckoutId } from "../sourceControl/projectSourceTopology";
 
 export const CODEX_RUNTIME_UNAVAILABLE_MESSAGE =
   "Codex App Server or local Codex runtime is not available from this application environment. Install Codex locally, authenticate it, then refresh.";
@@ -116,6 +123,7 @@ interface WorkCardExecutionContext {
     workerDirectory?: string;
     evidencePacketPath?: string;
     resultOutcome?: "implemented" | "partial" | "blocked" | "failed" | "abandoned";
+    sourceBacked?: { checkoutRoot: string; repositoryCheckoutId: string; sourceLineId: string; expectedRevisionId: string; attributablePaths: string[]; attributionFailure?: string };
   };
 }
 /** The Integration Repair owner carries source scope instead of a Work Card and Implementer Report. */
@@ -181,6 +189,25 @@ export class CodexImplementerExecutionService {
   private readonly sessionsByWorkspaceRoot = new Map<string, SessionRecord>();
   private readonly preflightByWorkspaceRoot = new Map<string, DevelopmentEnvironmentPreflightResult>();
   private shutdownPromise: Promise<void> | null = null;
+  private sourceCheckoutRegistration: ((projectRoot: string, projectId: string) => Promise<import("../sourceControl/workflowSourceMaterializationService").RepositoryCheckoutRegistrationPort>) | null = null;
+
+  configureSourceCheckoutRegistration(factory: (projectRoot: string, projectId: string) => Promise<import("../sourceControl/workflowSourceMaterializationService").RepositoryCheckoutRegistrationPort>): void {
+    this.sourceCheckoutRegistration = factory;
+  }
+
+  private workflowKernel(projectRoot?: string, projectId?: string) {
+    const materializeWorkflowSource = this.sourceCheckoutRegistration && projectRoot && projectId
+      ? async (root: string, exactProjectId: string, workflowId: string) => {
+          if (root !== projectRoot || exactProjectId !== projectId) throw Error("Selected Current Project changed during source preparation.");
+          const checkoutRegistration = await this.sourceCheckoutRegistration!(root, exactProjectId);
+          const mcpWorkspaceId = requireBoundMcpWorkspace(root).workspaceId;
+          const materializer = createWorkflowSourceMaterializationService({ projectContainerRoot: root, projectId: exactProjectId,
+            mcpWorkspaceId, checkoutRegistration });
+          return materializer.materialize(workflowId);
+        }
+      : undefined;
+    return this.workflowExecutionServiceFactory({ ...(materializeWorkflowSource ? { materializeWorkflowSource } : {}) });
+  }
 
   constructor(
     private readonly appServerFactory: CodexAppServerExecutionAdapterFactory = loadCodexAppServerExecutionAdapter,
@@ -427,23 +454,70 @@ export class CodexImplementerExecutionService {
     });
   }
 
-  private async resolveWorkflowWorkItemContext(workspaceRoot: string, selector: Extract<CodexExecutionSelector, { ownerKind: "workflow-work-item" }>): Promise<ExecutionContext | Error> {
+  private async resolveWorkflowWorkItemContext(workspaceRoot: string, selector: Extract<CodexExecutionSelector, { ownerKind: "workflow-work-item" }>, prepareSource = false): Promise<ExecutionContext | Error> {
     try {
       if (!selector || Object.keys(selector).sort().join("|") !== ["ownerKind", "workflowId", "workItemId"].sort().join("|") ||
         typeof selector.workflowId !== "string" || typeof selector.workItemId !== "string" || !selector.workflowId.trim() || !selector.workItemId.trim())
         throw Error("Exact workflowId and workItemId are required; source mutation options are not accepted by this execution mode.");
       const projectRoot = fs.realpathSync(path.resolve(workspaceRoot));
-      const kernel = this.workflowExecutionServiceFactory();
-      const contract = await kernel.createSourceNeutralWorkItemExecutionContract(projectRoot, selector.workflowId, selector.workItemId,
-        { affectedPaths: [], proofIntent: ["Return semantic completion for the exact accepted WorkItem contract."] });
-      if (contract.sourceMutation !== "not-required" || contract.sourceRevisionId !== null) throw Error("Exact Codex WorkItem execution rejects source-mutating or source-backed contracts.");
+      const initialKernel = this.workflowExecutionServiceFactory();
+      const projection = await initialKernel.getExecutionProjection(projectRoot, selector.workflowId);
+      let contract: WorkItemExecutionContract;
+      let sourceBacked: NonNullable<NonNullable<ExecutionContext["workflowWorkItem"]>["sourceBacked"]> | undefined;
+      if (projection.source.state === "non-source") {
+        contract = await initialKernel.createSourceNeutralWorkItemExecutionContract(projectRoot, selector.workflowId, selector.workItemId,
+          { affectedPaths: [], proofIntent: ["Return semantic completion for the exact accepted WorkItem contract."] });
+      } else {
+        const projectId = projection.projectId;
+        const kernel = this.workflowKernel(projectRoot, projectId);
+        const preparation = prepareSource
+          ? await kernel.prepareExecution(projectRoot, selector.workflowId, { sourceMutating: true })
+          : { state: projection.source.state, currentRevisionId: projection.source.currentRevisionId };
+        if (preparation.state !== "ready" || !preparation.sourceBinding || !preparation.repositoryCheckout)
+          throw Error(preparation.failureCode ?? "Source-backed Workflow checkout is not prepared and verified.");
+        contract = await kernel.createWorkItemExecutionContract(projectRoot, selector.workflowId, selector.workItemId,
+          { sourceMutation: "required", affectedPaths: [], proofIntent: ["Return semantic completion for the exact accepted WorkItem contract."] });
+        const binding = preparation.sourceBinding;
+        const checkout = preparation.repositoryCheckout;
+        const managed = resolveManagedWorkflowCheckoutPath(projectRoot, checkout.workflowId ?? selector.workflowId);
+        const checkoutRoot = fs.realpathSync(managed.checkoutRoot);
+        const gitTop = (await runBoundedGit({ cwd: checkoutRoot, args: ["rev-parse", "--show-toplevel"] })).stdout.trim();
+        const actualGitRoot = fs.realpathSync(gitTop);
+        const branch = (await runBoundedGit({ cwd: checkoutRoot, args: ["branch", "--show-current"] })).stdout.trim();
+        const head = (await runBoundedGit({ cwd: checkoutRoot, args: ["rev-parse", "HEAD"] })).stdout.trim();
+        const common = (await runBoundedGit({ cwd: checkoutRoot, args: ["rev-parse", "--git-common-dir"] })).stdout.trim();
+        const devRoot = path.resolve(projectRoot, "Dev");
+        const devCommon = (await runBoundedGit({ cwd: devRoot, args: ["rev-parse", "--git-common-dir"] })).stdout.trim();
+        const dirty = (await runBoundedGit({ cwd: checkoutRoot, args: ["status", "--porcelain", "--untracked-files=all"] })).stdout;
+        const checkoutMismatches = [
+          checkout.role !== "workflow" && "checkout-role",
+          checkout.repositoryCheckoutId !== binding.body.repositoryCheckoutId && "checkout-id-binding",
+          checkout.sourceLineId !== binding.body.workSourceLineId && "source-line-binding",
+          checkout.sourceLineId !== workflowSourceLineName(checkout.workflowId ?? selector.workflowId) && "source-line-workflow",
+          checkout.repositoryCheckoutId !== workflowRepositoryCheckoutId(checkout.workflowId ?? selector.workflowId) && "checkout-id-workflow",
+          checkout.projectRelativePath !== managed.projectRelativePath && "managed-path",
+          binding.body.preparationState !== "ready" && "binding-state",
+          binding.body.currentRevisionId !== contract.sourceRevisionId && "binding-revision",
+          preparation.currentRevisionId !== contract.sourceRevisionId && "contract-revision",
+          actualGitRoot !== checkoutRoot && "git-root",
+          branch !== checkout.sourceLineId && "branch",
+          head !== contract.sourceRevisionId && "head",
+          path.resolve(checkoutRoot, common) !== path.resolve(devRoot, devCommon) && "repository",
+          Boolean(dirty) && "dirty-checkout",
+        ].filter((value): value is string => typeof value === "string");
+        if (checkoutMismatches.length) throw Error(`Prepared Workflow checkout failed exact binding verification (${checkoutMismatches.join(", ")}).`);
+        sourceBacked = { checkoutRoot, repositoryCheckoutId: checkout.repositoryCheckoutId, sourceLineId: checkout.sourceLineId,
+          expectedRevisionId: contract.sourceRevisionId!, attributablePaths: [] };
+      }
+      if (contract.sourceMutation === "not-required" && contract.sourceRevisionId !== null || contract.sourceMutation === "required" && !contract.sourceRevisionId)
+        throw Error("Exact Codex WorkItem source contract is inconsistent with its Workflow source state.");
       return {
         ownerKind: "workflow-work-item", phaseId: contract.phase?.id ?? null, workCardId: contract.workItemId, workCardTitle: contract.objective,
         projectRoot, formalWorkCardPath: "", formalWorkCardRevision: 0, formalWorkCardSha256: contract.digest,
         implementationContractType: "formal-work-card", implementationContractLabel: "Exact Workflow WorkItem execution contract",
         implementerReportPath: "", implementerReportRevision: 0, implementerReportSha256: contract.digest,
         developmentEnvironmentPreflight: null,
-        workflowWorkItem: { workflowId: contract.workflowId, workItemId: contract.workItemId, contract },
+        workflowWorkItem: { workflowId: contract.workflowId, workItemId: contract.workItemId, contract, ...(sourceBacked ? { sourceBacked } : {}) },
       };
     } catch (error) { return error instanceof Error ? error : Error(String(error)); }
   }
@@ -470,12 +544,12 @@ export class CodexImplementerExecutionService {
       const requested = await this.resolveWorkflowWorkItemContext(workspaceRoot, selector);
       return requested instanceof Error ? unavailableFromPreflight(requested) : busyModelForDifferentContext(requested, active);
     }
-    const context = await this.resolveWorkflowWorkItemContext(workspaceRoot, selector);
+    const context = await this.resolveWorkflowWorkItemContext(workspaceRoot, selector, true);
     if (context instanceof Error) return unavailableFromPreflight(context);
     const exact = context.workflowWorkItem!;
     const executionRef = crypto.randomUUID();
     const runtimeDirectory = path.join(context.projectRoot, ".champcity", "runtime");
-    const workerDirectory = path.join(runtimeDirectory, "work-item-workers", executionRef);
+    const workerDirectory = exact.sourceBacked?.checkoutRoot ?? path.join(runtimeDirectory, "work-item-workers", executionRef);
     const evidenceDirectory = path.join(runtimeDirectory, "work-item-attempts");
     const evidencePacketPath = path.join(evidenceDirectory, `${executionRef}.json`);
     const startedAt = this.now();
@@ -487,7 +561,7 @@ export class CodexImplementerExecutionService {
     exact.workerDirectory = workerDirectory;
     exact.evidencePacketPath = evidencePacketPath;
     try {
-      ensureRuntimeDirectory(context.projectRoot, runtimeDirectory, workerDirectory);
+      ensureRuntimeDirectory(context.projectRoot, runtimeDirectory, exact.sourceBacked ? undefined : workerDirectory);
       let appServer: CodexAppServerExecutionAdapter;
       try { appServer = await this.appServerFactory(); }
       catch (error) {
@@ -502,7 +576,9 @@ export class CodexImplementerExecutionService {
         runtimeState: appServer.getRuntimeState?.() ?? null, pendingApproval: null, pendingUserInput: null, pendingMcpElicitation: null,
         failureReason: null, reportUpdated: false, reportSha256After: null, abortController: new AbortController(), threadAdapter: null,
         appServerAdapter: appServer, executionPromise: null, cancellationRequested: false,
-        checkpoint: { status: "not-required", message: "Source-neutral WorkItem execution does not create a SourceCheckpoint.", remote: "not-requested", receipts: [] },
+        checkpoint: exact.sourceBacked
+          ? { status: "blocked", message: "Source-backed checkpoint is pending validated completion.", remote: "not-requested", receipts: [] }
+          : { status: "not-required", message: "Source-neutral WorkItem execution does not create a SourceCheckpoint.", remote: "not-requested", receipts: [] },
       };
       this.sessionsByWorkspaceRoot.set(key, session);
       session.executionPromise = this.executeWithAppServer(session, appServer);
@@ -516,7 +592,7 @@ export class CodexImplementerExecutionService {
   }
 
   private async persistAndFinishWorkflowAttempt(context: ExecutionContext, selection: CodexModelSelection | undefined, startedAt: number,
-    result: { summary: string; deviations: string[]; blockers: string[]; residualRisks: string[]; outcome: "implemented" | "partial" | "blocked" | "failed" | "abandoned" }): Promise<void> {
+    result: { summary: string; deviations: string[]; blockers: string[]; residualRisks: string[]; outcome: "implemented" | "partial" | "blocked" | "failed" | "abandoned" }): Promise<import("../../shared/projectState/domainContracts").ProjectStateRecord<"ImplementationRecord">> {
     const exact = context.workflowWorkItem;
     if (!exact?.executionRef || !exact.evidencePacketPath || !exact.workerDirectory) throw Error("Exact WorkItem attempt evidence identity is incomplete.");
     const packet = { schemaVersion: 1, projectId: exact.contract.projectId, workflowId: exact.workflowId, workItemId: exact.workItemId,
@@ -530,7 +606,7 @@ export class CodexImplementerExecutionService {
     const packetDirectory = fs.realpathSync(path.dirname(exact.evidencePacketPath));
     if (!packetDirectory.toLowerCase().startsWith(`${runtimeRoot.toLowerCase()}${path.sep.toLowerCase()}`)) throw Error("Attempt evidence escaped the Current Project runtime directory.");
     fs.writeFileSync(exact.evidencePacketPath, bytes, { flag: "wx" });
-    await this.workflowExecutionServiceFactory().finishWorkItemAttempt(context.projectRoot, exact.workflowId, exact.workItemId, exact.executionRef, result);
+    return this.workflowExecutionServiceFactory().finishWorkItemAttempt(context.projectRoot, exact.workflowId, exact.workItemId, exact.executionRef, result);
   }
 
   async startEnvironmentResolution(workspaceRoot: string, selector?: CodexExecutionSelector): Promise<CodexImplementerExecutionModel> {
@@ -794,7 +870,7 @@ export class CodexImplementerExecutionService {
 
   private async executeWithAppServer(session: SessionRecord, appServer: CodexAppServerExecutionAdapter): Promise<void> {
     const prompt = session.workflowWorkItem
-      ? buildWorkflowWorkItemCodexPrompt(session.workflowWorkItem.contract, session.workflowWorkItem.executionRef!)
+      ? buildWorkflowWorkItemCodexPrompt(session.workflowWorkItem.contract, session.workflowWorkItem.executionRef!, session.workflowWorkItem.sourceBacked?.checkoutRoot)
       : session.executionKind === "environment-resolution"
       ? buildCodexEnvironmentResolutionPrompt(session)
       : buildCodexImplementerPrompt(session);
@@ -821,6 +897,10 @@ export class CodexImplementerExecutionService {
       session.runtimeState = appServer.getRuntimeState?.() ?? session.runtimeState;
       for await (const event of streamed.events) {
         appendTail(session.eventTail, summarizeEvent(event));
+        if (event.type === "item.completed" && event.item.type === "file_change" && session.workflowWorkItem?.sourceBacked) {
+          try { observeExactWorkflowCheckoutChanges(session.workflowWorkItem.sourceBacked, event.item.changes); }
+          catch (error) { session.workflowWorkItem.sourceBacked.attributionFailure ??= messageForCodexFailure(error); }
+        }
         if (event.type === "item.completed" && event.item.type === "file_change" && session.checkpointCapture) {
           try {
             if (!Array.isArray(event.item.changes)) throw Error("Missing change evidence.");
@@ -929,14 +1009,41 @@ export class CodexImplementerExecutionService {
           : { summary: "Codex execution did not produce a valid semantic completion.", deviations: [], blockers: [terminalFailureReason ?? "Codex execution failed."], residualRisks: [], outcome: "failed" as const });
         session.workflowWorkItem.resultOutcome = result.outcome;
         try {
-          await this.persistAndFinishWorkflowAttempt(session, session.selection, session.startedAt ?? this.now(), result);
+          const implementation = await this.persistAndFinishWorkflowAttempt(session, session.selection, session.startedAt ?? this.now(), result);
           if (terminalState === "completed" && !parsed) {
             terminalState = "failed";
-            session.failureReason = "Codex returned invalid or missing source-neutral semantic completion JSON.";
+            session.failureReason = "Codex returned invalid or missing exact WorkItem semantic completion JSON.";
+          }
+          if (session.workflowWorkItem.sourceBacked) {
+            const source = session.workflowWorkItem.sourceBacked;
+            if (result.outcome !== "implemented" || source.attributionFailure || source.attributablePaths.length === 0) {
+              session.checkpoint = { status: "blocked", message: source.attributionFailure ?? (result.outcome !== "implemented"
+                ? "Implementation did not produce a successful validated result; source changes require inspection."
+                : "No attributable source changes were reported; a structured implementation checkpoint cannot be created."), remote: "not-requested", receipts: [] };
+              if (terminalState === "completed") {
+                terminalState = "failed";
+                session.failureReason = session.checkpoint.message;
+              }
+            } else {
+              const checkpoint = await createImplementationCheckpoint(session.projectRoot, session.workflowWorkItem.contract.projectId, {
+                boundaryId: session.workflowWorkItem.executionRef!, workflowId: session.workflowWorkItem.workflowId,
+                targetEntityId: implementation.id, sourceLineId: source.sourceLineId, expectedRevisionId: source.expectedRevisionId,
+                repositoryCheckoutId: source.repositoryCheckoutId, attributablePaths: [...source.attributablePaths].sort(),
+              });
+              session.checkpoint = checkpoint.state === "committed"
+                ? { status: "committed", message: checkpoint.message, ...(checkpoint.checkpointId ? { checkpointId: checkpoint.checkpointId } : {}),
+                  ...(checkpoint.revision ? { commit: checkpoint.revision.revisionId } : {}), remote: "not-requested", receipts: [] }
+                : { status: "blocked", message: checkpoint.message, ...(checkpoint.checkpointId ? { checkpointId: checkpoint.checkpointId } : {}), remote: "not-requested", receipts: [] };
+              if (checkpoint.state !== "committed") {
+                terminalState = "failed";
+                session.failureReason = checkpoint.message || "Structured implementation checkpoint requires inspection.";
+              }
+            }
           }
         } catch (error) {
           terminalState = "failed";
           session.failureReason = `Typed WorkItem attempt finalization failed: ${messageForCodexFailure(error)}`;
+          if (session.workflowWorkItem.sourceBacked) session.checkpoint = { status: "blocked", message: `Structured source checkpoint requires inspection: ${messageForCodexFailure(error)}`, remote: "not-requested", receipts: [] };
         }
       } else if (session.executionKind === "work-card-implementation") {
         await refreshReportEvidence(session, terminalState);
@@ -1090,7 +1197,28 @@ export class CodexImplementerExecutionService {
 
 export const codexImplementerExecutionService = new CodexImplementerExecutionService();
 
-export function buildWorkflowWorkItemCodexPrompt(contract: WorkItemExecutionContract, executionRef: string): string {
+export function buildWorkflowWorkItemCodexPrompt(contract: WorkItemExecutionContract, executionRef: string, sourceCheckoutRoot?: string): string {
+  if (sourceCheckoutRoot) return `You are the Implementer for one exact ChampCity source-backed Workflow WorkItem.
+
+Authority and identity:
+- The human Operator is the only authority. Use only this exact application-owned execution contract; do not infer identity from titles or discover legacy Work Cards, Issue Fix Cards, Markdown plans, or report files.
+- Workflow ID: ${contract.workflowId}
+- WorkItem ID: ${contract.workItemId}
+- WorkItem record version: ${contract.workItemVersion}
+- Execution reference: ${executionRef}
+- Contract digest: ${contract.digest}
+- Accepted contract:
+${JSON.stringify(contract, null, 2)}
+
+Execution boundary:
+- Your working directory is the exact registered Workflow checkout at ${sourceCheckoutRoot}; make only the accepted bounded source changes there, within scopeIn and outside scopeOut.
+- Do not modify files outside that checkout, the Project container, or application-owned evidence. Do not use another repository or checkout.
+- Do not run Git commands or stage, commit, push, or otherwise mutate Git state. ChampCity captures App Server file-change evidence and performs the structured checkpoint after your result.
+- Do not edit generated output, dependencies, credentials, or application state. Do not claim checkpoint or permanent validation.
+- Return exactly one JSON object as your final response, with only these fields: summary (string), deviations (string array), blockers (string array), residualRisks (string array), outcome (implemented|partial|blocked|failed).
+- Keep the result concise and report only semantic work actually performed. Do not claim ValidationCatalog or Tester proof; implementation-local evidence does not replace independent validation.
+- If the objective cannot be completed within this bounded source checkout, use partial, blocked, or failed and explain why in blockers.
+`;
   return `You are the Implementer for one exact ChampCity Workflow WorkItem.
 
 Authority and identity:
@@ -1129,7 +1257,7 @@ function parseWorkflowWorkItemCompletion(text: string): { summary: string; devia
   } catch { return null; }
 }
 
-function ensureRuntimeDirectory(projectRoot: string, runtimeDirectory: string, workerDirectory: string): void {
+function ensureRuntimeDirectory(projectRoot: string, runtimeDirectory: string, workerDirectory?: string): void {
   const canonicalRoot = fs.realpathSync(projectRoot);
   const isWithin = (parent: string, child: string) => child.toLowerCase().startsWith(`${parent.toLowerCase()}${path.sep.toLowerCase()}`);
   const stateDirectory = path.join(canonicalRoot, ".champcity");
@@ -1139,9 +1267,32 @@ function ensureRuntimeDirectory(projectRoot: string, runtimeDirectory: string, w
   fs.mkdirSync(runtimeDirectory, { recursive: true });
   const runtimeRoot = fs.realpathSync(runtimeDirectory);
   if (!isWithin(canonicalState, runtimeRoot)) throw Error("Current Project runtime directory escaped its application state.");
-  fs.mkdirSync(workerDirectory, { recursive: true });
-  const workerRoot = fs.realpathSync(workerDirectory);
-  if (!isWithin(canonicalRoot, runtimeRoot) || !isWithin(runtimeRoot, workerRoot)) throw Error("Source-neutral runtime directory escaped its Current Project container.");
+  if (!isWithin(canonicalRoot, runtimeRoot)) throw Error("Current Project runtime directory escaped its container.");
+  if (workerDirectory) {
+    fs.mkdirSync(workerDirectory, { recursive: true });
+    const workerRoot = fs.realpathSync(workerDirectory);
+    if (!isWithin(runtimeRoot, workerRoot)) throw Error("Source-neutral worker directory escaped its Current Project runtime directory.");
+  }
+}
+
+function observeExactWorkflowCheckoutChanges(source: { attributablePaths: string[] }, changes: unknown): void {
+  if (!Array.isArray(changes) || changes.length === 0) throw Error("App Server file-change event omitted attributable path evidence.");
+  const observed: string[] = [];
+  for (const change of changes) {
+    if (!change || typeof change !== "object" || Array.isArray(change) || typeof (change as { path?: unknown }).path !== "string")
+      throw Error("App Server file-change event contains an invalid path record.");
+    const value = (change as { path: string }).path;
+    if (!value || value.length > 512 || path.isAbsolute(value) || /^[a-zA-Z]:/.test(value) || value.includes("\\") || value.includes(":") ||
+      value.trim() !== value || value.includes("\0") || value.includes("\r") || value.includes("\n"))
+      throw Error("App Server file-change path is absolute, ambiguous, or outside the exact checkout.");
+    const segments = value.split("/");
+    if (segments.some(part => !part || part === "." || part === "..") || value === ".git" || value.startsWith(".git/") ||
+      value === ".champcity" || value.startsWith(".champcity/") || /(^|\/)(\.env(?:\.|$)|node_modules|dist|build|coverage|tmp)(\/|$)/i.test(value) ||
+      /(^|\/)[^/]*(?:token|secret|credential)[^/]*(\/|$)/i.test(value) || /\.(?:pem|key|p12|pfx)$/i.test(value))
+      throw Error("App Server file-change path is not eligible for a structured source checkpoint.");
+    observed.push(value);
+  }
+  source.attributablePaths.push(...observed);
 }
 
 export function buildCodexImplementerPrompt(context: ExecutionContext): string {
