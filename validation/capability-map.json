@@ -4078,6 +4078,10 @@
           "description": "Resource-aware admission, exclusive barriers, deterministic receipts, continued failure handling, and process cleanup."
         },
         {
+          "behaviorId": "bounded-test-lifecycle-determination",
+          "description": "bounded lifecycle determination uses exact affected proof and fails closed on incomplete evidence"
+        },
+        {
           "behaviorId": "bounded-validation-execution",
           "description": "bounded validation execution reports real pass failure timeout and bounded output"
         },
@@ -18300,6 +18304,57 @@
           "capabilityId": "validation-capability-map",
           "behaviorId": "protector-sets-expose-primary-complementary-overlapping-and-redundant-relationships-mechanically",
           "proofLocator": "protector sets expose primary, complementary, overlapping, and redundant relationships mechanically",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/validation/test-lifecycle-determination.test.cjs",
+      "currentTestCount": {
+        "value": 3,
+        "basis": "Three bounded determination scenarios: exact proof reuse, incomplete evidence, and unsafe/out-of-scope input rejection."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 100,
+        "basis": "Initial bounded estimate for three pure, stateless determination tests."
+      },
+      "proposedValidationLane": "fast",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": false,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Pure stateless analysis over supplied in-memory evidence.",
+        "ownedResources": [
+          "pure-stateless"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "validation-execution",
+          "behaviorId": "bounded-test-lifecycle-determination",
+          "proofLocator": "bounded lifecycle determination uses exact affected proof and fails closed on incomplete evidence",
           "proofRole": "primary"
         }
       ]
