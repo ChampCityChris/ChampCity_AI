@@ -7,6 +7,7 @@ const { createInMemoryProjectStateStore } = require("../../dist/shared/projectSt
 const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
 const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
 const { WORKFLOW_TYPE_REGISTRY } = require("../../dist/shared/projectState/workflowTypeRegistry.js");
+const { createRelationship: createDomainRelationship } = require("../../dist/shared/projectState/relationshipRegistry.js");
 
 const operator = { principalId: "operator", principalType: "human", role: "Operator" };
 const reviewer = { principalId: "reviewer", principalType: "agent", role: "Reviewer" };
@@ -306,6 +307,146 @@ test("typed exact Workflow attempt commands enforce dependencies and retain immu
     (await service.getRecord(project.id, third.id)).recordVersion, "attempt:partial"), /already been used/);
 });
 
+test("typed WorkItem decomposition preserves exact ownership, criteria, dependencies, and rollback", async context => {
+  const store = sqliteFixture(context);
+  const service = createProjectStateService(store, operator);
+  const project = await service.createRecord(null, "Project", { name: "Decomposition", description: "Synthetic" });
+  const workflow = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Decompose", currentWorkspace: "feature-intake" });
+  const criterion = statement => ({ statement, criticality: "required", verificationIntent: `Verify ${statement}`, validationPolicy: "deterministic" });
+  const graph = await service.acceptWorkflowPlanningGraph(project.id, { workflowId: workflow.id, topology: "direct",
+    solution: { title: "Accepted solution", objective: "Deliver", scopeIn: ["scope"], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [],
+    workItems: [
+      { key: "base", kind: "feature", title: "Base", objective: "Base dependency", dependencyKeys: [], criteria: [] },
+      { key: "source", kind: "feature", title: "Large", objective: "Large objective", dependencyKeys: ["base"], criteria: [criterion("First obligation"), criterion("Aggregate obligation"), criterion("Split obligation")] },
+      { key: "downstream", kind: "feature", title: "Downstream", objective: "Consumes large item", dependencyKeys: ["source"], criteria: [] },
+    ] });
+  const source = graph.directWorkItems.find(item => item.body.objective === "Large objective");
+  const base = graph.directWorkItems.find(item => item.body.objective === "Base dependency");
+  const downstream = graph.directWorkItems.find(item => item.body.objective === "Consumes large item");
+  const sourceCriteria = graph.criteria.filter(item => item.ownerId === source.id);
+  const beforeCount = (await store.listEntities(project.id)).length;
+  await assert.rejects(service.decomposeWorkItem(project.id, { workflowId: workflow.id, workItemId: source.id, expectedWorkItemVersion: source.recordVersion,
+    replacements: [
+      { key: "part-a", kind: "feature", title: "Part A", objective: "A", dependencyWorkItemIds: [base.id, workflow.id], dependencyReplacementKeys: [] },
+      { key: "part-b", kind: "feature", title: "Part B", objective: "B", dependencyWorkItemIds: [], dependencyReplacementKeys: [] },
+    ], criterionDispositions: [
+      { criterionId: sourceCriteria[0].record.id, disposition: "transfer", replacementKey: "part-a" },
+      { criterionId: sourceCriteria[1].record.id, disposition: "elevate", owner: "solution" },
+      { criterionId: sourceCriteria[2].record.id, disposition: "split", replacements: [
+        { owner: { kind: "replacement", key: "part-a" }, criterion: { ...criterion("Split obligation A"), criterionState: "active" } },
+        { owner: { kind: "replacement", key: "part-b" }, criterion: { ...criterion("Split obligation B"), criterionState: "active" } },
+      ] },
+    ], incomingDependentMappings: [{ dependentWorkItemId: downstream.id, replacementKeys: ["part-a"] }] }), /unknown, foreign/);
+  assert.equal((await store.listEntities(project.id)).length, beforeCount);
+  assert.equal((await service.getRecord(project.id, source.id)).lifecycleState, "active");
+  const beforeRelationships = (await store.listRelationships(project.id)).length;
+  const failingService = createProjectStateService(failOnDecomposedLink(store), operator);
+  await assert.rejects(failingService.decomposeWorkItem(project.id, { workflowId: workflow.id, workItemId: source.id, expectedWorkItemVersion: source.recordVersion,
+    replacements: [
+      { key: "part-a", kind: "feature", title: "Part A", objective: "A", dependencyWorkItemIds: [base.id], dependencyReplacementKeys: [] },
+      { key: "part-b", kind: "feature", title: "Part B", objective: "B", dependencyWorkItemIds: [], dependencyReplacementKeys: [] },
+    ], criterionDispositions: [
+      { criterionId: sourceCriteria[0].record.id, disposition: "transfer", replacementKey: "part-a" },
+      { criterionId: sourceCriteria[1].record.id, disposition: "elevate", owner: "solution" },
+      { criterionId: sourceCriteria[2].record.id, disposition: "split", replacements: [
+        { owner: { kind: "replacement", key: "part-a" }, criterion: { ...criterion("Split obligation A"), criterionState: "active" } },
+        { owner: { kind: "replacement", key: "part-b" }, criterion: { ...criterion("Split obligation B"), criterionState: "active" } },
+      ] },
+    ], incomingDependentMappings: [{ dependentWorkItemId: downstream.id, replacementKeys: ["part-a", "part-b"] }] }), /injected decomposed_into write/);
+  assert.equal((await store.listEntities(project.id)).length, beforeCount);
+  assert.equal((await store.listRelationships(project.id)).length, beforeRelationships);
+  assert.equal((await service.getRecord(project.id, source.id)).lifecycleState, "active");
+  const result = await service.decomposeWorkItem(project.id, { workflowId: workflow.id, workItemId: source.id, expectedWorkItemVersion: source.recordVersion,
+    replacements: [
+      { key: "part-a", kind: "feature", title: "Part A", objective: "A", dependencyWorkItemIds: [base.id], dependencyReplacementKeys: [] },
+      { key: "part-b", kind: "feature", title: "Part B", objective: "B", dependencyWorkItemIds: [], dependencyReplacementKeys: [] },
+    ], criterionDispositions: [
+      { criterionId: sourceCriteria[0].record.id, disposition: "transfer", replacementKey: "part-a" },
+      { criterionId: sourceCriteria[1].record.id, disposition: "elevate", owner: "solution" },
+      { criterionId: sourceCriteria[2].record.id, disposition: "split", replacements: [
+        { owner: { kind: "replacement", key: "part-a" }, criterion: { ...criterion("Split obligation A"), criterionState: "active" } },
+        { owner: { kind: "replacement", key: "part-b" }, criterion: { ...criterion("Split obligation B"), criterionState: "active" } },
+      ] },
+    ], incomingDependentMappings: [{ dependentWorkItemId: downstream.id, replacementKeys: ["part-a", "part-b"] }] });
+  assert.equal(result.replacements.length, 2);
+  assert.notEqual(result.replacements[0].lineageId, result.replacements[1].lineageId);
+  const terminal = await service.getRecord(project.id, source.id);
+  assert.equal(terminal.lifecycleState, "voided");
+  assert.equal(terminal.body.workState, "cancelled");
+  const currentPlan = await service.getWorkflowExecutionPlan(project.id, workflow.id);
+  assert.equal(currentPlan.directWorkItems.some(item => item.id === source.id), false);
+  assert.ok(result.replacements.every(item => currentPlan.directWorkItems.some(current => current.id === item.id)));
+  const provenance = await store.listRelationships(project.id, "decomposed_into");
+  assert.equal(provenance.filter(edge => edge.fromEntityId === source.id && !edge.endedAt).length, 2);
+  const remappedDependencies = (await store.listRelationships(project.id, "depends_on")).filter(edge => !edge.endedAt);
+  assert.ok(remappedDependencies.some(edge => edge.fromEntityId === result.replacements[0].id && edge.toEntityId === base.id));
+  assert.ok(result.replacements.every(replacement => remappedDependencies.some(edge => edge.fromEntityId === downstream.id && edge.toEntityId === replacement.id)));
+  assert.ok(result.replacements.every(replacement => currentPlan.criteria.some(item => item.ownerId === replacement.id)));
+  assert.equal((await service.getRecord(project.id, sourceCriteria[2].record.id)).lifecycleState, "voided");
+  const splitProof = await store.listRelationships(project.id, "derived_from");
+  assert.equal(splitProof.filter(edge => edge.toEntityId === sourceCriteria[2].record.id && !edge.endedAt).length, 2);
+  assert.ok(currentPlan.criteria.some(item => item.ownerId === graph.solutions[0].id && item.record.id === sourceCriteria[1].record.id));
+  await assert.rejects(service.createRelationship(project.id, source.id, "decomposed_into", result.replacements[0].id), /typed decomposition/);
+});
+
+test("the same typed WorkItem decomposition command supports Issue Workflows", async context => {
+  const store = sqliteFixture(context);
+  const service = createProjectStateService(store, operator);
+  const project = await service.createRecord(null, "Project", { name: "Issue decomposition", description: "Synthetic" });
+  const workflow = await service.createWorkflow(project.id, { workflowType: "issue-resolution", title: "Issue", currentWorkspace: "issue-intake" });
+  const graph = await service.acceptWorkflowPlanningGraph(project.id, { workflowId: workflow.id, topology: "direct",
+    solution: { title: "Accepted fix", objective: "Resolve", scopeIn: ["fix"], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [],
+    workItems: [{ key: "source", kind: "fix", title: "Large fix", objective: "Large issue fix", dependencyKeys: [], criteria: [
+      { statement: "Correct behavior", criticality: "required", verificationIntent: "Verify correction", validationPolicy: "deterministic" },
+    ] }] });
+  const source = graph.directWorkItems[0];
+  const criterion = graph.criteria.find(item => item.ownerId === source.id).record;
+  const result = await service.decomposeWorkItem(project.id, { workflowId: workflow.id, workItemId: source.id, expectedWorkItemVersion: source.recordVersion,
+    replacements: [
+      { key: "fix-a", kind: "fix", title: "Fix A", objective: "Correct A", dependencyWorkItemIds: [], dependencyReplacementKeys: [] },
+      { key: "fix-b", kind: "fix", title: "Fix B", objective: "Correct B", dependencyWorkItemIds: [], dependencyReplacementKeys: [] },
+    ], criterionDispositions: [{ criterionId: criterion.id, disposition: "transfer", replacementKey: "fix-a" }], incomingDependentMappings: [] });
+  assert.equal(result.replacements.length, 2);
+  assert.ok((await service.getWorkflowExecutionPlan(project.id, workflow.id)).directWorkItems.some(item => item.id === result.replacements[0].id));
+});
+
+test("WorkItem decomposition rejects implementation, validation, checkpoint, and Repair history", async context => {
+  const store = sqliteFixture(context);
+  const service = createProjectStateService(store, operator);
+  const project = await service.createRecord(null, "Project", { name: "Decomposition history", description: "Synthetic" });
+  for (const history of ["implementation", "validation", "checkpoint", "repair"]) {
+    const workflow = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: history, currentWorkspace: "feature-intake" });
+    const accepted = await service.acceptWorkflowPlanningGraph(project.id, { workflowId: workflow.id, topology: "direct",
+      solution: { title: `Solution ${history}`, objective: "Deliver", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [],
+      workItems: [{ key: "source", kind: "feature", title: "Source", objective: "Source", dependencyKeys: [], criteria: [] }] });
+    const source = accepted.directWorkItems[0];
+    if (history === "implementation") await service.recordImplementation(project.id, source.id, { summary: "Prior attempt", deviations: [], blockers: [], residualRisks: [], outcome: "partial" });
+    if (history === "validation") await service.recordValidation(project.id, source.id, { validationType: "review", method: "inspection", outcome: "pass", summary: "Reviewed" });
+    if (history === "checkpoint") {
+      const baseline = await service.createWorkflowSourceBaseline(project.id, workflow.id, { repositoryId: "decomposition-repo", integrationTargetSourceLineId: "dev", baseRevisionId: "base" });
+      const binding = await service.createWorkflowSourceBinding(project.id, workflow.id, baseline.id);
+      await service.updateSourceBinding(project.id, binding.id, { preparationState: "preparing" }, binding.recordVersion);
+      const preparing = await service.getRecord(project.id, binding.id);
+      const ready = await service.updateSourceBinding(project.id, binding.id, { preparationState: "ready", workSourceLineId: `workflow/${workflow.id}`, currentRevisionId: "base", repositoryCheckoutId: `checkout-${workflow.id}` }, preparing.recordVersion);
+      await service.createSourceCheckpoint(project.id, ready.id, workflow.id, source.id, { boundaryId: `decomposition-${workflow.id}`, expectedRevisionId: "base", checkpointKind: "disposition", checkpointState: "pending" });
+    }
+    if (history === "repair") {
+      const repair = await service.createRecord(project.id, "WorkItem", { workItemKind: "repair", title: "Repair", objective: "Repair source", workState: "planned" });
+      await store.transaction(project.id, async unit => {
+        await unit.saveRelationship(createDomainRelationship({ projectId: project.id, fromEntityId: repair.id, relationshipType: "part_of", toEntityId: workflow.id, createdBy: operator },
+          id => id === repair.id ? repair : id === workflow.id ? workflow : undefined));
+        await unit.saveRelationship(createDomainRelationship({ projectId: project.id, fromEntityId: repair.id, relationshipType: "repairs", toEntityId: source.id, createdBy: operator },
+          id => id === repair.id ? repair : id === source.id ? source : undefined));
+      });
+    }
+    await assert.rejects(service.decomposeWorkItem(project.id, { workflowId: workflow.id, workItemId: source.id, expectedWorkItemVersion: source.recordVersion,
+      replacements: [
+        { key: "replacement-a", kind: "feature", title: "A", objective: "A", dependencyWorkItemIds: [], dependencyReplacementKeys: [] },
+        { key: "replacement-b", kind: "feature", title: "B", objective: "B", dependencyWorkItemIds: [], dependencyReplacementKeys: [] },
+      ], criterionDispositions: [], incomingDependentMappings: [] }), /history/);
+  }
+});
+
 function failOnSecondRootCauseSave(store) {
   let rootCauseWrites = 0;
   return new Proxy(store, {
@@ -315,6 +456,25 @@ function failOnSecondRootCauseSave(store) {
           if (unitProperty === "saveEntity") return (entity, expectedVersion, policy) => {
             if (entity.entityType === "RootCause" && ++rootCauseWrites === 2) throw Error("injected RootCause write failure");
             return unitTarget.saveEntity(entity, expectedVersion, policy);
+          };
+          const value = Reflect.get(unitTarget, unitProperty, unitTarget);
+          return typeof value === "function" ? value.bind(unitTarget) : value;
+        },
+      })));
+      const value = Reflect.get(target, property, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
+
+function failOnDecomposedLink(store) {
+  return new Proxy(store, {
+    get(target, property) {
+      if (property === "transaction") return (projectId, action) => target.transaction(projectId, unit => action(new Proxy(unit, {
+        get(unitTarget, unitProperty) {
+          if (unitProperty === "saveRelationship") return relationship => {
+            if (relationship.relationshipType === "decomposed_into") throw Error("injected decomposed_into write failure");
+            return unitTarget.saveRelationship(relationship);
           };
           const value = Reflect.get(unitTarget, unitProperty, unitTarget);
           return typeof value === "function" ? value.bind(unitTarget) : value;

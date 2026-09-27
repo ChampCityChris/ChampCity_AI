@@ -73,6 +73,20 @@ export interface WorkflowExecutionPlanView extends ExecutionPlanView {
   criteria: { ownerId: EntityId; record: ProjectStateRecord<"Criterion"> }[];
   decisions: ProjectStateRecord<"Decision">[];
 }
+export interface WorkItemDecompositionCandidate {
+  key: string; kind: EntityBodyMap["WorkItem"]["workItemKind"]; title: string; objective: string;
+  solutionId?: EntityId; dependencyWorkItemIds: EntityId[]; dependencyReplacementKeys: string[];
+}
+export type WorkItemCriterionDisposition =
+  | { criterionId: EntityId; disposition: "transfer"; replacementKey: string }
+  | { criterionId: EntityId; disposition: "elevate"; owner: "phase" | "solution" }
+  | { criterionId: EntityId; disposition: "split"; replacements: Array<{ owner: { kind: "replacement"; key: string } | { kind: "phase" } | { kind: "solution" }; criterion: Omit<EntityBodyMap["Criterion"], "criterionState"> & { criterionState?: string } }> };
+export interface WorkItemDecompositionInput {
+  workflowId: EntityId; workItemId: EntityId; expectedWorkItemVersion: number;
+  replacements: WorkItemDecompositionCandidate[];
+  criterionDispositions: WorkItemCriterionDisposition[];
+  incomingDependentMappings: Array<{ dependentWorkItemId: EntityId; replacementKeys: string[] }>;
+}
 export interface CurrentWorkRoute { route: WorkRoute; decisionId: EntityId; assessmentId: EntityId | null; effectiveAt: string }
 export interface WorkIntakeSummary { intakeId: EntityId; request: string; desiredOutcome: string; constraints: string[]; evidenceContext: string[]; intakeState: WorkIntakeState; requestedIntegrationTarget: string; routingWorkflowId: EntityId; targetWorkflowId: EntityId | null; currentRoute: CurrentWorkRoute | null; assessmentIds: EntityId[]; routeDecisionIds: EntityId[] }
 export interface WorkRouteHistory { assessments: ProjectStateRecord<"RouteAssessment">[]; decisions: ProjectStateRecord<"Decision">[]; relationships: ProjectStateRelationship[] }
@@ -498,6 +512,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (["binds_source", "checkpoints", "integrates"].includes(relationshipType)) fail("Source semantic relationships require typed commands.");
     if (relationshipType === "baselines_source") fail("Workflow SourceBaseline linkage requires the typed baseline command.");
     if (relationshipType === "proves") fail("Permanent proof links require a typed command.");
+    if (relationshipType === "decomposed_into") fail("WorkItem decomposition provenance requires the typed decomposition command.");
     return store.transaction(projectId, async unit => {
       const from = await requiredRecord(unit, projectId, fromEntityId);
       const to = await requiredRecord(unit, projectId, toEntityId);
@@ -1034,6 +1049,229 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now, changedFields: ["workState", ...(input.outcome === "implemented" ? ["implementedAt"] : [])],
         defaultReason: "Finish exact Work Item implementation attempt", context });
       return record;
+    });
+  }
+
+  async function decomposeWorkItem(projectId: ProjectId, input: WorkItemDecompositionInput, context?: MutationContext) {
+    exactInput(input, ["workflowId", "workItemId", "expectedWorkItemVersion", "replacements", "criterionDispositions", "incomingDependentMappings"]);
+    if (!Number.isSafeInteger(input.expectedWorkItemVersion) || input.expectedWorkItemVersion < 1 || !Array.isArray(input.replacements) || input.replacements.length < 2 || input.replacements.length > 16 ||
+      !Array.isArray(input.criterionDispositions) || input.criterionDispositions.length > 64 || !Array.isArray(input.incomingDependentMappings) || input.incomingDependentMappings.length > 128)
+      fail("A bounded typed WorkItem decomposition proposal is required.");
+    const validKey = (value: unknown) => typeof value === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(value);
+    const replacementByKey = new Map<string, WorkItemDecompositionCandidate>();
+    for (const candidate of input.replacements) {
+      exactInput(candidate, ["key", "kind", "title", "objective", "solutionId", "dependencyWorkItemIds", "dependencyReplacementKeys"]);
+      if (!validKey(candidate.key) || replacementByKey.has(candidate.key) || !candidate.title?.trim() || !candidate.objective?.trim() ||
+        candidate.title.length > 512 || candidate.objective.length > 4096 || !Array.isArray(candidate.dependencyWorkItemIds) || candidate.dependencyWorkItemIds.length > 128 ||
+        !Array.isArray(candidate.dependencyReplacementKeys) || candidate.dependencyReplacementKeys.length > 16 ||
+        new Set(candidate.dependencyWorkItemIds).size !== candidate.dependencyWorkItemIds.length || new Set(candidate.dependencyReplacementKeys).size !== candidate.dependencyReplacementKeys.length)
+        fail("Invalid or duplicate decomposition WorkItem candidate.");
+      replacementByKey.set(candidate.key, candidate);
+    }
+    const validateDag = (nodes: Set<EntityId>, edges: Array<{ from: EntityId; to: EntityId }>) => {
+      const children = new Map<EntityId, EntityId[]>();
+      for (const edge of edges) {
+        if (!nodes.has(edge.from) || !nodes.has(edge.to) || edge.from === edge.to) fail("Decomposition dependency mapping contains an invalid edge.");
+        children.set(edge.from, [...(children.get(edge.from) ?? []), edge.to]);
+      }
+      const marks = new Map<EntityId, number>();
+      const visit = (id: EntityId) => { if (marks.get(id) === 1) fail("Resulting Workflow dependency graph contains a cycle."); if (marks.get(id) === 2) return; marks.set(id, 1); for (const next of children.get(id) ?? []) visit(next); marks.set(id, 2); };
+      for (const id of nodes) visit(id);
+    };
+
+    return store.transaction(projectId, async unit => {
+      const workflow = await requiredRecord(unit, projectId, input.workflowId);
+      if (workflow.entityType !== "Workflow" || workflow.lifecycleState !== "active" || workflow.body.workflowState !== "active" ||
+        !["feature-capability", "issue-resolution"].includes(workflow.body.workflowType)) fail("Decomposition requires the exact current Feature or Issue Workflow.");
+      const currentOwners = (await unit.listEntities(projectId, "Workflow")).filter(record => record.entityType === "Workflow" && record.lineageId === workflow.lineageId && record.lifecycleState === "active" && record.body.workflowState === "active");
+      if (currentOwners.length !== 1 || currentOwners[0].id !== workflow.id) fail("Workflow is not the unique current owner.");
+      const source = await requiredRecord(unit, projectId, input.workItemId);
+      if (source.entityType !== "WorkItem" || source.projectId !== projectId || source.recordVersion !== input.expectedWorkItemVersion || source.lifecycleState !== "active" || !["planned", "ready"].includes(source.body.workState))
+        fail("Decomposition source is stale, terminal, or has left the pre-execution state.");
+      const plan = await getWorkflowExecutionPlan(projectId, workflow.id);
+      const workItems = [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()];
+      const currentWorkIds = new Set(workItems.map(item => item.id));
+      if (!currentWorkIds.has(source.id)) fail("Decomposition source is not in the exact current Workflow plan.");
+      const allEdges = (await unit.listRelationships(projectId)).filter(edge => !edge.endedAt);
+      const memberships = allEdges.filter(edge => edge.relationshipType === "part_of");
+      const sourceParent = memberships.find(edge => edge.fromEntityId === source.id);
+      if (!sourceParent) fail("Decomposition source has no exact Workflow/Phase owner.");
+      const sourceOwner = await requiredRecord(unit, projectId, sourceParent.toEntityId);
+      if (!(sourceOwner.entityType === "Workflow" && sourceOwner.id === workflow.id || sourceOwner.entityType === "Phase" && plan.phases.some(phase => phase.phaseId === sourceOwner.id))) fail("Decomposition source belongs to a different Workflow.");
+      const familyKinds: Record<string, readonly string[]> = { "feature-capability": ["feature", "fix", "maintenance"], "issue-resolution": ["fix", "repair"] };
+      if (input.replacements.some(candidate => !familyKinds[workflow.body.workflowType].includes(candidate.kind))) fail("Replacement WorkItem kind is invalid for this Workflow family.");
+      const sourceDependencies = allEdges.filter(edge => edge.relationshipType === "depends_on" && edge.fromEntityId === source.id);
+      const incoming = allEdges.filter(edge => edge.relationshipType === "depends_on" && edge.toEntityId === source.id && edge.fromEntityId !== source.id);
+      if (sourceDependencies.some(edge => !currentWorkIds.has(edge.toEntityId)) || incoming.some(edge => !currentWorkIds.has(edge.fromEntityId))) fail("Source has a cross-Workflow dependency.");
+      const implementations = allEdges.filter(edge => edge.relationshipType === "implements_work_item" && edge.toEntityId === source.id);
+      const validators = allEdges.filter(edge => edge.relationshipType === "evaluates" && (edge.toEntityId === source.id ||
+        plan.criteria.some(item => item.ownerId === source.id && item.record.id === edge.toEntityId)));
+      const sourceCheckpoints = allEdges.filter(edge => edge.relationshipType === "checkpoints" && edge.toEntityId === source.id);
+      const repairs = allEdges.filter(edge => edge.relationshipType === "repairs" && (edge.toEntityId === source.id || edge.fromEntityId === source.id));
+      const blockers = allEdges.filter(edge => edge.relationshipType === "blocks" && (edge.toEntityId === source.id || edge.fromEntityId === source.id));
+      const priorDecompositions = allEdges.filter(edge => edge.relationshipType === "decomposed_into" && edge.fromEntityId === source.id);
+      if (implementations.length || validators.length || sourceCheckpoints.length || repairs.length || blockers.length || priorDecompositions.length)
+        fail("WorkItem with implementation, validation, checkpoint, repair, or decomposition history cannot be decomposed.");
+
+      const solutionEdges = allEdges.filter(edge => edge.relationshipType === "implements" && edge.fromEntityId === source.id);
+      const acceptedSolutions = plan.solutions.filter(solution => plan.decisions.some(decision => allEdges.some(edge => edge.relationshipType === "governs" && edge.fromEntityId === decision.id && edge.toEntityId === solution.id)));
+      if (solutionEdges.length !== 1 || !acceptedSolutions.some(solution => solution.id === solutionEdges[0].toEntityId)) fail("Decomposition source lacks one accepted BoundedSolution.");
+      const solutionByKey = new Map<string, EntityId>();
+      for (const candidate of input.replacements) {
+        const solutionId = candidate.solutionId ?? solutionEdges[0].toEntityId;
+        if (!acceptedSolutions.some(solution => solution.id === solutionId)) fail("Replacement solution must be accepted in the exact Workflow.");
+        solutionByKey.set(candidate.key, solutionId);
+      }
+
+      const sourceCriteriaEdges = allEdges.filter(edge => edge.relationshipType === "defines_criterion" && edge.fromEntityId === source.id);
+      const sourceCriterionIds = sourceCriteriaEdges.map(edge => edge.toEntityId).sort();
+      for (const criterionId of sourceCriterionIds) {
+        const criterion = await requiredRecord(unit, projectId, criterionId);
+        if (criterion.entityType !== "Criterion" || criterion.lifecycleState !== "active") fail("Source Criterion is not current.");
+      }
+      const dispositionById = new Map<EntityId, WorkItemCriterionDisposition>();
+      for (const disposition of input.criterionDispositions) {
+        if (!disposition || !["transfer", "elevate", "split"].includes(disposition.disposition)) fail("Unsupported Criterion decomposition disposition.");
+        exactInput(disposition, disposition.disposition === "transfer" ? ["criterionId", "disposition", "replacementKey"] : disposition.disposition === "elevate" ? ["criterionId", "disposition", "owner"] : ["criterionId", "disposition", "replacements"]);
+        if (dispositionById.has(disposition.criterionId)) fail("Criterion disposition is duplicated.");
+        dispositionById.set(disposition.criterionId, disposition);
+      }
+      if (sourceCriterionIds.length !== dispositionById.size || sourceCriterionIds.some(id => !dispositionById.has(id))) fail("Every source Criterion requires one explicit disposition.");
+      for (const disposition of dispositionById.values()) {
+        if (disposition.disposition === "transfer" && !replacementByKey.has(disposition.replacementKey)) fail("Criterion transfer names an unknown replacement.");
+        if (disposition.disposition === "elevate" && (!(["phase", "solution"] as string[]).includes(disposition.owner) || disposition.owner === "phase" && sourceOwner.entityType !== "Phase")) fail("Criterion elevation must target the owning Phase or accepted BoundedSolution.");
+        if (disposition.disposition === "split") {
+          if (!Array.isArray(disposition.replacements) || disposition.replacements.length < 2 || disposition.replacements.length > 16) fail("Criterion split requires two or more explicit replacements.");
+          const uniqueBodies = new Set<string>();
+          for (const split of disposition.replacements) {
+            exactInput(split, ["owner", "criterion"]);
+            if (!split.owner || !["replacement", "phase", "solution"].includes(split.owner.kind)) fail("Split Criterion owner is invalid.");
+            exactInput(split.owner, split.owner.kind === "replacement" ? ["kind", "key"] : ["kind"]);
+            if (split.owner.kind === "replacement" && !replacementByKey.has(split.owner.key)) fail("Split Criterion names an unknown replacement.");
+            if (split.owner.kind === "phase" && sourceOwner.entityType !== "Phase") fail("A direct WorkItem has no owning Phase to receive a split Criterion.");
+            exactInput(split.criterion, ["statement", "criticality", "verificationIntent", "validationPolicy", "criterionState"]);
+            if (!split.criterion.statement?.trim() || !split.criterion.verificationIntent?.trim() || !["required", "optional", "informational"].includes(split.criterion.criticality) || !["deterministic", "semantic_ai", "visual_human", "deferred_visual_phase", "operator_decision"].includes(split.criterion.validationPolicy)) fail("Split Criterion must preserve explicit acceptance and validation semantics.");
+            const body = JSON.stringify(split.criterion); if (uniqueBodies.has(body)) fail("Split Criteria must be distinct."); uniqueBodies.add(body);
+          }
+        }
+      }
+      const replacementRecords = new Map<string, ProjectStateRecord<"WorkItem">>();
+      const resolveOwner = async (owner: { kind: "replacement"; key: string } | { kind: "phase" } | { kind: "solution" }, solutionId: EntityId) => {
+        exactInput(owner, owner.kind === "replacement" ? ["kind", "key"] : ["kind"]);
+        if (owner.kind === "replacement") { const record = replacementRecords.get(owner.key); if (!record) fail("Criterion mapping names an unknown replacement."); return record; }
+        if (owner.kind === "phase") { if (sourceOwner.entityType !== "Phase") fail("A direct WorkItem has no owning Phase to elevate its Criterion to."); return sourceOwner; }
+        const record = await requiredRecord(unit, projectId, solutionId); if (record.entityType !== "BoundedSolution") fail("Accepted BoundedSolution is unavailable."); return record;
+      };
+      const incomingMappings = new Map<EntityId, string[]>();
+      for (const mapping of input.incomingDependentMappings) {
+        exactInput(mapping, ["dependentWorkItemId", "replacementKeys"]);
+        if (incomingMappings.has(mapping.dependentWorkItemId) || !Array.isArray(mapping.replacementKeys) || mapping.replacementKeys.length < 1 || new Set(mapping.replacementKeys).size !== mapping.replacementKeys.length || mapping.replacementKeys.some(key => !replacementByKey.has(key))) fail("Incoming dependency mapping is invalid or ambiguous.");
+        incomingMappings.set(mapping.dependentWorkItemId, mapping.replacementKeys);
+      }
+      if (incoming.length !== incomingMappings.size || incoming.some(edge => !incomingMappings.has(edge.fromEntityId))) fail("Every incoming dependent requires an explicit replacement mapping.");
+      const oldDependencyIds = new Set(sourceDependencies.map(edge => edge.toEntityId));
+      for (const id of oldDependencyIds) if (!input.replacements.some(candidate => candidate.dependencyWorkItemIds.includes(id))) fail("Every outgoing source dependency must be explicitly mapped to replacement WorkItems.");
+      for (const candidate of input.replacements) {
+        if (candidate.dependencyWorkItemIds.some(id => !currentWorkIds.has(id) || id === source.id) || candidate.dependencyReplacementKeys.some(key => !replacementByKey.has(key) || key === candidate.key)) fail("Replacement dependency mapping contains an unknown, foreign, or self dependency.");
+      }
+
+      const createWorkItem = (candidate: WorkItemDecompositionCandidate) => {
+        const record = createProjectStateEntity({ entityType: "WorkItem", projectId, body: { workItemKind: candidate.kind, title: candidate.title, objective: candidate.objective, workState: "planned" }, principal: trustedPrincipal });
+        return record as ProjectStateRecord<"WorkItem">;
+      };
+      // Allocate IDs before validating the complete resulting dependency graph.
+      for (const candidate of input.replacements) replacementRecords.set(candidate.key, createWorkItem(candidate));
+      const futureIds = new Set([...currentWorkIds].filter(id => id !== source.id));
+      for (const record of replacementRecords.values()) futureIds.add(record.id);
+      const futureEdges = allEdges.filter(edge => edge.relationshipType === "depends_on" && edge.fromEntityId !== source.id && edge.toEntityId !== source.id)
+        .map(edge => ({ from: edge.fromEntityId, to: edge.toEntityId }));
+      for (const candidate of input.replacements) {
+        const child = replacementRecords.get(candidate.key)!;
+        for (const id of candidate.dependencyWorkItemIds) futureEdges.push({ from: child.id, to: id });
+        for (const key of candidate.dependencyReplacementKeys) futureEdges.push({ from: child.id, to: replacementRecords.get(key)!.id });
+      }
+      for (const [dependentId, keys] of incomingMappings) for (const key of keys) futureEdges.push({ from: dependentId, to: replacementRecords.get(key)!.id });
+      validateDag(futureIds, futureEdges);
+
+      for (const replacement of replacementRecords.values()) {
+        await unit.saveEntity(replacement, null);
+        await recordMutation(unit, { projectId, entityId: replacement.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create,
+          occurredAt: replacement.createdAt, changedFields: Object.keys(replacement.body), defaultReason: "Create decomposed WorkItem", context });
+      }
+
+      const endEdge = async (edge: ProjectStateRelationship, reason: string) => {
+        const endedAt = new Date().toISOString();
+        await unit.endRelationship(edge.id, endedAt);
+        await recordMutation(unit, { projectId, entityId: edge.fromEntityId, fromVersion: (await requiredRecord(unit, projectId, edge.fromEntityId)).recordVersion,
+          toVersion: (await requiredRecord(unit, projectId, edge.fromEntityId)).recordVersion, operation: "relationship-end", eventType: PROJECT_STATE_EVENT_TYPES.relationshipEnd,
+          occurredAt: endedAt, changedFields: [`relationship:${edge.relationshipType}`], defaultReason: reason, context, relationshipId: edge.id });
+      };
+      const sourceCriterionIdSet = new Set(sourceCriterionIds);
+      const criterionEdgesToEnd = allEdges.filter(edge => edge.relationshipType === "defines_criterion" && sourceCriterionIdSet.has(edge.toEntityId));
+      for (const edge of [...sourceDependencies, ...incoming, ...criterionEdgesToEnd]) await endEdge(edge, "Re-map decomposed WorkItem graph");
+
+      for (const candidate of input.replacements) {
+        const replacement = replacementRecords.get(candidate.key)!;
+        await linkSemantic(unit, projectId, replacement, sourceOwner, "part_of", context);
+        const solution = await requiredRecord(unit, projectId, solutionByKey.get(candidate.key)!);
+        await linkSemantic(unit, projectId, replacement, solution, "implements", context);
+      }
+      for (const candidate of input.replacements) {
+        const replacement = replacementRecords.get(candidate.key)!;
+        for (const id of candidate.dependencyWorkItemIds) await linkSemantic(unit, projectId, replacement, await requiredRecord(unit, projectId, id), "depends_on", context);
+        for (const key of candidate.dependencyReplacementKeys) await linkSemantic(unit, projectId, replacement, replacementRecords.get(key)!, "depends_on", context);
+      }
+      for (const [dependentId, keys] of incomingMappings) for (const key of keys) await linkSemantic(unit, projectId,
+        await requiredRecord(unit, projectId, dependentId), replacementRecords.get(key)!, "depends_on", context);
+
+      for (const criterionId of sourceCriterionIds) {
+        const disposition = dispositionById.get(criterionId)!;
+        const criterion = await requiredRecord(unit, projectId, criterionId);
+        if (criterion.entityType !== "Criterion" || criterion.lifecycleState !== "active") fail("Source Criterion is not current.");
+        if (disposition.disposition === "transfer") {
+          const owner = replacementRecords.get(disposition.replacementKey); if (!owner) fail("Criterion transfer names an unknown replacement.");
+          await linkSemantic(unit, projectId, owner, criterion, "defines_criterion", context);
+        } else if (disposition.disposition === "elevate") {
+          const solutionId = solutionByKey.get(input.replacements[0].key)!;
+          const owner = disposition.owner === "phase" ? sourceOwner : await requiredRecord(unit, projectId, solutionId);
+          if (disposition.owner === "solution" && owner.entityType !== "BoundedSolution") fail("Criterion elevation solution is invalid.");
+          await linkSemantic(unit, projectId, owner, criterion, "defines_criterion", context);
+        } else {
+          if (!Array.isArray(disposition.replacements) || disposition.replacements.length < 2 || disposition.replacements.length > 16) fail("Criterion split requires two or more explicit replacements.");
+          const terminalCriterion = validateProjectStateEntity({ ...criterion, recordVersion: criterion.recordVersion + 1, lifecycleState: "voided", updatedAt: new Date().toISOString(), updatedBy: trustedPrincipal,
+            body: { ...criterion.body, criterionState: "decomposed" } });
+          await unit.saveEntity(terminalCriterion, criterion.recordVersion);
+          await recordMutation(unit, { projectId, entityId: criterion.id, fromVersion: criterion.recordVersion, toVersion: terminalCriterion.recordVersion, operation: "revise",
+            eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: terminalCriterion.updatedAt, changedFields: ["criterionState", "lifecycleState"], defaultReason: "Retire split Criterion through accepted WorkItem decomposition", context });
+          const seenBodies = new Set<string>();
+          for (const split of disposition.replacements) {
+            exactInput(split, ["owner", "criterion"]); exactInput(split.criterion, ["statement", "criticality", "verificationIntent", "validationPolicy", "criterionState"]);
+            if (!split.criterion.statement?.trim() || !split.criterion.verificationIntent?.trim() || !["required", "optional", "informational"].includes(split.criterion.criticality) || !["deterministic", "semantic_ai", "visual_human", "deferred_visual_phase", "operator_decision"].includes(split.criterion.validationPolicy)) fail("Split Criterion must preserve explicit acceptance and validation semantics.");
+            const serialized = JSON.stringify(split.criterion); if (seenBodies.has(serialized)) fail("Split Criteria must be distinct."); seenBodies.add(serialized);
+            const owner = await resolveOwner(split.owner, solutionByKey.get(input.replacements[0].key)!);
+            const created = createProjectStateEntity({ entityType: "Criterion", projectId, body: { ...split.criterion, criterionState: split.criterion.criterionState ?? "active" }, principal: trustedPrincipal });
+            await unit.saveEntity(created, null);
+            await recordMutation(unit, { projectId, entityId: created.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create,
+              occurredAt: created.createdAt, changedFields: Object.keys(created.body), defaultReason: "Create replacement Criterion for WorkItem decomposition", context });
+            await linkSemantic(unit, projectId, owner, created, "defines_criterion", context);
+            await linkSemantic(unit, projectId, created, terminalCriterion, "derived_from", context);
+          }
+        }
+      }
+      const now = new Date().toISOString();
+      const terminalSource = validateProjectStateEntity({ ...source, recordVersion: source.recordVersion + 1, lifecycleState: "voided", updatedAt: now, updatedBy: trustedPrincipal,
+        body: { ...source.body, workState: "cancelled" } });
+      await unit.saveEntity(terminalSource, source.recordVersion, { evidenceReliedUpon: true });
+      await recordMutation(unit, { projectId, entityId: source.id, fromVersion: source.recordVersion, toVersion: terminalSource.recordVersion, operation: "revise",
+        eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now, changedFields: ["lifecycleState", "workState"], defaultReason: "Accept typed WorkItem decomposition", context });
+      for (const replacement of replacementRecords.values()) {
+        const edge = createDomainRelationship({ projectId, fromEntityId: source.id, relationshipType: "decomposed_into", toEntityId: replacement.id, createdBy: trustedPrincipal }, id =>
+          id === source.id ? terminalSource : id === replacement.id ? replacement : undefined);
+        await unit.saveRelationship(edge);
+        await recordMutation(unit, { projectId, entityId: source.id, fromVersion: terminalSource.recordVersion, toVersion: terminalSource.recordVersion, operation: "relationship-create",
+          eventType: PROJECT_STATE_EVENT_TYPES.relationshipCreate, occurredAt: edge.createdAt, changedFields: ["relationship:decomposed_into"], defaultReason: "Record WorkItem decomposition provenance", context, relationshipId: edge.id });
+      }
+      return { source: terminalSource, replacements: [...replacementRecords.values()] };
     });
   }
 
@@ -2285,7 +2523,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   return { createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
     createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, createIntegrationRecord, advanceIntegrationRecord,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
-    reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, beginWorkItemAttempt, finishWorkItemAttempt, completeWorkItem, completePhase,
+    reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,
     getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, renderView, exportStructuredProjectState, getAuthoritativeContext, getCommittedEventFeed, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
     getEffectiveDisposition, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus,
     getImplementationAttempts, getExecutionPlan, getWorkflowExecutionPlan, acceptWorkflowPlanningGraph, acceptFeatureAssessment, acceptIssueRca, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,

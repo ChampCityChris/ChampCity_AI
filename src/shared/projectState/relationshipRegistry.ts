@@ -31,6 +31,7 @@ export const RELATIONSHIP_REGISTRY = Object.freeze({
   blocks: rule(nonProject, nonProject),
   checkpoints: rule(["SourceCheckpoint"], ["SourceBinding", "Workflow", "WorkItem", "ImplementationRecord"], true),
   defines_criterion: rule(["BoundedSolution", "WorkItem", "Phase"], ["Criterion"]),
+  decomposed_into: rule(["WorkItem"], ["WorkItem"], true),
   depends_on: rule(["WorkItem"], ["WorkItem"]),
   derived_from: rule(nonProject, nonProject, true),
   evaluates: rule(["Validation"], ["Criterion", "WorkItem", "BoundedSolution", "RegressionObligation", "ProjectResource", "IntegrationRecord"], true),
@@ -92,6 +93,10 @@ export function validateRelationship(
     if (from.entityType !== to.entityType || from.lineageId !== to.lineageId) fail("Supersession requires one entity type and shared lineage.");
     if (from.recordVersion !== 1 || from.lifecycleState !== "active") fail("Supersession successor must be a new active entity.");
     if (to.lifecycleState !== "superseded") fail("Superseded predecessor must be retained in its terminal state.");
+  }
+  if (relationship.relationshipType === "decomposed_into") {
+    if (from.entityType !== "WorkItem" || to.entityType !== "WorkItem" || from.lifecycleState !== "voided" || from.body.workState !== "cancelled" ||
+      to.lifecycleState !== "active" || from.lineageId === to.lineageId) fail("decomposed_into requires a terminal source and a new-lineage active Work Item replacement.");
   }
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(relationship.createdAt) || !Number.isFinite(Date.parse(relationship.createdAt)) || new Date(relationship.createdAt).toISOString() !== relationship.createdAt) fail("Relationship time must be canonical UTC.");
   if (!relationship.createdBy || typeof relationship.createdBy.principalId !== "string" || !relationship.createdBy.principalId || typeof relationship.createdBy.role !== "string" || !relationship.createdBy.role || !["human", "agent", "system", "tool"].includes(relationship.createdBy.principalType)) fail("Relationship principal is required.");
