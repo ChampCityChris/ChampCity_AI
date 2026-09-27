@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { ProjectStateRecord } from "../../shared/projectState/domainContracts";
 import { createProjectStateService } from "../../shared/projectState/projectStateService";
-import type { CheckpointResult, DispositionCheckpointRequest, ImplementationCheckpointRequest } from "../../shared/sourceLifecycleContracts";
+import type { CheckpointResult, DispositionCheckpointRequest, ImplementationCheckpointRequest, TesterCheckpointRequest } from "../../shared/sourceLifecycleContracts";
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
 import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
 import { createSourceControlService } from "./sourceControlService";
@@ -13,8 +13,8 @@ import { runBoundedGit } from "../agentHarness/repository/boundedGit";
 
 const principal = { principalId: "local-operator", principalType: "human" as const, role: "Operator" };
 const activeRoots = new Set<string>();
-type Kind = "implementation" | "disposition";
-type Request = ImplementationCheckpointRequest | DispositionCheckpointRequest;
+type Kind = "implementation" | "disposition" | "tester";
+type Request = ImplementationCheckpointRequest | DispositionCheckpointRequest | TesterCheckpointRequest;
 type Store = ReturnType<typeof createSQLiteProjectStateStore>;
 type Checkpoint = ProjectStateRecord<"SourceCheckpoint">;
 type Binding = ProjectStateRecord<"SourceBinding">;
@@ -76,7 +76,9 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
       (kind === "disposition" && !validId((request as DispositionCheckpointRequest).dispositionId)) ||
       !Array.isArray(request.attributablePaths) || request.attributablePaths.length > 256 ||
       request.attributablePaths.some(item => !safePath(item)) ||
-      (kind === "implementation" && request.attributablePaths.length === 0)) return blocked("Checkpoint request is invalid.");
+      (kind !== "disposition" && request.attributablePaths.length === 0) ||
+      (kind === "tester" && request.attributablePaths.some(item =>
+        !/^test\/(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+\.(?:test|spec)\.(?:c|m)?(?:js|ts)$/.test(item)))) return blocked("Checkpoint request is invalid.");
     const paths = [...new Set(request.attributablePaths)].sort();
     if (paths.length !== request.attributablePaths.length) return blocked("Checkpoint paths must be unique.");
     const store = createSQLiteProjectStateStore(path.join(selected, ".champcity", "project-state.sqlite"));
@@ -127,7 +129,7 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
         if (target?.entityType !== "ImplementationRecord" || target.body.outcome !== "implemented")
           return blocked("Implementation checkpoint requires a completed ImplementationRecord.");
         if (!belongsToWorkflow(target.body.workItemId)) return blocked("Implementation target is outside the requested Workflow lineage.");
-      } else {
+      } else if (kind === "disposition") {
         if (!target || !["WorkItem", "Workflow"].includes(target.entityType)) return blocked("Disposition target is invalid.");
         if (target.entityType === "Workflow" ? !lineageIds.has(target.id) : !belongsToWorkflow(target.id)) return blocked("Disposition target is outside the requested Workflow lineage.");
         const decision = await store.getEntity(projectId, (request as DispositionCheckpointRequest).dispositionId);
@@ -135,6 +137,12 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
         if (decision?.entityType !== "Decision" || decision.body.decisionRole !== "Operator" ||
           !governs.some(edge => edge.fromEntityId === decision.id && edge.toEntityId === target.id && !edge.endedAt))
           return blocked("Operator disposition evidence is unavailable.");
+      } else {
+        if (target?.entityType !== "TesterResult" || target.body.workflowId !== request.workflowId || target.body.checkpointState !== "pending" ||
+          target.body.candidateRevisionId || target.body.sourceCheckpointId || target.body.permanentTestPaths.length === 0 ||
+          target.body.implementerRevisionId !== request.expectedRevisionId || !belongsToWorkflow(target.body.workItemId) ||
+          target.body.permanentTestPaths.length !== paths.length || target.body.permanentTestPaths.slice().sort().join("\0") !== paths.join("\0"))
+          return blocked("Tester checkpoint requires the exact pending TesterResult path set and Implementer revision.");
       }
       const source = createSourceControlService({ repositoryId: baseline.body.repositoryId, repositoryRoot: checkout });
       const branch = await source.branches(request.sourceLineId);
@@ -161,7 +169,10 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
       if (saved && (saved.body.receiptDigest !== receiptDigest || saved.body.checkpointKind !== kind ||
         saved.body.expectedRevisionId !== request.expectedRevisionId || saved.body.workflowId !== request.workflowId ||
         saved.body.sourceLineId !== request.sourceLineId)) return inspection("Checkpoint identity conflicts with saved evidence.", saved.id);
-      if (saved?.body.checkpointState === "committed") return result(baseline.body.repositoryId, saved);
+      if (saved?.body.checkpointState === "committed") {
+        if (kind === "tester") await state.completeTesterResultCheckpoint(projectId, target.id, saved.id, target.recordVersion);
+        return result(baseline.body.repositoryId, saved);
+      }
       if (!saved) {
         if (binding.body.currentRevisionId !== request.expectedRevisionId)
           return blocked("Expected source revision is stale.");
@@ -187,6 +198,7 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
         if (binding.body.currentRevisionId !== inspected.result.commit) return inspection("Source binding requires inspection.", saved.id);
         saved = await state.advanceSourceCheckpoint(projectId, saved.id,
           { checkpointState: "committed", resultingRevisionId: inspected.result.commit }, saved.recordVersion) as Checkpoint;
+        if (kind === "tester") await state.completeTesterResultCheckpoint(projectId, target.id, saved.id, target.recordVersion);
         return result(baseline.body.repositoryId, saved);
       }
       const changed = await source.changedFiles();
@@ -240,6 +252,7 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
         { currentRevisionId: inspected.result.commit }, binding.recordVersion) as Binding;
       saved = await state.advanceSourceCheckpoint(projectId, saved.id,
         { checkpointState: "committed", resultingRevisionId: inspected.result.commit }, saved.recordVersion) as Checkpoint;
+      if (kind === "tester") await state.completeTesterResultCheckpoint(projectId, target.id, saved.id, target.recordVersion);
       return result(baseline.body.repositoryId, saved);
     } finally { store.close(); }
   } catch {
@@ -263,3 +276,5 @@ export const createImplementationCheckpoint = (root: string, projectId: string, 
   checkpoint(root, projectId, "implementation", request);
 export const createDispositionCheckpoint = (root: string, projectId: string, request: DispositionCheckpointRequest) =>
   checkpoint(root, projectId, "disposition", request);
+export const createTesterCheckpoint = (root: string, projectId: string, request: TesterCheckpointRequest) =>
+  checkpoint(root, projectId, "tester", request);

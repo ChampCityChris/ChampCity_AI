@@ -67,7 +67,7 @@ export interface EntityBodyMap {
   Decision: { decisionType: string; outcome: string; rationale: string; decisionRole: string; decisionScope: string; decidedBy: PrincipalRef; decidedAt: string; effectiveAt: string };
   RegressionObligation: { title: string; statement: string; capabilityId: string; riskCategory: string; obligationState: "active" | "quarantined" | "retired"; sourceWorkItemId?: EntityId };
   SourceBinding: { workflowId: EntityId; sourceBaselineId: EntityId; workSourceLineId?: string; currentRevisionId?: string; repositoryCheckoutId?: string; preparationState: "unprepared" | "preparing" | "ready" | "blocked"; failureCode?: string };
-  SourceCheckpoint: { boundaryId: string; workflowId: EntityId; sourceLineId: string; expectedRevisionId: string; resultingRevisionId?: string; receiptDigest?: string; checkpointKind: "implementation" | "disposition"; checkpointState: "not-required" | "pending" | "committed" | "blocked" | "inspection-required" };
+  SourceCheckpoint: { boundaryId: string; workflowId: EntityId; sourceLineId: string; expectedRevisionId: string; resultingRevisionId?: string; receiptDigest?: string; checkpointKind: "implementation" | "disposition" | "tester"; checkpointState: "not-required" | "pending" | "committed" | "blocked" | "inspection-required" };
   IntegrationRecord: { workflowId: EntityId; incomingRevisionId: string; targetSourceLineId: string; targetBeforeRevisionId: string; candidateRevisionId?: string; targetAfterRevisionId?: string; resultRevisionId?: string; integrationState: "prepared" | "validating" | "repairing" | "ready" | "integrated" | "blocked" | "failed"; outcome: "pending" | "integrated" | "blocked" | "failed"; validationIds: EntityId[]; repairWorkItemIds: EntityId[] };
 }
 

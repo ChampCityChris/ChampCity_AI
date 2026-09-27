@@ -3975,7 +3975,7 @@
     },
     {
       "capabilityId": "semantic-source-checkpoints",
-      "description": "Structured and routed Work Intake implementation and Operator disposition checkpoints with attributable Git receipts and retry safety.",
+      "description": "Structured and routed Work Intake implementation, Tester test-only, and Operator disposition checkpoints with attributable Git receipts and retry safety.",
       "sourcePatterns": [
         "src/main/planExecution/lifecycleEvidenceCheckpointReceipt.ts",
         "src/main/planExecution/lifecycleEvidenceCheckpointService.ts",
@@ -4017,6 +4017,10 @@
         {
           "behaviorId": "structured-workflow-dispositions-share-source-line",
           "description": "typed route, implementation and review mutations checkpoint one Work Intake SourceLine"
+        },
+        {
+          "behaviorId": "tester-checkpoint-commits-exact-test-paths-and-advances-candidate-revision",
+          "description": "Tester checkpoint commits the exact pending test paths and links the verified candidate revision"
         }
       ]
     },
@@ -17852,8 +17856,8 @@
     {
       "testPath": "test/source-control/semantic-checkpoint-service.test.cjs",
       "currentTestCount": {
-        "value": 4,
-        "basis": "SCL05 focused source checkpoint fixtures."
+        "value": 5,
+        "basis": "Observed TAP summary in the WRB04-03C focused normal-Windows run."
       },
       "duration": {
         "kind": "measured",
@@ -17916,6 +17920,12 @@
           "capabilityId": "semantic-source-checkpoints",
           "behaviorId": "retry-reconciles-committed-source-after-binding-failure",
           "proofLocator": "retry reconciles a committed source revision after a failed binding update",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "semantic-source-checkpoints",
+          "behaviorId": "tester-checkpoint-commits-exact-test-paths-and-advances-candidate-revision",
+          "proofLocator": "Tester checkpoint commits only the pending TesterResult test paths and advances its candidate revision",
           "proofRole": "primary"
         }
       ]

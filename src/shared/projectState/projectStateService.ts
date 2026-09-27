@@ -128,7 +128,7 @@ function validateTestPath(path: string) {
 function validateTesterOwnedPath(path: string) {
   if (typeof path !== "string" || path.length > 512 || path.includes("\\") || path.startsWith("/") ||
     path.split("/").some(part => part === "" || part === "." || part === "..") ||
-    !(path.startsWith("test/") || path.startsWith("validation/") || path.startsWith("scripts/validation/")) ||
+    !/^test\/(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+\.(?:test|spec)\.(?:c|m)?(?:js|ts)$/.test(path) ||
     /(^|\/)(\.git|\.champcity|node_modules|dist|build|coverage|tmp)(\/|$)/i.test(path)) {
     fail("Tester result paths must stay within test-owned repository surfaces.");
   }
@@ -1642,7 +1642,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const bindingWorkflow = await requiredRecord(unit, projectId, binding.body.workflowId);
       const baselineWorkflow = baseline.entityType === "SourceBaseline" ? await requiredRecord(unit, projectId, baseline.body.workflowId) : null;
       if (baseline.entityType !== "SourceBaseline" || workflow.entityType !== "Workflow" || bindingWorkflow.entityType !== "Workflow" || baselineWorkflow?.entityType !== "Workflow" || workflow.body.workflowType === "work-intake-routing" || workflow.lineageId !== bindingWorkflow.lineageId || baselineWorkflow.lineageId !== workflow.lineageId) fail("SourceCheckpoint Workflow and SourceBinding lineage mismatch.");
-      if (!["WorkItem", "Workflow", "ImplementationRecord"].includes(target.entityType)) fail("Unsupported checkpoint target.");
+      if (!["WorkItem", "Workflow", "ImplementationRecord", "TesterResult"].includes(target.entityType)) fail("Unsupported checkpoint target.");
       if ((await unit.listEntities(projectId, "SourceCheckpoint")).some(record => record.entityType === "SourceCheckpoint" && record.body.boundaryId === input.boundaryId)) fail("Checkpoint boundary already exists.");
       const lineageIds = new Set((await unit.listEntities(projectId, "Workflow")).filter(r => r.entityType === "Workflow" && r.lineageId === workflow.lineageId).map(r => r.id));
       const body: EntityBodyMap["SourceCheckpoint"] = { ...input, workflowId,
@@ -1657,6 +1657,10 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       };
       if (input.checkpointKind === "implementation" && (target.entityType !== "ImplementationRecord" || !belongs(target.body.workItemId))) fail("Implementation checkpoint target is outside the owning Workflow lineage.");
       if (input.checkpointKind === "disposition" && !(target.entityType === "Workflow" ? lineageIds.has(target.id) : target.entityType === "WorkItem" && belongs(target.id))) fail("Disposition checkpoint target is outside the owning Workflow lineage.");
+      if (input.checkpointKind === "tester" && (target.entityType !== "TesterResult" || target.body.workflowId !== workflowId ||
+        target.body.checkpointState !== "pending" || target.body.candidateRevisionId || target.body.sourceCheckpointId ||
+        target.body.permanentTestPaths.length === 0 || target.body.implementerRevisionId !== input.expectedRevisionId || !belongs(target.body.workItemId)))
+        fail("Tester checkpoint requires the exact pending TesterResult and its Implementer revision.");
       if (binding.body.currentRevisionId !== body.expectedRevisionId) fail("Checkpoint expected revision differs from SourceBinding current revision.");
       assertSourceCheckpointBody(body);
       const checkpoint = createProjectStateEntity({ entityType: "SourceCheckpoint", projectId, body, principal: trustedPrincipal });
@@ -1692,6 +1696,41 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now,
         changedFields: ["checkpointState", ...(input.resultingRevisionId ? ["resultingRevisionId"] : [])],
         defaultReason: "Advance SourceCheckpoint", context });
+      return next;
+    });
+  }
+
+  async function completeTesterResultCheckpoint(projectId: ProjectId, testerResultId: EntityId, checkpointId: EntityId, expectedRevision: number, context?: MutationContext) {
+    return store.transaction(projectId, async unit => {
+      const result = await requiredRecord(unit, projectId, testerResultId);
+      const checkpoint = await requiredRecord(unit, projectId, checkpointId);
+      if (result.entityType !== "TesterResult" || result.recordVersion !== expectedRevision || result.body.checkpointState !== "pending" ||
+        result.body.candidateRevisionId || result.body.sourceCheckpointId || checkpoint.entityType !== "SourceCheckpoint" ||
+        checkpoint.body.checkpointKind !== "tester" || checkpoint.body.checkpointState !== "committed" ||
+        checkpoint.body.workflowId !== result.body.workflowId || checkpoint.body.expectedRevisionId !== result.body.implementerRevisionId ||
+        !checkpoint.body.resultingRevisionId || checkpoint.body.boundaryId.length === 0)
+        fail("Committed Tester checkpoint does not match the current pending TesterResult.");
+      const edges = await unit.listRelationships(projectId);
+      if (!edges.some(edge => edge.relationshipType === "checkpoints" && edge.fromEntityId === checkpointId && edge.toEntityId === testerResultId && !edge.endedAt))
+        fail("Tester checkpoint is not semantically linked to its exact TesterResult.");
+      const bindingLinks = edges.filter(edge => edge.relationshipType === "checkpoints" && edge.fromEntityId === checkpointId && !edge.endedAt)
+        .map(edge => edge.toEntityId);
+      const linkedRecords = await Promise.all(bindingLinks.map(id => requiredRecord(unit, projectId, id)));
+      const sourceBindings = linkedRecords.filter(record => record.entityType === "SourceBinding");
+      if (bindingLinks.length !== 3 || sourceBindings.length !== 1) fail("Tester checkpoint does not have one exact SourceBinding and its Workflow/result links.");
+      const binding = sourceBindings[0];
+      if (binding.entityType !== "SourceBinding" || binding.body.preparationState !== "ready" ||
+        binding.body.currentRevisionId !== checkpoint.body.resultingRevisionId || binding.body.workSourceLineId !== checkpoint.body.sourceLineId)
+        fail("Tester checkpoint SourceBinding has not advanced to its exact candidate revision.");
+      const body: EntityBodyMap["TesterResult"] = { ...result.body, checkpointState: "committed",
+        candidateRevisionId: checkpoint.body.resultingRevisionId, sourceCheckpointId: checkpoint.id };
+      const now = new Date().toISOString();
+      const next = validateProjectStateEntity({ ...result, recordVersion: expectedRevision + 1, updatedAt: now, updatedBy: trustedPrincipal, body });
+      await unit.saveEntity(next, expectedRevision);
+      await recordMutation(unit, { projectId, entityId: result.id, fromVersion: expectedRevision, toVersion: next.recordVersion,
+        operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now,
+        changedFields: ["checkpointState", "candidateRevisionId", "sourceCheckpointId"],
+        defaultReason: "Complete Tester test-only checkpoint", context });
       return next;
     });
   }
@@ -2594,7 +2633,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   return { createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
-    createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, createIntegrationRecord, advanceIntegrationRecord,
+    createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, completeTesterResultCheckpoint, createIntegrationRecord, advanceIntegrationRecord,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, createTesterResult, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,
     getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, renderView, exportStructuredProjectState, getAuthoritativeContext, getCommittedEventFeed, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,

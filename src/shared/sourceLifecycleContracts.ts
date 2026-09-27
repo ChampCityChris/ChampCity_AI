@@ -114,11 +114,13 @@ export interface DispositionCheckpointRequest {
   attributablePaths: string[];
 }
 
+export interface TesterCheckpointRequest extends ImplementationCheckpointRequest {}
+
 export type CheckpointState = "not-required" | "pending" | "committed" | "blocked" | "inspection-required";
 export interface SourceCheckpoint {
   boundaryId: string;
   state: CheckpointState;
-  kind?: "implementation" | "disposition";
+  kind?: "implementation" | "disposition" | "tester";
   revision?: SourceRevision;
   emptyLifecycleCheckpoint?: boolean;
 }
@@ -143,10 +145,10 @@ export interface SourceGraph {
   /** Opaque graph IDs are deterministic for an unchanged repository/ref identity. */
   integrationTargets: Array<{ id: string; lineId: string; headRevisionId: string }>;
   sourceLines: Array<{ id: string; headRevisionId: string; providerBranchName?: string; role: "main" | "dev" | "work"; workflowIds: string[] }>;
-  revisions: Array<{ id: string; parents: string[]; timestamp: string; headOfLineIds: string[]; checkpointKinds: Array<"implementation" | "disposition">; integrationStates: string[] }>;
+  revisions: Array<{ id: string; parents: string[]; timestamp: string; headOfLineIds: string[]; checkpointKinds: Array<"implementation" | "disposition" | "tester">; integrationStates: string[] }>;
   workflowBindings: Array<{ workflowId: string; sourceAnchorWorkflowId: string; lineId: string | null; title: string; workflowType: WorkflowType;
     lifecycleState: string; workflowState: string; baseRevisionId: string; currentRevisionId: string | null;
-    checkpointKinds: Array<"implementation" | "disposition">; integrationState: string | null }>;
+    checkpointKinds: Array<"implementation" | "disposition" | "tester">; integrationState: string | null }>;
   truncation: { maxRevisions: number; maxLines: number; revisionsTruncated: boolean; linesTruncated: boolean;
     omittedParentLinks: number; workflowBindingsTruncated: boolean };
   providerDiagnostics: { provider: "git"; currentBranch?: string; metadata: "available" | "missing" | "unavailable" };

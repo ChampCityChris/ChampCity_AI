@@ -8,7 +8,8 @@ const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/
 const { registerCurrentProject } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
 const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
 const { createWorkflowSourceMaterializationService } = require("../../dist/main/sourceControl/workflowSourceMaterializationService.js");
-const { createImplementationCheckpoint, createDispositionCheckpoint } = require("../../dist/main/sourceControl/semanticCheckpointService.js");
+const { createImplementationCheckpoint, createDispositionCheckpoint, createTesterCheckpoint } = require("../../dist/main/sourceControl/semanticCheckpointService.js");
+const { checkpointStructuredTesterResult } = require("../../dist/main/sourceControl/structuredWorkflowCheckpointService.js");
 
 const operator = { principalId: "operator", principalType: "human", role: "Operator" };
 const repositoryId = "checkpoint-repository";
@@ -101,6 +102,46 @@ test("disposition creates an evidenced empty revision on the owning Workflow che
   const first = await createDispositionCheckpoint(f.root, f.projectId, request);
   assert.equal(first.state, "committed", JSON.stringify(first)); assert.equal(git(f.checkout, "show", "--format=", "--name-only", "HEAD"), "");
   assert.equal((await createDispositionCheckpoint(f.root, f.projectId, request)).revision.revisionId, first.revision.revisionId);
+});
+
+test("Tester checkpoint commits only the pending TesterResult test paths and advances its candidate revision", async context => {
+  const f = await fixture(context);
+  const store = createSQLiteProjectStateStore(path.join(f.root, ".champcity", "project-state.sqlite"));
+  const tester = createProjectStateService(store, { principalId: "tester-agent", principalType: "agent", role: "Tester" });
+  const result = await tester.createTesterResult(f.projectId, f.workflowId, f.workId, f.implementationId, {
+    implementerRevisionId: f.head, recommendation: "permanent-proof-change-warranted", affectedCapabilityIds: ["semantic-source-checkpoints"],
+    permanentTestPaths: ["test/source-control/tester-checkpoint.test.cjs"], determinationEvidence: ["No existing proof covers the new checkpoint boundary."],
+    unknowns: [], rationale: "Add permanent checkpoint regression proof.",
+  });
+  store.close();
+  const testPath = "test/source-control/tester-checkpoint.test.cjs";
+  fs.mkdirSync(path.dirname(path.join(f.checkout, testPath)), { recursive: true });
+  fs.writeFileSync(path.join(f.checkout, testPath), "test proof\n");
+  const request = { boundaryId: `tester-result:${result.id}`, workflowId: f.workflowId, targetEntityId: result.id,
+    sourceLineId: f.line, expectedRevisionId: f.head, repositoryCheckoutId: f.checkoutId, attributablePaths: [testPath] };
+  assert.equal((await createTesterCheckpoint(f.root, f.projectId, { ...request, attributablePaths: ["src/main/production.ts"] })).state, "blocked");
+  const extraPath = "test/source-control/unattributed.test.cjs";
+  fs.writeFileSync(path.join(f.checkout, extraPath), "unattributed\n");
+  assert.notEqual((await createTesterCheckpoint(f.root, f.projectId, request)).state, "committed");
+  assert.equal(git(f.checkout, "rev-parse", "HEAD"), f.head);
+  fs.rmSync(path.join(f.checkout, extraPath));
+  const completed = await checkpointStructuredTesterResult(f.root, f.projectId, result.id);
+  const checkpoint = completed.checkpoint;
+  assert.equal(checkpoint.state, "committed", JSON.stringify(checkpoint));
+  assert.equal(git(f.checkout, "show", "--format=", "--name-only", "HEAD"), testPath);
+  const verify = createSQLiteProjectStateStore(path.join(f.root, ".champcity", "project-state.sqlite"));
+  try {
+    const savedResult = await verify.getEntity(f.projectId, result.id);
+    const savedCheckpoint = await verify.getEntity(f.projectId, checkpoint.checkpointId);
+    const binding = (await verify.listEntities(f.projectId, "SourceBinding"))[0];
+    assert.equal(savedResult.body.checkpointState, "committed");
+    assert.equal(savedResult.body.candidateRevisionId, checkpoint.revision.revisionId);
+    assert.equal(savedResult.body.sourceCheckpointId, checkpoint.checkpointId);
+    assert.equal(savedCheckpoint.body.checkpointKind, "tester");
+    assert.equal(savedCheckpoint.body.expectedRevisionId, f.head);
+    assert.equal(savedCheckpoint.body.resultingRevisionId, checkpoint.revision.revisionId);
+    assert.equal(binding.body.currentRevisionId, checkpoint.revision.revisionId);
+  } finally { verify.close(); }
 });
 
 test("independent Workflow checkouts use independent checkpoint exclusion keys", async context => {

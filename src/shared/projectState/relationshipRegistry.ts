@@ -30,7 +30,7 @@ export const RELATIONSHIP_REGISTRY = Object.freeze({
   baselines_source: rule(["SourceBaseline"], ["Workflow"], true),
   binds_source: rule(["SourceBinding"], ["Workflow"], true),
   blocks: rule(nonProject, nonProject),
-  checkpoints: rule(["SourceCheckpoint"], ["SourceBinding", "Workflow", "WorkItem", "ImplementationRecord"], true),
+  checkpoints: rule(["SourceCheckpoint"], ["SourceBinding", "Workflow", "WorkItem", "ImplementationRecord", "TesterResult"], true),
   defines_criterion: rule(["BoundedSolution", "WorkItem", "Phase"], ["Criterion"]),
   decomposed_into: rule(["WorkItem"], ["WorkItem"], true),
   depends_on: rule(["WorkItem"], ["WorkItem"]),

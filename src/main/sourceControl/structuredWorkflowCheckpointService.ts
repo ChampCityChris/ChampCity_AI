@@ -6,7 +6,7 @@ import { createProjectStateService, type DecisionInput } from "../../shared/proj
 import type { CheckpointResult } from "../../shared/sourceLifecycleContracts";
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
 import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
-import { createDispositionCheckpoint, createImplementationCheckpoint } from "./semanticCheckpointService";
+import { createDispositionCheckpoint, createImplementationCheckpoint, createTesterCheckpoint } from "./semanticCheckpointService";
 
 const operator = { principalId: "local-operator", principalType: "human" as const, role: "Operator" };
 type Store = ReturnType<typeof createSQLiteProjectStateStore>;
@@ -111,6 +111,29 @@ export async function recordStructuredImplementation(root: string, projectId: st
       repositoryCheckoutId: binding.body.repositoryCheckoutId!, attributablePaths,
     });
     return { record: saved, checkpoint };
+  } finally { store.close(); }
+}
+
+/** A pending TesterResult is checkpointed only from its exact Implementer revision and stored test path set. */
+export async function checkpointStructuredTesterResult(root: string, projectId: string, testerResultId: string): Promise<WorkflowCheckpointResult<ProjectStateRecord<"TesterResult">>> {
+  const { selected, store } = open(root, projectId);
+  try {
+    const result = await store.getEntity(projectId, testerResultId);
+    if (result?.entityType !== "TesterResult" || result.body.checkpointState !== "pending" || result.body.candidateRevisionId || result.body.sourceCheckpointId || !result.body.permanentTestPaths.length)
+      throw Error("A pending TesterResult with changed permanent test paths is required.");
+    await assertWorkOwner(store, projectId, result.body.workflowId, result.body.workItemId);
+    const binding = await bindingForWorkflow(store, projectId, result.body.workflowId);
+    if (binding.body.currentRevisionId !== result.body.implementerRevisionId) throw Error("TesterResult Implementer revision is no longer current.");
+    const checkpoint = await createTesterCheckpoint(selected, projectId, {
+      boundaryId: `tester-result:${testerResultId}`, workflowId: result.body.workflowId, targetEntityId: result.id,
+      sourceLineId: binding.body.workSourceLineId!, expectedRevisionId: result.body.implementerRevisionId,
+      repositoryCheckoutId: binding.body.repositoryCheckoutId!, attributablePaths: result.body.permanentTestPaths,
+    });
+    if (checkpoint.state !== "committed") throw Error(checkpoint.message);
+    const current = await store.getEntity(projectId, testerResultId);
+    if (current?.entityType !== "TesterResult" || current.body.checkpointState !== "committed" || current.body.sourceCheckpointId !== checkpoint.checkpointId)
+      throw Error("TesterResult checkpoint completion could not be verified.");
+    return { record: current, checkpoint };
   } finally { store.close(); }
 }
 
