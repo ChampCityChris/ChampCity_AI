@@ -1,8 +1,41 @@
 # WRB04-04 — Validate, Repair, and Complete Exact WorkItems and Phases
 
+**Status:** IN PROGRESS — continue the existing uncommitted implementation. Do not restart this card.  
 **Depends on:** accepted WRB04-03R checkpoint `ff4c4a35a3d8b7196745e98062ad5ed0427b3355`  
+**Repository baseline before this card:** `78bdfa7b6c373d318e73428e2d7d28152ba46271`  
 **Implementer:** GPT 6.0 Luna Medium  
-**Execution rule:** ONE card, ONE report, ONE commit. Do not split this card.
+**Execution rule:** ONE card, ONE final report, ONE commit. Do not split this card.
+
+## Current continuation instruction
+
+A partial WRB04-04 implementation already exists in the working tree. Preserve it.
+
+The partial progress note is:
+
+`Reports/WRB04-04_PROGRESS_2026-09-27.md`
+
+That file is not a completion report.
+
+Architect review of the partial implementation found three required corrections that are now part of this card:
+
+1. **Exact Phase eligibility/completion**
+   - Current Project Phase completion must not depend on the transitional project-wide `getExecutionPlan(projectId)`.
+   - Make the WRB04 exact path derive Phase membership/Criteria from the selected exact Workflow, using `getWorkflowExecutionPlan(projectId, workflowId)` or an equivalent exact typed command.
+   - Concurrent peer Workflow Phases/WorkItems must be incapable of affecting this Phase's eligibility.
+
+2. **Complete Criterion projection**
+   - Validator/projection must include every completion-relevant current Criterion owned by the exact WorkItem **and its accepted BoundedSolution**.
+   - Phase-owned Criteria remain Phase-boundary concerns.
+   - The validation projection must not disagree with canonical completion eligibility by omitting solution Criteria.
+
+3. **Correct actor attribution**
+   - Exact Implementer attempts must persist the actual Implementer agent principal, not `local-operator`.
+   - Validator independence must be provable from persisted Implementer and Tester principals.
+   - Mechanical application-owned completion may use an explicit system/application principal.
+   - Do not impersonate the human Operator for routine Implementer, Validator, checkpoint, or mechanical completion records.
+   - Operator principal remains reserved for actual Operator decisions/actions.
+
+Do not create another repair/clarification card for these corrections. Fix them inside this card.
 
 ## Objective
 
@@ -38,7 +71,7 @@ The service derives all authority from SPS/runtime evidence:
 - exact TesterResult for that ImplementationRecord;
 - final candidate source identity when source-backed;
 - source-neutral attempt identity when not source-backed;
-- current WorkItem/solution Criteria and their exact record versions;
+- current WorkItem and accepted BoundedSolution Criteria and their exact record versions;
 - applicable existing validation evidence.
 
 Reject cross-Workflow, stale, duplicate, incomplete, or mismatched evidence.
@@ -48,7 +81,8 @@ Reject cross-Workflow, stale, duplicate, incomplete, or mismatched evidence.
 Validator is a distinct principal/role.
 
 For semantic review:
-- Validator principal must differ from Implementer and Tester principals;
+- Validator principal must differ from the persisted Implementer principal;
+- Validator principal must differ from the persisted Tester principal;
 - use the existing bounded App Server adapter/session mechanics;
 - no production mutation;
 - network disabled unless an existing declared validation capability specifically requires otherwise;
@@ -58,7 +92,7 @@ Do not reuse TesterResult as Validator approval.
 
 ## 3. Criterion policy execution
 
-Evaluate each current Criterion governed by the WorkItem and accepted BoundedSolution.
+Evaluate each current completion-relevant Criterion governed by the WorkItem and accepted BoundedSolution.
 
 ### deterministic
 
@@ -115,7 +149,8 @@ A stale prior Validation cannot satisfy a newer target version or newer candidat
 ## 5. Validator result projection
 
 Expose one bounded exact WorkItem validation projection containing:
-- Criterion;
+- every completion-relevant WorkItem/solution Criterion;
+- owner identity;
 - policy;
 - current outcome;
 - evidence/Validation IDs;
@@ -124,7 +159,9 @@ Expose one bounded exact WorkItem validation projection containing:
 - whether human evidence is still required;
 - whether WorkItem completion eligibility is satisfied.
 
-Do not create a new generic “approval” entity.
+Do not create a new generic approval entity.
+
+The projection is explanatory/read-model state. Canonical completion authority remains typed SPS completion eligibility.
 
 ## 6. Canonical Repair creation
 
@@ -179,15 +216,20 @@ Required:
 - prior implementation/Test/Validation/Repair evidence remains historical;
 - next eligible WorkItems recompute immediately from exact Workflow SPS.
 
+Routine mechanical completion is application/system action, not an Operator-authored decision.
+
 ## 9. Phase completion
 
 For phased plans:
-- close a Phase only after all current member WorkItems are closed;
+- derive Phase membership and Criteria from the exact selected Workflow;
+- close a Phase only after all exact current member WorkItems are closed;
 - all required non-deferred Phase Criteria are satisfied;
 - deferred visual Phase Criteria have required human evidence;
 - dependencies/Repairs/blockers are resolved.
 
-Use typed `completePhase`.
+Use typed exact-Workflow Phase completion.
+
+Do not use the transitional project-wide execution-plan query for WRB04 Current Project completion.
 
 No Phase exists for direct topology merely to create a gate.
 
@@ -217,23 +259,27 @@ Prove at minimum:
 
 1. Feature and Issue use the same Validator service.
 2. Validator binds the latest ImplementationRecord and exact TesterResult.
-3. Source-backed Validator uses the post-Tester candidate revision.
-4. Source-neutral Validator completes without fake Git identity.
-5. deterministic pass requires applicable exact proof.
-6. semantic Validator principal is distinct from Implementer and Tester.
-7. visual/operator policies cannot be auto-passed.
-8. deferred visual policy remains for Phase boundary.
-9. failed required Criterion creates one same-Workflow canonical Repair.
-10. Tester production-defect result creates/routes one Repair.
-11. duplicate unresolved Repair creation rejects.
-12. Repair re-enters the exact shared Implementer/Tester/Validator runtime.
-13. parent completion rejects while Repair is open.
-14. Repair completion permits parent reevaluation.
-15. WorkItem closes only through typed completion eligibility.
-16. next eligible WorkItem updates after close.
-17. direct topology has no artificial Phase gate.
-18. phased topology closes exact Phase only when eligible.
-19. no Current Project path invokes legacy Repair Work Card or Issue Fix Card authority.
+3. persisted ImplementationRecord actor is the actual Implementer principal.
+4. Validator principal is distinct from persisted Implementer and Tester principals.
+5. source-backed Validator uses the post-Tester candidate revision.
+6. source-neutral Validator completes without fake Git identity.
+7. deterministic pass requires applicable exact proof.
+8. visual/operator policies cannot be auto-passed.
+9. deferred visual policy remains for Phase boundary.
+10. WorkItem and accepted-solution Criteria both appear in exact Validator/completion projection.
+11. failed required Criterion creates one same-Workflow canonical Repair.
+12. Tester production-defect result creates/routes one Repair.
+13. duplicate unresolved Repair creation rejects.
+14. Repair re-enters the exact shared Implementer/Tester/Validator runtime.
+15. parent completion rejects while Repair is open.
+16. Repair completion permits parent reevaluation.
+17. WorkItem closes only through typed completion eligibility.
+18. next eligible WorkItem updates after close.
+19. direct topology has no artificial Phase gate.
+20. phased topology closes only the exact owning Workflow Phase when eligible.
+21. a peer Workflow Phase/WorkItem cannot affect Phase completion.
+22. no Current Project path invokes legacy Repair Work Card or Issue Fix Card authority.
+23. routine completion records do not impersonate the Operator.
 
 ## Validation
 
@@ -245,30 +291,37 @@ Run:
 - Tester no-regression tests;
 - validation catalog/profile tests touched by Validator execution;
 - Workflow execution projection tests;
+- concurrent Workflow Phase-isolation proof;
+- principal-attribution/independence proof;
 - capability-map integrity;
 - exact validation-plan preview;
 - `git diff --check`.
 
 Do not run the historical full work-item profile as a card-completion gate.
 
-## Report
+## Final report
 
-Write:
+When every requirement is complete, write:
 
 `docs/implementation-bundles/workflow-runtime-rebaseline/WRB04/Reports/WRB04-04_IMPLEMENTER_REPORT.md`
 
-The report must identify:
+Do not rename the progress note back into the final report. Create the final report only when the card is actually complete.
+
+The final report must identify:
 - Validator service/runtime;
+- actor attribution and Validator independence;
 - deterministic vs semantic vs human policy behavior;
 - exact source-backed/source-neutral evidence;
+- WorkItem + solution Criterion coverage;
 - Repair creation/re-entry;
-- WorkItem/Phase completion;
+- exact WorkItem/Phase completion;
+- peer-Workflow Phase isolation;
 - focused validation evidence;
 - confirmation Workflow completion/integration/UI were not started.
 
 ## Checkpoint
 
-Commit:
+Commit only when complete:
 
 `WRB04-04 complete shared validation and Repair loop`
 
