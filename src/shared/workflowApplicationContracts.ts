@@ -113,6 +113,7 @@ export interface PhaseValidationProjection {
   completion: { eligible: boolean; blockers: string[] };
 }
 export type WorkflowWorkItemDecompositionInput = WorkItemDecompositionInput;
+export interface WorkItemExecutionPlanInput { workflowId: EntityId; workItemId: EntityId; expectedVersion: number; plan: { implementationBoundaries: string[]; affectedPaths: string[]; proofIntent: string[] } }
 export interface WorkflowWorkItemVisualCriterionInput {
   workflowId: EntityId; workItemId: EntityId; criterionId: EntityId; expectedCriterionVersion: number;
   implementationRecordId: EntityId; sourceRevisionId: string | null; summary: string;
@@ -152,6 +153,7 @@ export interface WorkItemExecutionContract {
   scopeIn: string[];
   scopeOut: string[];
   constraints: string[];
+  implementationBoundaries: string[];
   affectedPaths: string[];
   proofIntent: string[];
   sourceMutation: "required" | "not-required";

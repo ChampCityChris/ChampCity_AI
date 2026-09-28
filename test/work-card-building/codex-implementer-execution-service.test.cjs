@@ -2183,6 +2183,10 @@ test("exact source-neutral Feature and Issue WorkItem selectors use fake App Ser
   const issueItem = issuePlan.directWorkItems.find(item => item.body.title === "Same title");
   const partialItem = featurePlan.directWorkItems.find(item => item.body.title === "Retryable");
   const failedItem = issuePlan.directWorkItems.find(item => item.body.title === "Retryable");
+  const planningKernel = createWorkflowExecutionApplicationService();
+  for (const [workflowId, candidate] of [[feature.workflow.id, featureItem], [issue.workflow.id, issueItem], [feature.workflow.id, partialItem], [issue.workflow.id, failedItem]])
+    await planningKernel.acceptWorkItemExecutionPlan(root, { workflowId, workItemId: candidate.id, expectedVersion: candidate.recordVersion,
+      plan: { implementationBoundaries: ["Implement this exact WorkItem"], affectedPaths: [], proofIntent: ["Run focused WorkItem proof"] } });
   const legacyCalls = [];
   const currentModule = require("../../dist/main/currentWorkflow/currentWorkflowService.js");
   const routedModule = require("../../dist/main/planExecution/routedImplementerContext.js");
@@ -2289,6 +2293,9 @@ test("exact source-neutral Feature and Issue WorkItem selectors use fake App Ser
   const sourceBaseline = await state.createWorkflowSourceBaseline(registration.project.id, sourceWorkflow.workflow.id, { repositoryId: "source-backed", integrationTargetSourceLineId: "dev", baseRevisionId: "base" });
   await state.createWorkflowSourceBinding(registration.project.id, sourceWorkflow.workflow.id, sourceBaseline.id);
   const sourcePlan = await state.acceptWorkflowPlanningGraph(registration.project.id, createGraph(sourceWorkflow.workflow.id, "feature", "Source-backed objective"));
+  const sourcePlanningKernel = createWorkflowExecutionApplicationService();
+  await sourcePlanningKernel.acceptWorkItemExecutionPlan(root, { workflowId: sourceWorkflow.workflow.id, workItemId: sourcePlan.directWorkItems[0].id, expectedVersion: sourcePlan.directWorkItems[0].recordVersion,
+    plan: { implementationBoundaries: ["Implement the source-backed objective"], affectedPaths: ["src/example.ts"], proofIntent: ["Run focused source proof"] } });
   const sourceRejected = await service.start(root, { ownerKind: "workflow-work-item", workflowId: sourceWorkflow.workflow.id, workItemId: sourcePlan.directWorkItems[0].id }, selection);
   assert.equal(sourceRejected.state, "unavailable");
   assert.match(sourceRejected.failureReason, /SOURCE_CHECKOUT_PREPARATION_UNAVAILABLE/i);
@@ -2314,6 +2321,9 @@ test("exact Workflow Implementer input request resumes only through its Workflow
     solution: { title: "Accepted", objective: "Continue exact execution", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [] },
     solutionCriteria: [], phases: [], workItems: [{ key: "work", kind: "feature", title: "Wait for input", objective: "Resume exact session", dependencyKeys: [], criteria: [] }] });
   const item = plan.directWorkItems[0], selector = { ownerKind: "workflow-work-item", workflowId: workflow.workflow.id, workItemId: item.id };
+  const execution = createWorkflowExecutionApplicationService();
+  await execution.acceptWorkItemExecutionPlan(root, { workflowId: workflow.workflow.id, workItemId: item.id, expectedVersion: item.recordVersion,
+    plan: { implementationBoundaries: ["Resume exact session"], affectedPaths: [], proofIntent: ["Confirm resumed output"] } });
   let answerSession;
   const inputAnswered = new Promise(resolve => { answerSession = resolve; });
   let capturedResponse;
@@ -2361,7 +2371,9 @@ test("exact Workflow Tester input response resumes only its Workflow, WorkItem, 
     solution: { title: "Accepted", objective: "Verify exact output", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [] },
     solutionCriteria: [], phases: [], workItems: [{ key: "work", kind: "feature", title: "Tester target", objective: "Tester waits for input", dependencyKeys: [], criteria: [] }] });
   const item = plan.directWorkItems[0], execution = createWorkflowExecutionApplicationService();
-  const attempt = await execution.beginWorkItemAttempt(root, workflow.workflow.id, item.id, item.recordVersion, "tester-input-implementation");
+  const accepted = await execution.acceptWorkItemExecutionPlan(root, { workflowId: workflow.workflow.id, workItemId: item.id, expectedVersion: item.recordVersion,
+    plan: { implementationBoundaries: ["Implement output"], affectedPaths: [], proofIntent: ["Review exact output"] } });
+  const attempt = await execution.beginWorkItemAttempt(root, workflow.workflow.id, item.id, accepted.recordVersion, "tester-input-implementation");
   const implementation = await execution.finishWorkItemAttempt(root, workflow.workflow.id, item.id, attempt.executionRef,
     { summary: "Implemented", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
   const ids = { workflowId: workflow.workflow.id, workItemId: item.id, implementationRecordId: implementation.id };
@@ -2510,6 +2522,9 @@ test("exact source-backed and source-neutral WorkItems use the bounded Tester li
     ] });
   const item = plan.directWorkItems.find(candidate => candidate.body.title === "Same title");
   const unsafeItem = plan.directWorkItems.find(candidate => candidate.body.title === "Unsafe attribution");
+  const planning = createWorkflowExecutionApplicationService();
+  for (const candidate of [item, unsafeItem]) await planning.acceptWorkItemExecutionPlan(root, { workflowId: created.workflow.id, workItemId: candidate.id, expectedVersion: candidate.recordVersion,
+    plan: { implementationBoundaries: ["Change only accepted source files"], affectedPaths: ["feature.txt"], proofIntent: ["Run focused source proof"] } });
   const unrelated = await state.createSubstantiveWorkflow(project.project.id, { workflowType: "issue-resolution", title: "Unrelated source", entryWorkspace: "issue-intake",
     sourceSeed: { repositoryId: "source-execution-repository", integrationTargetSourceLineId: "dev", baseRevisionId: revision } });
   const unrelatedPlan = await state.acceptWorkflowPlanningGraph(project.project.id, { workflowId: unrelated.workflow.id, topology: "direct",
@@ -2522,7 +2537,7 @@ test("exact source-backed and source-neutral WorkItems use the bounded Tester li
     return { startThread(options) { captured.push(options); return { id: "source-thread", async runStreamed() {
       fs.writeFileSync(path.join(options.workingDirectory, appServerCalls === 1 ? "feature.txt" : "unreported.txt"), "implemented\n");
       return { events: (async function* () {
-        yield { type: "item.completed", item: { type: "file_change", changes: [{ path: appServerCalls === 1 ? "feature.txt" : "../outside.txt" }], status: "completed" } };
+        yield { type: "item.completed", item: { type: "file_change", changes: [{ path: appServerCalls === 1 ? "feature.txt" : "unreported.txt" }], status: "completed" } };
         yield { type: "item.completed", item: { type: "agent_message", text: JSON.stringify({ summary: "Implemented the exact source WorkItem", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" }) } };
         yield { type: "turn.completed" };
       })() };
@@ -2601,9 +2616,11 @@ test("exact source-backed and source-neutral WorkItems use the bounded Tester li
     solution: { title: "Neutral accepted solution", objective: "Complete without repository source", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [] },
     solutionCriteria: [], phases: [], workItems: [{ key: "neutral-item", kind: "feature", title: "Same title", objective: "No source anchor", dependencyKeys: [], criteria: [] }] });
   const neutralWork = neutralPlan.directWorkItems[0];
+  const neutralExecutionPlan = await createWorkflowExecutionApplicationService().acceptWorkItemExecutionPlan(root, { workflowId: sourceNeutral.workflow.id, workItemId: neutralWork.id,
+    expectedVersion: neutralWork.recordVersion, plan: { implementationBoundaries: ["Keep the WorkItem source-neutral"], affectedPaths: [], proofIntent: ["Review source-neutral semantic completion"] } });
   const neutralImplementer = createProjectStateService(store, { principalId: "neutral-implementer", principalType: "agent", role: "Implementer" });
   const neutralRef = "neutral-execution";
-  await neutralImplementer.beginWorkItemAttempt(project.project.id, sourceNeutral.workflow.id, neutralWork.id, neutralWork.recordVersion, neutralRef);
+  await neutralImplementer.beginWorkItemAttempt(project.project.id, sourceNeutral.workflow.id, neutralWork.id, neutralExecutionPlan.recordVersion, neutralRef);
   const neutralImplementation = await neutralImplementer.finishWorkItemAttempt(project.project.id, sourceNeutral.workflow.id, neutralWork.id, neutralRef,
     { summary: "Implementation complete", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
   const neutralStatus = await tester.getStatus(root, { workflowId: sourceNeutral.workflow.id, workItemId: neutralWork.id, implementationRecordId: neutralImplementation.id });

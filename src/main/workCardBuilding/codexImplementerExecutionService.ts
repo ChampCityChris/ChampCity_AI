@@ -954,7 +954,14 @@ export class CodexImplementerExecutionService {
       for await (const event of streamed.events) {
         appendTail(session.eventTail, summarizeEvent(event));
         if (event.type === "item.completed" && event.item.type === "file_change" && session.workflowWorkItem?.sourceBacked) {
-          try { observeExactWorkflowCheckoutChanges(session.workflowWorkItem.sourceBacked, event.item.changes); }
+          try {
+            observeExactWorkflowCheckoutChanges(session.workflowWorkItem.sourceBacked, event.item.changes);
+            const allowed = session.workflowWorkItem.contract.affectedPaths;
+            for (const changed of session.workflowWorkItem.sourceBacked.attributablePaths) {
+              const normalized = changed.replace(/\\/g, "/").replace(/^\.\//, "");
+              if (!allowed.some(scope => normalized === scope || normalized.startsWith(`${scope.replace(/\/$/, "")}/`))) throw Error(`Observed path is outside the accepted Architect scope: ${normalized}`);
+            }
+          }
           catch (error) { session.workflowWorkItem.sourceBacked.attributionFailure ??= messageForCodexFailure(error); }
         }
         if (event.type === "item.completed" && event.item.type === "file_change" && session.checkpointCapture) {
@@ -1258,6 +1265,7 @@ export function buildWorkflowWorkItemCodexPrompt(contract: WorkItemExecutionCont
 
 Authority and identity:
 - The human Operator is the only authority. Use only this exact application-owned execution contract; do not infer identity from titles or discover legacy Work Cards, Issue Fix Cards, Markdown plans, or report files.
+- Follow implementationBoundaries, affectedPaths, and proofIntent in the accepted contract. Never expand path scope based on model output.
 - Workflow ID: ${contract.workflowId}
 - WorkItem ID: ${contract.workItemId}
 - WorkItem record version: ${contract.workItemVersion}
@@ -1279,6 +1287,7 @@ Execution boundary:
 
 Authority and identity:
 - The human Operator is the only authority. Use only this exact application-owned execution contract; do not infer identity from titles or discover legacy Work Cards, Issue Fix Cards, Markdown plans, or report files.
+- Follow implementationBoundaries, affectedPaths, and proofIntent in the accepted contract. Never expand path scope based on model output.
 - Workflow ID: ${contract.workflowId}
 - WorkItem ID: ${contract.workItemId}
 - WorkItem record version: ${contract.workItemVersion}

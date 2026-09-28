@@ -227,6 +227,41 @@ export function createWorkflowExecutionApplicationService(dependencies: {
     });
   }
 
+  async function acceptWorkItemExecutionPlan(projectRoot: string, input: import("../../shared/workflowApplicationContracts").WorkItemExecutionPlanInput) {
+    const plan = input?.plan;
+    if (!input || !Number.isSafeInteger(input.expectedVersion) || !plan || !Array.isArray(plan.implementationBoundaries) || !Array.isArray(plan.affectedPaths) || !Array.isArray(plan.proofIntent)) throw Error("A bounded exact WorkItem execution plan is required.");
+    const boundedList = (values: string[], min: number, max: number, label: string) => {
+      if (values.length < min || values.length > max || values.some(value => typeof value !== "string" || !value.trim() || value.length > 512)) throw Error(`${label} must contain ${min}..${max} bounded text entries.`);
+      return values.map(value => value.trim());
+    };
+    const implementationBoundaries = boundedList(plan.implementationBoundaries, 1, 32, "Implementation boundaries");
+    const proofIntent = boundedList(plan.proofIntent, 1, 32, "Proof intent");
+    const affectedPaths = boundedList(plan.affectedPaths, 0, 128, "Affected paths");
+    for (const value of affectedPaths) {
+      if (value.startsWith("/") || /^[A-Za-z]:/.test(value) || value.includes("\\") || value.split("/").some(part => !part || part === "." || part === "..") ||
+        /(^|\/)(\.git|\.champcity|\.codex|node_modules|dist|build|out|coverage|\.env[^/]*|secrets?|credentials?)(\/|$)/i.test(value) || /(^|\/)(id_rsa|[^/]+\.(pem|key|p12|pfx)|[^/]*token[^/]*|[^/]*secret[^/]*)(\/|$)/i.test(value))
+        throw Error("Affected paths must be normalized, repository-relative source paths without runtime, Git, dependency, output, or secret paths.");
+    }
+    if (new Set(affectedPaths).size !== affectedPaths.length) throw Error("Affected paths must be unique.");
+    return withCurrentProject(projectRoot, async (store, projectId) => {
+      const workflow = await exactPlan(store, projectId, input.workflowId);
+      if (!implementationWorkflowTypes.has(workflow.workflow.body.workflowType)) throw Error("Execution planning requires the exact current Feature/Issue Workflow.");
+      const projection = await project(store, projectId, workflow);
+      const item = projection.items.find(candidate => candidate.record.id === input.workItemId);
+      if (!item || !["planned", "ready"].includes(item.record.body.workState) || item.record.recordVersion !== input.expectedVersion || item.implementationAttempts.length || item.repairIds.length) throw Error("Execution planning requires the exact current planned/ready WorkItem without implementation or active Repair.");
+      if (projection.source.state !== "non-source" && !affectedPaths.length) throw Error("Source-backed execution plans require at least one accepted repository path.");
+      const criterionIds = workflow.criteria.filter(candidate => candidate.ownerId === item.record.id || candidate.ownerId === workflow.solutions[0]?.id).map(candidate => candidate.record.id);
+      const validations = (await store.listEntities(projectId, "Validation")).filter((record): record is ProjectStateRecord<"Validation"> => record.entityType === "Validation" && (record.body.targetEntityId === item.record.id || criterionIds.includes(record.body.targetEntityId)));
+      const testers = (await store.listEntities(projectId, "TesterResult")).filter(record => record.entityType === "TesterResult" && record.body.workflowId === input.workflowId && record.body.workItemId === input.workItemId);
+      const attemptRefs = new Set(item.implementationAttempts.map(record => record.body.executionRef).filter((value): value is string => Boolean(value)));
+      const checkpoints = (await store.listEntities(projectId, "SourceCheckpoint")).filter((record): record is ProjectStateRecord<"SourceCheckpoint"> => record.entityType === "SourceCheckpoint" && record.body.workflowId === input.workflowId && attemptRefs.has(record.body.boundaryId));
+      if (validations.length || testers.length || checkpoints.some(record => record.body.checkpointState !== "not-required")) throw Error("Execution plan cannot change after implementation evidence or source checkpoints exist.");
+      if (projection.source.state === "non-source" && affectedPaths.length) throw Error("Source-neutral execution plans must have an empty affected-path scope.");
+      const state = createProjectStateService(store, operator);
+      return state.reviseRecord(projectId, item.record.id, { implementationBoundaries, affectedPaths, proofIntent }, input.expectedVersion);
+    });
+  }
+
   async function recordWorkItemVisualCriterion(projectRoot: string, input: {
     workflowId: EntityId; workItemId: EntityId; criterionId: EntityId; expectedCriterionVersion: number;
     implementationRecordId: EntityId; sourceRevisionId: string | null; summary: string;
@@ -736,12 +771,14 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       }
       if (plan.solutions.length !== 1) throw Error("Accepted BoundedSolution is missing or ambiguous.");
       const phase = item.phaseId ? plan.phases.find(candidate => candidate.phaseId === item.phaseId)?.record ?? null : null;
-      const criteria = plan.criteria.filter(candidate => candidate.ownerId === workItemId).map(candidate => candidate.record).sort((a, b) => a.id.localeCompare(b.id));
+      if (!item.record.body.implementationBoundaries?.length || !item.record.body.proofIntent?.length || !item.record.body.affectedPaths) throw Error("Architect execution planning is required before Implementer execution.");
+      if (projection.source.state === "non-source" && item.record.body.affectedPaths.length) throw Error("Source-neutral execution plan contains repository paths.");
+      const criteria = plan.criteria.filter(candidate => candidate.ownerId === workItemId || candidate.ownerId === plan.solutions[0]?.id).map(candidate => candidate.record).sort((a, b) => a.id.localeCompare(b.id));
       const solution = plan.solutions[0];
       const body = {
         projectId, workflowId, workItemId, workItemVersion: item.record.recordVersion, objective: item.record.body.objective,
         solution, phase, criteria, dependencyIds: item.dependencyIds, scopeIn: [...solution.body.scopeIn], scopeOut: [...solution.body.scopeOut],
-        constraints: [...solution.body.constraints], affectedPaths: [...input.affectedPaths].sort(), proofIntent: [...input.proofIntent],
+        constraints: [...solution.body.constraints], implementationBoundaries: [...item.record.body.implementationBoundaries], affectedPaths: [...item.record.body.affectedPaths].sort(), proofIntent: [...item.record.body.proofIntent],
         sourceMutation: input.sourceMutation, sourceRevisionId: projection.source.currentRevisionId,
       };
       const serialized = JSON.stringify(body);
@@ -781,11 +818,13 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       }
       if (plan.solutions.length !== 1) throw Error("Accepted BoundedSolution is missing or ambiguous.");
       const phase = item.phaseId ? plan.phases.find(candidate => candidate.phaseId === item.phaseId)?.record ?? null : null;
-      const criteria = plan.criteria.filter(candidate => candidate.ownerId === workItemId).map(candidate => candidate.record).sort((a, b) => a.id.localeCompare(b.id));
+      if (!item.record.body.implementationBoundaries?.length || !item.record.body.proofIntent?.length || !item.record.body.affectedPaths) throw Error("Architect execution planning is required before Implementer execution.");
+      if (item.record.body.affectedPaths.length) throw Error("Source-neutral execution plan contains repository paths.");
+      const criteria = plan.criteria.filter(candidate => candidate.ownerId === workItemId || candidate.ownerId === plan.solutions[0]?.id).map(candidate => candidate.record).sort((a, b) => a.id.localeCompare(b.id));
       const solution = plan.solutions[0];
       const body = { projectId, workflowId, workItemId, workItemVersion: item.record.recordVersion, objective: item.record.body.objective,
         solution, phase, criteria, dependencyIds: item.dependencyIds, scopeIn: [...solution.body.scopeIn], scopeOut: [...solution.body.scopeOut],
-        constraints: [...solution.body.constraints], affectedPaths: [...input.affectedPaths].sort(), proofIntent: [...input.proofIntent],
+        constraints: [...solution.body.constraints], implementationBoundaries: [...item.record.body.implementationBoundaries], affectedPaths: [], proofIntent: [...item.record.body.proofIntent],
         sourceMutation: "not-required" as const, sourceRevisionId: null };
       const digest = createHash("sha256").update(JSON.stringify(body)).digest("hex");
       return { contractId: `work-item-contract:${digest}`, digest, ...body };
@@ -805,7 +844,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       .finishWorkItemAttempt(projectId, workflowId, workItemId, executionRef, result));
   }
 
-  return { getExecutionProjection, getWorkflowExecutionCompletionProjection, completeWorkflowExecution, getWorkItemValidationProjection, decomposeWorkflowWorkItem,
+  return { getExecutionProjection, getWorkflowExecutionCompletionProjection, completeWorkflowExecution, getWorkItemValidationProjection, decomposeWorkflowWorkItem, acceptWorkItemExecutionPlan,
     recordWorkItemVisualCriterion, recordWorkItemCriterionDecision, getPhaseValidationProjection, recordPhaseVisualCriterion,
     recordPhaseCriterionDecision, validateDeterministicPhaseCriterion, validateSemanticPhaseCriterion,
     completeWorkItem, completePhase, createWorkflowRepair, validateSemanticWorkItemCriterion, validateDeterministicWorkItemCriterion, prepareExecution, createWorkItemExecutionContract, createTesterWorkItemExecutionContract,

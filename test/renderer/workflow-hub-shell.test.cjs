@@ -61,6 +61,10 @@ test("shared execution Workspace binds pending Implementer and Tester interactio
   assert.match(source, /respondToWorkflowWorkItemTesterApproval\(workflow\.workflowId, item\.record\.id, latest!\.id/);
   assert.match(source, /respondToWorkflowWorkItemTesterInput\(workflow\.workflowId, item\.record\.id, latest\.id/);
   assert.match(source, /cancelWorkflowWorkItemTester\(workflow\.workflowId, item\.record\.id, latest\.id/);
+  assert.match(source, /Architect WorkItem execution planning/);
+  assert.match(source, /acceptWorkflowWorkItemExecutionPlan/);
+  assert.match(source, /Prepare Architect handoff/);
+  assert.match(source, /item\.record\.body\.implementationBoundaries\?\.length/);
 });
 
 test("accepted Work Item Map is readable and exposes no execution controls", () => {

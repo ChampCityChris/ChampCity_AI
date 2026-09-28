@@ -103,6 +103,13 @@ export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcR
       throw Error("Exact typed Workflow WorkItem decomposition input is required.");
     return execution.decomposeWorkflowWorkItem(getCurrentProjectRoot(), args[0] as import("../../shared/workflowApplicationContracts").WorkflowWorkItemDecompositionInput);
   });
+  registry.handle("workflow:acceptWorkItemExecutionPlan", async (_event, ...args) => {
+    const request = args[0] as Record<string, unknown> | undefined;
+    if (args.length !== 1 || !request || typeof request !== "object" || Array.isArray(request) ||
+      Object.keys(request).sort().join("|") !== "expectedVersion|plan|workItemId|workflowId" || !request.plan || typeof request.plan !== "object" || Array.isArray(request.plan) ||
+      Object.keys(request.plan as object).sort().join("|") !== "affectedPaths|implementationBoundaries|proofIntent") throw Error("Exact bounded WorkItem execution-plan input is required.");
+    return execution.acceptWorkItemExecutionPlan(getCurrentProjectRoot(), request as unknown as import("../../shared/workflowApplicationContracts").WorkItemExecutionPlanInput);
+  });
   registry.handle("workflow:recordWorkItemVisualCriterion", async (_event, ...args) => {
     if (args.length !== 1 || !args[0] || typeof args[0] !== "object" || Array.isArray(args[0]) ||
       Object.keys(args[0]).sort().join("|") !== "criterionId|expectedCriterionVersion|implementationRecordId|sourceRevisionId|summary|workItemId|workflowId")

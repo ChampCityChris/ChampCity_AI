@@ -35,6 +35,7 @@ const api: ChampCityApi = {
   getWorkItemValidation: (workflowId, workItemId) => ipcRenderer.invoke("workflow:workItemValidation", workflowId, workItemId) as ReturnType<ChampCityApi["getWorkItemValidation"]>,
   getWorkflowExecutionProjection: workflowId => ipcRenderer.invoke("workflow:executionProjection", workflowId) as ReturnType<ChampCityApi["getWorkflowExecutionProjection"]>,
   decomposeWorkflowWorkItem: input => ipcRenderer.invoke("workflow:decomposeWorkItem", input) as ReturnType<ChampCityApi["decomposeWorkflowWorkItem"]>,
+  acceptWorkflowWorkItemExecutionPlan: input => ipcRenderer.invoke("workflow:acceptWorkItemExecutionPlan", input) as ReturnType<ChampCityApi["acceptWorkflowWorkItemExecutionPlan"]>,
   recordWorkflowWorkItemVisualCriterion: input => ipcRenderer.invoke("workflow:recordWorkItemVisualCriterion", input) as ReturnType<ChampCityApi["recordWorkflowWorkItemVisualCriterion"]>,
   recordWorkflowWorkItemCriterionDecision: input => ipcRenderer.invoke("workflow:recordWorkItemCriterionDecision", input) as ReturnType<ChampCityApi["recordWorkflowWorkItemCriterionDecision"]>,
   getWorkflowPhaseValidation: (workflowId, phaseId) => ipcRenderer.invoke("workflow:phaseValidation", workflowId, phaseId) as ReturnType<ChampCityApi["getWorkflowPhaseValidation"]>,

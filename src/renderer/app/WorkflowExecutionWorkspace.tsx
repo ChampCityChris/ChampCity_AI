@@ -23,6 +23,7 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn }: Props): JSX.E
   const [humanSummary, setHumanSummary] = useState("");
   const [criterionDecisionOutcome, setCriterionDecisionOutcome] = useState<"approved" | "rejected">("approved");
   const [decompositionJson, setDecompositionJson] = useState("");
+  const [executionPlanDraft, setExecutionPlanDraft] = useState({ implementationBoundaries: "", affectedPaths: "", proofIntent: "" });
   const [phaseValidation, setPhaseValidation] = useState<Record<string, PhaseValidationProjection>>({});
   const [userInputAnswers, setUserInputAnswers] = useState<Record<string, string>>({});
   const [testerInputAnswers, setTesterInputAnswers] = useState<Record<string, string>>({});
@@ -135,7 +136,22 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn }: Props): JSX.E
           <small> · exact WorkItem <code>{entry.record.id}</code></small>
         </li>)}</ol>}
       </section>
-      {item && <section aria-label="Exact Work Item execution"><h2>{item.record.body.title}</h2><p>{item.record.body.objective}</p><p>WorkItem <code>{item.record.id}</code> · {item.record.body.workState} · contract from accepted plan</p>
+        {item && <section aria-label="Exact Work Item execution"><h2>{item.record.body.title}</h2><p>{item.record.body.objective}</p><p>WorkItem <code>{item.record.id}</code> · {item.record.body.workState} · contract from accepted plan</p>
+        { ["planned", "ready"].includes(item.record.body.workState) && !item.record.body.implementationBoundaries?.length && <section aria-label="Architect WorkItem execution planning"><h3>Architect execution plan required</h3>
+          <p>Prepare the exact Architect handoff, then accept its bounded execution contract before decomposition or Implementer execution.</p>
+          <button onClick={() => void act(async () => {
+            const solution = projection.plan.solutions[0]; const phase = projection.plan.phases.find(candidate => candidate.phaseId === item.phaseId);
+            const handoff = `Architect WorkItem execution plan\nWorkflow ID: ${workflow.workflowId}\nWorkItem ID/version: ${item.record.id}/${item.record.recordVersion}\nObjective: ${item.record.body.objective}\nAccepted BoundedSolution: ${JSON.stringify(solution)}\nWorkItem Criteria: ${JSON.stringify(projection.plan.criteria.filter(candidate => candidate.ownerId === item.record.id).map(candidate => candidate.record))}\nSolution Criteria: ${JSON.stringify(projection.plan.criteria.filter(candidate => candidate.ownerId === solution?.id).map(candidate => candidate.record))}\nPhase context: ${JSON.stringify(phase ?? null)}\nDependencies: ${JSON.stringify(item.dependencyIds)}\nScope/constraints: ${JSON.stringify({ scopeIn: solution?.body.scopeIn, scopeOut: solution?.body.scopeOut, constraints: solution?.body.constraints })}\nSource mode/context: ${JSON.stringify({ mode: projection.source.state === "non-source" ? "source-neutral" : "source-backed", currentRevisionId: projection.source.currentRevisionId, workSourceLineId: projection.source.workSourceLineId, repositoryCheckoutId: projection.source.repositoryCheckoutId })}\nReturn implementationBoundaries (1..32), affectedPaths (0..128 normalized repo-relative paths; empty for source-neutral), proofIntent (1..32), whether decomposition is required, and bounded current repository context relevant to this exact scope. Do not return raw transcript or Markdown as authority.`;
+            await navigator.clipboard.writeText(handoff); return { copied: true };
+          }, "Exact Architect handoff copied.")}>Prepare Architect handoff</button>
+          <label>Implementation boundaries<textarea value={executionPlanDraft.implementationBoundaries} onChange={event => setExecutionPlanDraft(current => ({ ...current, implementationBoundaries: event.target.value }))} /></label>
+          <label>Affected repository paths<textarea value={executionPlanDraft.affectedPaths} onChange={event => setExecutionPlanDraft(current => ({ ...current, affectedPaths: event.target.value }))} /></label>
+          <label>Focused proof intent<textarea value={executionPlanDraft.proofIntent} onChange={event => setExecutionPlanDraft(current => ({ ...current, proofIntent: event.target.value }))} /></label>
+          <button onClick={() => void act(() => window.champcity.acceptWorkflowWorkItemExecutionPlan({ workflowId: workflow.workflowId, workItemId: item.record.id, expectedVersion: item.record.recordVersion, plan: {
+            implementationBoundaries: executionPlanDraft.implementationBoundaries.split(/\r?\n/).map(value => value.trim()).filter(Boolean),
+            affectedPaths: executionPlanDraft.affectedPaths.split(/\r?\n/).map(value => value.trim()).filter(Boolean), proofIntent: executionPlanDraft.proofIntent.split(/\r?\n/).map(value => value.trim()).filter(Boolean),
+          } }), "Architect execution plan accepted.")}>Accept Architect execution plan</button>
+        </section>}
         <details><summary>Execution contract</summary><p>Scope in: {projection.plan.solutions[0]?.body.scopeIn.join("; ")}</p><p>Scope out: {projection.plan.solutions[0]?.body.scopeOut.join("; ")}</p><p>Constraints: {projection.plan.solutions[0]?.body.constraints.join("; ")}</p><p>Contract digest is generated from exact Workflow, WorkItem, accepted solution, phase, dependencies, Criteria, and source revision when execution starts.</p></details>
         {["planned", "ready"].includes(item.record.body.workState) && item.implementationAttempts.length === 0 && <details><summary>Decompose WorkItem before execution</summary>
           <p>Expected WorkItem version: <code>{item.record.recordVersion}</code>. Edit each replacement, transfer/elevate/split every Criterion, and map all incoming/outgoing dependencies. The typed action is atomic.</p>
@@ -157,7 +173,7 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn }: Props): JSX.E
           <select aria-label="Reasoning effort" value={selectedModel?.reasoningEffort ?? ""} onChange={async event => {
             if (!selectedModel) return; try { setRuntime(await window.champcity.setCodexModelSelection({ ...selectedModel, reasoningEffort: event.target.value })); } catch (reason) { setError(String(reason)); }
           }}>{(runtime.catalog.find(entry => entry.model === selectedModel?.model)?.supportedReasoningEfforts ?? []).map(effort => <option key={effort} value={effort}>{effort}</option>)}</select></label> : <p role="status">Codex model catalog is unavailable.</p>}
-        {item.eligibility.eligible && ["planned", "ready"].includes(item.record.body.workState) && <button disabled={!selectedModel || runtime?.busy} onClick={() => selectedModel && void act(() => window.champcity.startWorkflowWorkItemCodexExecution(workflow.workflowId, item.record.id, selectedModel), "Implementer run started.")}>Run Implementer</button>}
+        {item.eligibility.eligible && item.record.body.implementationBoundaries?.length && ["planned", "ready"].includes(item.record.body.workState) && <button disabled={!selectedModel || runtime?.busy} onClick={() => selectedModel && void act(() => window.champcity.startWorkflowWorkItemCodexExecution(workflow.workflowId, item.record.id, selectedModel), "Implementer run started.")}>Run Implementer</button>}
         {runtime?.selectionBlocker && <p role="status">{runtime.selectionBlocker}</p>}
         {implementer?.pendingApproval && <section aria-label="Implementer approval request"><h4>Implementer approval</h4><p>{implementer.pendingApproval.impactSummary}</p>
           {implementer.pendingApproval.commandDisplay && <pre>{implementer.pendingApproval.commandDisplay}</pre>}{implementer.pendingApproval.fileChangeSummary && <p>{implementer.pendingApproval.fileChangeSummary}</p>}

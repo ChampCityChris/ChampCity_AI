@@ -84,10 +84,12 @@ test("Feature and Issue use the same exact-Workflow projection and isolate concu
   const env = await setup(context);
   const feature = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "Feature", entryWorkspace: "feature-intake" });
   const issue = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "issue-resolution", title: "Issue", entryWorkspace: "issue-intake" });
-  const featurePlan = await env.state.acceptWorkflowPlanningGraph(env.projectId, graph(feature.workflow.id, "direct", "feature", [
+  const featureGraph = graph(feature.workflow.id, "direct", "feature", [
     { key: "feature-a", kind: "feature", title: "First", objective: "First", dependencyKeys: [], criteria: [{ statement: "Check", criticality: "required", verificationIntent: "test", validationPolicy: "deterministic" }] },
     { key: "feature-b", kind: "feature", title: "Second", objective: "Second", dependencyKeys: ["feature-a"], criteria: [] },
-  ]));
+  ]);
+  featureGraph.solutionCriteria = [{ statement: "Solution-level obligation", criticality: "required", verificationIntent: "Verify accepted solution", validationPolicy: "deterministic" }];
+  const featurePlan = await env.state.acceptWorkflowPlanningGraph(env.projectId, featureGraph);
   const issuePlan = await env.state.acceptWorkflowPlanningGraph(env.projectId, graph(issue.workflow.id, "direct", "fix", [
     { key: "issue-fix", kind: "fix", title: "Fix", objective: "Correct", dependencyKeys: [], criteria: [] },
     { key: "issue-repair", kind: "repair", title: "Repair", objective: "Repair", dependencyKeys: [], criteria: [] },
@@ -96,9 +98,13 @@ test("Feature and Issue use the same exact-Workflow projection and isolate concu
   const issueParent = issuePlan.directWorkItems.find(item => item.body.title === "Fix");
   const issueRepair = issuePlan.directWorkItems.find(item => item.body.title === "Repair");
   const issueBlocked = issuePlan.directWorkItems.find(item => item.body.title === "Blocked");
+  const kernel = createWorkflowExecutionApplicationService();
+  await assert.rejects(kernel.acceptWorkItemExecutionPlan(env.root, { workflowId: feature.workflow.id, workItemId: issueParent.id, expectedVersion: issueParent.recordVersion,
+    plan: { implementationBoundaries: ["Wrong peer"], affectedPaths: [], proofIntent: ["Must reject"] } }), /exact current planned\/ready WorkItem/);
+  const acceptedIssue = await kernel.acceptWorkItemExecutionPlan(env.root, { workflowId: issue.workflow.id, workItemId: issueParent.id, expectedVersion: issueParent.recordVersion,
+    plan: { implementationBoundaries: ["Correct issue"], affectedPaths: [], proofIntent: ["Run focused issue proof"] } });
   await env.state.reviseRecord(env.projectId, issueBlocked.id, { ...issueBlocked.body, workState: "blocked" }, issueBlocked.recordVersion);
   await env.state.createRelationship(env.projectId, issueRepair.id, "repairs", issueParent.id);
-  const kernel = createWorkflowExecutionApplicationService();
   const a = await kernel.getExecutionProjection(env.root, feature.workflow.id);
   const b = await kernel.getExecutionProjection(env.root, issue.workflow.id);
   assert.equal(a.workflowId, feature.workflow.id);
@@ -115,20 +121,31 @@ test("Feature and Issue use the same exact-Workflow projection and isolate concu
   assert.equal(a.plan.workflow.id, feature.workflow.id);
   assert.equal(b.plan.workflow.id, issue.workflow.id);
   const featureFirst = featurePlan.directWorkItems.find(item => item.body.title === "First");
+  const acceptedFirst = await kernel.acceptWorkItemExecutionPlan(env.root, { workflowId: feature.workflow.id, workItemId: featureFirst.id, expectedVersion: featureFirst.recordVersion,
+    plan: { implementationBoundaries: ["Implement feature objective"], affectedPaths: [], proofIntent: ["Run focused feature proof"] } });
   const firstContract = await kernel.createWorkItemExecutionContract(env.root, feature.workflow.id, featureFirst.id,
-    { sourceMutation: "not-required", affectedPaths: ["src/feature.ts"], proofIntent: ["Run focused feature proof"] });
+    { sourceMutation: "not-required", affectedPaths: ["ignored.ts"], proofIntent: ["ignored"] });
   const issueContract = await kernel.createWorkItemExecutionContract(env.root, issue.workflow.id, issueParent.id,
     { sourceMutation: "not-required", affectedPaths: [], proofIntent: ["Run focused issue proof"] });
   assert.equal(firstContract.workflowId, feature.workflow.id);
   assert.equal(firstContract.workItemId, featureFirst.id);
-  assert.equal(firstContract.workItemVersion, featureFirst.recordVersion);
-  assert.equal(firstContract.criteria.length, 1);
+  assert.equal(firstContract.workItemVersion, acceptedFirst.recordVersion);
+  assert.deepEqual(firstContract.affectedPaths, []);
+  assert.deepEqual(firstContract.proofIntent, ["Run focused feature proof"]);
+  assert.equal(acceptedIssue.body.workState, "planned");
+  assert.equal(firstContract.criteria.length, 2);
   assert.equal(firstContract.solution.id, featurePlan.solutions[0].id);
   assert.equal(firstContract.sourceRevisionId, null);
   assert.equal(issueContract.workflowId, issue.workflow.id);
   assert.notEqual(firstContract.contractId, issueContract.contractId);
   assert.equal(firstContract.digest.length, 64);
-  const attempt = await kernel.beginWorkItemAttempt(env.root, feature.workflow.id, featureFirst.id, featureFirst.recordVersion, "tester-contract-execution");
+  const revisedPlan = await kernel.acceptWorkItemExecutionPlan(env.root, { workflowId: feature.workflow.id, workItemId: featureFirst.id, expectedVersion: acceptedFirst.recordVersion,
+    plan: { implementationBoundaries: ["Implement feature objective", "Preserve exact Workflow scope"], affectedPaths: [], proofIntent: ["Run expanded focused feature proof"] } });
+  const revisedContract = await kernel.createWorkItemExecutionContract(env.root, feature.workflow.id, featureFirst.id,
+    { sourceMutation: "not-required", affectedPaths: [], proofIntent: [] });
+  assert.equal(revisedPlan.recordVersion, acceptedFirst.recordVersion + 1);
+  assert.notEqual(revisedContract.digest, firstContract.digest);
+  const attempt = await kernel.beginWorkItemAttempt(env.root, feature.workflow.id, featureFirst.id, revisedPlan.recordVersion, "tester-contract-execution");
   await kernel.finishWorkItemAttempt(env.root, feature.workflow.id, featureFirst.id, attempt.executionRef,
     { summary: "Implementation complete", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
   const testerContract = await kernel.createTesterWorkItemExecutionContract(env.root, feature.workflow.id, featureFirst.id,
@@ -244,6 +261,11 @@ test("shared execution projection IPC reopens the exact Workflow independently b
   await assert.rejects(handlers.get("workflow:executionProjection")({}, created.workflow.id, "surplus"), /Exact/);
   const reopened = await handlers.get("workflow:executionProjection")({}, created.workflow.id);
   assert.equal(reopened.items[0].record.id, projection.items[0].record.id);
+  const planned = await handlers.get("workflow:acceptWorkItemExecutionPlan")({}, { workflowId: created.workflow.id, workItemId: reopened.items[0].record.id,
+    expectedVersion: reopened.items[0].record.recordVersion, plan: { implementationBoundaries: ["Use exact reopened WorkItem"], affectedPaths: [], proofIntent: ["Run reopened focused proof"] } });
+  assert.deepEqual(planned.body.proofIntent, ["Run reopened focused proof"]);
+  await assert.rejects(handlers.get("workflow:acceptWorkItemExecutionPlan")({}, { workflowId: created.workflow.id, workItemId: planned.id,
+    expectedVersion: planned.recordVersion, unexpected: true, plan: { implementationBoundaries: ["extra"], affectedPaths: [], proofIntent: ["extra"] } }), /Exact bounded/);
 });
 
 test("SQLite reopen restores exact ready, validation-pending, Tester, Validator, and active Repair states", async context => {
@@ -255,9 +277,18 @@ test("SQLite reopen restores exact ready, validation-pending, Tester, Validator,
   ]));
   const item = plan.directWorkItems[0], criterion = plan.criteria.find(entry => entry.ownerId === item.id).record;
   const kernel = createWorkflowExecutionApplicationService();
+  await assert.rejects(kernel.createWorkItemExecutionContract(env.root, created.workflow.id, item.id,
+    { sourceMutation: "not-required", affectedPaths: [], proofIntent: ["Must be rejected"] }), /Architect execution planning/);
+  const acceptedExecutionPlan = await kernel.acceptWorkItemExecutionPlan(env.root, { workflowId: created.workflow.id, workItemId: item.id, expectedVersion: item.recordVersion,
+    plan: { implementationBoundaries: ["Keep exact Workflow identity"], affectedPaths: [], proofIntent: ["Run focused recovery proof"] } });
+  assert.equal(acceptedExecutionPlan.recordVersion, item.recordVersion + 1);
   reopenProject(env);
+  const recoveredExecutionPlan = await env.state.getRecord(env.projectId, item.id);
+  assert.deepEqual(recoveredExecutionPlan.body.implementationBoundaries, ["Keep exact Workflow identity"]);
+  assert.deepEqual(recoveredExecutionPlan.body.affectedPaths, []);
+  assert.deepEqual(recoveredExecutionPlan.body.proofIntent, ["Run focused recovery proof"]);
   assert.ok((await kernel.getExecutionProjection(env.root, created.workflow.id)).nextEligibleWorkItemIds.includes(item.id), "the exact reopened planned WorkItem is ready for execution");
-  const attempt = await kernel.beginWorkItemAttempt(env.root, created.workflow.id, item.id, item.recordVersion, "reopen-recovery-attempt");
+  const attempt = await kernel.beginWorkItemAttempt(env.root, created.workflow.id, item.id, acceptedExecutionPlan.recordVersion, "reopen-recovery-attempt");
   const implementation = await kernel.finishWorkItemAttempt(env.root, created.workflow.id, item.id, attempt.executionRef,
     { summary: "Implemented", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
   reopenProject(env);
@@ -504,6 +535,9 @@ test("canonical Repair executes through the shared exact contract and requeues i
   const repair = createdRepair.repair.repair;
   const repairPlan = await env.state.getWorkflowExecutionPlan(env.projectId, created.workflow.id);
   assert.ok(repairPlan.directWorkItems.some(item => item.id === repair.id));
+  const repairRecord = await env.state.getRecord(env.projectId, repair.id);
+  await kernel.acceptWorkItemExecutionPlan(env.root, { workflowId: created.workflow.id, workItemId: repair.id, expectedVersion: repairRecord.recordVersion,
+    plan: { implementationBoundaries: ["Repair the exact reported defect"], affectedPaths: [], proofIntent: ["Verify the Repair objective"] } });
   const contract = await kernel.createWorkItemExecutionContract(env.root, created.workflow.id, repair.id,
     { sourceMutation: "not-required", affectedPaths: [], proofIntent: ["Verify the Repair objective"] });
   assert.equal(contract.workItemId, repair.id);
