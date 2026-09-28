@@ -93,6 +93,8 @@ export interface WorkflowRepairInput {
   workItemId: EntityId;
   failureEvidenceId: EntityId;
 }
+export interface CriterionOperatorDecisionEvidenceContext { workflowId: EntityId; workItemId?: EntityId; phaseId?: EntityId }
+export interface CriterionOperatorDecisionInput { expectedCriterionVersion: number; outcome: "approved" | "rejected"; rationale: string; correctsDecisionId?: EntityId }
 export interface CurrentWorkRoute { route: WorkRoute; decisionId: EntityId; assessmentId: EntityId | null; effectiveAt: string }
 export interface WorkIntakeSummary { intakeId: EntityId; request: string; desiredOutcome: string; constraints: string[]; evidenceContext: string[]; intakeState: WorkIntakeState; requestedIntegrationTarget: string; routingWorkflowId: EntityId; targetWorkflowId: EntityId | null; currentRoute: CurrentWorkRoute | null; assessmentIds: EntityId[]; routeDecisionIds: EntityId[] }
 export interface WorkRouteHistory { assessments: ProjectStateRecord<"RouteAssessment">[]; decisions: ProjectStateRecord<"Decision">[]; relationships: ProjectStateRelationship[] }
@@ -673,6 +675,85 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return recordLinked(projectId, targetId, "Decision", decisionBody(input, trustedPrincipal, now), "governs", context);
   }
 
+  async function recordCriterionOperatorDecision(projectId: ProjectId, criterionId: EntityId, input: CriterionOperatorDecisionInput,
+    evidenceContext: CriterionOperatorDecisionEvidenceContext, context?: MutationContext) {
+    exactInput(input, ["expectedCriterionVersion", "outcome", "rationale", "correctsDecisionId"]);
+    exactInput(evidenceContext, ["workflowId", "workItemId", "phaseId"]);
+    if (trustedPrincipal.principalType !== "human" || trustedPrincipal.role !== "Operator") fail("Criterion Operator Decisions require the human Operator principal.");
+    if (!Number.isSafeInteger(input.expectedCriterionVersion) || !["approved", "rejected"].includes(input.outcome) ||
+      typeof input.rationale !== "string" || !input.rationale.trim() || input.rationale.length > 2000 || new TextEncoder().encode(input.rationale).length > 2000)
+      fail("A bounded exact Criterion Operator Decision is required.");
+    if (Boolean(evidenceContext.workItemId) === Boolean(evidenceContext.phaseId)) fail("Decision evidence context must identify exactly one WorkItem or Phase.");
+    return store.transaction(projectId, async unit => {
+      const criterion = await requiredRecord(unit, projectId, criterionId);
+      if (criterion.entityType !== "Criterion" || criterion.lifecycleState !== "active" || criterion.recordVersion !== input.expectedCriterionVersion ||
+        criterion.body.criticality !== "required" || criterion.body.validationPolicy !== "operator_decision")
+        fail("Decision requires the exact current active required operator_decision Criterion.");
+      const plan = await getWorkflowExecutionPlan(projectId, evidenceContext.workflowId);
+      const entry = plan.criteria.find(candidate => candidate.record.id === criterionId);
+      if (!entry) fail("Criterion is not part of the exact current Workflow.");
+      let evidenceWorkItems: EntityId[];
+      if (evidenceContext.workItemId) {
+        const workItemId = evidenceContext.workItemId;
+        const workItem = [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].find(candidate => candidate.id === workItemId);
+        if (!workItem || !(entry.ownerId === workItemId || plan.solutions.some(solution => solution.id === entry.ownerId))) fail("Criterion does not govern the exact Workflow WorkItem or accepted solution.");
+        evidenceWorkItems = plan.solutions.some(solution => solution.id === entry.ownerId)
+          ? [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].map(item => item.id).sort() : [workItemId];
+      } else {
+        const phase = plan.phases.find(candidate => candidate.phaseId === evidenceContext.phaseId);
+        if (!phase || entry.ownerId !== phase.phaseId || !phase.workItemIds.every(id => plan.workItemsByPhase[phase.phaseId]?.some(item => item.id === id && item.body.workState === "closed")))
+          fail("Phase Criterion Decision requires the exact Phase after all member WorkItems close.");
+        evidenceWorkItems = [...phase.workItemIds].sort();
+      }
+      const currentTesters: ProjectStateRecord<"TesterResult">[] = [];
+      const bindings = (await unit.listEntities(projectId, "SourceBinding")).filter((record): record is ProjectStateRecord<"SourceBinding"> => record.entityType === "SourceBinding" && record.lifecycleState === "active" && record.body.workflowId === evidenceContext.workflowId);
+      for (const workItemId of evidenceWorkItems) {
+        const workItem = [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].find(candidate => candidate.id === workItemId)!;
+        if (evidenceContext.phaseId && workItem.body.workState !== "closed") fail("Every Phase member must be closed before the Phase Operator Decision.");
+        const attempts = await getImplementationAttempts(projectId, workItemId);
+        const implementation = attempts.at(-1);
+        if (!implementation || implementation.body.outcome !== "implemented" || implementation.body.blockers.length) fail("Operator Decision requires each exact current successful implementation.");
+        const matches = (await unit.listEntities(projectId, "TesterResult")).filter((record): record is ProjectStateRecord<"TesterResult"> => record.entityType === "TesterResult" &&
+          record.body.workflowId === evidenceContext.workflowId && record.body.workItemId === workItemId && record.body.implementationRecordId === implementation.id);
+        if (matches.length !== 1 || !["not-required", "committed"].includes(matches[0].body.checkpointState)) fail("Operator Decision requires one exact completed TesterResult for current evidence.");
+        const tester = matches[0];
+        if (bindings.length) {
+          if (bindings.length !== 1 || bindings[0].body.preparationState !== "ready" || tester.body.sourceMode !== "source-backed" || !bindings[0].body.currentRevisionId || tester.body.candidateRevisionId !== bindings[0].body.currentRevisionId)
+            fail("Operator Decision requires the current source candidate and TesterResult.");
+        } else if (tester.body.sourceMode !== "source-neutral" || tester.body.candidateRevisionId !== undefined) fail("Source-neutral Operator Decision cannot carry repository identity.");
+        currentTesters.push(tester);
+      }
+      const now = new Date().toISOString();
+      let predecessor: ProjectStateRecord<"Decision"> | null = null;
+      let terminalPredecessor: ProjectStateRecord<"Decision"> | null = null;
+      const governingEdges = (await unit.listRelationships(projectId, "governs")).filter(edge => edge.toEntityId === criterion.id && !edge.endedAt);
+      const correctionCandidates = (await unit.listEntities(projectId, "Decision")).filter((record): record is ProjectStateRecord<"Decision"> => record.entityType === "Decision" && record.lifecycleState === "active" && record.body.decisionType === "criterion-operator-decision" && governingEdges.some(edge => edge.fromEntityId === record.id)).sort((a,b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+      const correctionId = input.correctsDecisionId ?? correctionCandidates.at(-1)?.id;
+      if (correctionId) {
+        predecessor = await requiredRecord(unit, projectId, correctionId) as ProjectStateRecord<"Decision">;
+        const governed = (await unit.listRelationships(projectId, "governs")).some(edge => edge.fromEntityId === predecessor!.id && edge.toEntityId === criterion.id && !edge.endedAt);
+        if (predecessor.entityType !== "Decision" || predecessor.body.decisionType !== "criterion-operator-decision" || predecessor.lifecycleState !== "active" || !governed)
+          fail("Correction requires the exact current Criterion Decision governing this Criterion.");
+        const family = (await unit.listEntities(projectId, "Decision")).filter(candidate => candidate.lineageId === predecessor!.lineageId && candidate.lifecycleState !== "superseded");
+        if (family.length !== 1 || family[0].id !== predecessor.id) fail("Criterion Decision correction target is stale.");
+        const terminal = validateProjectStateEntity({ ...predecessor, recordVersion: predecessor.recordVersion + 1, lifecycleState: "superseded", supersededAt: now, updatedAt: now, updatedBy: trustedPrincipal }) as ProjectStateRecord<"Decision">;
+        terminalPredecessor = terminal;
+        await unit.saveEntity(terminal, predecessor.recordVersion, { terminalSupersession: true });
+        await recordMutation(unit, { projectId, entityId: predecessor.id, fromVersion: predecessor.recordVersion, toVersion: terminal.recordVersion, operation: "supersede", eventType: PROJECT_STATE_EVENT_TYPES.supersede, occurredAt: now, changedFields: ["lifecycleState", "supersededAt"], defaultReason: "Correct Criterion Operator Decision", context });
+      }
+      const created = createProjectStateEntity({ entityType: "Decision", projectId, body: decisionBody({ decisionType: "criterion-operator-decision",
+        outcome: input.outcome, decisionScope: criterion.id, rationale: input.rationale.trim() }, trustedPrincipal, now), principal: trustedPrincipal });
+      const decision = predecessor ? validateProjectStateEntity({ ...created, lineageId: predecessor.lineageId }) as ProjectStateRecord<"Decision"> : created;
+      await unit.saveEntity(decision, null);
+      await recordMutation(unit, { projectId, entityId: decision.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create,
+        occurredAt: decision.createdAt, changedFields: Object.keys(decision.body), defaultReason: "Record Criterion Operator Decision", context });
+      if (predecessor && terminalPredecessor) await linkSemantic(unit, projectId, decision, terminalPredecessor, "supersedes", context);
+      await linkSemantic(unit, projectId, decision, criterion, "governs", context);
+      for (const tester of currentTesters) await linkSemantic(unit, projectId, decision, tester, "derived_from", context);
+      return { decision, evidenceTesterResultIds: currentTesters.map(tester => tester.id) };
+    });
+  }
+
   async function acceptFeatureAssessment(projectId: ProjectId, input: FeatureAssessmentAcceptanceInput, context?: MutationContext) {
     exactInput(input, ["workflowId", "rationale", "assessment"]);
     if (trustedPrincipal.principalType !== "human" || trustedPrincipal.role !== "Operator") fail("Feature assessment acceptance requires the Operator principal.");
@@ -1187,6 +1268,31 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         criterion = criterionRecord;
         identity = `validation:${evidence.id}:criterion:${criterionRecord.id}:version:${criterionRecord.recordVersion}`;
         failureSummary = evidence.body.summary;
+      } else if (evidence.entityType === "Decision" && evidence.body.decisionType === "criterion-operator-decision" && evidence.body.outcome === "rejected") {
+        const decisionGoverns = (await unit.listRelationships(projectId, "governs")).filter(edge => edge.fromEntityId === evidence.id && !edge.endedAt);
+        const governed = evidence.lifecycleState === "active" && decisionGoverns.length === 1;
+        const criterionId = decisionGoverns[0]?.toEntityId;
+        const criterionRecord = criterionId ? await unit.getEntity(projectId, criterionId) : null;
+        const criterionEdges = criterionRecord ? (await unit.listRelationships(projectId, "defines_criterion")).filter(edge => edge.toEntityId === criterionRecord.id && !edge.endedAt) : [];
+        const workItemOwned = criterionEdges.some(edge => edge.fromEntityId === parent.id);
+        const allGoverns = (await unit.listRelationships(projectId, "governs")).filter(edge => !edge.endedAt);
+        const acceptedSolutionIds = new Set(plan.solutions.filter(solution => plan.decisions.some(decision =>
+          allGoverns.some(edge => edge.fromEntityId === decision.id && edge.toEntityId === solution.id))).map(solution => solution.id));
+        const solutionOwned = criterionEdges.some(edge => acceptedSolutionIds.has(edge.fromEntityId));
+        const evidenceIds = (await unit.listRelationships(projectId, "derived_from")).filter(edge => edge.fromEntityId === evidence.id && !edge.endedAt).map(edge => edge.toEntityId);
+        const expectedCurrent = [] as EntityId[];
+        for (const workItemId of (workItemOwned ? [parent.id] : solutionOwned ? members.map(item => item.id) : [])) {
+          const attempts = (await unit.listEntities(projectId, "ImplementationRecord")).filter((record): record is ProjectStateRecord<"ImplementationRecord"> => record.entityType === "ImplementationRecord" && record.body.workItemId === workItemId).sort((a,b) => a.createdAt.localeCompare(b.createdAt));
+          const latest = attempts.at(-1); if (!latest || latest.body.outcome !== "implemented") continue;
+          const testers = (await unit.listEntities(projectId, "TesterResult")).filter((record): record is ProjectStateRecord<"TesterResult"> => record.entityType === "TesterResult" && record.body.workflowId === workflow.id && record.body.workItemId === workItemId && record.body.implementationRecordId === latest.id && ["not-required", "committed"].includes(record.body.checkpointState));
+          if (testers.length === 1) expectedCurrent.push(testers[0].id);
+        }
+        if (!governed || criterionRecord?.entityType !== "Criterion" || criterionRecord.body.criticality !== "required" || criterionRecord.body.validationPolicy !== "operator_decision" ||
+          (!workItemOwned && !solutionOwned) || expectedCurrent.length !== evidenceIds.length || expectedCurrent.some(id => !evidenceIds.includes(id)))
+          fail("Repair Decision must be a current rejected Criterion-specific Operator Decision for the exact parent WorkItem or accepted solution.");
+        criterion = criterionRecord as ProjectStateRecord<"Criterion">;
+        identity = `decision:${evidence.id}:criterion:${criterion.id}:version:${criterion.recordVersion}`;
+        failureSummary = evidence.body.rationale;
       } else if (evidence.entityType === "TesterResult" && evidence.body.recommendation === "production-defect-suspected" &&
         evidence.body.workflowId === workflow.id && evidence.body.workItemId === parent.id) {
         identity = `tester:${evidence.id}:implementation:${evidence.body.implementationRecordId}`;
@@ -2599,16 +2705,18 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     const latestAttempt = (await getImplementationAttempts(projectId, workItemId)).at(-1);
     if (!latestAttempt || latestAttempt.body.outcome !== "implemented" || latestAttempt.body.blockers.length > 0) blockers.push("implementation-incomplete");
     const exactWorkflow = await getExactWorkflowOwnerForWorkItem(projectId, workItemId);
+    let currentTesterResultId: EntityId | null = null;
     if (exactWorkflow && latestAttempt?.body.outcome === "implemented") {
       const testerResults = (await store.listEntities(projectId, "TesterResult"))
         .filter((record): record is ProjectStateRecord<"TesterResult"> => record.entityType === "TesterResult" &&
           record.body.workflowId === exactWorkflow.id && record.body.workItemId === workItemId && record.body.implementationRecordId === latestAttempt.id);
       if (testerResults.length !== 1 || !["not-required", "committed"].includes(testerResults[0].body.checkpointState)) blockers.push("tester-result-missing-or-stale");
-      else if (testerResults[0].body.sourceMode === "source-backed" && testerResults[0].body.candidateRevisionId !== currentSourceBaselineRef)
-        blockers.push("tester-candidate-not-current");
-      else if (testerResults[0].body.sourceMode === "source-neutral" && currentSourceBaselineRef !== undefined)
-        blockers.push("tester-source-mode-mismatch");
-      else if (testerResults[0].body.recommendation === "production-defect-suspected") blockers.push("tester-production-defect-requires-repair");
+      else {
+        currentTesterResultId = testerResults[0].id;
+        if (testerResults[0].body.sourceMode === "source-backed" && testerResults[0].body.candidateRevisionId !== currentSourceBaselineRef) blockers.push("tester-candidate-not-current");
+        else if (testerResults[0].body.sourceMode === "source-neutral" && currentSourceBaselineRef !== undefined) blockers.push("tester-source-mode-mismatch");
+        if (testerResults[0].body.recommendation === "production-defect-suspected") blockers.push("tester-production-defect-requires-repair");
+      }
     }
     const edges = (await store.listRelationships(projectId)).filter(edge => !edge.endedAt);
     const dependencyIds = edges.filter(edge => edge.relationshipType === "depends_on" && edge.fromEntityId === workItemId).map(edge => edge.toEntityId);
@@ -2637,9 +2745,20 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const criterion = await requiredRecord(store, projectId, id);
       if (criterion.entityType !== "Criterion" || criterion.lifecycleState !== "active" || criterion.body.criticality !== "required" || criterion.body.validationPolicy === "deferred_visual_phase") continue;
       if (criterion.body.validationPolicy === "operator_decision") {
-        const owner = (await store.listRelationships(projectId, "defines_criterion")).find(edge => edge.toEntityId === id && !edge.endedAt)?.fromEntityId ?? workItemId;
-        const disposition = await getEffectiveDisposition(projectId, owner);
-        if (!["approved", "accepted"].includes(disposition.state)) blockers.push(`operator-decision:${id}`);
+        const solutionOwned = solutionIds.some(solutionId => edges.some(edge => edge.relationshipType === "defines_criterion" && edge.fromEntityId === solutionId && edge.toEntityId === id));
+        let evidenceIds = currentTesterResultId ? [currentTesterResultId] : [];
+        if (solutionOwned && exactWorkflow) {
+          const plan = await getWorkflowExecutionPlan(projectId, exactWorkflow.id);
+          evidenceIds = [];
+          for (const member of [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()]) {
+            const attempts = await getImplementationAttempts(projectId, member.id), current = attempts.at(-1);
+            if (!current || current.body.outcome !== "implemented") continue;
+            const results = (await store.listEntities(projectId, "TesterResult")).filter((record): record is ProjectStateRecord<"TesterResult"> => record.entityType === "TesterResult" && record.body.workflowId === exactWorkflow.id && record.body.workItemId === member.id && record.body.implementationRecordId === current.id && ["not-required", "committed"].includes(record.body.checkpointState) && (currentSourceBaselineRef === undefined ? record.body.sourceMode === "source-neutral" : record.body.sourceMode === "source-backed" && record.body.candidateRevisionId === currentSourceBaselineRef));
+            if (results.length === 1) evidenceIds.push(results[0].id);
+          }
+        }
+        const status = await getCriterionOperatorDecisionStatus(projectId, id, evidenceIds);
+        if (!status.current || !["approved", "accepted"].includes(status.state)) blockers.push(`operator-decision:${id}`);
       } else {
         const proof = await getCriterionValidationStatus(projectId, id, currentSourceBaselineRef, exactWorkflow ? latestAttempt?.id : undefined);
         if (!proof.satisfied) blockers.push(`criterion:${id}`);
@@ -2710,12 +2829,21 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const workItem = await requiredRecord(store, projectId, id);
       if (workItem.entityType !== "WorkItem" || workItem.body.workState !== "closed") blockers.push(`open-work-item:${id}`);
     }
+    const currentPhaseTesterIds: EntityId[] = [];
+    if (workflowPlan && membership) for (const workItemId of membership.workItemIds) {
+      const attempts = await getImplementationAttempts(projectId, workItemId);
+      const implementation = attempts.at(-1);
+      if (!implementation || implementation.body.outcome !== "implemented") continue;
+      const results = (await store.listEntities(projectId, "TesterResult")).filter((record): record is ProjectStateRecord<"TesterResult"> => record.entityType === "TesterResult" &&
+        record.body.workflowId === workflowPlan!.workflow.id && record.body.workItemId === workItemId && record.body.implementationRecordId === implementation.id && ["not-required", "committed"].includes(record.body.checkpointState));
+      if (results.length === 1 && (currentSourceBaselineRef === undefined ? results[0].body.sourceMode === "source-neutral" : results[0].body.sourceMode === "source-backed" && results[0].body.candidateRevisionId === currentSourceBaselineRef)) currentPhaseTesterIds.push(results[0].id);
+    }
     for (const id of new Set([...(membership?.criterionIds ?? []), ...deferredCriterionIds])) {
       const criterion = await requiredRecord(store, projectId, id);
       if (criterion.entityType !== "Criterion" || criterion.lifecycleState !== "active" || criterion.body.criticality !== "required") continue;
       if (criterion.body.validationPolicy === "operator_decision") {
-        const disposition = await getEffectiveDisposition(projectId, phaseId);
-        if (!["approved", "accepted"].includes(disposition.state)) blockers.push(`operator-decision:${id}`);
+        const status = await getCriterionOperatorDecisionStatus(projectId, id, currentPhaseTesterIds);
+        if (!status.current || !["approved", "accepted"].includes(status.state)) blockers.push(`operator-decision:${id}`);
       } else if (!(await getCriterionValidationStatus(projectId, id, currentSourceBaselineRef)).satisfied) blockers.push(`criterion:${id}`);
     }
     const disposition = await getEffectiveDisposition(projectId, phaseId);
@@ -2873,19 +3001,34 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       effectiveAt: current.body.effectiveAt } : { state: "none", decisionId: null, effectiveAt: null };
   }
 
+  async function getCriterionOperatorDecisionStatus(projectId: ProjectId, criterionId: EntityId, currentTesterResultIds: EntityId[]) {
+    const criterion = await requiredRecord(store, projectId, criterionId);
+    if (criterion.entityType !== "Criterion" || criterion.body.validationPolicy !== "operator_decision")
+      return { state: "none" as DispositionState, decisionId: null, current: false, reason: "criterion-policy-mismatch" };
+    const disposition = await getEffectiveDisposition(projectId, criterionId);
+    if (!disposition.decisionId) return { state: disposition.state, decisionId: null, current: false, reason: "criterion-decision-required" };
+    const decision = await requiredRecord(store, projectId, disposition.decisionId);
+    const governedByCriterion = (await store.listRelationships(projectId, "governs")).some(edge => edge.fromEntityId === disposition.decisionId && edge.toEntityId === criterionId && !edge.endedAt);
+    const actual = (await store.listRelationships(projectId, "derived_from"))
+      .filter(edge => edge.fromEntityId === decision.id && !edge.endedAt).map(edge => edge.toEntityId).sort();
+    const expected = [...currentTesterResultIds].sort();
+    const current = governedByCriterion && decision.entityType === "Decision" && decision.body.decisionType === "criterion-operator-decision" && expected.length > 0 &&
+      actual.length === expected.length && actual.every((id, index) => id === expected[index]);
+    return { state: current ? disposition.state : "none" as DispositionState, decisionId: current ? decision.id : null, current,
+      reason: current ? null : "criterion-decision-evidence-stale" };
+  }
+
   async function getRequiredOperatorDecisions(projectId: ProjectId): Promise<RequiredOperatorDecision[]> {
     const criteria = (await store.listEntities(projectId, "Criterion"))
       .filter((record): record is ProjectStateRecord<"Criterion"> => record.entityType === "Criterion")
       .filter(record => record.lifecycleState === "active" && record.body.validationPolicy === "operator_decision");
-    const definitions = (await store.listRelationships(projectId, "defines_criterion")).filter(edge => !edge.endedAt);
     const pending: RequiredOperatorDecision[] = [];
     for (const criterion of criteria) {
-      const targets = definitions.filter(edge => edge.toEntityId === criterion.id).map(edge => edge.fromEntityId);
-      for (const targetId of targets.length ? targets : [criterion.id]) {
-        const disposition = await getEffectiveDisposition(projectId, targetId);
-        if (["none", "advisory", "proposed", "revoked"].includes(disposition.state)) {
-          pending.push({ criterionId: criterion.id, targetId, currentDisposition: disposition.state });
-        }
+      const disposition = await getEffectiveDisposition(projectId, criterion.id);
+      const decision = disposition.decisionId ? await requiredRecord(store, projectId, disposition.decisionId) : null;
+      if (!decision || decision.entityType !== "Decision" || decision.body.decisionType !== "criterion-operator-decision" ||
+        ["none", "advisory", "proposed", "revoked"].includes(disposition.state)) {
+        pending.push({ criterionId: criterion.id, targetId: criterion.id, currentDisposition: disposition.state });
       }
     }
     return pending.sort((a, b) => a.targetId.localeCompare(b.targetId) || a.criterionId.localeCompare(b.criterionId));
@@ -2894,9 +3037,9 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   return { createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
     createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, completeTesterResultCheckpoint, createIntegrationRecord, advanceIntegrationRecord, completeWorkflowExecution, closeIntegratedWorkflow,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, createTesterResult, createWorkflowRepair, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
-    reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,
+    reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, recordCriterionOperatorDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,
     getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, renderView, exportStructuredProjectState, getAuthoritativeContext, getCommittedEventFeed, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
-    getEffectiveDisposition, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus,
+    getEffectiveDisposition, getCriterionOperatorDecisionStatus, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus,
     getImplementationAttempts, getExecutionPlan, getWorkflowExecutionPlan, acceptWorkflowPlanningGraph, acceptFeatureAssessment, acceptIssueRca, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,
     getWorkRouteHistory, getCurrentWorkRoute, getWorkIntakeSummary, getSourceSemanticView, getRegressionObligationView };
 }

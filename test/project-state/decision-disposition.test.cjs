@@ -75,9 +75,9 @@ function register(name, factory) {
     assert.deepEqual(await service.getRequiredOperatorDecisions(project.id), []);
     const required = await service.createRecord(project.id, "Criterion", criterionBody);
     await service.createRelationship(project.id, work.id, "defines_criterion", required.id);
-    assert.deepEqual(await service.getRequiredOperatorDecisions(project.id), [{ criterionId: required.id, targetId: work.id, currentDisposition: "none" }]);
+    assert.deepEqual(await service.getRequiredOperatorDecisions(project.id), [{ criterionId: required.id, targetId: required.id, currentDisposition: "none" }]);
     await service.recordDecision(project.id, work.id, { decisionType: "review", outcome: "accepted", decisionScope: "work" });
-    assert.deepEqual(await service.getRequiredOperatorDecisions(project.id), []);
+    assert.deepEqual(await service.getRequiredOperatorDecisions(project.id), [{ criterionId: required.id, targetId: required.id, currentDisposition: "none" }]);
   });
 }
 

@@ -91,6 +91,7 @@ export interface WorkItemValidationProjection {
     humanEvidenceRequired: boolean;
     decisionTargetId: EntityId | null;
     decisionState: string | null;
+    decisionId: EntityId | null;
   }>;
   completion: { eligible: boolean; blockers: string[] };
 }
@@ -108,6 +109,7 @@ export interface PhaseValidationProjection {
     validationId: EntityId | null;
     decisionTargetId: EntityId | null;
     decisionState: string | null;
+    decisionId: EntityId | null;
     reason: string | null;
   }>;
   completion: { eligible: boolean; blockers: string[] };
@@ -116,14 +118,14 @@ export type WorkflowWorkItemDecompositionInput = WorkItemDecompositionInput;
 export interface WorkItemExecutionPlanInput { workflowId: EntityId; workItemId: EntityId; expectedVersion: number; plan: { implementationBoundaries: string[]; affectedPaths: string[]; proofIntent: string[] } }
 export interface WorkflowWorkItemVisualCriterionInput {
   workflowId: EntityId; workItemId: EntityId; criterionId: EntityId; expectedCriterionVersion: number;
-  implementationRecordId: EntityId; sourceRevisionId: string | null; summary: string;
+  outcome: "pass" | "fail" | "inconclusive"; summary: string;
 }
-export interface WorkflowWorkItemCriterionDecisionInput extends Omit<WorkflowWorkItemVisualCriterionInput, "summary"> {
+export interface WorkflowWorkItemCriterionDecisionInput extends Omit<WorkflowWorkItemVisualCriterionInput, "outcome" | "summary"> {
   outcome: "approved" | "rejected"; rationale: string;
 }
 export interface WorkflowPhaseVisualCriterionInput {
   workflowId: EntityId; phaseId: EntityId; criterionId: EntityId; expectedCriterionVersion: number; expectedPhaseVersion: number;
-  sourceRevisionId: string | null; summary: string;
+  outcome: "pass" | "fail" | "inconclusive"; summary: string;
 }
 export interface WorkflowPhaseCriterionDecisionInput {
   workflowId: EntityId; phaseId: EntityId; criterionId: EntityId; expectedCriterionVersion: number; expectedPhaseVersion: number;

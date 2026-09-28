@@ -14,6 +14,15 @@ const { WorkflowHubWorkspace } = loader.loadRendererSourceModule("src/renderer/a
 const { WorkflowInstanceWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowInstanceWorkspace.tsx");
 const { WorkflowExecutionWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowExecutionWorkspace.tsx");
 const { FeaturePlanningWorkspace } = loader.loadRendererSourceModule("src/renderer/app/FeaturePlanningWorkspace.tsx");
+
+test("human execution actions expose outcomes and cannot submit derived identity", () => {
+  const source = fs.readFileSync(path.join(__dirname, "../../src/renderer/app/WorkflowExecutionWorkspace.tsx"), "utf8");
+  assert.match(source, /value=\{humanVisualOutcome\}/);
+  assert.match(source, /outcome: humanVisualOutcome/);
+  assert.doesNotMatch(source, /implementationRecordId:\s*latest\.id/);
+  assert.doesNotMatch(source, /sourceRevisionId:\s*(?:validation|review)\.sourceRevisionId/);
+  assert.doesNotMatch(source, /testerResultId:\s*tester\./);
+});
 const { IssueWorkflowPlanningWorkspace } = loader.loadRendererSourceModule("src/renderer/app/IssueWorkflowPlanningWorkspace.tsx");
 const { workflowPlanningSurface, shouldShowClosedWorkIntakeSummary } = loader.loadRendererSourceModule("src/renderer/app/workflowPlanningDispatch.ts");
 const { WorkflowPlanningMap } = loader.loadRendererSourceModule("src/renderer/app/WorkflowPlanningMap.tsx");

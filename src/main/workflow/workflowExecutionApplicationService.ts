@@ -61,6 +61,18 @@ export function createWorkflowExecutionApplicationService(dependencies: {
     return createProjectStateService(store, operator).getWorkflowExecutionPlan(projectId, workflowId);
   }
 
+  async function currentPhaseTesterIds(store: ProjectStateStore, projectId: ProjectId, plan: WorkflowExecutionPlanView, workItemIds: EntityId[], sourceRevisionId: string | null) {
+    const state = createProjectStateService(store, operator), results: EntityId[] = [];
+    for (const workItemId of workItemIds) {
+      const implementation = (await state.getImplementationAttempts(projectId, workItemId)).at(-1);
+      if (!implementation || implementation.body.outcome !== "implemented") continue;
+      const testers = (await store.listEntities(projectId, "TesterResult")).filter((record): record is ProjectStateRecord<"TesterResult"> => record.entityType === "TesterResult" &&
+        record.body.workflowId === plan.workflow.id && record.body.workItemId === workItemId && record.body.implementationRecordId === implementation.id && ["not-required", "committed"].includes(record.body.checkpointState));
+      if (testers.length === 1 && (sourceRevisionId === null ? testers[0].body.sourceMode === "source-neutral" && !testers[0].body.candidateRevisionId : testers[0].body.sourceMode === "source-backed" && testers[0].body.candidateRevisionId === sourceRevisionId)) results.push(testers[0].id);
+    }
+    return results;
+  }
+
   async function getExecutionProjection(projectRoot: string, workflowId: EntityId): Promise<WorkflowExecutionProjection> {
     if (typeof workflowId !== "string" || !workflowId.trim() || workflowId.length > 128) throw Error("Exact Workflow ID is required.");
     return withCurrentProject(projectRoot, async (store, projectId) => {
@@ -101,8 +113,11 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       for (const criterion of plan.criteria.filter(entry => phaseAndSolutionOwners.has(entry.ownerId) && entry.record.lifecycleState === "active" && entry.record.body.criticality === "required")) {
         if (criterion.record.body.validationPolicy === "deferred_visual_phase") continue;
         if (criterion.record.body.validationPolicy === "operator_decision") {
-          const disposition = await state.getEffectiveDisposition(projectId, criterion.ownerId);
-          if (!["approved", "accepted"].includes(disposition.state)) blockers.push(`criterion-decision:${criterion.record.id}`);
+          const ownerPhase = plan.phases.find(phase => phase.phaseId === criterion.ownerId);
+          const workItems = ownerPhase ? ownerPhase.workItemIds : [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].map(item => item.id);
+          const evidenceIds = await currentPhaseTesterIds(store, projectId, plan, workItems, view.source.currentRevisionId);
+          const disposition = await state.getCriterionOperatorDecisionStatus(projectId, criterion.record.id, evidenceIds);
+          if (!disposition.current || !["approved", "accepted"].includes(disposition.state)) blockers.push(`criterion-decision:${criterion.record.id}`);
         } else {
           const proof = await state.getCriterionValidationStatus(projectId, criterion.record.id, view.source.currentRevisionId ?? undefined);
           if (!proof.satisfied) blockers.push(`criterion:${criterion.record.id}`);
@@ -187,16 +202,18 @@ export function createWorkflowExecutionApplicationService(dependencies: {
           .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
         const policy = criterion.body.validationPolicy;
         const latest = validations.at(-1);
-        const decisionTargetId = policy === "operator_decision" ? ownerId : null;
-        const disposition = decisionTargetId ? await state.getEffectiveDisposition(projectId, decisionTargetId) : null;
+        const decisionTargetId = policy === "operator_decision" ? criterion.id : null;
+        const decision = policy === "operator_decision" && tester
+          ? await state.getCriterionOperatorDecisionStatus(projectId, criterion.id, [tester.id]) : null;
         const outcome = decisionTargetId
-          ? ["approved", "accepted"].includes(disposition!.state) ? "pass" as const : ["rejected", "revision_requested", "revoked"].includes(disposition!.state) ? "fail" as const : "pending" as const
+          ? decision?.current && ["approved", "accepted"].includes(decision.state) ? "pass" as const : decision?.current && decision.state === "rejected" ? "fail" as const : "pending" as const
           : latest?.body.outcome ?? (policy === "deferred_visual_phase" ? "deferred" as const : "pending" as const);
         criterionViews.push({ ownerId, criterion, policy, outcome, validationIds: validations.map(record => record.id),
           reason: policy === "visual_human" && !latest ? "Human visual evidence is required." : policy === "operator_decision" && outcome === "pending" ? "An explicit Operator Decision is required." :
             policy === "deferred_visual_phase" && !latest ? "Validation is deferred to the Phase boundary." : latest || policy === "operator_decision" && outcome === "pass" ? null : "Current exact validation evidence is missing.",
           repairable: outcome === "fail" && criterion.body.criticality === "required",
-          humanEvidenceRequired: policy === "visual_human" || policy === "operator_decision", decisionTargetId, decisionState: disposition?.state ?? null });
+          humanEvidenceRequired: policy === "visual_human" || policy === "operator_decision", decisionTargetId, decisionState: decision?.state ?? "none",
+          decisionId: decision?.current ? decision.decisionId : null });
       }
       const completion = await state.getWorkItemCompletionEligibility(projectId, workItemId, projection.source.currentRevisionId ?? undefined);
       if (projection.source.state !== "non-source" && projection.source.state !== "ready") completion.blockers.push("source-not-ready");
@@ -264,10 +281,10 @@ export function createWorkflowExecutionApplicationService(dependencies: {
 
   async function recordWorkItemVisualCriterion(projectRoot: string, input: {
     workflowId: EntityId; workItemId: EntityId; criterionId: EntityId; expectedCriterionVersion: number;
-    implementationRecordId: EntityId; sourceRevisionId: string | null; summary: string;
+    outcome: "pass" | "fail" | "inconclusive"; summary: string;
   }) {
     if (!input || !Number.isSafeInteger(input.expectedCriterionVersion) || input.expectedCriterionVersion < 1 ||
-      typeof input.summary !== "string" || !input.summary.trim() || input.summary.length > 4000)
+      !["pass", "fail", "inconclusive"].includes(input.outcome) || typeof input.summary !== "string" || !input.summary.trim() || input.summary.length > 4000)
       throw Error("Exact current Criterion evidence and bounded visual summary are required.");
     return withCurrentProject(projectRoot, async (store, projectId) => {
       const plan = await exactPlan(store, projectId, input.workflowId);
@@ -278,13 +295,10 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       if (!item || !criterion || criterion.record.body.validationPolicy !== "visual_human" || criterion.record.lifecycleState !== "active" ||
         criterion.record.body.criticality !== "required" || criterion.record.recordVersion !== input.expectedCriterionVersion)
         throw Error("Visual evidence requires the exact active required visual Criterion owned by this WorkItem or its accepted solution.");
-      if (view.source.state !== "non-source" && (view.source.state !== "ready" || view.source.currentRevisionId !== input.sourceRevisionId))
-        throw Error("Visual evidence source revision is stale or the exact checkout is not ready.");
-      if (view.source.state === "non-source" && input.sourceRevisionId !== null) throw Error("Source-neutral visual evidence cannot carry a repository revision.");
       const state = createProjectStateService(store, operator);
       const attempts = await state.getImplementationAttempts(projectId, input.workItemId);
       const implementation = attempts.at(-1);
-      if (!implementation || implementation.id !== input.implementationRecordId || implementation.body.outcome !== "implemented" ||
+      if (!implementation || implementation.body.outcome !== "implemented" ||
         !["validation_pending", "closed"].includes(item.record.body.workState)) throw Error("Visual evidence must bind the exact latest successful WorkItem implementation.");
       const testers = (await store.listEntities(projectId, "TesterResult")).filter((record): record is ProjectStateRecord<"TesterResult"> => record.entityType === "TesterResult" &&
         record.body.workflowId === input.workflowId && record.body.workItemId === input.workItemId && record.body.implementationRecordId === implementation.id);
@@ -293,7 +307,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
         view.source.state !== "non-source" && testers[0].body.candidateRevisionId !== view.source.currentRevisionId)
         throw Error("Visual evidence requires the current successful TesterResult and candidate.");
       const validation = await state.recordValidation(projectId, input.criterionId, { validationType: "work-item-criterion", method: "Operator visual review",
-        validationMode: "visual_human", outcome: "pass", summary: input.summary.trim(), targetRecordVersion: criterion.record.recordVersion,
+        validationMode: "visual_human", outcome: input.outcome, summary: input.summary.trim(), targetRecordVersion: criterion.record.recordVersion,
         implementationRecordId: implementation.id, ...(view.source.currentRevisionId ? { sourceBaselineRef: view.source.currentRevisionId } : {}) });
       return { validation, projection: await getWorkItemValidationProjection(projectRoot, input.workflowId, input.workItemId) };
     });
@@ -301,7 +315,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
 
   async function recordWorkItemCriterionDecision(projectRoot: string, input: {
     workflowId: EntityId; workItemId: EntityId; criterionId: EntityId; expectedCriterionVersion: number;
-    implementationRecordId: EntityId; sourceRevisionId: string | null; outcome: "approved" | "rejected"; rationale: string;
+    outcome: "approved" | "rejected"; rationale: string;
   }) {
     if (!input || !Number.isSafeInteger(input.expectedCriterionVersion) || input.expectedCriterionVersion < 1 ||
       !["approved", "rejected"].includes(input.outcome) || typeof input.rationale !== "string" || !input.rationale.trim() || input.rationale.length > 2000)
@@ -314,20 +328,17 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       if (!item || !criterion || criterion.record.body.validationPolicy !== "operator_decision" || criterion.record.body.criticality !== "required" ||
         criterion.record.lifecycleState !== "active" || criterion.record.recordVersion !== input.expectedCriterionVersion)
         throw Error("Operator Decision requires the exact active required operator_decision Criterion.");
-      if (view.source.state !== "non-source" && (view.source.state !== "ready" || view.source.currentRevisionId !== input.sourceRevisionId) ||
-        view.source.state === "non-source" && input.sourceRevisionId !== null) throw Error("Operator Decision source candidate is stale.");
       const attempts = await createProjectStateService(store, operator).getImplementationAttempts(projectId, input.workItemId);
       const implementation = attempts.at(-1);
-      if (!implementation || implementation.id !== input.implementationRecordId || implementation.body.outcome !== "implemented") throw Error("Operator Decision requires the current successful implementation.");
+      if (!implementation || implementation.body.outcome !== "implemented") throw Error("Operator Decision requires the current successful implementation.");
       const testers = (await store.listEntities(projectId, "TesterResult")).filter((record): record is ProjectStateRecord<"TesterResult"> => record.entityType === "TesterResult" && record.body.workflowId === input.workflowId &&
         record.body.workItemId === input.workItemId && record.body.implementationRecordId === implementation.id);
       if (testers.length !== 1 || !["not-required", "committed"].includes(testers[0].body.checkpointState) ||
         view.source.state !== "non-source" && testers[0].body.candidateRevisionId !== view.source.currentRevisionId)
         throw Error("Operator Decision requires the current completed TesterResult.");
-      const decision = await createProjectStateService(store, operator).recordDecision(projectId, criterion.ownerId, {
-        decisionType: "workflow-criterion-review", outcome: input.outcome,
-        decisionScope: `Workflow:${input.workflowId}:Criterion:${input.criterionId}`, rationale: input.rationale.trim() });
-      return { decision, projection: await getWorkItemValidationProjection(projectRoot, input.workflowId, input.workItemId) };
+      const decision = await createProjectStateService(store, operator).recordCriterionOperatorDecision(projectId, input.criterionId, {
+        expectedCriterionVersion: input.expectedCriterionVersion, outcome: input.outcome, rationale: input.rationale.trim() }, { workflowId: input.workflowId, workItemId: input.workItemId });
+      return { decision: decision.decision, projection: await getWorkItemValidationProjection(projectRoot, input.workflowId, input.workItemId) };
     });
   }
 
@@ -346,17 +357,18 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       const projected = [];
       for (const entry of criteria) {
         if (entry.record.body.validationPolicy === "operator_decision") {
-          const disposition = await state.getEffectiveDisposition(projectId, phaseId);
-          const satisfied = ["approved", "accepted"].includes(disposition.state);
+          const evidenceIds = await currentPhaseTesterIds(store, projectId, plan, phase.workItemIds, view.source.currentRevisionId);
+          const disposition = await state.getCriterionOperatorDecisionStatus(projectId, entry.record.id, evidenceIds);
+          const satisfied = disposition.current && ["approved", "accepted"].includes(disposition.state);
           projected.push({ ownerId: entry.ownerId, criterion: entry.record, policy: entry.record.body.validationPolicy,
-            outcome: satisfied ? "pass" as const : ["rejected", "revision_requested", "revoked"].includes(disposition.state) ? "fail" as const : "pending" as const,
-            validationId: null, decisionTargetId: phaseId, decisionState: disposition.state,
+            outcome: satisfied ? "pass" as const : disposition.current && disposition.state === "rejected" ? "fail" as const : "pending" as const,
+            validationId: null, decisionTargetId: entry.record.id, decisionState: disposition.state, decisionId: disposition.decisionId,
             reason: satisfied ? null : "An explicit Operator Decision is required." });
         } else {
           const proof = await state.getCriterionValidationStatus(projectId, entry.record.id, view.source.currentRevisionId ?? undefined);
           projected.push({ ownerId: entry.ownerId, criterion: entry.record, policy: entry.record.body.validationPolicy,
             outcome: proof.validationId ? proof.satisfied ? "pass" as const : "fail" as const : entry.record.body.validationPolicy === "deferred_visual_phase" ? "deferred" as const : "pending" as const,
-            validationId: proof.validationId, decisionTargetId: null, decisionState: null,
+            validationId: proof.validationId, decisionTargetId: null, decisionState: null, decisionId: null,
             reason: proof.satisfied ? null : entry.record.body.validationPolicy === "deferred_visual_phase" ? "Deferred visual proof is required at this Phase boundary." : "Current Phase Criterion evidence is required." });
         }
       }
@@ -369,18 +381,16 @@ export function createWorkflowExecutionApplicationService(dependencies: {
 
   async function recordPhaseVisualCriterion(projectRoot: string, input: {
     workflowId: EntityId; phaseId: EntityId; criterionId: EntityId; expectedCriterionVersion: number; expectedPhaseVersion: number;
-    sourceRevisionId: string | null; summary: string;
+    outcome: "pass" | "fail" | "inconclusive"; summary: string;
   }) {
     if (!input || !Number.isSafeInteger(input.expectedCriterionVersion) || !Number.isSafeInteger(input.expectedPhaseVersion) ||
-      typeof input.summary !== "string" || !input.summary.trim() || input.summary.length > 4000) throw Error("Exact Phase visual evidence and bounded summary are required.");
+      !["pass", "fail", "inconclusive"].includes(input.outcome) || typeof input.summary !== "string" || !input.summary.trim() || input.summary.length > 4000) throw Error("Exact Phase visual evidence and bounded summary are required.");
     return withCurrentProject(projectRoot, async (store, projectId) => {
       const plan = await exactPlan(store, projectId, input.workflowId), phaseIndex = plan.phases.findIndex(entry => entry.phaseId === input.phaseId);
       if (phaseIndex < 0) throw Error("Exact Phase is not part of the current Workflow.");
       const phase = plan.phases[phaseIndex], view = await project(store, projectId, plan);
       if (phase.record.recordVersion !== input.expectedPhaseVersion || !phase.workItemIds.every(id => view.items.find(item => item.record.id === id)?.record.body.workState === "closed"))
         throw Error("Phase visual evidence requires the current Phase after all member WorkItems close.");
-      if (view.source.state !== "non-source" && (view.source.state !== "ready" || view.source.currentRevisionId !== input.sourceRevisionId) ||
-        view.source.state === "non-source" && input.sourceRevisionId !== null) throw Error("Phase visual evidence source candidate is stale.");
       const deferred = plan.criteria.some(entry => entry.record.id === input.criterionId && entry.record.body.validationPolicy === "deferred_visual_phase" &&
         (phase.workItemIds.includes(entry.ownerId) || phaseIndex === plan.phases.length - 1 && plan.solutions.some(solution => solution.id === entry.ownerId)));
       const criterion = plan.criteria.find(entry => entry.record.id === input.criterionId && (entry.ownerId === input.phaseId || deferred));
@@ -389,7 +399,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
         throw Error("Phase visual evidence requires an exact active required visual or deferred-visual Criterion.");
       const validation = await createProjectStateService(store, operator).recordValidation(projectId, input.criterionId, {
         validationType: "phase-criterion", method: criterion.record.body.validationPolicy === "deferred_visual_phase" ? "Operator deferred Phase visual review" : "Operator Phase visual review",
-        validationMode: "visual_human", outcome: "pass", summary: input.summary.trim(), targetRecordVersion: criterion.record.recordVersion,
+        validationMode: "visual_human", outcome: input.outcome, summary: input.summary.trim(), targetRecordVersion: criterion.record.recordVersion,
         ...(view.source.currentRevisionId ? { sourceBaselineRef: view.source.currentRevisionId } : {}) });
       return { validation, projection: await getPhaseValidationProjection(projectRoot, input.workflowId, input.phaseId) };
     });
@@ -411,9 +421,9 @@ export function createWorkflowExecutionApplicationService(dependencies: {
         throw Error("Phase Decision requires the exact active required operator_decision Criterion and Phase version.");
       if (!phase.workItemIds.every(id => execution.items.find(item => item.record.id === id)?.record.body.workState === "closed"))
         throw Error("All exact Phase WorkItems must be closed before recording a Phase Decision.");
-      const decision = await createProjectStateService(store, operator).recordDecision(projectId, input.phaseId, { decisionType: "workflow-phase-criterion-review",
-        outcome: input.outcome, decisionScope: `Workflow:${input.workflowId}:Phase:${input.phaseId}:Criterion:${input.criterionId}`, rationale: input.rationale.trim() });
-      return { decision, projection: await getPhaseValidationProjection(projectRoot, input.workflowId, input.phaseId) };
+      const decision = await createProjectStateService(store, operator).recordCriterionOperatorDecision(projectId, input.criterionId, {
+        expectedCriterionVersion: input.expectedCriterionVersion, outcome: input.outcome, rationale: input.rationale.trim() }, { workflowId: input.workflowId, phaseId: input.phaseId });
+      return { decision: decision.decision, projection: await getPhaseValidationProjection(projectRoot, input.workflowId, input.phaseId) };
     });
   }
 

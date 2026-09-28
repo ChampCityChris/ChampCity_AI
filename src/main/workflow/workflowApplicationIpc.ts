@@ -112,13 +112,13 @@ export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcR
   });
   registry.handle("workflow:recordWorkItemVisualCriterion", async (_event, ...args) => {
     if (args.length !== 1 || !args[0] || typeof args[0] !== "object" || Array.isArray(args[0]) ||
-      Object.keys(args[0]).sort().join("|") !== "criterionId|expectedCriterionVersion|implementationRecordId|sourceRevisionId|summary|workItemId|workflowId")
+      Object.keys(args[0]).sort().join("|") !== "criterionId|expectedCriterionVersion|outcome|summary|workItemId|workflowId")
       throw Error("Exact WorkItem visual Criterion evidence is required.");
     return execution.recordWorkItemVisualCriterion(getCurrentProjectRoot(), args[0] as Parameters<typeof execution.recordWorkItemVisualCriterion>[1]);
   });
   registry.handle("workflow:recordWorkItemCriterionDecision", async (_event, ...args) => {
     if (args.length !== 1 || !args[0] || typeof args[0] !== "object" || Array.isArray(args[0]) ||
-      Object.keys(args[0]).sort().join("|") !== "criterionId|expectedCriterionVersion|implementationRecordId|outcome|rationale|sourceRevisionId|workItemId|workflowId")
+      Object.keys(args[0]).sort().join("|") !== "criterionId|expectedCriterionVersion|outcome|rationale|workItemId|workflowId")
       throw Error("Exact WorkItem Operator Criterion Decision is required.");
     return execution.recordWorkItemCriterionDecision(getCurrentProjectRoot(), args[0] as Parameters<typeof execution.recordWorkItemCriterionDecision>[1]);
   });
@@ -139,7 +139,7 @@ export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcR
   });
   registry.handle("workflow:recordPhaseVisualCriterion", async (_event, ...args) => {
     if (args.length !== 1 || !args[0] || typeof args[0] !== "object" || Array.isArray(args[0]) ||
-      Object.keys(args[0]).sort().join("|") !== "criterionId|expectedCriterionVersion|expectedPhaseVersion|phaseId|sourceRevisionId|summary|workflowId")
+      Object.keys(args[0]).sort().join("|") !== "criterionId|expectedCriterionVersion|expectedPhaseVersion|outcome|phaseId|summary|workflowId")
       throw Error("Exact Phase visual Criterion evidence is required.");
     return execution.recordPhaseVisualCriterion(getCurrentProjectRoot(), args[0] as Parameters<typeof execution.recordPhaseVisualCriterion>[1]);
   });

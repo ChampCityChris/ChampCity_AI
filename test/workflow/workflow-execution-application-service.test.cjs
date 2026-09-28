@@ -402,7 +402,7 @@ test("exact Phase projection and Operator Decision gate Phase close after member
   const response = await kernel.recordPhaseCriterionDecision(env.root, { workflowId: created.workflow.id, phaseId: phase.id,
     criterionId: criterion.id, expectedCriterionVersion: criterion.recordVersion, expectedPhaseVersion: phase.recordVersion,
     outcome: "approved", rationale: "Reviewed the completed milestone and accepted it." });
-  assert.equal(response.decision.body.decisionType, "workflow-phase-criterion-review");
+  assert.equal(response.decision.body.decisionType, "criterion-operator-decision");
   assert.equal(response.decision.body.outcome, "approved");
   assert.equal(response.projection.completion.eligible, true);
   const closed = await kernel.completePhase(env.root, created.workflow.id, phase.id, phase.recordVersion);
@@ -426,21 +426,30 @@ test("exact Workflow records current Operator visual Criterion evidence for the 
     { sourceMode: "source-neutral", recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [],
       determinationEvidence: ["Visual UI review remains required"], unknowns: [], rationale: "The human-owned display policy requires visual inspection." });
   const result = await kernel.recordWorkItemVisualCriterion(env.root, { workflowId: created.workflow.id, workItemId: item.id, criterionId: criterion.id,
-    expectedCriterionVersion: criterion.recordVersion, implementationRecordId: implementation.id, sourceRevisionId: null, summary: "I inspected the rendered page; text and controls are legible." });
+    expectedCriterionVersion: criterion.recordVersion, outcome: "pass", summary: "I inspected the rendered page; text and controls are legible." });
   assert.equal(result.validation.body.validationMode, "visual_human");
   assert.deepEqual(result.validation.body.performedBy, { principalId: "local-operator", principalType: "human", role: "Operator" });
   assert.equal(result.projection.criteria.find(entry => entry.criterion.id === criterion.id).outcome, "pass");
-  await assert.rejects(kernel.recordWorkItemVisualCriterion(env.root, { workflowId: created.workflow.id, workItemId: item.id, criterionId: criterion.id,
-    expectedCriterionVersion: criterion.recordVersion, implementationRecordId: implementation.id, sourceRevisionId: "stale-source", summary: "Stale review" }), /cannot carry a repository revision/);
+  const failed = await kernel.recordWorkItemVisualCriterion(env.root, { workflowId: created.workflow.id, workItemId: item.id, criterionId: criterion.id,
+    expectedCriterionVersion: criterion.recordVersion, outcome: "fail", summary: "Controls are clipped in the reviewed screen." });
+  assert.equal(failed.validation.body.outcome, "fail");
+  const repair = await kernel.createWorkflowRepair(env.root, created.workflow.id, item.id, failed.validation.id);
+  assert.equal(repair.repair.body.workState, "planned");
+  const inconclusive = await kernel.recordWorkItemVisualCriterion(env.root, { workflowId: created.workflow.id, workItemId: item.id, criterionId: criterion.id,
+    expectedCriterionVersion: criterion.recordVersion, outcome: "inconclusive", summary: "The intended viewport could not be reproduced." });
+  assert.equal(inconclusive.validation.body.outcome, "inconclusive");
   assert.ok(tester.id);
 });
 
-test("exact WorkItem Operator action records a real Decision on its accepted-solution Criterion owner", async context => {
+test("exact WorkItem Operator action records Criterion-specific Decision independently of planning acceptance", async context => {
   const env = await setup(context);
   const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "Operator decision", entryWorkspace: "feature-intake" });
   const accepted = await env.state.acceptWorkflowPlanningGraph(env.projectId, { workflowId: created.workflow.id, topology: "direct",
     solution: { title: "Accepted decision owner", objective: "Require human disposition", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [] },
-    solutionCriteria: [{ statement: "Operator accepts the solution", criticality: "required", verificationIntent: "Review accepted solution", validationPolicy: "operator_decision" }],
+    solutionCriteria: [
+      { statement: "Operator accepts the solution", criticality: "required", verificationIntent: "Review accepted solution", validationPolicy: "operator_decision" },
+      { statement: "Operator accepts the rollout", criticality: "required", verificationIntent: "Review rollout readiness", validationPolicy: "operator_decision" },
+    ],
     phases: [], workItems: [{ key: "work", kind: "feature", title: "Decision work", objective: "Implement reviewed solution", dependencyKeys: [], criteria: [] }] });
   const item = accepted.directWorkItems[0], solution = accepted.solutions[0], criterion = accepted.criteria.find(entry => entry.ownerId === solution.id).record;
   const kernel = createWorkflowExecutionApplicationService();
@@ -451,16 +460,35 @@ test("exact WorkItem Operator action records a real Decision on its accepted-sol
     env.projectId, created.workflow.id, item.id, implementation.id,
     { sourceMode: "source-neutral", recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [],
       determinationEvidence: ["Exact implemented solution inspected"], unknowns: [], rationale: "No code changes require a repository test." });
+  const pending = await kernel.getWorkItemValidationProjection(env.root, created.workflow.id, item.id);
+  assert.equal(pending.criteria.find(entry => entry.criterion.id === criterion.id).outcome, "pending", "planning acceptance must not satisfy solution-owned Operator Criteria");
   const result = await kernel.recordWorkItemCriterionDecision(env.root, { workflowId: created.workflow.id, workItemId: item.id, criterionId: criterion.id,
-    expectedCriterionVersion: criterion.recordVersion, implementationRecordId: implementation.id, sourceRevisionId: null,
-    outcome: "approved", rationale: "I reviewed the accepted solution and approve this exact Criterion." });
+    expectedCriterionVersion: criterion.recordVersion,
+    outcome: "rejected", rationale: "The proposed solution needs one required adjustment." });
   assert.equal(result.decision.entityType, "Decision");
-  assert.equal(result.decision.body.decisionType, "workflow-criterion-review");
-  assert.equal(result.decision.body.outcome, "approved");
-  assert.equal(result.projection.criteria.find(entry => entry.criterion.id === criterion.id).decisionTargetId, solution.id);
-  assert.equal(result.projection.criteria.find(entry => entry.criterion.id === criterion.id).outcome, "pass");
+  assert.equal(result.decision.body.decisionType, "criterion-operator-decision");
+  assert.equal(result.decision.body.outcome, "rejected");
+  assert.equal(result.projection.criteria.find(entry => entry.criterion.id === criterion.id).decisionTargetId, criterion.id);
+  assert.equal(result.projection.criteria.find(entry => entry.criterion.id === criterion.id).outcome, "fail");
   assert.equal((await env.store.listEntities(env.projectId, "Validation")).length, 0, "a policy Decision is not represented as a Validation");
-  assert.ok((await env.store.listRelationships(env.projectId, "governs")).some(edge => edge.fromEntityId === result.decision.id && edge.toEntityId === solution.id));
+  assert.ok((await env.store.listRelationships(env.projectId, "governs")).some(edge => edge.fromEntityId === result.decision.id && edge.toEntityId === criterion.id));
+  const correction = await kernel.recordWorkItemCriterionDecision(env.root, { workflowId: created.workflow.id, workItemId: item.id, criterionId: criterion.id,
+    expectedCriterionVersion: criterion.recordVersion, outcome: "approved", rationale: "The adjustment is complete and the exact solution Criterion now passes." });
+  assert.equal(correction.decision.body.outcome, "approved");
+  assert.equal(correction.projection.criteria.find(entry => entry.criterion.id === criterion.id).outcome, "pass");
+  assert.ok((await env.store.listRelationships(env.projectId, "supersedes")).some(edge => edge.fromEntityId === correction.decision.id && edge.toEntityId === result.decision.id));
+  const secondCriterion = accepted.criteria.find(entry => entry.ownerId === solution.id && entry.record.id !== criterion.id).record;
+  assert.equal(correction.projection.criteria.find(entry => entry.criterion.id === secondCriterion.id).outcome, "pending", "correcting Criterion A cannot satisfy Criterion B");
+  const secondDecision = await kernel.recordWorkItemCriterionDecision(env.root, { workflowId: created.workflow.id, workItemId: item.id, criterionId: secondCriterion.id,
+    expectedCriterionVersion: secondCriterion.recordVersion, outcome: "rejected", rationale: "Rollout readiness needs more work." });
+  assert.equal(secondDecision.projection.criteria.find(entry => entry.criterion.id === criterion.id).outcome, "pass");
+  assert.equal(secondDecision.projection.criteria.find(entry => entry.criterion.id === secondCriterion.id).outcome, "fail");
+  const unrelated = await env.state.recordDecision(env.projectId, item.id, { decisionType: "generic-review", outcome: "rejected", decisionScope: "work-item", rationale: "Unrelated rejection" });
+  await assert.rejects(kernel.createWorkflowRepair(env.root, created.workflow.id, item.id, unrelated.id), /failing current Validation or exact production-defect TesterResult/);
+  const decisionRepair = await kernel.createWorkflowRepair(env.root, created.workflow.id, item.id, secondDecision.decision.id);
+  assert.equal(decisionRepair.repair.body.workState, "planned", "a current rejected exact Criterion Decision can create its canonical Repair");
+  const stale = await env.state.getCriterionOperatorDecisionStatus(env.projectId, criterion.id, ["newer-current-tester-result"]);
+  assert.equal(stale.current, false, "a Decision derived from a different TesterResult is stale");
 });
 
 test("shared Phase validation satisfies deterministic, semantic, visual, deferred, and Operator policies before close", async context => {
@@ -497,8 +525,13 @@ test("shared Phase validation satisfies deterministic, semantic, visual, deferre
   for (const policy of ["visual_human", "deferred_visual_phase"]) {
     const evidence = await attemptKernel.recordPhaseVisualCriterion(env.root, { workflowId: created.workflow.id, phaseId: phase.id,
       criterionId: exact.get(policy).criterion.id, expectedCriterionVersion: exact.get(policy).criterion.recordVersion,
-      expectedPhaseVersion: current.phaseVersion, sourceRevisionId: null, summary: `Operator reviewed ${policy} at the exact Phase boundary.` });
+      expectedPhaseVersion: current.phaseVersion, outcome: policy === "visual_human" ? "fail" : "inconclusive", summary: `Operator reviewed ${policy} at the exact Phase boundary.` });
     assert.equal(evidence.validation.body.validationMode, "visual_human");
+    assert.equal(evidence.validation.body.outcome, policy === "visual_human" ? "fail" : "inconclusive");
+    const corrected = await attemptKernel.recordPhaseVisualCriterion(env.root, { workflowId: created.workflow.id, phaseId: phase.id,
+      criterionId: exact.get(policy).criterion.id, expectedCriterionVersion: exact.get(policy).criterion.recordVersion,
+      expectedPhaseVersion: current.phaseVersion, outcome: "pass", summary: `Operator confirmed the exact ${policy} Criterion.` });
+    assert.equal(corrected.validation.body.outcome, "pass");
   }
   const decision = await attemptKernel.recordPhaseCriterionDecision(env.root, { workflowId: created.workflow.id, phaseId: phase.id,
     criterionId: exact.get("operator_decision").criterion.id, expectedCriterionVersion: exact.get("operator_decision").criterion.recordVersion,
