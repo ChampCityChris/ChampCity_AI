@@ -59,7 +59,7 @@ import { acquireWorkflowExecutionLease, workflowExecutionLeaseKey } from "./work
 import type { WorkItemExecutionContract } from "../../shared/workflowApplicationContracts";
 import { createWorkflowSourceMaterializationService } from "../sourceControl/workflowSourceMaterializationService";
 import { createImplementationCheckpoint } from "../sourceControl/semanticCheckpointService";
-import { resolveManagedWorkflowCheckoutPath } from "../sourceControl/projectSourceTopology";
+import { resolveManagedProjectSourceTopology, resolveManagedWorkflowCheckoutPath } from "../sourceControl/projectSourceTopology";
 import { workflowSourceLineName } from "../sourceControl/workSourceNaming";
 import { requireBoundMcpWorkspace } from "../integrations/mcpWorkspacePromptContract";
 import { runBoundedGit } from "../agentHarness/repository/boundedGit";
@@ -1070,16 +1070,61 @@ export class CodexImplementerExecutionService {
         const result = parsed ?? (terminalState === "cancelled"
           ? { summary: "Codex execution was cancelled.", deviations: [], blockers: ["Execution cancelled before a semantic result was returned."], residualRisks: [], outcome: "abandoned" as const }
           : { summary: "Codex execution did not produce a valid semantic completion.", deviations: [], blockers: [terminalFailureReason ?? "Codex execution failed."], residualRisks: [], outcome: "failed" as const });
-        session.workflowWorkItem.resultOutcome = result.outcome;
+        let finalizedResult = result;
+        const sourceAttempt = session.workflowWorkItem.sourceBacked;
+        const scopeViolated = Boolean(sourceAttempt?.attributionFailure || (sourceAttempt && sourceAttempt.attributablePaths.some(file =>
+          !session.workflowWorkItem!.contract.affectedPaths.some(allowed => file === allowed || file.startsWith(`${allowed.replace(/\/$/, "")}/`)))));
+        let scopeRestored = false;
+        if (scopeViolated && sourceAttempt) {
+          try {
+            const checkout = fs.realpathSync(sourceAttempt.checkoutRoot);
+            const top = path.resolve((await runBoundedGit({ cwd: checkout, args: ["rev-parse", "--show-toplevel"] })).stdout.trim());
+            const head = (await runBoundedGit({ cwd: checkout, args: ["rev-parse", "HEAD"] })).stdout.trim();
+            const managed = resolveManagedWorkflowCheckoutPath(session.projectRoot, session.workflowWorkItem.workflowId);
+            const devRoot = resolveManagedProjectSourceTopology(session.projectRoot).devCheckoutRoot;
+            const common = path.resolve(checkout, (await runBoundedGit({ cwd: checkout, args: ["rev-parse", "--git-common-dir"] })).stdout.trim());
+            const devCommon = path.resolve(devRoot, (await runBoundedGit({ cwd: devRoot, args: ["rev-parse", "--git-common-dir"] })).stdout.trim());
+            const branch = (await runBoundedGit({ cwd: checkout, args: ["branch", "--show-current"] })).stdout.trim();
+            if (top !== checkout || checkout !== fs.realpathSync(managed.checkoutRoot) || head !== sourceAttempt.expectedRevisionId || branch !== sourceAttempt.sourceLineId || common !== devCommon)
+              throw Error("Exact Workflow checkout identity changed before restore.");
+            const paths = [...new Set(sourceAttempt.attributablePaths)].sort();
+            for (const relative of paths) {
+              if (!relative || path.isAbsolute(relative) || relative.split(/[\\/]/).some(part => !part || part === "." || part === "..")) throw Error("Observed source path is unsafe for bounded recovery.");
+              const absolute = path.resolve(checkout, relative);
+              if (!absolute.startsWith(`${checkout}${path.sep}`)) throw Error("Observed source path escaped the exact checkout.");
+            }
+            const tracked: string[] = [];
+            for (const relative of paths) if ((await runBoundedGit({ cwd: checkout, args: ["ls-files", "--error-unmatch", "--", relative], rejectNonZero: false })).exitCode === 0) tracked.push(relative);
+            if (tracked.length) await runBoundedGit({ cwd: checkout, args: ["restore", "--source", sourceAttempt.expectedRevisionId, "--staged", "--worktree", "--", ...tracked] });
+            for (const relative of paths.filter(value => !tracked.includes(value))) {
+              const absolute = path.resolve(checkout, relative);
+              if (fs.existsSync(absolute) && fs.statSync(absolute).isFile()) fs.unlinkSync(absolute);
+            }
+            const finalHead = (await runBoundedGit({ cwd: checkout, args: ["rev-parse", "HEAD"] })).stdout.trim();
+            const finalStatus = (await runBoundedGit({ cwd: checkout, args: ["status", "--porcelain", "--untracked-files=all"] })).stdout;
+            if (finalHead !== sourceAttempt.expectedRevisionId || finalStatus) throw Error("Bounded restore did not return the exact checkout to its clean expected revision.");
+            scopeRestored = true;
+          } catch (error) {
+            sourceAttempt.attributionFailure = `Out-of-scope source recovery could not be proven: ${messageForCodexFailure(error)}`;
+          }
+          finalizedResult = { ...result, outcome: scopeRestored ? "failed" : "blocked", blockers: [...result.blockers, scopeRestored
+            ? "Application rejected source changes outside the accepted Architect path scope; exact checkout restored."
+            : sourceAttempt.attributionFailure ?? "Out-of-scope source changes require inspection."] };
+          session.failureReason = finalizedResult.blockers.at(-1)!;
+          terminalState = "failed";
+        }
+        session.workflowWorkItem.resultOutcome = finalizedResult.outcome;
         try {
-          const implementation = await this.persistAndFinishWorkflowAttempt(session, session.selection, session.startedAt ?? this.now(), result);
+          const implementation = await this.persistAndFinishWorkflowAttempt(session, session.selection, session.startedAt ?? this.now(), finalizedResult);
           if (terminalState === "completed" && !parsed) {
             terminalState = "failed";
             session.failureReason = "Codex returned invalid or missing exact WorkItem semantic completion JSON.";
           }
           if (session.workflowWorkItem.sourceBacked) {
             const source = session.workflowWorkItem.sourceBacked;
-            if (result.outcome !== "implemented" || source.attributionFailure || source.attributablePaths.length === 0) {
+            if (scopeViolated && scopeRestored) {
+              session.checkpoint = { status: "not-required", message: "Scope-violating attempt was rejected and the exact checkout restored; no SourceCheckpoint was created.", remote: "not-requested", receipts: [] };
+            } else if (result.outcome !== "implemented" || source.attributionFailure || source.attributablePaths.length === 0) {
               session.checkpoint = { status: "blocked", message: source.attributionFailure ?? (result.outcome !== "implemented"
                 ? "Implementation did not produce a successful validated result; source changes require inspection."
                 : "No attributable source changes were reported; a structured implementation checkpoint cannot be created."), remote: "not-requested", receipts: [] };

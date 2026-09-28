@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import type { WorkflowInstanceSummary } from "../../shared/workflowApplicationContracts";
 import type { PhaseValidationProjection, WorkflowExecutionProjection, WorkItemValidationProjection } from "../../shared/workflowApplicationContracts";
 import type { CodexImplementerExecutionModel, CodexTesterExecutionModel } from "../../shared/workspaceContracts";
@@ -6,9 +7,9 @@ import type { CodexManagedRuntimeStatus } from "../../shared/codexRuntimeContrac
 import type { IntegrationRepairAttempt, IntegrationRepairPatch } from "../../shared/integrationRepairContracts";
 import { CodexBoundedMcpElicitationPanel, CodexBoundedUserInputPanel } from "./CodexBoundedInteractionPanels";
 
-type Props = { workflow: WorkflowInstanceSummary; onReturn: () => void };
+type Props = { workflow: WorkflowInstanceSummary; onReturn: () => void; browserPanel: ReactNode };
 
-export function WorkflowExecutionWorkspace({ workflow, onReturn }: Props): JSX.Element {
+export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel }: Props): JSX.Element {
   const [projection, setProjection] = useState<WorkflowExecutionProjection | null>(null);
   const [validation, setValidation] = useState<WorkItemValidationProjection | null>(null);
   const [runtime, setRuntime] = useState<CodexManagedRuntimeStatus | null>(null);
@@ -26,6 +27,7 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn }: Props): JSX.E
   const [criterionDecisionOutcome, setCriterionDecisionOutcome] = useState<"approved" | "rejected">("approved");
   const [decompositionJson, setDecompositionJson] = useState("");
   const [executionPlanDraft, setExecutionPlanDraft] = useState({ implementationBoundaries: "", affectedPaths: "", proofIntent: "" });
+  const [architectDraft, setArchitectDraft] = useState("");
   const [phaseValidation, setPhaseValidation] = useState<Record<string, PhaseValidationProjection>>({});
 
   const refresh = async () => {
@@ -82,7 +84,13 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn }: Props): JSX.E
     }, null, 2);
   };
   const act = async (operation: () => Promise<unknown>, message: string) => {
-    try { await operation(); setFeedback(message); setError(""); await refresh(); } catch (reason) { setError(String(reason)); }
+    try { const result = await operation();
+      if (result && typeof result === "object" && "state" in result && (result.state === "unavailable" || result.state === "failed" || ("failureReason" in result && result.failureReason))) {
+        if ("eventTail" in result) setImplementer(result as CodexImplementerExecutionModel);
+        setFeedback(""); setError(String("failureReason" in result ? result.failureReason : "Execution could not start.")); await refresh(); return;
+      }
+      setFeedback(message); setError(""); await refresh();
+    } catch (reason) { setError(String(reason)); }
   };
   const runValidation = async (criterionId: string, policy: string) => act(async () => {
     if (policy === "semantic_ai") {
@@ -128,6 +136,28 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn }: Props): JSX.E
             const handoff = `Architect WorkItem execution plan\nWorkflow ID: ${workflow.workflowId}\nWorkItem ID/version: ${item.record.id}/${item.record.recordVersion}\nObjective: ${item.record.body.objective}\nAccepted BoundedSolution: ${JSON.stringify(solution)}\nWorkItem Criteria: ${JSON.stringify(projection.plan.criteria.filter(candidate => candidate.ownerId === item.record.id).map(candidate => candidate.record))}\nSolution Criteria: ${JSON.stringify(projection.plan.criteria.filter(candidate => candidate.ownerId === solution?.id).map(candidate => candidate.record))}\nPhase context: ${JSON.stringify(phase ?? null)}\nDependencies: ${JSON.stringify(item.dependencyIds)}\nScope/constraints: ${JSON.stringify({ scopeIn: solution?.body.scopeIn, scopeOut: solution?.body.scopeOut, constraints: solution?.body.constraints })}\nSource mode/context: ${JSON.stringify({ mode: projection.source.state === "non-source" ? "source-neutral" : "source-backed", currentRevisionId: projection.source.currentRevisionId, workSourceLineId: projection.source.workSourceLineId, repositoryCheckoutId: projection.source.repositoryCheckoutId })}\nReturn implementationBoundaries (1..32), affectedPaths (0..128 normalized repo-relative paths; empty for source-neutral), proofIntent (1..32), whether decomposition is required, and bounded current repository context relevant to this exact scope. Do not return raw transcript or Markdown as authority.`;
             await navigator.clipboard.writeText(handoff); return { copied: true };
           }, "Exact Architect handoff copied.")}>Prepare Architect handoff</button>
+          <label>Architect structured result<textarea aria-label="Architect structured result" value={architectDraft} onChange={event => setArchitectDraft(event.target.value)} placeholder={'{"implementationBoundaries":[],"affectedPaths":[],"proofIntent":[],"decompositionRequired":false}'} /></label>
+          <button onClick={() => {
+            try {
+              const parsed = JSON.parse(architectDraft) as Record<string, unknown>;
+              const allowed = ["implementationBoundaries", "affectedPaths", "proofIntent", "decompositionRequired", "decomposition"];
+              if (!parsed || Array.isArray(parsed) || typeof parsed !== "object" || Object.keys(parsed).some(key => !allowed.includes(key)) ||
+                !Array.isArray(parsed.implementationBoundaries) || !Array.isArray(parsed.affectedPaths) || !Array.isArray(parsed.proofIntent) || typeof parsed.decompositionRequired !== "boolean" ||
+                (parsed.decompositionRequired ? !parsed.decomposition || typeof parsed.decomposition !== "object" : parsed.decomposition !== undefined)) throw Error("Architect result must match the bounded WorkItem planning contract.");
+              if (parsed.implementationBoundaries.length < 1 || parsed.implementationBoundaries.length > 32 || parsed.affectedPaths.length > 128 || parsed.proofIntent.length < 1 || parsed.proofIntent.length > 32 ||
+                (projection?.source.state === "non-source" && parsed.affectedPaths.length > 0)) throw Error("Architect planning lists exceed bounds or include source paths for a source-neutral WorkItem.");
+              const asLines = (values: unknown[]) => values.map(value => { if (typeof value !== "string" || !value.trim()) throw Error("Architect planning lists must contain non-empty text only."); return value.trim(); }).join("\n");
+              let typedDecomposition: string | undefined;
+              if (parsed.decompositionRequired) {
+                const decomposition = parsed.decomposition as Record<string, unknown>;
+                if (!Array.isArray(decomposition.replacements) || !Array.isArray(decomposition.criterionDispositions) || !Array.isArray(decomposition.incomingDependentMappings)) throw Error("Architect decomposition must use the existing typed replacements, Criterion dispositions, and dependency mappings contract.");
+                typedDecomposition = JSON.stringify(decomposition, null, 2);
+              }
+              setExecutionPlanDraft({ implementationBoundaries: asLines(parsed.implementationBoundaries), affectedPaths: asLines(parsed.affectedPaths), proofIntent: asLines(parsed.proofIntent) });
+              if (typedDecomposition) setDecompositionJson(typedDecomposition);
+              setError(""); setFeedback("Bounded Architect result loaded for review.");
+            } catch (reason) { setError(String(reason)); }
+          }}>Import bounded Architect result</button>
           <label>Implementation boundaries<textarea value={executionPlanDraft.implementationBoundaries} onChange={event => setExecutionPlanDraft(current => ({ ...current, implementationBoundaries: event.target.value }))} /></label>
           <label>Affected repository paths<textarea value={executionPlanDraft.affectedPaths} onChange={event => setExecutionPlanDraft(current => ({ ...current, affectedPaths: event.target.value }))} /></label>
           <label>Focused proof intent<textarea value={executionPlanDraft.proofIntent} onChange={event => setExecutionPlanDraft(current => ({ ...current, proofIntent: event.target.value }))} /></label>
@@ -235,5 +265,6 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn }: Props): JSX.E
         </section>}
       </section>}
     </>}
+    <aside aria-label="Embedded Architect">{browserPanel}</aside>
   </section>;
 }

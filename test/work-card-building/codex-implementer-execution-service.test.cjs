@@ -2519,11 +2519,13 @@ test("exact source-backed and source-neutral WorkItems use the bounded Tester li
     solutionCriteria: [], phases: [], workItems: [
       { key: "source-item", kind: "feature", title: "Same title", objective: "Change feature.txt", dependencyKeys: [], criteria: [] },
       { key: "unsafe-item", kind: "feature", title: "Unsafe attribution", objective: "Change a source file", dependencyKeys: [], criteria: [] },
+      { key: "unsafe-restore-item", kind: "feature", title: "Unsafe restore", objective: "Exercise bounded restore refusal", dependencyKeys: [], criteria: [] },
     ] });
   const item = plan.directWorkItems.find(candidate => candidate.body.title === "Same title");
   const unsafeItem = plan.directWorkItems.find(candidate => candidate.body.title === "Unsafe attribution");
+  const unsafeRestoreItem = plan.directWorkItems.find(candidate => candidate.body.title === "Unsafe restore");
   const planning = createWorkflowExecutionApplicationService();
-  for (const candidate of [item, unsafeItem]) await planning.acceptWorkItemExecutionPlan(root, { workflowId: created.workflow.id, workItemId: candidate.id, expectedVersion: candidate.recordVersion,
+  for (const candidate of [item, unsafeItem, unsafeRestoreItem]) await planning.acceptWorkItemExecutionPlan(root, { workflowId: created.workflow.id, workItemId: candidate.id, expectedVersion: candidate.recordVersion,
     plan: { implementationBoundaries: ["Change only accepted source files"], affectedPaths: ["feature.txt"], proofIntent: ["Run focused source proof"] } });
   const unrelated = await state.createSubstantiveWorkflow(project.project.id, { workflowType: "issue-resolution", title: "Unrelated source", entryWorkspace: "issue-intake",
     sourceSeed: { repositoryId: "source-execution-repository", integrationTargetSourceLineId: "dev", baseRevisionId: revision } });
@@ -2535,9 +2537,11 @@ test("exact source-backed and source-neutral WorkItems use the bounded Tester li
   const service = new CodexImplementerExecutionService(async () => {
     appServerCalls++;
     return { startThread(options) { captured.push(options); return { id: "source-thread", async runStreamed() {
-      fs.writeFileSync(path.join(options.workingDirectory, appServerCalls === 1 ? "feature.txt" : "unreported.txt"), "implemented\n");
+      const relative = appServerCalls === 1 ? "feature.txt" : appServerCalls === 2 ? "unreported.txt" : "unreported-dir";
+      if (appServerCalls > 2) { fs.mkdirSync(path.join(options.workingDirectory, relative), { recursive: true }); fs.writeFileSync(path.join(options.workingDirectory, relative, "nested.txt"), "unsafe\n"); }
+      else fs.writeFileSync(path.join(options.workingDirectory, relative), "implemented\n");
       return { events: (async function* () {
-        yield { type: "item.completed", item: { type: "file_change", changes: [{ path: appServerCalls === 1 ? "feature.txt" : "unreported.txt" }], status: "completed" } };
+        yield { type: "item.completed", item: { type: "file_change", changes: [{ path: relative }], status: "completed" } };
         yield { type: "item.completed", item: { type: "agent_message", text: JSON.stringify({ summary: "Implemented the exact source WorkItem", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" }) } };
         yield { type: "turn.completed" };
       })() };
@@ -2690,13 +2694,30 @@ test("exact source-backed and source-neutral WorkItems use the bounded Tester li
   const unsafeStart = await service.start(root, unsafeSelector, selection);
   assert.equal(unsafeStart.state, "running");
   const unsafeCompleted = await waitForSelectorState(service, root, unsafeSelector, "failed", 300);
-  assert.equal(unsafeCompleted.checkpoint.status, "blocked");
-  assert.match(unsafeCompleted.checkpoint.message, /attribution|path/i);
+  assert.equal(unsafeCompleted.checkpoint.status, "not-required");
+  assert.match(unsafeCompleted.checkpoint.message, /restored/i);
   const finalRecords = await store.listEntities(project.project.id, "ImplementationRecord");
   const finalCheckpoints = await store.listEntities(project.project.id, "SourceCheckpoint");
   assert.equal(finalRecords.length, 3); assert.equal(finalCheckpoints.length, 2);
-  assert.equal(finalRecords.find(record => record.body.workItemId === unsafeItem.id).body.outcome, "implemented");
-  assert.ok(fs.existsSync(path.join(root, ".champcity", "runtime", "work-item-attempts", `${finalRecords.find(record => record.body.workItemId === unsafeItem.id).body.executionRef}.json`)));
-  assert.equal(checkoutRegistrations, 3);
-  assert.equal(appServerCalls, 2);
+  const unsafeAttempt = finalRecords.find(record => record.body.workItemId === unsafeItem.id);
+  assert.equal(unsafeAttempt.body.outcome, "failed");
+  assert.equal((await state.getRecord(project.project.id, unsafeItem.id)).body.workState, "ready");
+  assert.equal(fs.readFileSync(path.join(root, ".champcity", "checkouts", created.workflow.id, "feature.txt"), "utf8"), "implemented\n",
+    "the earlier successful checkpoint remains untouched while rejected paths are restored");
+  assert.equal(fs.existsSync(path.join(root, ".champcity", "checkouts", created.workflow.id, "unreported.txt")), false);
+  assert.equal(execFileSync("git", ["rev-parse", "HEAD"], { cwd: path.join(root, ".champcity", "checkouts", created.workflow.id), encoding: "utf8" }).trim(), bindingAfterTester.body.currentRevisionId);
+  assert.equal(execFileSync("git", ["status", "--porcelain", "--untracked-files=all"], { cwd: path.join(root, ".champcity", "checkouts", created.workflow.id), encoding: "utf8" }).trim(), "");
+  assert.equal((await store.listEntities(project.project.id, "SourceCheckpoint")).filter(record => record.entityType === "SourceCheckpoint" && record.body.boundaryId === unsafeAttempt.body.executionRef).length, 0);
+  const oldPlanVersion = (await state.getRecord(project.project.id, unsafeItem.id)).recordVersion;
+  const revised = await planning.acceptWorkItemExecutionPlan(root, { workflowId: created.workflow.id, workItemId: unsafeItem.id, expectedVersion: oldPlanVersion,
+    plan: { implementationBoundaries: ["Make the broader change under reviewed scope"], affectedPaths: ["feature.txt"], proofIntent: ["Retry in the accepted expanded scope"] } });
+  assert.equal(revised.recordVersion, oldPlanVersion + 1);
+  const restoreFailureStart = await service.start(root, { ownerKind: "workflow-work-item", workflowId: created.workflow.id, workItemId: unsafeRestoreItem.id }, selection);
+  assert.equal(restoreFailureStart.state, "running");
+  const restoreFailure = await waitForSelectorState(service, root, { ownerKind: "workflow-work-item", workflowId: created.workflow.id, workItemId: unsafeRestoreItem.id }, "failed", 300);
+  assert.equal(restoreFailure.checkpoint.status, "blocked");
+  assert.match(restoreFailure.checkpoint.message, /recovery|restore|outside/i);
+  assert.equal((await state.getRecord(project.project.id, unsafeRestoreItem.id)).body.workState, "blocked");
+  assert.equal(checkoutRegistrations, 4);
+  assert.equal(appServerCalls, 3);
 });

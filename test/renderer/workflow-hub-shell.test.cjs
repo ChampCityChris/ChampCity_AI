@@ -53,11 +53,12 @@ test("shared execution Workspace is the exact Feature and Issue post-plan surfac
     const markup = renderToStaticMarkup(React.createElement(WorkflowExecutionWorkspace, { workflow: {
       workflowId: `${workflowType}-exact-id`, workflowType, title: "Same-title concurrent Workflow", lifecycleState: "active",
       currentWorkspace: "work-item-map", workflowState: "active", lineageId: `${workflowType}-lineage`, createdAt: "now", updatedAt: "now",
-    }, onReturn() {} }));
+    }, onReturn() {}, browserPanel: React.createElement("div", null, "Architect browser") }));
     assert.match(markup, /Shared Execution Workspace/);
     assert.match(markup, new RegExp(`${workflowType}-exact-id`));
     assert.match(markup, /Back to Workflows/);
     assert.match(markup, /Work Item Map and readiness/);
+    assert.match(markup, /Embedded Architect/);
   }
 });
 
@@ -78,6 +79,10 @@ test("shared execution Workspace binds pending Implementer and Tester interactio
   assert.match(source, /Architect WorkItem execution planning/);
   assert.match(source, /acceptWorkflowWorkItemExecutionPlan/);
   assert.match(source, /Prepare Architect handoff/);
+  assert.match(source, /Import bounded Architect result/);
+  assert.match(source, /JSON\.parse\(architectDraft\)/);
+  assert.match(source, /setDecompositionJson\(typedDecomposition\)/);
+  assert.match(source, /Execution could not start\./);
   assert.match(source, /item\.record\.body\.implementationBoundaries\?\.length/);
   assert.doesNotMatch(source, /runtime\?\.busy/);
   assert.match(source, /respondToCodexMcpElicitation\(\{[^}]*requestId, action, content, workflowId: workflow\.workflowId, workItemId: item\.record\.id/s);

@@ -295,14 +295,33 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       if (!implementationWorkflowTypes.has(workflow.workflow.body.workflowType)) throw Error("Execution planning requires the exact current Feature/Issue Workflow.");
       const projection = await project(store, projectId, workflow);
       const item = projection.items.find(candidate => candidate.record.id === input.workItemId);
-      if (!item || !["planned", "ready"].includes(item.record.body.workState) || item.record.recordVersion !== input.expectedVersion || item.implementationAttempts.length || item.repairIds.length) throw Error("Execution planning requires the exact current planned/ready WorkItem without implementation or active Repair.");
+      if (!item || !["planned", "ready"].includes(item.record.body.workState) || item.record.recordVersion !== input.expectedVersion) throw Error("Execution planning requires the exact current planned/ready WorkItem.");
+      if (item.repairIds.some(id => projection.items.some(candidate => candidate.record.id === id && !["closed", "cancelled"].includes(candidate.record.body.workState)))) throw Error("Execution planning is blocked while an active Repair owns the next correction.");
+      if (item.implementationAttempts.length) {
+        const latest = item.implementationAttempts.at(-1)!;
+        const scopeFailure = latest.body.outcome === "failed" && latest.body.blockers.some(value => /outside the accepted Architect path scope|exact checkout restored/i.test(value));
+        if (!(item.record.body.workState === "ready" && latest.body.outcome !== "implemented" && (scopeFailure || ["partial", "failed", "abandoned"].includes(latest.body.outcome))))
+          throw Error("Execution plan cannot change after a successful or unresolved implementation attempt.");
+        const attemptRefs = new Set(item.implementationAttempts.map(record => record.body.executionRef).filter((value): value is string => Boolean(value)));
+        const attemptTester = (await store.listEntities(projectId, "TesterResult")).some(record => record.entityType === "TesterResult" && record.body.workflowId === input.workflowId && record.body.workItemId === item.record.id && item.implementationAttempts.some(attempt => attempt.id === record.body.implementationRecordId));
+        const attemptValidation = (await store.listEntities(projectId, "Validation")).some(record => record.entityType === "Validation" && (record.body.implementationRecordId && item.implementationAttempts.some(attempt => attempt.id === record.body.implementationRecordId)));
+        const attemptCheckpoint = (await store.listEntities(projectId, "SourceCheckpoint")).some(record => record.entityType === "SourceCheckpoint" && record.body.workflowId === input.workflowId && attemptRefs.has(record.body.boundaryId) && record.body.checkpointState !== "not-required");
+        if (attemptTester || attemptValidation || attemptCheckpoint) throw Error("Execution plan cannot change while Tester, Validation, or a source checkpoint belongs to a failed attempt.");
+        if (projection.source.state !== "non-source") {
+          if (projection.source.state !== "ready" || !projection.source.currentRevisionId || !projection.source.workSourceLineId) throw Error("Failed source-backed attempt must retain its exact ready source binding before replanning.");
+          const checkoutRoot = fs.realpathSync(resolveManagedWorkflowCheckoutPath(fs.realpathSync(projectRoot), input.workflowId).checkoutRoot);
+          const head = (await runBoundedGit({ cwd: checkoutRoot, args: ["rev-parse", "HEAD"] })).stdout.trim();
+          const status = (await runBoundedGit({ cwd: checkoutRoot, args: ["status", "--porcelain", "--untracked-files=all"] })).stdout;
+          if (head !== projection.source.currentRevisionId || status) throw Error("Source-backed checkout is not restored clean at the unchanged SourceBinding revision.");
+        }
+      }
       if (projection.source.state !== "non-source" && !affectedPaths.length) throw Error("Source-backed execution plans require at least one accepted repository path.");
       const criterionIds = workflow.criteria.filter(candidate => candidate.ownerId === item.record.id || candidate.ownerId === workflow.solutions[0]?.id).map(candidate => candidate.record.id);
       const validations = (await store.listEntities(projectId, "Validation")).filter((record): record is ProjectStateRecord<"Validation"> => record.entityType === "Validation" && (record.body.targetEntityId === item.record.id || criterionIds.includes(record.body.targetEntityId)));
       const testers = (await store.listEntities(projectId, "TesterResult")).filter(record => record.entityType === "TesterResult" && record.body.workflowId === input.workflowId && record.body.workItemId === input.workItemId);
       const attemptRefs = new Set(item.implementationAttempts.map(record => record.body.executionRef).filter((value): value is string => Boolean(value)));
       const checkpoints = (await store.listEntities(projectId, "SourceCheckpoint")).filter((record): record is ProjectStateRecord<"SourceCheckpoint"> => record.entityType === "SourceCheckpoint" && record.body.workflowId === input.workflowId && attemptRefs.has(record.body.boundaryId));
-      if (validations.length || testers.length || checkpoints.some(record => record.body.checkpointState !== "not-required")) throw Error("Execution plan cannot change after implementation evidence or source checkpoints exist.");
+      if ((!item.implementationAttempts.length && validations.length) || (!item.implementationAttempts.length && testers.length) || checkpoints.some(record => record.body.checkpointState !== "not-required")) throw Error("Execution plan cannot change after implementation evidence or source checkpoints exist.");
       if (projection.source.state === "non-source" && affectedPaths.length) throw Error("Source-neutral execution plans must have an empty affected-path scope.");
       const state = createProjectStateService(store, operator);
       return state.reviseRecord(projectId, item.record.id, { implementationBoundaries, affectedPaths, proofIntent }, input.expectedVersion);
