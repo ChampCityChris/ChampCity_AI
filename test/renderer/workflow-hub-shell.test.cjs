@@ -49,6 +49,20 @@ test("shared execution Workspace is the exact Feature and Issue post-plan surfac
   }
 });
 
+test("shared execution Workspace binds pending Implementer and Tester interactions to exact execution identities", () => {
+  const fs = require("node:fs");
+  const source = fs.readFileSync(require("node:path").resolve(__dirname, "../../src/renderer/app/WorkflowExecutionWorkspace.tsx"), "utf8");
+  for (const label of ["Implementer approval request", "Implementer input request", "Implementer MCP elicitation", "Tester approval request", "Tester input request"])
+    assert.ok(source.includes(label), `visible Workspace section is present: ${label}`);
+  assert.match(source, /respondToCodexApproval\(\{[^}]*workflowId: workflow\.workflowId, workItemId: item\.record\.id/s);
+  assert.match(source, /respondToCodexUserInput\(\{[^}]*workflowId: workflow\.workflowId, workItemId: item\.record\.id/s);
+  assert.match(source, /respondToCodexMcpElicitation\(\{[^}]*workflowId: workflow\.workflowId, workItemId: item\.record\.id/s);
+  assert.match(source, /cancelCodexImplementerExecution\(\{ workflowId: workflow\.workflowId, workItemId: item\.record\.id \}/);
+  assert.match(source, /respondToWorkflowWorkItemTesterApproval\(workflow\.workflowId, item\.record\.id, latest!\.id/);
+  assert.match(source, /respondToWorkflowWorkItemTesterInput\(workflow\.workflowId, item\.record\.id, latest\.id/);
+  assert.match(source, /cancelWorkflowWorkItemTester\(workflow\.workflowId, item\.record\.id, latest\.id/);
+});
+
 test("accepted Work Item Map is readable and exposes no execution controls", () => {
   const record = (id, body) => ({ id, body });
   const markup = renderToStaticMarkup(React.createElement(WorkflowPlanningMap, { plan: {

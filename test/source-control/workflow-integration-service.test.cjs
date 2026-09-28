@@ -55,7 +55,8 @@ async function qualifyExactWorkflowIntegration(context, workflowType) {
   const accepted = await state.acceptWorkflowPlanningGraph(projectId, { workflowId: created.workflow.id, topology: "direct",
     ...(rootCause ? { solutionAddresses: [rootCause.id] } : {}),
     solution: { title: "Accepted", objective: "Deliver the behavior", scopeIn: ["feature.txt"], scopeOut: [], constraints: [], assumptions: [], risks: [] },
-    solutionCriteria: [], phases: [], workItems: [{ key: "feature", kind: workflowType === "feature-capability" ? "feature" : "fix", title: "Correction", objective: "Change feature.txt", dependencyKeys: [], criteria: [] }] });
+    solutionCriteria: [], phases: [], workItems: [{ key: "feature", kind: workflowType === "feature-capability" ? "feature" : "fix", title: "Correction", objective: "Change feature.txt", dependencyKeys: [],
+      criteria: workflowType === "feature-capability" ? [{ statement: "The updated interface is legible", criticality: "required", verificationIntent: "Inspect the exact current visual candidate", validationPolicy: "visual_human" }] : [] }] });
   const workItem = accepted.directWorkItems[0];
   assert.equal((await state.getWorkflowExecutionPlan(projectId, created.workflow.id)).solutions[0].id, accepted.solutions[0].id);
   const baseline = await state.createWorkflowSourceBaseline(projectId, created.workflow.id,
@@ -76,16 +77,31 @@ async function qualifyExactWorkflowIntegration(context, workflowType) {
   assert.equal(checkpoint.state, "committed", JSON.stringify(checkpoint));
   store = createSQLiteProjectStateStore(path.join(metadata, "project-state.sqlite")); state = createProjectStateService(store, operator);
   const tester = createProjectStateService(store, { principalId: "workflow-tester", principalType: "agent", role: "Tester" });
-  await tester.createTesterResult(projectId, created.workflow.id, workItem.id, implementation.id,
+  const testerResult = await tester.createTesterResult(projectId, created.workflow.id, workItem.id, implementation.id,
     { sourceMode: "source-backed", implementerRevisionId: checkpoint.revision.revisionId, recommendation: "no-permanent-test-required",
       affectedCapabilityIds: [], permanentTestPaths: [], determinationEvidence: ["Focused implementation evidence inspected"], unknowns: [],
       rationale: "The behavior change does not require a permanent test artifact." });
+  assert.equal(testerResult.body.sourceMode, "source-backed");
+  if (workflowType === "feature-capability") {
+    const visualCriterion = accepted.criteria.find(entry => entry.ownerId === workItem.id).record;
+    const visual = await kernel.recordWorkItemVisualCriterion(root, { workflowId: created.workflow.id, workItemId: workItem.id, criterionId: visualCriterion.id,
+      expectedCriterionVersion: visualCriterion.recordVersion, implementationRecordId: implementation.id,
+      sourceRevisionId: checkpoint.revision.revisionId, summary: "Reviewed the exact source-backed candidate after Tester checkpoint; the interface is legible." });
+    assert.equal(visual.validation.body.validationMode, "visual_human");
+    assert.deepEqual(visual.validation.body.performedBy, { principalId: "local-operator", principalType: "human", role: "Operator" });
+  }
   const currentWorkItem = await state.getRecord(projectId, workItem.id);
   await kernel.completeWorkItem(root, created.workflow.id, workItem.id, currentWorkItem.recordVersion);
   const completion = await kernel.getWorkflowExecutionCompletionProjection(root, created.workflow.id);
   assert.equal(completion.eligible, true, completion.blockers.join(", "));
   await kernel.completeWorkflowExecution(root, created.workflow.id, completion.workflowVersion);
   store.close();
+  const integrationReadyStore = createSQLiteProjectStateStore(path.join(metadata, "project-state.sqlite"));
+  try {
+    const recovered = await integrationReadyStore.getEntity(projectId, created.workflow.id);
+    assert.equal(recovered.body.currentWorkspace, "integration-ready");
+    assert.equal((await integrationReadyStore.listEntities(projectId, "IntegrationRecord")).length, 0);
+  } finally { integrationReadyStore.close(); }
 
   const service = createWorkflowIntegrationService(root, created.workflow.id);
   const integrated = await service.integrate();

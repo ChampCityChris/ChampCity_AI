@@ -1,7 +1,7 @@
 import type { LifecycleState, WorkflowState } from "./projectState/domainContracts";
 import type { WorkflowType } from "./projectState/workflowTypeRegistry";
 import type { EntityId, ProjectId, ProjectStateRecord } from "./projectState/domainContracts";
-import type { WorkflowExecutionPlanView } from "./projectState/projectStateService";
+import type { WorkflowExecutionPlanView, WorkItemDecompositionInput } from "./projectState/projectStateService";
 import type { RepositoryCheckout } from "./sourceLifecycleContracts";
 
 export interface WorkflowInstanceSummary {
@@ -89,8 +89,44 @@ export interface WorkItemValidationProjection {
     reason: string | null;
     repairable: boolean;
     humanEvidenceRequired: boolean;
+    decisionTargetId: EntityId | null;
+    decisionState: string | null;
   }>;
   completion: { eligible: boolean; blockers: string[] };
+}
+export interface PhaseValidationProjection {
+  workflowId: EntityId;
+  phaseId: EntityId;
+  phaseVersion: number;
+  sourceRevisionId: string | null;
+  workItemsClosed: boolean;
+  criteria: Array<{
+    ownerId: EntityId;
+    criterion: ProjectStateRecord<"Criterion">;
+    policy: ProjectStateRecord<"Criterion">["body"]["validationPolicy"];
+    outcome: "pass" | "fail" | "blocked" | "inconclusive" | "pending" | "deferred";
+    validationId: EntityId | null;
+    decisionTargetId: EntityId | null;
+    decisionState: string | null;
+    reason: string | null;
+  }>;
+  completion: { eligible: boolean; blockers: string[] };
+}
+export type WorkflowWorkItemDecompositionInput = WorkItemDecompositionInput;
+export interface WorkflowWorkItemVisualCriterionInput {
+  workflowId: EntityId; workItemId: EntityId; criterionId: EntityId; expectedCriterionVersion: number;
+  implementationRecordId: EntityId; sourceRevisionId: string | null; summary: string;
+}
+export interface WorkflowWorkItemCriterionDecisionInput extends Omit<WorkflowWorkItemVisualCriterionInput, "summary"> {
+  outcome: "approved" | "rejected"; rationale: string;
+}
+export interface WorkflowPhaseVisualCriterionInput {
+  workflowId: EntityId; phaseId: EntityId; criterionId: EntityId; expectedCriterionVersion: number; expectedPhaseVersion: number;
+  sourceRevisionId: string | null; summary: string;
+}
+export interface WorkflowPhaseCriterionDecisionInput {
+  workflowId: EntityId; phaseId: EntityId; criterionId: EntityId; expectedCriterionVersion: number; expectedPhaseVersion: number;
+  outcome: "approved" | "rejected"; rationale: string;
 }
 export interface WorkflowExecutionPreparationResult {
   state: WorkflowExecutionSourceState;

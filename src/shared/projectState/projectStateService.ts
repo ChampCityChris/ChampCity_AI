@@ -1332,6 +1332,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
             if (split.owner.kind === "phase" && sourceOwner.entityType !== "Phase") fail("A direct WorkItem has no owning Phase to receive a split Criterion.");
             exactInput(split.criterion, ["statement", "criticality", "verificationIntent", "validationPolicy", "criterionState"]);
             if (!split.criterion.statement?.trim() || !split.criterion.verificationIntent?.trim() || !["required", "optional", "informational"].includes(split.criterion.criticality) || !["deterministic", "semantic_ai", "visual_human", "deferred_visual_phase", "operator_decision"].includes(split.criterion.validationPolicy)) fail("Split Criterion must preserve explicit acceptance and validation semantics.");
+            if (split.criterion.validationPolicy === "deferred_visual_phase" && sourceOwner.entityType !== "Phase") fail("deferred_visual_phase Criteria require an owning Phase boundary.");
             const body = JSON.stringify(split.criterion); if (uniqueBodies.has(body)) fail("Split Criteria must be distinct."); uniqueBodies.add(body);
           }
         }
@@ -2412,7 +2413,16 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const owners = (await store.listRelationships(projectId, "defines_criterion"))
         .filter(edge => edge.toEntityId === criterionId && !edge.endedAt);
       const entities = await Promise.all(owners.map(edge => store.getEntity(projectId, edge.fromEntityId)));
-      if (!entities.some(entity => entity?.entityType === "Phase")) return { criterionId, policy, satisfied: false, validationId: null, reason: "deferred-to-phase" };
+      const hasPhaseOwner = entities.some(entity => entity?.entityType === "Phase");
+      let hasWorkflowPhaseBoundary = false;
+      const solution = entities.find(entity => entity?.entityType === "BoundedSolution");
+      if (solution?.entityType === "BoundedSolution") {
+        for (const edge of (await store.listRelationships(projectId, "workflow_member")).filter(edge => edge.fromEntityId === solution.id && !edge.endedAt)) {
+          const workflow = await store.getEntity(projectId, edge.toEntityId);
+          if (workflow?.entityType === "Workflow" && (await getWorkflowExecutionPlan(projectId, workflow.id)).phases.length) { hasWorkflowPhaseBoundary = true; break; }
+        }
+      }
+      if (!hasPhaseOwner && !hasWorkflowPhaseBoundary) return { criterionId, policy, satisfied: false, validationId: null, reason: "deferred-to-phase" };
     }
     const requiredMode: ValidationMode = policy === "deferred_visual_phase" ? "visual_human" : policy;
     const validationIds = new Set((await store.listRelationships(projectId, "evaluates"))
@@ -2521,6 +2531,8 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       if (criteria.length > 512) fail("Planning graph exceeds its total Criterion bound.");
       const policies = new Set(["deterministic", "semantic_ai", "visual_human", "deferred_visual_phase", "operator_decision"]);
       for (const criterion of criteria) { exactInput(criterion, ["statement", "criticality", "verificationIntent", "validationPolicy"]); if (!policies.has(criterion.validationPolicy)) fail("Criterion validation policy is required and must be supported."); }
+      if (graph.topology === "direct" && criteria.some(criterion => criterion.validationPolicy === "deferred_visual_phase"))
+        fail("deferred_visual_phase Criteria require a real Phase boundary and cannot be accepted in a direct Workflow.");
       const kindsByWorkflow: Record<WorkflowType, readonly string[]> = { "feature-capability": ["feature", "fix", "maintenance"], "issue-resolution": ["fix", "repair"], "refactor-migration": ["migration", "maintenance"], "integration-composition": ["feature", "fix", "maintenance"], "infrastructure-platform": ["feature", "fix", "maintenance"], "research-prototype": ["feature", "maintenance"], "project-creation": [], "work-intake-routing": [] };
       if (graph.workItems.some(item => !kindsByWorkflow[workflow.body.workflowType].includes(item.kind))) fail("Unsupported Work Item kind for this Workflow family.");
       const now = new Date().toISOString();
@@ -2625,7 +2637,8 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const criterion = await requiredRecord(store, projectId, id);
       if (criterion.entityType !== "Criterion" || criterion.lifecycleState !== "active" || criterion.body.criticality !== "required" || criterion.body.validationPolicy === "deferred_visual_phase") continue;
       if (criterion.body.validationPolicy === "operator_decision") {
-        const disposition = await getEffectiveDisposition(projectId, workItemId);
+        const owner = (await store.listRelationships(projectId, "defines_criterion")).find(edge => edge.toEntityId === id && !edge.endedAt)?.fromEntityId ?? workItemId;
+        const disposition = await getEffectiveDisposition(projectId, owner);
         if (!["approved", "accepted"].includes(disposition.state)) blockers.push(`operator-decision:${id}`);
       } else {
         const proof = await getCriterionValidationStatus(projectId, id, currentSourceBaselineRef, exactWorkflow ? latestAttempt?.id : undefined);
@@ -2676,22 +2689,28 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     const memberships = (await store.listRelationships(projectId, "part_of")).filter(edge => !edge.endedAt);
     const phaseParents = memberships.filter(edge => edge.fromEntityId === phaseId);
     let membership: { phaseId: EntityId; workItemIds: EntityId[]; criterionIds: EntityId[] } | undefined;
+    let workflowPlan: WorkflowExecutionPlanView | null = null;
     if (phaseParents.length === 1) {
       const workflow = await requiredRecord(store, projectId, phaseParents[0].toEntityId);
       if (workflow.entityType === "Workflow" && ["feature-capability", "issue-resolution"].includes(workflow.body.workflowType)) {
-        const exactPlan = await getWorkflowExecutionPlan(projectId, workflow.id);
-        membership = exactPlan.phases.find(item => item.phaseId === phaseId);
+        workflowPlan = await getWorkflowExecutionPlan(projectId, workflow.id);
+        membership = workflowPlan.phases.find(item => item.phaseId === phaseId);
         if (!membership) fail("Phase is not part of the exact owning Workflow plan.");
       }
     }
     // Retain the generic legacy Project State query for non-Workflow records. Current
     // Feature/Issue application calls always bind the phase to an exact Workflow above.
     if (!membership) membership = (await getExecutionPlan(projectId)).phases.find(item => item.phaseId === phaseId);
+    const phaseIndex = workflowPlan?.phases.findIndex(item => item.phaseId === phaseId) ?? -1;
+    const deferredCriterionIds = workflowPlan?.criteria.filter(entry => entry.record.lifecycleState === "active" &&
+      entry.record.body.criticality === "required" && entry.record.body.validationPolicy === "deferred_visual_phase" &&
+      ((membership?.workItemIds ?? []).includes(entry.ownerId) || phaseIndex === workflowPlan!.phases.length - 1 && workflowPlan!.solutions.some(solution => solution.id === entry.ownerId)))
+      .map(entry => entry.record.id) ?? [];
     for (const id of membership?.workItemIds ?? []) {
       const workItem = await requiredRecord(store, projectId, id);
       if (workItem.entityType !== "WorkItem" || workItem.body.workState !== "closed") blockers.push(`open-work-item:${id}`);
     }
-    for (const id of membership?.criterionIds ?? []) {
+    for (const id of new Set([...(membership?.criterionIds ?? []), ...deferredCriterionIds])) {
       const criterion = await requiredRecord(store, projectId, id);
       if (criterion.entityType !== "Criterion" || criterion.lifecycleState !== "active" || criterion.body.criticality !== "required") continue;
       if (criterion.body.validationPolicy === "operator_decision") {

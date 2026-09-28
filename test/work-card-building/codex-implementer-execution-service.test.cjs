@@ -2298,6 +2298,108 @@ test("exact source-neutral Feature and Issue WorkItem selectors use fake App Ser
   assert.equal(appServerCalls, 4);
 });
 
+test("exact Workflow Implementer input request resumes only through its Workflow and WorkItem selector", async t => {
+  const { runtimeFixture, selection } = require("../support/codex-runtime.cjs");
+  const { createWorkflowExecutionApplicationService } = require("../../dist/main/workflow/workflowExecutionApplicationService.js");
+  const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
+  const { registerCurrentProject } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
+  const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
+  const root = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "champcity-exact-pending-interaction-"));
+  const registration = await registerCurrentProject(root, "existing", { projectName: "Exact pending interaction" });
+  const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  t.after(() => { store.close(); fs.rmSync(root, { recursive: true, force: true }); });
+  const state = createProjectStateService(store, { principalId: "interaction-operator", principalType: "human", role: "Operator" });
+  const workflow = await state.createSubstantiveWorkflow(registration.project.id, { workflowType: "feature-capability", title: "Pending exact", entryWorkspace: "feature-intake" });
+  const plan = await state.acceptWorkflowPlanningGraph(registration.project.id, { workflowId: workflow.workflow.id, topology: "direct",
+    solution: { title: "Accepted", objective: "Continue exact execution", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [] },
+    solutionCriteria: [], phases: [], workItems: [{ key: "work", kind: "feature", title: "Wait for input", objective: "Resume exact session", dependencyKeys: [], criteria: [] }] });
+  const item = plan.directWorkItems[0], selector = { ownerKind: "workflow-work-item", workflowId: workflow.workflow.id, workItemId: item.id };
+  let answerSession;
+  const inputAnswered = new Promise(resolve => { answerSession = resolve; });
+  let capturedResponse;
+  const fixture = runtimeFixture(); await fixture.ready;
+  const service = new CodexImplementerExecutionService(async () => ({ startThread() { return { id: "exact-pending-thread",
+    async runStreamed() { return { events: (async function* () {
+      yield { type: "user_input.requested", request: { requestId: "input-1", threadId: "exact-pending-thread", turnId: "exact-turn", itemId: "exact-input",
+        questions: [{ id: "next_step", header: "Next Step", question: "How should execution continue?", options: [{ label: "Continue", description: "Resume this exact run." }] }] } };
+      await inputAnswered;
+      yield { type: "item.completed", item: { type: "agent_message", text: JSON.stringify({ summary: "Resumed exact WorkItem", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" }) } };
+      yield { type: "turn.completed" };
+    })() }; },
+    async respondToUserInput(requestId, answers) { capturedResponse = { requestId, answers }; answerSession(); } }; } }),
+    undefined, () => ({ sandboxMode: "workspace-write", approvalPolicy: "on-request", approvalsReviewer: "user", networkAccessEnabled: false }),
+    undefined, undefined, fixture.manager, () => createWorkflowExecutionApplicationService());
+  await service.start(root, selector, selection);
+  let pending;
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    pending = await service.getStatus(root, selector);
+    if (pending.pendingUserInput) break;
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  assert.equal(pending.pendingUserInput.requestId, "input-1");
+  assert.equal(pending.workflowId, workflow.workflow.id); assert.equal(pending.workItemId, item.id);
+  const answered = await service.respondToUserInput(root, "input-1", { next_step: ["Continue"] }, selector);
+  assert.equal(answered.pendingUserInput, null);
+  assert.deepEqual(capturedResponse, { requestId: "input-1", answers: { next_step: ["Continue"] } });
+  assert.equal((await waitForSelectorState(service, root, selector, "completed")).workflowId, workflow.workflow.id);
+});
+
+test("exact Workflow Tester input response resumes only its Workflow, WorkItem, and ImplementationRecord session", async t => {
+  const { runtimeFixture, selection } = require("../support/codex-runtime.cjs");
+  const { createWorkflowExecutionApplicationService } = require("../../dist/main/workflow/workflowExecutionApplicationService.js");
+  const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
+  const { registerCurrentProject } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
+  const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
+  const { CodexTesterExecutionService } = require("../../dist/main/workCardBuilding/codexTesterExecutionService.js");
+  const root = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "champcity-exact-tester-input-"));
+  const registration = await registerCurrentProject(root, "existing", { projectName: "Exact Tester input" });
+  const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  t.after(() => { store.close(); fs.rmSync(root, { recursive: true, force: true }); });
+  const state = createProjectStateService(store, { principalId: "tester-input-operator", principalType: "human", role: "Operator" });
+  const workflow = await state.createSubstantiveWorkflow(registration.project.id, { workflowType: "feature-capability", title: "Tester input", entryWorkspace: "feature-intake" });
+  const plan = await state.acceptWorkflowPlanningGraph(registration.project.id, { workflowId: workflow.workflow.id, topology: "direct",
+    solution: { title: "Accepted", objective: "Verify exact output", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [] },
+    solutionCriteria: [], phases: [], workItems: [{ key: "work", kind: "feature", title: "Tester target", objective: "Tester waits for input", dependencyKeys: [], criteria: [] }] });
+  const item = plan.directWorkItems[0], execution = createWorkflowExecutionApplicationService();
+  const attempt = await execution.beginWorkItemAttempt(root, workflow.workflow.id, item.id, item.recordVersion, "tester-input-implementation");
+  const implementation = await execution.finishWorkItemAttempt(root, workflow.workflow.id, item.id, attempt.executionRef,
+    { summary: "Implemented", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+  const ids = { workflowId: workflow.workflow.id, workItemId: item.id, implementationRecordId: implementation.id };
+  let releaseInput, capturedResponse;
+  const inputAnswered = new Promise(resolve => { releaseInput = resolve; });
+  const fixture = runtimeFixture(); await fixture.ready;
+  const tester = new CodexTesterExecutionService(async () => ({ startThread() { return { id: "exact-tester-input",
+    async runStreamed() { return { events: (async function* () {
+      yield { type: "user_input.requested", request: { requestId: "tester-input-1", threadId: "exact-tester-input", turnId: "turn-1", itemId: "input-1",
+        questions: [{ id: "test_scope", header: "Scope", question: "Which scope should be checked?", options: [{ label: "Accepted", description: "Use accepted scope." }] }] } };
+      await inputAnswered;
+      yield { type: "item.completed", item: { type: "agent_message", text: JSON.stringify({ recommendation: "reuse-existing-proof", permanentTestPaths: [],
+        determinationEvidence: ["Reviewed the exact implemented attempt."], unknowns: [], rationale: "No additional permanent test is required." }) } };
+      yield { type: "turn.completed" };
+    })() }; },
+    async respondToUserInput(requestId, answers) { capturedResponse = { requestId, answers }; releaseInput(); } }; } }), undefined);
+  await tester.start(root, ids, selection);
+  let pending;
+  for (let attemptIndex = 0; attemptIndex < 80; attemptIndex += 1) {
+    pending = await tester.getStatus(root, ids);
+    if (pending.pendingUserInput) break;
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  assert.equal(pending.pendingUserInput.requestId, "tester-input-1");
+  assert.deepEqual([pending.workflowId, pending.workItemId, pending.implementationRecordId], [ids.workflowId, ids.workItemId, ids.implementationRecordId]);
+  const answered = await tester.respondToUserInput(root, ids, "tester-input-1", { test_scope: ["Accepted"] });
+  assert.equal(answered.pendingUserInput, null);
+  assert.deepEqual(capturedResponse, { requestId: "tester-input-1", answers: { test_scope: ["Accepted"] } });
+  let completed;
+  for (let attemptIndex = 0; attemptIndex < 80; attemptIndex += 1) {
+    completed = await tester.getStatus(root, ids);
+    if (completed.state === "completed" || completed.state === "failed") break;
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  assert.equal(completed.state, "completed", completed.failureReason);
+  assert.equal(completed.workflowId, ids.workflowId);
+});
+
 // Existing lifecycle tests explicitly supply the new runtime identity through a per-test fixture.
 function createService(...args) {
   const { runtimeFixture, selection } = require("../support/codex-runtime.cjs");

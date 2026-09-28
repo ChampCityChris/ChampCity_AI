@@ -18,8 +18,15 @@ async function setup(context) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-execution-kernel-"));
   const registration = await registerCurrentProject(root, "existing", { projectName: "Execution Kernel Fixture" });
   const store = createSQLiteProjectStateStore(db(root));
-  context.after(() => { store.close(); fs.rmSync(root, { recursive: true, force: true }); });
-  return { root, projectId: registration.project.id, store, state: createProjectStateService(store, operator) };
+  const env = { root, projectId: registration.project.id, store, state: createProjectStateService(store, operator) };
+  context.after(() => { env.store.close(); fs.rmSync(root, { recursive: true, force: true }); });
+  return env;
+}
+
+function reopenProject(env) {
+  env.store.close();
+  env.store = createSQLiteProjectStateStore(db(env.root));
+  env.state = createProjectStateService(env.store, operator);
 }
 
 function graph(workflowId, topology, kind, workItems, phases = []) {
@@ -66,6 +73,10 @@ test("typed source-neutral Workflow completion closes only after exact WorkItem 
   assert.equal(current.eligible, true); assert.equal(current.sourceMode, "source-neutral");
   const closed = await kernel.completeWorkflowExecution(env.root, created.workflow.id, current.workflowVersion);
   assert.equal(closed.body.workflowState, "closed"); assert.equal(closed.body.currentWorkspace, "execution-complete");
+  reopenProject(env);
+  assert.equal((await env.state.getRecord(env.projectId, created.workflow.id)).body.workflowState, "closed");
+  assert.equal((await env.state.getRecord(env.projectId, item.id)).body.workState, "closed");
+  assert.equal((await env.state.getRecord(env.projectId, plan.phases[0].phaseId)).body.phaseState, "closed");
   assert.equal((await env.store.listEntities(env.projectId, "IntegrationRecord")).length, 0);
 });
 
@@ -235,6 +246,74 @@ test("shared execution projection IPC reopens the exact Workflow independently b
   assert.equal(reopened.items[0].record.id, projection.items[0].record.id);
 });
 
+test("SQLite reopen restores exact ready, validation-pending, Tester, Validator, and active Repair states", async context => {
+  const env = await setup(context);
+  const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "issue-resolution", title: "Recovery stages", entryWorkspace: "issue-intake" });
+  const plan = await env.state.acceptWorkflowPlanningGraph(env.projectId, graph(created.workflow.id, "direct", "fix", [
+    { key: "fix", kind: "fix", title: "Recoverable fix", objective: "Reopen each durable state", dependencyKeys: [],
+      criteria: [{ statement: "No missing obligation", criticality: "required", verificationIntent: "Inspect focused proof", validationPolicy: "deterministic" }] },
+  ]));
+  const item = plan.directWorkItems[0], criterion = plan.criteria.find(entry => entry.ownerId === item.id).record;
+  const kernel = createWorkflowExecutionApplicationService();
+  reopenProject(env);
+  assert.ok((await kernel.getExecutionProjection(env.root, created.workflow.id)).nextEligibleWorkItemIds.includes(item.id), "the exact reopened planned WorkItem is ready for execution");
+  const attempt = await kernel.beginWorkItemAttempt(env.root, created.workflow.id, item.id, item.recordVersion, "reopen-recovery-attempt");
+  const implementation = await kernel.finishWorkItemAttempt(env.root, created.workflow.id, item.id, attempt.executionRef,
+    { summary: "Implemented", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+  reopenProject(env);
+  assert.equal((await env.state.getRecord(env.projectId, item.id)).body.workState, "validation_pending");
+  const tester = await createProjectStateService(env.store, { principalId: "recovery-tester", principalType: "agent", role: "Tester" }).createTesterResult(
+    env.projectId, created.workflow.id, item.id, implementation.id,
+    { sourceMode: "source-neutral", recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [],
+      determinationEvidence: ["Focused proof shows one obligation missing"], unknowns: [], rationale: "Current test evidence was inspected." });
+  reopenProject(env);
+  assert.equal((await env.store.getEntity(env.projectId, tester.id)).body.implementationRecordId, implementation.id);
+  const failed = await createProjectStateService(env.store, { principalId: "recovery-validator", principalType: "agent", role: "Validator" }).recordValidation(
+    env.projectId, criterion.id, { validationType: "work-item-criterion", method: "recovery focused profile", validationMode: "deterministic",
+      outcome: "fail", summary: "The required obligation is still missing.", targetRecordVersion: criterion.recordVersion, implementationRecordId: implementation.id });
+  reopenProject(env);
+  assert.equal((await kernel.getWorkItemValidationProjection(env.root, created.workflow.id, item.id)).criteria[0].validationIds[0], failed.id);
+  const repair = await kernel.createWorkflowRepair(env.root, created.workflow.id, item.id, failed.id);
+  reopenProject(env);
+  const recovered = await kernel.getExecutionProjection(env.root, created.workflow.id);
+  assert.equal((await env.store.getEntity(env.projectId, repair.repair.id)).body.workState, "planned");
+  assert.ok(recovered.items.some(entry => entry.record.id === repair.repair.id));
+  assert.ok(recovered.items.some(entry => entry.record.id === item.id && entry.repairIds.includes(repair.repair.id)));
+});
+
+test("exact Workflow IPC atomically decomposes a ready WorkItem and reopens its current replacement plan", async context => {
+  const env = await setup(context);
+  const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "Typed decomposition", entryWorkspace: "feature-intake" });
+  const plan = await env.state.acceptWorkflowPlanningGraph(env.projectId, graph(created.workflow.id, "direct", "feature", [
+    { key: "base", kind: "feature", title: "Base", objective: "Base", dependencyKeys: [], criteria: [] },
+    { key: "source", kind: "feature", title: "Large", objective: "Split me", dependencyKeys: ["base"], criteria: [] },
+    { key: "downstream", kind: "feature", title: "Downstream", objective: "Consume split", dependencyKeys: ["source"], criteria: [] },
+  ]));
+  const source = plan.directWorkItems.find(item => item.body.title === "Large");
+  const base = plan.directWorkItems.find(item => item.body.title === "Base");
+  const downstream = plan.directWorkItems.find(item => item.body.title === "Downstream");
+  const handlers = new Map(); registerWorkflowApplicationIpc({ handle: (channel, listener) => handlers.set(channel, listener) }, () => env.root);
+  const input = { workflowId: created.workflow.id, workItemId: source.id, expectedWorkItemVersion: source.recordVersion,
+    replacements: [
+      { key: "part-a", kind: "feature", title: "Part A", objective: "First bounded part", solutionId: plan.solutions[0].id,
+        dependencyWorkItemIds: [base.id], dependencyReplacementKeys: [] },
+      { key: "part-b", kind: "feature", title: "Part B", objective: "Second bounded part", solutionId: plan.solutions[0].id,
+        dependencyWorkItemIds: [], dependencyReplacementKeys: ["part-a"] },
+    ], criterionDispositions: [], incomingDependentMappings: [{ dependentWorkItemId: downstream.id, replacementKeys: ["part-a", "part-b"] }] };
+  await assert.rejects(handlers.get("workflow:decomposeWorkItem")({}, created.workflow.id, input), /Exact typed Workflow/);
+  const changed = await handlers.get("workflow:decomposeWorkItem")({}, input);
+  assert.equal(changed.result.source.lifecycleState, "voided");
+  assert.equal(changed.projection.items.some(item => item.record.id === source.id), false);
+  assert.deepEqual(changed.result.replacements.map(item => item.body.title), ["Part A", "Part B"]);
+  assert.deepEqual(changed.projection.items.filter(item => item.record.id !== base.id && item.record.id !== downstream.id).map(item => item.record.id).sort(),
+    changed.result.replacements.map(item => item.id).sort());
+  const reopened = await handlers.get("workflow:executionProjection")({}, created.workflow.id);
+  assert.equal(reopened.items.some(item => item.record.id === source.id), false);
+  assert.deepEqual(reopened.items.filter(item => changed.result.replacements.some(replacement => replacement.id === item.record.id)).map(item => item.record.id).sort(),
+    changed.result.replacements.map(item => item.id).sort());
+  await assert.rejects(handlers.get("workflow:decomposeWorkItem")({}, { ...input, expectedWorkItemVersion: source.recordVersion - 1 }), /current planned\/ready WorkItem version/);
+});
+
 test("typed Workflow WorkItem and Phase completion uses the application principal after exact Tester proof", async context => {
   const env = await setup(context);
   const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "Exact close", entryWorkspace: "feature-intake" });
@@ -258,6 +337,146 @@ test("typed Workflow WorkItem and Phase completion uses the application principa
   const closedPhase = await kernel.completePhase(env.root, created.workflow.id, phase.id, phase.recordVersion);
   assert.equal(closedPhase.body.phaseState, "closed");
   assert.deepEqual(closedPhase.updatedBy, { principalId: "workflow-execution-application", principalType: "system", role: "System" });
+  reopenProject(env);
+  const recovered = await kernel.getExecutionProjection(env.root, created.workflow.id);
+  assert.equal(recovered.items.find(entry => entry.record.id === workItem.id).record.body.workState, "closed");
+  assert.equal(recovered.plan.phases.find(entry => entry.phaseId === phase.id).record.body.phaseState, "closed");
+});
+
+test("exact Phase projection and Operator Decision gate Phase close after member WorkItems close", async context => {
+  const env = await setup(context);
+  const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "Phase decision", entryWorkspace: "feature-intake" });
+  const plan = await env.state.acceptWorkflowPlanningGraph(env.projectId, graph(created.workflow.id, "phased", "feature", [
+    { key: "work", kind: "feature", title: "Phase work", objective: "Complete phase work", phaseKey: "phase", dependencyKeys: [], criteria: [] },
+  ], [{ key: "phase", title: "Review", objective: "Operator review", sequence: 1,
+    criteria: [{ statement: "Operator accepts the milestone", criticality: "required", verificationIntent: "Review the exact phase result", validationPolicy: "operator_decision" }] }]));
+  const phase = plan.phases[0].record, item = plan.workItemsByPhase[phase.id][0];
+  const kernel = createWorkflowExecutionApplicationService();
+  const initial = await kernel.getPhaseValidationProjection(env.root, created.workflow.id, phase.id);
+  assert.equal(initial.completion.eligible, false); assert.equal(initial.workItemsClosed, false);
+  const criterion = initial.criteria[0].criterion;
+  await assert.rejects(kernel.recordPhaseCriterionDecision(env.root, { workflowId: created.workflow.id, phaseId: phase.id,
+    criterionId: criterion.id, expectedCriterionVersion: criterion.recordVersion, expectedPhaseVersion: phase.recordVersion,
+    outcome: "approved", rationale: "too early" }), /All exact Phase WorkItems must be closed/);
+  const attempt = await kernel.beginWorkItemAttempt(env.root, created.workflow.id, item.id, item.recordVersion, "phase-decision-work");
+  const implementation = await kernel.finishWorkItemAttempt(env.root, created.workflow.id, item.id, attempt.executionRef,
+    { summary: "Implemented", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+  await createProjectStateService(env.store, { principalId: "phase-test", principalType: "agent", role: "Tester" }).createTesterResult(
+    env.projectId, created.workflow.id, item.id, implementation.id,
+    { sourceMode: "source-neutral", recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [],
+      determinationEvidence: ["Source-neutral phase proof"], unknowns: [], rationale: "No code proof is required." });
+  await kernel.completeWorkItem(env.root, created.workflow.id, item.id, (await env.state.getRecord(env.projectId, item.id)).recordVersion);
+  const ready = await kernel.getPhaseValidationProjection(env.root, created.workflow.id, phase.id);
+  assert.equal(ready.workItemsClosed, true); assert.equal(ready.completion.eligible, false);
+  const response = await kernel.recordPhaseCriterionDecision(env.root, { workflowId: created.workflow.id, phaseId: phase.id,
+    criterionId: criterion.id, expectedCriterionVersion: criterion.recordVersion, expectedPhaseVersion: phase.recordVersion,
+    outcome: "approved", rationale: "Reviewed the completed milestone and accepted it." });
+  assert.equal(response.decision.body.decisionType, "workflow-phase-criterion-review");
+  assert.equal(response.decision.body.outcome, "approved");
+  assert.equal(response.projection.completion.eligible, true);
+  const closed = await kernel.completePhase(env.root, created.workflow.id, phase.id, phase.recordVersion);
+  assert.equal(closed.body.phaseState, "closed");
+});
+
+test("exact Workflow records current Operator visual Criterion evidence for the latest tested attempt", async context => {
+  const env = await setup(context);
+  const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "Visual evidence", entryWorkspace: "feature-intake" });
+  const plan = await env.state.acceptWorkflowPlanningGraph(env.projectId, graph(created.workflow.id, "direct", "feature", [
+    { key: "work", kind: "feature", title: "Visual work", objective: "Capture visual evidence", dependencyKeys: [],
+      criteria: [{ statement: "The screen is readable", criticality: "required", verificationIntent: "Inspect the rendered screen", validationPolicy: "visual_human" }] },
+  ]));
+  const item = plan.directWorkItems[0], criterion = plan.criteria.find(entry => entry.ownerId === item.id).record;
+  const kernel = createWorkflowExecutionApplicationService();
+  const attempt = await kernel.beginWorkItemAttempt(env.root, created.workflow.id, item.id, item.recordVersion, "visual-work");
+  const implementation = await kernel.finishWorkItemAttempt(env.root, created.workflow.id, item.id, attempt.executionRef,
+    { summary: "Implemented screen", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+  const tester = await createProjectStateService(env.store, { principalId: "visual-tester", principalType: "agent", role: "Tester" }).createTesterResult(
+    env.projectId, created.workflow.id, item.id, implementation.id,
+    { sourceMode: "source-neutral", recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [],
+      determinationEvidence: ["Visual UI review remains required"], unknowns: [], rationale: "The human-owned display policy requires visual inspection." });
+  const result = await kernel.recordWorkItemVisualCriterion(env.root, { workflowId: created.workflow.id, workItemId: item.id, criterionId: criterion.id,
+    expectedCriterionVersion: criterion.recordVersion, implementationRecordId: implementation.id, sourceRevisionId: null, summary: "I inspected the rendered page; text and controls are legible." });
+  assert.equal(result.validation.body.validationMode, "visual_human");
+  assert.deepEqual(result.validation.body.performedBy, { principalId: "local-operator", principalType: "human", role: "Operator" });
+  assert.equal(result.projection.criteria.find(entry => entry.criterion.id === criterion.id).outcome, "pass");
+  await assert.rejects(kernel.recordWorkItemVisualCriterion(env.root, { workflowId: created.workflow.id, workItemId: item.id, criterionId: criterion.id,
+    expectedCriterionVersion: criterion.recordVersion, implementationRecordId: implementation.id, sourceRevisionId: "stale-source", summary: "Stale review" }), /cannot carry a repository revision/);
+  assert.ok(tester.id);
+});
+
+test("exact WorkItem Operator action records a real Decision on its accepted-solution Criterion owner", async context => {
+  const env = await setup(context);
+  const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "Operator decision", entryWorkspace: "feature-intake" });
+  const accepted = await env.state.acceptWorkflowPlanningGraph(env.projectId, { workflowId: created.workflow.id, topology: "direct",
+    solution: { title: "Accepted decision owner", objective: "Require human disposition", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [] },
+    solutionCriteria: [{ statement: "Operator accepts the solution", criticality: "required", verificationIntent: "Review accepted solution", validationPolicy: "operator_decision" }],
+    phases: [], workItems: [{ key: "work", kind: "feature", title: "Decision work", objective: "Implement reviewed solution", dependencyKeys: [], criteria: [] }] });
+  const item = accepted.directWorkItems[0], solution = accepted.solutions[0], criterion = accepted.criteria.find(entry => entry.ownerId === solution.id).record;
+  const kernel = createWorkflowExecutionApplicationService();
+  const attempt = await kernel.beginWorkItemAttempt(env.root, created.workflow.id, item.id, item.recordVersion, "solution-decision-work");
+  const implementation = await kernel.finishWorkItemAttempt(env.root, created.workflow.id, item.id, attempt.executionRef,
+    { summary: "Implemented accepted solution", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+  await createProjectStateService(env.store, { principalId: "decision-tester", principalType: "agent", role: "Tester" }).createTesterResult(
+    env.projectId, created.workflow.id, item.id, implementation.id,
+    { sourceMode: "source-neutral", recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [],
+      determinationEvidence: ["Exact implemented solution inspected"], unknowns: [], rationale: "No code changes require a repository test." });
+  const result = await kernel.recordWorkItemCriterionDecision(env.root, { workflowId: created.workflow.id, workItemId: item.id, criterionId: criterion.id,
+    expectedCriterionVersion: criterion.recordVersion, implementationRecordId: implementation.id, sourceRevisionId: null,
+    outcome: "approved", rationale: "I reviewed the accepted solution and approve this exact Criterion." });
+  assert.equal(result.decision.entityType, "Decision");
+  assert.equal(result.decision.body.decisionType, "workflow-criterion-review");
+  assert.equal(result.decision.body.outcome, "approved");
+  assert.equal(result.projection.criteria.find(entry => entry.criterion.id === criterion.id).decisionTargetId, solution.id);
+  assert.equal(result.projection.criteria.find(entry => entry.criterion.id === criterion.id).outcome, "pass");
+  assert.equal((await env.store.listEntities(env.projectId, "Validation")).length, 0, "a policy Decision is not represented as a Validation");
+  assert.ok((await env.store.listRelationships(env.projectId, "governs")).some(edge => edge.fromEntityId === result.decision.id && edge.toEntityId === solution.id));
+});
+
+test("shared Phase validation satisfies deterministic, semantic, visual, deferred, and Operator policies before close", async context => {
+  const env = await setup(context);
+  const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "All Phase policies", entryWorkspace: "feature-intake" });
+  const policies = ["deterministic", "semantic_ai", "visual_human", "deferred_visual_phase", "operator_decision"];
+  const plan = await env.state.acceptWorkflowPlanningGraph(env.projectId, graph(created.workflow.id, "phased", "feature", [
+    { key: "work", kind: "feature", title: "Phase member", objective: "Satisfy every Phase policy", phaseKey: "phase", dependencyKeys: [], criteria: [] },
+  ], [{ key: "phase", title: "Full qualification", objective: "Validate every policy", sequence: 1,
+    criteria: policies.map(policy => ({ statement: `Satisfy ${policy}`, criticality: "required", verificationIntent: `Review ${policy}`, validationPolicy: policy })) }]));
+  const phase = plan.phases[0].record, item = plan.workItemsByPhase[phase.id][0];
+  const attemptKernel = createWorkflowExecutionApplicationService();
+  const attempt = await attemptKernel.beginWorkItemAttempt(env.root, created.workflow.id, item.id, item.recordVersion, "all-phase-policies");
+  const implementation = await attemptKernel.finishWorkItemAttempt(env.root, created.workflow.id, item.id, attempt.executionRef,
+    { summary: "Implemented", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+  await createProjectStateService(env.store, { principalId: "all-policies-tester", principalType: "agent", role: "Tester" }).createTesterResult(
+    env.projectId, created.workflow.id, item.id, implementation.id,
+    { sourceMode: "source-neutral", recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [],
+      determinationEvidence: ["Exact source-neutral member evidence"], unknowns: [], rationale: "No source mutation was needed." });
+  await attemptKernel.completeWorkItem(env.root, created.workflow.id, item.id, (await env.state.getRecord(env.projectId, item.id)).recordVersion);
+  const byPolicy = new Map((await attemptKernel.getPhaseValidationProjection(env.root, created.workflow.id, phase.id)).criteria.map(entry => [entry.policy, entry]));
+  const deterministic = await attemptKernel.validateDeterministicPhaseCriterion(env.root, created.workflow.id, phase.id, byPolicy.get("deterministic").criterion.id);
+  assert.equal(deterministic.validation.body.outcome, "pass");
+  const adapterFactory = async () => ({ startThread() { return { async runStreamed() { return { events: (async function* () {
+    yield { type: "item.completed", item: { type: "agent_message", text: '{"outcome":"pass","summary":"The exact completed Phase satisfies the semantic Criterion."}' } };
+    yield { type: "turn.completed" };
+  })() }; }, async dispose() {} }; }, async dispose() {} });
+  const semanticKernel = createWorkflowExecutionApplicationService({ createValidatorAdapter: adapterFactory });
+  const semantic = await semanticKernel.validateSemanticPhaseCriterion(env.root, created.workflow.id, phase.id, byPolicy.get("semantic_ai").criterion.id,
+    { model: "test-model", reasoningEffort: "low" });
+  assert.equal(semantic.validation.body.validationMode, "semantic_ai");
+  const current = await attemptKernel.getPhaseValidationProjection(env.root, created.workflow.id, phase.id);
+  const exact = new Map(current.criteria.map(entry => [entry.policy, entry]));
+  for (const policy of ["visual_human", "deferred_visual_phase"]) {
+    const evidence = await attemptKernel.recordPhaseVisualCriterion(env.root, { workflowId: created.workflow.id, phaseId: phase.id,
+      criterionId: exact.get(policy).criterion.id, expectedCriterionVersion: exact.get(policy).criterion.recordVersion,
+      expectedPhaseVersion: current.phaseVersion, sourceRevisionId: null, summary: `Operator reviewed ${policy} at the exact Phase boundary.` });
+    assert.equal(evidence.validation.body.validationMode, "visual_human");
+  }
+  const decision = await attemptKernel.recordPhaseCriterionDecision(env.root, { workflowId: created.workflow.id, phaseId: phase.id,
+    criterionId: exact.get("operator_decision").criterion.id, expectedCriterionVersion: exact.get("operator_decision").criterion.recordVersion,
+    expectedPhaseVersion: current.phaseVersion, outcome: "approved", rationale: "All required Phase evidence was reviewed." });
+  assert.equal(decision.decision.body.outcome, "approved");
+  const qualified = await attemptKernel.getPhaseValidationProjection(env.root, created.workflow.id, phase.id);
+  assert.equal(qualified.completion.eligible, true);
+  assert.ok(qualified.criteria.every(entry => entry.outcome === "pass"));
+  assert.equal((await attemptKernel.completePhase(env.root, created.workflow.id, phase.id, qualified.phaseVersion)).body.phaseState, "closed");
 });
 
 test("canonical Repair executes through the shared exact contract and requeues its parent when closed", async context => {
@@ -394,6 +613,15 @@ test("source-neutral semantic Validator persists exact evidence without Git iden
   assert.equal(projection.criteria.find(entry => entry.criterion.id === solutionCriterion.id).outcome, "pass");
   assert.deepEqual(new Set(projection.criteria.map(entry => entry.ownerId)), new Set([workItem.id, solution.id]));
   assert.equal(projection.completion.eligible, true);
+  await kernel.completeWorkItem(env.root, created.workflow.id, workItem.id, (await env.state.getRecord(env.projectId, workItem.id)).recordVersion);
+  const workflowCompletion = await kernel.getWorkflowExecutionCompletionProjection(env.root, created.workflow.id);
+  assert.equal(workflowCompletion.eligible, true);
+  await kernel.completeWorkflowExecution(env.root, created.workflow.id, workflowCompletion.workflowVersion);
+  reopenProject(env);
+  assert.equal((await env.state.getRecord(env.projectId, created.workflow.id)).body.workflowState, "closed");
+  assert.equal((await env.store.listEntities(env.projectId, "SourceBinding")).length, 0);
+  assert.equal((await env.store.listEntities(env.projectId, "SourceCheckpoint")).length, 0);
+  assert.equal((await env.store.listEntities(env.projectId, "IntegrationRecord")).length, 0);
 });
 
 test("non-source workflows remain source-neutral and reject source mutation without Git fabrication", async context => {

@@ -97,4 +97,49 @@ export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcR
     if (args.length !== 3 || args.some(value => typeof value !== "string" || !value.trim() || value.length > 128)) throw Error("Exact deterministic Validator input is required.");
     return execution.validateDeterministicWorkItemCriterion(getCurrentProjectRoot(), args[0] as string, args[1] as string, args[2] as string);
   });
+  registry.handle("workflow:decomposeWorkItem", async (_event, ...args) => {
+    if (args.length !== 1 || !args[0] || typeof args[0] !== "object" || Array.isArray(args[0]) ||
+      Object.keys(args[0]).sort().join("|") !== "criterionDispositions|expectedWorkItemVersion|incomingDependentMappings|replacements|workItemId|workflowId")
+      throw Error("Exact typed Workflow WorkItem decomposition input is required.");
+    return execution.decomposeWorkflowWorkItem(getCurrentProjectRoot(), args[0] as import("../../shared/workflowApplicationContracts").WorkflowWorkItemDecompositionInput);
+  });
+  registry.handle("workflow:recordWorkItemVisualCriterion", async (_event, ...args) => {
+    if (args.length !== 1 || !args[0] || typeof args[0] !== "object" || Array.isArray(args[0]) ||
+      Object.keys(args[0]).sort().join("|") !== "criterionId|expectedCriterionVersion|implementationRecordId|sourceRevisionId|summary|workItemId|workflowId")
+      throw Error("Exact WorkItem visual Criterion evidence is required.");
+    return execution.recordWorkItemVisualCriterion(getCurrentProjectRoot(), args[0] as Parameters<typeof execution.recordWorkItemVisualCriterion>[1]);
+  });
+  registry.handle("workflow:recordWorkItemCriterionDecision", async (_event, ...args) => {
+    if (args.length !== 1 || !args[0] || typeof args[0] !== "object" || Array.isArray(args[0]) ||
+      Object.keys(args[0]).sort().join("|") !== "criterionId|expectedCriterionVersion|implementationRecordId|outcome|rationale|sourceRevisionId|workItemId|workflowId")
+      throw Error("Exact WorkItem Operator Criterion Decision is required.");
+    return execution.recordWorkItemCriterionDecision(getCurrentProjectRoot(), args[0] as Parameters<typeof execution.recordWorkItemCriterionDecision>[1]);
+  });
+  registry.handle("workflow:phaseValidation", async (_event, ...args) => {
+    if (args.length !== 2 || args.some(value => typeof value !== "string" || !value.trim() || value.length > 128)) throw Error("Exact Workflow and Phase IDs are required.");
+    return execution.getPhaseValidationProjection(getCurrentProjectRoot(), args[0] as string, args[1] as string);
+  });
+  registry.handle("workflow:validateDeterministicPhaseCriterion", async (_event, ...args) => {
+    if (args.length !== 3 || args.some(value => typeof value !== "string" || !value.trim() || value.length > 128)) throw Error("Exact deterministic Phase Criterion input is required.");
+    return execution.validateDeterministicPhaseCriterion(getCurrentProjectRoot(), args[0] as string, args[1] as string, args[2] as string);
+  });
+  registry.handle("workflow:validateSemanticPhaseCriterion", async (_event, ...args) => {
+    if (args.length !== 4 || args.slice(0, 3).some(value => typeof value !== "string" || !value.trim() || value.length > 128) ||
+      !args[3] || typeof args[3] !== "object" || Array.isArray(args[3]) || Object.keys(args[3]).sort().join("|") !== "model|reasoningEffort")
+      throw Error("Exact semantic Phase Criterion input is required.");
+    return execution.validateSemanticPhaseCriterion(getCurrentProjectRoot(), args[0] as string, args[1] as string, args[2] as string,
+      args[3] as import("../../shared/codexRuntimeContracts").CodexModelSelection);
+  });
+  registry.handle("workflow:recordPhaseVisualCriterion", async (_event, ...args) => {
+    if (args.length !== 1 || !args[0] || typeof args[0] !== "object" || Array.isArray(args[0]) ||
+      Object.keys(args[0]).sort().join("|") !== "criterionId|expectedCriterionVersion|expectedPhaseVersion|phaseId|sourceRevisionId|summary|workflowId")
+      throw Error("Exact Phase visual Criterion evidence is required.");
+    return execution.recordPhaseVisualCriterion(getCurrentProjectRoot(), args[0] as Parameters<typeof execution.recordPhaseVisualCriterion>[1]);
+  });
+  registry.handle("workflow:recordPhaseCriterionDecision", async (_event, ...args) => {
+    if (args.length !== 1 || !args[0] || typeof args[0] !== "object" || Array.isArray(args[0]) ||
+      Object.keys(args[0]).sort().join("|") !== "criterionId|expectedCriterionVersion|expectedPhaseVersion|outcome|phaseId|rationale|workflowId")
+      throw Error("Exact Phase Operator Criterion Decision is required.");
+    return execution.recordPhaseCriterionDecision(getCurrentProjectRoot(), args[0] as Parameters<typeof execution.recordPhaseCriterionDecision>[1]);
+  });
 }

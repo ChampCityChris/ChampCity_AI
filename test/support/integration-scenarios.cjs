@@ -264,6 +264,11 @@ ${scenario === "policy-timeout" ? "const child = require('node:child_process').s
       }
       assert.equal(attempt.repairId, "REPAIR01");
       assert.equal((await service.prepareRepair(candidate.candidateId)).repairId, attempt.repairId);
+      const restartedService = createIntegrationCandidateService(serviceHooks);
+      const recoveredCandidate = restartedService.read(candidate.candidateId);
+      assert.equal(recoveredCandidate.repairAttemptCount, 1);
+      assert.equal(recoveredCandidate.activeRepairId, attempt.repairId);
+      assert.equal(restartedService.readRepair(candidate.candidateId, attempt.repairId).status, "prepared");
       assert.match(attempt.prompt, /Do not run Git merge, add, commit, checkout-ours\/theirs, merge-continue, push/);
       assert.match(attempt.prompt, /Operator decision/); assert.match(attempt.prompt, /Keep both public contracts/);
       assert.match(attempt.prompt, /incoming accepted behavior/); assert.match(attempt.prompt, /target accepted behavior/);

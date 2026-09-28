@@ -79,6 +79,10 @@ function register(name, factory) {
     await assert.rejects(service.acceptWorkflowPlanningGraph(project.id, { workflowId: second.id, topology: "direct",
       solution: { title: "Invalid policy", objective: "Invalid", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [],
       workItems: [{ key: "a", kind: "feature", title: "A", objective: "A", dependencyKeys: [], criteria: [{ statement: "Must be explicit", criticality: "required", verificationIntent: "Verify" }] }] }), /validation policy/);
+    await assert.rejects(service.acceptWorkflowPlanningGraph(project.id, { workflowId: second.id, topology: "direct",
+      solution: { title: "Invalid deferred visual", objective: "Needs a Phase boundary", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [] },
+      solutionCriteria: [{ statement: "Review at close", criticality: "required", verificationIntent: "Visual review at Phase close", validationPolicy: "deferred_visual_phase" }],
+      workItems: [{ key: "a", kind: "feature", title: "A", objective: "A", dependencyKeys: [], criteria: [] }] }), /real Phase boundary/);
     assert.equal((await store.listEntities(project.id)).length, before);
     const secondPlan = await service.acceptWorkflowPlanningGraph(project.id, { workflowId: second.id, topology: "phased",
       solution: { title: "Second solution", objective: "Isolated", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [],
