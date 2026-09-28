@@ -54,6 +54,10 @@ test("explicit preferences are projected by both consumers and frozen during an 
   await assert.rejects(f.manager.setSelection(selection), /active/);
   lease.release();
   await f.manager.setSelection(selection);
+  const exactRuns = Array.from({ length: 4 }, () => f.manager.acquireConcurrentExact(selection));
+  assert.throws(() => f.manager.acquireConcurrentExact(selection), /shared Codex execution capacity is busy/i);
+  exactRuns.forEach(exactRun => exactRun.release());
+  assert.doesNotThrow(() => f.manager.acquireConcurrentExact(selection).release());
 });
 
 test("settings survive restart in supplied userData only", async () => {

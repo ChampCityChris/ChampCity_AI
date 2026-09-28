@@ -667,8 +667,8 @@ test("failed Phase visual Criterion creates a durable same-Phase Repair and requ
     "SQLite reopen retains the Phase Repair and fresh aggregate revalidation state");
 });
 
-test("failed semantic and rejected Operator Phase Criteria are accepted Phase Repair evidence", async context => {
-  for (const policy of ["semantic_ai", "operator_decision"]) {
+test("failed deterministic and semantic and rejected Operator Phase Criteria are accepted Phase Repair evidence", async context => {
+  for (const policy of ["deterministic", "semantic_ai", "operator_decision"]) {
     const env = await setup(context);
     const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: `Phase ${policy} Repair`, entryWorkspace: "feature-intake" });
     const plan = await env.state.acceptWorkflowPlanningGraph(env.projectId, graph(created.workflow.id, "phased", "feature", [
@@ -686,7 +686,13 @@ test("failed semantic and rejected Operator Phase Criteria are accepted Phase Re
     await kernel.completeWorkItem(env.root, created.workflow.id, item.id, (await env.state.getRecord(env.projectId, item.id)).recordVersion);
     const current = await kernel.getPhaseValidationProjection(env.root, created.workflow.id, phase.phaseId);
     let failureEvidenceId;
-    if (policy === "semantic_ai") {
+    if (policy === "deterministic") {
+      const failed = await env.state.recordValidation(env.projectId, criterion.id, { validationType: "phase-criterion", method: "exact deterministic Phase candidate proof",
+        validationMode: "deterministic", outcome: "fail", summary: "The exact deterministic Phase Criterion failed.", targetRecordVersion: criterion.recordVersion });
+      const testerResults = (await env.store.listEntities(env.projectId, "TesterResult")).filter(record => record.entityType === "TesterResult" && record.body.workflowId === created.workflow.id && record.body.workItemId === item.id);
+      await env.state.linkPhaseValidationEvidence(env.projectId, failed.id, created.workflow.id, phase.phaseId, testerResults.map(result => result.id));
+      failureEvidenceId = failed.id;
+    } else if (policy === "semantic_ai") {
       const adapterFactory = async () => ({ startThread() { return { async runStreamed() { return { events: (async function* () {
         yield { type: "item.completed", item: { type: "agent_message", text: '{"outcome":"fail","summary":"The completed Phase misses the semantic Criterion."}' } };
         yield { type: "turn.completed" };

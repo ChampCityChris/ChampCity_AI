@@ -85,8 +85,7 @@ async function qualifyExactWorkflowIntegration(context, workflowType) {
   if (workflowType === "feature-capability") {
     const visualCriterion = accepted.criteria.find(entry => entry.ownerId === workItem.id).record;
     const visual = await kernel.recordWorkItemVisualCriterion(root, { workflowId: created.workflow.id, workItemId: workItem.id, criterionId: visualCriterion.id,
-      expectedCriterionVersion: visualCriterion.recordVersion, implementationRecordId: implementation.id,
-      sourceRevisionId: checkpoint.revision.revisionId, summary: "Reviewed the exact source-backed candidate after Tester checkpoint; the interface is legible." });
+      expectedCriterionVersion: visualCriterion.recordVersion, outcome: "pass", summary: "Reviewed the exact source-backed candidate after Tester checkpoint; the interface is legible." });
     assert.equal(visual.validation.body.validationMode, "visual_human");
     assert.deepEqual(visual.validation.body.performedBy, { principalId: "local-operator", principalType: "human", role: "Operator" });
   }

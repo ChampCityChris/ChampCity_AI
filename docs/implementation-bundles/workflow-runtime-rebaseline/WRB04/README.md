@@ -1,7 +1,7 @@
 # WRB04 — Shared Execution Kernel and Workspaces
 
 **Authoritative reviewed baseline:** `3d4399e563665afbd38426416d12a84989a51470`  
-**Status:** REPAIR02 RELEASED / WRB04 OPEN  
+**Status:** REPAIR02 QUALIFICATION COMPLETE / AWAITING FINAL ARCHITECT ACCEPTANCE
 **WRB05:** unauthorized until final WRB04 Architect acceptance
 
 ## Sole active execution path
@@ -52,6 +52,8 @@ It is archived under:
 `docs/implementation-bundles/workflow-runtime-rebaseline/history/WRB04/Repair01_PRE_3D4399_NONAUTHORITATIVE/`
 
 Completed earlier WRB04 cards/reports remain under the WRB04 history tree.
+
+R02-05 qualification is recorded in `Repair02/Reports/WRB04-R02-05_FINAL_QUALIFICATION_REPORT.md`. Architect acceptance remains outstanding; see the report for directly tested scenarios and remaining qualification limits.
 
 ## Completion rule
 
