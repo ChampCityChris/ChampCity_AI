@@ -22,6 +22,8 @@ test("human execution actions expose outcomes and cannot submit derived identity
   assert.doesNotMatch(source, /implementationRecordId:\s*latest\.id/);
   assert.doesNotMatch(source, /sourceRevisionId:\s*(?:validation|review)\.sourceRevisionId/);
   assert.doesNotMatch(source, /testerResultId:\s*tester\./);
+  assert.match(source, /Create Phase Repair/);
+  assert.match(source, /createWorkflowPhaseRepair\(workflow\.workflowId, phase\.phaseId/);
 });
 const { IssueWorkflowPlanningWorkspace } = loader.loadRendererSourceModule("src/renderer/app/IssueWorkflowPlanningWorkspace.tsx");
 const { workflowPlanningSurface, shouldShowClosedWorkIntakeSummary } = loader.loadRendererSourceModule("src/renderer/app/workflowPlanningDispatch.ts");

@@ -237,7 +237,7 @@ test("exact Phase completion eligibility ignores a peer Workflow Phase and its C
 test("Workflow validation and completion IPC accepts only exact bounded argument shapes", async () => {
   const handlers = new Map();
   registerWorkflowApplicationIpc({ handle: (channel, listener) => handlers.set(channel, listener) }, () => "<PROJECT_REPO>");
-  const exactPairs = ["workflow:workItemValidation", "workflow:completeWorkItem", "workflow:completePhase", "workflow:createRepair", "workflow:validateDeterministicCriterion"];
+  const exactPairs = ["workflow:workItemValidation", "workflow:completeWorkItem", "workflow:completePhase", "workflow:createRepair", "workflow:createPhaseRepair", "workflow:validateDeterministicCriterion"];
   for (const channel of exactPairs) {
     await assert.rejects(handlers.get(channel)({}, "workflow-id"), /Exact/);
     await assert.rejects(handlers.get(channel)({}, "workflow-id", "work-item-id", "extra", "surplus"), /Exact/);
@@ -497,22 +497,27 @@ test("shared Phase validation satisfies deterministic, semantic, visual, deferre
   const policies = ["deterministic", "semantic_ai", "visual_human", "deferred_visual_phase", "operator_decision"];
   const plan = await env.state.acceptWorkflowPlanningGraph(env.projectId, graph(created.workflow.id, "phased", "feature", [
     { key: "work", kind: "feature", title: "Phase member", objective: "Satisfy every Phase policy", phaseKey: "phase", dependencyKeys: [], criteria: [] },
+    { key: "work-two", kind: "feature", title: "Second Phase member", objective: "Provide second aggregate proof", phaseKey: "phase", dependencyKeys: [], criteria: [] },
   ], [{ key: "phase", title: "Full qualification", objective: "Validate every policy", sequence: 1,
     criteria: policies.map(policy => ({ statement: `Satisfy ${policy}`, criticality: "required", verificationIntent: `Review ${policy}`, validationPolicy: policy })) }]));
-  const phase = plan.phases[0].record, item = plan.workItemsByPhase[phase.id][0];
+  const phase = plan.phases[0].record, items = plan.workItemsByPhase[phase.id];
   const attemptKernel = createWorkflowExecutionApplicationService();
-  const attempt = await attemptKernel.beginWorkItemAttempt(env.root, created.workflow.id, item.id, item.recordVersion, "all-phase-policies");
-  const implementation = await attemptKernel.finishWorkItemAttempt(env.root, created.workflow.id, item.id, attempt.executionRef,
-    { summary: "Implemented", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
-  await createProjectStateService(env.store, { principalId: "all-policies-tester", principalType: "agent", role: "Tester" }).createTesterResult(
-    env.projectId, created.workflow.id, item.id, implementation.id,
-    { sourceMode: "source-neutral", recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [],
-      determinationEvidence: ["Exact source-neutral member evidence"], unknowns: [], rationale: "No source mutation was needed." });
-  await attemptKernel.completeWorkItem(env.root, created.workflow.id, item.id, (await env.state.getRecord(env.projectId, item.id)).recordVersion);
+  for (const [index, item] of items.entries()) {
+    const attempt = await attemptKernel.beginWorkItemAttempt(env.root, created.workflow.id, item.id, item.recordVersion, `all-phase-policies-${index}`);
+    const implementation = await attemptKernel.finishWorkItemAttempt(env.root, created.workflow.id, item.id, attempt.executionRef,
+      { summary: `Implemented Phase member ${index + 1}`, deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+    await createProjectStateService(env.store, { principalId: `all-policies-tester-${index}`, principalType: "agent", role: "Tester" }).createTesterResult(
+      env.projectId, created.workflow.id, item.id, implementation.id,
+      { sourceMode: "source-neutral", recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [],
+        determinationEvidence: [`Exact source-neutral member ${index + 1} evidence`], unknowns: [], rationale: "No source mutation was needed." });
+    await attemptKernel.completeWorkItem(env.root, created.workflow.id, item.id, (await env.state.getRecord(env.projectId, item.id)).recordVersion);
+  }
   const byPolicy = new Map((await attemptKernel.getPhaseValidationProjection(env.root, created.workflow.id, phase.id)).criteria.map(entry => [entry.policy, entry]));
   const deterministic = await attemptKernel.validateDeterministicPhaseCriterion(env.root, created.workflow.id, phase.id, byPolicy.get("deterministic").criterion.id);
-  assert.equal(deterministic.validation.body.outcome, "pass");
-  const adapterFactory = async () => ({ startThread() { return { async runStreamed() { return { events: (async function* () {
+  assert.equal(deterministic.validation.body.outcome, "blocked");
+  assert.match(deterministic.validation.body.summary, /no application-owned source-neutral deterministic Phase proof provider/i);
+  let semanticPrompt = "";
+  const adapterFactory = async () => ({ startThread() { return { async runStreamed(prompt) { semanticPrompt = prompt; return { events: (async function* () {
     yield { type: "item.completed", item: { type: "agent_message", text: '{"outcome":"pass","summary":"The exact completed Phase satisfies the semantic Criterion."}' } };
     yield { type: "turn.completed" };
   })() }; }, async dispose() {} }; }, async dispose() {} });
@@ -520,6 +525,14 @@ test("shared Phase validation satisfies deterministic, semantic, visual, deferre
   const semantic = await semanticKernel.validateSemanticPhaseCriterion(env.root, created.workflow.id, phase.id, byPolicy.get("semantic_ai").criterion.id,
     { model: "test-model", reasoningEffort: "low" });
   assert.equal(semantic.validation.body.validationMode, "semantic_ai");
+  assert.match(semanticPrompt, /Phase member \d+: Phase member/);
+  assert.match(semanticPrompt, /Phase member \d+: Second Phase member/);
+  assert.match(semanticPrompt, /Implemented Phase member 1/);
+  assert.match(semanticPrompt, /Implemented Phase member 2/);
+  const phaseTesterIds = new Set((await env.store.listEntities(env.projectId, "TesterResult")).filter(record => record.entityType === "TesterResult" && record.body.workflowId === created.workflow.id && items.some(item => item.id === record.body.workItemId)).map(record => record.createdBy.principalId));
+  const phaseImplementerIds = new Set((await env.store.listEntities(env.projectId, "ImplementationRecord")).filter(record => record.entityType === "ImplementationRecord" && items.some(item => item.id === record.body.workItemId)).map(record => record.createdBy.principalId));
+  assert.equal(phaseTesterIds.has(semantic.validation.body.performedBy.principalId), false);
+  assert.equal(phaseImplementerIds.has(semantic.validation.body.performedBy.principalId), false);
   const current = await attemptKernel.getPhaseValidationProjection(env.root, created.workflow.id, phase.id);
   const exact = new Map(current.criteria.map(entry => [entry.policy, entry]));
   for (const policy of ["visual_human", "deferred_visual_phase"]) {
@@ -538,9 +551,160 @@ test("shared Phase validation satisfies deterministic, semantic, visual, deferre
     expectedPhaseVersion: current.phaseVersion, outcome: "approved", rationale: "All required Phase evidence was reviewed." });
   assert.equal(decision.decision.body.outcome, "approved");
   const qualified = await attemptKernel.getPhaseValidationProjection(env.root, created.workflow.id, phase.id);
-  assert.equal(qualified.completion.eligible, true);
-  assert.ok(qualified.criteria.every(entry => entry.outcome === "pass"));
-  assert.equal((await attemptKernel.completePhase(env.root, created.workflow.id, phase.id, qualified.phaseVersion)).body.phaseState, "closed");
+  assert.equal(qualified.completion.eligible, false, "unavailable deterministic Phase proof must keep the Phase blocked");
+  assert.equal(qualified.criteria.find(entry => entry.policy === "deterministic").outcome, "blocked");
+  assert.ok(qualified.criteria.filter(entry => entry.policy !== "deterministic").every(entry => entry.outcome === "pass"));
+});
+
+test("Phase-boundary visual evidence satisfies only its deferred WorkItem and final solution Criteria", async context => {
+  const env = await setup(context);
+  const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "Deferred visual scope", entryWorkspace: "feature-intake" });
+  const deferred = { statement: "Inspect deferred screen", criticality: "required", verificationIntent: "Review the exact rendered result", validationPolicy: "deferred_visual_phase" };
+  const input = graph(created.workflow.id, "phased", "feature", [
+    { key: "first", kind: "feature", title: "First phase item", objective: "First milestone", phaseKey: "phase-one", dependencyKeys: [], criteria: [deferred] },
+    { key: "second", kind: "feature", title: "Second phase item", objective: "Final milestone", phaseKey: "phase-two", dependencyKeys: [], criteria: [] },
+  ], [
+    { key: "phase-one", title: "First", objective: "Inspect first result", sequence: 1, criteria: [] },
+    { key: "phase-two", title: "Final", objective: "Inspect accepted solution", sequence: 2, criteria: [] },
+  ]);
+  input.solutionCriteria = [deferred];
+  const plan = await env.state.acceptWorkflowPlanningGraph(env.projectId, input);
+  const kernel = createWorkflowExecutionApplicationService();
+  const byPhase = new Map(plan.phases.map(phase => [phase.sequence, phase]));
+  const byKey = new Map([...plan.workItemsByPhase[byPhase.get(1).phaseId], ...plan.workItemsByPhase[byPhase.get(2).phaseId]].map(item => [item.body.title, item]));
+  const implement = async (item, identity) => {
+    const attempt = await kernel.beginWorkItemAttempt(env.root, created.workflow.id, item.id, item.recordVersion, identity);
+    const implementation = await kernel.finishWorkItemAttempt(env.root, created.workflow.id, item.id, attempt.executionRef,
+      { summary: `Implemented ${identity}`, deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+    await createProjectStateService(env.store, { principalId: `deferred-tester-${identity}`, principalType: "agent", role: "Tester" }).createTesterResult(
+      env.projectId, created.workflow.id, item.id, implementation.id,
+      { sourceMode: "source-neutral", recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [],
+        determinationEvidence: [`Current ${identity} tested`], unknowns: [], rationale: "No source mutation was needed." });
+    return kernel.completeWorkItem(env.root, created.workflow.id, item.id, (await env.state.getRecord(env.projectId, item.id)).recordVersion);
+  };
+  const firstItem = byKey.get("First phase item");
+  await implement(firstItem, "phase-one-attempt");
+  const firstPhase = await kernel.getPhaseValidationProjection(env.root, created.workflow.id, byPhase.get(1).phaseId);
+  const workCriterion = plan.criteria.find(entry => entry.ownerId === firstItem.id && entry.record.body.validationPolicy === "deferred_visual_phase").record;
+  assert.ok(firstPhase.criteria.some(entry => entry.criterion.id === workCriterion.id));
+  await kernel.recordPhaseVisualCriterion(env.root, { workflowId: created.workflow.id, phaseId: byPhase.get(1).phaseId, criterionId: workCriterion.id,
+    expectedCriterionVersion: workCriterion.recordVersion, expectedPhaseVersion: firstPhase.phaseVersion, outcome: "pass", summary: "The first Phase result is visually confirmed." });
+  assert.equal((await env.state.getCriterionValidationStatus(env.projectId, workCriterion.id)).satisfied, true);
+  const firstQualified = await kernel.getPhaseValidationProjection(env.root, created.workflow.id, byPhase.get(1).phaseId);
+  await kernel.completePhase(env.root, created.workflow.id, byPhase.get(1).phaseId, firstQualified.phaseVersion);
+
+  const secondItem = byKey.get("Second phase item");
+  await implement(secondItem, "phase-two-attempt");
+  const secondPhase = await kernel.getPhaseValidationProjection(env.root, created.workflow.id, byPhase.get(2).phaseId);
+  assert.equal(secondPhase.criteria.some(entry => entry.criterion.id === workCriterion.id), false, "a peer Phase cannot consume the first WorkItem Criterion");
+  const solutionCriterion = plan.criteria.find(entry => entry.ownerId === plan.solutions[0].id && entry.record.body.validationPolicy === "deferred_visual_phase").record;
+  assert.ok(secondPhase.criteria.some(entry => entry.criterion.id === solutionCriterion.id), "accepted-solution deferred evidence remains at the final Phase boundary");
+  await kernel.recordPhaseVisualCriterion(env.root, { workflowId: created.workflow.id, phaseId: byPhase.get(2).phaseId, criterionId: solutionCriterion.id,
+    expectedCriterionVersion: solutionCriterion.recordVersion, expectedPhaseVersion: secondPhase.phaseVersion, outcome: "pass", summary: "The accepted solution is visually confirmed at the final Phase." });
+  assert.equal((await env.state.getCriterionValidationStatus(env.projectId, solutionCriterion.id)).satisfied, true);
+});
+
+test("failed Phase visual Criterion creates a durable same-Phase Repair and requires fresh revalidation", async context => {
+  const env = await setup(context);
+  const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "Phase Repair", entryWorkspace: "feature-intake" });
+  const plan = await env.state.acceptWorkflowPlanningGraph(env.projectId, graph(created.workflow.id, "phased", "feature", [
+    { key: "member", kind: "feature", title: "Phase member", objective: "Implement the Phase", phaseKey: "phase", dependencyKeys: [], criteria: [] },
+  ], [{ key: "phase", title: "Qualification", objective: "Review the aggregate", sequence: 1,
+    criteria: [{ statement: "The aggregate view is correct", criticality: "required", verificationIntent: "Review the complete Phase", validationPolicy: "visual_human" }] }]));
+  const phase = plan.phases[0], item = plan.workItemsByPhase[phase.phaseId][0], criterion = plan.criteria.find(entry => entry.ownerId === phase.phaseId).record;
+  const kernel = createWorkflowExecutionApplicationService();
+  const firstAttempt = await kernel.beginWorkItemAttempt(env.root, created.workflow.id, item.id, item.recordVersion, "phase-member-first");
+  const firstImplementation = await kernel.finishWorkItemAttempt(env.root, created.workflow.id, item.id, firstAttempt.executionRef,
+    { summary: "First Phase implementation", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+  const firstTester = await createProjectStateService(env.store, { principalId: "phase-member-tester", principalType: "agent", role: "Tester" }).createTesterResult(
+    env.projectId, created.workflow.id, item.id, firstImplementation.id,
+    { sourceMode: "source-neutral", recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [], determinationEvidence: ["Member tested"], unknowns: [], rationale: "Current evidence is source-neutral." });
+  await kernel.completeWorkItem(env.root, created.workflow.id, item.id, (await env.state.getRecord(env.projectId, item.id)).recordVersion);
+  const beforeFailure = await kernel.getPhaseValidationProjection(env.root, created.workflow.id, phase.phaseId);
+  const failed = await kernel.recordPhaseVisualCriterion(env.root, { workflowId: created.workflow.id, phaseId: phase.phaseId, criterionId: criterion.id,
+    expectedCriterionVersion: criterion.recordVersion, expectedPhaseVersion: beforeFailure.phaseVersion, outcome: "fail", summary: "The Phase summary omits a required completed result." });
+  assert.equal(failed.projection.criteria.find(entry => entry.criterion.id === criterion.id).outcome, "fail");
+  assert.deepEqual((await env.store.listRelationships(env.projectId, "derived_from")).filter(edge => edge.fromEntityId === failed.validation.id && !edge.endedAt).map(edge => edge.toEntityId), [firstTester.id]);
+  const phaseRepair = await kernel.createPhaseRepair(env.root, created.workflow.id, phase.phaseId, failed.validation.id);
+  assert.equal(phaseRepair.repair.body.workState, "planned");
+  assert.ok((await env.store.listRelationships(env.projectId, "derived_from")).some(edge => edge.fromEntityId === phaseRepair.repair.id && edge.toEntityId === failed.validation.id));
+  await assert.rejects(kernel.createPhaseRepair(env.root, created.workflow.id, phase.phaseId, failed.validation.id), /already exists/);
+  const phasePlan = await env.state.getWorkflowExecutionPlan(env.projectId, created.workflow.id);
+  assert.ok(phasePlan.workItemsByPhase[phase.phaseId].some(candidate => candidate.id === phaseRepair.repair.id));
+  assert.equal((await env.store.listRelationships(env.projectId, "repairs")).some(edge => edge.fromEntityId === phaseRepair.repair.id && edge.toEntityId === phase.phaseId), false,
+    "Phase Repair membership does not weaken WorkItem-only repairs endpoints");
+  const blocked = await kernel.getPhaseValidationProjection(env.root, created.workflow.id, phase.phaseId);
+  assert.equal(blocked.workItemsClosed, false);
+  assert.equal(blocked.criteria.find(entry => entry.criterion.id === criterion.id).outcome, "pending", "the old aggregate Validation is stale after a Phase member is added");
+
+  reopenProject(env);
+  assert.equal((await env.state.getRecord(env.projectId, failed.validation.id)).body.outcome, "fail");
+  assert.equal((await env.state.getRecord(env.projectId, phaseRepair.repair.id)).body.workState, "planned");
+  const repairRecord = await env.state.getRecord(env.projectId, phaseRepair.repair.id);
+  await kernel.acceptWorkItemExecutionPlan(env.root, { workflowId: created.workflow.id, workItemId: repairRecord.id, expectedVersion: repairRecord.recordVersion,
+    plan: { implementationBoundaries: ["Correct the exact Phase aggregate failure"], affectedPaths: [], proofIntent: ["Verify the failed Phase criterion is resolved"] } });
+  const contract = await kernel.createWorkItemExecutionContract(env.root, created.workflow.id, phaseRepair.repair.id,
+    { sourceMutation: "not-required", affectedPaths: [], proofIntent: ["Verify the failed Phase criterion is resolved"] });
+  const repairAttempt = await kernel.beginWorkItemAttempt(env.root, created.workflow.id, phaseRepair.repair.id, contract.workItemVersion, "phase-repair-attempt");
+  const repairImplementation = await kernel.finishWorkItemAttempt(env.root, created.workflow.id, phaseRepair.repair.id, repairAttempt.executionRef,
+    { summary: "Corrected the missing aggregate result", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+  await createProjectStateService(env.store, { principalId: "phase-repair-tester", principalType: "agent", role: "Tester" }).createTesterResult(
+    env.projectId, created.workflow.id, phaseRepair.repair.id, repairImplementation.id,
+    { sourceMode: "source-neutral", recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [], determinationEvidence: ["Repair result checked"], unknowns: [], rationale: "The Phase Repair is complete." });
+  const repairCriterion = contract.criteria[0];
+  await createProjectStateService(env.store, { principalId: "phase-repair-validator", principalType: "agent", role: "Validator" }).recordValidation(
+    env.projectId, repairCriterion.id, { validationType: "work-item-criterion", method: "focused Phase Repair proof", validationMode: "deterministic", outcome: "pass",
+      summary: "The Phase Repair Criterion is satisfied.", targetRecordVersion: repairCriterion.recordVersion, implementationRecordId: repairImplementation.id });
+  await kernel.completeWorkItem(env.root, created.workflow.id, phaseRepair.repair.id, (await env.state.getRecord(env.projectId, phaseRepair.repair.id)).recordVersion);
+  const needsRevalidation = await kernel.getPhaseValidationProjection(env.root, created.workflow.id, phase.phaseId);
+  assert.equal(needsRevalidation.completion.eligible, false, "closing the Repair does not revive the prior Phase Validation");
+  const refreshed = await kernel.recordPhaseVisualCriterion(env.root, { workflowId: created.workflow.id, phaseId: phase.phaseId, criterionId: criterion.id,
+    expectedCriterionVersion: criterion.recordVersion, expectedPhaseVersion: needsRevalidation.phaseVersion, outcome: "pass", summary: "The complete Phase, including its Repair, now satisfies the aggregate Criterion." });
+  assert.equal(refreshed.projection.completion.eligible, true);
+  assert.equal((await kernel.completePhase(env.root, created.workflow.id, phase.phaseId, refreshed.projection.phaseVersion)).body.phaseState, "closed");
+  reopenProject(env);
+  assert.equal((await kernel.getPhaseValidationProjection(env.root, created.workflow.id, phase.phaseId)).completion.eligible, true,
+    "SQLite reopen retains the Phase Repair and fresh aggregate revalidation state");
+});
+
+test("failed semantic and rejected Operator Phase Criteria are accepted Phase Repair evidence", async context => {
+  for (const policy of ["semantic_ai", "operator_decision"]) {
+    const env = await setup(context);
+    const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: `Phase ${policy} Repair`, entryWorkspace: "feature-intake" });
+    const plan = await env.state.acceptWorkflowPlanningGraph(env.projectId, graph(created.workflow.id, "phased", "feature", [
+      { key: "member", kind: "feature", title: "Member", objective: "Implement the Phase", phaseKey: "phase", dependencyKeys: [], criteria: [] },
+    ], [{ key: "phase", title: "Review", objective: "Review exact aggregate", sequence: 1,
+      criteria: [{ statement: `Review ${policy}`, criticality: "required", verificationIntent: "Review the complete Phase", validationPolicy: policy }] }]));
+    const phase = plan.phases[0], item = plan.workItemsByPhase[phase.phaseId][0], criterion = plan.criteria.find(entry => entry.ownerId === phase.phaseId).record;
+    const kernel = createWorkflowExecutionApplicationService();
+    const attempt = await kernel.beginWorkItemAttempt(env.root, created.workflow.id, item.id, item.recordVersion, `phase-${policy}-attempt`);
+    const implementation = await kernel.finishWorkItemAttempt(env.root, created.workflow.id, item.id, attempt.executionRef,
+      { summary: `Implemented ${policy} Phase member`, deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+    await createProjectStateService(env.store, { principalId: `phase-${policy}-tester`, principalType: "agent", role: "Tester" }).createTesterResult(
+      env.projectId, created.workflow.id, item.id, implementation.id,
+      { sourceMode: "source-neutral", recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [], determinationEvidence: [`${policy} member proof`], unknowns: [], rationale: "Current member proof is complete." });
+    await kernel.completeWorkItem(env.root, created.workflow.id, item.id, (await env.state.getRecord(env.projectId, item.id)).recordVersion);
+    const current = await kernel.getPhaseValidationProjection(env.root, created.workflow.id, phase.phaseId);
+    let failureEvidenceId;
+    if (policy === "semantic_ai") {
+      const adapterFactory = async () => ({ startThread() { return { async runStreamed() { return { events: (async function* () {
+        yield { type: "item.completed", item: { type: "agent_message", text: '{"outcome":"fail","summary":"The completed Phase misses the semantic Criterion."}' } };
+        yield { type: "turn.completed" };
+      })() }; }, async dispose() {} }; }, async dispose() {} });
+      const semantic = await createWorkflowExecutionApplicationService({ createValidatorAdapter: adapterFactory }).validateSemanticPhaseCriterion(
+        env.root, created.workflow.id, phase.phaseId, criterion.id, { model: "test-model", reasoningEffort: "low" });
+      assert.equal(semantic.validation.body.outcome, "fail");
+      failureEvidenceId = semantic.validation.id;
+    } else {
+      const decision = await kernel.recordPhaseCriterionDecision(env.root, { workflowId: created.workflow.id, phaseId: phase.phaseId, criterionId: criterion.id,
+        expectedCriterionVersion: criterion.recordVersion, expectedPhaseVersion: current.phaseVersion, outcome: "rejected", rationale: "The complete Phase does not meet its required Criterion." });
+      assert.equal(decision.projection.criteria.find(entry => entry.criterion.id === criterion.id).outcome, "fail");
+      failureEvidenceId = decision.decision.id;
+    }
+    const repair = await kernel.createPhaseRepair(env.root, created.workflow.id, phase.phaseId, failureEvidenceId);
+    assert.equal(repair.repair.body.workState, "planned");
+    assert.ok((await env.state.getWorkflowExecutionPlan(env.projectId, created.workflow.id)).workItemsByPhase[phase.phaseId].some(member => member.id === repair.repair.id));
+  }
 });
 
 test("canonical Repair executes through the shared exact contract and requeues its parent when closed", async context => {

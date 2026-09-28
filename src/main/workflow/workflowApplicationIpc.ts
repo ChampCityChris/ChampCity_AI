@@ -87,6 +87,10 @@ export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcR
     if (args.length !== 3 || args.some(value => typeof value !== "string" || !value.trim() || value.length > 128)) throw Error("Exact Workflow, WorkItem, and failure evidence IDs are required.");
     return execution.createWorkflowRepair(getCurrentProjectRoot(), args[0] as string, args[1] as string, args[2] as string);
   });
+  registry.handle("workflow:createPhaseRepair", async (_event, ...args) => {
+    if (args.length !== 3 || args.some(value => typeof value !== "string" || !value.trim() || value.length > 128)) throw Error("Exact Workflow, Phase, and failure evidence IDs are required.");
+    return execution.createPhaseRepair(getCurrentProjectRoot(), args[0] as string, args[1] as string, args[2] as string);
+  });
   registry.handle("workflow:validateSemanticCriterion", async (_event, ...args) => {
     if (args.length !== 4 || args.slice(0, 3).some(value => typeof value !== "string" || !value.trim() || value.length > 128) ||
       !args[3] || typeof args[3] !== "object" || Array.isArray(args[3]) || Object.keys(args[3]).sort().join("|") !== "model|reasoningEffort")

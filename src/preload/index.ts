@@ -54,6 +54,7 @@ const api: ChampCityApi = {
   completeWorkflowIntegrationRepair: (workflowId, candidateId, repairId) => ipcRenderer.invoke("workflow:integrationCompleteRepair", workflowId, candidateId, repairId) as ReturnType<ChampCityApi["completeWorkflowIntegrationRepair"]>,
   requestWorkflowIntegrationDecision: (workflowId, candidateId, repairId, rationale) => ipcRenderer.invoke("workflow:integrationOperatorDecision", workflowId, candidateId, repairId, rationale) as ReturnType<ChampCityApi["requestWorkflowIntegrationDecision"]>,
   createWorkflowRepair: (workflowId, workItemId, failureEvidenceId) => ipcRenderer.invoke("workflow:createRepair", workflowId, workItemId, failureEvidenceId) as ReturnType<ChampCityApi["createWorkflowRepair"]>,
+  createWorkflowPhaseRepair: (workflowId, phaseId, failureEvidenceId) => ipcRenderer.invoke("workflow:createPhaseRepair", workflowId, phaseId, failureEvidenceId) as ReturnType<ChampCityApi["createWorkflowPhaseRepair"]>,
   validateSemanticWorkflowCriterion: (workflowId, workItemId, criterionId, selection) => ipcRenderer.invoke("workflow:validateSemanticCriterion", workflowId, workItemId, criterionId, selection) as ReturnType<ChampCityApi["validateSemanticWorkflowCriterion"]>,
   validateDeterministicWorkflowCriterion: (workflowId, workItemId, criterionId) => ipcRenderer.invoke("workflow:validateDeterministicCriterion", workflowId, workItemId, criterionId) as ReturnType<ChampCityApi["validateDeterministicWorkflowCriterion"]>,
   getSourceGraph: (options) => ipcRenderer.invoke("sourceGraph:get", options),

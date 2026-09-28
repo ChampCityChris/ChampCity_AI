@@ -73,6 +73,36 @@ export function createWorkflowExecutionApplicationService(dependencies: {
     return results;
   }
 
+  async function currentPhaseSemanticMembers(store: ProjectStateStore, projectId: ProjectId, plan: WorkflowExecutionPlanView,
+    workItemIds: EntityId[], sourceRevisionId: string | null) {
+    const testerIds = await currentPhaseTesterIds(store, projectId, plan, workItemIds, sourceRevisionId);
+    if (testerIds.length !== workItemIds.length) throw Error("Phase validation requires current completed Tester evidence for every member WorkItem.");
+    const members = [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()];
+    const validations = await store.listEntities(projectId, "Validation");
+    const evaluates = await store.listRelationships(projectId, "evaluates");
+    const projected = [];
+    for (const testerId of testerIds) {
+      const tester = await store.getEntity(projectId, testerId);
+      const workItem = tester?.entityType === "TesterResult" ? members.find(item => item.id === tester.body.workItemId) : null;
+      if (tester?.entityType !== "TesterResult" || !workItem) throw Error("Phase member evidence no longer matches the exact Workflow.");
+      const implementation = await store.getEntity(projectId, tester.body.implementationRecordId);
+      if (implementation?.entityType !== "ImplementationRecord") throw Error("Phase member implementation is unavailable.");
+      const criterionOutcomes: string[] = [];
+      const criterionIds = plan.criteria.filter(entry => entry.ownerId === workItem.id || plan.solutions.some(solution => solution.id === entry.ownerId)).map(entry => entry.record.id);
+      for (const criterionId of criterionIds) {
+        const criterion = await store.getEntity(projectId, criterionId);
+        if (criterion?.entityType !== "Criterion") continue;
+        const results = validations.filter((record): record is ProjectStateRecord<"Validation"> => record.entityType === "Validation" && record.body.targetEntityId === criterionId && record.body.targetRecordVersion === criterion.recordVersion &&
+          record.body.implementationRecordId === implementation.id && (sourceRevisionId === null ? record.body.sourceBaselineRef === undefined : record.body.sourceBaselineRef === sourceRevisionId) &&
+          evaluates.some(edge => edge.fromEntityId === record.id && edge.toEntityId === criterionId && !edge.endedAt));
+        const latest = results.sort((a,b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)).at(-1);
+        if (latest) criterionOutcomes.push(`${criterion.body.statement}: ${latest.body.outcome}`);
+      }
+      projected.push({ workItem, implementation: implementation as ProjectStateRecord<"ImplementationRecord">, testerResult: tester as ProjectStateRecord<"TesterResult">, criterionOutcomes });
+    }
+    return projected;
+  }
+
   async function getExecutionProjection(projectRoot: string, workflowId: EntityId): Promise<WorkflowExecutionProjection> {
     if (typeof workflowId !== "string" || !workflowId.trim() || workflowId.length > 128) throw Error("Exact Workflow ID is required.");
     return withCurrentProject(projectRoot, async (store, projectId) => {
@@ -366,10 +396,12 @@ export function createWorkflowExecutionApplicationService(dependencies: {
             reason: satisfied ? null : "An explicit Operator Decision is required." });
         } else {
           const proof = await state.getCriterionValidationStatus(projectId, entry.record.id, view.source.currentRevisionId ?? undefined);
+          const validationRecord = proof.validationId ? await store.getEntity(projectId, proof.validationId) : null;
+          const unavailable = validationRecord?.entityType === "Validation" && validationRecord.body.outcome === "blocked";
           projected.push({ ownerId: entry.ownerId, criterion: entry.record, policy: entry.record.body.validationPolicy,
-            outcome: proof.validationId ? proof.satisfied ? "pass" as const : "fail" as const : entry.record.body.validationPolicy === "deferred_visual_phase" ? "deferred" as const : "pending" as const,
+            outcome: unavailable ? "blocked" as const : proof.validationId ? proof.satisfied ? "pass" as const : validationRecord?.entityType === "Validation" && validationRecord.body.outcome === "inconclusive" ? "inconclusive" as const : "fail" as const : entry.record.body.validationPolicy === "deferred_visual_phase" ? "deferred" as const : "pending" as const,
             validationId: proof.validationId, decisionTargetId: null, decisionState: null, decisionId: null,
-            reason: proof.satisfied ? null : entry.record.body.validationPolicy === "deferred_visual_phase" ? "Deferred visual proof is required at this Phase boundary." : "Current Phase Criterion evidence is required." });
+            reason: proof.satisfied ? null : unavailable ? validationRecord.body.summary : entry.record.body.validationPolicy === "deferred_visual_phase" ? "Deferred visual proof is required at this Phase boundary." : "Current Phase Criterion evidence is required." });
         }
       }
       const completion = await state.getPhaseCompletionEligibility(projectId, phaseId, view.source.currentRevisionId ?? undefined);
@@ -401,6 +433,8 @@ export function createWorkflowExecutionApplicationService(dependencies: {
         validationType: "phase-criterion", method: criterion.record.body.validationPolicy === "deferred_visual_phase" ? "Operator deferred Phase visual review" : "Operator Phase visual review",
         validationMode: "visual_human", outcome: input.outcome, summary: input.summary.trim(), targetRecordVersion: criterion.record.recordVersion,
         ...(view.source.currentRevisionId ? { sourceBaselineRef: view.source.currentRevisionId } : {}) });
+      const testerIds = await currentPhaseTesterIds(store, projectId, plan, phase.workItemIds, view.source.currentRevisionId);
+      await createProjectStateService(store, operator).linkPhaseValidationEvidence(projectId, validation.id, input.workflowId, input.phaseId, testerIds, view.source.currentRevisionId ?? undefined);
       return { validation, projection: await getPhaseValidationProjection(projectRoot, input.workflowId, input.phaseId) };
     });
   }
@@ -437,11 +471,8 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       if (!phase.workItemIds.every(id => view.items.find(item => item.record.id === id)?.record.body.workState === "closed")) throw Error("All exact Phase WorkItems must be closed before Phase validation.");
       let outcome: "pass" | "fail" | "blocked" = "pass", summary: string;
       if (view.source.state === "non-source") {
-        const checks = [];
-        for (const itemId of phase.workItemIds) checks.push(await createProjectStateService(store, operator).getWorkItemCompletionEligibility(projectId, itemId));
-        const failed = checks.flatMap(result => result.blockers);
-        outcome = failed.length ? "blocked" : "pass";
-        summary = `Source-neutral Phase completion profile checked ${checks.length} WorkItems; ${failed.length} blockers.`;
+        outcome = "blocked";
+        summary = "No application-owned source-neutral deterministic Phase proof provider is registered for this Criterion.";
       } else {
         if (view.source.state !== "ready" || !view.source.currentRevisionId) throw Error("Deterministic Phase validation requires the prepared exact Workflow source.");
         const checkout = fs.realpathSync(resolveManagedWorkflowCheckoutPath(fs.realpathSync(projectRoot), workflowId).checkoutRoot);
@@ -459,6 +490,9 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       const validation = await createProjectStateService(store, { principalId: `validator-phase-catalog-${randomUUID()}`, principalType: "system", role: "Validator" })
         .recordValidation(projectId, criterionId, { validationType: "phase-criterion", method: "ValidationCatalog phase profile", validationMode: "deterministic",
           outcome, summary, targetRecordVersion: criterion.record.recordVersion, ...(view.source.currentRevisionId ? { sourceBaselineRef: view.source.currentRevisionId } : {}) });
+      const testerIds = await currentPhaseTesterIds(store, projectId, plan, phase.workItemIds, view.source.currentRevisionId);
+      await createProjectStateService(store, { principalId: `validator-phase-provenance-${randomUUID()}`, principalType: "system", role: "Validator" })
+        .linkPhaseValidationEvidence(projectId, validation.id, workflowId, phaseId, testerIds, view.source.currentRevisionId ?? undefined);
       return { validation, projection: await getPhaseValidationProjection(projectRoot, workflowId, phaseId) };
     });
   }
@@ -471,18 +505,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       if (!phase || !criterion || criterion.record.lifecycleState !== "active" || criterion.record.body.criticality !== "required" || criterion.record.body.validationPolicy !== "semantic_ai")
         throw Error("Semantic Phase Validator requires the exact active required semantic Criterion.");
       if (!phase.workItemIds.every(id => view.items.find(item => item.record.id === id)?.record.body.workState === "closed")) throw Error("All exact Phase WorkItems must be closed before semantic Phase validation.");
-      let evidence: { workItem: ProjectStateRecord<"WorkItem">; implementation: ProjectStateRecord<"ImplementationRecord">; tester: ProjectStateRecord<"TesterResult"> } | null = null;
-      for (const itemId of phase.workItemIds) {
-        const implementation = (await createProjectStateService(store, operator).getImplementationAttempts(projectId, itemId)).at(-1);
-        if (!implementation || implementation.body.outcome !== "implemented") continue;
-        const tester = (await store.listEntities(projectId, "TesterResult")).find((record): record is ProjectStateRecord<"TesterResult"> => record.entityType === "TesterResult" && record.body.workflowId === workflowId &&
-          record.body.workItemId === itemId && record.body.implementationRecordId === implementation.id && ["not-required", "committed"].includes(record.body.checkpointState));
-        const workItem = [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].find(record => record.id === itemId);
-        if (tester && workItem && (view.source.state === "non-source" ? tester.body.sourceMode === "source-neutral" : tester.body.candidateRevisionId === view.source.currentRevisionId)) {
-          evidence = { workItem, implementation, tester }; break;
-        }
-      }
-      if (!evidence) throw Error("Semantic Phase validation requires a successful exact member implementation and current TesterResult.");
+      const phaseMembers = await currentPhaseSemanticMembers(store, projectId, plan, phase.workItemIds, view.source.currentRevisionId);
       let workingDirectory: string;
       if (view.source.state === "non-source") {
         const root = fs.realpathSync(projectRoot), readonly = path.join(root, ".champcity", "runtime", "validator-readonly");
@@ -493,15 +516,17 @@ export function createWorkflowExecutionApplicationService(dependencies: {
         workingDirectory = fs.realpathSync(resolveManagedWorkflowCheckoutPath(fs.realpathSync(projectRoot), workflowId).checkoutRoot);
       }
       const result = await reviewWorkItemCriterion({ workingDirectory, workflowId, workItemId: phaseId, workItemTitle: `Phase: ${phase.record.body.title}`,
-        criterion: criterion.record, implementation: evidence.implementation, testerResult: evidence.tester,
-        deterministicEvidence: phase.workItemIds.map(id => view.items.find(item => item.record.id === id)).filter(Boolean).map(item => `${item!.record.body.title}: ${item!.record.body.workState}`),
+        criterion: criterion.record, phaseObjective: phase.record.body.objective, phaseMembers,
+        deterministicEvidence: phaseMembers.flatMap(member => member.criterionOutcomes),
         sourceMode: view.source.state === "non-source" ? "source-neutral" : "source-backed", sourceRevisionId: view.source.currentRevisionId }, selection, createValidatorAdapter);
-      if (result.principalId === evidence.implementation.createdBy.principalId || result.principalId === evidence.tester.createdBy.principalId)
-        throw Error("Phase Validator principal must be independent from Implementer and Tester.");
+      if (phaseMembers.some(member => result.principalId === member.implementation.createdBy.principalId || result.principalId === member.testerResult.createdBy.principalId))
+        throw Error("Phase Validator principal must be independent from every current member Implementer and Tester.");
       const validation = await createProjectStateService(store, { principalId: result.principalId, principalType: "agent", role: "Validator" }).recordValidation(projectId, criterionId, {
         validationType: "phase-criterion", method: "independent semantic Phase review", validationMode: "semantic_ai", outcome: result.outcome,
-        summary: result.summary, targetRecordVersion: criterion.record.recordVersion, implementationRecordId: evidence.implementation.id,
+        summary: result.summary, targetRecordVersion: criterion.record.recordVersion,
         ...(view.source.currentRevisionId ? { sourceBaselineRef: view.source.currentRevisionId } : {}) });
+      await createProjectStateService(store, { principalId: result.principalId, principalType: "agent", role: "Validator" }).linkPhaseValidationEvidence(projectId, validation.id, workflowId, phaseId,
+        phaseMembers.map(member => member.testerResult.id), view.source.currentRevisionId ?? undefined);
       return { validation, projection: await getPhaseValidationProjection(projectRoot, workflowId, phaseId) };
     });
   }
@@ -536,6 +561,15 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       if (![...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].some(record => record.id === workItemId))
         throw Error("Repair parent is not part of the selected current Workflow.");
       return createProjectStateService(store, workflowApplication).createWorkflowRepair(projectId, { workflowId, workItemId, failureEvidenceId });
+    });
+  }
+
+  async function createPhaseRepair(projectRoot: string, workflowId: EntityId, phaseId: EntityId, failureEvidenceId: EntityId) {
+    for (const value of [workflowId, phaseId, failureEvidenceId]) if (typeof value !== "string" || !value.trim() || value.length > 128) throw Error("Exact Workflow, Phase, and failure evidence IDs are required.");
+    return withCurrentProject(projectRoot, async (store, projectId) => {
+      const plan = await exactPlan(store, projectId, workflowId);
+      if (!plan.phases.some(phase => phase.phaseId === phaseId)) throw Error("Phase Repair target is outside the selected current Workflow.");
+      return createProjectStateService(store, workflowApplication).createPhaseRepair(projectId, { workflowId, phaseId, failureEvidenceId });
     });
   }
 
@@ -857,6 +891,6 @@ export function createWorkflowExecutionApplicationService(dependencies: {
   return { getExecutionProjection, getWorkflowExecutionCompletionProjection, completeWorkflowExecution, getWorkItemValidationProjection, decomposeWorkflowWorkItem, acceptWorkItemExecutionPlan,
     recordWorkItemVisualCriterion, recordWorkItemCriterionDecision, getPhaseValidationProjection, recordPhaseVisualCriterion,
     recordPhaseCriterionDecision, validateDeterministicPhaseCriterion, validateSemanticPhaseCriterion,
-    completeWorkItem, completePhase, createWorkflowRepair, validateSemanticWorkItemCriterion, validateDeterministicWorkItemCriterion, prepareExecution, createWorkItemExecutionContract, createTesterWorkItemExecutionContract,
+    completeWorkItem, completePhase, createWorkflowRepair, createPhaseRepair, validateSemanticWorkItemCriterion, validateDeterministicWorkItemCriterion, prepareExecution, createWorkItemExecutionContract, createTesterWorkItemExecutionContract,
     createSourceNeutralWorkItemExecutionContract, beginWorkItemAttempt, finishWorkItemAttempt };
 }

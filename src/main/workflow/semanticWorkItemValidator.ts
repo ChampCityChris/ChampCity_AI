@@ -10,8 +10,10 @@ export interface SemanticValidationContext {
   workItemId: EntityId;
   workItemTitle: string;
   criterion: ProjectStateRecord<"Criterion">;
-  implementation: ProjectStateRecord<"ImplementationRecord">;
-  testerResult: ProjectStateRecord<"TesterResult">;
+  implementation?: ProjectStateRecord<"ImplementationRecord">;
+  testerResult?: ProjectStateRecord<"TesterResult">;
+  phaseObjective?: string;
+  phaseMembers?: Array<{ workItem: ProjectStateRecord<"WorkItem">; implementation: ProjectStateRecord<"ImplementationRecord">; testerResult: ProjectStateRecord<"TesterResult">; criterionOutcomes: string[] }>;
   deterministicEvidence: string[];
   sourceMode: "source-backed" | "source-neutral";
   sourceRevisionId: string | null;
@@ -57,14 +59,22 @@ function buildPrompt(context: SemanticValidationContext): string {
     `Candidate checkout: ${context.workingDirectory}`,
     `Criterion: ${context.criterion.body.statement}`,
     `Verification intent: ${context.criterion.body.verificationIntent}`,
-    `Implementation summary: ${context.implementation.body.summary}`,
-    `Implementation deviations: ${context.implementation.body.deviations.join("; ") || "none"}`,
-    `Implementation blockers: ${context.implementation.body.blockers.join("; ") || "none"}`,
-    `Implementation residual risks: ${context.implementation.body.residualRisks.join("; ") || "none"}`,
-    `Tester recommendation: ${context.testerResult.body.recommendation}`,
-    `Tester rationale: ${context.testerResult.body.rationale}`,
-    `Tester determination evidence: ${context.testerResult.body.determinationEvidence.join("; ")}`,
-    `Tester unknowns: ${context.testerResult.body.unknowns.join("; ") || "none"}`,
+    ...(context.phaseObjective ? [`Phase objective: ${context.phaseObjective}`] : []),
+    ...(context.phaseMembers ? context.phaseMembers.flatMap((member, index) => [
+      `Phase member ${index + 1}: ${member.workItem.body.title} (${member.workItem.id}) — ${member.workItem.body.workState}`,
+      `Implementation: ${member.implementation.body.summary}; deviations: ${member.implementation.body.deviations.join("; ") || "none"}; blockers: ${member.implementation.body.blockers.join("; ") || "none"}; residual risks: ${member.implementation.body.residualRisks.join("; ") || "none"}`,
+      `Tester: ${member.testerResult.body.recommendation}; rationale: ${member.testerResult.body.rationale}; evidence: ${member.testerResult.body.determinationEvidence.join("; ")}; unknowns: ${member.testerResult.body.unknowns.join("; ") || "none"}`,
+      `Current WorkItem/solution Criterion outcomes: ${member.criterionOutcomes.join("; ") || "none"}`,
+    ]) : [
+      `Implementation summary: ${context.implementation?.body.summary ?? "not supplied"}`,
+      `Implementation deviations: ${context.implementation?.body.deviations.join("; ") || "none"}`,
+      `Implementation blockers: ${context.implementation?.body.blockers.join("; ") || "none"}`,
+      `Implementation residual risks: ${context.implementation?.body.residualRisks.join("; ") || "none"}`,
+      `Tester recommendation: ${context.testerResult?.body.recommendation ?? "not supplied"}`,
+      `Tester rationale: ${context.testerResult?.body.rationale ?? "not supplied"}`,
+      `Tester determination evidence: ${context.testerResult?.body.determinationEvidence.join("; ") || "none"}`,
+      `Tester unknowns: ${context.testerResult?.body.unknowns.join("; ") || "none"}`,
+    ]),
     `Applicable deterministic receipts: ${context.deterministicEvidence.slice(0, 12).map(value => value.slice(0, 1200)).join("\n") || "none"}`,
   ].join("\n");
 }
