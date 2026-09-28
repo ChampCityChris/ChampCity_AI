@@ -1,62 +1,43 @@
 # WRB04 — Shared Execution Kernel and Workspaces
 
-**Authoritative reviewed baseline:** `3d4399e563665afbd38426416d12a84989a51470`  
-**Status:** REPAIR02 QUALIFICATION COMPLETE / AWAITING FINAL ARCHITECT ACCEPTANCE
+**Authoritative implemented baseline:** `5585d0354fcc68a09ca2562731af6ee7668cc376`  
+**Status:** REPAIR03 RELEASED / WRB04 OPEN  
 **WRB05:** unauthorized until final WRB04 Architect acceptance
 
 ## Sole active execution path
 
 Read:
 
-1. `Repair02/CODE_REVIEW_AND_RCA_2026-09-28.md`
-2. `Repair02/README.md`
-3. the current Repair02 card only
+1. `Repair03/CODE_REVIEW_AND_RCA_2026-09-28.md`
+2. `Repair03/README.md`
+3. the current Repair03 card only
 
-The completed WRB04-06 implementation at `3d4399e563665afbd38426416d12a84989a51470` is the baseline being repaired.
+Repair02 remains the implemented baseline under review. Do not rewrite or reinterpret its cards/reports as new instructions.
 
-Do not reinterpret or resume the old WRB04-06 card.
+## Repair03 sequence
 
-## Repair02 sequence
+1. `Repair03/WRB04-R03-01_repair_work_item_planning_ux_and_scope_recovery.md`
+2. `Repair03/WRB04-R03-02_correct_source_backed_evidence_lineage_and_completion.md`
+3. `Repair03/WRB04-R03-03_make_repairs_executable_across_source_modes.md`
+4. `Repair03/WRB04-R03-04_requalify_and_close_wrb04.md`
 
-1. `Repair02/WRB04-R02-01_restore_architect_work_item_execution_contract.md`
-2. `Repair02/WRB04-R02-02_correct_human_criterion_semantics.md`
-3. `Repair02/WRB04-R02-03_correct_phase_validation_and_repair.md`
-4. `Repair02/WRB04-R02-04_correct_exact_runtime_interaction_and_concurrency.md`
-5. `Repair02/WRB04-R02-05_requalify_and_close_wrb04.md`
+Execute R03-01 through R03-04 sequentially with one report/checkpoint per card.
 
-## Why Repair02 exists
+Do not stop between passing cards merely for Architect review. Stop after R03-04 for human Architect review.
 
-The final WRB04-06 sweep found bounded correctness gaps in the completed shared Workspace:
+## Why Repair03 exists
 
-- missing canonical Architect WorkItem execution planning;
-- exact Implementer contract still uses empty affected paths/generic proof intent;
-- accepted-solution completion Criteria are omitted from the Implementer contract;
-- Operator Criterion decisions use owner-wide disposition and can inherit unrelated planning acceptance;
-- human visual actions can record only pass;
-- human action APIs accept derived source/implementation identity from renderer;
-- source-neutral deterministic Phase validation can manufacture pass evidence;
-- semantic Phase validation uses one member as aggregate evidence;
-- failed Phase Criteria have no correction WorkItem path;
-- WorkItem-owned deferred visual Criteria cannot complete correctly at the Phase boundary;
-- free-text runtime questions are not answerable in the shared Workspace;
-- global runtime `busy` reserializes exact runs at the UI.
+Repair02 corrected most of the post-WRB04-06 defects. Final code review found four remaining state-machine seams:
 
-The controlling RCA contains the evidence and repair boundaries.
+- out-of-scope source mutation leaves an implemented/validation-pending WorkItem with no legal replan/retry path;
+- cumulative solution/Phase evidence incorrectly treats every source-backed TesterResult as needing the final source revision, and Workflow completion retroactively revalidates closed WorkItems/Phases against later revisions;
+- source-neutral generated Repair WorkItems can receive deterministic Criteria that the production source-neutral Validator cannot satisfy;
+- WorkItem planning still lacks the embedded Architect browser product path, and returned exact-runtime start refusals can be displayed as successful starts.
 
-## Historical material
-
-The prior Repair01 package was authored before the completed `3d4399e5` baseline and is non-authoritative.
-
-It is archived under:
-
-`docs/implementation-bundles/workflow-runtime-rebaseline/history/WRB04/Repair01_PRE_3D4399_NONAUTHORITATIVE/`
-
-Completed earlier WRB04 cards/reports remain under the WRB04 history tree.
-
-R02-05 qualification is recorded in `Repair02/Reports/WRB04-R02-05_FINAL_QUALIFICATION_REPORT.md`. Architect acceptance remains outstanding; see the report for directly tested scenarios and remaining qualification limits.
+The controlling RCA contains the exact evidence and repair boundaries.
 
 ## Completion rule
 
-After WRB04-R02-05 checkpoints, STOP for final Architect review.
+After WRB04-R03-04 checkpoints, STOP for final Architect review.
 
 Do not begin WRB05.

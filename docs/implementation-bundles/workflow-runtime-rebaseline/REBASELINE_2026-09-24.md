@@ -36,25 +36,24 @@ Outcome: Workflow-specific intake/assessment/planning writes canonical SPS WorkI
 ### WRB04 — Shared Execution Kernel and Workspaces
 Outcome: Feature and Issue execute through one post-plan runtime and one reusable Workspace family from Work Item Map through integration/repair.
 
-**Status:** REPAIR02 RELEASED from authoritative completed WRB04-06 baseline `3d4399e563665afbd38426416d12a84989a51470`.
+**Status:** REPAIR03 RELEASED from authoritative implemented baseline `5585d0354fcc68a09ca2562731af6ee7668cc376`.
 
-The completed WRB04-06 implementation is materially functional, but post-completion code review found bounded correctness defects in WorkItem execution-contract authority, human Criterion semantics, aggregate Phase validation/Repair, and exact runtime interaction/concurrency presentation.
+Repair02 materially corrected the shared execution surface. Final Architect code review found bounded remaining state-machine defects in scope-violation recovery, cumulative source-backed evidence lineage/final completion, source-neutral Repair executability, and WorkItem Architect/runtime error presentation.
 
 The controlling evidence is:
 
-`WRB04/Repair02/CODE_REVIEW_AND_RCA_2026-09-28.md`
+`WRB04/Repair03/CODE_REVIEW_AND_RCA_2026-09-28.md`
 
-Execute exactly:
+Execute exactly and sequentially:
 
-- WRB04-R02-01 — restore Architect WorkItem execution-contract authority;
-- WRB04-R02-02 — correct human Criterion decision/visual evidence semantics;
-- WRB04-R02-03 — correct Phase validation, deferred evidence, and Phase Repair;
-- WRB04-R02-04 — correct exact runtime interaction/concurrency presentation;
-- WRB04-R02-05 — final composed qualification/closeout.
+- WRB04-R03-01 — repair WorkItem planning UX and scope-violation recovery;
+- WRB04-R03-02 — correct source-backed evidence lineage and completion;
+- WRB04-R03-03 — make canonical Repairs executable across source modes;
+- WRB04-R03-04 — final composed qualification/closeout.
 
-The earlier Repair01 package predates the completed `3d4399e5` baseline and is archived as non-authoritative historical material.
+Do not stop between passing R03-01/R03-02/R03-03 cards merely for Architect review. Stop after R03-04 for final human Architect review.
 
-Do not begin WRB05 until WRB04-R02-05 checkpoints and final Architect review accepts WRB04.
+Do not begin WRB05 until WRB04-R03-04 checkpoints and Architect acceptance closes WRB04.
 
 ### WRB05 — Product Completion, Remaining Workflow Front Halves, and Retirement
 Outcome: Greenfield completes through the shared kernel; remaining front halves use the proven normalization contract; Hub/Source Control present concurrent instances; obsolete runtime/migration paths retire; final qualification runs. This bundle may be split after WRB04 based on the actual shared-kernel surface.
