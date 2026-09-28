@@ -376,10 +376,12 @@ export function createWorkflowExecutionApplicationService(dependencies: {
     const source: WorkflowExecutionProjection["source"] = baselines.length === 0
       ? { state: "non-source", currentRevisionId: null }
       : binding?.body.preparationState === "ready"
-        ? { state: "ready", currentRevisionId: binding.body.currentRevisionId ?? null }
+        ? { state: "ready", baselineId: baselines[0].id, currentRevisionId: binding.body.currentRevisionId ?? null,
+          workSourceLineId: binding.body.workSourceLineId ?? null, repositoryCheckoutId: binding.body.repositoryCheckoutId ?? null }
         : binding?.body.preparationState === "blocked"
-          ? { state: "blocked", currentRevisionId: null, failureCode: binding.body.failureCode }
-          : { state: "unprepared", currentRevisionId: null };
+          ? { state: "blocked", baselineId: baselines[0].id, currentRevisionId: null, failureCode: binding.body.failureCode }
+          : { state: "unprepared", baselineId: baselines[0].id, currentRevisionId: null,
+            workSourceLineId: binding?.body.workSourceLineId ?? null, repositoryCheckoutId: binding?.body.repositoryCheckoutId ?? null };
     const itemRecords = [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()]
       .filter((record, index, all) => all.findIndex(candidate => candidate.id === record.id) === index)
       .sort((a, b) => a.id.localeCompare(b.id));

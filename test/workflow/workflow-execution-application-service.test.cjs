@@ -219,6 +219,22 @@ test("Workflow validation and completion IPC accepts only exact bounded argument
   await assert.rejects(handlers.get("workflow:validateSemanticCriterion")({}, "workflow-id", "work-item-id", "criterion-id", { model: "m", reasoningEffort: "high", outcome: "pass" }), /Exact/);
 });
 
+test("shared execution projection IPC reopens the exact Workflow independently by ID", async context => {
+  const env = await setup(context);
+  const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "Same title", entryWorkspace: "feature-intake" });
+  await env.state.acceptWorkflowPlanningGraph(env.projectId, graph(created.workflow.id, "direct", "feature", [
+    { key: "exact", kind: "feature", title: "Same Work Item", objective: "Recover exact state", dependencyKeys: [], criteria: [] },
+  ]));
+  const handlers = new Map(); registerWorkflowApplicationIpc({ handle: (channel, listener) => handlers.set(channel, listener) }, () => env.root);
+  const projection = await handlers.get("workflow:executionProjection")({}, created.workflow.id);
+  assert.equal(projection.workflowId, created.workflow.id);
+  assert.equal(projection.plan.workflow.id, created.workflow.id);
+  assert.equal(projection.items.length, 1);
+  await assert.rejects(handlers.get("workflow:executionProjection")({}, created.workflow.id, "surplus"), /Exact/);
+  const reopened = await handlers.get("workflow:executionProjection")({}, created.workflow.id);
+  assert.equal(reopened.items[0].record.id, projection.items[0].record.id);
+});
+
 test("typed Workflow WorkItem and Phase completion uses the application principal after exact Tester proof", async context => {
   const env = await setup(context);
   const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "Exact close", entryWorkspace: "feature-intake" });
@@ -290,6 +306,42 @@ test("canonical Repair executes through the shared exact contract and requeues i
   const closed = await kernel.completeWorkItem(env.root, created.workflow.id, repair.id, currentRepair.recordVersion);
   assert.equal(closed.body.workState, "closed");
   assert.equal((await env.state.getRecord(env.projectId, parent.id)).body.workState, "ready");
+});
+
+test("canonical Repair accepts failing Criteria owned by the WorkItem or its accepted BoundedSolution only", async context => {
+  const env = await setup(context);
+  const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "Solution Criterion Repair", entryWorkspace: "feature-intake" });
+  const acceptedGraph = graph(created.workflow.id, "direct", "feature", [
+    { key: "parent", kind: "feature", title: "Parent", objective: "Implement accepted solution", dependencyKeys: [],
+      criteria: [{ statement: "Parent behavior passes", criticality: "required", verificationIntent: "Validate behavior", validationPolicy: "deterministic" }] },
+  ]);
+  acceptedGraph.solutionCriteria = [{ statement: "Solution design is valid", criticality: "required", verificationIntent: "Validate accepted solution", validationPolicy: "deterministic" }];
+  const plan = await env.state.acceptWorkflowPlanningGraph(env.projectId, acceptedGraph);
+  const parent = plan.directWorkItems[0];
+  const workCriterion = plan.criteria.find(entry => entry.ownerId === parent.id).record;
+  const solution = plan.solutions[0];
+  const solutionCriterion = plan.criteria.find(entry => entry.ownerId === solution.id).record;
+  const kernel = createWorkflowExecutionApplicationService();
+  for (const criterion of [workCriterion, solutionCriterion]) {
+    const validation = await env.state.recordValidation(env.projectId, criterion.id, { validationType: "work-item", method: "focused-failure",
+      validationMode: "deterministic", outcome: "fail", summary: `Failure for ${criterion.id}`, targetRecordVersion: criterion.recordVersion });
+    const result = await kernel.createWorkflowRepair(env.root, created.workflow.id, parent.id, validation.id);
+    assert.equal(result.repair.body.workState, "planned");
+    assert.equal(result.failureIdentity, `validation:${validation.id}:criterion:${criterion.id}:version:${criterion.recordVersion}`);
+    await assert.rejects(kernel.createWorkflowRepair(env.root, created.workflow.id, parent.id, validation.id), /already exists/);
+    const projection = await kernel.getExecutionProjection(env.root, created.workflow.id);
+    assert.ok(projection.items.some(item => item.record.id === parent.id && item.repairIds.includes(result.repair.id)));
+  }
+  const peer = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "Peer", entryWorkspace: "feature-intake" });
+  const peerPlan = await env.state.acceptWorkflowPlanningGraph(env.projectId, graph(peer.workflow.id, "direct", "fix", [
+    { key: "peer", kind: "fix", title: "Peer item", objective: "Peer only", dependencyKeys: [],
+      criteria: [{ statement: "Peer Criterion", criticality: "required", verificationIntent: "Validate peer", validationPolicy: "deterministic" }] },
+  ]));
+  const peerCriterion = peerPlan.directWorkItems.length ? peerPlan.criteria.find(entry => entry.ownerId === peerPlan.directWorkItems[0].id).record : null;
+  assert.ok(peerCriterion);
+  const peerValidation = await env.state.recordValidation(env.projectId, peerCriterion.id, { validationType: "work-item", method: "peer-failure",
+    validationMode: "deterministic", outcome: "fail", summary: "Peer Workflow failure", targetRecordVersion: peerCriterion.recordVersion });
+  await assert.rejects(kernel.createWorkflowRepair(env.root, created.workflow.id, parent.id, peerValidation.id), /exact current Workflow|parent WorkItem or its accepted/);
 });
 
 test("source-neutral semantic Validator persists exact evidence without Git identity", async context => {

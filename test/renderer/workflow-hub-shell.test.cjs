@@ -12,6 +12,7 @@ const { LandingWorkspace } = loader.loadRendererSourceModule("src/renderer/app/L
 const { NestedWorkflowRail } = loader.loadRendererSourceModule("src/renderer/app/NestedWorkflowRail.tsx");
 const { WorkflowHubWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowHubWorkspace.tsx");
 const { WorkflowInstanceWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowInstanceWorkspace.tsx");
+const { WorkflowExecutionWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowExecutionWorkspace.tsx");
 const { FeaturePlanningWorkspace } = loader.loadRendererSourceModule("src/renderer/app/FeaturePlanningWorkspace.tsx");
 const { IssueWorkflowPlanningWorkspace } = loader.loadRendererSourceModule("src/renderer/app/IssueWorkflowPlanningWorkspace.tsx");
 const { workflowPlanningSurface, shouldShowClosedWorkIntakeSummary } = loader.loadRendererSourceModule("src/renderer/app/workflowPlanningDispatch.ts");
@@ -21,15 +22,31 @@ const { WORKFLOW_TYPE_REGISTRY } = loader.loadRendererSourceModule("src/shared/p
 const repoRoot = path.join(__dirname, "..", "..");
 
 test("exact planning dispatch follows supported type and persisted currentWorkspace", () => {
-  for (const currentWorkspace of ["feature-intake", "feature-assessment", "feature-planning", "work-item-map"])
+  for (const currentWorkspace of ["feature-intake", "feature-assessment", "feature-planning"])
     assert.equal(workflowPlanningSurface({ workflowType: "feature-capability", lifecycleState: "active", currentWorkspace }), "feature");
-  for (const currentWorkspace of ["issue-intake", "issue-rca", "issue-planning", "work-item-map"])
+  for (const currentWorkspace of ["issue-intake", "issue-rca", "issue-planning"])
     assert.equal(workflowPlanningSurface({ workflowType: "issue-resolution", lifecycleState: "active", currentWorkspace }), "issue");
-  assert.equal(workflowPlanningSurface({ workflowType: "issue-resolution", lifecycleState: "active", currentWorkspace: "feature-planning" }), "generic");
+  for (const currentWorkspace of ["work-item-map", "execution-complete", "integration-ready"])
+    assert.equal(workflowPlanningSurface({ workflowType: "feature-capability", lifecycleState: "active", currentWorkspace }), "execution");
+  assert.equal(workflowPlanningSurface({ workflowType: "issue-resolution", lifecycleState: "active", currentWorkspace: "work-item-map" }), "execution");
+  assert.equal(workflowPlanningSurface({ workflowType: "issue-resolution", lifecycleState: "active", currentWorkspace: "feature-planning" }), "execution");
   assert.equal(workflowPlanningSurface({ workflowType: "refactor-migration", lifecycleState: "active", currentWorkspace: "feature-planning" }), "generic");
   assert.equal(workflowPlanningSurface({ workflowType: "feature-capability", lifecycleState: "closed", currentWorkspace: "work-item-map" }), "generic");
   assert.equal(shouldShowClosedWorkIntakeSummary({ workflowType: "work-intake-routing", lifecycleState: "closed", currentWorkspace: "work-intake" }), true);
   assert.equal(shouldShowClosedWorkIntakeSummary({ workflowType: "work-intake-routing", lifecycleState: "active", currentWorkspace: "work-intake" }), false);
+});
+
+test("shared execution Workspace is the exact Feature and Issue post-plan surface with return navigation", () => {
+  for (const workflowType of ["feature-capability", "issue-resolution"]) {
+    const markup = renderToStaticMarkup(React.createElement(WorkflowExecutionWorkspace, { workflow: {
+      workflowId: `${workflowType}-exact-id`, workflowType, title: "Same-title concurrent Workflow", lifecycleState: "active",
+      currentWorkspace: "work-item-map", workflowState: "active", lineageId: `${workflowType}-lineage`, createdAt: "now", updatedAt: "now",
+    }, onReturn() {} }));
+    assert.match(markup, /Shared Execution Workspace/);
+    assert.match(markup, new RegExp(`${workflowType}-exact-id`));
+    assert.match(markup, /Back to Workflows/);
+    assert.match(markup, /Work Item Map and readiness/);
+  }
 });
 
 test("accepted Work Item Map is readable and exposes no execution controls", () => {

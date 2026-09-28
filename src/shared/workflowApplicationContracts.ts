@@ -60,7 +60,7 @@ export interface WorkflowExecutionProjection {
   items: WorkflowExecutionItem[];
   nextEligibleWorkItemIds: EntityId[];
   activeWorkItemIds: EntityId[];
-  source: { state: WorkflowExecutionSourceState; currentRevisionId: string | null; failureCode?: string };
+  source: { state: WorkflowExecutionSourceState; baselineId?: EntityId | null; currentRevisionId: string | null; workSourceLineId?: string | null; repositoryCheckoutId?: string | null; failureCode?: string };
   laterStages: { tester: null; validator: null; integration: null };
 }
 export interface WorkflowExecutionCompletionProjection {

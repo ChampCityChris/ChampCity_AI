@@ -166,7 +166,7 @@ export function createWorkflowIntegrationService(projectRoot: string, workflowId
   async function sync(record: IntegrationCandidateRecord) {
     const store = open();
     try {
-      const state = createProjectStateService(store, operator);
+      const state = createProjectStateService(store, integrationApplication);
       const current = await snapshot();
       if (record.workflowId !== workflowId || record.incomingCommit !== current.sourceBinding.currentHead) throw Error("Integration candidate no longer belongs to the exact current Workflow source.");
       const existing = (await store.listEntities(currentProjectId, "IntegrationRecord")).filter((item): item is Integration => item.entityType === "IntegrationRecord" && item.body.workflowId === workflowId && item.body.incomingRevisionId === record.incomingCommit && item.body.targetBeforeRevisionId === record.localTargetCommit);
@@ -176,9 +176,20 @@ export function createWorkflowIntegrationService(projectRoot: string, workflowId
       if (saved.body.integrationState === "integrated") return saved;
       if (saved.body.integrationState === "prepared") saved = await state.advanceIntegrationRecord(currentProjectId, saved.id, { integrationState: "validating", ...(record.candidateCommit ? { candidateRevisionId: record.candidateCommit } : {}) }, saved.recordVersion) as Integration;
       const proofIds: string[] = [];
-      for (const proof of record.validation) proofIds.push((await state.recordValidation(currentProjectId, saved.id, { validationType: "integration", method: proof.checkId,
-        outcome: proof.exitCode === 0 ? "pass" : proof.exitCode === null ? "blocked" : "fail", summary: proof.summary, ...(record.candidateCommit ? { sourceBaselineRef: record.candidateCommit } : {}) })).id);
-      if (proofIds.length) saved = await state.advanceIntegrationRecord(currentProjectId, saved.id, { validationIds: [...saved.body.validationIds, ...proofIds] }, saved.recordVersion) as Integration;
+      const persistedValidationIds = new Set(saved.body.validationIds);
+      for (const proof of record.validation) {
+        const outcome = proof.exitCode === 0 ? "pass" : proof.exitCode === null ? "blocked" : "fail";
+        const matching = (await store.listEntities(currentProjectId, "Validation")).find(validation => validation.entityType === "Validation" &&
+          persistedValidationIds.has(validation.id) && validation.body.targetEntityId === saved.id && validation.body.validationType === "integration" &&
+          validation.body.method === proof.checkId && validation.body.outcome === outcome && validation.body.summary === proof.summary &&
+          validation.body.sourceBaselineRef === record.candidateCommit);
+        if (matching) { proofIds.push(matching.id); continue; }
+        const validation = await state.recordValidation(currentProjectId, saved.id, { validationType: "integration", method: proof.checkId,
+          outcome, summary: proof.summary, ...(record.candidateCommit ? { sourceBaselineRef: record.candidateCommit } : {}) });
+        proofIds.push(validation.id); persistedValidationIds.add(validation.id);
+      }
+      const validationIds = [...new Set([...saved.body.validationIds, ...proofIds])];
+      if (validationIds.length !== saved.body.validationIds.length) saved = await state.advanceIntegrationRecord(currentProjectId, saved.id, { validationIds }, saved.recordVersion) as Integration;
       const desired = record.status === "integrated" ? "integrated" : record.status === "validated" ? "ready" : ["conflicted", "validation-failed"].includes(record.status) ? "repairing" : "blocked";
       if (desired === "integrated" && saved.body.integrationState !== "ready") saved = await state.advanceIntegrationRecord(currentProjectId, saved.id, { integrationState: "ready" }, saved.recordVersion) as Integration;
       if (desired !== saved.body.integrationState) saved = await state.advanceIntegrationRecord(currentProjectId, saved.id,

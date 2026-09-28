@@ -33,6 +33,7 @@ const api: ChampCityApi = {
   startWorkflow: (request) => ipcRenderer.invoke("workflow:start", request) as ReturnType<ChampCityApi["startWorkflow"]>,
   getWorkflow: (workflowId) => ipcRenderer.invoke("workflow:get", workflowId) as ReturnType<ChampCityApi["getWorkflow"]>,
   getWorkItemValidation: (workflowId, workItemId) => ipcRenderer.invoke("workflow:workItemValidation", workflowId, workItemId) as ReturnType<ChampCityApi["getWorkItemValidation"]>,
+  getWorkflowExecutionProjection: workflowId => ipcRenderer.invoke("workflow:executionProjection", workflowId) as ReturnType<ChampCityApi["getWorkflowExecutionProjection"]>,
   completeWorkflowWorkItem: (workflowId, workItemId, expectedVersion) => ipcRenderer.invoke("workflow:completeWorkItem", workflowId, workItemId, expectedVersion) as ReturnType<ChampCityApi["completeWorkflowWorkItem"]>,
   completeWorkflowPhase: (workflowId, phaseId, expectedVersion) => ipcRenderer.invoke("workflow:completePhase", workflowId, phaseId, expectedVersion) as ReturnType<ChampCityApi["completeWorkflowPhase"]>,
   getWorkflowExecutionCompletion: (workflowId) => ipcRenderer.invoke("workflow:executionCompletion", workflowId) as ReturnType<ChampCityApi["getWorkflowExecutionCompletion"]>,

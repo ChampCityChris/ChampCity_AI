@@ -1450,6 +1450,7 @@ export interface ChampCityApi {
   startWorkflow: (request: import("./workflowApplicationContracts").DirectWorkflowStartRequest) => Promise<import("./workflowApplicationContracts").DirectWorkflowStartResult>;
   getWorkflow: (workflowId: string) => Promise<import("./workflowApplicationContracts").WorkflowOpenResult>;
   getWorkItemValidation: (workflowId: string, workItemId: string) => Promise<import("./workflowApplicationContracts").WorkItemValidationProjection>;
+  getWorkflowExecutionProjection: (workflowId: string) => Promise<import("./workflowApplicationContracts").WorkflowExecutionProjection>;
   completeWorkflowWorkItem: (workflowId: string, workItemId: string, expectedVersion: number) => Promise<import("./projectState/domainContracts").ProjectStateRecord<"WorkItem">>;
   completeWorkflowPhase: (workflowId: string, phaseId: string, expectedVersion: number) => Promise<import("./projectState/domainContracts").ProjectStateRecord<"Phase">>;
   getWorkflowExecutionCompletion: (workflowId: string) => Promise<import("./workflowApplicationContracts").WorkflowExecutionCompletionProjection>;

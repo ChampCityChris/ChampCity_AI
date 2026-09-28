@@ -36,6 +36,10 @@ export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcR
     if (args.length !== 2 || args.some(value => typeof value !== "string" || !value.trim() || value.length > 128)) throw Error("Exact Workflow and WorkItem IDs are required.");
     return execution.getWorkItemValidationProjection(getCurrentProjectRoot(), args[0] as string, args[1] as string);
   });
+  registry.handle("workflow:executionProjection", async (_event, ...args) => {
+    if (args.length !== 1 || typeof args[0] !== "string" || !args[0].trim() || args[0].length > 128) throw Error("Exact Workflow ID is required.");
+    return execution.getExecutionProjection(getCurrentProjectRoot(), args[0]);
+  });
   registry.handle("workflow:executionCompletion", async (_event, ...args) => {
     if (args.length !== 1 || typeof args[0] !== "string" || !args[0].trim() || args[0].length > 128) throw Error("Exact Workflow ID is required.");
     return execution.getWorkflowExecutionCompletionProjection(getCurrentProjectRoot(), args[0]);

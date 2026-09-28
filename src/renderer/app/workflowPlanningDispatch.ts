@@ -1,8 +1,8 @@
 type PlanningWorkflow = { workflowType: string; lifecycleState: string; currentWorkspace: string };
-export function workflowPlanningSurface(workflow: PlanningWorkflow | null | undefined): "feature" | "issue" | "generic" {
+export function workflowPlanningSurface(workflow: PlanningWorkflow | null | undefined): "feature" | "issue" | "execution" | "generic" {
   if (!workflow || workflow.lifecycleState !== "active") return "generic";
-  if (workflow.workflowType === "feature-capability" && ["feature-intake", "feature-assessment", "feature-planning", "work-item-map"].includes(workflow.currentWorkspace)) return "feature";
-  if (workflow.workflowType === "issue-resolution" && ["issue-intake", "issue-rca", "issue-planning", "work-item-map"].includes(workflow.currentWorkspace)) return "issue";
+  if (workflow.workflowType === "feature-capability") return ["feature-intake", "feature-assessment", "feature-planning"].includes(workflow.currentWorkspace) ? "feature" : "execution";
+  if (workflow.workflowType === "issue-resolution") return ["issue-intake", "issue-rca", "issue-planning"].includes(workflow.currentWorkspace) ? "issue" : "execution";
   return "generic";
 }
 export function shouldShowClosedWorkIntakeSummary(workflow: PlanningWorkflow | null | undefined): boolean {

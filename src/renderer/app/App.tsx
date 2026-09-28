@@ -140,6 +140,7 @@ import { FigmaSidebar, type FigmaThemeMode } from "./figma/FigmaSidebar";
 import { LandingWorkspace } from "./LandingWorkspace";
 import { WorkflowHubWorkspace } from "./WorkflowHubWorkspace";
 import { WorkflowInstanceWorkspace } from "./WorkflowInstanceWorkspace";
+import { WorkflowExecutionWorkspace } from "./WorkflowExecutionWorkspace";
 import { FeaturePlanningWorkspace } from "./FeaturePlanningWorkspace";
 import { IssueWorkflowPlanningWorkspace } from "./IssueWorkflowPlanningWorkspace";
 import { SourceControlWorkspace } from "./SourceControlWorkspace";
@@ -4119,7 +4120,8 @@ export function App(): JSX.Element {
             <SourceControlWorkspace key={workspace.ok ? workspace.workspaceRoot : "none"}
               projectName={projectDisplayName(workspace)} onReturn={returnToWorkflowHub} />
           ) : isWorkflowInstanceForeground ? (
-            workflowInstance && workflowPlanningSurface(workflowInstance) === "feature" ? <FeaturePlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowHub} browserPanel={routedArchitectBrowserPanel} />
+            workflowInstance && workflowPlanningSurface(workflowInstance) === "execution" ? <WorkflowExecutionWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowHub} />
+              : workflowInstance && workflowPlanningSurface(workflowInstance) === "feature" ? <FeaturePlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowHub} browserPanel={routedArchitectBrowserPanel} />
               : workflowInstance && workflowPlanningSurface(workflowInstance) === "issue" ? <IssueWorkflowPlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowHub} browserPanel={routedArchitectBrowserPanel} />
               : workflowInstance ? <WorkflowInstanceWorkspace workflow={workflowInstance} onReturn={returnToWorkflowHub} />
               : <p role="status">Loading Workflow…</p>

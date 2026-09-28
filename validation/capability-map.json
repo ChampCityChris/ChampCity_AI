@@ -3777,10 +3777,6 @@
           "description": "status reports bounded prerequisites without returning raw GitHub authentication output"
         },
         {
-          "behaviorId": "structured-completion-integrates-exact-dev",
-          "description": "completed structured Work Intake integrates a validated candidate into dev and records the resulting target revision"
-        },
-        {
           "behaviorId": "temporary-candidate-workspace-is-cleaned-when-validation-throws",
           "description": "temporary candidate workspace is cleaned when validation throws"
         },
@@ -4779,6 +4775,7 @@
       "sourcePatterns": [
         "src/main/featurePlanning/**",
         "src/main/issuePlanning/**",
+        "src/main/sourceControl/workflowIntegrationService.ts",
         "src/main/workflow/**",
         "src/main/workflow/workflowExecutionApplicationService.ts",
         "src/renderer/app/FeaturePlanningWorkspace.tsx",
@@ -4791,6 +4788,7 @@
         "src/shared/projectState/workflowTypeRegistry.ts",
         "src/shared/structuredWorkRoutingContracts.ts",
         "src/shared/workflowApplicationContracts.ts",
+        "test/source-control/workflow-integration-service.test.cjs",
         "test/workflow/deterministic-work-item-validator.test.cjs",
         "test/workflow/semantic-work-item-validator.test.cjs",
         "test/workflow/workflow-application-service.test.cjs",
@@ -4822,6 +4820,10 @@
         {
           "behaviorId": "exact-workflow-completion-enforces-execution-obligations-and-source-neutral-close",
           "description": "Exact Workflow completion requires the accepted plan, closed WorkItems and Phases, current completion evidence, and closes source-neutral work without repository integration records."
+        },
+        {
+          "behaviorId": "exact-workflow-integration-syncs-attributed-idempotent-validation-and-closes-after-dev-advance",
+          "description": "Exact Workflow integration records system-owned candidate and validation evidence once, advances linked Dev, and closes the same Workflow."
         },
         {
           "behaviorId": "exact-workitem-validation-projection-derives-current-source-and-completion-authority",
@@ -18208,59 +18210,6 @@
       ]
     },
     {
-      "testPath": "test/source-control/structured-integration.test.cjs",
-      "currentTestCount": {
-        "value": 2,
-        "basis": "SCL07 focused structured clean and conflict fixtures."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 37000,
-        "basis": "Observed focused normal Windows SCL07 run."
-      },
-      "proposedValidationLane": "affected-capability",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": true,
-        "network": false,
-        "process": true,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability"
-      ],
-      "execution": {
-        "requiresBuild": true,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Each fixture owns an isolated temporary Git and SQLite repository.",
-        "ownedResources": [
-          "bounded-child-process",
-          "isolated-git-fixture",
-          "temp-filesystem-isolated"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "release-and-git-operations",
-          "behaviorId": "structured-completion-integrates-exact-dev",
-          "proofLocator": "completed structured Work Intake integrates exact validated source into dev without switching the primary checkout",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
       "testPath": "test/source-control/structured-workflow-checkpoint.test.cjs",
       "currentTestCount": {
         "value": 1,
@@ -18309,6 +18258,59 @@
           "capabilityId": "semantic-source-checkpoints",
           "behaviorId": "structured-workflow-dispositions-share-source-line",
           "proofLocator": "structured route, implementation and revision review share one SourceLine with exact checkpoint projections",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/source-control/workflow-integration-service.test.cjs",
+      "currentTestCount": {
+        "value": 2,
+        "basis": "WRB04-06 exact Feature and Issue linked-Dev integration verticals."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 43000,
+        "basis": "Observed focused normal Windows SCL07 run."
+      },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Each fixture owns an isolated temporary Git and SQLite repository.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "exact-workflow-integration-syncs-attributed-idempotent-validation-and-closes-after-dev-advance",
+          "proofLocator": "Feature and Issue exact Workflows complete from accepted plans, synchronize one system-attributed validation, advance linked Dev, and close their exact Workflow",
           "proofRole": "primary"
         }
       ]

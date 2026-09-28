@@ -1176,9 +1176,14 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         const link = (await unit.listRelationships(projectId, "evaluates")).some(edge => edge.fromEntityId === evidence.id && edge.toEntityId === evidence.body.targetEntityId && !edge.endedAt);
         if (!link || criterionRecord?.entityType !== "Criterion" || criterionRecord.lifecycleState !== "active" || criterionRecord.recordVersion !== evidence.body.targetRecordVersion)
           fail("Repair Validation must be the current failing Validation for an active Criterion.");
-        const criterionOwner = (await unit.listRelationships(projectId, "defines_criterion")).some(edge => edge.fromEntityId === parent.id && edge.toEntityId === criterionRecord.id && !edge.endedAt);
-        if (!criterionOwner || criterionRecord.body.criticality !== "required" || criterionRecord.body.validationPolicy === "deferred_visual_phase" || criterionRecord.body.validationPolicy === "operator_decision")
-          fail("Repair Validation must identify a required completion-relevant Criterion owned by the parent WorkItem.");
+        const criterionEdges = (await unit.listRelationships(projectId, "defines_criterion")).filter(edge => edge.toEntityId === criterionRecord.id && !edge.endedAt);
+        const workItemOwned = criterionEdges.some(edge => edge.fromEntityId === parent.id);
+        const governingEdges = (await unit.listRelationships(projectId, "governs")).filter(edge => !edge.endedAt);
+        const acceptedSolutions = plan.solutions.filter(solution => plan.decisions.some(decision =>
+          governingEdges.some(edge => edge.fromEntityId === decision.id && edge.toEntityId === solution.id)));
+        const acceptedSolutionOwned = acceptedSolutions.length === 1 && criterionEdges.some(edge => edge.fromEntityId === acceptedSolutions[0].id);
+        if ((!workItemOwned && !acceptedSolutionOwned) || criterionRecord.body.criticality !== "required" || criterionRecord.body.validationPolicy === "deferred_visual_phase" || criterionRecord.body.validationPolicy === "operator_decision")
+          fail("Repair Validation must identify a required completion-relevant Criterion owned by the parent WorkItem or its accepted BoundedSolution.");
         criterion = criterionRecord;
         identity = `validation:${evidence.id}:criterion:${criterionRecord.id}:version:${criterionRecord.recordVersion}`;
         failureSummary = evidence.body.summary;
