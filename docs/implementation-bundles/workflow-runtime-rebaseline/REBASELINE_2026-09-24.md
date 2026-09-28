@@ -36,9 +36,14 @@ Outcome: Workflow-specific intake/assessment/planning writes canonical SPS WorkI
 ### WRB04 — Shared Execution Kernel and Workspaces
 Outcome: Feature and Issue execute through one post-plan runtime and one reusable Workspace family from Work Item Map through integration/repair.
 
-**Status:** RELEASED — five-card bundle authored from WRB03 closure checkpoint `495c9aca43bd6c90be4abfece01ed9e40fd4c82e` under `WRB04/`. It includes shared exact-Workflow execution, Implementer checkpoints, Tester/Test Lifecycle Determination, Validator/Repair, Phase/Workflow completion, linked-worktree integration repair, exact-Workflow integration, and UI convergence.
+**Status:** IN PROGRESS / RUNTIME CONVERGENCE ACCEPTED — exact Workflow/WorkItem execution, lazy source preparation, typed attempt/decomposition, source-backed and source-neutral Implementer paths, Tester determination/results/checkpoints/runtime, exact execution contexts, concurrency leases, and Tester proof-scope convergence are accepted through `ff4c4a35a3d8b7196745e98062ad5ed0427b3355`.
 
-**Mandatory entry debt:** integration candidate storage/ownership must be normalized from a physical `.git` assumption to exact Git common-directory identity for managed linked-worktree `Dev/`. WRB04 also owns modernization/retirement of the stale repair fixture that attaches new repair work to a superseded Workflow.
+The remaining WRB04 work is re-baselined to exactly three sequential cards:
+- WRB04-04 — Validator, canonical Repair loop, WorkItem/Phase completion;
+- WRB04-05 — Workflow completion and exact-Workflow integration, including linked-worktree common-directory repair;
+- WRB04-06 — shared execution Workspaces, legacy execution fence, and final Feature/Issue qualification.
+
+Do not split these into lettered child cards. Final Architect review occurs after WRB04-06.
 
 ### WRB05 — Product Completion, Remaining Workflow Front Halves, and Retirement
 Outcome: Greenfield completes through the shared kernel; remaining front halves use the proven normalization contract; Hub/Source Control present concurrent instances; obsolete runtime/migration paths retire; final qualification runs. This bundle may be split after WRB04 based on the actual shared-kernel surface.

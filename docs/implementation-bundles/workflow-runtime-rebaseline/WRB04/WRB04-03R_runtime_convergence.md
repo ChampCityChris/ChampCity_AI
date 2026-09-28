@@ -1,6 +1,6 @@
 # WRB04-03R — Converge Exact Implementer/Tester Runtime Before Validator
 
-**Status:** ACTIVE — sole WRB04 implementation card<br>
+**Status:** COMPLETE / ACCEPTED at `ff4c4a35a3d8b7196745e98062ad5ed0427b3355`<br>
 **Depends on:** WRB04-03D committed checkpoint<br>
 **Implementer:** GPT 6.0 Luna Medium<br>
 **Execution rule:** ONE card, ONE Implementer Report, ONE checkpoint commit. **Do not split this card into more cards.**
@@ -327,6 +327,4 @@ Create one attributable commit:
 
 `WRB04-03R converge exact Implementer and Tester runtime`
 
-Then **STOP for Architect review**.
-
-Do not open WRB04-03E or any later card.
+Architect review passed. Current continuation is governed by `README.md` and WRB04-04 through WRB04-06.
