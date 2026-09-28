@@ -1,59 +1,58 @@
 # WRB04 — Shared Execution Kernel and Workspaces
 
 **Backend/runtime first pass:** accepted through WRB04-05  
-**Current reviewed checkpoint:** `2a1f7c0c526761b8a7b71b788c4980a5f1f389aa`  
-**Status:** WRB04-06 REPAIR REQUIRED / FINAL QUALIFICATION OPEN
+**Reviewed shared-Workspace checkpoint:** `2a1f7c0c526761b8a7b71b788c4980a5f1f389aa`  
+**Status:** REPAIR01 RELEASED / WRB04-06 BLOCKED
 
-## Sole active instruction
+## Sole active execution path
 
 Read:
 
-1. `WRB04-06_ARCHITECT_REVIEW_2026-09-28.md`
-2. `WRB04-06_shared_workspaces_qualification.md`
+1. `Repair01/CODE_REVIEW_AND_RCA_2026-09-28.md`
+2. `Repair01/README.md`
+3. the current Repair Card only
 
-There is exactly one active card: **WRB04-06**.
+Do not implement `WRB04-06_shared_workspaces_qualification.md` directly.
 
-Do not create another WRB04 card or repair sequence.
+Do not create another WRB04 repair sequence unless Architect review explicitly does so.
 
-## Accepted implementation
+## Repair01 sequence
 
-Preserve the existing shared backend/runtime and shared Feature/Issue execution Workspace.
+1. `Repair01/WRB04-R01-01_restore_architect_work_item_planning_and_decomposition.md`
+2. `Repair01/WRB04-R01-02_complete_human_criterion_evidence_actions.md`
+3. `Repair01/WRB04-R01-03_complete_exact_phase_validation_and_close.md`
+4. `Repair01/WRB04-R01-04_wire_exact_runtime_interaction_controls.md`
+5. `Repair01/WRB04-R01-05_requalify_and_close_wrb04.md`
 
-The latest submission successfully corrected:
+## Why Repair01 exists
 
-- accepted-solution Criterion Repair support;
-- Workflow Integration system attribution;
-- normal integration Validation deduplication;
-- direct exact Workflow integration service proof;
-- shared Feature/Issue post-plan renderer dispatch;
-- WIR target opening by exact Workflow identity.
+The shared backend/runtime is substantially correct, but the first shared execution Workspace was qualified without a complete state/action coverage matrix.
 
-## Remaining blockers
+Confirmed defects include:
 
-WRB04 cannot close until the existing 06 card supplies:
+- missing Architect WorkItem planning/elaboration;
+- no product path for typed WorkItem decomposition;
+- exact Implementer contract hard-codes empty affected paths/generic proof intent;
+- exact Implementer contract omits accepted-solution completion Criteria;
+- no human visual/Operator Criterion action path;
+- Operator Criterion disposition is owner-wide rather than Criterion-specific;
+- no exact Phase validation path;
+- missing exact Implementer/Tester interaction controls;
+- UI-level use of global runtime `busy` reserializes concurrent exact execution;
+- restart/reopen qualification did not cover the complete execution state machine.
 
-1. exact product-path WorkItem decomposition;
-2. usable human visual and Operator-decision Criterion actions;
-3. exact Phase validation for deterministic/semantic/human/deferred/operator policies;
-4. exact Implementer/Tester pending interaction and cancel controls;
-5. stage-by-stage restart/reopen qualification after those paths exist.
+The RCA owns the complete evidence and root-cause hierarchy.
 
-The submitted report is retained as:
+## Historical material
 
-`Reports/WRB04-06_SUBMITTED_QUALIFICATION_2026-09-28.md`
+Completed and failed-review WRB04 cards/reports are stored under:
 
-It is not the final accepted report.
+`docs/implementation-bundles/workflow-runtime-rebaseline/history/WRB04/`
 
-## Completion
+Do not use historical artifacts as current implementation instructions.
 
-When WRB04-06 repairs and qualification pass, write a new:
+## Completion rule
 
-`Reports/WRB04-06_FINAL_QUALIFICATION_REPORT.md`
+After WRB04-R01-05 checkpoints, STOP for final Architect review.
 
-and commit:
-
-`WRB04-06 repair and qualify shared execution workspace`
-
-Then STOP for Architect review.
-
-Do not begin WRB05.
+WRB05 remains unauthorized until WRB04 receives final Architect acceptance.

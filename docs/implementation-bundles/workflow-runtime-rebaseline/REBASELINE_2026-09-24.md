@@ -36,9 +36,21 @@ Outcome: Workflow-specific intake/assessment/planning writes canonical SPS WorkI
 ### WRB04 — Shared Execution Kernel and Workspaces
 Outcome: Feature and Issue execute through one post-plan runtime and one reusable Workspace family from Work Item Map through integration/repair.
 
-**Status:** WRB04-06 REPAIR REQUIRED / FINAL QUALIFICATION OPEN — backend/runtime through exact validation, Repair, completion, and exact Workflow integration remains accepted. The shared Feature/Issue execution Workspace is implemented, but Architect review of checkpoint `2a1f7c0c526761b8a7b71b788c4980a5f1f389aa` found four user-path blockers: no product-path WorkItem decomposition, no exact human visual/Operator Criterion actions, no exact Phase validation path, and no Implementer/Tester pending-interaction controls. Restart/reopen qualification is incomplete until those paths exist.
+**Status:** REPAIR01 RELEASED — backend/runtime through exact validation, Repair, completion, and exact Workflow integration remains accepted. Shared-Workspace qualification at `2a1f7c0c526761b8a7b71b788c4980a5f1f389aa` exposed missing state/action coverage rather than a new kernel redesign.
 
-The sole active work remains `WRB04/WRB04-06_shared_workspaces_qualification.md`. Do not create another WRB04 card. Do not begin WRB05 until WRB04-06 repairs, final vertical qualification, and Architect acceptance are complete.
+The controlling evidence is `WRB04/Repair01/CODE_REVIEW_AND_RCA_2026-09-28.md`.
+
+Execute exactly:
+
+- WRB04-R01-01 — Architect WorkItem planning/decomposition;
+- WRB04-R01-02 — human Criterion evidence;
+- WRB04-R01-03 — exact Phase validation/close;
+- WRB04-R01-04 — exact runtime interaction controls/concurrency presentation;
+- WRB04-R01-05 — final composed qualification/closeout.
+
+The parent WRB04-06 card is blocked and must not be implemented directly.
+
+Do not begin WRB05 until WRB04-R01-05 checkpoints and final Architect review accepts WRB04.
 
 ### WRB05 — Product Completion, Remaining Workflow Front Halves, and Retirement
 Outcome: Greenfield completes through the shared kernel; remaining front halves use the proven normalization contract; Hub/Source Control present concurrent instances; obsolete runtime/migration paths retire; final qualification runs. This bundle may be split after WRB04 based on the actual shared-kernel surface.
