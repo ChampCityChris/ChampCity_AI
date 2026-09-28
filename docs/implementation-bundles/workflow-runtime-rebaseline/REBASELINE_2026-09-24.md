@@ -36,21 +36,25 @@ Outcome: Workflow-specific intake/assessment/planning writes canonical SPS WorkI
 ### WRB04 — Shared Execution Kernel and Workspaces
 Outcome: Feature and Issue execute through one post-plan runtime and one reusable Workspace family from Work Item Map through integration/repair.
 
-**Status:** REPAIR01 RELEASED — backend/runtime through exact validation, Repair, completion, and exact Workflow integration remains accepted. Shared-Workspace qualification at `2a1f7c0c526761b8a7b71b788c4980a5f1f389aa` exposed missing state/action coverage rather than a new kernel redesign.
+**Status:** REPAIR02 RELEASED from authoritative completed WRB04-06 baseline `3d4399e563665afbd38426416d12a84989a51470`.
 
-The controlling evidence is `WRB04/Repair01/CODE_REVIEW_AND_RCA_2026-09-28.md`.
+The completed WRB04-06 implementation is materially functional, but post-completion code review found bounded correctness defects in WorkItem execution-contract authority, human Criterion semantics, aggregate Phase validation/Repair, and exact runtime interaction/concurrency presentation.
+
+The controlling evidence is:
+
+`WRB04/Repair02/CODE_REVIEW_AND_RCA_2026-09-28.md`
 
 Execute exactly:
 
-- WRB04-R01-01 — Architect WorkItem planning/decomposition;
-- WRB04-R01-02 — human Criterion evidence;
-- WRB04-R01-03 — exact Phase validation/close;
-- WRB04-R01-04 — exact runtime interaction controls/concurrency presentation;
-- WRB04-R01-05 — final composed qualification/closeout.
+- WRB04-R02-01 — restore Architect WorkItem execution-contract authority;
+- WRB04-R02-02 — correct human Criterion decision/visual evidence semantics;
+- WRB04-R02-03 — correct Phase validation, deferred evidence, and Phase Repair;
+- WRB04-R02-04 — correct exact runtime interaction/concurrency presentation;
+- WRB04-R02-05 — final composed qualification/closeout.
 
-The parent WRB04-06 card is blocked and must not be implemented directly.
+The earlier Repair01 package predates the completed `3d4399e5` baseline and is archived as non-authoritative historical material.
 
-Do not begin WRB05 until WRB04-R01-05 checkpoints and final Architect review accepts WRB04.
+Do not begin WRB05 until WRB04-R02-05 checkpoints and final Architect review accepts WRB04.
 
 ### WRB05 — Product Completion, Remaining Workflow Front Halves, and Retirement
 Outcome: Greenfield completes through the shared kernel; remaining front halves use the proven normalization contract; Hub/Source Control present concurrent instances; obsolete runtime/migration paths retire; final qualification runs. This bundle may be split after WRB04 based on the actual shared-kernel surface.

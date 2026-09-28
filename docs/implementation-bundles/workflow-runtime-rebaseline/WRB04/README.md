@@ -1,58 +1,60 @@
 # WRB04 — Shared Execution Kernel and Workspaces
 
-**Backend/runtime first pass:** accepted through WRB04-05  
-**Reviewed shared-Workspace checkpoint:** `2a1f7c0c526761b8a7b71b788c4980a5f1f389aa`  
-**Status:** REPAIR01 RELEASED / WRB04-06 BLOCKED
+**Authoritative reviewed baseline:** `3d4399e563665afbd38426416d12a84989a51470`  
+**Status:** REPAIR02 RELEASED / WRB04 OPEN  
+**WRB05:** unauthorized until final WRB04 Architect acceptance
 
 ## Sole active execution path
 
 Read:
 
-1. `Repair01/CODE_REVIEW_AND_RCA_2026-09-28.md`
-2. `Repair01/README.md`
-3. the current Repair Card only
+1. `Repair02/CODE_REVIEW_AND_RCA_2026-09-28.md`
+2. `Repair02/README.md`
+3. the current Repair02 card only
 
-Do not implement `WRB04-06_shared_workspaces_qualification.md` directly.
+The completed WRB04-06 implementation at `3d4399e563665afbd38426416d12a84989a51470` is the baseline being repaired.
 
-Do not create another WRB04 repair sequence unless Architect review explicitly does so.
+Do not reinterpret or resume the old WRB04-06 card.
 
-## Repair01 sequence
+## Repair02 sequence
 
-1. `Repair01/WRB04-R01-01_restore_architect_work_item_planning_and_decomposition.md`
-2. `Repair01/WRB04-R01-02_complete_human_criterion_evidence_actions.md`
-3. `Repair01/WRB04-R01-03_complete_exact_phase_validation_and_close.md`
-4. `Repair01/WRB04-R01-04_wire_exact_runtime_interaction_controls.md`
-5. `Repair01/WRB04-R01-05_requalify_and_close_wrb04.md`
+1. `Repair02/WRB04-R02-01_restore_architect_work_item_execution_contract.md`
+2. `Repair02/WRB04-R02-02_correct_human_criterion_semantics.md`
+3. `Repair02/WRB04-R02-03_correct_phase_validation_and_repair.md`
+4. `Repair02/WRB04-R02-04_correct_exact_runtime_interaction_and_concurrency.md`
+5. `Repair02/WRB04-R02-05_requalify_and_close_wrb04.md`
 
-## Why Repair01 exists
+## Why Repair02 exists
 
-The shared backend/runtime is substantially correct, but the first shared execution Workspace was qualified without a complete state/action coverage matrix.
+The final WRB04-06 sweep found bounded correctness gaps in the completed shared Workspace:
 
-Confirmed defects include:
+- missing canonical Architect WorkItem execution planning;
+- exact Implementer contract still uses empty affected paths/generic proof intent;
+- accepted-solution completion Criteria are omitted from the Implementer contract;
+- Operator Criterion decisions use owner-wide disposition and can inherit unrelated planning acceptance;
+- human visual actions can record only pass;
+- human action APIs accept derived source/implementation identity from renderer;
+- source-neutral deterministic Phase validation can manufacture pass evidence;
+- semantic Phase validation uses one member as aggregate evidence;
+- failed Phase Criteria have no correction WorkItem path;
+- WorkItem-owned deferred visual Criteria cannot complete correctly at the Phase boundary;
+- free-text runtime questions are not answerable in the shared Workspace;
+- global runtime `busy` reserializes exact runs at the UI.
 
-- missing Architect WorkItem planning/elaboration;
-- no product path for typed WorkItem decomposition;
-- exact Implementer contract hard-codes empty affected paths/generic proof intent;
-- exact Implementer contract omits accepted-solution completion Criteria;
-- no human visual/Operator Criterion action path;
-- Operator Criterion disposition is owner-wide rather than Criterion-specific;
-- no exact Phase validation path;
-- missing exact Implementer/Tester interaction controls;
-- UI-level use of global runtime `busy` reserializes concurrent exact execution;
-- restart/reopen qualification did not cover the complete execution state machine.
-
-The RCA owns the complete evidence and root-cause hierarchy.
+The controlling RCA contains the evidence and repair boundaries.
 
 ## Historical material
 
-Completed and failed-review WRB04 cards/reports are stored under:
+The prior Repair01 package was authored before the completed `3d4399e5` baseline and is non-authoritative.
 
-`docs/implementation-bundles/workflow-runtime-rebaseline/history/WRB04/`
+It is archived under:
 
-Do not use historical artifacts as current implementation instructions.
+`docs/implementation-bundles/workflow-runtime-rebaseline/history/WRB04/Repair01_PRE_3D4399_NONAUTHORITATIVE/`
+
+Completed earlier WRB04 cards/reports remain under the WRB04 history tree.
 
 ## Completion rule
 
-After WRB04-R01-05 checkpoints, STOP for final Architect review.
+After WRB04-R02-05 checkpoints, STOP for final Architect review.
 
-WRB05 remains unauthorized until WRB04 receives final Architect acceptance.
+Do not begin WRB05.
