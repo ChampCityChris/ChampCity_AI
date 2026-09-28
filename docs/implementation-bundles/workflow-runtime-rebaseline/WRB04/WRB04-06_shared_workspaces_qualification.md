@@ -1,12 +1,60 @@
 # WRB04-06 — Converge Shared Execution Workspaces and Qualify WRB04
 
-**Depends on:** completed WRB04-05  
+**Status:** IN PROGRESS — first-pass audit complete; this card remains active.  
+**Depends on:** completed WRB04-05 checkpoint `39840feba1c8e119588883e5aa13c47e2cc15689`  
+**First-pass audit checkpoint:** `865237d6db0877049d6e8de81b21f8ec7d01f54c`  
 **Implementer:** GPT 6.0 Luna Medium  
-**Execution rule:** ONE card, ONE report, ONE commit. Do not split this card.
+**Execution rule:** ONE active card. Do not split this card or create a separate repair card.
+
+## READ THIS FIRST
+
+The backend/runtime first pass is substantially implemented through WRB04-05.
+
+The committed first-pass audit is now:
+
+`Reports/WRB04-06_FIRST_PASS_AUDIT_2026-09-28.md`
+
+The Architect review is:
+
+`WRB04_FIRST_PASS_ARCHITECT_REVIEW_2026-09-28.md`
+
+The audit is not final qualification.
+
+Continue this same WRB04-06 card from the current clean `dev` checkpoint.
+
+Before UI/vertical qualification, close four bounded first-pass defects found in Architect code review:
+
+1. **Accepted-solution Criterion Repair dead-end**
+   - `createWorkflowRepair()` currently accepts a failing Validation only when the failed Criterion is directly owned by the parent WorkItem.
+   - The exact Validator and completion logic also support required Criteria owned by the accepted BoundedSolution.
+   - A failing required accepted-solution Criterion must therefore be able to create the same canonical Repair for the exact WorkItem implementing that solution.
+   - Reject unrelated/peer/Phase Criteria.
+   - Prove both WorkItem-owned and accepted-solution-owned failing Criteria create exactly one same-Workflow Repair and re-enter the shared loop.
+
+2. **Integration application attribution**
+   - `workflowIntegrationService.sync()` currently persists IntegrationRecord creation/advancement and integration Validation under `local-operator`.
+   - These are machine-owned integration mechanics.
+   - Persist them under the Workflow Integration application/system principal.
+   - Reserve Operator attribution for actual Operator decisions.
+   - Prove `createdBy`, `updatedBy`, and Validation `performedBy`.
+
+3. **Idempotent integration Validation synchronization**
+   - `sync(record)` runs before and after target advancement while the candidate retains its validation receipts.
+   - The same exact validation receipt must not create duplicate Validation rows or duplicate IntegrationRecord validation IDs.
+   - Repeated query/sync/finalization is idempotent.
+   - A genuinely rerun validation on a repaired/new candidate revision remains distinct evidence.
+
+4. **Direct exact Workflow integration service proof**
+   - Existing focused proof exercises the lower-level candidate engine.
+   - Add production-path proof through `createWorkflowIntegrationService` / exact Workflow IPC composition:
+     SPS completion → exact SourceBinding → candidate → IntegrationRecord → validation → Dev advance → Workflow closure.
+   - Include linked Dev and the attribution/idempotency corrections above.
+
+Do not create another card for these items.
 
 ## Objective
 
-Make the implemented WRB04 runtime usable through one Current Project UI/navigation family, fence obsolete Current Project execution authority, and perform final vertical qualification for Feature and Issue.
+Make the implemented WRB04 runtime usable through one Current Project UI/navigation family, fence obsolete Current Project execution authority, close the bounded first-pass defects above, and perform final vertical qualification for Feature and Issue.
 
 This is the final WRB04 card.
 
@@ -92,6 +140,8 @@ Feature/Issue Current Project execution must not enter:
 - Issue Fix Card ownership;
 - old `currentWorkflowService` Markdown execution authority.
 
+WIR may remain a routing front half. Once it creates `targetWorkflowId`, the target Workflow must use the same exact Workflow planning/execution/integration services as a directly started Workflow.
+
 Remove zero-production-caller modules/tests where bounded and safe.
 
 If retained for historical/unsupported paths, document exact remaining production caller.
@@ -123,11 +173,11 @@ Use a disposable source-backed Current Project:
 5. implementation checkpoint;
 6. Tester;
 7. Validator;
-8. force one Repair path;
+8. force one Repair path, including accepted-solution failure coverage;
 9. complete Repair;
 10. complete WorkItem/Phase;
 11. complete Workflow execution;
-12. integration candidate from linked Dev;
+12. integration candidate from linked Dev through the actual Workflow integration service;
 13. integrate;
 14. Workflow closes;
 15. reopen/recover final state.
@@ -156,8 +206,9 @@ Route one WIR request to Feature.
 
 After target creation:
 - WIR stays closed summary;
-- target Workflow executes/integrates through exact Workflow services;
-- WIR identity cannot control target planning/execution/source/integration.
+- target Workflow uses exact target planning/execution/integration services;
+- WIR identity cannot control target planning/execution/source/integration;
+- target execution must not re-enter `routedDevelopmentExecutionService`.
 
 ## 10. Source-neutral qualification
 
@@ -194,6 +245,8 @@ This is engineering/product smoke, not a visual-design redesign.
 
 Document:
 - active exact services/contracts/workspaces;
+- first-pass defects above and their final proof;
+- integration actor attribution and idempotency;
 - legacy modules removed/retained and exact callers;
 - remaining WRB05 scope;
 - all WRB04 checkpoint commits;
@@ -205,6 +258,9 @@ Document:
 
 Run:
 - build;
+- focused repair-regression proof for WorkItem + accepted-solution Criteria;
+- direct exact Workflow integration service tests;
+- integration attribution/idempotency proof;
 - shared execution renderer/navigation tests;
 - Feature vertical focused qualification;
 - Issue vertical focused qualification;
@@ -218,17 +274,19 @@ Run:
 
 Do not use the historical full test suite as the primary acceptance mechanism.
 
-## Report
+## Final report
 
-Write:
+Write a new final report only after the implementation and qualifications above pass:
 
 `docs/implementation-bundles/workflow-runtime-rebaseline/WRB04/Reports/WRB04-06_FINAL_QUALIFICATION_REPORT.md`
 
+Do not rename the first-pass audit into the final report.
+
 ## Checkpoint and STOP
 
-Commit:
+Commit when the card is actually complete:
 
-`WRB04-06 qualify shared execution runtime`
+`WRB04-06 complete shared workspace qualification`
 
 Then **STOP for human Architect review**.
 

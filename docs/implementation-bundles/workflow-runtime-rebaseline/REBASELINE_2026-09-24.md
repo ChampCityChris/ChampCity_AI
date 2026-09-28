@@ -36,14 +36,11 @@ Outcome: Workflow-specific intake/assessment/planning writes canonical SPS WorkI
 ### WRB04 — Shared Execution Kernel and Workspaces
 Outcome: Feature and Issue execute through one post-plan runtime and one reusable Workspace family from Work Item Map through integration/repair.
 
-**Status:** IN PROGRESS / RUNTIME CONVERGENCE ACCEPTED — exact Workflow/WorkItem execution, lazy source preparation, typed attempt/decomposition, source-backed and source-neutral Implementer paths, Tester determination/results/checkpoints/runtime, exact execution contexts, concurrency leases, and Tester proof-scope convergence are accepted through `ff4c4a35a3d8b7196745e98062ad5ed0427b3355`.
+**Status:** FIRST-PASS RUNTIME COMPLETE / WRB04-06 ACTIVE — the shared backend/runtime is implemented through exact validation, Repair, WorkItem/Phase completion, Workflow completion, and exact Workflow integration at checkpoints `4b9ad3f1bf97b63034a03a741b2900f3bdf340dd` and `39840feba1c8e119588883e5aa13c47e2cc15689`. The first-pass audit checkpoint `865237d6db0877049d6e8de81b21f8ec7d01f54c` correctly found final qualification incomplete.
 
-The remaining WRB04 work is re-baselined to exactly three sequential cards:
-- WRB04-04 — Validator, canonical Repair loop, WorkItem/Phase completion;
-- WRB04-05 — Workflow completion and exact-Workflow integration, including linked-worktree common-directory repair;
-- WRB04-06 — shared execution Workspaces, legacy execution fence, and final Feature/Issue qualification.
+The sole remaining WRB04 card is `WRB04/WRB04-06_shared_workspaces_qualification.md`. It owns four bounded first-pass corrections (accepted-solution Repair support, integration application attribution, idempotent integration Validation synchronization, direct exact Workflow integration service proof), the shared Feature/Issue execution Workspace family, legacy Current Project execution fence, restart/recovery, end-to-end Feature/Issue/WIR/source-neutral qualification, linked-Dev production-path integration proof, and bounded launch smoke.
 
-Do not split these into lettered child cards. Final Architect review occurs after WRB04-06.
+Do not begin WRB05 until WRB04-06 completes and receives final Architect review.
 
 ### WRB05 — Product Completion, Remaining Workflow Front Halves, and Retirement
 Outcome: Greenfield completes through the shared kernel; remaining front halves use the proven normalization contract; Hub/Source Control present concurrent instances; obsolete runtime/migration paths retire; final qualification runs. This bundle may be split after WRB04 based on the actual shared-kernel surface.

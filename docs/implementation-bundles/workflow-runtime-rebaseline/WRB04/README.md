@@ -1,62 +1,95 @@
 # WRB04 — Shared Execution Kernel and Workspaces
 
 **Implementer:** GPT 6.0 Luna Medium  
-**Accepted runtime checkpoint:** `ff4c4a35a3d8b7196745e98062ad5ed0427b3355`  
-**Current repository baseline before WRB04-04:** `78bdfa7b6c373d318e73428e2d7d28152ba46271`  
-**Status:** WRB04-04 IN PROGRESS — partial implementation exists in the working tree and must be continued, not discarded.
+**First-pass runtime checkpoint:** `39840feba1c8e119588883e5aa13c47e2cc15689`  
+**First-pass audit checkpoint:** `865237d6db0877049d6e8de81b21f8ec7d01f54c`  
+**Status:** WRB04-06 IN PROGRESS — backend/runtime first pass complete; shared workspace convergence and final qualification remain.
 
 ## READ THIS FIRST
 
 There is exactly one active card:
 
-`WRB04-04_validation_repair_completion.md`
+`WRB04-06_shared_workspaces_qualification.md`
 
-Do not open WRB04-05 or WRB04-06 until WRB04-04 is fully complete and committed.
+Do not create:
+- a new WRB04 card;
+- a Repair card for the first-pass findings;
+- a lettered child card;
+- another recovery sequence.
 
-Do not create a new repair card, lettered child card, clarification card, recovery card, or alternate execution sequence.
+The first-pass Architect review is:
 
-Historical WRB04 cards, prior reports, recovery documents, and superseded files have been moved out of this active directory to:
+`WRB04_FIRST_PASS_ARCHITECT_REVIEW_2026-09-28.md`
+
+The committed first-pass audit is:
+
+`Reports/WRB04-06_FIRST_PASS_AUDIT_2026-09-28.md`
+
+That audit is intentionally incomplete and is not final qualification.
+
+## First-pass status
+
+WRB04-04 and WRB04-05 implemented the shared backend/runtime through:
+
+- exact WorkItem implementation;
+- Tester;
+- Validator;
+- canonical Repair;
+- WorkItem/Phase completion;
+- Workflow execution completion;
+- exact Workflow integration;
+- linked Dev candidate handling;
+- Integration Repair;
+- Dev advancement;
+- final Workflow closure.
+
+This is a meaningful completed first pass of the kernel.
+
+Architect review found four bounded issues that must be fixed inside WRB04-06:
+
+1. failing accepted-solution Criteria must be able to create canonical Repairs;
+2. exact integration mechanics must use application/system attribution rather than `local-operator`;
+3. integration Validation synchronization must be idempotent;
+4. the exact `workflowIntegrationService` composition layer needs direct production-path proof.
+
+## Remaining product work
+
+WRB04-06 must then complete the originally planned product convergence:
+
+- one shared Feature/Issue post-plan execution Workspace family;
+- exact ID navigation/recovery;
+- Implementer/Tester/Validator/Repair presentation;
+- Workflow completion/integration presentation;
+- fence legacy Current Project execution authority;
+- direct Feature vertical;
+- Issue vertical;
+- WIR → target Workflow convergence vertical;
+- source-neutral vertical;
+- restart/recovery proof;
+- test-lifecycle proof;
+- linked-Dev integration through the actual Workflow integration service;
+- bounded application launch/usability smoke.
+
+WIR remains allowed as a routing front half. After target Workflow creation, target execution must not use private routed-development authority.
+
+## Historical material
+
+Completed/superseded WRB04 cards and old recovery material live under:
 
 `docs/implementation-bundles/workflow-runtime-rebaseline/history/WRB04/`
 
-Do not use that history as implementation instructions unless the Architect explicitly directs you to inspect a specific historical artifact.
+Do not use those as active implementation instructions unless explicitly directed by the Architect.
 
-## Current working-tree state
+## Completion rule
 
-WRB04-04 has a valid partial implementation already present.
+WRB04 is complete only when WRB04-06 writes a new:
 
-Its current progress report is:
+`Reports/WRB04-06_FINAL_QUALIFICATION_REPORT.md`
 
-`Reports/WRB04-04_PROGRESS_2026-09-27.md`
+and commits:
 
-That report is a progress record, not completion.
+`WRB04-06 complete shared workspace qualification`
 
-Preserve the current partial code and continue the same card.
-
-Architect review of the partial work identified three corrections that are part of WRB04-04 scope:
-
-1. Phase completion eligibility must be exact-Workflow scoped; the Current Project path must not rely on project-wide `getExecutionPlan(projectId)`.
-2. Validator/projection must include completion-relevant Criteria owned by both the exact WorkItem and its accepted BoundedSolution.
-3. Exact Implementer attempts must persist the actual Implementer principal rather than the human `local-operator`; Validator independence must be provable from persisted actor identity. Mechanical completion must use an appropriate application/system principal rather than impersonating the Operator.
-
-After those corrections, finish every remaining requirement in the active WRB04-04 card.
-
-## Only remaining sequence
-
-After WRB04-04 is fully implemented, validated, reported, and committed:
-
-1. `WRB04-05_workflow_completion_integration.md`
-2. `WRB04-06_shared_workspaces_qualification.md`
-3. STOP for human Architect review.
+Then STOP for human Architect review.
 
 Do not begin WRB05.
-
-## Execution rules
-
-- One card = one completed engineering outcome, one Implementer Report, one attributable commit.
-- Do not stop merely because the card is large if no architectural contradiction exists.
-- If a genuine architecture contradiction prevents completion, stop and report that contradiction directly.
-- Ordinary implementation defects are fixed inside the active card.
-- Exact Workflow/WorkItem/SPS identity is canonical.
-- Do not restore WorkIntake, Markdown Work Card, routed-development, or Issue Fix Card authority.
-- Use focused validation. Do not run the historical full work-item profile as a routine completion gate.
