@@ -1,293 +1,246 @@
-# WRB04-06 — Converge Shared Execution Workspaces and Qualify WRB04
+# WRB04-06 — Complete Shared Execution Workspace Qualification
 
-**Status:** IN PROGRESS — first-pass audit complete; this card remains active.  
-**Depends on:** completed WRB04-05 checkpoint `39840feba1c8e119588883e5aa13c47e2cc15689`  
-**First-pass audit checkpoint:** `865237d6db0877049d6e8de81b21f8ec7d01f54c`  
+**Status:** REPAIR REQUIRED — continue this same card.  
+**Current checkpoint:** `2a1f7c0c526761b8a7b71b788c4980a5f1f389aa`  
+**Architect review:** `WRB04-06_ARCHITECT_REVIEW_2026-09-28.md`  
 **Implementer:** GPT 6.0 Luna Medium  
-**Execution rule:** ONE active card. Do not split this card or create a separate repair card.
+**Rule:** ONE active card. Do not create WRB04-07, a lettered child, or a separate Repair card.
 
-## READ THIS FIRST
+## Preserve
 
-The backend/runtime first pass is substantially implemented through WRB04-05.
+Preserve the existing WRB04 implementation through `2a1f7c0c526761b8a7b71b788c4980a5f1f389aa`.
 
-The committed first-pass audit is now:
+The following are accepted and are not to be redesigned:
 
-`Reports/WRB04-06_FIRST_PASS_AUDIT_2026-09-28.md`
+- exact Workflow/WorkItem execution;
+- source-backed and source-neutral Implementer paths;
+- Tester lifecycle;
+- deterministic and semantic Validator;
+- canonical Repair loop;
+- WorkItem and exact Phase completion mechanics;
+- Workflow execution completion;
+- exact Workflow integration and linked-Dev mechanics;
+- Integration Repair;
+- shared Feature/Issue `WorkflowExecutionWorkspace`;
+- Current Project dispatch away from private Feature/Issue legacy execution paths;
+- WIR target navigation by exact target Workflow ID.
 
-The Architect review is:
+The submitted qualification report was reviewed and renamed:
 
-`WRB04_FIRST_PASS_ARCHITECT_REVIEW_2026-09-28.md`
+`Reports/WRB04-06_SUBMITTED_QUALIFICATION_2026-09-28.md`
 
-The audit is not final qualification.
+It is evidence of the first qualification attempt, not final acceptance.
 
-Continue this same WRB04-06 card from the current clean `dev` checkpoint.
+## Remaining blockers
 
-Before UI/vertical qualification, close four bounded first-pass defects found in Architect code review:
+### 1. Expose typed pre-execution WorkItem decomposition
 
-1. **Accepted-solution Criterion Repair dead-end**
-   - `createWorkflowRepair()` currently accepts a failing Validation only when the failed Criterion is directly owned by the parent WorkItem.
-   - The exact Validator and completion logic also support required Criteria owned by the accepted BoundedSolution.
-   - A failing required accepted-solution Criterion must therefore be able to create the same canonical Repair for the exact WorkItem implementing that solution.
-   - Reject unrelated/peer/Phase Criteria.
-   - Prove both WorkItem-owned and accepted-solution-owned failing Criteria create exactly one same-Workflow Repair and re-enter the shared loop.
+The accepted `ProjectStateService.decomposeWorkItem()` command exists, but the Current Project exact Workflow path does not expose it through application service, IPC/preload, or the shared Workspace.
 
-2. **Integration application attribution**
-   - `workflowIntegrationService.sync()` currently persists IntegrationRecord creation/advancement and integration Validation under `local-operator`.
-   - These are machine-owned integration mechanics.
-   - Persist them under the Workflow Integration application/system principal.
-   - Reserve Operator attribution for actual Operator decisions.
-   - Prove `createdBy`, `updatedBy`, and Validation `performedBy`.
+Implement the production path without inventing a second decomposition model.
 
-3. **Idempotent integration Validation synchronization**
-   - `sync(record)` runs before and after target advancement while the candidate retains its validation receipts.
-   - The same exact validation receipt must not create duplicate Validation rows or duplicate IntegrationRecord validation IDs.
-   - Repeated query/sync/finalization is idempotent.
-   - A genuinely rerun validation on a repaired/new candidate revision remains distinct evidence.
+Required:
 
-4. **Direct exact Workflow integration service proof**
-   - Existing focused proof exercises the lower-level candidate engine.
-   - Add production-path proof through `createWorkflowIntegrationService` / exact Workflow IPC composition:
-     SPS completion → exact SourceBinding → candidate → IntegrationRecord → validation → Dev advance → Workflow closure.
-   - Include linked Dev and the attribution/idempotency corrections above.
+- exact `workflowId + workItemId`;
+- only current `planned|ready` WorkItems;
+- expected WorkItem version derived/presented explicitly;
+- bounded replacement candidates;
+- explicit Criterion disposition/mapping;
+- explicit incoming/outgoing dependency remapping required by the existing domain command;
+- atomic call to the existing typed decomposition command;
+- refresh from exact SPS after success;
+- source WorkItem becomes historical/voided and replacements become the current executable plan.
 
-Do not create another card for these items.
+The renderer must not construct arbitrary Project State relationships directly.
 
-## Objective
+### 2. Add exact human/operator Criterion actions
 
-Make the implemented WRB04 runtime usable through one Current Project UI/navigation family, fence obsolete Current Project execution authority, close the bounded first-pass defects above, and perform final vertical qualification for Feature and Issue.
+The shared Workspace currently shows human-policy Criteria but cannot satisfy them.
 
-This is the final WRB04 card.
+Implement exact application/API/UI actions for:
 
-## 1. One shared execution Workspace family
+#### visual_human
 
-After WRB03 planning reaches `work-item-map`, Feature and Issue use the same post-plan surfaces.
+- target an exact current Criterion;
+- derive owner/current version/current source context in main;
+- record `Validation` with `validationMode = visual_human`;
+- performer is the human Operator principal;
+- bind current implementation attempt/source candidate when the Criterion participates in WorkItem completion;
+- reject stale Criterion/attempt/source evidence.
 
-Required user tasks:
-- Work Item Map / readiness;
-- WorkItem execution-contract planning/decomposition;
-- Implementer status/run;
-- Tester status/run;
-- Validator results/actions;
-- Repair status/run;
-- WorkItem close/next;
-- Phase validation/close when applicable;
-- Workflow completion/integration;
-- Integration Repair when needed.
+#### operator_decision
 
-Workflow type may affect labels/context only.
+- record a real Operator `Decision`;
+- govern the exact WorkItem, accepted solution owner, or Phase according to the canonical completion policy;
+- do not substitute Validation for the Decision;
+- require bounded Operator rationale;
+- show current disposition after refresh.
 
-Do not rebuild parallel Feature and Issue execution UIs.
+Operator input is required evidence for these declared policies; it is not an added workflow approval gate.
 
-## 2. Exact navigation and recovery
+### 3. Implement exact Phase validation before Phase close
 
-Every action carries exact IDs:
-- workflowId;
-- workItemId;
-- implementationRecordId / testerResultId / integrationId when relevant.
+A Phase with required Criteria currently has no usable validation path in the shared Workspace.
 
-Reopen/restart derives stage from SPS/runtime evidence.
+Add an exact Phase validation projection and actions.
 
-Do not scan filenames to determine stage.
+Required policies:
 
-Same-title/same-type concurrent Workflows remain independent.
+- `deterministic` — use the existing ValidationCatalog/profile machinery against the exact current source/evidence;
+- `semantic_ai` — independent read-only Validator principal with bounded Phase/WorkItem evidence;
+- `visual_human` — human visual Validation;
+- `deferred_visual_phase` — human visual evidence specifically at Phase close;
+- `operator_decision` — explicit Operator Decision.
 
-## 3. Role presentation
+The Phase completion button must be enabled only when canonical Phase completion eligibility is satisfied.
 
-Implementer:
-- exact WorkItem contract;
-- run/status/result/checkpoint.
+Do not create an artificial Phase for direct topology.
 
-Tester:
-- determination summary;
-- role boundary;
-- no-change or proof-change result;
-- test checkpoint where applicable.
+Enforce the planning/domain invariant that `deferred_visual_phase` belongs to a real Phase boundary. It must not be silently accepted on a direct WorkItem/solution where no Phase can consume it.
 
-Validator:
-- Criterion-by-Criterion result;
-- deterministic/semantic/human/deferred distinction.
+### 4. Surface exact Implementer/Tester interaction requests
 
-Repair:
-- exact failed Criterion/evidence;
-- canonical Repair WorkItem;
-- same shared execution loop.
+The backend already exposes these states/actions. Wire them into the shared Workspace.
 
-Operator is requested only for declared human/visual/product decisions.
+#### Implementer
 
-## 4. Source/integration presentation
+When present, render and handle:
 
-Show:
-- source-neutral vs source-backed;
-- immutable baseline;
-- current Workflow revision;
-- checkout/source line when prepared;
-- integration candidate status;
-- conflict/repair/validation state;
-- final Dev result.
+- `pendingApproval`;
+- `pendingUserInput`;
+- pending MCP elicitation;
+- cancel.
 
-Do not expose WorkIntake as source/integration owner.
+Responses must carry exact `workflowId + workItemId`.
 
-## 5. Current Project legacy fence
+Reuse the established bounded Codex interaction presentation where practical; do not route through legacy Work Card execution authority.
 
-Audit renderer/preload/main production callers.
+#### Tester
 
-Feature/Issue Current Project execution must not enter:
-- `workPlanningKernel`;
-- `routedDevelopmentExecutionBinding`;
-- `routedDevelopmentExecutionService`;
-- WorkIntake-keyed structured integration;
-- private `issueExecutionPlan`;
-- Issue Fix Card ownership;
-- old `currentWorkflowService` Markdown execution authority.
+When present, render and handle:
 
-WIR may remain a routing front half. Once it creates `targetWorkflowId`, the target Workflow must use the same exact Workflow planning/execution/integration services as a directly started Workflow.
+- `pendingApproval`;
+- `pendingUserInput`;
+- cancel.
 
-Remove zero-production-caller modules/tests where bounded and safe.
+Responses must carry exact `workflowId + workItemId + implementationRecordId`.
 
-If retained for historical/unsupported paths, document exact remaining production caller.
+Prove a pending request can be answered and the exact session resumes or reaches a truthful terminal state.
 
-Do not add a legacy/current mode switch.
+## Final qualification after repairs
 
-## 6. Restart/recovery proof
+Run focused end-to-end proof for the shared Current Project path.
 
-For an exact Workflow interrupted/reopened at each important stage, recover:
-- ready WorkItem;
-- running/completed implementation evidence;
-- TesterResult/checkpoint;
-- Validator results;
-- Repair state;
-- completed WorkItem/Phase;
-- integration candidate/repair;
-- final closed Workflow.
-
-Running external agent processes do not have to survive app process death, but durable state must recover to a truthful rerunnable/inspection state.
-
-## 7. Feature vertical qualification
-
-Use a disposable source-backed Current Project:
-
-1. create/plan Feature;
-2. Work Item Map;
-3. exact execution contract;
-4. Implementer;
-5. implementation checkpoint;
-6. Tester;
-7. Validator;
-8. force one Repair path, including accepted-solution failure coverage;
-9. complete Repair;
-10. complete WorkItem/Phase;
-11. complete Workflow execution;
-12. integration candidate from linked Dev through the actual Workflow integration service;
-13. integrate;
-14. Workflow closes;
-15. reopen/recover final state.
-
-## 8. Issue vertical qualification
-
-Repeat from an accepted Issue correction plan.
-
-Issue RCA remains pre-plan context.
-
-Prove exact fix WorkItem uses the same:
-- execution contract;
-- Implementer;
-- Tester;
-- Validator;
-- Repair;
-- completion;
-- integration;
-- Workspace family.
-
-No private Issue execution engine.
-
-## 9. WIR convergence qualification
-
-Route one WIR request to Feature.
-
-After target creation:
-- WIR stays closed summary;
-- target Workflow uses exact target planning/execution/integration services;
-- WIR identity cannot control target planning/execution/source/integration;
-- target execution must not re-enter `routedDevelopmentExecutionService`.
-
-## 10. Source-neutral qualification
-
-Prove one non-source Workflow:
-- implementation;
-- source-neutral Tester;
-- Validator;
-- WorkItem completion;
-- Workflow completion;
-- no RepositoryCheckout/SourceCheckpoint/IntegrationRecord fabrication.
-
-## 11. Test lifecycle qualification
+### Feature source-backed
 
 Prove:
-- implementation-local proof is not automatically permanent;
-- `NO_PERMANENT_TEST_REQUIRED` is successful;
-- one Tester-owned fixture/support/catalog update checkpoints correctly;
-- Validator consumes the resulting candidate;
-- no full-suite run is inserted as a routine WorkItem gate.
 
-## 12. User-facing usability check
+```text
+Feature planning
+→ Work Item Map
+→ optional typed decomposition
+→ Implementer
+→ interaction request/response where fixture requires it
+→ source checkpoint
+→ Tester
+→ Tester interaction request/response where fixture requires it
+→ Validator
+→ canonical Repair
+→ reimplementation
+→ WorkItem completion
+→ Phase validation/close when phased
+→ Workflow completion
+→ exact Workflow integration
+→ Dev advancement
+→ Workflow closed
+```
 
-Perform focused renderer/workspace proof and a bounded application launch/smoke sufficient to verify:
-- controls are present;
-- exact Workflow navigation works;
-- no dead-end text-only screens at the implemented Feature/Issue path;
-- error/status state is visible;
+Include at least one human-policy Criterion fixture through the exact action path.
+
+### Issue
+
+Prove the same shared post-plan runtime from an accepted Issue RCA/correction plan.
+
+No Issue Fix Card/private Issue execution engine may own the Current Project target execution.
+
+### WIR convergence
+
+Route WIR to a Feature target, then prove target execution uses the same exact Workflow path as direct Feature start.
+
+WIR remains routing provenance only.
+
+### Source-neutral
+
+Prove Implementer → Tester → Validator → completion → closed Workflow with no fabricated RepositoryCheckout, SourceCheckpoint, or IntegrationRecord.
+
+### Restart/reopen recovery
+
+Reopen exact SPS/runtime state at minimum after:
+
+1. ready WorkItem;
+2. successful Implementer / validation-pending;
+3. TesterResult/checkpoint;
+4. Validator evidence;
+5. active Repair;
+6. completed WorkItem/Phase;
+7. integration-ready;
+8. retained integration candidate/Integration Repair;
+9. integrated/closed Workflow.
+
+External model processes do not need to survive app death. Durable state must recover truthfully to resume/inspect/retry.
+
+### Usability smoke
+
+Run bounded desktop launch/navigation smoke when the environment exposes the window.
+
+Verify at minimum:
+
+- Feature/Issue enter the same shared execution Workspace;
+- exact WorkItem selection/actions are usable;
+- pending model interaction controls are visible when present;
+- human Criterion/Phase validation actions are visible when required;
+- errors are visible;
 - Back to Workflows returns to Hub;
-- restart/reopen works.
+- reopen returns to the state derived from SPS.
 
-This is engineering/product smoke, not a visual-design redesign.
+If GUI automation remains unavailable, report that limitation precisely and do not claim interactive visual acceptance.
 
-## 13. Final WRB04 audit
-
-Document:
-- active exact services/contracts/workspaces;
-- first-pass defects above and their final proof;
-- integration actor attribution and idempotency;
-- legacy modules removed/retained and exact callers;
-- remaining WRB05 scope;
-- all WRB04 checkpoint commits;
-- focused validation evidence;
-- known unrelated test debt;
-- explicit statement that no later Workflow-family front half or web-client migration was started.
-
-## Validation
+## Focused validation
 
 Run:
+
 - build;
-- focused repair-regression proof for WorkItem + accepted-solution Criteria;
-- direct exact Workflow integration service tests;
-- integration attribution/idempotency proof;
-- shared execution renderer/navigation tests;
-- Feature vertical focused qualification;
-- Issue vertical focused qualification;
-- WIR handoff regression;
+- Project State decomposition/criterion/Phase focused tests;
+- exact Workflow application/IPC tests;
+- exact Implementer/Tester interaction tests;
+- shared renderer tests covering the new controls;
+- Feature vertical;
+- Issue vertical;
+- WIR target convergence;
 - source-neutral vertical;
-- linked-worktree integration proof;
+- restart/reopen qualification;
+- direct exact Workflow integration test;
 - capability-map integrity;
 - exact validation-plan preview;
 - `git diff --check`;
-- bounded launch smoke.
+- bounded desktop launch smoke.
 
-Do not use the historical full test suite as the primary acceptance mechanism.
+Do not use the historical full test suite as the completion gate.
 
 ## Final report
 
-Write a new final report only after the implementation and qualifications above pass:
+Only after all blockers and qualifications pass, create:
 
 `docs/implementation-bundles/workflow-runtime-rebaseline/WRB04/Reports/WRB04-06_FINAL_QUALIFICATION_REPORT.md`
 
-Do not rename the first-pass audit into the final report.
+The report must explicitly distinguish deterministic UI/service proof from any manual/interactive evidence that could not be run.
 
 ## Checkpoint and STOP
 
-Commit when the card is actually complete:
+Commit:
 
-`WRB04-06 complete shared workspace qualification`
+`WRB04-06 repair and qualify shared execution workspace`
 
-Then **STOP for human Architect review**.
+Then STOP for human Architect review.
 
 Do not begin WRB05.

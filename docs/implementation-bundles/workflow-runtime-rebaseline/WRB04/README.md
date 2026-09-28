@@ -1,95 +1,59 @@
 # WRB04 — Shared Execution Kernel and Workspaces
 
-**Implementer:** GPT 6.0 Luna Medium  
-**First-pass runtime checkpoint:** `39840feba1c8e119588883e5aa13c47e2cc15689`  
-**First-pass audit checkpoint:** `865237d6db0877049d6e8de81b21f8ec7d01f54c`  
-**Status:** WRB04-06 IN PROGRESS — backend/runtime first pass complete; shared workspace convergence and final qualification remain.
+**Backend/runtime first pass:** accepted through WRB04-05  
+**Current reviewed checkpoint:** `2a1f7c0c526761b8a7b71b788c4980a5f1f389aa`  
+**Status:** WRB04-06 REPAIR REQUIRED / FINAL QUALIFICATION OPEN
 
-## READ THIS FIRST
+## Sole active instruction
 
-There is exactly one active card:
+Read:
 
-`WRB04-06_shared_workspaces_qualification.md`
+1. `WRB04-06_ARCHITECT_REVIEW_2026-09-28.md`
+2. `WRB04-06_shared_workspaces_qualification.md`
 
-Do not create:
-- a new WRB04 card;
-- a Repair card for the first-pass findings;
-- a lettered child card;
-- another recovery sequence.
+There is exactly one active card: **WRB04-06**.
 
-The first-pass Architect review is:
+Do not create another WRB04 card or repair sequence.
 
-`WRB04_FIRST_PASS_ARCHITECT_REVIEW_2026-09-28.md`
+## Accepted implementation
 
-The committed first-pass audit is:
+Preserve the existing shared backend/runtime and shared Feature/Issue execution Workspace.
 
-`Reports/WRB04-06_FIRST_PASS_AUDIT_2026-09-28.md`
+The latest submission successfully corrected:
 
-That audit is intentionally incomplete and is not final qualification.
+- accepted-solution Criterion Repair support;
+- Workflow Integration system attribution;
+- normal integration Validation deduplication;
+- direct exact Workflow integration service proof;
+- shared Feature/Issue post-plan renderer dispatch;
+- WIR target opening by exact Workflow identity.
 
-## First-pass status
+## Remaining blockers
 
-WRB04-04 and WRB04-05 implemented the shared backend/runtime through:
+WRB04 cannot close until the existing 06 card supplies:
 
-- exact WorkItem implementation;
-- Tester;
-- Validator;
-- canonical Repair;
-- WorkItem/Phase completion;
-- Workflow execution completion;
-- exact Workflow integration;
-- linked Dev candidate handling;
-- Integration Repair;
-- Dev advancement;
-- final Workflow closure.
+1. exact product-path WorkItem decomposition;
+2. usable human visual and Operator-decision Criterion actions;
+3. exact Phase validation for deterministic/semantic/human/deferred/operator policies;
+4. exact Implementer/Tester pending interaction and cancel controls;
+5. stage-by-stage restart/reopen qualification after those paths exist.
 
-This is a meaningful completed first pass of the kernel.
+The submitted report is retained as:
 
-Architect review found four bounded issues that must be fixed inside WRB04-06:
+`Reports/WRB04-06_SUBMITTED_QUALIFICATION_2026-09-28.md`
 
-1. failing accepted-solution Criteria must be able to create canonical Repairs;
-2. exact integration mechanics must use application/system attribution rather than `local-operator`;
-3. integration Validation synchronization must be idempotent;
-4. the exact `workflowIntegrationService` composition layer needs direct production-path proof.
+It is not the final accepted report.
 
-## Remaining product work
+## Completion
 
-WRB04-06 must then complete the originally planned product convergence:
-
-- one shared Feature/Issue post-plan execution Workspace family;
-- exact ID navigation/recovery;
-- Implementer/Tester/Validator/Repair presentation;
-- Workflow completion/integration presentation;
-- fence legacy Current Project execution authority;
-- direct Feature vertical;
-- Issue vertical;
-- WIR → target Workflow convergence vertical;
-- source-neutral vertical;
-- restart/recovery proof;
-- test-lifecycle proof;
-- linked-Dev integration through the actual Workflow integration service;
-- bounded application launch/usability smoke.
-
-WIR remains allowed as a routing front half. After target Workflow creation, target execution must not use private routed-development authority.
-
-## Historical material
-
-Completed/superseded WRB04 cards and old recovery material live under:
-
-`docs/implementation-bundles/workflow-runtime-rebaseline/history/WRB04/`
-
-Do not use those as active implementation instructions unless explicitly directed by the Architect.
-
-## Completion rule
-
-WRB04 is complete only when WRB04-06 writes a new:
+When WRB04-06 repairs and qualification pass, write a new:
 
 `Reports/WRB04-06_FINAL_QUALIFICATION_REPORT.md`
 
-and commits:
+and commit:
 
-`WRB04-06 complete shared workspace qualification`
+`WRB04-06 repair and qualify shared execution workspace`
 
-Then STOP for human Architect review.
+Then STOP for Architect review.
 
 Do not begin WRB05.
