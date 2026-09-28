@@ -3242,6 +3242,10 @@
           "description": "Evidence identity, provenance and immutable external payload metadata remain queryable"
         },
         {
+          "behaviorId": "exact-validation-failure-creates-one-atomic-same-workflow-repair",
+          "description": "A current failing required Criterion creates exactly one canonical Repair WorkItem atomically, linked to its accepted Workflow solution, owning Phase and parent WorkItem."
+        },
+        {
           "behaviorId": "execution-dependencies-repair-ancestry-attempts-and-decisions-determine-eligibility",
           "description": "execution dependencies, Repair ancestry, attempts and Decisions determine eligibility"
         },
@@ -4783,6 +4787,8 @@
         "src/shared/projectState/workflowTypeRegistry.ts",
         "src/shared/structuredWorkRoutingContracts.ts",
         "src/shared/workflowApplicationContracts.ts",
+        "test/workflow/deterministic-work-item-validator.test.cjs",
+        "test/workflow/semantic-work-item-validator.test.cjs",
         "test/workflow/workflow-application-service.test.cjs",
         "test/workflow/workflow-execution-application-service.test.cjs",
         "test/workflow/workflow-planning-ipc.test.cjs"
@@ -4794,8 +4800,24 @@
       ],
       "behaviors": [
         {
+          "behaviorId": "canonical-repair-reenters-shared-execution-contract-and-requeues-parent",
+          "description": "Canonical Repair WorkItems use the exact shared Implementer/Tester/Validator contract, and final Repair completion requeues its parent for reevaluation."
+        },
+        {
           "behaviorId": "current-workflow-inventory-and-direct-start-use-exact-independent-instance-identity",
           "description": "Current Project inventory lists exact active and closed Workflow instances, and direct starts create concurrent exact identities."
+        },
+        {
+          "behaviorId": "exact-implementation-attempts-persist-the-trusted-agent-principal",
+          "description": "Exact Implementer attempt mutations and immutable ImplementationRecords persist the trusted Implementer agent principal."
+        },
+        {
+          "behaviorId": "exact-validator-and-completion-ipc-contracts-accept-only-bounded-identities",
+          "description": "Validator, Repair, and completion product-path APIs accept only bounded exact Workflow and WorkItem identities."
+        },
+        {
+          "behaviorId": "exact-workitem-validation-projection-derives-current-source-and-completion-authority",
+          "description": "Exact Workflow validation projections bind current WorkItem criteria, implementation and Tester evidence to source-neutral or current source-backed state; typed WorkItem and Phase completion rechecks eligibility."
         },
         {
           "behaviorId": "feature-and-issue-planning-ipc-preserves-exact-workflow-argument-contracts",
@@ -4814,6 +4836,10 @@
           "description": "Exact Issue Workflow intake, evidence, RCA, and correction planning persist in SPS; revisions preserve canonical RCA and accepted plans normalize fix Work Items."
         },
         {
+          "behaviorId": "semantic-validator-is-independent-readonly-and-network-disabled",
+          "description": "Independent semantic validation uses a distinct Validator principal, exact current evidence, and a read-only network-disabled App Server turn."
+        },
+        {
           "behaviorId": "source-backed-direct-workflow-captures-exact-dev-baseline-with-lazy-binding",
           "description": "A source-backed direct start atomically captures the exact managed Dev revision and an unprepared SourceBinding without materializing a checkout."
         },
@@ -4824,6 +4850,10 @@
         {
           "behaviorId": "tester-only-contract-projection-reads-validation-pending-work-item-without-enabling-implementer-attempts",
           "description": "Tester-only contract projection reads a validation-pending WorkItem without enabling Implementer attempts"
+        },
+        {
+          "behaviorId": "validationcatalog-work-item-profile-is-bounded-exact-and-cleans-input",
+          "description": "Deterministic WorkItem validation reuses the ValidationCatalog work-item profile with bounded exact changes and cleans its scoped input."
         },
         {
           "behaviorId": "workflow-inventory-resolves-unambiguous-wir-provenance-and-fails-closed",
@@ -13833,8 +13863,8 @@
     {
       "testPath": "test/project-state/execution-completion.test.cjs",
       "currentTestCount": {
-        "value": 10,
-        "basis": "Seven Project State scenarios run across in-memory and SQLite adapters, including exact Workflow semantic ownership, canonical plan detection and mid-transaction Issue RCA rollback proof."
+        "value": 20,
+        "basis": "Twenty TAP scenarios across in-memory and SQLite adapters, including exact atomic Repair and Implementer actor attribution."
       },
       "duration": {
         "kind": "estimated",
@@ -13881,6 +13911,12 @@
         },
         {
           "capabilityId": "project-state-service",
+          "behaviorId": "exact-validation-failure-creates-one-atomic-same-workflow-repair",
+          "proofLocator": "exact failing Criterion creates one atomic same-Workflow Repair",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-state-service",
           "behaviorId": "execution-dependencies-repair-ancestry-attempts-and-decisions-determine-eligibility",
           "proofLocator": "dependencies, Repair ancestry, attempts and Decisions determine eligibility",
           "proofRole": "primary"
@@ -13901,6 +13937,12 @@
           "capabilityId": "project-state-service",
           "behaviorId": "planning-semantic-ownership-and-canonical-plan-marker-are-workflow-scoped",
           "proofLocator": "pre-plan Workflow-owned Findings and RootCauses do not block first plan acceptance; cross-Workflow ownership and foreign solution addresses reject without mutation; second canonical acceptance rejects.",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "exact-implementation-attempts-persist-the-trusted-agent-principal",
+          "proofLocator": "typed exact Workflow attempt commands enforce dependencies and retain immutable attempts; Implementer identity is persisted",
           "proofRole": "primary"
         }
       ]
@@ -20240,6 +20282,58 @@
       ]
     },
     {
+      "testPath": "test/workflow/deterministic-work-item-validator.test.cjs",
+      "currentTestCount": {
+        "value": 1,
+        "basis": "One synthetic checkout scenario verifies ValidationCatalog work-item profile arguments, bounded exact change scope, and temporary input cleanup."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 80,
+        "basis": "Synthetic temporary directory and injected executor; no child process launched."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Owns an isolated temporary directory and injects the profile executor without spawning a child process.",
+        "ownedResources": [
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "validationcatalog-work-item-profile-is-bounded-exact-and-cleans-input",
+          "proofLocator": "deterministic Validator reuses the ValidationCatalog work-item profile and removes its scoped input",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
       "testPath": "test/workflow/phase-validation-production-boundary.test.cjs",
       "currentTestCount": {
         "value": 8,
@@ -20366,6 +20460,58 @@
       ]
     },
     {
+      "testPath": "test/workflow/semantic-work-item-validator.test.cjs",
+      "currentTestCount": {
+        "value": 2,
+        "basis": "Two mocked App Server scenarios cover read-only/no-network policy, bounded semantic output, approval denial, and mutation rejection."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 100,
+        "basis": "Isolated in-memory adapter; no external App Server launch."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": false,
+        "git": false,
+        "network": false,
+        "process": false,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Uses a mocked in-memory App Server adapter and no shared mutable resources.",
+        "ownedResources": [
+          "pure-stateless"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "semantic-validator-is-independent-readonly-and-network-disabled",
+          "proofLocator": "semantic Validator is read-only, network-disabled, and persists only a bounded semantic result",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
       "testPath": "test/workflow/workflow-application-service.test.cjs",
       "currentTestCount": {
         "value": 12,
@@ -20454,8 +20600,8 @@
     {
       "testPath": "test/workflow/workflow-execution-application-service.test.cjs",
       "currentTestCount": {
-        "value": 3,
-        "basis": "Three TAP tests; includes Tester-only read contract eligibility after the exact implementation attempt."
+        "value": 9,
+        "basis": "Nine focused service and IPC scenarios cover exact shared execution, current Criteria, source-neutral semantic evidence, peer-Workflow Phase isolation, bounded product APIs, system completion attribution, and canonical Repair re-entry."
       },
       "duration": {
         "kind": "measured",
@@ -20499,9 +20645,38 @@
       "behaviorCoverage": [
         {
           "capabilityId": "workflow-application-service",
+          "behaviorId": "canonical-repair-reenters-shared-execution-contract-and-requeues-parent",
+          "proofLocator": "canonical Repair executes through the shared exact contract and requeues its parent when closed",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "exact-validator-and-completion-ipc-contracts-accept-only-bounded-identities",
+          "proofLocator": "Workflow validation and completion IPC accepts only exact bounded argument shapes",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "exact-workitem-validation-projection-derives-current-source-and-completion-authority",
+          "proofLocator": "exact validation projection keeps source-neutral Workflow identity and exposes completion blockers",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-application-service",
           "behaviorId": "feature-and-issue-share-exact-workflow-execution-projection-and-lazy-source-boundary",
           "proofLocator": "Feature and Issue return one projection shape under exact Workflow IDs; concurrent plans remain isolated; dependencies and owning Phase gate readiness; source preparation is lazy and idempotent; non-source mutation blocks without Git state.",
           "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "semantic-validator-is-independent-readonly-and-network-disabled",
+          "proofLocator": "source-neutral semantic Validator persists exact evidence without Git identity",
+          "proofRole": "supporting",
+          "relationshipToPrimary": "complementary",
+          "primaryProof": {
+            "testPath": "test/workflow/semantic-work-item-validator.test.cjs",
+            "proofLocator": "semantic Validator is read-only, network-disabled, and persists only a bounded semantic result"
+          }
         },
         {
           "capabilityId": "workflow-application-service",

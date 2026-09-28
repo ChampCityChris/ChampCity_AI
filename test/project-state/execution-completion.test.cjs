@@ -24,6 +24,33 @@ function sqliteFixture(context) {
 }
 
 function register(name, factory) {
+  test(`${name}: exact failing Criterion creates one atomic same-Workflow Repair`, async context => {
+    const store = factory(context);
+    const service = createProjectStateService(store, operator);
+    const project = await service.createRecord(null, "Project", { name: "Repair", description: "Synthetic" });
+    const workflow = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Feature", currentWorkspace: "feature-intake" });
+    const accepted = await service.acceptWorkflowPlanningGraph(project.id, { workflowId: workflow.id, topology: "direct",
+      solution: { title: "Accepted", objective: "Repair the feature", scopeIn: ["feature"], scopeOut: [], constraints: [], assumptions: [], risks: [] },
+      solutionCriteria: [], workItems: [{ key: "parent", kind: "feature", title: "Parent", objective: "Implement feature", dependencyKeys: [],
+        criteria: [{ statement: "Output preserves all rows", criticality: "required", verificationIntent: "Run the focused export proof", validationPolicy: "deterministic" }] }] });
+    const parent = accepted.directWorkItems[0];
+    const target = accepted.criteria.find(item => item.ownerId === parent.id).record;
+    const failure = await service.recordValidation(project.id, target.id, { validationType: "criterion", method: "catalog-profile", outcome: "fail",
+      summary: "One export row is missing", targetRecordVersion: target.recordVersion });
+    const result = await service.createWorkflowRepair(project.id, { workflowId: workflow.id, workItemId: parent.id, failureEvidenceId: failure.id });
+    assert.equal(result.repair.body.workItemKind, "fix");
+    assert.equal(result.repair.body.workState, "planned");
+    assert.match(result.repair.body.objective, new RegExp(`validation:${failure.id}`));
+    assert.equal((await store.listRelationships(project.id, "repairs")).some(edge => edge.fromEntityId === result.repair.id && edge.toEntityId === parent.id), true);
+    assert.equal((await store.listRelationships(project.id, "implements")).some(edge => edge.fromEntityId === result.repair.id && edge.toEntityId === accepted.solutions[0].id), true);
+    assert.equal((await store.listRelationships(project.id, "part_of")).some(edge => edge.fromEntityId === result.repair.id && edge.toEntityId === workflow.id), true);
+    assert.equal((await store.listRelationships(project.id, "defines_criterion")).some(edge => edge.fromEntityId === result.repair.id && edge.toEntityId === result.criterion.id), true);
+    const before = (await store.listEntities(project.id)).length;
+    await assert.rejects(service.createWorkflowRepair(project.id, { workflowId: workflow.id, workItemId: parent.id, failureEvidenceId: failure.id }), /already exists/);
+    assert.equal((await store.listEntities(project.id)).length, before, "duplicate rejection must not partially write");
+    await assert.rejects(service.createWorkflowRepair(project.id, { workflowId: workflow.id, workItemId: parent.id, failureEvidenceId: result.criterion.id }), /failing current Validation or exact production-defect TesterResult/);
+  });
+
   test(`${name}: reviewed Workflow planning graph normalizes atomically and projects by exact Workflow`, async context => {
     const store = factory(context);
     const service = createProjectStateService(store, operator);
@@ -251,6 +278,7 @@ function register(name, factory) {
     await service.completeWorkItem(project.id, dependency.id, 1);
     await service.recordImplementation(project.id, repair.id, attempt("implemented"));
     await service.completeWorkItem(project.id, repair.id, 1);
+    assert.equal((await service.getRecord(project.id, parent.id)).body.workState, "ready", "the final closed Repair requeues its validation-pending parent for the shared Implementer loop");
     assert.equal((await service.getWorkItemCompletionEligibility(project.id, parent.id)).eligible, true);
     await service.recordImplementation(project.id, parent.id, attempt("blocked"));
     assert.ok((await service.getWorkItemCompletionEligibility(project.id, parent.id)).blockers.includes("implementation-incomplete"));
@@ -268,6 +296,7 @@ register("SQLite Project State", sqliteFixture);
 test("typed exact Workflow attempt commands enforce dependencies and retain immutable attempts", async context => {
   const store = sqliteFixture(context);
   const service = createProjectStateService(store, operator);
+  const implementerService = createProjectStateService(store, { principalId: "codex-implementer:test-runtime", principalType: "agent", role: "Implementer" });
   const project = await service.createRecord(null, "Project", { name: "Exact attempts", description: "Synthetic" });
   const workflow = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Exact", currentWorkspace: "feature-intake" });
   const plan = await service.acceptWorkflowPlanningGraph(project.id, { workflowId: workflow.id, topology: "direct",
@@ -279,31 +308,34 @@ test("typed exact Workflow attempt commands enforce dependencies and retain immu
     ] });
   const first = plan.directWorkItems.find(item => item.body.objective === "First objective");
   const second = plan.directWorkItems.find(item => item.body.objective === "Second objective");
-  await assert.rejects(service.beginWorkItemAttempt(project.id, workflow.id, second.id, second.recordVersion, "attempt:blocked"), /dependencies/);
-  const begun = await service.beginWorkItemAttempt(project.id, workflow.id, first.id, first.recordVersion, "attempt:one");
+  await assert.rejects(implementerService.beginWorkItemAttempt(project.id, workflow.id, second.id, second.recordVersion, "attempt:blocked"), /dependencies/);
+  const begun = await implementerService.beginWorkItemAttempt(project.id, workflow.id, first.id, first.recordVersion, "attempt:one");
   assert.equal(begun.workItemId, first.id);
-  const implementation = await service.finishWorkItemAttempt(project.id, workflow.id, first.id, "attempt:one",
+  const implementation = await implementerService.finishWorkItemAttempt(project.id, workflow.id, first.id, "attempt:one",
     { summary: "Implemented first", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
   assert.equal(implementation.body.workItemId, first.id);
   assert.equal(implementation.body.executionRef, "attempt:one");
+  assert.deepEqual(implementation.createdBy, { principalId: "codex-implementer:test-runtime", principalType: "agent", role: "Implementer" });
+  assert.deepEqual((await service.getRecord(project.id, first.id)).updatedBy,
+    { principalId: "codex-implementer:test-runtime", principalType: "agent", role: "Implementer" });
   assert.equal((await service.getRecord(project.id, first.id)).body.workState, "validation_pending");
-  await assert.rejects(service.beginWorkItemAttempt(project.id, workflow.id, second.id, second.recordVersion, "attempt:two"), /stale|unavailable|dependencies/);
-  await assert.rejects(service.finishWorkItemAttempt(project.id, workflow.id, first.id, "attempt:one",
+  await assert.rejects(implementerService.beginWorkItemAttempt(project.id, workflow.id, second.id, second.recordVersion, "attempt:two"), /stale|unavailable|dependencies/);
+  await assert.rejects(implementerService.finishWorkItemAttempt(project.id, workflow.id, first.id, "attempt:one",
     { summary: "Conflicting result", deviations: [], blockers: [], residualRisks: [], outcome: "failed" }), /unavailable|conflicts/);
   assert.equal((await service.getImplementationAttempts(project.id, first.id)).length, 1);
   const third = plan.directWorkItems.find(item => item.body.objective === "Third objective");
-  await service.beginWorkItemAttempt(project.id, workflow.id, third.id, third.recordVersion, "attempt:partial");
-  const partial = await service.finishWorkItemAttempt(project.id, workflow.id, third.id, "attempt:partial",
+  await implementerService.beginWorkItemAttempt(project.id, workflow.id, third.id, third.recordVersion, "attempt:partial");
+  const partial = await implementerService.finishWorkItemAttempt(project.id, workflow.id, third.id, "attempt:partial",
     { summary: "Partial progress", deviations: [], blockers: [], residualRisks: ["Incomplete"], outcome: "partial" });
   assert.equal(partial.body.outcome, "partial");
   assert.equal((await service.getRecord(project.id, third.id)).body.workState, "ready");
   const readyThird = await service.getRecord(project.id, third.id);
-  await service.beginWorkItemAttempt(project.id, workflow.id, third.id, readyThird.recordVersion, "attempt:failed");
-  await service.finishWorkItemAttempt(project.id, workflow.id, third.id, "attempt:failed",
+  await implementerService.beginWorkItemAttempt(project.id, workflow.id, third.id, readyThird.recordVersion, "attempt:failed");
+  await implementerService.finishWorkItemAttempt(project.id, workflow.id, third.id, "attempt:failed",
     { summary: "Retryable failure", deviations: [], blockers: [], residualRisks: [], outcome: "failed" });
   assert.equal((await service.getImplementationAttempts(project.id, third.id)).length, 2);
   assert.equal((await service.getRecord(project.id, third.id)).body.workState, "ready");
-  await assert.rejects(service.beginWorkItemAttempt(project.id, workflow.id, third.id,
+  await assert.rejects(implementerService.beginWorkItemAttempt(project.id, workflow.id, third.id,
     (await service.getRecord(project.id, third.id)).recordVersion, "attempt:partial"), /already been used/);
 });
 

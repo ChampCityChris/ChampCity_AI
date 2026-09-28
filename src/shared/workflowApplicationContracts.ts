@@ -63,6 +63,27 @@ export interface WorkflowExecutionProjection {
   source: { state: WorkflowExecutionSourceState; currentRevisionId: string | null; failureCode?: string };
   laterStages: { tester: null; validator: null; integration: null };
 }
+
+export interface WorkItemValidationProjection {
+  workflowId: EntityId;
+  workItemId: EntityId;
+  workItemVersion: number;
+  sourceMode: "source-backed" | "source-neutral";
+  sourceRevisionId: string | null;
+  implementationRecordId: EntityId | null;
+  testerResultId: EntityId | null;
+  criteria: Array<{
+    ownerId: EntityId;
+    criterion: ProjectStateRecord<"Criterion">;
+    policy: ProjectStateRecord<"Criterion">["body"]["validationPolicy"];
+    outcome: "pass" | "fail" | "blocked" | "inconclusive" | "pending" | "deferred";
+    validationIds: EntityId[];
+    reason: string | null;
+    repairable: boolean;
+    humanEvidenceRequired: boolean;
+  }>;
+  completion: { eligible: boolean; blockers: string[] };
+}
 export interface WorkflowExecutionPreparationResult {
   state: WorkflowExecutionSourceState;
   currentRevisionId: string | null;

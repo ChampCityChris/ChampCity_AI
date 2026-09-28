@@ -1449,6 +1449,12 @@ export interface ChampCityApi {
   listWorkflows: () => Promise<import("./workflowApplicationContracts").WorkflowInventory>;
   startWorkflow: (request: import("./workflowApplicationContracts").DirectWorkflowStartRequest) => Promise<import("./workflowApplicationContracts").DirectWorkflowStartResult>;
   getWorkflow: (workflowId: string) => Promise<import("./workflowApplicationContracts").WorkflowOpenResult>;
+  getWorkItemValidation: (workflowId: string, workItemId: string) => Promise<import("./workflowApplicationContracts").WorkItemValidationProjection>;
+  completeWorkflowWorkItem: (workflowId: string, workItemId: string, expectedVersion: number) => Promise<import("./projectState/domainContracts").ProjectStateRecord<"WorkItem">>;
+  completeWorkflowPhase: (workflowId: string, phaseId: string, expectedVersion: number) => Promise<import("./projectState/domainContracts").ProjectStateRecord<"Phase">>;
+  createWorkflowRepair: (workflowId: string, workItemId: string, failureEvidenceId: string) => Promise<{ repair: import("./projectState/domainContracts").ProjectStateRecord<"WorkItem">; criterion: import("./projectState/domainContracts").ProjectStateRecord<"Criterion">; failureIdentity: string }>;
+  validateSemanticWorkflowCriterion: (workflowId: string, workItemId: string, criterionId: string, selection: CodexModelSelection) => Promise<{ validation: import("./projectState/domainContracts").ProjectStateRecord<"Validation"> | null; repair: unknown; sourceMode: "source-backed" | "source-neutral" }>;
+  validateDeterministicWorkflowCriterion: (workflowId: string, workItemId: string, criterionId: string) => Promise<{ validation: import("./projectState/domainContracts").ProjectStateRecord<"Validation"> | null; repair: unknown; reason: string | null; sourceMode: "source-backed" | "source-neutral" }>;
   getSourceGraph: (options?: import("./sourceLifecycleContracts").SourceGraphOptions) => Promise<import("./sourceControlContracts").SourceControlResult<import("./sourceLifecycleContracts").SourceGraph>>;
   getSourceGraphRevisionDetail: (revisionId: string) => Promise<import("./sourceControlContracts").SourceControlResult<import("./sourceLifecycleContracts").SourceGraphRevisionDetail>>;
   getWorkIntakeProjection: () => Promise<import("./workIntakeContracts").WorkIntakeProjection>;
