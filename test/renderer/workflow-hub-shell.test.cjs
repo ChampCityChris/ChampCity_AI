@@ -14,6 +14,7 @@ const { WorkflowHubWorkspace } = loader.loadRendererSourceModule("src/renderer/a
 const { WorkflowInstanceWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowInstanceWorkspace.tsx");
 const { WorkflowExecutionWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowExecutionWorkspace.tsx");
 const { FeaturePlanningWorkspace } = loader.loadRendererSourceModule("src/renderer/app/FeaturePlanningWorkspace.tsx");
+const { CodexBoundedUserInputPanel, CodexBoundedMcpElicitationPanel } = loader.loadRendererSourceModule("src/renderer/app/CodexBoundedInteractionPanels.tsx");
 
 test("human execution actions expose outcomes and cannot submit derived identity", () => {
   const source = fs.readFileSync(path.join(__dirname, "../../src/renderer/app/WorkflowExecutionWorkspace.tsx"), "utf8");
@@ -63,19 +64,44 @@ test("shared execution Workspace is the exact Feature and Issue post-plan surfac
 test("shared execution Workspace binds pending Implementer and Tester interactions to exact execution identities", () => {
   const fs = require("node:fs");
   const source = fs.readFileSync(require("node:path").resolve(__dirname, "../../src/renderer/app/WorkflowExecutionWorkspace.tsx"), "utf8");
-  for (const label of ["Implementer approval request", "Implementer input request", "Implementer MCP elicitation", "Tester approval request", "Tester input request"])
+  for (const label of ["Implementer approval request", "Tester approval request"])
     assert.ok(source.includes(label), `visible Workspace section is present: ${label}`);
+  assert.match(source, /CodexBoundedUserInputPanel/);
+  assert.match(source, /CodexBoundedMcpElicitationPanel/);
   assert.match(source, /respondToCodexApproval\(\{[^}]*workflowId: workflow\.workflowId, workItemId: item\.record\.id/s);
   assert.match(source, /respondToCodexUserInput\(\{[^}]*workflowId: workflow\.workflowId, workItemId: item\.record\.id/s);
   assert.match(source, /respondToCodexMcpElicitation\(\{[^}]*workflowId: workflow\.workflowId, workItemId: item\.record\.id/s);
   assert.match(source, /cancelCodexImplementerExecution\(\{ workflowId: workflow\.workflowId, workItemId: item\.record\.id \}/);
   assert.match(source, /respondToWorkflowWorkItemTesterApproval\(workflow\.workflowId, item\.record\.id, latest!\.id/);
-  assert.match(source, /respondToWorkflowWorkItemTesterInput\(workflow\.workflowId, item\.record\.id, latest\.id/);
+  assert.match(source, /respondToWorkflowWorkItemTesterInput\(workflow\.workflowId, item\.record\.id, latest!\.id/);
   assert.match(source, /cancelWorkflowWorkItemTester\(workflow\.workflowId, item\.record\.id, latest\.id/);
   assert.match(source, /Architect WorkItem execution planning/);
   assert.match(source, /acceptWorkflowWorkItemExecutionPlan/);
   assert.match(source, /Prepare Architect handoff/);
   assert.match(source, /item\.record\.body\.implementationBoundaries\?\.length/);
+  assert.doesNotMatch(source, /runtime\?\.busy/);
+  assert.match(source, /respondToCodexMcpElicitation\(\{[^}]*requestId, action, content, workflowId: workflow\.workflowId, workItemId: item\.record\.id/s);
+  assert.match(source, /getWorkflowWorkItemTesterStatus\(workflow\.workflowId, selected\.record\.id, last\.id\)/);
+  const pending = { requestId: "request-exact", threadId: "thread", turnId: "turn", itemId: "item", questions: [
+    { id: "choice-id", header: "Choice", question: "Pick one", options: [{ label: "A", description: "First" }] },
+    { id: "free-id", header: "Details", question: "Describe it", options: [] },
+  ] };
+  const inputMarkup = renderToStaticMarkup(React.createElement(CodexBoundedUserInputPanel, { pending, label: "Implementer", onSubmit() {} }));
+  assert.match(inputMarkup, /<select/);
+  assert.match(inputMarkup, /aria-label="Details"/);
+  assert.match(inputMarkup, /<input/);
+  const elicitation = { requestId: "mcp-exact", threadId: "thread", turnId: "turn", serverName: "fixture", mode: "form", message: "Provide values", responseSupported: true,
+    unsupportedReason: null, elicitationId: null, url: null, requestedSchemaSummary: "Two fields", fields: [
+      { id: "region", title: "Region", description: "Select", type: "string", required: true, options: [{ value: "east", label: "East" }] },
+      { id: "notes", title: "Notes", description: "Explain", type: "string", required: false, options: [] },
+    ] };
+  const mcpMarkup = renderToStaticMarkup(React.createElement(CodexBoundedMcpElicitationPanel, { pending: elicitation, onSubmit() {} }));
+  assert.match(mcpMarkup, /aria-label="Region"/);
+  assert.match(mcpMarkup, /aria-label="Notes"/);
+  assert.doesNotMatch(mcpMarkup, /Content JSON|textarea/);
+  const unsupported = renderToStaticMarkup(React.createElement(CodexBoundedMcpElicitationPanel, { pending: { ...elicitation, responseSupported: false, unsupportedReason: "Unsupported schema" }, onSubmit() {} }));
+  assert.match(unsupported, /Unsupported schema/);
+  assert.doesNotMatch(unsupported, /Send elicitation response|Decline elicitation|Cancel elicitation/);
 });
 
 test("accepted Work Item Map is readable and exposes no execution controls", () => {
