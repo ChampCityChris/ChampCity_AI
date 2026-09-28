@@ -410,7 +410,7 @@ test("Agent Harness public registry rejects foreign workspace IDs and unavailabl
     scope: "files.write",
   });
   assert.equal(mutation.ok, false);
-  assert.equal(mutation.error.code, "INVALID_INPUT");
+  assert.equal(mutation.error.code, "GIT_CAPABILITY_UNAVAILABLE");
 });
 
 test("Agent Harness public registry exposes only action-scoped read contracts under files.read", () => {

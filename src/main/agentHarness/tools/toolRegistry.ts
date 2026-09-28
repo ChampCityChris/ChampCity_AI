@@ -291,7 +291,7 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
         }
         let context = await options.workspaceAccess.resolveWorkspaceContext(args.workspaceId);
         const params = validateParams(args.params, contract);
-        if (contract.kind === "git-inspection" || contract.kind === "git-mutation") {
+        if ((contract.kind === "git-inspection" || contract.kind === "git-mutation") && params.repositoryCheckoutId !== undefined) {
           const checkout = await options.workspaceAccess.resolveRepositoryCheckoutContext(args.workspaceId, params.repositoryCheckoutId);
           context = { ...context, root: checkout.root, gitBacked: true, capabilities: { ...context.capabilities, gitInspection: true } };
         }
@@ -919,7 +919,7 @@ function gitInspectionAction(name: string, params: Record<string, ParamSpec>, di
 
 function withRepositoryCheckoutId(params: Record<string, ParamSpec>): Record<string, ParamSpec> {
   if (Object.prototype.hasOwnProperty.call(params, "repositoryCheckoutId")) throw new Error("Git target is centrally defined.");
-  return { ...params, repositoryCheckoutId: { type: "string", required: true, minLength: 1, maxLength: 128 } };
+  return { ...params, repositoryCheckoutId: { type: "string", minLength: 1, maxLength: 128 } };
 }
 
 function releaseInspectionAction(

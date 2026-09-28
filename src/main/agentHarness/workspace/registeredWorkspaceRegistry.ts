@@ -208,7 +208,7 @@ export class RegisteredWorkspaceRegistry {
   }
 
   async listRepositoryCheckoutSummaries(workspaceId: unknown): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary[]> {
-    const entry = this.requireProjectEntry(workspaceId);
+    const entry = this.requireWorkspaceEntry(workspaceId);
     const summaries: AgentHarnessRegisteredRepositoryCheckoutSummary[] = [];
     for (const checkout of entry.repositoryCheckouts ?? []) {
       try {
@@ -233,10 +233,15 @@ export class RegisteredWorkspaceRegistry {
     } catch { throw new AgentHarnessError("GIT_CAPABILITY_UNAVAILABLE", "The registered repository checkout is unavailable or no longer validates."); }
   }
 
-  private requireProjectEntry(workspaceId: unknown): StoredRegisteredWorkspace {
+  private requireWorkspaceEntry(workspaceId: unknown): StoredRegisteredWorkspace {
     if (typeof workspaceId !== "string" || !workspaceId.trim()) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "Tool call requires an exact registered workspaceId.");
     const entry = this.entries.get(workspaceId);
-    if (!entry || entry.managed) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "The Project workspace is not registered for RepositoryCheckout routing.");
+    if (!entry) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "The workspace is not registered for RepositoryCheckout routing.");
+    return entry;
+  }
+  private requireProjectEntry(workspaceId: unknown): StoredRegisteredWorkspace {
+    const entry = this.requireWorkspaceEntry(workspaceId);
+    if (entry.managed) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "The Project workspace is not registered for RepositoryCheckout routing.");
     return entry;
   }
   private deriveCheckoutRoot(projectRoot: string, checkout: RepositoryCheckout): string {

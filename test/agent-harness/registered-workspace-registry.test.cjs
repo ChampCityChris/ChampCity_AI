@@ -117,7 +117,7 @@ test("registered non-Git workspace preserves exact read, search, Markdown write,
     arguments: { workspaceId: "plain_notes", action: "status" },
   });
   assert.equal(gitStatus.ok, false);
-  assert.equal(gitStatus.error.code, "INVALID_INPUT");
+  assert.equal(gitStatus.error.code, "GIT_CAPABILITY_UNAVAILABLE");
 });
 
 test("non-Git Project routes Git only through a registered Dev checkout and unregister preserves it", async () => {
@@ -181,7 +181,7 @@ test("registered checkout descriptor drift is unavailable and never redirects Gi
   assert.equal(fs.existsSync(path.join(container, "outside")), false);
 });
 
-test("Git-backed Project root is not an implicit checkout and stale registrations stay visible", async () => {
+test("Git-backed workspace is the default target and explicit stale checkouts never fall back", async () => {
   const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-registry-no-fallback-"));
   const project = path.join(container, "Legacy Git Project");
   fs.mkdirSync(path.join(project, ".champcity"), { recursive: true });
@@ -192,8 +192,8 @@ test("Git-backed Project root is not an implicit checkout and stale registration
   assert.equal(registration.workspace.gitBacked, true);
   const tools = service.toolRegistry();
   const noTarget = await tools.callTool({ name: "git_toolbox", scope: "files.read", arguments: { workspaceId: "legacy_git_project", action: "status", params: {} } });
-  assert.equal(noTarget.ok, false);
-  assert.equal(noTarget.error.code, "INVALID_INPUT");
+  assert.equal(noTarget.ok, true, JSON.stringify(noTarget.error));
+  assert.equal(noTarget.payload.gitBacked, true);
   const invented = await tools.callTool({ name: "git_toolbox", scope: "files.read", arguments: { workspaceId: "legacy_git_project", action: "status", params: { repositoryCheckoutId: "project-root" } } });
   assert.equal(invented.ok, false);
   assert.equal(invented.error.code, "WORKSPACE_ACCESS_DENIED");

@@ -150,6 +150,10 @@
           "description": "operational diagnostics enforce audit bounding and metadata-only privacy"
         },
         {
+          "behaviorId": "public-mcp-git-preserves-workspace-only-clients-and-optional-exact-checkout-targeting",
+          "description": "Published schemas and runtime preserve workspace-only Git inspection/mutation, optional exact registered checkout selection, capability failures, discovery, containment, and independence from application workflow state."
+        },
+        {
           "behaviorId": "renderer-polling-is-limited-to-settings-and-active-codex-execution-surfaces",
           "description": "renderer polling is limited to Settings and active Codex execution surfaces"
         },
@@ -7033,8 +7037,8 @@
     {
       "testPath": "test/agent-harness/mcp-tool-contract-generation.test.cjs",
       "currentTestCount": {
-        "value": 2,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 3,
+        "basis": "Counted from node:test declarations after RCO-HF01 adds synthetic HTTP MCP compatibility proof."
       },
       "duration": {
         "kind": "measured",
@@ -7046,9 +7050,9 @@
       "dependencies": {
         "electron": false,
         "filesystem": true,
-        "git": false,
+        "git": true,
         "network": true,
-        "process": false,
+        "process": true,
         "timing": true
       },
       "sourceInspectionClassification": "none",
@@ -7063,8 +7067,10 @@
         "platform": "any",
         "externalCapabilities": [],
         "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: loopback-dynamic-endpoint, temp-filesystem-isolated.",
+        "schedulingReason": "Isolated temporary Git workspaces and linked checkout, bounded child processes, and dynamic loopback endpoints; no shared mutable state.",
         "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
           "loopback-dynamic-endpoint",
           "temp-filesystem-isolated"
         ]
@@ -7090,6 +7096,12 @@
           "capabilityId": "agent-harness-mcp-runtime",
           "behaviorId": "one-runtime-contract-generation-remains-constant-across-32-sessions-and-one-simulated-idle-hour",
           "proofLocator": "one runtime contract generation remains constant across 32 sessions and one simulated idle hour",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "agent-harness-mcp-runtime",
+          "behaviorId": "public-mcp-git-preserves-workspace-only-clients-and-optional-exact-checkout-targeting",
+          "proofLocator": "public MCP Git contract preserves workspace-only clients and optional exact checkout targeting",
           "proofRole": "primary"
         }
       ]

@@ -257,7 +257,7 @@ test("bounded Git cancels streamed output and terminates children on either outp
   }
 });
 
-test("repo_toolbox preserves nested registered-root status while git_toolbox requires an explicit checkout", async () => {
+test("repo_toolbox and workspace-only git_toolbox status stay within the registered root", async () => {
   const nested = createGitWorkspace("Parent Git Project");
   const registeredRoot = path.join(nested, "Registered Workspace");
   write(nested, "outside.txt", "outside baseline\n");
@@ -294,8 +294,10 @@ test("repo_toolbox preserves nested registered-root status while git_toolbox req
     scope: "files.read",
     arguments: { workspaceId: nestedWorkspaceId, action: "status", params: {} },
   });
-  assert.equal(gitToolStatus.ok, false);
-  assert.equal(gitToolStatus.error.code, "INVALID_INPUT");
+  assert.equal(gitToolStatus.ok, true, JSON.stringify(gitToolStatus.error));
+  assert.match(gitToolStatus.payload.shortStatus, /inside\.txt/);
+  assert.match(gitToolStatus.payload.shortStatus, /nested\/child\.txt/);
+  assert.doesNotMatch(gitToolStatus.payload.shortStatus, /outside\.txt|\.\.\//);
   const unregisteredTarget = await nestedService.toolRegistry().callTool({
     name: "git_toolbox",
     scope: "files.read",
@@ -338,8 +340,9 @@ test("repo_toolbox preserves nested registered-root status while git_toolbox req
     scope: "files.read",
     arguments: { workspaceId: ordinaryRegistration.workspace.workspaceId, action: "status", params: {} },
   });
-  assert.equal(ordinaryStatus.ok, false);
-  assert.equal(ordinaryStatus.error.code, "INVALID_INPUT");
+  assert.equal(ordinaryStatus.ok, true, JSON.stringify(ordinaryStatus.error));
+  assert.match(ordinaryStatus.payload.shortStatus, /tracked\.txt/);
+  assert.match(ordinaryStatus.payload.shortStatus, /untracked\.txt/);
 });
 
 function createWorkspace(name) {

@@ -182,7 +182,7 @@ test("HOTFIX10 publishes the exact stable top-level namespace and preserves exis
     assert.equal(gitSchema.safeParse({ ...input, params: { ...params, force: true } }).success, false, action);
     for (const key of Object.keys(params)) {
       const missing = { ...params }; delete missing[key];
-      assert.equal(gitSchema.safeParse({ ...input, params: missing }).success, false, action + ":" + key);
+      assert.equal(gitSchema.safeParse({ ...input, params: missing }).success, key === "repositoryCheckoutId", action + ":" + key);
     }
   }
   const push = { workspaceId: fixture.workspaceId, action: "push", params: { repositoryCheckoutId: "checkout-1", remoteBranch: "other", setUpstream: true, expectedCommit: "a".repeat(40) } };
@@ -190,7 +190,7 @@ test("HOTFIX10 publishes the exact stable top-level namespace and preserves exis
   assert.equal(gitSchema.safeParse({ ...push, params: { setUpstream: "true" } }).success, false);
   assert.equal(gitSchema.safeParse({ ...push, params: { repositoryCheckoutId: "checkout-1" } }).success, true);
   assert.equal(gitSchema.safeParse({ ...push, params: { repositoryCheckoutId: "checkout-1", repositoryCheckoutPath: "Dev" } }).success, false);
-  assert.equal(gitSchema.safeParse({ workspaceId: fixture.workspaceId, action: "status", params: {} }).success, false);
+  assert.equal(gitSchema.safeParse({ workspaceId: fixture.workspaceId, action: "status", params: {} }).success, true);
   assert.equal(gitSchema.safeParse({ workspaceId: fixture.workspaceId, action: "status", params: { repositoryCheckoutId: "checkout-1", checkoutRoot: "Dev" } }).success, false);
   assert.equal(gitSchema.safeParse({ workspaceId: fixture.workspaceId, action: "list_repository_checkouts" }).success, true);
   const firstCapture = captureAgentHarnessPublicToolContract(registry, "files.read files.write");
