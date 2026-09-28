@@ -3625,6 +3625,10 @@
           "description": "exact incomplete publication resumes with upload only and exact complete publication is idempotent"
         },
         {
+          "behaviorId": "exact-workflow-candidate-uses-linked-dev-common-repository-without-intake-identity",
+          "description": "Exact Workflow candidate identity is independent of WorkIntake, candidate state belongs to the verified Git common directory, and a linked Dev checkout advances only after validation."
+        },
+        {
           "behaviorId": "explicit-retries-recover-safely-after-ambiguous-create-and-upload-timeouts",
           "description": "explicit retries recover safely after ambiguous create and upload timeouts"
         },
@@ -4814,6 +4818,10 @@
         {
           "behaviorId": "exact-validator-and-completion-ipc-contracts-accept-only-bounded-identities",
           "description": "Validator, Repair, and completion product-path APIs accept only bounded exact Workflow and WorkItem identities."
+        },
+        {
+          "behaviorId": "exact-workflow-completion-enforces-execution-obligations-and-source-neutral-close",
+          "description": "Exact Workflow completion requires the accepted plan, closed WorkItems and Phases, current completion evidence, and closes source-neutral work without repository integration records."
         },
         {
           "behaviorId": "exact-workitem-validation-projection-derives-current-source-and-completion-authority",
@@ -6350,13 +6358,13 @@
     {
       "testPath": "test/agent-harness/integration-candidate-semantics.test.cjs",
       "currentTestCount": {
-        "value": 8,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 9,
+        "basis": "Eight existing integration scenarios plus the WRB04-05 exact Workflow linked-Dev candidate scenario."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 21793,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
+        "milliseconds": 45014,
+        "basis": "Sum of the observed WRB04-05 candidate scenario group (32777 ms) and exact Workflow linked-Dev scenario (12237 ms) wall-clock durations."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -6392,6 +6400,12 @@
         "current-proof-appropriate"
       ],
       "behaviorCoverage": [
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "exact-workflow-candidate-uses-linked-dev-common-repository-without-intake-identity",
+          "proofLocator": "exact Workflow candidate integrates from a managed linked Dev checkout without WorkIntake identity",
+          "proofRole": "primary"
+        },
         {
           "capabilityId": "release-and-git-operations",
           "behaviorId": "integration-candidate-source-integrity",
@@ -20600,8 +20614,8 @@
     {
       "testPath": "test/workflow/workflow-execution-application-service.test.cjs",
       "currentTestCount": {
-        "value": 9,
-        "basis": "Nine focused service and IPC scenarios cover exact shared execution, current Criteria, source-neutral semantic evidence, peer-Workflow Phase isolation, bounded product APIs, system completion attribution, and canonical Repair re-entry."
+        "value": 10,
+        "basis": "Ten focused service and IPC scenarios cover exact shared execution, current Criteria, source-neutral semantic evidence and close, peer-Workflow Phase isolation, bounded product APIs, system completion attribution, and canonical Repair re-entry."
       },
       "duration": {
         "kind": "measured",
@@ -20653,6 +20667,12 @@
           "capabilityId": "workflow-application-service",
           "behaviorId": "exact-validator-and-completion-ipc-contracts-accept-only-bounded-identities",
           "proofLocator": "Workflow validation and completion IPC accepts only exact bounded argument shapes",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "exact-workflow-completion-enforces-execution-obligations-and-source-neutral-close",
+          "proofLocator": "typed source-neutral Workflow completion closes only after exact WorkItem and Phase completion",
           "proofRole": "primary"
         },
         {

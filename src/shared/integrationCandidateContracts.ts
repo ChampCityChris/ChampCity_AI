@@ -22,7 +22,8 @@ export interface IntegrationValidationEvidence {
 export interface IntegrationCandidateRecord {
   candidateId: string;
   repositoryId: string;
-  intakeId: string;
+  intakeId?: string;
+  workflowId?: string;
   completion: IntegrationCompletionEvidence;
   baseCommit: string;
   incomingBranch: string;

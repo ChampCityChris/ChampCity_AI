@@ -1452,6 +1452,14 @@ export interface ChampCityApi {
   getWorkItemValidation: (workflowId: string, workItemId: string) => Promise<import("./workflowApplicationContracts").WorkItemValidationProjection>;
   completeWorkflowWorkItem: (workflowId: string, workItemId: string, expectedVersion: number) => Promise<import("./projectState/domainContracts").ProjectStateRecord<"WorkItem">>;
   completeWorkflowPhase: (workflowId: string, phaseId: string, expectedVersion: number) => Promise<import("./projectState/domainContracts").ProjectStateRecord<"Phase">>;
+  getWorkflowExecutionCompletion: (workflowId: string) => Promise<import("./workflowApplicationContracts").WorkflowExecutionCompletionProjection>;
+  completeWorkflowExecution: (workflowId: string, expectedVersion: number) => Promise<import("./projectState/domainContracts").ProjectStateRecord<"Workflow">>;
+  getWorkflowIntegration: (workflowId: string) => Promise<{ completion: import("./integrationCompletionContracts").IntegrationCompletionEvidence; candidates: import("./integrationCandidateContracts").IntegrationCandidateRecord[] }>;
+  integrateWorkflow: (workflowId: string) => Promise<{ candidate: import("./integrationCandidateContracts").IntegrationCandidateRecord; integration: import("./projectState/domainContracts").ProjectStateRecord<"IntegrationRecord"> }>;
+  prepareWorkflowIntegrationRepair: (workflowId: string, candidateId: string) => Promise<import("./integrationRepairContracts").IntegrationRepairAttempt>;
+  applyWorkflowIntegrationRepair: (workflowId: string, candidateId: string, repairId: string, patches: import("./integrationRepairContracts").IntegrationRepairPatch[]) => Promise<import("./integrationRepairContracts").IntegrationRepairAttempt>;
+  completeWorkflowIntegrationRepair: (workflowId: string, candidateId: string, repairId: string) => Promise<unknown>;
+  requestWorkflowIntegrationDecision: (workflowId: string, candidateId: string, repairId: string, rationale: string) => Promise<import("./integrationCandidateContracts").IntegrationCandidateRecord>;
   createWorkflowRepair: (workflowId: string, workItemId: string, failureEvidenceId: string) => Promise<{ repair: import("./projectState/domainContracts").ProjectStateRecord<"WorkItem">; criterion: import("./projectState/domainContracts").ProjectStateRecord<"Criterion">; failureIdentity: string }>;
   validateSemanticWorkflowCriterion: (workflowId: string, workItemId: string, criterionId: string, selection: CodexModelSelection) => Promise<{ validation: import("./projectState/domainContracts").ProjectStateRecord<"Validation"> | null; repair: unknown; sourceMode: "source-backed" | "source-neutral" }>;
   validateDeterministicWorkflowCriterion: (workflowId: string, workItemId: string, criterionId: string) => Promise<{ validation: import("./projectState/domainContracts").ProjectStateRecord<"Validation"> | null; repair: unknown; reason: string | null; sourceMode: "source-backed" | "source-neutral" }>;

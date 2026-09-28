@@ -30,14 +30,34 @@ export async function readIntegrationCommitFile(root: string, commit: string, re
 }
 export function integrationPaths(root: string, candidateId: string) {
   if (!/^[a-f0-9]{64}$/.test(candidateId)) throw fail("Invalid integration candidate identity.");
-  // Keep every temporary write inside the selected repository. Linked checkouts must select their owning primary repository for integration.
+  // Candidate state is repository-owned, even when the selected operation root is a linked checkout.
   const gitDirectory = path.join(root, ".git");
-  if (!fs.lstatSync(gitDirectory).isDirectory() || fs.lstatSync(gitDirectory).isSymbolicLink()) throw fail("Integration requires the primary repository checkout.");
-  const base = path.join(gitDirectory, "champcity-integration", candidateId);
+  const metadata = fs.lstatSync(gitDirectory);
+  if (metadata.isSymbolicLink() || (!metadata.isDirectory() && !metadata.isFile())) throw fail("Integration requires a conventional or linked Git checkout.");
+  let commonDirectory: string;
+  if (metadata.isDirectory()) commonDirectory = fs.realpathSync(gitDirectory);
+  else {
+    const text = fs.readFileSync(gitDirectory, "utf8");
+    const match = /^gitdir: ([^\r\n]+)\r?\n?$/.exec(text);
+    if (!match) throw fail("Linked checkout metadata is invalid.");
+    const worktreeGitDirectory = path.resolve(root, match[1]);
+    const commonFile = path.resolve(worktreeGitDirectory, "commondir");
+    const commonText = fs.readFileSync(commonFile, "utf8").trim();
+    commonDirectory = fs.realpathSync(path.resolve(worktreeGitDirectory, commonText));
+  }
+  const base = path.join(commonDirectory, "champcity-integration", candidateId);
   for (const entry of [path.dirname(base), base, path.join(base, "checkout")]) {
     if (fs.existsSync(entry) && fs.lstatSync(entry).isSymbolicLink()) throw fail("Integration storage must not be redirected.");
   }
   return { base, checkout: path.join(base, "checkout"), record: path.join(base, "CANDIDATE.md"), branch: `champcity-integration/${candidateId}` };
+}
+export async function integrationCommonDirectory(root: string): Promise<string> {
+  const raw = (await runBoundedGit({ cwd: root, args: ["rev-parse", "--git-common-dir"] })).stdout.trim();
+  const resolved = fs.realpathSync(path.resolve(root, raw));
+  const probe = integrationPaths(root, "0".repeat(64));
+  const expected = fs.realpathSync(path.dirname(path.dirname(probe.base)));
+  if (resolved !== expected) throw fail("Selected checkout common repository identity changed.");
+  return resolved;
 }
 async function commitAt(root: string, ref: string) {
   return (await inspectGitHistory(root, { ref, maxCount: 1 })).resolvedCommit;
@@ -64,6 +84,7 @@ export async function inspectIntegrationTarget(root: string, input: { baseCommit
   return { incomingCommit, localTargetCommit, targetCommit, mergeBase: exact(bases[0]) };
 }
 export async function registeredIntegrationCheckout(root: string, candidateId: string) {
+  const commonDirectory = await integrationCommonDirectory(root);
   const paths = integrationPaths(root, candidateId);
   const listing = (await runBoundedGit({ cwd: root, args: ["worktree", "list", "--porcelain", "-z"] })).stdout;
   const records = listing.split("\0\0").map((entry) => entry.split("\0"));
@@ -72,10 +93,11 @@ export async function registeredIntegrationCheckout(root: string, candidateId: s
   const actual = (await runBoundedGit({ cwd: paths.checkout, args: ["rev-parse", "--show-toplevel"] })).stdout.trim();
   if (fs.realpathSync(actual) !== fs.realpathSync(paths.checkout)) throw fail("Integration checkout identity changed.");
   const common = (await runBoundedGit({ cwd: paths.checkout, args: ["rev-parse", "--git-common-dir"] })).stdout.trim();
-  if (fs.realpathSync(path.resolve(paths.checkout, common)) !== fs.realpathSync(path.join(root, ".git"))) throw fail("Integration checkout no longer belongs to the selected repository.");
+  if (fs.realpathSync(path.resolve(paths.checkout, common)) !== commonDirectory) throw fail("Integration checkout no longer belongs to the selected repository.");
   return paths;
 }
 export async function createIntegrationCheckout(root: string, input: { candidateId: string; targetCommit: string }) {
+  await integrationCommonDirectory(root);
   const paths = integrationPaths(root, input.candidateId);
   exact(input.targetCommit);
   if (fs.existsSync(paths.checkout)) throw fail("Integration checkout already exists; resume or abort its recorded candidate.");

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { INTEGRATION_POLICY_PATH, INTEGRATION_POLICY_MAX_BYTES, parseIntegrationPolicy } from "../../shared/integrationPolicyContracts";
-import { readIntegrationCommitFile, registeredIntegrationCheckout } from "../agentHarness/repository/integrationGit";
+import { integrationPaths, readIntegrationCommitFile, registeredIntegrationCheckout } from "../agentHarness/repository/integrationGit";
 import type { IntegrationCandidateHooks } from "./integrationCandidateService";
 import { readIntegrationPolicyFile } from "./integrationPolicyFiles";
 import { runIntegrationPolicyCheck } from "./integrationPolicyRunners";
@@ -56,7 +56,8 @@ export function createIntegrationPolicyProvider(repositoryRoot: string, runCheck
     const profileAuthority = required.some((check) => check.runner.kind === "validation-profile")
       ? await loadValidationProfileAuthority(root, targetCommit, Object.fromEntries(requiredTargetScripts(manifest, ["build", "typecheck"]))) : undefined;
     async function assertCandidate(candidateRoot: string) {
-      const relative = path.relative(path.join(root, ".git", "champcity-integration"), candidateRoot).split(path.sep);
+      const storage = path.dirname(path.dirname(integrationPaths(root, "0".repeat(64)).base));
+      const relative = path.relative(path.join(storage, "champcity-integration"), candidateRoot).split(path.sep);
       if (relative.length !== 2 || !/^[a-f0-9]{64}$/.test(relative[0]) || relative[1] !== "checkout") throw Error("Validation requires an isolated integration candidate checkout.");
       const owned = await registeredIntegrationCheckout(root, relative[0]);
       if (path.resolve(candidateRoot) !== path.resolve(owned.checkout)) throw Error("Validation requires an isolated integration candidate checkout.");

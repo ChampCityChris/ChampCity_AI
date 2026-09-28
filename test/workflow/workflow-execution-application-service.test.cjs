@@ -28,6 +28,47 @@ function graph(workflowId, topology, kind, workItems, phases = []) {
     solutionCriteria: [], phases, workItems };
 }
 
+test("Workflow execution completion projection blocks source-neutral Workflow with an open WorkItem", async context => {
+  const env = await setup(context);
+  const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "Neutral completion", entryWorkspace: "feature-intake" });
+  await env.state.acceptWorkflowPlanningGraph(env.projectId, graph(created.workflow.id, "direct", "feature", [
+    { key: "open-item", kind: "feature", title: "Open", objective: "Finish", dependencyKeys: [], criteria: [] },
+  ]));
+  const kernel = createWorkflowExecutionApplicationService();
+  const projection = await kernel.getWorkflowExecutionCompletionProjection(env.root, created.workflow.id);
+  assert.equal(projection.eligible, false);
+  assert.ok(projection.blockers.some(blocker => blocker.startsWith("work-item-open:")));
+  assert.equal(projection.sourceMode, "source-neutral");
+  await assert.rejects(kernel.completeWorkflowExecution(env.root, created.workflow.id, projection.workflowVersion), /not eligible/);
+  assert.equal((await env.store.getEntity(env.projectId, created.workflow.id)).body.workflowState, "active");
+  assert.equal((await env.store.listEntities(env.projectId, "IntegrationRecord")).length, 0);
+});
+
+test("typed source-neutral Workflow completion closes only after exact WorkItem and Phase completion", async context => {
+  const env = await setup(context);
+  const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "Neutral completion", entryWorkspace: "feature-intake" });
+  const plan = await env.state.acceptWorkflowPlanningGraph(env.projectId, graph(created.workflow.id, "phased", "feature", [
+    { key: "close-item", kind: "feature", title: "Close", objective: "Complete", phaseKey: "close-phase", dependencyKeys: [], criteria: [] },
+  ], [{ key: "close-phase", title: "Close", objective: "Complete", sequence: 1 }]));
+  const kernel = createWorkflowExecutionApplicationService();
+  const item = plan.workItemsByPhase[plan.phases[0].phaseId][0];
+  const attempt = await kernel.beginWorkItemAttempt(env.root, created.workflow.id, item.id, item.recordVersion, "neutral-workflow-completion");
+  const implementation = await kernel.finishWorkItemAttempt(env.root, created.workflow.id, item.id, attempt.executionRef,
+    { summary: "Completed", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+  await createProjectStateService(env.store, { principalId: "completion-tester", principalType: "agent", role: "Tester" }).createTesterResult(
+    env.projectId, created.workflow.id, item.id, implementation.id,
+    { sourceMode: "source-neutral", recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [],
+      determinationEvidence: ["No source work required"], unknowns: [], rationale: "This WorkItem is source-neutral." });
+  const latestItem = await env.state.getRecord(env.projectId, item.id);
+  await kernel.completeWorkItem(env.root, created.workflow.id, item.id, latestItem.recordVersion);
+  await kernel.completePhase(env.root, created.workflow.id, plan.phases[0].phaseId, plan.phases[0].record.recordVersion);
+  const current = await kernel.getWorkflowExecutionCompletionProjection(env.root, created.workflow.id);
+  assert.equal(current.eligible, true); assert.equal(current.sourceMode, "source-neutral");
+  const closed = await kernel.completeWorkflowExecution(env.root, created.workflow.id, current.workflowVersion);
+  assert.equal(closed.body.workflowState, "closed"); assert.equal(closed.body.currentWorkspace, "execution-complete");
+  assert.equal((await env.store.listEntities(env.projectId, "IntegrationRecord")).length, 0);
+});
+
 test("Feature and Issue use the same exact-Workflow projection and isolate concurrent plans", async context => {
   const env = await setup(context);
   const feature = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "Feature", entryWorkspace: "feature-intake" });

@@ -4,7 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type { EntityId, ProjectId, ProjectStateRecord } from "../../shared/projectState/domainContracts";
 import { createProjectStateService, type WorkflowExecutionPlanView } from "../../shared/projectState/projectStateService";
 import type { ProjectStateStore } from "../../shared/projectState/projectStateStore";
-import type { WorkItemExecutionContract, WorkItemValidationProjection, WorkflowExecutionPreparationResult, WorkflowExecutionProjection } from "../../shared/workflowApplicationContracts";
+import type { WorkItemExecutionContract, WorkItemValidationProjection, WorkflowExecutionCompletionProjection, WorkflowExecutionPreparationResult, WorkflowExecutionProjection } from "../../shared/workflowApplicationContracts";
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
 import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
 import type { CodexModelSelection } from "../../shared/codexRuntimeContracts";
@@ -16,6 +16,7 @@ import { runDeterministicWorkItemProfile } from "./deterministicWorkItemValidato
 
 const operator = { principalId: "local-operator", principalType: "human" as const, role: "Operator" };
 const workflowApplication = { principalId: "workflow-execution-application", principalType: "system" as const, role: "System" };
+const workflowCompletionApplication = { principalId: "workflow-execution-completion", principalType: "system" as const, role: "WorkflowExecution" };
 type WorkflowRecord = ProjectStateRecord<"Workflow">;
 const implementationWorkflowTypes = new Set(["feature-capability", "issue-resolution"]);
 
@@ -66,6 +67,89 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       const plan = await exactPlan(store, projectId, workflowId);
       return project(store, projectId, plan);
     });
+  }
+
+  async function getWorkflowExecutionCompletionProjection(projectRoot: string, workflowId: EntityId): Promise<WorkflowExecutionCompletionProjection> {
+    if (typeof workflowId !== "string" || !workflowId.trim() || workflowId.length > 128) throw Error("Exact Workflow ID is required.");
+    return withCurrentProject(projectRoot, async (store, projectId) => {
+      const plan = await exactPlan(store, projectId, workflowId);
+      const view = await project(store, projectId, plan);
+      const blockers: string[] = [];
+      if (plan.solutions.length !== 1 || plan.decisions.length !== 1) blockers.push("accepted-plan-missing-or-ambiguous");
+      if (view.source.state !== "non-source" && view.source.state !== "ready") blockers.push("source-not-ready");
+      const state = createProjectStateService(store, operator);
+      for (const item of view.items) {
+        if (item.record.body.workState !== "closed") blockers.push(`work-item-open:${item.record.id}`);
+        else {
+          const eligibility = await state.getWorkItemCompletionEligibility(projectId, item.record.id, view.source.currentRevisionId ?? undefined);
+          for (const blocker of eligibility.blockers) blockers.push(`work-item:${item.record.id}:${blocker}`);
+        }
+      }
+      for (const phase of plan.phases) if (phase.record.body.phaseState !== "closed") blockers.push(`phase-open:${phase.phaseId}`);
+      const repairIds = new Set(plan.repairIds.map(edge => edge.from));
+      for (const repairId of repairIds) {
+        const repair = await store.getEntity(projectId, repairId);
+        if (repair?.entityType !== "WorkItem" || repair.body.workState !== "closed") blockers.push(`repair-open:${repairId}`);
+      }
+      const currentWorkflowIds = new Set([workflowId]);
+      const blockerEdges = (await store.listRelationships(projectId, "blocks")).filter(edge => !edge.endedAt && currentWorkflowIds.has(edge.toEntityId));
+      for (const edge of blockerEdges) {
+        const source = await store.getEntity(projectId, edge.fromEntityId);
+        if (source?.lifecycleState === "active") blockers.push(`blocking-record:${source.id}`);
+      }
+      const phaseAndSolutionOwners = new Set<EntityId>([...plan.phases.map(phase => phase.phaseId), ...plan.solutions.map(solution => solution.id)]);
+      for (const criterion of plan.criteria.filter(entry => phaseAndSolutionOwners.has(entry.ownerId) && entry.record.lifecycleState === "active" && entry.record.body.criticality === "required")) {
+        if (criterion.record.body.validationPolicy === "deferred_visual_phase") continue;
+        if (criterion.record.body.validationPolicy === "operator_decision") {
+          const disposition = await state.getEffectiveDisposition(projectId, criterion.ownerId);
+          if (!["approved", "accepted"].includes(disposition.state)) blockers.push(`criterion-decision:${criterion.record.id}`);
+        } else {
+          const proof = await state.getCriterionValidationStatus(projectId, criterion.record.id, view.source.currentRevisionId ?? undefined);
+          if (!proof.satisfied) blockers.push(`criterion:${criterion.record.id}`);
+        }
+      }
+      if (view.source.state !== "non-source") {
+        const workflowIds = new Set((await store.listEntities(projectId, "Workflow"))
+          .filter((record): record is WorkflowRecord => record.entityType === "Workflow" && record.lineageId === plan.workflow.lineageId).map(record => record.id));
+        const baselines = (await store.listEntities(projectId, "SourceBaseline"))
+          .filter((record): record is ProjectStateRecord<"SourceBaseline"> => record.entityType === "SourceBaseline" && workflowIds.has(record.body.workflowId));
+        const bindings = (await store.listEntities(projectId, "SourceBinding"))
+          .filter((record): record is ProjectStateRecord<"SourceBinding"> => record.entityType === "SourceBinding" && record.lifecycleState === "active" && workflowIds.has(record.body.workflowId));
+        const checkpoints = (await store.listEntities(projectId, "SourceCheckpoint"))
+          .filter((record): record is ProjectStateRecord<"SourceCheckpoint"> => record.entityType === "SourceCheckpoint" && workflowIds.has(record.body.workflowId));
+        if (baselines.length !== 1 || bindings.length !== 1 || checkpoints.some(record => record.body.checkpointState !== "committed")) blockers.push("source-checkpoint-chain-unresolved");
+        else {
+          const byExpected = new Map<string, string>();
+          for (const checkpoint of checkpoints) {
+            const resulting = checkpoint.body.resultingRevisionId;
+            if (!resulting || byExpected.has(checkpoint.body.expectedRevisionId)) { blockers.push("source-checkpoint-chain-ambiguous"); break; }
+            byExpected.set(checkpoint.body.expectedRevisionId, resulting);
+          }
+          let revision = baselines[0].body.baseRevisionId;
+          for (let count = 0; count < checkpoints.length; count++) {
+            const next = byExpected.get(revision);
+            if (!next || next === revision) { blockers.push("source-checkpoint-chain-gap"); break; }
+            revision = next;
+          }
+          if (revision !== bindings[0].body.currentRevisionId || revision !== view.source.currentRevisionId) blockers.push("source-checkpoint-chain-stale");
+        }
+      }
+      const integrations = (await store.listEntities(projectId, "IntegrationRecord"))
+        .filter((record): record is ProjectStateRecord<"IntegrationRecord"> => record.entityType === "IntegrationRecord" && record.body.workflowId === workflowId);
+      if (view.source.state === "non-source" && integrations.length) blockers.push("source-neutral-has-integration-record");
+      if (view.source.state !== "non-source" && integrations.some(record => !["failed", "blocked"].includes(record.body.integrationState))) blockers.push("integration-already-started");
+      const unique = [...new Set(blockers)].sort();
+      return { workflowId, workflowVersion: plan.workflow.recordVersion, sourceMode: view.source.state === "non-source" ? "source-neutral" : "source-backed",
+        sourceRevisionId: view.source.currentRevisionId, eligible: unique.length === 0, blockers: unique };
+    });
+  }
+
+  async function completeWorkflowExecution(projectRoot: string, workflowId: EntityId, expectedVersion: number) {
+    if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 1) throw Error("Current Workflow version is required.");
+    const eligibility = await getWorkflowExecutionCompletionProjection(projectRoot, workflowId);
+    if (!eligibility.eligible || eligibility.workflowVersion !== expectedVersion) throw Error(`Workflow execution is not eligible: ${eligibility.blockers.join(", ") || "stale-version"}.`);
+    return withCurrentProject(projectRoot, async (store, projectId) => createProjectStateService(store, workflowCompletionApplication)
+      .completeWorkflowExecution(projectId, workflowId, expectedVersion, eligibility.sourceMode, eligibility.sourceRevisionId));
   }
 
   async function getWorkItemValidationProjection(projectRoot: string, workflowId: EntityId, workItemId: EntityId): Promise<WorkItemValidationProjection> {
@@ -465,6 +549,6 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       .finishWorkItemAttempt(projectId, workflowId, workItemId, executionRef, result));
   }
 
-  return { getExecutionProjection, getWorkItemValidationProjection, completeWorkItem, completePhase, createWorkflowRepair, validateSemanticWorkItemCriterion, validateDeterministicWorkItemCriterion, prepareExecution, createWorkItemExecutionContract, createTesterWorkItemExecutionContract,
+  return { getExecutionProjection, getWorkflowExecutionCompletionProjection, completeWorkflowExecution, getWorkItemValidationProjection, completeWorkItem, completePhase, createWorkflowRepair, validateSemanticWorkItemCriterion, validateDeterministicWorkItemCriterion, prepareExecution, createWorkItemExecutionContract, createTesterWorkItemExecutionContract,
     createSourceNeutralWorkItemExecutionContract, beginWorkItemAttempt, finishWorkItemAttempt };
 }

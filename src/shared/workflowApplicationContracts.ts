@@ -63,6 +63,14 @@ export interface WorkflowExecutionProjection {
   source: { state: WorkflowExecutionSourceState; currentRevisionId: string | null; failureCode?: string };
   laterStages: { tester: null; validator: null; integration: null };
 }
+export interface WorkflowExecutionCompletionProjection {
+  workflowId: EntityId;
+  workflowVersion: number;
+  sourceMode: "source-backed" | "source-neutral";
+  sourceRevisionId: string | null;
+  eligible: boolean;
+  blockers: string[];
+}
 
 export interface WorkItemValidationProjection {
   workflowId: EntityId;

@@ -35,9 +35,9 @@ export async function resolveResearchCompletion(root: string, intakeId: string) 
     sourcePath: assessment.relativePath,
   };
   const boundary: Extract<LifecycleEvidenceBoundary, { kind: "research" }> = {
-    kind: "research", routeDecisionId: completion.routeDecisionId, assessmentId: completion.completionId, assessmentRevision: completion.revision,
+    kind: "research", routeDecisionId: completion.routeDecisionId!, assessmentId: completion.completionId, assessmentRevision: completion.revision,
   };
-  return { binding, completion, boundary, artifacts: { assessmentPath: completion.sourcePath, routeDecisionPath: route.relativePath } };
+  return { binding, completion, boundary, artifacts: { assessmentPath: completion.sourcePath!, routeDecisionPath: route.relativePath } };
 }
 
 export async function checkpointResearchCompletion(root: string, intakeId: string, synchronize = false) {

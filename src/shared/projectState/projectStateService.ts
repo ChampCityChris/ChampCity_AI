@@ -1914,6 +1914,70 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     });
   }
 
+  /** Exact execution-stage close/state advance; integration remains a separate typed stage. */
+  async function completeWorkflowExecution(projectId: ProjectId, workflowId: EntityId, expectedRevision: number,
+    sourceMode: "source-backed" | "source-neutral", expectedSourceRevision: string | null, context?: MutationContext) {
+    if (principal.role !== "WorkflowExecution") fail("Workflow execution completion requires its application principal.");
+    const plan = await getWorkflowExecutionPlan(projectId, workflowId);
+    return store.transaction(projectId, async unit => {
+      const workflow = await requiredRecord(unit, projectId, workflowId);
+      if (workflow.entityType !== "Workflow" || workflow.recordVersion !== expectedRevision || workflow.lifecycleState !== "active" ||
+        !["feature-capability", "issue-resolution"].includes(workflow.body.workflowType) || ["closed", "cancelled"].includes(workflow.body.workflowState)) fail("Exact current substantive Workflow is unavailable or stale.");
+      if (plan.solutions.length !== 1 || plan.decisions.length !== 1) fail("Workflow execution completion requires one accepted canonical plan.");
+      const accepted = await requiredRecord(unit, projectId, plan.decisions[0].id);
+      const solution = await requiredRecord(unit, projectId, plan.solutions[0].id);
+      if (accepted.entityType !== "Decision" || accepted.lifecycleState !== "active" || accepted.body.outcome !== "accepted" || solution.entityType !== "BoundedSolution" || solution.lifecycleState !== "active") fail("Workflow accepted plan changed before completion.");
+      const workItems = [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()];
+      for (const item of workItems) {
+        const current = await requiredRecord(unit, projectId, item.id);
+        if (current.entityType !== "WorkItem" || current.recordVersion !== item.recordVersion || current.body.workState !== "closed") fail("Workflow execution completion requires all current WorkItems closed.");
+      }
+      for (const phase of plan.phases) {
+        const current = await requiredRecord(unit, projectId, phase.phaseId);
+        if (current.entityType !== "Phase" || current.recordVersion !== phase.record.recordVersion || current.body.phaseState !== "closed") fail("Workflow execution completion requires all current Phases closed.");
+      }
+      const repairs = new Set(plan.repairIds.map(edge => edge.from));
+      for (const id of repairs) { const repair = await requiredRecord(unit, projectId, id); if (repair.entityType !== "WorkItem" || repair.body.workState !== "closed") fail("Workflow execution completion requires all Repairs closed."); }
+      const workflowIds = new Set((await unit.listEntities(projectId, "Workflow")).filter(record => record.entityType === "Workflow" && record.lineageId === workflow.lineageId).map(record => record.id));
+      const bindings = (await unit.listEntities(projectId, "SourceBinding")).filter((record): record is ProjectStateRecord<"SourceBinding"> => record.entityType === "SourceBinding" && record.lifecycleState === "active" && workflowIds.has(record.body.workflowId));
+      const integrations = (await unit.listEntities(projectId, "IntegrationRecord")).filter((record): record is ProjectStateRecord<"IntegrationRecord"> => record.entityType === "IntegrationRecord" && record.body.workflowId === workflowId);
+      if (sourceMode === "source-neutral" && (expectedSourceRevision !== null || bindings.length || integrations.length)) fail("Source-neutral Workflow cannot carry repository integration identity.");
+      if (sourceMode === "source-backed" && (bindings.length !== 1 || bindings[0].body.preparationState !== "ready" || !bindings[0].body.currentRevisionId || bindings[0].body.currentRevisionId !== expectedSourceRevision)) fail("Source-backed execution completion requires one ready exact SourceBinding at the projected revision.");
+      if (sourceMode === "source-backed" && integrations.some(record => record.body.integrationState === "integrated")) fail("Integrated Workflow cannot repeat execution completion.");
+      const now = new Date().toISOString();
+      const closed = sourceMode === "source-neutral";
+      const next = validateProjectStateEntity({ ...workflow, recordVersion: expectedRevision + 1,
+        ...(closed ? { lifecycleState: "closed" as const, closedAt: now } : {}), updatedAt: now, updatedBy: trustedPrincipal,
+        body: { ...workflow.body, workflowState: closed ? "closed" as const : "active" as const, currentWorkspace: closed ? "execution-complete" : "integration-ready" } });
+      await unit.saveEntity(next, expectedRevision);
+      await recordMutation(unit, { projectId, entityId: workflowId, fromVersion: expectedRevision, toVersion: next.recordVersion,
+        operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now,
+        changedFields: ["workflowState", "currentWorkspace", ...(closed ? ["lifecycleState", "closedAt"] : [])],
+        defaultReason: closed ? "Complete source-neutral Workflow execution" : "Advance source-backed Workflow to integration readiness", context });
+      return next;
+    });
+  }
+
+  async function closeIntegratedWorkflow(projectId: ProjectId, workflowId: EntityId, integrationId: EntityId, expectedRevision: number, resultRevisionId: string, context?: MutationContext) {
+    if (principal.role !== "WorkflowIntegration") fail("Workflow closure requires its integration application principal.");
+    return store.transaction(projectId, async unit => {
+      const workflow = await requiredRecord(unit, projectId, workflowId);
+      const integration = await requiredRecord(unit, projectId, integrationId);
+      if (workflow.entityType !== "Workflow" || workflow.recordVersion !== expectedRevision || workflow.lifecycleState !== "active" || workflow.body.currentWorkspace !== "integration-ready" ||
+        integration.entityType !== "IntegrationRecord" || integration.body.workflowId !== workflowId || integration.body.integrationState !== "integrated" ||
+        integration.body.outcome !== "integrated" || integration.body.resultRevisionId !== resultRevisionId || integration.body.targetAfterRevisionId !== resultRevisionId)
+        fail("Workflow closure requires the exact integrated result revision.");
+      const now = new Date().toISOString();
+      const next = validateProjectStateEntity({ ...workflow, recordVersion: expectedRevision + 1, lifecycleState: "closed", closedAt: now,
+        updatedAt: now, updatedBy: trustedPrincipal, body: { ...workflow.body, workflowState: "closed", currentWorkspace: "integrated" } });
+      await unit.saveEntity(next, expectedRevision);
+      await recordMutation(unit, { projectId, entityId: workflowId, fromVersion: expectedRevision, toVersion: next.recordVersion, operation: "revise",
+        eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now, changedFields: ["workflowState", "lifecycleState", "closedAt", "currentWorkspace"],
+        defaultReason: "Close Workflow after exact Dev integration", context });
+      return next;
+    });
+  }
+
   async function getSourceSemanticView(projectId: ProjectId, repositoryId: string): Promise<SourceSemanticView> {
     if (typeof repositoryId !== "string" || repositoryId.length < 1 || repositoryId.length > 512 || /\s/.test(repositoryId)) fail("Opaque RepositoryService identity is required.");
     const allBindings = (await store.listEntities(projectId, "SourceBinding"))
@@ -2804,7 +2868,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   return { createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
-    createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, completeTesterResultCheckpoint, createIntegrationRecord, advanceIntegrationRecord,
+    createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, completeTesterResultCheckpoint, createIntegrationRecord, advanceIntegrationRecord, completeWorkflowExecution, closeIntegratedWorkflow,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, createTesterResult, createWorkflowRepair, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,
     getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, renderView, exportStructuredProjectState, getAuthoritativeContext, getCommittedEventFeed, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
