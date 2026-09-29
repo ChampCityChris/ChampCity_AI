@@ -2,18 +2,19 @@
 
 **Original implementation checkpoint:** `07ad7ccb88a0ea7878529235151870dbb0aeec74`  
 **Forced-normalization checkpoint:** `6200d383d61ff890d86492cb5ed6e3e17b3856d9`  
-**Current status:** **REPAIR02 RELEASED / REAL CHAMPCITY_AI CONVERSION BLOCKED PENDING REVIEW**
+**Repair02 acceptance checkpoint:** `2a897f96f60ef8d16606ade4c2b1dfb45fddde5a`  
+**Current status:** **REPAIR03 ACTIVE / REAL CHAMPCITY_AI CONVERSION BLOCKED**
 
 ## Active path
 
 Read:
 
-1. `Repair02/README.md`
-2. `Repair02/EPGA-R02-01_provision_current_managed_repository_integration_policy.md`
+1. `Repair03/README.md`
+2. `Repair03/EPGA-R03-01_bound_source_staging_and_preserve_local_state.md`
 
-Repair01's forced Git normalization is the implementation baseline.
+Repair01's forced Git normalization remains the implementation baseline.
 
-The original conservative Git-admission rules remain superseded.
+Repair02's managed-repository integration-policy provisioning remains accepted and is not reopened by Repair03.
 
 ## Current source-control contract
 
@@ -24,7 +25,8 @@ select Project
 → show one conversion warning
 → Accept and Convert / Cancel
 → on Accept:
-     preserve ordinary Project source
+     preserve canonical Project source without traversing ignored/local-only trees
+     preserve ignored/local working state separately and keep it uncommitted
      ignore legacy Project-container .champcity state as source
      import readable Git history where practical
      generate current managed-repository integration policy
@@ -36,6 +38,19 @@ select Project
 ```
 
 The conversion may invalidate the prior Git branch/worktree/repository layout. That consequence is disclosed before mutation.
+
+## Current blocker
+
+The first real ChampCity_AI conversion after Repair02 acceptance failed during source-preservation staging:
+
+```text
+Source preservation staging failed before Git normalization:
+ENOTDIR: not a directory, opendir
+```
+
+The current implementation recursively copies every ordinary Project-root entry before applying Git ignore semantics, so canonical source staging traverses ignored/generated local state.
+
+Repair03 replaces that raw root traversal with source-bounded preservation and adds cleanup of pre-normalization staging residue.
 
 ## Managed Repository configuration
 
@@ -51,7 +66,7 @@ No project-specific Integration Repair scope is fabricated during bootstrap/adop
 
 ## Non-scope
 
-Repair02 does not address:
+Repair03 does not address:
 
 - WRB04 workspace composition;
 - mandatory Architect-per-WorkItem authority drift;
