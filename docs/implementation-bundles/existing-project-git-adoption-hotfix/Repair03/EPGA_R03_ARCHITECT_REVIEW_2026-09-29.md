@@ -144,6 +144,6 @@ The real ChampCity_AI conversion remains blocked.
 
 Proceed with Repair04:
 
-`Repair04/EPGA-R04-01_fence_git_authority_cutover_and_make_rollback_failure_safe.md`
+`Repair04/EPGA-R04-01_decouple_workspace_git_authority_and_make_cutover_failure_safe.md`
 
 Do not retry **Accept and Convert** until Repair04 is implemented and reviewed.

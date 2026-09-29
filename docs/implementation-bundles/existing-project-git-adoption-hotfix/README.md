@@ -4,6 +4,7 @@
 **Forced-normalization checkpoint:** `6200d383d61ff890d86492cb5ed6e3e17b3856d9`  
 **Repair02 acceptance checkpoint:** `2a897f96f60ef8d16606ade4c2b1dfb45fddde5a`  
 **Repair03 implementation checkpoint:** `07d2e543e6c64ec4214fef7027bf853cefdfb1ab`  
+**Repair04 authority-model revision baseline:** `73a260aa8fd9b2f2e9b8620b01101f8634567f93`  
 **Current status:** **REPAIR04 ACTIVE / REAL CHAMPCITY_AI CONVERSION BLOCKED**
 
 ## Active path
@@ -11,7 +12,7 @@
 Read:
 
 1. `Repair04/README.md`
-2. `Repair04/EPGA-R04-01_fence_git_authority_cutover_and_make_rollback_failure_safe.md`
+2. `Repair04/EPGA-R04-01_decouple_workspace_git_authority_and_make_cutover_failure_safe.md`
 
 Repair01's forced Git normalization remains the implementation baseline.
 
@@ -19,7 +20,28 @@ Repair02's managed-repository integration-policy provisioning is accepted.
 
 Repair03's bounded source staging, ignored/local-state separation, and non-following link handling are accepted.
 
-## Current source-control contract
+## Workspace / Git authority contract
+
+A registered Agent Harness workspace is a generic model-access directory.
+
+It may have zero, one, or multiple RepositoryCheckouts.
+
+The workspace itself does not infer or grant Git authority from a root `.git` entry.
+
+Non-Git workspaces are permanently supported.
+
+Model-facing Git access exists only through an exact registered RepositoryCheckout.
+
+ChampCity's application/source-control layer owns:
+
+- Git discovery;
+- Existing Project adoption;
+- repository normalization;
+- managed repository metadata;
+- Main/Dev/Workflow checkout lifecycle;
+- registration and retirement of RepositoryCheckout identities.
+
+## Existing Project source-control contract
 
 For a Git-backed Existing Project:
 
@@ -33,16 +55,17 @@ select Project
      ignore legacy Project-container .champcity state as source
      generate current managed-repository integration policy
      build candidate managed repository in migration staging
-     fence same-workspace Git operations during authority cutover
+     retire/drain any explicitly exposed conventional RepositoryCheckout
      install canonical managed repository
      relocate conventional root Git only after managed candidate proof
      create canonical Main/Dev worktrees
      verify managed topology
-     register Project / RepositoryCheckouts
+     register exact Main/Dev RepositoryCheckouts
+     register/open Current Project
      open Workflow Hub
 ```
 
-The conversion may invalidate the prior Git branch/worktree/repository layout. That consequence is disclosed before mutation.
+The generic workspace remains a workspace throughout this transition; Git capability moves between explicit checkout identities.
 
 ## Current blocker
 
@@ -54,7 +77,7 @@ Rollback then surfaced EPERM / permission denied involving:
 
 The current rollback can throw while cleaning conversion-created managed metadata, mask the primary normalization failure, and leave the journal stuck at `normalizing`.
 
-Repair04 makes candidate repository preparation staged, Git-authority cutover exclusive, resource ownership explicit, and rollback failure-safe.
+Repair04 now addresses both the immediate rollback/cutover defect and the incorrect workspace-to-Git authority coupling that made conversion concurrency harder than necessary.
 
 ## Managed Repository configuration
 

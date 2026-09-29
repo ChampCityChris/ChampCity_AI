@@ -1,6 +1,7 @@
 # Existing Project Git Adoption — Repair04
 
 **Starting baseline:** `07d2e543e6c64ec4214fef7027bf853cefdfb1ab`  
+**Architect revision baseline:** `73a260aa8fd9b2f2e9b8620b01101f8634567f93`  
 **Status:** **ACTIVE — REAL CHAMPCITY_AI CONVERSION BLOCKED**
 
 ## Controlling review
@@ -9,7 +10,21 @@
 
 Repair03 is accepted for its bounded source-staging/local-state scope.
 
-## New production failure
+## Corrected authority model
+
+Repair04 now explicitly separates:
+
+- **Workspace** — generic model-access directory; Git-neutral and valid with zero repositories.
+- **RepositoryCheckout** — explicit model-facing Git authority for one validated working copy.
+- **Application/source-control layer** — owns Git discovery, adoption, normalization, checkout lifecycle, and managed topology.
+
+The Agent Harness workspace registry must not infer Git authority from `.git` at the workspace root.
+
+A non-Git folder is a permanent supported workspace class.
+
+Git tooling operates only through an exact registered RepositoryCheckout.
+
+## Production failure still owned by Repair04
 
 The real ChampCity_AI retry passed Repair03 source preservation and entered normalization.
 
@@ -19,17 +34,20 @@ The UI then surfaced EPERM / permission denied involving:
 
 Forensic state shows the journal still at `normalizing`, no recorded failure reason, root conventional Git still authoritative, no Main/Dev, and an empty partially-cleaned managed metadata directory.
 
-The current rollback can therefore fail while removing conversion-created metadata and mask the original normalization failure.
+The current rollback can fail while removing conversion-created metadata and mask the original normalization failure.
 
 ## Active card
 
-`EPGA-R04-01_fence_git_authority_cutover_and_make_rollback_failure_safe.md`
+`EPGA-R04-01_decouple_workspace_git_authority_and_make_cutover_failure_safe.md`
 
 ## Repair boundary
 
 Repair04 owns:
 
-- exclusive Git-authority cutover;
+- Git-neutral generic workspace registration;
+- exact RepositoryCheckout-based Git routing;
+- explicit conventional/external checkout exposure when needed;
+- checkout-scoped retirement/draining during conversion;
 - staged candidate managed metadata;
 - explicit attempt-owned resource tracking;
 - Windows-safe bounded rename/remove;
