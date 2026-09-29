@@ -1,58 +1,72 @@
 # Existing Project Git Adoption Hotfix
 
-**Starting baseline:** `ac936965242d0c95acb91ffc1062cf5c7a3f8b66`  
-**Scope:** Open Existing Project → Git adoption/migration → managed Main/Dev topology  
-**Status:** RELEASED
+**Original implementation checkpoint:** `07ad7ccb88a0ea7878529235151870dbb0aeec74`  
+**Current status:** **REPAIR01 RELEASED**  
+**Scope:** Open Existing Project → warned forced Git normalization → managed Main/Dev topology
 
-## Read first
+## Active path
 
-1. `CODE_REVIEW_AND_RCA_2026-09-28.md`
-2. this README
-3. the current card only
+Read:
 
-## Sequence
+1. `Repair01/README.md`
+2. the current Repair01 card only
 
-1. `EPGA-HF01_inspect_classify_and_journal_existing_git_adoption.md`
-2. `EPGA-HF02_apply_resume_managed_topology_and_baseline_normalization.md`
-3. `EPGA-HF03_landing_migration_consent_and_end_to_end_qualification.md`
+The original EPGA-HF01 through EPGA-HF03 implementation is the baseline being corrected.
 
-Execute sequentially with one report/checkpoint per card.
+Do not use the original conservative classification rules as the current product contract.
 
-Do not begin unrelated WRB04 workspace convergence or WRB05 work inside this hotfix.
+## Why Repair01 exists
 
-## Governing rule
+The first hotfix still treated unusual or partially unreadable Git state as a reason to deny Project entry.
 
-`Open Existing Project` is a migration/adoption operation.
+That contradicts the intended Existing Project behavior.
 
-The selected repository does not need to already conform to ChampCity topology.
+The corrected rule is:
 
-The application must either:
+> Existing Git is import material. After one explicit warning and Operator acceptance, ChampCity normalizes the selected Project into ChampCity's own source-control topology.
 
-- adopt/reconcile it safely;
-- request explicit migration consent for a real baseline/integration normalization;
-- or fail with a precise manual-intervention reason when automatic migration cannot prove a unique safe result.
+Ordinary Git irregularity is not an admission gate.
 
-## Source-line policy
+## Repair01 sequence
 
-- preserve every existing ref/tag/remote;
-- `main` is stable/release;
-- `dev` is the existing-project integration target;
-- do not merge every branch into main;
-- integrate only the active source state into dev when it is not already represented;
-- never auto-resolve conflicts by discarding one side.
+1. `Repair01/EPGA-R01-01_force_normalize_existing_git_into_champcity_topology.md`
+2. `Repair01/EPGA-R01-02_simple_warning_and_real_project_qualification.md`
 
-## Operator consent
+Execute sequentially with one Implementer Report and one checkpoint per card.
 
-Consent is required only when migration changes source semantics, such as:
+Do not stop between passing R01-01 and R01-02 merely for Architect review.
 
-- choosing/creating main from a non-main baseline;
-- advancing dev with active branch work;
-- capturing non-ignored working changes into an adoption snapshot.
+Stop after R01-02.
 
-Routine topology conversion/recovery is application-owned machine mechanics.
+## Current source-control contract
 
-## Stop rule
+For a Git-backed Existing Project:
 
-After EPGA-HF03 checkpoints, STOP for Architect review.
+```text
+select Project
+→ show one conversion warning
+→ Accept and Convert / Cancel
+→ on Accept:
+     preserve Project source
+     import readable Git history where practical
+     create canonical baseline
+     force canonical main + dev
+     establish managed topology
+     register Project
+     open Workflow Hub
+```
 
-Do not continue into workspace convergence or WRB05.
+The conversion may invalidate the prior Git branch/worktree/repository layout. That consequence is disclosed before mutation.
+
+The only acceptable hard blockers are failures that prevent ChampCity from preserving the actual Project source or constructing its managed repository safely.
+
+## Non-scope
+
+Repair01 does not address:
+
+- WRB04 workspace composition;
+- mandatory Architect-per-WorkItem authority drift;
+- WRB05/web migration;
+- Workflow planning/execution behavior.
+
+Those remain separate work.
