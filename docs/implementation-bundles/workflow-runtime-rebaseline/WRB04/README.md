@@ -1,45 +1,49 @@
 # WRB04 — Shared Execution Kernel and Workspaces
 
-**Authoritative implemented baseline:** `8a6a9ab065cb94d13d1f774cdfa8a62f6bc82b62`  
-**Status:** REPAIR04 qualification complete / awaiting Architect acceptance
-**WRB05:** unauthorized until final WRB04 Architect acceptance
+**Authoritative implemented baseline:** `9273149423131b30c73e3755f6f90d2234d03768`  
+**Repair04:** **ACCEPTED**  
+**WRB04 overall:** **ARCHITECTURALLY OPEN**  
+**WRB05:** unauthorized pending Operator-directed convergence and final WRB04 acceptance
 
-## Sole active execution path
+## Current Architect disposition
 
-Read:
+Repair04 is complete and accepted.
 
-1. `Repair04/CODE_REVIEW_AND_RCA_2026-09-28.md`
-2. `Repair04/README.md`
-3. the current Repair04 card only
+See:
 
-Repair03 remains the implemented baseline being corrected. Do not rewrite Repair03 reports/cards.
+`Repair04/WRB04-R04_ARCHITECT_REVIEW_2026-09-28.md`
 
-## Repair04 sequence
+No Repair05 is authorized from the R04 qualification gaps.
+
+The remaining WRB04 work is limited to two already-demonstrated ordinary-path baseline deviations:
+
+1. the current exact execution path incorrectly makes Architect WorkItem elaboration mandatory before Implementer execution, despite the baseline defining Architect elaboration as optional/bounded advisory planning;
+2. the new Feature/Issue/execution workspaces replaced rather than composed the established Work Card / Issue / intake UX and presentation building blocks that WRB04 explicitly required salvaging.
+
+These are known product/authority convergence defects, not an invitation to reopen every runtime edge case.
+
+## Repair04 accepted results
+
+Repair04 accepted:
+
+- durable implementation checkpoint recovery;
+- durable Tester checkpoint recovery;
+- role-specific returned-runtime error presentation;
+- source-neutral deterministic capability compatibility checking;
+- focused R04 validation and recovery behavior.
+
+Retry/Reconcile controls are recovery surfaces over application-owned Git mechanics, not Operator approval authority.
+
+## Project sequencing
+
+Per Operator direction, the next architectural task is the separate Existing Project Git-adoption/migration hotfix.
+
+This README does not authorize that hotfix implementation by itself and does not start the remaining workspace/role convergence.
+
+## Historical Repair04 sequence
 
 1. `Repair04/WRB04-R04-01_expose_durable_structured_checkpoint_recovery.md`
 2. `Repair04/WRB04-R04-02_fence_source_neutral_deterministic_and_fix_runtime_failure_presentation.md`
 3. `Repair04/WRB04-R04-03_final_qualification_and_closeout.md`
 
-Execute R04-01 through R04-03 sequentially with one report/checkpoint per card.
-
-Do not stop between passing R04-01/R04-02 cards merely for Architect review. Stop after R04-03 for human Architect review.
-
-## Why Repair04 exists
-
-Repair03 corrected its intended state-machine defects. Final Architect review found three remaining closure seams:
-
-- retryable implementation and Tester structured checkpoint blocked/inspection states are not reachable from the Current Project product path after the model session ends;
-- the shared runtime action helper can erase or misattribute returned unavailable/failed models;
-- source-neutral canonical planning can still accept required deterministic Criteria even though the product has no source-neutral deterministic provider.
-
-Repair03 final qualification also left source-backed deterministic Phase and source-backed Repair composed proof explicitly open. R04-03 owns those final qualifications.
-
-The controlling RCA contains the exact evidence and boundaries.
-
-## Completion rule
-
-After WRB04-R04-03 checkpoints, STOP for final Architect review.
-
-R04-03 qualification evidence and remaining proof limits are recorded in `Repair04/Reports/WRB04-R04-03_FINAL_QUALIFICATION_REPORT.md`. This status does not declare Architect acceptance.
-
-Do not begin WRB05.
+All three are complete at the accepted R04 baseline.

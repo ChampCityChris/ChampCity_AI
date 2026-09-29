@@ -36,25 +36,27 @@ Outcome: Workflow-specific intake/assessment/planning writes canonical SPS WorkI
 ### WRB04 — Shared Execution Kernel and Workspaces
 Outcome: Feature and Issue execute through one post-plan runtime and one reusable Workspace family from Work Item Map through integration/repair.
 
-**Status:** REPAIR04 RELEASED from authoritative implemented baseline `8a6a9ab065cb94d13d1f774cdfa8a62f6bc82b62`.
+**Status:** Repair04 accepted at `9273149423131b30c73e3755f6f90d2234d03768`; WRB04 remains architecturally open for two demonstrated normal-path convergence defects.
 
-Repair03 materially passes. Final Architect review found three remaining closure seams: durable implementation/Tester structured-checkpoint reconciliation is not exposed through the Current Project application path; returned exact-runtime refusal models can be erased/misattributed by the shared renderer helper; and source-neutral planning can still accept required deterministic Criteria with no proof provider.
+Accepted Repair04 closes:
+- durable implementation checkpoint recovery;
+- durable Tester checkpoint recovery;
+- returned Implementer/Tester runtime refusal presentation;
+- source-neutral deterministic capability compatibility checking.
 
-Repair03 final qualification also left source-backed deterministic Phase and source-backed Repair composed proof explicitly open.
+No Repair05 is authorized from missing exhaustive qualification matrices.
 
-The controlling evidence is:
+Remaining WRB04 convergence is limited to:
+- remove the mandatory Architect-per-WorkItem execution-plan gate and restore the baseline's advisory/bounded Architect role;
+- replace bespoke Feature/Issue/execution renderer substitutes with composition of the established Work Card, Issue, intake, Architect, and presentation building blocks explicitly required by the WRB04 baseline.
 
-`WRB04/Repair04/CODE_REVIEW_AND_RCA_2026-09-28.md`
+The controlling R04 review is:
 
-Execute sequentially:
+`WRB04/Repair04/WRB04-R04_ARCHITECT_REVIEW_2026-09-28.md`
 
-- WRB04-R04-01 — expose durable structured checkpoint recovery;
-- WRB04-R04-02 — fence unsupported source-neutral deterministic plans and correct runtime failure presentation;
-- WRB04-R04-03 — final source-backed qualification and closeout.
+Per Operator sequencing, the next architectural task is the separate Existing Project Git-adoption/migration hotfix. That sequencing does not close WRB04 or authorize WRB05.
 
-Do not stop between passing R04-01/R04-02 cards merely for Architect review. Stop after R04-03 for final human Architect review.
-
-Do not begin WRB05 until WRB04-R04-03 checkpoints and Architect acceptance closes WRB04.
+Do not begin WRB05 until the Operator schedules the remaining WRB04 convergence and final Architect acceptance.
 
 ### WRB05 — Product Completion, Remaining Workflow Front Halves, and Retirement
 Outcome: Greenfield completes through the shared kernel; remaining front halves use the proven normalization contract; Hub/Source Control present concurrent instances; obsolete runtime/migration paths retire; final qualification runs. This bundle may be split after WRB04 based on the actual shared-kernel surface.
