@@ -1331,6 +1331,9 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const acceptedSolution = plan.solutions.filter(solution => plan.decisions.some(decision =>
         governingEdges.some(edge => edge.fromEntityId === decision.id && edge.toEntityId === solution.id)));
       if (acceptedSolution.length !== 1) fail("Repair requires one accepted BoundedSolution in the exact Workflow.");
+      const sourceBindings = (await unit.listEntities(projectId, "SourceBinding")).filter((record): record is ProjectStateRecord<"SourceBinding"> => record.entityType === "SourceBinding" && record.lifecycleState === "active" && record.body.workflowId === workflow.id);
+      if (sourceBindings.length > 1) fail("Repair source mode is ambiguous for the exact Workflow.");
+      const repairValidationPolicy = sourceBindings.length ? "deterministic" as const : "semantic_ai" as const;
 
       const repair = createProjectStateEntity({ entityType: "WorkItem", projectId,
         body: { workItemKind: workflow.body.workflowType === "issue-resolution" ? "repair" : "fix",
@@ -1338,7 +1341,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const repairCriterion = createProjectStateEntity({ entityType: "Criterion", projectId,
         body: { statement: criterion ? `Resolve failed Criterion: ${criterion.body.statement}`.slice(0, 4096) : `Resolve production defect: ${failureSummary.trim()}`.slice(0, 4096),
           criticality: "required", verificationIntent: criterion?.body.verificationIntent ?? "Verify the reported production defect is corrected with exact current proof.",
-          validationPolicy: criterion?.body.validationPolicy === "operator_decision" || criterion?.body.validationPolicy === "deferred_visual_phase" ? "deterministic" : criterion?.body.validationPolicy ?? "deterministic",
+          validationPolicy: repairValidationPolicy,
           criterionState: "active" }, principal: trustedPrincipal });
       for (const record of [repair, repairCriterion]) {
         await unit.saveEntity(record, null);
@@ -3227,6 +3230,6 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, recordCriterionOperatorDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,
     getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, renderView, exportStructuredProjectState, getAuthoritativeContext, getCommittedEventFeed, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
     getEffectiveDisposition, getCriterionOperatorDecisionStatus, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus, linkPhaseValidationEvidence,
-    getImplementationAttempts, getExecutionPlan, getWorkflowExecutionPlan, acceptWorkflowPlanningGraph, acceptFeatureAssessment, acceptIssueRca, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,
+    getImplementationAttempts, getExecutionPlan, getWorkflowExecutionPlan, getWorkflowSourceRevisionChain: (projectId: ProjectId, workflowId: EntityId) => workflowSourceRevisionChain(projectId, workflowId), acceptWorkflowPlanningGraph, acceptFeatureAssessment, acceptIssueRca, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,
     getWorkRouteHistory, getCurrentWorkRoute, getWorkIntakeSummary, getSourceSemanticView, getRegressionObligationView };
 }

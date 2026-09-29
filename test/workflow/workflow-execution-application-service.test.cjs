@@ -491,6 +491,156 @@ test("exact WorkItem Operator action records Criterion-specific Decision indepen
   assert.equal(stale.current, false, "a Decision derived from a different TesterResult is stale");
 });
 
+test("solution Operator Decision accumulates current Tester evidence without deadlocking dependent WorkItems", async context => {
+  const env = await setup(context);
+  const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "Cumulative decision dependency", entryWorkspace: "feature-intake" });
+  const accepted = await env.state.acceptWorkflowPlanningGraph(env.projectId, { ...graph(created.workflow.id, "direct", "feature", [
+    { key: "first", kind: "feature", title: "First", objective: "Complete first", dependencyKeys: [], criteria: [] },
+    { key: "second", kind: "feature", title: "Second", objective: "Complete second", dependencyKeys: ["first"], criteria: [] },
+  ]), solutionCriteria: [{ statement: "Operator accepts the cumulative solution", criticality: "required", verificationIntent: "Review all current member evidence", validationPolicy: "operator_decision" }] });
+  const kernel = createWorkflowExecutionApplicationService();
+  const criterion = accepted.criteria.find(entry => entry.ownerId === accepted.solutions[0].id).record;
+  const first = accepted.directWorkItems.find(item => item.body.title === "First");
+  const second = accepted.directWorkItems.find(item => item.body.title === "Second");
+  const planFirst = await kernel.acceptWorkItemExecutionPlan(env.root, { workflowId: created.workflow.id, workItemId: first.id, expectedVersion: first.recordVersion,
+    plan: { implementationBoundaries: ["Implement the first dependency"], affectedPaths: [], proofIntent: ["Review first result"] } });
+  const firstAttempt = await kernel.beginWorkItemAttempt(env.root, created.workflow.id, first.id, planFirst.recordVersion, "cumulative-first");
+  const firstImplementation = await kernel.finishWorkItemAttempt(env.root, created.workflow.id, first.id, firstAttempt.executionRef,
+    { summary: "First complete", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+  const firstTester = await createProjectStateService(env.store, { principalId: "cumulative-tester-a", principalType: "agent", role: "Tester" }).createTesterResult(
+    env.projectId, created.workflow.id, first.id, firstImplementation.id,
+    { sourceMode: "source-neutral", recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [], determinationEvidence: ["First member reviewed"], unknowns: [], rationale: "First result is ready." });
+  const decisionA = await kernel.recordWorkItemCriterionDecision(env.root, { workflowId: created.workflow.id, workItemId: first.id, criterionId: criterion.id,
+    expectedCriterionVersion: criterion.recordVersion, outcome: "approved", rationale: "Approve the current first-member evidence." });
+  assert.ok((await env.store.listRelationships(env.projectId, "derived_from")).some(edge => edge.fromEntityId === decisionA.decision.id && edge.toEntityId === firstTester.id));
+  await kernel.completeWorkItem(env.root, created.workflow.id, first.id, (await env.state.getRecord(env.projectId, first.id)).recordVersion);
+  const planSecond = await kernel.acceptWorkItemExecutionPlan(env.root, { workflowId: created.workflow.id, workItemId: second.id, expectedVersion: second.recordVersion,
+    plan: { implementationBoundaries: ["Implement the dependent second item"], affectedPaths: [], proofIntent: ["Review second result"] } });
+  const secondAttempt = await kernel.beginWorkItemAttempt(env.root, created.workflow.id, second.id, planSecond.recordVersion, "cumulative-second");
+  const secondImplementation = await kernel.finishWorkItemAttempt(env.root, created.workflow.id, second.id, secondAttempt.executionRef,
+    { summary: "Second complete", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+  const secondTester = await createProjectStateService(env.store, { principalId: "cumulative-tester-b", principalType: "agent", role: "Tester" }).createTesterResult(
+    env.projectId, created.workflow.id, second.id, secondImplementation.id,
+    { sourceMode: "source-neutral", recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [], determinationEvidence: ["Second member reviewed"], unknowns: [], rationale: "Second result is ready." });
+  const staleProjection = await kernel.getWorkItemValidationProjection(env.root, created.workflow.id, second.id);
+  assert.equal(staleProjection.criteria.find(entry => entry.criterion.id === criterion.id).outcome, "pending", "new evidence expands the solution set and stales Decision [A]");
+  const decisionAB = await kernel.recordWorkItemCriterionDecision(env.root, { workflowId: created.workflow.id, workItemId: second.id, criterionId: criterion.id,
+    expectedCriterionVersion: criterion.recordVersion, outcome: "approved", rationale: "Approve the cumulative first and second member evidence." });
+  const evidenceLinks = (await env.store.listRelationships(env.projectId, "derived_from")).filter(edge => edge.fromEntityId === decisionAB.decision.id).map(edge => edge.toEntityId).sort();
+  assert.deepEqual(evidenceLinks, [firstTester.id, secondTester.id].sort());
+  await kernel.completeWorkItem(env.root, created.workflow.id, second.id, (await env.state.getRecord(env.projectId, second.id)).recordVersion);
+  const completion = await kernel.getWorkflowExecutionCompletionProjection(env.root, created.workflow.id);
+  assert.equal(completion.eligible, true, completion.blockers.join(", "));
+});
+
+test("source-backed Phase aggregates member Tester evidence across its exact sequential checkpoint chain", async context => {
+  const env = await setup(context);
+  const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "Lineage aggregate", entryWorkspace: "feature-intake" });
+  const plan = await env.state.acceptWorkflowPlanningGraph(env.projectId, { ...graph(created.workflow.id, "phased", "feature", [
+    { key: "first", kind: "feature", title: "First revision", objective: "Implement R1", phaseKey: "phase", dependencyKeys: [], criteria: [] },
+    { key: "second", kind: "feature", title: "Second revision", objective: "Implement R2", phaseKey: "phase", dependencyKeys: ["first"], criteria: [] },
+    { key: "third", kind: "feature", title: "Later phase revision", objective: "Implement R4", phaseKey: "phase-two", dependencyKeys: ["second"], criteria: [] },
+  ], [{ key: "phase", title: "Aggregate", objective: "Review both revisions", sequence: 1,
+    criteria: [{ statement: "Both members satisfy the Phase objective", criticality: "required", verificationIntent: "Review every current Phase member", validationPolicy: "semantic_ai" }] },
+    { key: "phase-two", title: "Later phase", objective: "Advance the final candidate", sequence: 2 }]),
+    solutionCriteria: [{ statement: "Operator accepts the cumulative source-backed solution", criticality: "required", verificationIntent: "Review current source-backed Tester evidence", validationPolicy: "operator_decision" }] });
+  const source = createProjectStateService(env.store, { principalId: "source-state", principalType: "system", role: "System" });
+  const baseline = await source.createWorkflowSourceBaseline(env.projectId, created.workflow.id, { repositoryId: "lineage-repo", integrationTargetSourceLineId: "dev", baseRevisionId: "R0" });
+  const binding = await source.createWorkflowSourceBinding(env.projectId, created.workflow.id, baseline.id);
+  await source.updateSourceBinding(env.projectId, binding.id, { preparationState: "preparing" }, 1);
+  await source.updateSourceBinding(env.projectId, binding.id, { preparationState: "ready", workSourceLineId: "workflow/lineage", currentRevisionId: "R0", repositoryCheckoutId: "lineage-checkout" }, 2);
+  const kernel = createWorkflowExecutionApplicationService();
+  const phaseId = plan.phases[0].phaseId;
+  const solutionCriterion = plan.criteria.find(entry => entry.ownerId === plan.solutions[0].id).record;
+  const members = plan.workItemsByPhase[phaseId].sort((left, right) => left.body.title.localeCompare(right.body.title));
+  const revisions = ["R1", "R2"];
+  const memberTesterIds = [];
+  let currentRevision = "R0";
+  for (const [index, member] of members.entries()) {
+    const acceptedPlan = await kernel.acceptWorkItemExecutionPlan(env.root, { workflowId: created.workflow.id, workItemId: member.id, expectedVersion: member.recordVersion,
+      plan: { implementationBoundaries: [`Implement ${revisions[index]}`], affectedPaths: ["feature.txt"], proofIntent: [`Review ${revisions[index]}`] } });
+    const attempt = await kernel.beginWorkItemAttempt(env.root, created.workflow.id, member.id, acceptedPlan.recordVersion, `lineage-attempt-${index}`);
+    const implementation = await kernel.finishWorkItemAttempt(env.root, created.workflow.id, member.id, attempt.executionRef,
+      { summary: `Implemented ${revisions[index]}`, deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+    const checkpoint = await source.createSourceCheckpoint(env.projectId, binding.id, created.workflow.id, implementation.id,
+      { boundaryId: attempt.executionRef, expectedRevisionId: currentRevision, checkpointKind: "implementation", checkpointState: "pending" });
+    await source.advanceSourceCheckpoint(env.projectId, checkpoint.id, { checkpointState: "committed", resultingRevisionId: revisions[index] }, 1);
+    const currentBinding = await env.state.getRecord(env.projectId, binding.id);
+    await source.updateSourceBinding(env.projectId, binding.id, { currentRevisionId: revisions[index] }, currentBinding.recordVersion);
+    const tester = await createProjectStateService(env.store, { principalId: `lineage-tester-${index}`, principalType: "agent", role: "Tester" }).createTesterResult(
+      env.projectId, created.workflow.id, member.id, implementation.id,
+      { sourceMode: "source-backed", implementerRevisionId: revisions[index], recommendation: "no-permanent-test-required", affectedCapabilityIds: [], permanentTestPaths: [],
+        determinationEvidence: [`Tester reviewed ${revisions[index]}`], unknowns: [], rationale: `Exact source-backed result ${index + 1}.` });
+    assert.equal(tester.body.candidateRevisionId, revisions[index]);
+    memberTesterIds.push(tester.id);
+    if (index === 0) {
+      const decisionA = await kernel.recordWorkItemCriterionDecision(env.root, { workflowId: created.workflow.id, workItemId: member.id, criterionId: solutionCriterion.id,
+        expectedCriterionVersion: solutionCriterion.recordVersion, outcome: "approved", rationale: "Approve the first current source-backed member at R1." });
+      assert.deepEqual((await env.store.listRelationships(env.projectId, "derived_from")).filter(edge => edge.fromEntityId === decisionA.decision.id).map(edge => edge.toEntityId), [tester.id]);
+    } else {
+      const stale = await kernel.getWorkItemValidationProjection(env.root, created.workflow.id, member.id);
+      assert.equal(stale.criteria.find(entry => entry.criterion.id === solutionCriterion.id).outcome, "pending", "R2 evidence expands [A] to [A,B] and makes the earlier Decision stale");
+      await kernel.recordWorkItemCriterionDecision(env.root, { workflowId: created.workflow.id, workItemId: member.id, criterionId: solutionCriterion.id,
+        expectedCriterionVersion: solutionCriterion.recordVersion, outcome: "approved", rationale: "Approve the complete source-backed evidence set at R2." });
+    }
+    await kernel.completeWorkItem(env.root, created.workflow.id, member.id, (await env.state.getRecord(env.projectId, member.id)).recordVersion);
+    currentRevision = revisions[index];
+  }
+  assert.deepEqual(await source.getWorkflowSourceRevisionChain(env.projectId, created.workflow.id), ["R0", "R1", "R2"]);
+  let prompt = "";
+  const semanticKernel = createWorkflowExecutionApplicationService({ createValidatorAdapter: async () => ({ startThread() { return { async runStreamed(value) { prompt = value; return { events: (async function* () {
+    yield { type: "item.completed", item: { type: "agent_message", text: '{"outcome":"pass","summary":"Both exact Phase members satisfy the aggregate objective."}' } };
+    yield { type: "turn.completed" };
+  })() }; }, async dispose() {} }; }, async dispose() {} }) });
+  const criterion = plan.criteria.find(entry => entry.ownerId === phaseId).record;
+  fs.mkdirSync(path.join(env.root, ".champcity", "checkouts", created.workflow.id), { recursive: true });
+  const validation = await semanticKernel.validateSemanticPhaseCriterion(env.root, created.workflow.id, phaseId, criterion.id, { model: "test-model", reasoningEffort: "low" });
+  assert.equal(validation.validation.body.sourceBaselineRef, "R2");
+  assert.match(prompt, /Phase member \d+: First revision/);
+  assert.match(prompt, /Phase member \d+: Second revision/);
+  assert.match(prompt, /Implementation: Implemented R1/);
+  assert.match(prompt, /Implementation: Implemented R2/);
+  let phaseProjection = await semanticKernel.getPhaseValidationProjection(env.root, created.workflow.id, phaseId);
+  assert.equal(phaseProjection.completion.eligible, true, phaseProjection.completion.blockers.join(", "));
+  const disposition = await source.createSourceCheckpoint(env.projectId, binding.id, created.workflow.id, created.workflow.id,
+    { boundaryId: "lineage-disposition-r3", expectedRevisionId: "R2", checkpointKind: "disposition", checkpointState: "pending" });
+  await source.advanceSourceCheckpoint(env.projectId, disposition.id, { checkpointState: "committed", resultingRevisionId: "R3" }, 1);
+  const currentBinding = await env.state.getRecord(env.projectId, binding.id);
+  await source.updateSourceBinding(env.projectId, binding.id, { currentRevisionId: "R3" }, currentBinding.recordVersion);
+  phaseProjection = await semanticKernel.getPhaseValidationProjection(env.root, created.workflow.id, phaseId);
+  assert.equal(phaseProjection.completion.eligible, false, "the Phase result bound to R2 stales when the candidate advances before Phase close");
+  const refreshed = await semanticKernel.validateSemanticPhaseCriterion(env.root, created.workflow.id, phaseId, criterion.id, { model: "test-model", reasoningEffort: "low" });
+  assert.equal(refreshed.validation.body.sourceBaselineRef, "R3");
+  const latestPhase = await env.state.getRecord(env.projectId, phaseId);
+  await semanticKernel.completePhase(env.root, created.workflow.id, phaseId, latestPhase.recordVersion);
+  const laterPhaseId = plan.phases[1].phaseId;
+  const laterMember = plan.workItemsByPhase[laterPhaseId][0];
+  const laterPlan = await kernel.acceptWorkItemExecutionPlan(env.root, { workflowId: created.workflow.id, workItemId: laterMember.id, expectedVersion: laterMember.recordVersion,
+    plan: { implementationBoundaries: ["Advance the source in the later Phase"], affectedPaths: ["feature.txt"], proofIntent: ["Review R4"] } });
+  const laterAttempt = await kernel.beginWorkItemAttempt(env.root, created.workflow.id, laterMember.id, laterPlan.recordVersion, "lineage-attempt-r4");
+  const laterImplementation = await kernel.finishWorkItemAttempt(env.root, created.workflow.id, laterMember.id, laterAttempt.executionRef,
+    { summary: "Implemented R4", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+  const laterCheckpoint = await source.createSourceCheckpoint(env.projectId, binding.id, created.workflow.id, laterImplementation.id,
+    { boundaryId: laterAttempt.executionRef, expectedRevisionId: "R3", checkpointKind: "implementation", checkpointState: "pending" });
+  await source.advanceSourceCheckpoint(env.projectId, laterCheckpoint.id, { checkpointState: "committed", resultingRevisionId: "R4" }, 1);
+  const beforeR4 = await env.state.getRecord(env.projectId, binding.id);
+  await source.updateSourceBinding(env.projectId, binding.id, { currentRevisionId: "R4" }, beforeR4.recordVersion);
+  const laterTester = await createProjectStateService(env.store, { principalId: "lineage-tester-r4", principalType: "agent", role: "Tester" }).createTesterResult(
+    env.projectId, created.workflow.id, laterMember.id, laterImplementation.id,
+    { sourceMode: "source-backed", implementerRevisionId: "R4", recommendation: "no-permanent-test-required", affectedCapabilityIds: [], permanentTestPaths: [],
+      determinationEvidence: ["Tester reviewed R4"], unknowns: [], rationale: "Exact source-backed result in the later Phase." });
+  const staleSolution = await kernel.getWorkItemValidationProjection(env.root, created.workflow.id, laterMember.id);
+  assert.equal(staleSolution.criteria.find(entry => entry.criterion.id === solutionCriterion.id).outcome, "pending", "R4 expands the final solution evidence after Phase 1 closed");
+  const finalDecision = await kernel.recordWorkItemCriterionDecision(env.root, { workflowId: created.workflow.id, workItemId: laterMember.id, criterionId: solutionCriterion.id,
+    expectedCriterionVersion: solutionCriterion.recordVersion, outcome: "approved", rationale: "Approve every current solution member through R4." });
+  assert.deepEqual(new Set((await env.store.listRelationships(env.projectId, "derived_from")).filter(edge => edge.fromEntityId === finalDecision.decision.id).map(edge => edge.toEntityId)),
+    new Set([...memberTesterIds, laterTester.id]));
+  await kernel.completeWorkItem(env.root, created.workflow.id, laterMember.id, (await env.state.getRecord(env.projectId, laterMember.id)).recordVersion);
+  await kernel.completePhase(env.root, created.workflow.id, laterPhaseId, (await env.state.getRecord(env.projectId, laterPhaseId)).recordVersion);
+  const completion = await kernel.getWorkflowExecutionCompletionProjection(env.root, created.workflow.id);
+  assert.equal(completion.eligible, true, completion.blockers.join(", "));
+});
+
 test("shared Phase validation satisfies deterministic, semantic, visual, deferred, and Operator policies before close", async context => {
   const env = await setup(context);
   const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "All Phase policies", entryWorkspace: "feature-intake" });
@@ -627,6 +777,7 @@ test("failed Phase visual Criterion creates a durable same-Phase Repair and requ
   assert.deepEqual((await env.store.listRelationships(env.projectId, "derived_from")).filter(edge => edge.fromEntityId === failed.validation.id && !edge.endedAt).map(edge => edge.toEntityId), [firstTester.id]);
   const phaseRepair = await kernel.createPhaseRepair(env.root, created.workflow.id, phase.phaseId, failed.validation.id);
   assert.equal(phaseRepair.repair.body.workState, "planned");
+  assert.equal(phaseRepair.criterion.body.validationPolicy, "semantic_ai", "source-neutral Phase Repair uses the product semantic Validator");
   assert.ok((await env.store.listRelationships(env.projectId, "derived_from")).some(edge => edge.fromEntityId === phaseRepair.repair.id && edge.toEntityId === failed.validation.id));
   await assert.rejects(kernel.createPhaseRepair(env.root, created.workflow.id, phase.phaseId, failed.validation.id), /already exists/);
   const phasePlan = await env.state.getWorkflowExecutionPlan(env.projectId, created.workflow.id);
@@ -652,9 +803,11 @@ test("failed Phase visual Criterion creates a durable same-Phase Repair and requ
     env.projectId, created.workflow.id, phaseRepair.repair.id, repairImplementation.id,
     { sourceMode: "source-neutral", recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [], determinationEvidence: ["Repair result checked"], unknowns: [], rationale: "The Phase Repair is complete." });
   const repairCriterion = contract.criteria[0];
-  await createProjectStateService(env.store, { principalId: "phase-repair-validator", principalType: "agent", role: "Validator" }).recordValidation(
-    env.projectId, repairCriterion.id, { validationType: "work-item-criterion", method: "focused Phase Repair proof", validationMode: "deterministic", outcome: "pass",
-      summary: "The Phase Repair Criterion is satisfied.", targetRecordVersion: repairCriterion.recordVersion, implementationRecordId: repairImplementation.id });
+  assert.equal(repairCriterion.body.validationPolicy, "semantic_ai", "source-neutral WorkItem Repair uses the product semantic Validator");
+  const phaseRepairKernel = createWorkflowExecutionApplicationService({ createValidatorAdapter: async () => ({ startThread() { return { async runStreamed() { return { events: (async function* () {
+    yield { type: "item.completed", item: { type: "agent_message", text: '{"outcome":"pass","summary":"The exact Phase Repair objective is complete."}' } };
+  })() }; }, async dispose() {} }; }, async dispose() {} }) });
+  await phaseRepairKernel.validateSemanticWorkItemCriterion(env.root, created.workflow.id, phaseRepair.repair.id, repairCriterion.id, { model: "test-model", reasoningEffort: "low" });
   await kernel.completeWorkItem(env.root, created.workflow.id, phaseRepair.repair.id, (await env.state.getRecord(env.projectId, phaseRepair.repair.id)).recordVersion);
   const needsRevalidation = await kernel.getPhaseValidationProjection(env.root, created.workflow.id, phase.phaseId);
   assert.equal(needsRevalidation.completion.eligible, false, "closing the Repair does not revive the prior Phase Validation");
@@ -754,10 +907,10 @@ test("canonical Repair executes through the shared exact contract and requeues i
     { sourceMode: "source-neutral", recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [],
       determinationEvidence: ["Repair proof reviewed"], unknowns: [], rationale: "No permanent repository proof change is needed." });
   const repairCriterion = contract.criteria[0];
-  await createProjectStateService(env.store, { principalId: "repair-validator", principalType: "agent", role: "Validator" }).recordValidation(
-    env.projectId, repairCriterion.id, { validationType: "work-item-criterion", method: "focused-source-neutral-proof", validationMode: "deterministic",
-      outcome: "pass", summary: "The Repair proof satisfies its exact Criterion.", targetRecordVersion: repairCriterion.recordVersion,
-      implementationRecordId: implementation.id });
+  const repairKernel = createWorkflowExecutionApplicationService({ createValidatorAdapter: async () => ({ startThread() { return { async runStreamed() { return { events: (async function* () {
+    yield { type: "item.completed", item: { type: "agent_message", text: '{"outcome":"pass","summary":"The exact source-neutral Repair objective is complete."}' } };
+  })() }; }, async dispose() {} }; }, async dispose() {} }) });
+  await repairKernel.validateSemanticWorkItemCriterion(env.root, created.workflow.id, repair.id, repairCriterion.id, { model: "test-model", reasoningEffort: "low" });
   const currentRepair = await env.state.getRecord(env.projectId, repair.id);
   const closed = await kernel.completeWorkItem(env.root, created.workflow.id, repair.id, currentRepair.recordVersion);
   assert.equal(closed.body.workState, "closed");
