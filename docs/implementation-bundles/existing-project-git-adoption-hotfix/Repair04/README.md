@@ -3,17 +3,17 @@
 **Starting baseline:** `07d2e543e6c64ec4214fef7027bf853cefdfb1ab`  
 **Architect revision baseline:** `73a260aa8fd9b2f2e9b8620b01101f8634567f93`  
 **Implementation checkpoint:** `643ea5ed24552b34b9cafa3592b4965703fdb28c`  
-**Status:** **REPAIR01 ACTIVE — REAL CHAMPCITY_AI CONVERSION BLOCKED**
+**Repair01 checkpoint:** `f59d5d779f8192d14f47c1175d3a33b871b0c2e4`  
+**Status:** **ACCEPTED — REAL CHAMPCITY_AI QUALIFICATION RETRY AUTHORIZED**
 
-## Controlling review
+## Controlling reviews
 
-`EPGA_R04_ARCHITECT_REVIEW_2026-09-29.md`
-
-Repair04's broad authority/cutover architecture is accepted, but the real conversion retry remains blocked by bounded checkout-lifecycle defects.
+- `EPGA_R04_ARCHITECT_REVIEW_2026-09-29.md`
+- `Repair01/EPGA_R04_R01_ARCHITECT_REVIEW_2026-09-29.md`
 
 ## Accepted authority model
 
-Repair04 separates:
+Repair04 establishes:
 
 - **Workspace** — generic model-access directory; Git-neutral and valid with zero repositories.
 - **RepositoryCheckout** — explicit model-facing Git authority for one validated working copy.
@@ -23,41 +23,32 @@ The Agent Harness workspace registry does not infer Git authority from a root `.
 
 Non-Git folders remain permanent supported workspaces.
 
-The Operator's 2026-09-29 workspace/Git authority decision is the current rule and supersedes the earlier RCO-HF01 workspace-root Git authorization rule. RCO-HF01 remains an unchanged historical record of the rule that applied before this explicit later decision.
+The Operator's 2026-09-29 workspace/Git authority decision supersedes the earlier RCO-HF01 workspace-root Git authorization rule. RCO-HF01 remains an unchanged historical record.
 
-## Blocking findings
+## Accepted cutover mechanics
 
-The implemented checkout retirement gate is not yet atomic:
+Repair04 + Repair01 now provide:
 
-- checkout resolution can pass the available check, yield during async validation, and acquire a lease after retirement has already removed the checkout;
-- drain timeout leaves a still-persisted checkout stuck in in-memory `retiring` state.
-
-The new mandatory checkout model also has no production application lifecycle provisioning a conventional root checkout for ordinary Git workspaces; current production workspace-registration call sites create only the generic workspace.
-
-## Active repair
-
-`Repair01/EPGA-R04-R01_make_checkout_retirement_atomic_and_provision_conventional_authority.md`
-
-Repair01 owns:
-
-- atomic checkout reservation vs retirement;
-- timeout/persistence-failure restoration to usable checkout authority;
-- conversion failure before successful retirement;
-- application-owned conventional checkout provisioning;
-- reconciliation of already-registered conventional Git workspaces after upgrade.
-
-## Accepted Repair04 mechanics not reopened
-
-Repair01 does not reopen:
-
-- Repair02 integration-policy provisioning;
-- Repair03 source materialization/local-state preservation;
-- candidate repository staging;
+- deterministic conventional checkout provisioning for exact root Git workspaces;
+- atomic checkout operation reservation and retirement;
+- bounded retirement drain with usable-authority restoration on failure;
+- staged candidate managed metadata;
 - managed-metadata/root-Git cutover separation;
-- bounded Windows mutation retry;
+- bounded Windows rename/remove retry;
+- explicit attempt-owned recovery state;
 - primary-failure-preserving rollback;
-- truthful failed journal semantics.
+- truthful failed journal semantics;
+- interrupted-normalization recovery;
+- exact Main/Dev RepositoryCheckout registration after successful conversion.
 
-## Stop rule
+## Qualification state
 
-Do not retry the real ChampCity_AI conversion until Repair04 / Repair01 is implemented and Architect-reviewed.
+No real ChampCity_AI conversion has been performed after this accepted checkpoint.
+
+The prior interrupted schema-2 normalization evidence remains in place intentionally.
+
+## Next action
+
+Retry the real ChampCity_AI Existing Project conversion using the current code/build.
+
+If the retry fails, preserve the exact state and error rather than manually cleaning migration evidence.

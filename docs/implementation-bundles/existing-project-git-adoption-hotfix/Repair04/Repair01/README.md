@@ -1,26 +1,33 @@
 # Existing Project Git Adoption — Repair04 / Repair01
 
 **Starting baseline:** `643ea5ed24552b34b9cafa3592b4965703fdb28c`  
-**Status:** **ACTIVE — REAL CHAMPCITY_AI CONVERSION BLOCKED**
+**Implementation checkpoint:** `f59d5d779f8192d14f47c1175d3a33b871b0c2e4`  
+**Status:** **ACCEPTED — REAL CHAMPCITY_AI QUALIFICATION RETRY AUTHORIZED**
 
 ## Controlling Architect review
 
-`../EPGA_R04_ARCHITECT_REVIEW_2026-09-29.md`
+`EPGA_R04_R01_ARCHITECT_REVIEW_2026-09-29.md`
 
-## Blocking findings
+## Accepted result
 
-Repair04's broad architecture is accepted, but checkout retirement is not yet race-safe:
+Repair01 closes the remaining Repair04 checkout-lifecycle gaps:
 
-- checkout resolution increments `activeOperations` only after asynchronous validation;
-- retirement can remove the checkout while such a resolution is in flight;
-- a drain timeout leaves a still-persisted checkout stuck in `retiring`.
+- checkout reservation is atomic with retirement;
+- retirement closes the gate before observing active operations;
+- drain timeout/persistence failure restore immediate usable checkout authority;
+- conventional Git checkout provisioning has an application/source-control production owner;
+- persisted conventional Git workspaces reconcile after service startup;
+- non-Git workspaces remain valid with zero RepositoryCheckouts;
+- Existing Project checkout-retirement failure occurs before managed metadata/root-Git cutover.
 
-The new mandatory checkout authority model also lacks a production application lifecycle that provisions conventional root checkouts for ordinary Git workspaces. Direct fixture registration exists, but real workspace activation currently creates only the generic workspace.
+## Qualification state
 
-## Active card
+The current real ChampCity_AI folder still contains the prior interrupted-normalization evidence and remains conventional Git authoritative.
 
-`EPGA-R04-R01_make_checkout_retirement_atomic_and_provision_conventional_authority.md`
+That state is intentionally preserved for the real qualification retry.
 
-## Stop rule
+## Next action
 
-Do not retry the real ChampCity_AI conversion until Repair01 is implemented and Architect-reviewed.
+Run the current code/build, open the ChampCity_AI folder through **Open Existing Project**, and perform **Accept and Convert**.
+
+Do not manually delete the existing migration journal or recovery evidence before the retry.
