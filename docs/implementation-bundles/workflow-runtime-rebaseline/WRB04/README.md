@@ -1,7 +1,7 @@
 # WRB04 — Shared Execution Kernel and Workspaces
 
 **Authoritative implemented baseline:** `8a6a9ab065cb94d13d1f774cdfa8a62f6bc82b62`  
-**Status:** REPAIR04 RELEASED / WRB04 OPEN  
+**Status:** REPAIR04 qualification complete / awaiting Architect acceptance
 **WRB05:** unauthorized until final WRB04 Architect acceptance
 
 ## Sole active execution path
@@ -39,5 +39,7 @@ The controlling RCA contains the exact evidence and boundaries.
 ## Completion rule
 
 After WRB04-R04-03 checkpoints, STOP for final Architect review.
+
+R04-03 qualification evidence and remaining proof limits are recorded in `Repair04/Reports/WRB04-R04-03_FINAL_QUALIFICATION_REPORT.md`. This status does not declare Architect acceptance.
 
 Do not begin WRB05.
