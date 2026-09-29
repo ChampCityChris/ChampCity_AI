@@ -1,7 +1,9 @@
 # WRB04 — Shared Execution Kernel and Workspaces
 
 **Authoritative implemented baseline:** `5585d0354fcc68a09ca2562731af6ee7668cc376`  
-**Status:** REPAIR03 RELEASED / WRB04 OPEN  
+**Status:** QUALIFICATION RUN COMPLETE / AWAITING ARCHITECT ACCEPTANCE
+
+See `Repair03/Reports/WRB04-R03-04_FINAL_QUALIFICATION_REPORT.md` for passing evidence and explicit qualification gaps. This status does not declare WRB04 accepted.
 **WRB05:** unauthorized until final WRB04 Architect acceptance
 
 ## Sole active execution path
