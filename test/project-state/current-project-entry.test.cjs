@@ -18,6 +18,9 @@ const { createProjectStateService } = require("../../dist/shared/projectState/pr
 const { createWorkflowApplicationService } = require("../../dist/main/workflow/workflowApplicationService.js");
 const { getStructuredWorkIntakeProjection } = require("../../dist/main/workIntake/structuredWorkIntakeService.js");
 const { getWorkIntakeProjection } = require("../../dist/main/workIntake/workIntakeService.js");
+const rendererLoader = require("../renderer/renderer-source-loader.cjs");
+const { acceptExistingProjectAdoption, openInspectedExistingProject } = rendererLoader
+  .loadRendererSourceModule("src/renderer/app/existingProjectEntryController.ts");
 const rendererSource = fs.readFileSync(path.resolve(__dirname, "../../src/renderer/app/App.tsx"), "utf8");
 const entryControllerSource = fs.readFileSync(path.resolve(__dirname, "../../src/renderer/app/existingProjectEntryController.ts"), "utf8");
 
@@ -353,7 +356,7 @@ test("invalid or redirected Existing Project source candidates fail before Curre
   }
 });
 
-test("Existing conventional Project entry preserves source and historical Markdown without Workflow reconstruction", async context => {
+test("real controller path warns, converts, registers, enters the Hub contract, and reopens managed without another warning", async context => {
   const selected = root(context);
   git(selected, "init", "-b", "main");
   git(selected, "config", "user.name", "Synthetic Test");
@@ -363,6 +366,8 @@ test("Existing conventional Project entry preserves source and historical Markdo
   git(selected, "commit", "-m", "baseline");
   git(selected, "branch", "dev");
   git(selected, "remote", "add", "origin", "https://example.invalid/synthetic/project.git");
+  git(selected, "update-ref", "refs/remotes/origin/dev", git(selected, "rev-parse", "refs/heads/dev"));
+  git(selected, "branch", "--set-upstream-to=origin/dev", "dev");
   const refs = git(selected, "for-each-ref", "--format=%(refname)%00%(objectname)", "refs/heads", "refs/remotes", "refs/tags");
   const remotes = git(selected, "remote", "-v");
   fs.writeFileSync(path.join(selected, "README.md"), "dirty tracked content\n");
@@ -394,8 +399,8 @@ test("Existing conventional Project entry preserves source and historical Markdo
   });
   const adoption = await api.inspectExistingProjectGitAdoption();
   assert.equal(adoption.state, "conversion-required");
-  await api.applyExistingProjectGitAdoption(adoption.planId);
-  const current = await api.registerCurrentProject("existing");
+  assert.deepEqual(await openInspectedExistingProject(api, adoption), { kind: "consent-required", plan: adoption });
+  const current = await acceptExistingProjectAdoption(api, adoption);
   assert.ok(entryOrder.indexOf("workspace") < entryOrder.indexOf("source-proof"));
   assert.ok(entryOrder.indexOf("source-proof") < entryOrder.indexOf("sps"));
   assert.equal(current.projectId, selectedCurrentProjectId(selected));
@@ -415,7 +420,11 @@ test("Existing conventional Project entry preserves source and historical Markdo
   assert.match(afterRefs, /refs\/heads\/dev\0/);
   assert.equal(git(path.join(selected, "Main"), "remote", "-v"), remotes);
   assert.deepEqual(checkouts.slice(0, 2).map(checkout => [checkout.role, checkout.projectRelativePath]).sort(), [["dev", "Dev"], ["main", "Main"]]);
-  const reopened = await api.registerCurrentProject("existing");
+  const reopenPlan = await api.inspectExistingProjectGitAdoption();
+  assert.equal(reopenPlan.state, "managed-ready");
+  const reopenedEntry = await openInspectedExistingProject(api, reopenPlan);
+  assert.equal(reopenedEntry.kind, "ready");
+  const reopened = reopenedEntry.project;
   assert.equal(reopened.projectId, current.projectId);
   assert.equal(reopened.created, false);
   assert.deepEqual(checkouts.slice(0, 2).map(checkout => checkout.repositoryCheckoutId).sort(), checkouts.slice(-2).map(checkout => checkout.repositoryCheckoutId).sort());

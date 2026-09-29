@@ -13406,12 +13406,12 @@
       "testPath": "test/project-state/current-project-entry.test.cjs",
       "currentTestCount": {
         "value": 13,
-        "basis": "Thirteen focused entry scenarios include constrained inspection/apply IPC, exact digest validation, forced conversion before registration, retry, source-neutral, managed reopen, and Workflow Hub entry behavior."
+        "basis": "Thirteen focused entry scenarios include the real renderer entry controller over constrained preload/main IPC, exact digest validation, warning/accept conversion before registration, retry, source-neutral, managed reopen without another warning, and Workflow Hub routing behavior."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 21287,
-        "basis": "Observed EPGA-R01 normal Windows focused entry receipt with forced normalization, Project State, Agent Harness checkouts, MCP read, retry, and landing routing."
+        "milliseconds": 30539,
+        "basis": "Observed EPGA-R01-02 normal Windows focused entry receipt with real controller consent/accept/reopen, forced normalization, Project State, Agent Harness checkouts, MCP read, retry, and landing routing."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "windows",
@@ -13463,7 +13463,7 @@
         {
           "capabilityId": "current-project-entry-runtime",
           "behaviorId": "existing-entry-opens-historical-project-as-current-sps-identity",
-          "proofLocator": "Constrained preload/main inspection and exact-plan forced conversion preserve current source and establish canonical Main/Dev before one Current Project registration; source-neutral and managed reopen paths remain direct, retryable, and free of Workflow reconstruction",
+          "proofLocator": "The real renderer entry controller over constrained preload/main inspection returns one consent result, exact-plan forced conversion preserves current source and establishes canonical Main/Dev before one Current Project registration, and managed reopen returns ready without another warning or Workflow reconstruction",
           "proofRole": "primary"
         },
         {
@@ -17490,8 +17490,8 @@
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 630,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
+        "milliseconds": 839,
+        "basis": "Observed EPGA-R01-02 normal Windows warning, controller, and Workflow Hub renderer qualification."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -17923,12 +17923,12 @@
       "testPath": "test/source-control/managed-project-source.test.cjs",
       "currentTestCount": {
         "value": 10,
-        "basis": "EPGA-R01 forced-normalization proof covers the four-state classifier, ChampCity-style history, feature/detached/missing-ref variants, dirty/untracked/ignored preservation, divergent parents, linked worktrees, submodule/alternate metadata, unreadable Git fallback, partial residue, pre-mutation staging failure, and idempotent reopen."
+        "basis": "EPGA-R01 forced-normalization proof covers the four-state classifier, a ChampCity-style dev repository with accumulated history and normal origin tracking, feature/detached/missing-ref variants, dirty/untracked/ignored preservation, divergent parents, linked worktrees, submodule/alternate metadata, unreadable Git fallback, partial residue, pre-mutation staging failure, and idempotent reopen."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 51993,
-        "basis": "Observed EPGA-R01 normal Windows focused forced-normalization receipt."
+        "milliseconds": 61579,
+        "basis": "Observed EPGA-R01-02 normal Windows realistic forced-normalization qualification receipt."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "windows",

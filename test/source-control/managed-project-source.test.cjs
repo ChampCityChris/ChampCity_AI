@@ -107,6 +107,8 @@ test("ChampCity-style dev repository with accumulated history normalizes and reo
   git(root, "add", "DEV.md");
   git(root, "commit", "-m", "current dev");
   const oldDev = git(root, "rev-parse", "dev");
+  git(root, "update-ref", "refs/remotes/origin/dev", oldDev);
+  git(root, "branch", "--set-upstream-to=origin/dev", "dev");
   const plan = await inspectExistingProjectGitAdoption(root, "champcity-style");
   assert.equal(plan.state, "conversion-required");
   const { result, checkouts } = await applyPlan(root, "champcity-style", plan);
@@ -115,6 +117,7 @@ test("ChampCity-style dev repository with accumulated history normalizes and reo
   assert.deepEqual(checkouts.map(item => item.role).sort(), ["dev", "main"]);
   assert.equal(git(path.join(root, "Dev"), "merge-base", "--is-ancestor", oldDev, baseline), "");
   assert.match(git(path.join(root, "Dev"), "show-ref"), /refs\/heads\/historical\/release/);
+  assert.equal(git(path.join(root, "Dev"), "rev-parse", "refs/remotes/origin/dev"), oldDev);
   const reopenedPlan = await inspectExistingProjectGitAdoption(root, "champcity-style");
   assert.equal(reopenedPlan.state, "managed-ready");
   const reopened = registrationCollector();
