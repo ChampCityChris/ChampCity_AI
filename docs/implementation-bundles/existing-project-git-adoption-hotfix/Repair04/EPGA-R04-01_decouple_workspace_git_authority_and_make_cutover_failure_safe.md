@@ -25,6 +25,8 @@ Git authority belongs to explicit Repository / RepositoryCheckout state owned by
 
 Non-Git workspaces must remain first-class model workspaces.
 
+This Operator-approved 2026-09-29 workspace/Git authority decision supersedes the earlier RCO-HF01 rule that authorized Git from the generic workspace root. The historical RCO-HF01 review remains unchanged as evidence of the rule that applied before this later decision.
+
 Do not reopen Repair02 integration-policy semantics or Repair03 source-staging semantics.
 
 ## Current demonstrated state

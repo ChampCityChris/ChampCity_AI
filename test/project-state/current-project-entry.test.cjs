@@ -429,6 +429,9 @@ test("real controller path warns, converts, registers, enters the Hub contract, 
   assert.equal(reopened.created, false);
   assert.deepEqual(checkouts.slice(0, 2).map(checkout => checkout.repositoryCheckoutId).sort(), checkouts.slice(-2).map(checkout => checkout.repositoryCheckoutId).sort());
   const workspaceId = (await harness.listRegisteredWorkspaces()).workspaces[0].workspaceId;
+  const managedCheckouts = await harness.listRepositoryCheckouts(workspaceId);
+  assert.deepEqual(managedCheckouts.map(checkout => checkout.role).sort(), ["dev", "main"]);
+  assert.equal(managedCheckouts.some(checkout => checkout.role === "conventional"), false);
   const mcpRead = await harness.registry.callTool({ name: "repo_toolbox", arguments: { workspaceId, action: "read_file",
     params: { relativePath: "Dev/WORKFLOW.md" } }, scope: "files.read" });
   assert.equal(mcpRead.ok, true);

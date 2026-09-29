@@ -25,6 +25,7 @@ import {
 import { startAgentHarnessHttpRuntime, type AgentHarnessHttpRuntimeHandle } from "./httpRuntime";
 import { captureAgentHarnessPublicToolContract } from "./mcpServer";
 import { importLegacyOAuthClientRegistry, readOAuthStoreDiagnostics } from "./oauthStore";
+import { reconcileWorkspaceRepositoryCheckouts } from "../../sourceControl/repositoryCheckoutReconciliationService";
 
 export type AgentHarnessRuntimeState = "stopped" | "starting" | "running" | "stopping" | "failed";
 
@@ -71,7 +72,7 @@ export class AgentHarnessService {
     this.workspaceRegistry = new RegisteredWorkspaceRegistry({
       userDataRoot: options.userDataRoot,
     });
-    this.workspaceRegistryReady = this.workspaceRegistry.initialize();
+    this.workspaceRegistryReady = this.initializeWorkspaceRegistry();
     this.workspaceAccess = createRegisteredWorkspaceAccessProvider({
       resolveWorkspaceContext: (workspaceId) => this.workspaceRegistry.resolve(workspaceId),
       listWorkspaceSummaries: () => this.workspaceRegistry.snapshot().workspaces,
@@ -100,6 +101,18 @@ export class AgentHarnessService {
     return this.status();
   }
 
+  private async initializeWorkspaceRegistry(): Promise<void> {
+    await this.workspaceRegistry.initialize();
+    if (this.workspaceRegistry.snapshot().state !== "ready") return;
+    for (const workspace of this.workspaceRegistry.registeredWorkspaceRoots()) {
+      await reconcileWorkspaceRepositoryCheckouts(
+        workspace.workspaceRoot,
+        workspace.workspaceId,
+        this.workspaceRegistry,
+      );
+    }
+  }
+
   async listRegisteredWorkspaces(): Promise<AgentHarnessWorkspaceRegistrySnapshot> {
     await this.workspaceRegistryReady;
     return this.workspaceRegistry.snapshot();
@@ -112,6 +125,7 @@ export class AgentHarnessService {
     const operation = (async () => {
       await this.workspaceRegistryReady;
       const workspace = await this.workspaceRegistry.register(workspaceRoot);
+      await reconcileWorkspaceRepositoryCheckouts(workspaceRoot, workspace.workspaceId, this.workspaceRegistry);
       this.recordActivity(`Registered MCP workspace ${workspace.workspaceId}.`);
       return { workspace, registry: this.workspaceRegistry.snapshot() };
     })();

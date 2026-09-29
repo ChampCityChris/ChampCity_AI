@@ -730,7 +730,7 @@ async function normalizeExistingProject(input: {
     phase = "conventional checkout retirement";
     if (input.checkoutRegistration.listRepositoryCheckouts && input.checkoutRegistration.unregisterRepositoryCheckout) {
       const summaries = await input.checkoutRegistration.listRepositoryCheckouts(input.workspaceId);
-      const exposed = summaries.find(item => item.role === "conventional" && item.repositoryId === input.repositoryId);
+      const exposed = summaries.find(item => item.role === "conventional" && item.projectRelativePath === ".");
       if (exposed) {
         conventionalCheckout = { repositoryCheckoutId: exposed.repositoryCheckoutId, repositoryId: exposed.repositoryId,
           sourceLineId: exposed.sourceLineId, role: exposed.role, projectRelativePath: exposed.projectRelativePath };

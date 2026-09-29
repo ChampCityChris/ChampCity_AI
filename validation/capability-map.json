@@ -1629,6 +1629,10 @@
       "dependsOn": [],
       "behaviors": [
         {
+          "behaviorId": "agent-harness-workspace-chooser-routes-validated-selection-through-production-registration",
+          "description": "Agent Harness workspace chooser routes a validated selected root through the production registration lifecycle"
+        },
+        {
           "behaviorId": "canonical-build-emits-the-exact-approved-runtime-branding-assets",
           "description": "canonical build emits the exact approved runtime branding assets"
         },
@@ -5150,10 +5154,15 @@
       "description": "Registered workspace identity, repository binding, enumeration, and exact-root access.",
       "sourcePatterns": [
         "src/main/agentHarness/workspace/**",
-        "src/main/documents/repositoryBinding.ts"
+        "src/main/documents/repositoryBinding.ts",
+        "src/main/sourceControl/repositoryCheckoutReconciliationService.ts"
       ],
       "dependsOn": [],
       "behaviors": [
+        {
+          "behaviorId": "checkout-resolution-reserves-before-async-validation-and-retirement-closes-the-gate",
+          "description": "checkout resolution reserves active authority synchronously before asynchronous validation and retirement prevents every later reservation"
+        },
         {
           "behaviorId": "checkout-retirement-drains-active-operations-without-blocking-workspace-access",
           "description": "checkout retirement drains active repository operations while preserving generic workspace access"
@@ -5177,6 +5186,14 @@
         {
           "behaviorId": "exact-workspaceid-selects-simultaneous-registered-workspace-access-and-unknown-ids-fail-closed",
           "description": "exact workspaceId selects simultaneous registered workspace access and unknown IDs fail closed"
+        },
+        {
+          "behaviorId": "failed-checkout-retirement-restores-immediate-usable-authority",
+          "description": "checkout retirement timeout or persistence failure restores available state without stale waiters and permits a later retirement"
+        },
+        {
+          "behaviorId": "production-registration-and-startup-reconcile-conventional-checkout-authority",
+          "description": "production workspace registration and service startup idempotently provision deterministic conventional checkout authority while non-Git workspaces remain checkout-free"
         },
         {
           "behaviorId": "registered-non-git-workspace-preserves-exact-read-search-markdown-write-and-non-git-status-seman",
@@ -7366,8 +7383,8 @@
     {
       "testPath": "test/agent-harness/registered-workspace-registry.test.cjs",
       "currentTestCount": {
-        "value": 5,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 14,
+        "basis": "Observed EPGA-R04-R01 normal-Windows focused run covering atomic reservation, retirement recovery, conventional provisioning, startup reconciliation, and preserved registry behavior."
       },
       "duration": {
         "kind": "measured",
@@ -7379,10 +7396,10 @@
       "dependencies": {
         "electron": false,
         "filesystem": true,
-        "git": false,
+        "git": true,
         "network": false,
-        "process": false,
-        "timing": false
+        "process": true,
+        "timing": true
       },
       "sourceInspectionClassification": "none",
       "v2Disposition": "preserve",
@@ -7395,8 +7412,10 @@
         "platform": "any",
         "externalCapabilities": [],
         "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "schedulingReason": "Each scenario uses isolated temporary Git workspaces and registry storage.",
         "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
           "temp-filesystem-isolated"
         ]
       },
@@ -7409,6 +7428,12 @@
       "behaviorCoverage": [
         {
           "capabilityId": "workspace-registry",
+          "behaviorId": "checkout-resolution-reserves-before-async-validation-and-retirement-closes-the-gate",
+          "proofLocator": "checkout resolution reserves before asynchronous validation and retirement closes the gate",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workspace-registry",
           "behaviorId": "checkout-retirement-drains-active-operations-without-blocking-workspace-access",
           "proofLocator": "checkout retirement rejects new repository operations, drains an active lease, and leaves workspace reads available",
           "proofRole": "primary"
@@ -7417,6 +7442,18 @@
           "capabilityId": "workspace-registry",
           "behaviorId": "exact-workspaceid-selects-simultaneous-registered-workspace-access-and-unknown-ids-fail-closed",
           "proofLocator": "exact workspaceId selects simultaneous registered workspace access and unknown IDs fail closed",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workspace-registry",
+          "behaviorId": "failed-checkout-retirement-restores-immediate-usable-authority",
+          "proofLocator": "retirement timeout restores immediate Git use and a later retirement succeeds; persistent unregister failure restores available registered authority",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workspace-registry",
+          "behaviorId": "production-registration-and-startup-reconcile-conventional-checkout-authority",
+          "proofLocator": "generic registration stays Git-neutral while production activation provisions one deterministic conventional checkout; service initialization reconciles persisted conventional workspaces idempotently",
           "proofRole": "primary"
         },
         {
@@ -7446,7 +7483,7 @@
         {
           "capabilityId": "workspace-registry",
           "behaviorId": "workspace-registration-is-git-neutral-and-requires-exact-checkout-authority",
-          "proofLocator": "Git-backed folder remains Git-neutral until an exact conventional checkout is registered",
+          "proofLocator": "generic registration stays Git-neutral while production activation provisions one deterministic conventional checkout",
           "proofRole": "primary"
         }
       ]
@@ -8652,8 +8689,8 @@
     {
       "testPath": "test/app-shell/app-shell.test.cjs",
       "currentTestCount": {
-        "value": 11,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 12,
+        "basis": "Eleven preserved shell scenarios plus EPGA-R04-R01 production Agent Harness workspace registration routing."
       },
       "duration": {
         "kind": "measured",
@@ -8693,6 +8730,12 @@
         "current-proof-appropriate"
       ],
       "behaviorCoverage": [
+        {
+          "capabilityId": "desktop-application-shell",
+          "behaviorId": "agent-harness-workspace-chooser-routes-validated-selection-through-production-registration",
+          "proofLocator": "Agent Harness workspace chooser routes validated activation through production registration",
+          "proofRole": "primary"
+        },
         {
           "capabilityId": "desktop-application-shell",
           "behaviorId": "compiled-preload-exposes-workspace-methods-without-unrestricted-native-access",
@@ -17959,8 +18002,8 @@
     {
       "testPath": "test/source-control/managed-project-source.test.cjs",
       "currentTestCount": {
-        "value": 16,
-        "basis": "EPGA-R04 focused normal-Windows proof extends Repair03 with staged candidate metadata, bounded Windows cutover retry, truthful failed journals, and interrupted-normalization recovery."
+        "value": 17,
+        "basis": "EPGA-R04-R01 focused normal-Windows proof adds pre-cutover checkout-retirement failure while preserving Repair02/03/04 adoption, rollback, and policy scenarios."
       },
       "duration": {
         "kind": "measured",
@@ -18005,7 +18048,7 @@
         {
           "capabilityId": "managed-project-source-topology",
           "behaviorId": "conventional-project-adoption-preserves-source-and-registers-durable-main-dev-checkouts",
-          "proofLocator": "inspection and apply preserve current source, build the candidate bare repository in migration staging, retry bounded Windows cutover mutations, preserve primary failures and prior authority during rollback, recover the current interrupted-normalization residue, force exact main/dev, and reopen idempotently",
+          "proofLocator": "inspection and apply preserve current source, fail checkout-retirement timeout before metadata cutover without redundant re-registration, build the candidate bare repository in migration staging, retry bounded Windows cutover mutations, preserve primary failures and prior authority during rollback, recover the current interrupted-normalization residue, force exact main/dev, and reopen idempotently",
           "proofRole": "primary"
         },
         {

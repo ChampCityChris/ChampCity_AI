@@ -23,6 +23,8 @@ The Agent Harness workspace registry does not infer Git authority from a root `.
 
 Non-Git folders remain permanent supported workspaces.
 
+The Operator's 2026-09-29 workspace/Git authority decision is the current rule and supersedes the earlier RCO-HF01 workspace-root Git authorization rule. RCO-HF01 remains an unchanged historical record of the rule that applied before this explicit later decision.
+
 ## Blocking findings
 
 The implemented checkout retirement gate is not yet atomic:

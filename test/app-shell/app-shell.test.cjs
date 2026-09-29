@@ -274,6 +274,28 @@ test("workspace IPC activates only session selections and clears attached runtim
   ]);
 });
 
+test("Agent Harness workspace chooser routes validated activation through production registration", async (t) => {
+  const { validateWorkspaceRoot } = require("../../dist/main/workspaceSettings.js");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-harness-chooser-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const calls = [];
+  const registration = {
+    workspace: { workspaceId: "champcity_harness_chooser", repositoryName: "champcity-harness-chooser", gitBacked: false,
+      availability: "available", validationError: null },
+    registry: { schemaVersion: 1, state: "ready", workspaces: [], error: null },
+  };
+  const { api } = mainPreloadHarness(["agentHarness:chooseAndRegisterWorkspace"], {
+    process: { platform: "win32" },
+    dialog: { showOpenDialog: async () => ({ canceled: false, filePaths: [root] }) },
+    validateWorkspaceRoot,
+    getAgentHarnessServiceHostClient: () => ({
+      registerWorkspace: async workspaceRoot => { calls.push(workspaceRoot); return registration; },
+    }),
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(await api.chooseAndRegisterAgentHarnessWorkspace())), { canceled: false, ...registration });
+  assert.deepEqual(calls, [path.resolve(root)]);
+});
+
 test("compiled preload exposes workspace methods without unrestricted native access", () => {
   const { api } = mainPreloadHarness([], {});
   for (const method of ["getSelectedWorkspace", "chooseWorkspaceFolder", "clearSelectedWorkspace", "getAppInfo"]) {

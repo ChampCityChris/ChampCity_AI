@@ -83,6 +83,7 @@ test("registered non-Git workspace preserves exact read, search, Markdown write,
 
   assert.equal(registration.workspace.workspaceId, "plain_notes");
   assert.equal(registration.workspace.gitBacked, false);
+  assert.deepEqual(await service.listRepositoryCheckouts("plain_notes"), []);
   const read = await tools.callTool({
     name: "repo_toolbox",
     scope: "files.read",
@@ -181,12 +182,17 @@ test("registered checkout descriptor drift is unavailable and never redirects Gi
   assert.equal(fs.existsSync(path.join(container, "outside")), false);
 });
 
-test("Git-backed folder remains Git-neutral until an exact conventional checkout is registered", async () => {
+test("generic registration stays Git-neutral while production activation provisions one deterministic conventional checkout", async () => {
   const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-registry-no-fallback-"));
   const project = path.join(container, "Legacy Git Project");
   fs.mkdirSync(path.join(project, ".champcity"), { recursive: true });
   fs.writeFileSync(path.join(project, ".champcity", "mcp-workspace-binding.json"), JSON.stringify({ mcpWorkspaceId: "legacy_git_project", gitBacked: true }));
   execFileSync("git", ["init", "-b", "dev"], { cwd: project, stdio: "ignore" });
+  const generic = new RegisteredWorkspaceRegistry({ userDataRoot: path.join(container, "generic-user-data") });
+  const genericRegistration = await generic.register(project);
+  assert.equal(genericRegistration.gitBacked, false);
+  assert.deepEqual(await generic.listRepositoryCheckoutSummaries("legacy_git_project"), []);
+
   const service = new AgentHarnessService({ userDataRoot: path.join(container, "user-data") });
   const registration = await service.registerWorkspaceRoot(project);
   assert.equal(registration.workspace.gitBacked, false);
@@ -194,13 +200,16 @@ test("Git-backed folder remains Git-neutral until an exact conventional checkout
   const noTarget = await tools.callTool({ name: "git_toolbox", scope: "files.read", arguments: { workspaceId: "legacy_git_project", action: "status", params: {} } });
   assert.equal(noTarget.ok, false);
   assert.equal(noTarget.error.code, "REPOSITORY_CHECKOUT_REQUIRED");
-  const conventional = { repositoryCheckoutId: "project-root", repositoryId: "repo", sourceLineId: "conventional", role: "conventional", projectRelativePath: "." };
-  await service.registerRepositoryCheckout("legacy_git_project", conventional);
-  const explicitRoot = await tools.callTool({ name: "git_toolbox", scope: "files.read", arguments: { workspaceId: "legacy_git_project", action: "status", params: { repositoryCheckoutId: "project-root" } } });
+  const provisioned = await service.listRepositoryCheckouts("legacy_git_project");
+  assert.equal(provisioned.length, 1);
+  assert.equal(provisioned[0].role, "conventional");
+  assert.equal(provisioned[0].sourceLineId, "conventional");
+  assert.equal(provisioned[0].projectRelativePath, ".");
+  const explicitRoot = await tools.callTool({ name: "git_toolbox", scope: "files.read", arguments: { workspaceId: "legacy_git_project", action: "status", params: { repositoryCheckoutId: provisioned[0].repositoryCheckoutId } } });
   assert.equal(explicitRoot.ok, true, JSON.stringify(explicitRoot.error));
   assert.equal(explicitRoot.payload.gitBacked, true);
-  const invented = await tools.callTool({ name: "git_toolbox", scope: "files.read", arguments: { workspaceId: "legacy_git_project", action: "status", params: { repositoryCheckoutId: "project-root" } } });
-  assert.equal(invented.ok, true);
+  await service.registerWorkspaceRoot(project);
+  assert.deepEqual((await service.listRepositoryCheckouts("legacy_git_project")).map(item => item.repositoryCheckoutId), [provisioned[0].repositoryCheckoutId]);
 
   const dev = path.join(project, "Dev");
   fs.mkdirSync(dev);
@@ -240,6 +249,126 @@ test("checkout retirement rejects new repository operations, drains an active le
   await retirement;
   assert.deepEqual(await registry.listRepositoryCheckoutSummaries("retirement_project"), []);
   assert.equal(fs.readFileSync(path.join(project, "README.md"), "utf8"), "workspace remains readable\n");
+});
+
+test("checkout resolution reserves before asynchronous validation and retirement closes the gate", async () => {
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-registry-overlap-"));
+  const project = path.join(container, "Overlap Project");
+  fs.mkdirSync(project, { recursive: true });
+  execFileSync("git", ["init", "-b", "main"], { cwd: project, stdio: "ignore" });
+  const registry = new RegisteredWorkspaceRegistry({ userDataRoot: path.join(container, "user-data") });
+  await registry.register(project);
+  const checkout = { repositoryCheckoutId: "overlap-root", repositoryId: "repo", sourceLineId: "conventional", role: "conventional", projectRelativePath: "." };
+  await registry.registerRepositoryCheckout("overlap_project", checkout);
+
+  const originalValidation = registry.validateCheckoutRoot.bind(registry);
+  let enterValidation;
+  const validationEntered = new Promise(resolve => { enterValidation = resolve; });
+  let continueValidation;
+  const validationGate = new Promise(resolve => { continueValidation = resolve; });
+  registry.validateCheckoutRoot = async root => {
+    enterValidation();
+    await validationGate;
+    return originalValidation(root);
+  };
+  const resolving = registry.resolveRepositoryCheckoutContext("overlap_project", "overlap-root");
+  await validationEntered;
+  let retired = false;
+  const retirement = registry.unregisterRepositoryCheckout("overlap_project", "overlap-root", 2_000).then(() => { retired = true; });
+  await assert.rejects(registry.resolveRepositoryCheckoutContext("overlap_project", "overlap-root"), error => error.code === "REPOSITORY_CHECKOUT_RETIRING");
+  continueValidation();
+  const lease = await resolving;
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(retired, false);
+  lease.release();
+  await retirement;
+  assert.equal(retired, true);
+});
+
+test("validation failure releases its reservation exactly once", async () => {
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-registry-validation-failure-"));
+  const project = path.join(container, "Validation Project");
+  fs.mkdirSync(project, { recursive: true });
+  execFileSync("git", ["init", "-b", "main"], { cwd: project, stdio: "ignore" });
+  const registry = new RegisteredWorkspaceRegistry({ userDataRoot: path.join(container, "user-data") });
+  await registry.register(project);
+  const checkout = { repositoryCheckoutId: "validation-root", repositoryId: "repo", sourceLineId: "conventional", role: "conventional", projectRelativePath: "." };
+  await registry.registerRepositoryCheckout("validation_project", checkout);
+  const originalValidation = registry.validateCheckoutRoot.bind(registry);
+  registry.validateCheckoutRoot = async () => { throw new Error("synthetic validation failure"); };
+  await assert.rejects(registry.resolveRepositoryCheckoutContext("validation_project", "validation-root"), error => error.code === "GIT_CAPABILITY_UNAVAILABLE");
+  const runtime = registry.checkoutRuntime.get("validation_project\0validation-root");
+  assert.equal(runtime.activeOperations, 0);
+  assert.equal(runtime.drainWaiters.size, 0);
+  registry.validateCheckoutRoot = originalValidation;
+  await registry.unregisterRepositoryCheckout("validation_project", "validation-root", 50);
+});
+
+test("retirement timeout restores immediate Git use and a later retirement succeeds", async () => {
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-registry-timeout-"));
+  const project = path.join(container, "Timeout Project");
+  fs.mkdirSync(project, { recursive: true });
+  execFileSync("git", ["init", "-b", "main"], { cwd: project, stdio: "ignore" });
+  const service = new AgentHarnessService({ userDataRoot: path.join(container, "user-data") });
+  await service.registerWorkspaceRoot(project);
+  const [checkout] = await service.listRepositoryCheckouts("timeout_project");
+  const registry = service.workspaceRegistry;
+  const held = await registry.resolveRepositoryCheckoutContext("timeout_project", checkout.repositoryCheckoutId);
+  await assert.rejects(registry.unregisterRepositoryCheckout("timeout_project", checkout.repositoryCheckoutId, 10), error => error.code === "REPOSITORY_CHECKOUT_RETIRING");
+  const runtime = registry.checkoutRuntime.get(`timeout_project\0${checkout.repositoryCheckoutId}`);
+  assert.equal(runtime.state, "available");
+  assert.equal(runtime.drainWaiters.size, 0);
+  const status = await service.toolRegistry().callTool({ name: "git_toolbox", scope: "files.read",
+    arguments: { workspaceId: "timeout_project", action: "status", params: { repositoryCheckoutId: checkout.repositoryCheckoutId } } });
+  assert.equal(status.ok, true, JSON.stringify(status.error));
+  held.release();
+  await registry.unregisterRepositoryCheckout("timeout_project", checkout.repositoryCheckoutId, 50);
+  assert.deepEqual(await registry.listRepositoryCheckoutSummaries("timeout_project"), []);
+});
+
+test("persistent unregister failure restores available registered authority", async () => {
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-registry-persist-failure-"));
+  const project = path.join(container, "Persistence Project");
+  fs.mkdirSync(project, { recursive: true });
+  execFileSync("git", ["init", "-b", "main"], { cwd: project, stdio: "ignore" });
+  const registry = new RegisteredWorkspaceRegistry({ userDataRoot: path.join(container, "user-data") });
+  await registry.register(project);
+  const checkout = { repositoryCheckoutId: "persistence-root", repositoryId: "repo", sourceLineId: "conventional", role: "conventional", projectRelativePath: "." };
+  await registry.registerRepositoryCheckout("persistence_project", checkout);
+  const originalPersist = registry.persist.bind(registry);
+  let failOnce = true;
+  registry.persist = entries => {
+    if (failOnce) { failOnce = false; throw new Error("synthetic persistence failure"); }
+    return originalPersist(entries);
+  };
+  await assert.rejects(registry.unregisterRepositoryCheckout("persistence_project", "persistence-root", 50), /synthetic persistence failure/);
+  const runtime = registry.checkoutRuntime.get("persistence_project\0persistence-root");
+  assert.equal(runtime.state, "available");
+  const lease = await registry.resolveRepositoryCheckoutContext("persistence_project", "persistence-root");
+  lease.release();
+  assert.equal((await registry.listRepositoryCheckoutSummaries("persistence_project"))[0].availability, "available");
+  await registry.unregisterRepositoryCheckout("persistence_project", "persistence-root", 50);
+});
+
+test("service initialization reconciles persisted conventional workspaces idempotently", async () => {
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-registry-reconcile-"));
+  const project = path.join(container, "Persisted Project");
+  const userDataRoot = path.join(container, "user-data");
+  fs.mkdirSync(project, { recursive: true });
+  execFileSync("git", ["init", "-b", "main"], { cwd: project, stdio: "ignore" });
+  const oldRegistry = new RegisteredWorkspaceRegistry({ userDataRoot });
+  await oldRegistry.register(project);
+  assert.deepEqual(await oldRegistry.listRepositoryCheckoutSummaries("persisted_project"), []);
+
+  const first = new AgentHarnessService({ userDataRoot });
+  await first.initialize();
+  const firstCheckouts = await first.listRepositoryCheckouts("persisted_project");
+  assert.equal(firstCheckouts.length, 1);
+  assert.equal(firstCheckouts[0].role, "conventional");
+  const second = new AgentHarnessService({ userDataRoot });
+  await second.initialize();
+  assert.deepEqual((await second.listRepositoryCheckouts("persisted_project")).map(item => item.repositoryCheckoutId),
+    [firstCheckouts[0].repositoryCheckoutId]);
 });
 
 test("workspace ID collisions are rejected without replacing the original registration", async () => {

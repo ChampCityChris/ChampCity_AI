@@ -11,6 +11,7 @@ const { VALIDATION_PROFILE_TOOLKIT_FILES } = require("../../dist/main/planExecut
 const { createManagedRepositoryIntegrationPolicy, supportsManagedRepositoryValidationProfile } = require("../../dist/main/sourceControl/managedRepositoryIntegrationPolicy.js");
 const {
   applyExistingProjectGitAdoption,
+  EXISTING_PROJECT_GIT_ADOPTION_JOURNAL,
   inspectExistingProjectGitAdoption,
 } = require("../../dist/main/sourceControl/existingProjectGitAdoptionService.js");
 
@@ -388,6 +389,48 @@ test("managed metadata cutover retries transient Windows sharing failures within
   finally { fs.renameSync = originalRename; }
   assert.equal(attempts, 3);
   assertManaged(root);
+});
+
+test("checkout retirement timeout fails before metadata cutover without redundant re-registration", async context => {
+  const { root } = conventionalFixture(context, { prefix: "forced-checkout-retirement-timeout-" });
+  const plan = await inspectExistingProjectGitAdoption(root, "retirement-timeout");
+  const conventional = {
+    repositoryCheckoutId: "conventional-timeout",
+    repositoryId: "application-owned-conventional",
+    sourceLineId: "conventional",
+    role: "conventional",
+    projectRelativePath: ".",
+    availability: "available",
+    validationError: null,
+  };
+  let registerCalls = 0;
+  await assert.rejects(applyExistingProjectGitAdoption({
+    projectRoot: root,
+    repositoryId: "retirement-timeout",
+    workspaceId: "workspace-retirement-timeout",
+    planId: plan.planId,
+    consent: true,
+    checkoutRegistration: {
+      listRepositoryCheckouts: async () => [conventional],
+      unregisterRepositoryCheckout: async () => {
+        const error = new Error("RepositoryCheckout did not drain within the bounded retirement deadline.");
+        error.code = "REPOSITORY_CHECKOUT_RETIRING";
+        throw error;
+      },
+      registerRepositoryCheckout: async (_workspaceId, checkout) => {
+        registerCalls += 1;
+        return { ...checkout, availability: "available", validationError: null };
+      },
+    },
+  }), /conventional checkout retirement failed/);
+  assert.equal(registerCalls, 0);
+  assert.equal(fs.existsSync(path.join(root, ".git")), true);
+  assert.equal(fs.existsSync(path.join(root, ".champcity", "repository.git")), false);
+  const journal = JSON.parse(fs.readFileSync(path.join(root, ...EXISTING_PROJECT_GIT_ADOPTION_JOURNAL.split("/")), "utf8"));
+  assert.equal(journal.stage, "failed");
+  assert.equal(journal.failurePhase, "conventional checkout retirement");
+  assert.equal(journal.originalRootGitAuthoritative, true);
+  assert.equal(journal.conventionalCheckoutRestored, null);
 });
 
 test("exhausted metadata relocation preserves the primary failure, root Git, and pre-existing metadata", async context => {

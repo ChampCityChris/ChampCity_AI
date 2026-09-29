@@ -207,25 +207,49 @@ export class RegisteredWorkspaceRegistry {
     return this.checkoutSummary(checkout, true, null);
   }
 
+  /** Application-only view used to reconcile source-control authority after startup. */
+  registeredWorkspaceRoots(): Array<{ workspaceId: string; workspaceRoot: string }> {
+    this.assertReady();
+    return [...this.entries.values()]
+      .filter((entry) => !entry.managed && this.contexts.has(entry.workspaceId))
+      .sort((left, right) => left.workspaceId.localeCompare(right.workspaceId))
+      .map((entry) => ({ workspaceId: entry.workspaceId, workspaceRoot: entry.canonicalRoot }));
+  }
+
   async unregisterRepositoryCheckout(workspaceId: string, repositoryCheckoutId: string, drainTimeoutMs = 5_000): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary[]> {
     this.assertReady();
     const entry = this.requireProjectEntry(workspaceId);
     const checkout = (entry.repositoryCheckouts ?? []).find(item => item.repositoryCheckoutId === repositoryCheckoutId);
     if (!checkout) return await this.listRepositoryCheckoutSummaries(workspaceId);
     const runtime = this.runtimeState(workspaceId, repositoryCheckoutId);
+    if (runtime.state !== "available") throw new AgentHarnessError("REPOSITORY_CHECKOUT_RETIRING", "RepositoryCheckout is already retiring.");
     runtime.state = "retiring";
     if (runtime.activeOperations > 0) {
       const drained = await new Promise<boolean>(resolve => {
-        const onDrain = () => { clearTimeout(timer); resolve(true); };
+        const onDrain = () => { runtime.drainWaiters.delete(onDrain); clearTimeout(timer); resolve(true); };
         const timer = setTimeout(() => { runtime.drainWaiters.delete(onDrain); resolve(false); }, Math.max(1, Math.min(drainTimeoutMs, 30_000)));
         runtime.drainWaiters.add(onDrain);
       });
-      if (!drained) throw new AgentHarnessError("REPOSITORY_CHECKOUT_RETIRING", "RepositoryCheckout did not drain within the bounded retirement deadline.");
+      if (!drained) {
+        runtime.state = "available";
+        throw new AgentHarnessError("REPOSITORY_CHECKOUT_RETIRING", "RepositoryCheckout did not drain within the bounded retirement deadline.");
+      }
     }
-    const next = new Map(this.entries);
-    next.set(workspaceId, { ...entry, repositoryCheckouts: (entry.repositoryCheckouts ?? []).filter(item => item.repositoryCheckoutId !== repositoryCheckoutId) });
-    try { this.persist(next); this.entries = next; }
-    catch (error) { runtime.state = "available"; throw error; }
+    try {
+      const currentEntry = this.requireProjectEntry(workspaceId);
+      const currentCheckout = (currentEntry.repositoryCheckouts ?? []).find(item => item.repositoryCheckoutId === repositoryCheckoutId);
+      if (!currentCheckout || !sameCheckoutContract(currentCheckout, checkout)) {
+        throw new AgentHarnessError("WORKSPACE_REGISTRY_CONFLICT", "RepositoryCheckout registration changed during retirement.");
+      }
+      const next = new Map(this.entries);
+      next.set(workspaceId, { ...currentEntry,
+        repositoryCheckouts: (currentEntry.repositoryCheckouts ?? []).filter(item => item.repositoryCheckoutId !== repositoryCheckoutId) });
+      this.persist(next);
+      this.entries = next;
+    } catch (error) {
+      runtime.state = "available";
+      throw error;
+    }
     this.checkoutRuntime.delete(checkoutRuntimeKey(workspaceId, repositoryCheckoutId));
     return await this.listRepositoryCheckoutSummaries(workspaceId);
   }
@@ -251,22 +275,26 @@ export class RegisteredWorkspaceRegistry {
     if (!checkout) throw new AgentHarnessError("REPOSITORY_CHECKOUT_REQUIRED", "The exact repositoryCheckoutId is not registered under this Project workspace.");
     const runtime = this.runtimeState(entry.workspaceId, checkout.repositoryCheckoutId);
     if (runtime.state !== "available") throw new AgentHarnessError("REPOSITORY_CHECKOUT_RETIRING", "RepositoryCheckout is retiring and cannot accept new operations.");
+    runtime.activeOperations += 1;
+    let released = false;
+    const release = () => {
+      if (released) return;
+      released = true;
+      runtime.activeOperations = Math.max(0, runtime.activeOperations - 1);
+      if (runtime.activeOperations === 0) {
+        for (const waiter of [...runtime.drainWaiters]) waiter();
+        runtime.drainWaiters.clear();
+      }
+    };
     try {
       if (!validateRepositoryCheckoutContract(checkout).valid) throw new Error("invalid descriptor");
       await this.resolve(entry.workspaceId);
       const root = this.deriveCheckoutRoot(entry.canonicalRoot, checkout); await this.validateCheckoutRoot(root);
-      runtime.activeOperations += 1;
-      let released = false;
-      return { workspaceId: entry.workspaceId, root, checkout, release: () => {
-        if (released) return;
-        released = true;
-        runtime.activeOperations = Math.max(0, runtime.activeOperations - 1);
-        if (runtime.activeOperations === 0) {
-          for (const waiter of runtime.drainWaiters) waiter();
-          runtime.drainWaiters.clear();
-        }
-      } };
-    } catch { throw new AgentHarnessError("GIT_CAPABILITY_UNAVAILABLE", "The registered repository checkout is unavailable or no longer validates."); }
+      return { workspaceId: entry.workspaceId, root, checkout, release };
+    } catch {
+      release();
+      throw new AgentHarnessError("GIT_CAPABILITY_UNAVAILABLE", "The registered repository checkout is unavailable or no longer validates.");
+    }
   }
 
   private requireWorkspaceEntry(workspaceId: unknown): StoredRegisteredWorkspace {
