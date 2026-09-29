@@ -1,45 +1,43 @@
 # WRB04 — Shared Execution Kernel and Workspaces
 
-**Authoritative implemented baseline:** `5585d0354fcc68a09ca2562731af6ee7668cc376`  
-**Status:** QUALIFICATION RUN COMPLETE / AWAITING ARCHITECT ACCEPTANCE
-
-See `Repair03/Reports/WRB04-R03-04_FINAL_QUALIFICATION_REPORT.md` for passing evidence and explicit qualification gaps. This status does not declare WRB04 accepted.
+**Authoritative implemented baseline:** `8a6a9ab065cb94d13d1f774cdfa8a62f6bc82b62`  
+**Status:** REPAIR04 RELEASED / WRB04 OPEN  
 **WRB05:** unauthorized until final WRB04 Architect acceptance
 
 ## Sole active execution path
 
 Read:
 
-1. `Repair03/CODE_REVIEW_AND_RCA_2026-09-28.md`
-2. `Repair03/README.md`
-3. the current Repair03 card only
+1. `Repair04/CODE_REVIEW_AND_RCA_2026-09-28.md`
+2. `Repair04/README.md`
+3. the current Repair04 card only
 
-Repair02 remains the implemented baseline under review. Do not rewrite or reinterpret its cards/reports as new instructions.
+Repair03 remains the implemented baseline being corrected. Do not rewrite Repair03 reports/cards.
 
-## Repair03 sequence
+## Repair04 sequence
 
-1. `Repair03/WRB04-R03-01_repair_work_item_planning_ux_and_scope_recovery.md`
-2. `Repair03/WRB04-R03-02_correct_source_backed_evidence_lineage_and_completion.md`
-3. `Repair03/WRB04-R03-03_make_repairs_executable_across_source_modes.md`
-4. `Repair03/WRB04-R03-04_requalify_and_close_wrb04.md`
+1. `Repair04/WRB04-R04-01_expose_durable_structured_checkpoint_recovery.md`
+2. `Repair04/WRB04-R04-02_fence_source_neutral_deterministic_and_fix_runtime_failure_presentation.md`
+3. `Repair04/WRB04-R04-03_final_qualification_and_closeout.md`
 
-Execute R03-01 through R03-04 sequentially with one report/checkpoint per card.
+Execute R04-01 through R04-03 sequentially with one report/checkpoint per card.
 
-Do not stop between passing cards merely for Architect review. Stop after R03-04 for human Architect review.
+Do not stop between passing R04-01/R04-02 cards merely for Architect review. Stop after R04-03 for human Architect review.
 
-## Why Repair03 exists
+## Why Repair04 exists
 
-Repair02 corrected most of the post-WRB04-06 defects. Final code review found four remaining state-machine seams:
+Repair03 corrected its intended state-machine defects. Final Architect review found three remaining closure seams:
 
-- out-of-scope source mutation leaves an implemented/validation-pending WorkItem with no legal replan/retry path;
-- cumulative solution/Phase evidence incorrectly treats every source-backed TesterResult as needing the final source revision, and Workflow completion retroactively revalidates closed WorkItems/Phases against later revisions;
-- source-neutral generated Repair WorkItems can receive deterministic Criteria that the production source-neutral Validator cannot satisfy;
-- WorkItem planning still lacks the embedded Architect browser product path, and returned exact-runtime start refusals can be displayed as successful starts.
+- retryable implementation and Tester structured checkpoint blocked/inspection states are not reachable from the Current Project product path after the model session ends;
+- the shared runtime action helper can erase or misattribute returned unavailable/failed models;
+- source-neutral canonical planning can still accept required deterministic Criteria even though the product has no source-neutral deterministic provider.
 
-The controlling RCA contains the exact evidence and repair boundaries.
+Repair03 final qualification also left source-backed deterministic Phase and source-backed Repair composed proof explicitly open. R04-03 owns those final qualifications.
+
+The controlling RCA contains the exact evidence and boundaries.
 
 ## Completion rule
 
-After WRB04-R03-04 checkpoints, STOP for final Architect review.
+After WRB04-R04-03 checkpoints, STOP for final Architect review.
 
 Do not begin WRB05.
