@@ -30,6 +30,7 @@ export type AgentHarnessServiceHostOperation =
   | "register-workspace"
   | "unregister-workspace"
   | "register-repository-checkout"
+  | "list-repository-checkouts"
   | "unregister-repository-checkout"
   | "service-host-shutdown"
   | "background-agent-user-exit"
@@ -72,6 +73,7 @@ export interface AgentHarnessServiceHostRequestPayloads {
   "register-workspace": { workspaceRoot: string };
   "unregister-workspace": { workspaceId: string };
   "register-repository-checkout": { workspaceId: string; checkout: RepositoryCheckout };
+  "list-repository-checkouts": { workspaceId: string };
   "unregister-repository-checkout": { workspaceId: string; repositoryCheckoutId: string };
   "service-host-shutdown": null;
   "background-agent-user-exit": null;
@@ -94,6 +96,7 @@ export interface AgentHarnessServiceHostResponsePayloads {
   };
   "unregister-workspace": AgentHarnessWorkspaceRegistrySnapshot;
   "register-repository-checkout": AgentHarnessRegisteredRepositoryCheckoutSummary;
+  "list-repository-checkouts": AgentHarnessRegisteredRepositoryCheckoutSummary[];
   "unregister-repository-checkout": AgentHarnessRegisteredRepositoryCheckoutSummary[];
   "service-host-shutdown": null;
   "background-agent-user-exit": null;

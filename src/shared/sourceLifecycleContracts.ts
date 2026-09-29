@@ -28,7 +28,7 @@ export interface Repository {
   provider: "git";
 }
 
-export type RepositoryCheckoutRole = "main" | "dev" | "workflow";
+export type RepositoryCheckoutRole = "conventional" | "main" | "dev" | "workflow";
 
 /** One concrete project-managed working copy of a semantic SourceLine. */
 export interface RepositoryCheckout {

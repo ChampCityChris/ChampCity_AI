@@ -221,6 +221,12 @@ export class AgentHarnessServiceHostClient {
     return result;
   }
 
+  async listRepositoryCheckouts(workspaceId: string): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary[]> {
+    const result = await this.invoke("list-repository-checkouts", { workspaceId });
+    if (!isAgentHarnessRegisteredRepositoryCheckoutSummaryArray(result)) throw this.invalidResponse("Service Host returned invalid checkout summaries.");
+    return result;
+  }
+
   async unregisterRepositoryCheckout(workspaceId: string, repositoryCheckoutId: string): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary[]> {
     const result = await this.invoke("unregister-repository-checkout", { workspaceId, repositoryCheckoutId });
     if (!isAgentHarnessRegisteredRepositoryCheckoutSummaryArray(result)) throw this.invalidResponse("Service Host returned invalid checkout summaries.");

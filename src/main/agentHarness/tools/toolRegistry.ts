@@ -290,43 +290,42 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
           throw new AgentHarnessError("INVALID_INPUT", "workspaceId must be a bounded workspace identity.");
         }
         let context = await options.workspaceAccess.resolveWorkspaceContext(args.workspaceId);
+        const checkoutBound = isCheckoutBoundAction(contract.kind);
+        const suppliedParams = args.params && typeof args.params === "object" && !Array.isArray(args.params)
+          ? args.params as Record<string, unknown> : {};
+        if (checkoutBound && (typeof suppliedParams.repositoryCheckoutId !== "string" || !suppliedParams.repositoryCheckoutId.trim())) {
+          throw new AgentHarnessError("REPOSITORY_CHECKOUT_REQUIRED", "This operation requires an exact registered repositoryCheckoutId.");
+        }
         const params = validateParams(args.params, contract);
-        if ((contract.kind === "git-inspection" || contract.kind === "git-mutation") && params.repositoryCheckoutId !== undefined) {
+        let releaseCheckout: (() => void) | undefined;
+        if (checkoutBound) {
           const checkout = await options.workspaceAccess.resolveRepositoryCheckoutContext(args.workspaceId, params.repositoryCheckoutId);
           context = { ...context, root: checkout.root, gitBacked: true, capabilities: { ...context.capabilities, gitInspection: true } };
+          releaseCheckout = checkout.release;
         }
         assertActionAccess(context, contract.kind);
-        const dispatchResult = await contract.dispatch({
-          context,
-          params,
-          signal: call.signal,
-          managedWorkspaces: options.managedWorkspaces,
-          userDataRoot: options.userDataRoot,
-          workspaceSummaries: options.workspaceAccess.listWorkspaceSummaries,
-          repositoryCheckoutSummaries: options.workspaceAccess.listRepositoryCheckoutSummaries,
-          runtimeDiagnostics: options.runtimeDiagnostics,
-        });
-        if (isImageBearingDispatchResult(dispatchResult)) {
-          return {
-            ok: true,
-            toolName: provider.name,
-            action,
-            workspaceId: context.workspaceId,
-            payload: dispatchResult.payload,
-            imageContent: dispatchResult.imageContent,
-            attemptId,
-            timestamp,
-          };
+        try {
+          const dispatchResult = await contract.dispatch({
+            context,
+            params,
+            signal: call.signal,
+            managedWorkspaces: options.managedWorkspaces,
+            userDataRoot: options.userDataRoot,
+            workspaceSummaries: options.workspaceAccess.listWorkspaceSummaries,
+            repositoryCheckoutSummaries: options.workspaceAccess.listRepositoryCheckoutSummaries,
+            runtimeDiagnostics: options.runtimeDiagnostics,
+          });
+          if (isImageBearingDispatchResult(dispatchResult)) {
+            return {
+              ok: true, toolName: provider.name, action, workspaceId: context.workspaceId,
+              payload: dispatchResult.payload, imageContent: dispatchResult.imageContent, attemptId, timestamp,
+            };
+          }
+          return { ok: true, toolName: provider.name, action, workspaceId: context.workspaceId,
+            payload: dispatchResult, attemptId, timestamp };
+        } finally {
+          releaseCheckout?.();
         }
-        return {
-          ok: true,
-          toolName: provider.name,
-          action,
-          workspaceId: context.workspaceId,
-          payload: dispatchResult,
-          attemptId,
-          timestamp,
-        };
       } catch (error) {
         return {
           ok: false,
@@ -905,7 +904,7 @@ function zodParamSchema(spec: ParamSpec): z.ZodType<unknown> {
 }
 
 function testExecutionAction(name: TestToolboxAction, params: Record<string, ParamSpec>): ToolActionContract {
-  return { name, kind: "test-execution", requiredScope: "files.write", params,
+  return { name, kind: "test-execution", requiredScope: "files.write", params: withRepositoryCheckoutId(params),
     dispatch: ({ context, params: values, signal }) => executeTestToolbox(context, name, values, signal) };
 }
 
@@ -919,7 +918,7 @@ function gitInspectionAction(name: string, params: Record<string, ParamSpec>, di
 
 function withRepositoryCheckoutId(params: Record<string, ParamSpec>): Record<string, ParamSpec> {
   if (Object.prototype.hasOwnProperty.call(params, "repositoryCheckoutId")) throw new Error("Git target is centrally defined.");
-  return { ...params, repositoryCheckoutId: { type: "string", minLength: 1, maxLength: 128 } };
+  return { ...params, repositoryCheckoutId: { type: "string", required: true, minLength: 1, maxLength: 128 } };
 }
 
 function releaseInspectionAction(
@@ -927,7 +926,7 @@ function releaseInspectionAction(
   params: Record<string, ParamSpec>,
   dispatch: ToolActionContract["dispatch"],
 ): ToolActionContract {
-  return { name, kind: "release-inspection", requiredScope: "files.read", params, dispatch };
+  return { name, kind: "release-inspection", requiredScope: "files.read", params: withRepositoryCheckoutId(params), dispatch };
 }
 
 function releaseMutationAction(
@@ -935,7 +934,12 @@ function releaseMutationAction(
   params: Record<string, ParamSpec>,
   dispatch: ToolActionContract["dispatch"],
 ): ToolActionContract {
-  return { name, kind: "release-mutation", requiredScope: "files.write", params, dispatch };
+  return { name, kind: "release-mutation", requiredScope: "files.write", params: withRepositoryCheckoutId(params), dispatch };
+}
+
+function isCheckoutBoundAction(kind: HarnessActionKind): boolean {
+  return kind === "git-inspection" || kind === "git-mutation" || kind === "test-execution" ||
+    kind === "release-inspection" || kind === "release-mutation";
 }
 
 function writeAction(

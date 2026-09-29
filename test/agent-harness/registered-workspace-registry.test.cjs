@@ -117,7 +117,7 @@ test("registered non-Git workspace preserves exact read, search, Markdown write,
     arguments: { workspaceId: "plain_notes", action: "status" },
   });
   assert.equal(gitStatus.ok, false);
-  assert.equal(gitStatus.error.code, "GIT_CAPABILITY_UNAVAILABLE");
+  assert.equal(gitStatus.error.code, "REPOSITORY_CHECKOUT_REQUIRED");
 });
 
 test("non-Git Project routes Git only through a registered Dev checkout and unregister preserves it", async () => {
@@ -160,7 +160,7 @@ test("non-Git Project routes Git only through a registered Dev checkout and unre
   assert.equal(execFileSync("git", ["status", "--porcelain"], { cwd: dev, encoding: "utf8" }).trim(), "A  checkout-only.txt");
   const after = await tools.callTool({ name: "git_toolbox", scope: "files.read", arguments: { workspaceId: "routing_project", action: "status", params: { repositoryCheckoutId: "routing-dev" } } });
   assert.equal(after.ok, false);
-  assert.equal(after.error.code, "WORKSPACE_ACCESS_DENIED");
+  assert.equal(after.error.code, "REPOSITORY_CHECKOUT_REQUIRED");
 });
 
 test("registered checkout descriptor drift is unavailable and never redirects Git use", async () => {
@@ -181,7 +181,7 @@ test("registered checkout descriptor drift is unavailable and never redirects Gi
   assert.equal(fs.existsSync(path.join(container, "outside")), false);
 });
 
-test("Git-backed workspace is the default target and explicit stale checkouts never fall back", async () => {
+test("Git-backed folder remains Git-neutral until an exact conventional checkout is registered", async () => {
   const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-registry-no-fallback-"));
   const project = path.join(container, "Legacy Git Project");
   fs.mkdirSync(path.join(project, ".champcity"), { recursive: true });
@@ -189,14 +189,18 @@ test("Git-backed workspace is the default target and explicit stale checkouts ne
   execFileSync("git", ["init", "-b", "dev"], { cwd: project, stdio: "ignore" });
   const service = new AgentHarnessService({ userDataRoot: path.join(container, "user-data") });
   const registration = await service.registerWorkspaceRoot(project);
-  assert.equal(registration.workspace.gitBacked, true);
+  assert.equal(registration.workspace.gitBacked, false);
   const tools = service.toolRegistry();
   const noTarget = await tools.callTool({ name: "git_toolbox", scope: "files.read", arguments: { workspaceId: "legacy_git_project", action: "status", params: {} } });
-  assert.equal(noTarget.ok, true, JSON.stringify(noTarget.error));
-  assert.equal(noTarget.payload.gitBacked, true);
+  assert.equal(noTarget.ok, false);
+  assert.equal(noTarget.error.code, "REPOSITORY_CHECKOUT_REQUIRED");
+  const conventional = { repositoryCheckoutId: "project-root", repositoryId: "repo", sourceLineId: "conventional", role: "conventional", projectRelativePath: "." };
+  await service.registerRepositoryCheckout("legacy_git_project", conventional);
+  const explicitRoot = await tools.callTool({ name: "git_toolbox", scope: "files.read", arguments: { workspaceId: "legacy_git_project", action: "status", params: { repositoryCheckoutId: "project-root" } } });
+  assert.equal(explicitRoot.ok, true, JSON.stringify(explicitRoot.error));
+  assert.equal(explicitRoot.payload.gitBacked, true);
   const invented = await tools.callTool({ name: "git_toolbox", scope: "files.read", arguments: { workspaceId: "legacy_git_project", action: "status", params: { repositoryCheckoutId: "project-root" } } });
-  assert.equal(invented.ok, false);
-  assert.equal(invented.error.code, "WORKSPACE_ACCESS_DENIED");
+  assert.equal(invented.ok, true);
 
   const dev = path.join(project, "Dev");
   fs.mkdirSync(dev);
@@ -208,11 +212,34 @@ test("Git-backed workspace is the default target and explicit stale checkouts ne
   fs.renameSync(dev, path.join(project, "Dev-moved"));
   const listed = await tools.callTool({ name: "git_toolbox", scope: "files.read", arguments: { workspaceId: "legacy_git_project", action: "list_repository_checkouts" } });
   assert.equal(listed.ok, true);
-  assert.equal(listed.payload[0].availability, "unavailable");
+  assert.equal(listed.payload.find(item => item.repositoryCheckoutId === "stale-dev").availability, "unavailable");
   const stale = await tools.callTool({ name: "git_toolbox", scope: "files.read", arguments: { workspaceId: "legacy_git_project", action: "status", params: { repositoryCheckoutId: "stale-dev" } } });
   assert.equal(stale.ok, false);
   assert.equal(stale.error.code, "GIT_CAPABILITY_UNAVAILABLE");
   assert.equal(stale.error.message.includes(project), false);
+});
+
+test("checkout retirement rejects new repository operations, drains an active lease, and leaves workspace reads available", async () => {
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-registry-retire-"));
+  const project = path.join(container, "Retirement Project");
+  fs.mkdirSync(project, { recursive: true });
+  fs.writeFileSync(path.join(project, "README.md"), "workspace remains readable\n");
+  execFileSync("git", ["init", "-b", "main"], { cwd: project, stdio: "ignore" });
+  const registry = new RegisteredWorkspaceRegistry({ userDataRoot: path.join(container, "user-data") });
+  await registry.register(project);
+  const checkout = { repositoryCheckoutId: "retire-root", repositoryId: "repo", sourceLineId: "conventional", role: "conventional", projectRelativePath: "." };
+  await registry.registerRepositoryCheckout("retirement_project", checkout);
+  const lease = await registry.resolveRepositoryCheckoutContext("retirement_project", "retire-root");
+  let retired = false;
+  const retirement = registry.unregisterRepositoryCheckout("retirement_project", "retire-root", 2_000).then(() => { retired = true; });
+  await new Promise(resolve => setTimeout(resolve, 25));
+  assert.equal(retired, false);
+  await assert.rejects(registry.resolveRepositoryCheckoutContext("retirement_project", "retire-root"), error => error.code === "REPOSITORY_CHECKOUT_RETIRING");
+  assert.equal((await registry.resolve("retirement_project")).gitBacked, false);
+  lease.release();
+  await retirement;
+  assert.deepEqual(await registry.listRepositoryCheckoutSummaries("retirement_project"), []);
+  assert.equal(fs.readFileSync(path.join(project, "README.md"), "utf8"), "workspace remains readable\n");
 });
 
 test("workspace ID collisions are rejected without replacing the original registration", async () => {

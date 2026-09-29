@@ -121,6 +121,10 @@ export function validateRepositoryCheckoutContract(checkout: RepositoryCheckout)
   if (!sourceLineIdentity(checkout.sourceLineId)) {
     return { valid: false, reason: "source line identity must be non-empty, bounded, and contain no whitespace or control characters" };
   }
+  if (checkout.role === "conventional") {
+    return checkout.sourceLineId === "conventional" && checkout.projectRelativePath === "." && checkout.workflowId === undefined
+      ? { valid: true } : { valid: false, reason: "conventional checkout must identify the explicit Project root working copy" };
+  }
   if (!canonicalRelativePath(checkout.projectRelativePath)) return { valid: false, reason: "path must be canonical Project-relative forward-slash form" };
   const paths = MANAGED_PROJECT_SOURCE_PATHS;
   if ([".", ".champcity", paths.repositoryMetadataRelativePath, paths.workflowCheckoutRootRelativePath].includes(checkout.projectRelativePath)) {

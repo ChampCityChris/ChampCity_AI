@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { requireBoundMcpWorkspace } from "../../integrations/mcpWorkspacePromptContract";
 import { AgentHarnessError } from "../core/errors";
-import { isGitBacked } from "../repository/repositoryOperations";
 import type { RepositoryCheckout } from "../../../shared/sourceLifecycleContracts";
 import type { AgentHarnessRegisteredRepositoryCheckoutSummary } from "../../../shared/workspaceContracts";
 
@@ -10,6 +9,7 @@ export interface AgentHarnessRepositoryCheckoutContext {
   workspaceId: string;
   root: string;
   checkout: RepositoryCheckout;
+  release: () => void;
 }
 
 export type HarnessActionKind =
@@ -61,11 +61,7 @@ export function createRegisteredWorkspaceAccessProvider(options: {
 export function resolveWorkspaceRootContext(root: string): AgentHarnessWorkspaceContext {
   const resolvedRoot = fs.realpathSync.native(path.resolve(root));
   const binding = requireBoundMcpWorkspace(resolvedRoot);
-  const gitMetadataPath = path.join(resolvedRoot, ".git");
-  const gitBacked = fs.existsSync(path.join(gitMetadataPath, "HEAD")) || fs.statSync(gitMetadataPath, {
-    throwIfNoEntry: false,
-  })?.isFile() === true;
-  return workspaceContext(resolvedRoot, binding.workspaceId, binding.repositoryName, gitBacked);
+  return workspaceContext(resolvedRoot, binding.workspaceId, binding.repositoryName);
 }
 
 export async function resolveWorkspaceRootContextAsync(
@@ -73,26 +69,26 @@ export async function resolveWorkspaceRootContextAsync(
 ): Promise<AgentHarnessWorkspaceContext> {
   const resolvedRoot = await fs.promises.realpath(path.resolve(root));
   const binding = requireBoundMcpWorkspace(resolvedRoot);
-  const gitBacked = await isGitBacked(resolvedRoot);
-  return workspaceContext(resolvedRoot, binding.workspaceId, binding.repositoryName, gitBacked);
+  return workspaceContext(resolvedRoot, binding.workspaceId, binding.repositoryName);
 }
 
 function workspaceContext(
   resolvedRoot: string,
   workspaceId: string,
   repositoryName: string | null | undefined,
-  gitBacked: boolean,
 ): AgentHarnessWorkspaceContext {
   return {
     workspaceId,
     root: resolvedRoot,
     repositoryName: repositoryName ?? path.basename(resolvedRoot),
-    gitBacked,
+    // Workspace registration is intentionally Git-neutral. This legacy field is
+    // retained as a non-authoritative diagnostic until downstream contracts retire it.
+    gitBacked: false,
     capabilities: {
       filesystemRead: true,
       artifactWrite: true,
       patchWorkflow: true,
-      gitInspection: gitBacked,
+      gitInspection: false,
     },
   };
 }

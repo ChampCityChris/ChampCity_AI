@@ -202,7 +202,7 @@ test("normalized OAuth scopes capture at most once and preserve exact scope-filt
   }
 });
 
-test("public MCP Git contract preserves workspace-only clients and optional exact checkout targeting", { timeout: 30_000 }, async (t) => {
+test("public MCP Git contract requires exact registered checkout targeting", { timeout: 30_000 }, async (t) => {
   const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-mcp-workspace-git-"));
   let runtime;
   let client;
@@ -264,17 +264,19 @@ test("public MCP Git contract preserves workspace-only clients and optional exac
     assert.deepEqual(tool.inputSchema, definitions.find((entry) => entry.name === tool.name).inputSchema);
     for (const action of tool.inputSchema.oneOf) {
       const params = action.properties.params;
-      for (const identity of ["repositoryCheckoutId", "checkoutId", "projectId", "workflowId", "workIntakeId", "sourceBaselineId", "sourceBindingId", "sourceLineId", "workItemId"]) {
+      const checkoutBound = (tool.name === "git_toolbox" && action.title !== "list_repository_checkouts") ||
+        tool.name === "release_toolbox" || (tool.name === "test_toolbox" && action.title !== "status");
+      assert.equal(params.required.includes("repositoryCheckoutId"), checkoutBound, `${tool.name}.${action.title} checkout boundary`);
+      for (const identity of ["checkoutId", "projectId", "workflowId", "workIntakeId", "sourceBaselineId", "sourceBindingId", "sourceLineId", "workItemId"]) {
         assert.equal(params.required.includes(identity), false, `${tool.name}.${action.title} requires ${identity}`);
       }
-      if (tool.name === "git_toolbox" && action.title !== "list_repository_checkouts") {
+      if (checkoutBound) {
         assert.deepEqual(params.properties.repositoryCheckoutId, { type: "string", minLength: 1, maxLength: 128 });
       }
     }
   }
   const gitDefinition = definitions.find((tool) => tool.name === "git_toolbox");
   async function invoke(action, params, id = workspaceId, expectedError) {
-    // Preserve old-client request shapes literally; never inject a checkout selector here.
     const args = { workspaceId: id, action, ...(params === undefined ? {} : { params }) };
     assert.equal(gitDefinition.inputZodSchema.safeParse(args).success, true, action);
     const result = await client.callTool({ name: "git_toolbox", arguments: args });
@@ -284,24 +286,27 @@ test("public MCP Git contract preserves workspace-only clients and optional exac
     return result.structuredContent.payload;
   }
   assert.deepEqual(await invoke("list_repository_checkouts"), []);
-  assert.match((await invoke("status")).shortStatus, /primary-only\.txt/);
-  assert.equal((await invoke("inspect_branch_state")).head, primaryHead);
-  assert.equal((await invoke("inspect_history")).resolvedCommit, primaryHead);
-  await invoke("stage_changes", { paths: ["primary-only.txt"] });
-  await invoke("commit", { message: "workspace-only commit" });
+  const conventional = { repositoryCheckoutId: "conventional-root", repositoryId: "conventional-repo", sourceLineId: "conventional", role: "conventional", projectRelativePath: "." };
+  await workspaces.registerRepositoryCheckout(workspaceId, conventional);
+  const rootSelected = { repositoryCheckoutId: "conventional-root" };
+  assert.match((await invoke("status", rootSelected)).shortStatus, /primary-only\.txt/);
+  assert.equal((await invoke("inspect_branch_state", rootSelected)).head, primaryHead);
+  assert.equal((await invoke("inspect_history", rootSelected)).resolvedCommit, primaryHead);
+  await invoke("stage_changes", { ...rootSelected, paths: ["primary-only.txt"] });
+  await invoke("commit", { ...rootSelected, message: "workspace-only commit" });
   const committedPrimary = git(primary, "rev-parse", "HEAD");
   assert.notEqual(committedPrimary, primaryHead);
   assert.equal(git(primary, "show", "HEAD:primary-only.txt"), "primary change");
   assert.equal(git(alternate, "rev-parse", "HEAD"), alternateHead);
-  assert.equal(checkoutResolutions, 0);
+  assert.equal(checkoutResolutions > 0, true);
 
   await workspaces.registerRepositoryCheckout(workspaceId, descriptor);
   await workspaces.registerRepositoryCheckout(notesId, { ...descriptor, repositoryCheckoutId: "notes-dev", repositoryId: "notes-repo" });
   const selected = { repositoryCheckoutId: "alternate" };
   assert.equal((await invoke("list_repository_checkouts"))[0].repositoryCheckoutId, "alternate");
-  assert.equal((await invoke("status")).shortStatus, "");
+  assert.equal((await invoke("status", rootSelected)).shortStatus, "");
   assert.match((await invoke("status", selected)).shortStatus, /alternate-only\.txt/);
-  assert.equal((await invoke("inspect_branch_state")).head, committedPrimary);
+  assert.equal((await invoke("inspect_branch_state", rootSelected)).head, committedPrimary);
   const alternateBranch = await invoke("inspect_branch_state", selected);
   assert.equal(alternateBranch.head, alternateHead);
   assert.equal(alternateBranch.currentBranch, "dev");
@@ -311,18 +316,19 @@ test("public MCP Git contract preserves workspace-only clients and optional exac
   assert.equal(git(primary, "rev-parse", "HEAD"), committedPrimary);
   assert.equal(fs.existsSync(path.join(primary, "alternate-only.txt")), false);
 
-  await invoke("status", undefined, notesId, "GIT_CAPABILITY_UNAVAILABLE");
-  await invoke("commit", { message: "non-Git request" }, notesId, "GIT_CAPABILITY_UNAVAILABLE");
+  const missingSelector = await registry.callTool({ name: "git_toolbox", arguments: { workspaceId: notesId, action: "status", params: {} }, scope: "files.read" });
+  assert.equal(missingSelector.error.code, "REPOSITORY_CHECKOUT_REQUIRED");
   assert.equal((await invoke("list_repository_checkouts", undefined, notesId))[0].repositoryCheckoutId, "notes-dev");
   assert.equal((await invoke("status", { repositoryCheckoutId: "notes-dev" }, notesId)).gitBacked, true);
   for (const repositoryCheckoutId of ["notes-dev", "unknown", notesCheckout]) {
-    await invoke("status", { repositoryCheckoutId }, workspaceId, "WORKSPACE_ACCESS_DENIED");
-    await invoke("stage_changes", { repositoryCheckoutId, paths: ["README.md"] }, workspaceId, "WORKSPACE_ACCESS_DENIED");
+    await invoke("status", { repositoryCheckoutId }, workspaceId, "REPOSITORY_CHECKOUT_REQUIRED");
+    await invoke("stage_changes", { repositoryCheckoutId, paths: ["README.md"] }, workspaceId, "REPOSITORY_CHECKOUT_REQUIRED");
   }
   for (const invalid of [null, "", 42, "x".repeat(129)]) {
     const args = { workspaceId, action: "status", params: { repositoryCheckoutId: invalid } };
     assert.equal(gitDefinition.inputZodSchema.safeParse(args).success, false);
-    assert.equal((await registry.callTool({ name: "git_toolbox", arguments: args })).error.code, "INVALID_INPUT");
+    assert.equal((await registry.callTool({ name: "git_toolbox", arguments: args })).error.code,
+      invalid === "x".repeat(129) ? "INVALID_INPUT" : "REPOSITORY_CHECKOUT_REQUIRED");
     assert.equal((await client.callTool({ name: "git_toolbox", arguments: args })).isError, true);
   }
   const resolutionCount = checkoutResolutions;
@@ -334,12 +340,12 @@ test("public MCP Git contract preserves workspace-only clients and optional exac
     assert.equal(result.structuredContent.ok, true, JSON.stringify(result));
     if (name === "repo_toolbox") assert.equal(result.structuredContent.payload.content, "plain notes\n");
   }
-  await invoke("status");
   assert.equal(checkoutResolutions, resolutionCount);
-  const managed = await invoke("create_worktree_from_ref", { checkoutName: "generic", branchName: "generic", sourceRef: "HEAD" });
+  await invoke("status", rootSelected);
+  assert.equal(checkoutResolutions, resolutionCount + 1);
+  const managed = await invoke("create_worktree_from_ref", { ...rootSelected, checkoutName: "generic", branchName: "generic", sourceRef: "HEAD" });
   assert.deepEqual(await invoke("list_repository_checkouts", undefined, managed.workspaceId), []);
-  assert.equal((await invoke("inspect_branch_state", undefined, managed.workspaceId)).head, committedPrimary);
-  assert.equal((await invoke("inspect_worktree", { workspaceId: managed.workspaceId })).branchName, "generic");
+  assert.equal((await invoke("inspect_worktree", { ...rootSelected, workspaceId: managed.workspaceId })).branchName, "generic");
   await invoke("inspect_worktree", { repositoryCheckoutId: "notes-dev", workspaceId: managed.workspaceId }, notesId, "GIT_EXECUTION_FAILED");
   for (const root of [primary, notes, alternate, notesCheckout]) {
     assert.equal(fs.existsSync(path.join(root, ".champcity")), false, "no application state fixture");

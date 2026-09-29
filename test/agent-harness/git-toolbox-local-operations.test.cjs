@@ -332,7 +332,7 @@ test("OAuth, workspace registration, Git-backed state, action, and parameter gat
 
   const malformedParams = await registry.callTool({
     name: "git_toolbox",
-    arguments: { workspaceId: "alpha", action: "stage_changes", params: { paths: [] } },
+    arguments: { workspaceId: "alpha", action: "stage_changes", params: { repositoryCheckoutId: "fixture-checkout", paths: [] } },
     scope: "files.write",
   });
   assert.equal(malformedParams.ok, false);

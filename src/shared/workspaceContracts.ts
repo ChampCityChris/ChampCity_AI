@@ -322,7 +322,7 @@ export interface AgentHarnessRegisteredRepositoryCheckoutSummary {
   repositoryCheckoutId: string;
   repositoryId: string;
   sourceLineId: string;
-  role: "main" | "dev" | "workflow";
+  role: "conventional" | "main" | "dev" | "workflow";
   projectRelativePath: string;
   workflowId?: string;
   availability: "available" | "unavailable";

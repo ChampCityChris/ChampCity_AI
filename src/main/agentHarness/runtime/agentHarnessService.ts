@@ -136,6 +136,11 @@ export class AgentHarnessService {
     return this.workspaceRegistry.unregisterRepositoryCheckout(workspaceId, repositoryCheckoutId);
   }
 
+  async listRepositoryCheckouts(workspaceId: string) {
+    await this.workspaceRegistryReady;
+    return this.workspaceRegistry.listRepositoryCheckoutSummaries(workspaceId);
+  }
+
   async start(): Promise<AgentHarnessStatus> {
     await this.workspaceRegistryReady;
     await Promise.all([...this.pendingRegistryOperations]);

@@ -341,10 +341,18 @@ test("partly and fully unreadable Git administration fall back to fresh managed 
   }
 });
 
-test("previous partial ChampCity residue is relocated and cannot block normalization", async context => {
+test("known normalizing journal plus partial managed metadata residue is recoverable without manual deletion", async context => {
   const { root } = conventionalFixture(context, { prefix: "forced-partial-residue-" });
   fs.mkdirSync(path.join(root, ".champcity", "repository.git"), { recursive: true });
   fs.writeFileSync(path.join(root, ".champcity", "repository.git", "residue.txt"), "old metadata\n");
+  const oldMigration = path.join(root, ".champcity", "migrations", "existing-project-normalization-old-attempt");
+  fs.mkdirSync(path.join(oldMigration, "source-snapshot"), { recursive: true });
+  fs.writeFileSync(path.join(root, ".champcity", "migrations", "existing-project-git-adoption-v1.json"), JSON.stringify({
+    schemaVersion: 2, migrationId: "old-attempt", repositoryId: "partial-residue", planId: "old-plan", stage: "normalizing",
+    migrationRelativePath: ".champcity/migrations/existing-project-normalization-old-attempt",
+    sourceSnapshotRelativePath: ".champcity/migrations/existing-project-normalization-old-attempt/source-snapshot",
+    baselineRevision: null, importedRefCount: 0, baselineParentCount: 0, failureReason: null, completedAt: null,
+  }, null, 2));
   fs.mkdirSync(path.join(root, "Main"));
   fs.writeFileSync(path.join(root, "Main", "old-main.txt"), "old main bytes\n");
   fs.mkdirSync(path.join(root, "Dev"));
@@ -356,10 +364,61 @@ test("previous partial ChampCity residue is relocated and cannot block normaliza
   assertManaged(root);
   assert.equal(fs.readFileSync(path.join(root, "Dev", "CURRENT.txt"), "utf8"), "selected source\n");
   const migration = fs.readdirSync(path.join(root, ".champcity", "migrations"))
-    .find(name => name.startsWith("existing-project-normalization-"));
+    .find(name => name.startsWith("existing-project-normalization-") && name !== "existing-project-normalization-old-attempt");
   assert.ok(migration);
   assert.equal(fs.readFileSync(path.join(root, ".champcity", "migrations", migration, "preexisting-Main", "old-main.txt"), "utf8"), "old main bytes\n");
   assert.equal(fs.readFileSync(path.join(root, ".champcity", "migrations", migration, "preexisting-Dev", "old-dev.txt"), "utf8"), "old dev bytes\n");
+});
+
+test("managed metadata cutover retries transient Windows sharing failures within a bounded budget", async context => {
+  const { root } = conventionalFixture(context, { prefix: "forced-metadata-retry-" });
+  const metadata = path.join(root, ".champcity", "repository.git");
+  fs.mkdirSync(metadata, { recursive: true });
+  fs.writeFileSync(path.join(metadata, "residue.txt"), "pre-existing metadata\n");
+  const inspected = await inspectExistingProjectGitAdoption(root, "metadata-retry");
+  const originalRename = fs.renameSync;
+  let attempts = 0;
+  fs.renameSync = (source, destination, ...args) => {
+    if (path.resolve(source) === path.resolve(metadata) && path.basename(destination) === "preexisting-repository.git" && attempts++ < 2) {
+      const error = new Error("synthetic sharing violation"); error.code = "EPERM"; throw error;
+    }
+    return originalRename(source, destination, ...args);
+  };
+  try { await applyPlan(root, "metadata-retry", inspected); }
+  finally { fs.renameSync = originalRename; }
+  assert.equal(attempts, 3);
+  assertManaged(root);
+});
+
+test("exhausted metadata relocation preserves the primary failure, root Git, and pre-existing metadata", async context => {
+  const { root } = conventionalFixture(context, { prefix: "forced-metadata-failure-" });
+  const metadata = path.join(root, ".champcity", "repository.git");
+  fs.mkdirSync(metadata, { recursive: true });
+  fs.writeFileSync(path.join(metadata, "residue.txt"), "must survive\n");
+  const beforeHead = git(root, "rev-parse", "HEAD");
+  const inspected = await inspectExistingProjectGitAdoption(root, "metadata-failure");
+  const originalRename = fs.renameSync;
+  let attempts = 0;
+  fs.renameSync = (source, destination, ...args) => {
+    if (path.resolve(source) === path.resolve(metadata) && path.basename(destination) === "preexisting-repository.git") {
+      attempts += 1; const error = new Error("synthetic locked metadata"); error.code = "EACCES"; throw error;
+    }
+    return originalRename(source, destination, ...args);
+  };
+  try {
+    await assert.rejects(applyPlan(root, "metadata-failure", inspected), /managed metadata cutover failed: pre-existing managed metadata/);
+  } finally { fs.renameSync = originalRename; }
+  assert.equal(attempts, 5);
+  assert.equal(git(root, "rev-parse", "HEAD"), beforeHead);
+  assert.equal(fs.readFileSync(path.join(metadata, "residue.txt"), "utf8"), "must survive\n");
+  assert.equal(fs.existsSync(path.join(root, "Main")), false);
+  assert.equal(fs.existsSync(path.join(root, "Dev")), false);
+  const journal = JSON.parse(fs.readFileSync(path.join(root, ".champcity", "migrations", "existing-project-git-adoption-v1.json"), "utf8"));
+  assert.equal(journal.stage, "failed");
+  assert.equal(journal.failurePhase, "managed metadata cutover");
+  assert.match(journal.failureReason, /synthetic locked metadata/);
+  assert.equal(journal.originalRootGitAuthoritative, true);
+  assert.equal(journal.retainedRecoveryPaths.some(value => value.endsWith("candidate-repository.git")), true);
 });
 
 test("source-preservation staging failure aborts before Git or source mutation", async context => {
@@ -435,4 +494,9 @@ test("failure after local-state relocation restores ignored state and original P
   assert.equal(fs.existsSync(path.join(root, ".git")), true);
   assert.equal(fs.existsSync(path.join(root, "Main")), false);
   assert.equal(fs.existsSync(path.join(root, "Dev")), false);
+  const journal = JSON.parse(fs.readFileSync(path.join(root, ".champcity", "migrations", "existing-project-git-adoption-v1.json"), "utf8"));
+  assert.equal(journal.stage, "failed");
+  assert.match(journal.failureReason, /synthetic registration failure/);
+  assert.equal(journal.failurePhase, "managed checkout registration");
+  assert.equal(journal.originalRootGitAuthoritative, true);
 });

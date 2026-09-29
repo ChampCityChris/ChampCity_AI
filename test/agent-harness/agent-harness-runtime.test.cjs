@@ -104,7 +104,7 @@ test("HTTP MCP routes Git to an explicitly registered Dev checkout while Project
     assert.equal(execFileSync("git", ["status", "--porcelain"], { cwd: dev, encoding: "utf8" }).trim(), "A  checkout-only.txt");
     const missingSelector = await callTool(client, "git_toolbox", { workspaceId: "routing_project", action: "status", params: {} });
     assert.equal(missingSelector.isError, true);
-    assert.equal(missingSelector.structuredContent.error.code, "GIT_CAPABILITY_UNAVAILABLE");
+    assert.match(missingSelector.content[0].text, /Input validation error/);
     assert.throws(() => execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd: root, stdio: ["ignore", "pipe", "ignore"] }));
   } finally {
     await client?.close().catch(() => undefined);

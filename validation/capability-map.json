@@ -5,6 +5,7 @@
       "capabilityId": "agent-harness-mcp-runtime",
       "description": "Loopback MCP runtime, session, diagnostics, settings, and tool-contract lifecycle for registered workspaces.",
       "sourcePatterns": [
+        "src/main/agentHarness/core/**",
         "src/main/agentHarness/runtime/**",
         "src/main/agentHarness/tools/**",
         "src/main/integrations/mcpWorkspacePromptContract.ts",
@@ -150,8 +151,8 @@
           "description": "operational diagnostics enforce audit bounding and metadata-only privacy"
         },
         {
-          "behaviorId": "public-mcp-git-preserves-workspace-only-clients-and-optional-exact-checkout-targeting",
-          "description": "Published schemas and runtime preserve workspace-only Git inspection/mutation, optional exact registered checkout selection, capability failures, discovery, containment, and independence from application workflow state."
+          "behaviorId": "public-mcp-git-requires-exact-registered-checkout-targeting",
+          "description": "Published schemas and runtime require exact registered checkout selection for Git, test, and release operations while preserving discovery, containment, and independence from application workflow state."
         },
         {
           "behaviorId": "renderer-polling-is-limited-to-settings-and-active-codex-execution-surfaces",
@@ -5154,6 +5155,10 @@
       "dependsOn": [],
       "behaviors": [
         {
+          "behaviorId": "checkout-retirement-drains-active-operations-without-blocking-workspace-access",
+          "description": "checkout retirement drains active repository operations while preserving generic workspace access"
+        },
+        {
           "behaviorId": "desktop-project-selection-changes-only-after-a-valid-explicit-workspace-selection",
           "description": "Desktop project selection changes only after a valid explicit workspace selection"
         },
@@ -5188,6 +5193,10 @@
         {
           "behaviorId": "workspace-id-collisions-are-rejected-without-replacing-the-original-registration",
           "description": "workspace ID collisions are rejected without replacing the original registration"
+        },
+        {
+          "behaviorId": "workspace-registration-is-git-neutral-and-requires-exact-checkout-authority",
+          "description": "workspace registration is Git-neutral and Git operations require exact registered checkout authority"
         }
       ]
     }
@@ -5395,8 +5404,8 @@
     {
       "testPath": "test/agent-harness/agent-harness-process-boundary.test.cjs",
       "currentTestCount": {
-        "value": 18,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 19,
+        "basis": "Observed EPGA-R04 focused normal-Windows run after exact RepositoryCheckout routing became mandatory."
       },
       "duration": {
         "kind": "measured",
@@ -6026,8 +6035,8 @@
     {
       "testPath": "test/agent-harness/candidate-validation-snapshot.test.cjs",
       "currentTestCount": {
-        "value": 5,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 9,
+        "basis": "Observed EPGA-R04 focused normal-Windows run covering Git-neutral workspaces, explicit conventional checkout authority, and checkout-scoped retirement draining."
       },
       "duration": {
         "kind": "measured",
@@ -6502,7 +6511,7 @@
         "git": true,
         "network": false,
         "process": true,
-        "timing": false
+        "timing": true
       },
       "sourceInspectionClassification": "none",
       "v2Disposition": "preserve",
@@ -7167,8 +7176,8 @@
         },
         {
           "capabilityId": "agent-harness-mcp-runtime",
-          "behaviorId": "public-mcp-git-preserves-workspace-only-clients-and-optional-exact-checkout-targeting",
-          "proofLocator": "public MCP Git contract preserves workspace-only clients and optional exact checkout targeting",
+          "behaviorId": "public-mcp-git-requires-exact-registered-checkout-targeting",
+          "proofLocator": "public MCP Git contract requires exact registered checkout targeting",
           "proofRole": "primary"
         }
       ]
@@ -7400,6 +7409,12 @@
       "behaviorCoverage": [
         {
           "capabilityId": "workspace-registry",
+          "behaviorId": "checkout-retirement-drains-active-operations-without-blocking-workspace-access",
+          "proofLocator": "checkout retirement rejects new repository operations, drains an active lease, and leaves workspace reads available",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workspace-registry",
           "behaviorId": "exact-workspaceid-selects-simultaneous-registered-workspace-access-and-unknown-ids-fail-closed",
           "proofLocator": "exact workspaceId selects simultaneous registered workspace access and unknown IDs fail closed",
           "proofRole": "primary"
@@ -7426,6 +7441,12 @@
           "capabilityId": "workspace-registry",
           "behaviorId": "workspace-id-collisions-are-rejected-without-replacing-the-original-registration",
           "proofLocator": "workspace ID collisions are rejected without replacing the original registration",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workspace-registry",
+          "behaviorId": "workspace-registration-is-git-neutral-and-requires-exact-checkout-authority",
+          "proofLocator": "Git-backed folder remains Git-neutral until an exact conventional checkout is registered",
           "proofRole": "primary"
         }
       ]
@@ -17938,8 +17959,8 @@
     {
       "testPath": "test/source-control/managed-project-source.test.cjs",
       "currentTestCount": {
-        "value": 14,
-        "basis": "EPGA-R03 extends forced-normalization proof with bounded Git source classification, ignored-root relocation and rollback, non-following Windows junction/link preservation, and pre-normalization residue cleanup."
+        "value": 16,
+        "basis": "EPGA-R04 focused normal-Windows proof extends Repair03 with staged candidate metadata, bounded Windows cutover retry, truthful failed journals, and interrupted-normalization recovery."
       },
       "duration": {
         "kind": "measured",
@@ -17984,7 +18005,7 @@
         {
           "capabilityId": "managed-project-source-topology",
           "behaviorId": "conventional-project-adoption-preserves-source-and-registers-durable-main-dev-checkouts",
-          "proofLocator": "inspection and apply derive readable-Git source from a bounded non-following manifest, preserve current tracked/dirty/untracked bytes, relocate ignored roots outside the baseline with rollback, preserve link entries without target traversal, clean failed pre-normalization staging, fall back safely from unreadable metadata, force exact main/dev, and reopen idempotently",
+          "proofLocator": "inspection and apply preserve current source, build the candidate bare repository in migration staging, retry bounded Windows cutover mutations, preserve primary failures and prior authority during rollback, recover the current interrupted-normalization residue, force exact main/dev, and reopen idempotently",
           "proofRole": "primary"
         },
         {

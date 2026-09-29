@@ -10,6 +10,7 @@ import { resolveManagedProjectSourceTopology, validateRepositoryCheckoutContract
 export interface ManagedProjectCheckoutRegistration {
   registerRepositoryCheckout(workspaceId: string, checkout: RepositoryCheckout): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary>;
   unregisterRepositoryCheckout?(workspaceId: string, repositoryCheckoutId: string): Promise<unknown>;
+  listRepositoryCheckouts?(workspaceId: string): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary[]>;
 }
 
 export interface ManagedProjectSourceResult {

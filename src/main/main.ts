@@ -363,8 +363,13 @@ ipcMain.handle("project:applyExistingGitAdoption", async (_event, planId: string
   const workspace = await agentHarness.registerWorkspace(root);
   const result = await applyExistingProjectGitAdoption({ projectRoot: root, repositoryId: CURRENT_PROJECT_REPOSITORY_ID,
     workspaceId: workspace.workspace.workspaceId, planId, consent: true,
-    checkoutRegistration: { registerRepositoryCheckout: (workspaceId: string, checkout: import("../shared/sourceLifecycleContracts").RepositoryCheckout) =>
-      agentHarness.registerRepositoryCheckout(workspaceId, checkout) } });
+    checkoutRegistration: {
+      registerRepositoryCheckout: (workspaceId: string, checkout: import("../shared/sourceLifecycleContracts").RepositoryCheckout) =>
+        agentHarness.registerRepositoryCheckout(workspaceId, checkout),
+      unregisterRepositoryCheckout: (workspaceId: string, repositoryCheckoutId: string) =>
+        agentHarness.unregisterRepositoryCheckout(workspaceId, repositoryCheckoutId),
+      listRepositoryCheckouts: (workspaceId: string) => agentHarness.listRepositoryCheckouts(workspaceId),
+    } });
   return result.plan;
 });
 

@@ -27,6 +27,7 @@ export type AgentHarnessControlOperation =
   | "register-workspace"
   | "unregister-workspace"
   | "register-repository-checkout"
+  | "list-repository-checkouts"
   | "unregister-repository-checkout"
   | "shutdown";
 
@@ -76,6 +77,7 @@ export interface AgentHarnessControlRequestPayloads {
   "register-workspace": { workspaceRoot: string };
   "unregister-workspace": { workspaceId: string };
   "register-repository-checkout": { workspaceId: string; checkout: RepositoryCheckout };
+  "list-repository-checkouts": { workspaceId: string };
   "unregister-repository-checkout": { workspaceId: string; repositoryCheckoutId: string };
   shutdown: null;
 }
@@ -96,6 +98,7 @@ export interface AgentHarnessControlResponsePayloads {
   "register-workspace": AgentHarnessWorkspaceRegistrationControlResult;
   "unregister-workspace": AgentHarnessWorkspaceRegistrySnapshot;
   "register-repository-checkout": AgentHarnessRegisteredRepositoryCheckoutSummary;
+  "list-repository-checkouts": AgentHarnessRegisteredRepositoryCheckoutSummary[];
   "unregister-repository-checkout": AgentHarnessRegisteredRepositoryCheckoutSummary[];
   shutdown: AgentHarnessStatus;
 }
@@ -411,7 +414,7 @@ function isStringArray(value: unknown): value is string[] {
 }
 
 export function isAgentHarnessRegisteredRepositoryCheckoutSummary(value: unknown): value is AgentHarnessRegisteredRepositoryCheckoutSummary {
-  return isRecord(value) && typeof value.repositoryCheckoutId === "string" && value.repositoryCheckoutId.length > 0 && value.repositoryCheckoutId.length <= 128 && typeof value.repositoryId === "string" && typeof value.sourceLineId === "string" && ["main", "dev", "workflow"].includes(String(value.role)) && typeof value.projectRelativePath === "string" && (value.workflowId === undefined || typeof value.workflowId === "string") && ["available", "unavailable"].includes(String(value.availability)) && (value.validationError === null || typeof value.validationError === "string") && !("root" in value) && !("absoluteRoot" in value) && !("canonicalRoot" in value) && !("checkoutRoot" in value) && !("gitCommonDirectory" in value) && !("absolutePath" in value);
+  return isRecord(value) && typeof value.repositoryCheckoutId === "string" && value.repositoryCheckoutId.length > 0 && value.repositoryCheckoutId.length <= 128 && typeof value.repositoryId === "string" && typeof value.sourceLineId === "string" && ["conventional", "main", "dev", "workflow"].includes(String(value.role)) && typeof value.projectRelativePath === "string" && (value.workflowId === undefined || typeof value.workflowId === "string") && ["available", "unavailable"].includes(String(value.availability)) && (value.validationError === null || typeof value.validationError === "string") && !("root" in value) && !("absoluteRoot" in value) && !("canonicalRoot" in value) && !("checkoutRoot" in value) && !("gitCommonDirectory" in value) && !("absolutePath" in value);
 }
 export function isAgentHarnessRegisteredRepositoryCheckoutSummaryArray(value: unknown): value is AgentHarnessRegisteredRepositoryCheckoutSummary[] {
   return Array.isArray(value) && value.every(isAgentHarnessRegisteredRepositoryCheckoutSummary);

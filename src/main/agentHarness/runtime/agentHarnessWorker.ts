@@ -94,6 +94,8 @@ async function executeControlRequest(
       return requireService().unregisterWorkspace(request.payload.workspaceId);
     case "register-repository-checkout":
       return requireService().registerRepositoryCheckout(request.payload.workspaceId, request.payload.checkout);
+    case "list-repository-checkouts":
+      return requireService().listRepositoryCheckouts(request.payload.workspaceId);
     case "unregister-repository-checkout":
       return requireService().unregisterRepositoryCheckout(request.payload.workspaceId, request.payload.repositoryCheckoutId);
     case "shutdown":

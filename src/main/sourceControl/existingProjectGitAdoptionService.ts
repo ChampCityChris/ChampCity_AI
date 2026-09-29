@@ -53,17 +53,23 @@ interface SnapshotEntries {
 }
 
 interface ConversionJournal {
-  schemaVersion: 2;
+  schemaVersion: 3;
   migrationId: string;
   repositoryId: string;
   planId: string;
-  stage: "source-preserved" | "normalizing" | "verified" | "completed" | "failed";
+  stage: "source-preserved" | "candidate-prepared" | "checkout-retired" | "metadata-cutover" |
+    "root-git-relocated" | "worktrees-created" | "checkout-registration" | "verified" | "completed" | "failed";
   migrationRelativePath: string;
   sourceSnapshotRelativePath: string;
   baselineRevision: string | null;
   importedRefCount: number;
   baselineParentCount: number;
   failureReason: string | null;
+  failurePhase: string | null;
+  originalRootGitAuthoritative: boolean;
+  cleanupWarnings: string[];
+  retainedRecoveryPaths: string[];
+  conventionalCheckoutRestored: boolean | null;
   completedAt: string | null;
 }
 
@@ -617,10 +623,30 @@ async function createCanonicalBaseline(snapshot: string, metadata: string, evide
   return { revision, parentCount: parents.length };
 }
 
-async function removeManagedCandidate(root: string, metadata: string, checkout: string): Promise<void> {
-  if (!existsEntry(checkout)) return;
-  await git(root, ["worktree", "remove", "--force", checkout], { optional: true, gitDir: metadata });
-  if (existsEntry(checkout)) fs.rmSync(checkout, { recursive: true, force: true });
+const transientWindowsMutationCodes = new Set(["EPERM", "EACCES", "EBUSY", "ENOTEMPTY"]);
+
+async function boundedMutation(operation: () => void): Promise<{ ok: true } | { ok: false; error: string }> {
+  let last = "filesystem mutation failed";
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try { operation(); return { ok: true }; }
+    catch (error) {
+      last = error instanceof Error ? error.message : String(error);
+      const code = (error as NodeJS.ErrnoException).code ?? "";
+      if (!transientWindowsMutationCodes.has(code) || attempt === 4) break;
+      await new Promise(resolve => setTimeout(resolve, 25 * (attempt + 1)));
+    }
+  }
+  return { ok: false, error: last.slice(0, 300) };
+}
+
+async function boundedRename(source: string, destination: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  return boundedMutation(() => fs.renameSync(source, destination));
+}
+
+async function retainAttemptPath(source: string, destination: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!existsEntry(source)) return { ok: true };
+  if (existsEntry(destination)) return { ok: false, error: "recovery destination already exists" };
+  return boundedRename(source, destination);
 }
 
 async function normalizeExistingProject(input: {
@@ -636,6 +662,7 @@ async function normalizeExistingProject(input: {
   const migrationId = randomUUID();
   const migrationRoot = path.join(migrationsRoot, `existing-project-normalization-${migrationId}`);
   const snapshot = path.join(migrationRoot, "source-snapshot");
+  const candidateMetadata = path.join(migrationRoot, "candidate-repository.git");
   const candidate = sourceCandidate(root);
   fs.mkdirSync(migrationRoot);
   let inventory: SourceInventory | null = null;
@@ -661,10 +688,12 @@ async function normalizeExistingProject(input: {
   }
   const evidence = existsEntry(path.join(root, ".git")) ? await readGitEvidence(root) : await readGitEvidence(candidate);
   let journal: ConversionJournal = {
-    schemaVersion: 2, migrationId, repositoryId: input.repositoryId, planId: input.planId, stage: "source-preserved",
+    schemaVersion: 3, migrationId, repositoryId: input.repositoryId, planId: input.planId, stage: "source-preserved",
     migrationRelativePath: path.relative(root, migrationRoot).replace(/\\/g, "/"),
     sourceSnapshotRelativePath: path.relative(root, snapshot).replace(/\\/g, "/"),
-    baselineRevision: null, importedRefCount: 0, baselineParentCount: 0, failureReason: null, completedAt: null,
+    baselineRevision: null, importedRefCount: 0, baselineParentCount: 0, failureReason: null, failurePhase: null,
+    originalRootGitAuthoritative: existsEntry(path.join(root, ".git")), cleanupWarnings: [], retainedRecoveryPaths: [],
+    conventionalCheckoutRestored: null, completedAt: null,
   };
   writeJsonAtomic(journalPath(root), journal);
 
@@ -675,24 +704,79 @@ async function normalizeExistingProject(input: {
   const relocatedMain = path.join(migrationRoot, "preexisting-Main");
   const relocatedDev = path.join(migrationRoot, "preexisting-Dev");
   const relocatedMetadata = path.join(migrationRoot, "preexisting-repository.git");
+  const rolledBackCandidate = path.join(migrationRoot, "rolled-back-candidate-repository.git");
   let gitRelocated = false;
   let mainRelocated = false;
   let devRelocated = false;
   let metadataRelocated = false;
+  let candidatePrepared = false;
+  let finalMetadataInstalled = false;
+  let mainCreated = false;
+  let devCreated = false;
+  let conventionalCheckout: import("../../shared/sourceLifecycleContracts").RepositoryCheckout | null = null;
+  let conventionalCheckoutRetired = false;
   let relocatedLocalState: RelocatedLocalState[] = [];
-  journal = { ...journal, stage: "normalizing" };
-  writeJsonAtomic(journalPath(root), journal);
+  let phase = "candidate repository preparation";
   try {
-    if (existsEntry(main)) { fs.renameSync(main, relocatedMain); mainRelocated = true; }
-    if (existsEntry(dev)) { fs.renameSync(dev, relocatedDev); devRelocated = true; }
-    if (existsEntry(metadata)) { fs.renameSync(metadata, relocatedMetadata); metadataRelocated = true; }
-    await git(root, ["init", "--bare", metadata]);
-    await git(root, ["config", "core.autocrlf", "false"], { gitDir: metadata });
-    const importedRefCount = await importReadableGit(root, metadata, evidence);
-    const baseline = await createCanonicalBaseline(snapshot, metadata, evidence);
-    if (existsEntry(path.join(root, ".git"))) { fs.renameSync(path.join(root, ".git"), legacyGit); gitRelocated = true; }
+    await git(root, ["init", "--bare", candidateMetadata]);
+    candidatePrepared = true;
+    await git(root, ["config", "core.autocrlf", "false"], { gitDir: candidateMetadata });
+    const importedRefCount = await importReadableGit(root, candidateMetadata, evidence);
+    const baseline = await createCanonicalBaseline(snapshot, candidateMetadata, evidence);
+    journal = { ...journal, stage: "candidate-prepared", baselineRevision: baseline.revision, importedRefCount,
+      baselineParentCount: baseline.parentCount };
+    writeJsonAtomic(journalPath(root), journal);
+
+    phase = "conventional checkout retirement";
+    if (input.checkoutRegistration.listRepositoryCheckouts && input.checkoutRegistration.unregisterRepositoryCheckout) {
+      const summaries = await input.checkoutRegistration.listRepositoryCheckouts(input.workspaceId);
+      const exposed = summaries.find(item => item.role === "conventional" && item.repositoryId === input.repositoryId);
+      if (exposed) {
+        conventionalCheckout = { repositoryCheckoutId: exposed.repositoryCheckoutId, repositoryId: exposed.repositoryId,
+          sourceLineId: exposed.sourceLineId, role: exposed.role, projectRelativePath: exposed.projectRelativePath };
+        await input.checkoutRegistration.unregisterRepositoryCheckout(input.workspaceId, exposed.repositoryCheckoutId);
+        conventionalCheckoutRetired = true;
+        journal = { ...journal, stage: "checkout-retired" };
+        writeJsonAtomic(journalPath(root), journal);
+      }
+    }
+
+    phase = "managed metadata cutover";
+    if (existsEntry(metadata)) {
+      const moved = await boundedRename(metadata, relocatedMetadata);
+      if (!moved.ok) throw new Error(`pre-existing managed metadata could not be relocated: ${moved.error}`);
+      metadataRelocated = true;
+    }
+    const installed = await boundedRename(candidateMetadata, metadata);
+    if (!installed.ok) throw new Error(`candidate managed metadata could not be installed: ${installed.error}`);
+    finalMetadataInstalled = true;
+    journal = { ...journal, stage: "metadata-cutover" };
+    writeJsonAtomic(journalPath(root), journal);
+
+    phase = "root conventional Git cutover";
+    if (existsEntry(path.join(root, ".git"))) {
+      const moved = await boundedRename(path.join(root, ".git"), legacyGit);
+      if (!moved.ok) throw new Error(`root conventional Git could not be relocated: ${moved.error}`);
+      gitRelocated = true;
+    }
+    journal = { ...journal, stage: "root-git-relocated", originalRootGitAuthoritative: false };
+    writeJsonAtomic(journalPath(root), journal);
+
+    phase = "managed worktree creation";
+    if (existsEntry(main)) {
+      const moved = await boundedRename(main, relocatedMain);
+      if (!moved.ok) throw new Error(`pre-existing Main could not be relocated: ${moved.error}`);
+      mainRelocated = true;
+    }
+    if (existsEntry(dev)) {
+      const moved = await boundedRename(dev, relocatedDev);
+      if (!moved.ok) throw new Error(`pre-existing Dev could not be relocated: ${moved.error}`);
+      devRelocated = true;
+    }
     await git(root, ["worktree", "add", "--force", main, "main"], { gitDir: metadata });
+    mainCreated = true;
     await git(root, ["worktree", "add", "--force", dev, "dev"], { gitDir: metadata });
+    devCreated = true;
     copySnapshotToCheckout(snapshot, dev);
     const [mainValid, devValid, mainRevision, devRevision] = await Promise.all([
       validManagedCheckout(main, "main", metadata), validManagedCheckout(dev, "dev", metadata),
@@ -701,16 +785,20 @@ async function normalizeExistingProject(input: {
     if (!mainValid || !devValid || mainRevision !== baseline.revision || devRevision !== baseline.revision) {
       fail("Managed Main/Dev checkout verification failed; preserved Project source remains recoverable.");
     }
+    journal = { ...journal, stage: "worktrees-created" };
+    writeJsonAtomic(journalPath(root), journal);
     const localStateSource = candidate === dev && devRelocated ? relocatedDev
       : candidate === main && mainRelocated ? relocatedMain : candidate;
     relocatedLocalState = relocateLocalState(localStateSource, dev, inventory?.localStatePaths ?? []);
-    journal = { ...journal, stage: "verified", baselineRevision: baseline.revision, importedRefCount,
-      baselineParentCount: baseline.parentCount };
+    journal = { ...journal, stage: "verified" };
     writeJsonAtomic(journalPath(root), journal);
     for (const name of fs.readdirSync(root)) {
       if ([".git", ".champcity", "Main", "Dev"].includes(name)) continue;
       removeEntryNonFollowing(path.join(root, name));
     }
+    phase = "managed checkout registration";
+    journal = { ...journal, stage: "checkout-registration" };
+    writeJsonAtomic(journalPath(root), journal);
     const registered = await establishManagedProjectSource({ projectRoot: root, repositoryId: input.repositoryId,
       workspaceId: input.workspaceId, checkoutRegistration: input.checkoutRegistration });
     journal = { ...journal, stage: "completed", completedAt: new Date().toISOString() };
@@ -718,27 +806,66 @@ async function normalizeExistingProject(input: {
     writeJsonAtomic(receiptPath(root), journal);
     return { ...registered, materialized: true };
   } catch (error) {
-    let localStateRecovery = error;
-    try {
-      restoreRelocatedLocalState(relocatedLocalState);
-      relocatedLocalState = [];
-    } catch (restoreError) {
-      localStateRecovery = restoreError;
-      const failedDev = path.join(migrationRoot, "failed-managed-Dev-local-state-recovery");
-      if (existsEntry(dev) && !existsEntry(failedDev)) fs.renameSync(dev, failedDev);
+    const primaryReason = error instanceof Error ? error.message.slice(0, 500) : "Existing Project conversion failed.";
+    const cleanupWarnings: string[] = [];
+    const retainedRecoveryPaths: string[] = [];
+    const warn = (label: string, detail: string) => cleanupWarnings.push(`${label}: ${detail}`.slice(0, 500));
+    try { restoreRelocatedLocalState(relocatedLocalState); relocatedLocalState = []; }
+    catch (restoreError) { warn("local-state restore", restoreError instanceof Error ? restoreError.message : String(restoreError)); }
+
+    if (input.checkoutRegistration.listRepositoryCheckouts && input.checkoutRegistration.unregisterRepositoryCheckout) {
+      try {
+        const registered = await input.checkoutRegistration.listRepositoryCheckouts(input.workspaceId);
+        for (const item of registered.filter(value => value.role === "main" || value.role === "dev")) {
+          await input.checkoutRegistration.unregisterRepositoryCheckout(input.workspaceId, item.repositoryCheckoutId);
+        }
+      } catch (cleanupError) { warn("managed checkout unregister", cleanupError instanceof Error ? cleanupError.message : String(cleanupError)); }
     }
-    await removeManagedCandidate(root, metadata, dev).catch(() => undefined);
-    await removeManagedCandidate(root, metadata, main).catch(() => undefined);
-    if (existsEntry(metadata)) fs.rmSync(metadata, { recursive: true, force: true });
-    if (metadataRelocated && !existsEntry(metadata) && existsEntry(relocatedMetadata)) fs.renameSync(relocatedMetadata, metadata);
-    if (gitRelocated && !existsEntry(path.join(root, ".git")) && existsEntry(legacyGit)) fs.renameSync(legacyGit, path.join(root, ".git"));
-    if (mainRelocated && !existsEntry(main) && existsEntry(relocatedMain)) fs.renameSync(relocatedMain, main);
-    if (devRelocated && !existsEntry(dev) && existsEntry(relocatedDev)) fs.renameSync(relocatedDev, dev);
-    try { copySourceContents(snapshot, root, true); } catch { /* preserved snapshot remains authoritative recovery evidence */ }
-    const reason = localStateRecovery instanceof Error ? localStateRecovery.message.slice(0, 500) : "Existing Project conversion failed.";
-    journal = { ...journal, stage: "failed", failureReason: reason };
-    writeJsonAtomic(journalPath(root), journal);
-    throw localStateRecovery;
+    for (const [created, checkout, recoveryName] of [[devCreated, dev, "failed-managed-Dev"], [mainCreated, main, "failed-managed-Main"]] as const) {
+      if (!created || !existsEntry(checkout)) continue;
+      const retained = path.join(migrationRoot, recoveryName);
+      const result = await retainAttemptPath(checkout, retained);
+      if (result.ok) retainedRecoveryPaths.push(path.relative(root, retained).replace(/\\/g, "/"));
+      else warn(`${recoveryName} retain`, result.error);
+    }
+    if (gitRelocated && !existsEntry(path.join(root, ".git")) && existsEntry(legacyGit)) {
+      const restored = await boundedRename(legacyGit, path.join(root, ".git"));
+      if (!restored.ok) warn("root Git restore", restored.error);
+      else gitRelocated = false;
+    }
+    if (finalMetadataInstalled && existsEntry(metadata)) {
+      const retained = await retainAttemptPath(metadata, rolledBackCandidate);
+      if (retained.ok) {
+        finalMetadataInstalled = false;
+        retainedRecoveryPaths.push(path.relative(root, rolledBackCandidate).replace(/\\/g, "/"));
+      } else warn("candidate metadata retain", retained.error);
+    } else if (candidatePrepared && existsEntry(candidateMetadata)) {
+      retainedRecoveryPaths.push(path.relative(root, candidateMetadata).replace(/\\/g, "/"));
+    }
+    if (metadataRelocated && !existsEntry(metadata) && existsEntry(relocatedMetadata)) {
+      const restored = await boundedRename(relocatedMetadata, metadata);
+      if (!restored.ok) warn("pre-existing metadata restore", restored.error);
+    }
+    for (const [relocated, original, recovery, label] of [[mainRelocated, main, relocatedMain, "Main"], [devRelocated, dev, relocatedDev, "Dev"]] as const) {
+      if (!relocated || existsEntry(original) || !existsEntry(recovery)) continue;
+      const restored = await boundedRename(recovery, original);
+      if (!restored.ok) warn(`${label} restore`, restored.error);
+    }
+    try { copySourceContents(snapshot, root, true); }
+    catch (restoreError) { warn("source restore", restoreError instanceof Error ? restoreError.message : String(restoreError)); }
+
+    let conventionalCheckoutRestored: boolean | null = conventionalCheckoutRetired ? false : null;
+    if (conventionalCheckoutRetired && conventionalCheckout && existsEntry(path.join(root, ".git"))) {
+      try { await input.checkoutRegistration.registerRepositoryCheckout(input.workspaceId, conventionalCheckout); conventionalCheckoutRestored = true; }
+      catch (restoreError) { warn("conventional checkout restore", restoreError instanceof Error ? restoreError.message : String(restoreError)); }
+    }
+    journal = { ...journal, stage: "failed", failureReason: primaryReason, failurePhase: phase,
+      originalRootGitAuthoritative: existsEntry(path.join(root, ".git")), cleanupWarnings, retainedRecoveryPaths,
+      conventionalCheckoutRestored };
+    try { writeJsonAtomic(journalPath(root), journal); }
+    catch (journalError) { cleanupWarnings.push(`failed journal write: ${journalError instanceof Error ? journalError.message : String(journalError)}`.slice(0, 500)); }
+    const summary = cleanupWarnings.length ? ` Cleanup warnings: ${cleanupWarnings.join(" | ")}` : "";
+    throw new AgentHarnessError("STALE_SOURCE", `${phase} failed: ${primaryReason}${summary}`);
   }
 }
 

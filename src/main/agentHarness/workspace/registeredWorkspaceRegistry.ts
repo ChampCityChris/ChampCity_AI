@@ -31,6 +31,12 @@ interface StoredRegisteredWorkspaceRegistry {
   workspaces: StoredRegisteredWorkspace[];
 }
 
+interface RepositoryCheckoutRuntimeState {
+  state: "available" | "retiring";
+  activeOperations: number;
+  drainWaiters: Set<() => void>;
+}
+
 export function getRegisteredWorkspaceRegistryPath(userDataRoot: string): string {
   return path.join(userDataRoot, registryDirectoryName, registryFileName);
 }
@@ -39,6 +45,7 @@ export class RegisteredWorkspaceRegistry {
   private readonly targetPath: string;
   private entries = new Map<string, StoredRegisteredWorkspace>();
   private contexts = new Map<string, AgentHarnessWorkspaceContext>();
+  private checkoutRuntime = new Map<string, RepositoryCheckoutRuntimeState>();
   private loadError: string | null = null;
 
   constructor(options: {
@@ -185,6 +192,7 @@ export class RegisteredWorkspaceRegistry {
     const sameId = registered.find(item => item.repositoryCheckoutId === checkout.repositoryCheckoutId);
     if (sameId) {
       if (!sameCheckoutContract(sameId, checkout)) throw new AgentHarnessError("WORKSPACE_REGISTRY_CONFLICT", "RepositoryCheckout ID is already registered with a different contract.");
+      if (this.runtimeState(workspaceId, checkout.repositoryCheckoutId).state !== "available") throw new AgentHarnessError("REPOSITORY_CHECKOUT_RETIRING", "RepositoryCheckout is retiring and cannot accept new operations.");
       try { await this.validateCheckoutRoot(this.deriveCheckoutRoot(entry.canonicalRoot, checkout)); }
       catch { throw new AgentHarnessError("GIT_CAPABILITY_UNAVAILABLE", "The registered checkout is unavailable or does not identify an exact Git working tree."); }
       return this.checkoutSummary(checkout, true, null);
@@ -195,15 +203,30 @@ export class RegisteredWorkspaceRegistry {
     const next = new Map(this.entries);
     const updated = { ...entry, repositoryCheckouts: [...registered, { ...checkout }].sort((a,b) => a.repositoryCheckoutId.localeCompare(b.repositoryCheckoutId)) };
     next.set(workspaceId, updated); this.persist(next); this.entries = next;
+    this.checkoutRuntime.set(checkoutRuntimeKey(workspaceId, checkout.repositoryCheckoutId), { state: "available", activeOperations: 0, drainWaiters: new Set() });
     return this.checkoutSummary(checkout, true, null);
   }
 
-  async unregisterRepositoryCheckout(workspaceId: string, repositoryCheckoutId: string): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary[]> {
+  async unregisterRepositoryCheckout(workspaceId: string, repositoryCheckoutId: string, drainTimeoutMs = 5_000): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary[]> {
     this.assertReady();
     const entry = this.requireProjectEntry(workspaceId);
+    const checkout = (entry.repositoryCheckouts ?? []).find(item => item.repositoryCheckoutId === repositoryCheckoutId);
+    if (!checkout) return await this.listRepositoryCheckoutSummaries(workspaceId);
+    const runtime = this.runtimeState(workspaceId, repositoryCheckoutId);
+    runtime.state = "retiring";
+    if (runtime.activeOperations > 0) {
+      const drained = await new Promise<boolean>(resolve => {
+        const onDrain = () => { clearTimeout(timer); resolve(true); };
+        const timer = setTimeout(() => { runtime.drainWaiters.delete(onDrain); resolve(false); }, Math.max(1, Math.min(drainTimeoutMs, 30_000)));
+        runtime.drainWaiters.add(onDrain);
+      });
+      if (!drained) throw new AgentHarnessError("REPOSITORY_CHECKOUT_RETIRING", "RepositoryCheckout did not drain within the bounded retirement deadline.");
+    }
     const next = new Map(this.entries);
     next.set(workspaceId, { ...entry, repositoryCheckouts: (entry.repositoryCheckouts ?? []).filter(item => item.repositoryCheckoutId !== repositoryCheckoutId) });
-    this.persist(next); this.entries = next;
+    try { this.persist(next); this.entries = next; }
+    catch (error) { runtime.state = "available"; throw error; }
+    this.checkoutRuntime.delete(checkoutRuntimeKey(workspaceId, repositoryCheckoutId));
     return await this.listRepositoryCheckoutSummaries(workspaceId);
   }
 
@@ -212,6 +235,7 @@ export class RegisteredWorkspaceRegistry {
     const summaries: AgentHarnessRegisteredRepositoryCheckoutSummary[] = [];
     for (const checkout of entry.repositoryCheckouts ?? []) {
       try {
+        if (this.runtimeState(entry.workspaceId, checkout.repositoryCheckoutId).state !== "available") throw new Error("retiring");
         if (!validateRepositoryCheckoutContract(checkout).valid) throw new Error("invalid descriptor");
         await this.validateCheckoutRoot(this.deriveCheckoutRoot(entry.canonicalRoot, checkout));
         summaries.push(this.checkoutSummary(checkout, true, null));
@@ -224,12 +248,24 @@ export class RegisteredWorkspaceRegistry {
     const entry = this.requireProjectEntry(workspaceId);
     if (typeof repositoryCheckoutId !== "string" || !repositoryCheckoutId.trim()) throw new AgentHarnessError("INVALID_INPUT", "repositoryCheckoutId is required.");
     const checkout = (entry.repositoryCheckouts ?? []).find(item => item.repositoryCheckoutId === repositoryCheckoutId);
-    if (!checkout) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "The repositoryCheckoutId is not registered under this Project workspace.");
+    if (!checkout) throw new AgentHarnessError("REPOSITORY_CHECKOUT_REQUIRED", "The exact repositoryCheckoutId is not registered under this Project workspace.");
+    const runtime = this.runtimeState(entry.workspaceId, checkout.repositoryCheckoutId);
+    if (runtime.state !== "available") throw new AgentHarnessError("REPOSITORY_CHECKOUT_RETIRING", "RepositoryCheckout is retiring and cannot accept new operations.");
     try {
       if (!validateRepositoryCheckoutContract(checkout).valid) throw new Error("invalid descriptor");
       await this.resolve(entry.workspaceId);
       const root = this.deriveCheckoutRoot(entry.canonicalRoot, checkout); await this.validateCheckoutRoot(root);
-      return { workspaceId: entry.workspaceId, root, checkout };
+      runtime.activeOperations += 1;
+      let released = false;
+      return { workspaceId: entry.workspaceId, root, checkout, release: () => {
+        if (released) return;
+        released = true;
+        runtime.activeOperations = Math.max(0, runtime.activeOperations - 1);
+        if (runtime.activeOperations === 0) {
+          for (const waiter of runtime.drainWaiters) waiter();
+          runtime.drainWaiters.clear();
+        }
+      } };
     } catch { throw new AgentHarnessError("GIT_CAPABILITY_UNAVAILABLE", "The registered repository checkout is unavailable or no longer validates."); }
   }
 
@@ -245,8 +281,18 @@ export class RegisteredWorkspaceRegistry {
     return entry;
   }
   private deriveCheckoutRoot(projectRoot: string, checkout: RepositoryCheckout): string {
+    if (checkout.role === "conventional") return projectRoot;
     const topology = resolveManagedProjectSourceTopology(projectRoot);
     return checkout.role === "main" ? topology.mainCheckoutRoot : checkout.role === "dev" ? topology.devCheckoutRoot : resolveManagedWorkflowCheckoutPath(projectRoot, checkout.workflowId!).checkoutRoot;
+  }
+  private runtimeState(workspaceId: string, repositoryCheckoutId: string): RepositoryCheckoutRuntimeState {
+    const key = checkoutRuntimeKey(workspaceId, repositoryCheckoutId);
+    let state = this.checkoutRuntime.get(key);
+    if (!state) {
+      state = { state: "available", activeOperations: 0, drainWaiters: new Set() };
+      this.checkoutRuntime.set(key, state);
+    }
+    return state;
   }
   private async validateCheckoutRoot(root: string): Promise<void> {
     const resolved = fs.realpathSync(root);
@@ -303,8 +349,8 @@ export class RegisteredWorkspaceRegistry {
       const { commonDirectory, checkoutName } = entry.managed;
       await verifyManagedCheckout(entry.canonicalRoot, commonDirectory, checkoutName);
       if (entry.workspaceId !== managedWorkspaceId(commonDirectory, checkoutName)) throw new Error("Managed workspace identity changed.");
-      return { root: entry.canonicalRoot, workspaceId: entry.workspaceId, repositoryName: checkoutName, gitBacked: true,
-        capabilities: { filesystemRead: true, artifactWrite: true, patchWorkflow: true, gitInspection: true } };
+      return { root: entry.canonicalRoot, workspaceId: entry.workspaceId, repositoryName: checkoutName, gitBacked: false,
+        capabilities: { filesystemRead: true, artifactWrite: true, patchWorkflow: true, gitInspection: false } };
     }
     const context = await resolveWorkspaceRootContextAsync(entry.canonicalRoot);
     if (context.workspaceId !== entry.workspaceId || rootKey(context.root) !== rootKey(entry.canonicalRoot)) {
@@ -366,6 +412,10 @@ function requiredWorkspaceId(value: string): string {
 function rootKey(value: string): string {
   const resolved = path.resolve(value);
   return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+}
+
+function checkoutRuntimeKey(workspaceId: string, repositoryCheckoutId: string): string {
+  return `${workspaceId}\0${repositoryCheckoutId}`;
 }
 
 function sameCheckoutContract(left: RepositoryCheckout, right: RepositoryCheckout): boolean {
