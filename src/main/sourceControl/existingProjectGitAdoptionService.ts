@@ -10,9 +10,15 @@ import type {
   ExistingProjectGitAdoptionPlan,
 } from "../../shared/sourceControlContracts";
 import { resolveManagedProjectSourceTopology } from "./projectSourceTopology";
+import {
+  establishManagedProjectSource,
+  type ManagedProjectCheckoutRegistration,
+  type ManagedProjectSourceResult,
+} from "./managedProjectSourceService";
 
 export const EXISTING_PROJECT_GIT_ADOPTION_JOURNAL = ".champcity/migrations/existing-project-git-adoption-v1.json";
-const journalResourcePattern = /^(?:\.champcity\/(?:repository\.git|original-git-[a-zA-Z0-9._-]+)|Main|Dev)$/;
+export const EXISTING_PROJECT_GIT_ADOPTION_RECEIPT = ".champcity/migrations/existing-project-git-adoption-v1.receipt.json";
+const journalResourcePattern = /^(?:\.champcity\/(?:repository\.git|original-git-[a-zA-Z0-9._-]+|adoption-worktree-[a-zA-Z0-9._-]+)|Main|Dev)$/;
 
 interface GitSnapshot {
   currentBranch: string | null;
@@ -89,6 +95,10 @@ function writeJsonAtomic(target: string, value: unknown): void {
   }
 }
 
+function receiptPath(projectRoot: string): string {
+  return path.join(projectRoot, ...EXISTING_PROJECT_GIT_ADOPTION_RECEIPT.split("/"));
+}
+
 export function loadExistingProjectGitAdoptionJournal(projectRoot: string, repositoryId?: string,
   expectedPlanId?: string): ExistingProjectGitAdoptionJournal | null {
   const target = journalPath(fs.realpathSync(projectRoot));
@@ -124,9 +134,21 @@ export function advanceExistingProjectGitAdoptionJournal(projectRoot: string, re
 
 export function markExistingProjectGitAdoptionComplete(projectRoot: string, repositoryId: string,
   finalRefsDigest: string, finalRemotesDigest: string): ExistingProjectGitAdoptionJournal {
-  return advanceExistingProjectGitAdoptionJournal(projectRoot, repositoryId, "completed", {
+  const journal = advanceExistingProjectGitAdoptionJournal(projectRoot, repositoryId, "completed", {
     finalRefsDigest, finalRemotesDigest, completedAt: new Date().toISOString(), failureReason: null,
   });
+  writeJsonAtomic(receiptPath(fs.realpathSync(projectRoot)), {
+    schemaVersion: 1,
+    migrationId: journal.migrationId,
+    repositoryId: journal.repositoryId,
+    planId: journal.planId,
+    mainRevision: journal.mainRevision,
+    devRevision: journal.devRevision,
+    finalRefsDigest,
+    finalRemotesDigest,
+    completedAt: journal.completedAt,
+  });
+  return journal;
 }
 
 export function newExistingProjectGitAdoptionJournal(input: {
@@ -346,7 +368,10 @@ export async function inspectExistingProjectGitAdoption(projectRoot: string, rep
     }
   }
 
-  if (managedMetadata || mainCheckout || devCheckout || recoveryStaging) {
+  const activeJournal = journal && journal.stage !== "completed" && journal.stage !== "rolled-back" ? journal : null;
+  if (activeJournal?.failureReason?.toLowerCase().includes("conflict"))
+    return manualPlan(repositoryId, topology, activeJournal.failureReason, snapshot, journalDigest);
+  if (managedMetadata || mainCheckout || devCheckout || recoveryStaging || activeJournal) {
     if (!journal && !(conventionalGit && managedMetadata))
       return manualPlan(repositoryId, topology, "Partial managed topology has no valid ChampCity migration journal.", snapshot, journalDigest);
     if (conventionalGit && managedMetadata) {
@@ -398,6 +423,206 @@ export async function inspectExistingProjectGitAdoption(projectRoot: string, rep
 export async function inspectExistingProjectGitAdoptionEvidence(projectRoot: string): Promise<{
   refsDigest: string; remotesDigest: string; workingStateDigest: string;
 }> {
-  const snapshot = await inspectGit(fs.realpathSync(projectRoot));
+  const root = fs.realpathSync(projectRoot);
+  const topology = resolveManagedProjectSourceTopology(root);
+  const inspectionRoot = fs.existsSync(path.join(root, ".git")) ? root : topology.devCheckoutRoot;
+  const snapshot = await inspectGit(inspectionRoot);
   return { refsDigest: snapshot.refsDigest, remotesDigest: snapshot.remotesDigest, workingStateDigest: snapshot.workingStateDigest };
+}
+
+export interface ExistingProjectGitAdoptionApplyResult {
+  plan: ExistingProjectGitAdoptionPlan;
+  source: ManagedProjectSourceResult | null;
+  applied: boolean;
+}
+
+function migrationBranch(planId: string): string {
+  return `champcity/adoption-${planId.slice(0, 12)}`;
+}
+
+async function gitSucceeded(cwd: string, args: string[], options: { gitDir?: string } = {}): Promise<boolean> {
+  return (await git(cwd, args, { optional: true, ...options })) !== null;
+}
+
+function copyProjectSource(root: string, destination: string): void {
+  for (const name of fs.readdirSync(root)) {
+    if (name === ".git" || name === ".champcity" || name === "Main" || name === "Dev") continue;
+    fs.cpSync(path.join(root, name), path.join(destination, name), { recursive: true, force: true, preserveTimestamps: true });
+  }
+}
+
+async function createAdoptionSnapshot(root: string, plan: ExistingProjectGitAdoptionPlan,
+  migrationId: string): Promise<{ sourceRevision: string; branch: string }> {
+  if (!plan.currentRevision) fail("Adoption snapshot requires an exact inspected source revision.");
+  const branch = migrationBranch(plan.planId);
+  const candidate = path.join(root, ".champcity", `adoption-worktree-${migrationId}`);
+  if (fs.existsSync(candidate)) fail("Adoption snapshot candidate path already exists.");
+  let created = false;
+  try {
+    await git(root, ["branch", branch, plan.currentRevision]);
+    await git(root, ["worktree", "add", "--no-checkout", candidate, branch]);
+    created = true;
+    await git(candidate, ["reset", "--mixed", plan.currentRevision]);
+    copyProjectSource(root, candidate);
+    await git(candidate, ["add", "-A"]);
+    await git(candidate, ["-c", "user.name=ChampCity Migration", "-c", "user.email=migration@champcity.invalid",
+      "commit", "-m", "ChampCity existing project adoption snapshot"]);
+    const sourceRevision = await git(candidate, ["rev-parse", "HEAD"]);
+    if (!sourceRevision) fail("Adoption snapshot revision could not be verified.");
+    return { sourceRevision, branch };
+  } catch (error) {
+    await git(root, ["branch", "-D", branch], { optional: true }).catch(() => undefined);
+    if (error instanceof AgentHarnessError) throw error;
+    throw new AgentHarnessError("STALE_SOURCE", "Adoption snapshot could not be created without preserving all non-ignored working state.");
+  } finally {
+    if (created) await git(root, ["worktree", "remove", "--force", candidate], { optional: true }).catch(() => undefined);
+    if (fs.existsSync(candidate)) fs.rmSync(candidate, { recursive: true, force: true });
+  }
+}
+
+async function integrateSourceIntoDev(root: string, sourceRevision: string, migrationId: string): Promise<void> {
+  const devRevision = await git(root, ["rev-parse", "refs/heads/dev"]);
+  if (!devRevision) fail("Existing Project adoption requires an exact Dev integration target.");
+  if (await gitSucceeded(root, ["merge-base", "--is-ancestor", sourceRevision, devRevision])) return;
+  if (await gitSucceeded(root, ["merge-base", "--is-ancestor", devRevision, sourceRevision])) {
+    await git(root, ["update-ref", "refs/heads/dev", sourceRevision, devRevision]);
+    return;
+  }
+  const candidate = path.join(root, ".champcity", `adoption-worktree-${migrationId}-merge`);
+  if (fs.existsSync(candidate)) fail("Adoption merge candidate path already exists.");
+  let created = false;
+  try {
+    await git(root, ["worktree", "add", "--detach", candidate, devRevision]);
+    created = true;
+    const merged = await git(candidate, ["-c", "user.name=ChampCity Migration", "-c", "user.email=migration@champcity.invalid",
+      "merge", "--no-ff", "--no-edit", sourceRevision], { optional: true });
+    if (merged === null) {
+      await git(candidate, ["merge", "--abort"], { optional: true });
+      fail("Active source integration conflicts with dev; resolve the branches manually and retry Open Existing Project.");
+    }
+    const mergeRevision = await git(candidate, ["rev-parse", "HEAD"]);
+    if (!mergeRevision) fail("Adoption merge candidate revision could not be verified.");
+    const parents = await git(candidate, ["rev-list", "--parents", "-n", "1", mergeRevision]);
+    if (!parents || parents.split(/\s+/).length !== 3) fail("Adoption merge candidate does not contain the required two parents.");
+    await git(root, ["update-ref", "refs/heads/dev", mergeRevision, devRevision]);
+  } finally {
+    if (created) await git(root, ["worktree", "remove", "--force", candidate], { optional: true }).catch(() => undefined);
+    if (fs.existsSync(candidate)) fs.rmSync(candidate, { recursive: true, force: true });
+  }
+}
+
+async function normalizeConventionalSource(root: string, plan: ExistingProjectGitAdoptionPlan,
+  journal: ExistingProjectGitAdoptionJournal): Promise<void> {
+  if (!plan.currentRevision || !plan.mainRevision) fail("Existing Project adoption plan is missing its exact source baseline.");
+  if (plan.mainAction === "create-from-source") {
+    await git(root, ["update-ref", "refs/heads/main", plan.mainRevision, "0000000000000000000000000000000000000000"]);
+  }
+  let devRevision = await git(root, ["show-ref", "--verify", "--hash", "refs/heads/dev"], { optional: true });
+  if (!devRevision) {
+    await git(root, ["update-ref", "refs/heads/dev", plan.mainRevision, "0000000000000000000000000000000000000000"]);
+    devRevision = plan.mainRevision;
+  }
+  advanceExistingProjectGitAdoptionJournal(root, journal.repositoryId, "refs-normalized");
+  let sourceRevision = plan.currentRevision;
+  if (plan.workingState.captureSnapshotRequired) {
+    const snapshot = await createAdoptionSnapshot(root, plan, journal.migrationId);
+    sourceRevision = snapshot.sourceRevision;
+    advanceExistingProjectGitAdoptionJournal(root, journal.repositoryId, "snapshot-created", {
+      resources: [...new Set([...journal.resources, `.champcity/adoption-worktree-${journal.migrationId}`])].sort(),
+    });
+  }
+  const sourceNeedsDev = plan.currentBranch !== "dev" || plan.workingState.captureSnapshotRequired;
+  if (sourceNeedsDev) await integrateSourceIntoDev(root, sourceRevision, journal.migrationId);
+
+  if (plan.workingState.captureSnapshotRequired) {
+    await git(root, ["reset", "--hard", "HEAD"]);
+    await git(root, ["clean", "-fd", "-e", ".champcity/"]);
+  }
+  const currentBranch = await git(root, ["branch", "--show-current"]);
+  if (currentBranch !== "main" && currentBranch !== "dev") await git(root, ["switch", "dev"]);
+  else if (plan.workingState.captureSnapshotRequired && currentBranch !== "dev") await git(root, ["switch", "dev"]);
+}
+
+async function rollbackOwnedPartialToConventional(root: string, journal: ExistingProjectGitAdoptionJournal): Promise<void> {
+  const topology = resolveManagedProjectSourceTopology(root);
+  const owns = (resource: string): boolean => journal.resources.includes(resource);
+  if (!fs.existsSync(path.join(root, ".git"))) fail("Interrupted migration cannot be rolled back because the conventional Git authority is unavailable.");
+  for (const [relative, checkout] of [["Main", topology.mainCheckoutRoot], ["Dev", topology.devCheckoutRoot]] as const) {
+    if (!fs.existsSync(checkout)) continue;
+    if (!owns(relative)) fail(`Interrupted migration cannot prove ownership of ${relative}.`);
+    await git(root, ["worktree", "remove", "--force", checkout], { optional: true, gitDir: topology.repositoryMetadataRoot });
+    if (fs.existsSync(checkout)) fs.rmSync(checkout, { recursive: true, force: true });
+  }
+  if (fs.existsSync(topology.repositoryMetadataRoot)) {
+    if (!owns(".champcity/repository.git")) fail("Interrupted migration cannot prove ownership of managed Repository metadata.");
+    fs.rmSync(topology.repositoryMetadataRoot, { recursive: true, force: true });
+  }
+  advanceExistingProjectGitAdoptionJournal(root, journal.repositoryId, "rolled-back", {
+    failureReason: "Recovered to the conventional Repository before retrying the accepted migration plan.",
+  });
+  fs.rmSync(journalPath(root), { force: true });
+}
+
+/** Revalidates and applies one inspected plan; renderer callers never supply refs, paths, or merge choices. */
+export async function applyExistingProjectGitAdoption(input: {
+  projectRoot: string;
+  repositoryId: string;
+  workspaceId: string;
+  checkoutRegistration: ManagedProjectCheckoutRegistration;
+  planId: string;
+  consent: boolean;
+}): Promise<ExistingProjectGitAdoptionApplyResult> {
+  const root = fs.realpathSync(input.projectRoot);
+  let plan = await inspectExistingProjectGitAdoption(root, input.repositoryId);
+  if (plan.planId !== input.planId) fail("Existing Project adoption plan is stale; inspect again before applying migration.");
+  if (plan.state === "manual-intervention-required") fail(plan.manualReason ?? "Existing Project requires manual Git intervention.");
+  if (plan.requiresConsent && !input.consent) fail("Existing Project migration requires explicit consent for the inspected source normalization.");
+  if (plan.state === "source-neutral") return { plan, source: null, applied: false };
+  if (plan.state === "managed-ready") {
+    const source = await establishManagedProjectSource({ projectRoot: root, repositoryId: input.repositoryId,
+      workspaceId: input.workspaceId, checkoutRegistration: input.checkoutRegistration });
+    return { plan, source, applied: false };
+  }
+  if (plan.state === "resumable-partial") {
+    const journal = loadExistingProjectGitAdoptionJournal(root, input.repositoryId);
+    if (!journal) fail("Interrupted migration has no valid recovery journal.");
+    if (fs.existsSync(path.join(root, ".git"))) {
+      await rollbackOwnedPartialToConventional(root, journal);
+      plan = await inspectExistingProjectGitAdoption(root, input.repositoryId);
+    } else {
+      const topology = resolveManagedProjectSourceTopology(root);
+      if (!fs.existsSync(topology.repositoryMetadataRoot) || !fs.existsSync(topology.mainCheckoutRoot) || !fs.existsSync(topology.devCheckoutRoot))
+        fail("Interrupted migration cannot prove a complete managed topology or a safe conventional rollback.");
+      const source = await establishManagedProjectSource({ projectRoot: root, repositoryId: input.repositoryId,
+        workspaceId: input.workspaceId, checkoutRegistration: input.checkoutRegistration });
+      const evidence = await inspectExistingProjectGitAdoptionEvidence(root);
+      markExistingProjectGitAdoptionComplete(root, input.repositoryId, evidence.refsDigest, evidence.remotesDigest);
+      return { plan: await inspectExistingProjectGitAdoption(root, input.repositoryId), source, applied: true };
+    }
+  }
+  if (plan.state !== "conventional-auto" && plan.state !== "migration-consent-required")
+    fail("Existing Project adoption state cannot be applied.");
+  if (plan.requiresConsent && !input.consent) fail("Existing Project migration requires explicit consent for the refreshed source normalization.");
+
+  const evidence = await inspectExistingProjectGitAdoptionEvidence(root);
+  const journal = newExistingProjectGitAdoptionJournal({ repositoryId: input.repositoryId, plan, ...evidence });
+  journal.resources = [".champcity/repository.git", "Dev", "Main"];
+  createExistingProjectGitAdoptionJournal(root, journal);
+  try {
+    await normalizeConventionalSource(root, plan, journal);
+    const source = await establishManagedProjectSource({ projectRoot: root, repositoryId: input.repositoryId,
+      workspaceId: input.workspaceId, checkoutRegistration: input.checkoutRegistration });
+    advanceExistingProjectGitAdoptionJournal(root, input.repositoryId, "verified");
+    const finalEvidence = await inspectExistingProjectGitAdoptionEvidence(root);
+    markExistingProjectGitAdoptionComplete(root, input.repositoryId, finalEvidence.refsDigest, finalEvidence.remotesDigest);
+    return { plan: await inspectExistingProjectGitAdoption(root, input.repositoryId), source, applied: true };
+  } catch (error) {
+    const active = loadExistingProjectGitAdoptionJournal(root, input.repositoryId);
+    if (active && active.stage !== "completed" && active.stage !== "rolled-back") {
+      advanceExistingProjectGitAdoptionJournal(root, input.repositoryId, active.stage, {
+        failureReason: error instanceof Error ? error.message.slice(0, 500) : "Existing Project adoption failed.",
+      });
+    }
+    throw error;
+  }
 }

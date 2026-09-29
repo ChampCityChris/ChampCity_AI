@@ -17918,8 +17918,8 @@
     {
       "testPath": "test/source-control/managed-project-source.test.cjs",
       "currentTestCount": {
-        "value": 11,
-        "basis": "WRB01 adoption proof plus EPGA-HF01 non-mutating classification, semantic-consent planning, digest freshness, and bounded journal identity validation."
+        "value": 18,
+        "basis": "WRB01 adoption proof plus EPGA-HF01 inspection/journal proof and EPGA-HF02 apply proof for automatic, missing-baseline, feature integration, dirty snapshot, stale/consent, conflict, metadata-only recovery, completion receipt, and idempotent reopen behavior."
       },
       "duration": {
         "kind": "measured",
@@ -17964,7 +17964,7 @@
         {
           "capabilityId": "managed-project-source-topology",
           "behaviorId": "conventional-project-adoption-preserves-source-and-registers-durable-main-dev-checkouts",
-          "proofLocator": "inspection distinguishes source-neutral, clean automatic, semantic-consent, and managed-ready states without mutation; plan digests bind refs and working state; journals reject foreign/stale identities; adoption preserves source and exact Main/Dev registrations",
+          "proofLocator": "inspection binds topology, refs, and working state; apply revalidates plans, preserves refs/history, creates exact main/dev, integrates only active source, snapshots non-ignored changes, preserves ignored bytes, fails closed on conflicts, and reopens idempotently",
           "proofRole": "primary"
         }
       ]

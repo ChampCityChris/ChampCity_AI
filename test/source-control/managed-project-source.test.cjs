@@ -7,6 +7,7 @@ const test = require("node:test");
 const { AgentHarnessService } = require("../../dist/main/agentHarness/runtime/agentHarnessService.js");
 const { establishManagedProjectSource } = require("../../dist/main/sourceControl/managedProjectSourceService.js");
 const {
+  applyExistingProjectGitAdoption,
   createExistingProjectGitAdoptionJournal,
   inspectExistingProjectGitAdoption,
   inspectExistingProjectGitAdoptionEvidence,
@@ -29,6 +30,22 @@ function fixture(context, name = "managed-project-") {
   git(root, "branch", "dev");
   git(root, "remote", "add", "origin", "https://example.invalid/team/project.git");
   return { temp, root };
+}
+
+async function applyPlan(context, root, repositoryId, plan, consent) {
+  const harness = new AgentHarnessService({ userDataRoot: path.join(path.dirname(root), `userdata-${repositoryId}`) });
+  context.after(() => harness.stop().catch(() => undefined));
+  const workspace = await harness.registerWorkspaceRoot(root);
+  return applyExistingProjectGitAdoption({
+    projectRoot: root,
+    repositoryId,
+    workspaceId: workspace.workspace.workspaceId,
+    checkoutRegistration: {
+      registerRepositoryCheckout: (workspaceId, checkout) => harness.registerRepositoryCheckout(workspaceId, checkout),
+    },
+    planId: plan.planId,
+    consent,
+  });
 }
 
 test("Existing Project inspection distinguishes source-neutral and clean conventional source without mutation", async context => {
@@ -99,6 +116,133 @@ test("adoption journal is atomic, bounded, and rejects foreign or stale identity
   assert.throws(() => loadExistingProjectGitAdoptionJournal(root, "foreign-repository"), /different Repository identity/);
   assert.throws(() => loadExistingProjectGitAdoptionJournal(root, "project-source-journal", "stale-plan"), /stale inspection plan/);
   assert.equal(fs.readdirSync(path.join(root, ".champcity", "migrations")).some(name => name.endsWith(".tmp")), false);
+});
+
+test("apply revalidates clean automatic adoption and managed reopen idempotently", async context => {
+  const { root } = fixture(context, "managed-project-apply-clean-");
+  git(root, "tag", "preserved-tag");
+  git(root, "branch", "preserved-branch");
+  const refs = git(root, "for-each-ref", "--sort=refname", "--format=%(refname)%00%(objectname)", "refs/heads", "refs/remotes", "refs/tags");
+  const plan = await inspectExistingProjectGitAdoption(root, "project-source-apply-clean");
+  const applied = await applyPlan(context, root, "project-source-apply-clean", plan, false);
+  assert.equal(applied.applied, true);
+  assert.equal(applied.plan.state, "managed-ready");
+  assert.equal(fs.existsSync(path.join(root, ".git")), false);
+  assert.equal(git(path.join(root, "Dev"), "for-each-ref", "--sort=refname", "--format=%(refname)%00%(objectname)", "refs/heads", "refs/remotes", "refs/tags"), refs);
+  assert.equal(loadExistingProjectGitAdoptionJournal(root, "project-source-apply-clean").stage, "completed");
+  assert.equal(fs.existsSync(path.join(root, ".champcity", "migrations", "existing-project-git-adoption-v1.receipt.json")), true);
+  const reopenPlan = await inspectExistingProjectGitAdoption(root, "project-source-apply-clean");
+  const reopened = await applyPlan(context, root, "project-source-apply-clean", reopenPlan, false);
+  assert.equal(reopened.applied, false);
+  assert.equal(reopened.plan.state, "managed-ready");
+});
+
+test("apply creates missing main/dev from the exact attached baseline without deleting the source branch", async context => {
+  const { root } = fixture(context, "managed-project-apply-baseline-");
+  git(root, "branch", "-m", "master");
+  git(root, "branch", "-D", "dev");
+  const baseline = git(root, "rev-parse", "HEAD");
+  const plan = await inspectExistingProjectGitAdoption(root, "project-source-apply-baseline");
+  const applied = await applyPlan(context, root, "project-source-apply-baseline", plan, true);
+  assert.equal(applied.applied, true);
+  assert.equal(git(path.join(root, "Dev"), "rev-parse", "refs/heads/main"), baseline);
+  assert.equal(git(path.join(root, "Dev"), "rev-parse", "refs/heads/dev"), baseline);
+  assert.equal(git(path.join(root, "Dev"), "rev-parse", "refs/heads/master"), baseline);
+});
+
+test("apply integrates an active feature into dev while preserving the feature ref and main", async context => {
+  const { root } = fixture(context, "managed-project-apply-feature-");
+  const main = git(root, "rev-parse", "refs/heads/main");
+  git(root, "switch", "-c", "feature/current");
+  fs.writeFileSync(path.join(root, "feature.txt"), "feature source\n");
+  git(root, "add", "feature.txt");
+  git(root, "commit", "-m", "feature source");
+  const feature = git(root, "rev-parse", "HEAD");
+  const plan = await inspectExistingProjectGitAdoption(root, "project-source-apply-feature");
+  assert.equal(plan.activeBranchAction, "fast-forward-dev");
+  await applyPlan(context, root, "project-source-apply-feature", plan, true);
+  assert.equal(git(path.join(root, "Dev"), "rev-parse", "refs/heads/main"), main);
+  assert.equal(git(path.join(root, "Dev"), "rev-parse", "refs/heads/dev"), feature);
+  assert.equal(git(path.join(root, "Dev"), "rev-parse", "refs/heads/feature/current"), feature);
+});
+
+test("accepted dirty adoption commits non-ignored bytes to dev and preserves ignored files locally", async context => {
+  const { root } = fixture(context, "managed-project-apply-dirty-");
+  fs.writeFileSync(path.join(root, ".gitignore"), "ignored.log\n");
+  git(root, "add", ".gitignore");
+  git(root, "commit", "-m", "ignore local log");
+  const main = git(root, "rev-parse", "refs/heads/main");
+  fs.writeFileSync(path.join(root, "README.md"), "dirty tracked bytes\n");
+  fs.writeFileSync(path.join(root, "untracked.txt"), "untracked bytes\n");
+  fs.writeFileSync(path.join(root, "ignored.log"), "ignored bytes\n");
+  const plan = await inspectExistingProjectGitAdoption(root, "project-source-apply-dirty");
+  assert.equal(plan.workingState.captureSnapshotRequired, true);
+  const applied = await applyPlan(context, root, "project-source-apply-dirty", plan, true);
+  assert.equal(applied.applied, true);
+  assert.equal(git(path.join(root, "Main"), "rev-parse", "HEAD"), main);
+  assert.equal(fs.readFileSync(path.join(root, "Dev", "README.md"), "utf8").replace(/\r\n/g, "\n"), "dirty tracked bytes\n");
+  assert.equal(fs.readFileSync(path.join(root, "Dev", "untracked.txt"), "utf8").replace(/\r\n/g, "\n"), "untracked bytes\n");
+  assert.equal(fs.readFileSync(path.join(root, "Dev", "ignored.log"), "utf8"), "ignored bytes\n");
+  assert.match(git(path.join(root, "Dev"), "log", "-1", "--format=%s"), /adoption snapshot/);
+  assert.equal(git(path.join(root, "Dev"), "status", "--porcelain", "--untracked-files=all"), "");
+});
+
+test("stale or unconsented apply performs no migration mutation", async context => {
+  const { root } = fixture(context, "managed-project-apply-stale-");
+  fs.writeFileSync(path.join(root, "dirty.txt"), "requires consent\n");
+  const plan = await inspectExistingProjectGitAdoption(root, "project-source-apply-stale");
+  const refs = git(root, "show-ref");
+  await assert.rejects(applyPlan(context, root, "project-source-apply-stale", plan, false), /explicit consent/);
+  assert.equal(git(root, "show-ref"), refs);
+  assert.equal(fs.existsSync(path.join(root, ".champcity")), false);
+  fs.writeFileSync(path.join(root, "later.txt"), "stale plan\n");
+  await assert.rejects(applyPlan(context, root, "project-source-apply-stale", plan, true), /stale/);
+  assert.equal(git(root, "show-ref"), refs);
+  assert.equal(fs.existsSync(path.join(root, ".champcity")), false);
+});
+
+test("divergent active-branch conflict leaves dev unchanged and returns a manual inspection state", async context => {
+  const { root } = fixture(context, "managed-project-apply-conflict-");
+  fs.writeFileSync(path.join(root, "conflict.txt"), "base\n");
+  git(root, "add", "conflict.txt");
+  git(root, "commit", "-m", "conflict base");
+  git(root, "branch", "-f", "dev", "HEAD");
+  git(root, "switch", "dev");
+  fs.writeFileSync(path.join(root, "conflict.txt"), "dev\n");
+  git(root, "commit", "-am", "dev conflict");
+  const dev = git(root, "rev-parse", "HEAD");
+  git(root, "switch", "-c", "feature/conflict", "main");
+  fs.writeFileSync(path.join(root, "conflict.txt"), "feature\n");
+  git(root, "commit", "-am", "feature conflict");
+  const plan = await inspectExistingProjectGitAdoption(root, "project-source-apply-conflict");
+  assert.equal(plan.activeBranchAction, "merge-into-dev");
+  await assert.rejects(applyPlan(context, root, "project-source-apply-conflict", plan, true), /conflicts with dev/);
+  assert.equal(git(root, "rev-parse", "refs/heads/dev"), dev);
+  assert.equal(fs.existsSync(path.join(root, ".git")), true);
+  assert.equal(fs.existsSync(path.join(root, ".champcity", "repository.git")), false);
+  const manual = await inspectExistingProjectGitAdoption(root, "project-source-apply-conflict");
+  assert.equal(manual.state, "manual-intervention-required");
+  assert.match(manual.manualReason, /conflict/);
+});
+
+test("metadata-only interrupted migration is journal-proven, rolled back, and resumed to completion", async context => {
+  const { root } = fixture(context, "managed-project-apply-resume-");
+  const repositoryId = "project-source-apply-resume";
+  const original = await inspectExistingProjectGitAdoption(root, repositoryId);
+  const evidence = await inspectExistingProjectGitAdoptionEvidence(root);
+  const journal = newExistingProjectGitAdoptionJournal({ repositoryId, plan: original, ...evidence });
+  journal.resources = [".champcity/repository.git", "Dev", "Main"];
+  createExistingProjectGitAdoptionJournal(root, journal);
+  const managed = path.join(root, ".champcity", "repository.git");
+  fs.cpSync(path.join(root, ".git"), managed, { recursive: true });
+  git(root, "--git-dir", managed, "config", "core.bare", "true");
+  const partial = await inspectExistingProjectGitAdoption(root, repositoryId);
+  assert.equal(partial.state, "resumable-partial");
+  const resumed = await applyPlan(context, root, repositoryId, partial, false);
+  assert.equal(resumed.applied, true);
+  assert.equal(resumed.plan.state, "managed-ready");
+  assert.equal(fs.existsSync(path.join(root, ".git")), false);
+  assert.equal(loadExistingProjectGitAdoptionJournal(root, repositoryId).stage, "completed");
 });
 
 test("conventional Project adoption preserves source, Git history, remotes, and registers exact Main/Dev checkouts", async context => {
