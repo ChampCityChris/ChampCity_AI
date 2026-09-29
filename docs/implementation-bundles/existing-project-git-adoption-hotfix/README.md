@@ -4,21 +4,24 @@
 **Forced-normalization checkpoint:** `6200d383d61ff890d86492cb5ed6e3e17b3856d9`  
 **Repair02 acceptance checkpoint:** `2a897f96f60ef8d16606ade4c2b1dfb45fddde5a`  
 **Repair03 implementation checkpoint:** `07d2e543e6c64ec4214fef7027bf853cefdfb1ab`  
-**Repair04 authority-model revision baseline:** `73a260aa8fd9b2f2e9b8620b01101f8634567f93`  
-**Current status:** **REPAIR04 ACTIVE / REAL CHAMPCITY_AI CONVERSION BLOCKED**
+**Repair04 implementation checkpoint:** `643ea5ed24552b34b9cafa3592b4965703fdb28c`  
+**Current status:** **REPAIR04 / REPAIR01 ACTIVE — REAL CHAMPCITY_AI CONVERSION BLOCKED**
 
 ## Active path
 
 Read:
 
-1. `Repair04/README.md`
-2. `Repair04/EPGA-R04-01_decouple_workspace_git_authority_and_make_cutover_failure_safe.md`
+1. `Repair04/EPGA_R04_ARCHITECT_REVIEW_2026-09-29.md`
+2. `Repair04/Repair01/README.md`
+3. `Repair04/Repair01/EPGA-R04-R01_make_checkout_retirement_atomic_and_provision_conventional_authority.md`
 
 Repair01's forced Git normalization remains the implementation baseline.
 
 Repair02's managed-repository integration-policy provisioning is accepted.
 
 Repair03's bounded source staging, ignored/local-state separation, and non-following link handling are accepted.
+
+Repair04's Git-neutral workspace / RepositoryCheckout authority split and staged cutover/rollback direction are accepted, with Repair01 required before real conversion.
 
 ## Workspace / Git authority contract
 
@@ -30,11 +33,12 @@ The workspace itself does not infer or grant Git authority from a root `.git` en
 
 Non-Git workspaces are permanently supported.
 
-Model-facing Git access exists only through an exact registered RepositoryCheckout.
+Model-facing Git access exists only through registered RepositoryCheckout authority.
 
 ChampCity's application/source-control layer owns:
 
 - Git discovery;
+- conventional checkout provisioning;
 - Existing Project adoption;
 - repository normalization;
 - managed repository metadata;
@@ -47,17 +51,17 @@ For a Git-backed Existing Project:
 
 ```text
 select Project
+→ register generic workspace
+→ application provisions explicit conventional checkout when applicable
 → show one conversion warning
 → Accept and Convert / Cancel
 → on Accept:
-     preserve canonical Project source without traversing ignored/local-only trees
-     preserve ignored/local working state separately and keep it uncommitted
-     ignore legacy Project-container .champcity state as source
+     preserve canonical Project source
      generate current managed-repository integration policy
      build candidate managed repository in migration staging
-     retire/drain any explicitly exposed conventional RepositoryCheckout
+     atomically retire/drain conventional RepositoryCheckout
      install canonical managed repository
-     relocate conventional root Git only after managed candidate proof
+     relocate conventional root Git only after candidate proof
      create canonical Main/Dev worktrees
      verify managed topology
      register exact Main/Dev RepositoryCheckouts
@@ -69,15 +73,14 @@ The generic workspace remains a workspace throughout this transition; Git capabi
 
 ## Current blocker
 
-The first real ChampCity_AI retry after Repair03 progressed through source preservation and entered Git normalization.
+Repair04 implementation checkpoint `643ea5ed...` leaves two checkout lifecycle defects:
 
-Rollback then surfaced EPERM / permission denied involving:
+- checkout acquisition can race retirement because active-operation reservation occurs after asynchronous validation;
+- retirement timeout can strand a still-registered checkout in `retiring`.
 
-`.champcity/repository.git`
+It also leaves conventional checkout provisioning test-only rather than wired to production application workspace lifecycle.
 
-The current rollback can throw while cleaning conversion-created managed metadata, mask the primary normalization failure, and leave the journal stuck at `normalizing`.
-
-Repair04 now addresses both the immediate rollback/cutover defect and the incorrect workspace-to-Git authority coupling that made conversion concurrency harder than necessary.
+Repair04 / Repair01 closes those issues before another destructive conversion attempt.
 
 ## Managed Repository configuration
 
@@ -93,7 +96,7 @@ No project-specific Integration Repair scope is fabricated during bootstrap/adop
 
 ## Non-scope
 
-Repair04 does not address:
+Repair04 / Repair01 does not address:
 
 - WRB04 workspace composition;
 - mandatory Architect-per-WorkItem authority drift;

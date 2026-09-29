@@ -2,60 +2,60 @@
 
 **Starting baseline:** `07d2e543e6c64ec4214fef7027bf853cefdfb1ab`  
 **Architect revision baseline:** `73a260aa8fd9b2f2e9b8620b01101f8634567f93`  
-**Status:** **ACTIVE — REAL CHAMPCITY_AI CONVERSION BLOCKED**
+**Implementation checkpoint:** `643ea5ed24552b34b9cafa3592b4965703fdb28c`  
+**Status:** **REPAIR01 ACTIVE — REAL CHAMPCITY_AI CONVERSION BLOCKED**
 
 ## Controlling review
 
-`../Repair03/EPGA_R03_ARCHITECT_REVIEW_2026-09-29.md`
+`EPGA_R04_ARCHITECT_REVIEW_2026-09-29.md`
 
-Repair03 is accepted for its bounded source-staging/local-state scope.
+Repair04's broad authority/cutover architecture is accepted, but the real conversion retry remains blocked by bounded checkout-lifecycle defects.
 
-## Corrected authority model
+## Accepted authority model
 
-Repair04 now explicitly separates:
+Repair04 separates:
 
 - **Workspace** — generic model-access directory; Git-neutral and valid with zero repositories.
 - **RepositoryCheckout** — explicit model-facing Git authority for one validated working copy.
-- **Application/source-control layer** — owns Git discovery, adoption, normalization, checkout lifecycle, and managed topology.
+- **Application/source-control layer** — owns Git discovery, checkout provisioning, adoption, normalization, and managed topology.
 
-The Agent Harness workspace registry must not infer Git authority from `.git` at the workspace root.
+The Agent Harness workspace registry does not infer Git authority from a root `.git`.
 
-A non-Git folder is a permanent supported workspace class.
+Non-Git folders remain permanent supported workspaces.
 
-Git tooling operates only through an exact registered RepositoryCheckout.
+## Blocking findings
 
-## Production failure still owned by Repair04
+The implemented checkout retirement gate is not yet atomic:
 
-The real ChampCity_AI retry passed Repair03 source preservation and entered normalization.
+- checkout resolution can pass the available check, yield during async validation, and acquire a lease after retirement has already removed the checkout;
+- drain timeout leaves a still-persisted checkout stuck in in-memory `retiring` state.
 
-The UI then surfaced EPERM / permission denied involving:
+The new mandatory checkout model also has no production application lifecycle provisioning a conventional root checkout for ordinary Git workspaces; current production workspace-registration call sites create only the generic workspace.
 
-`.champcity/repository.git`
+## Active repair
 
-Forensic state shows the journal still at `normalizing`, no recorded failure reason, root conventional Git still authoritative, no Main/Dev, and an empty partially-cleaned managed metadata directory.
+`Repair01/EPGA-R04-R01_make_checkout_retirement_atomic_and_provision_conventional_authority.md`
 
-The current rollback can fail while removing conversion-created metadata and mask the original normalization failure.
+Repair01 owns:
 
-## Active card
+- atomic checkout reservation vs retirement;
+- timeout/persistence-failure restoration to usable checkout authority;
+- conversion failure before successful retirement;
+- application-owned conventional checkout provisioning;
+- reconciliation of already-registered conventional Git workspaces after upgrade.
 
-`EPGA-R04-01_decouple_workspace_git_authority_and_make_cutover_failure_safe.md`
+## Accepted Repair04 mechanics not reopened
 
-## Repair boundary
+Repair01 does not reopen:
 
-Repair04 owns:
-
-- Git-neutral generic workspace registration;
-- exact RepositoryCheckout-based Git routing;
-- explicit conventional/external checkout exposure when needed;
-- checkout-scoped retirement/draining during conversion;
-- staged candidate managed metadata;
-- explicit attempt-owned resource tracking;
-- Windows-safe bounded rename/remove;
+- Repair02 integration-policy provisioning;
+- Repair03 source materialization/local-state preservation;
+- candidate repository staging;
+- managed-metadata/root-Git cutover separation;
+- bounded Windows mutation retry;
 - primary-failure-preserving rollback;
-- recovery of the current interrupted normalization state.
-
-Repair04 does not reopen Repair02 policy provisioning or Repair03 source staging.
+- truthful failed journal semantics.
 
 ## Stop rule
 
-Do not retry the real ChampCity_AI conversion until Repair04 is implemented and Architect-reviewed.
+Do not retry the real ChampCity_AI conversion until Repair04 / Repair01 is implemented and Architect-reviewed.
