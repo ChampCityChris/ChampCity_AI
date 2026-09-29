@@ -1,56 +1,45 @@
 # Existing Project Git Adoption — Repair02
 
 **Starting baseline:** `6200d383d61ff890d86492cb5ed6e3e17b3856d9`  
-**Architecture correction checkpoint:** `36bee11de8a74e4b101eb4712bbe577ce9ab83f0`  
-**Status:** RELEASED / REAL CHAMPCITY_AI CONVERSION BLOCKED UNTIL REVIEW
+**Implementation checkpoint:** `000b9707c7ebf0c18c2e44ec89587e4d2cb217ed`  
+**Status:** **ACCEPTED — REAL CHAMPCITY_AI UI CONVERSION AUTHORIZED**
 
-## Corrected decision
+## Controlling Architect review
 
-Repair02 does **not** preserve the pre-conversion `.champcity/integration-policy.json` as legacy state.
+`EPGA_R02_ARCHITECT_REVIEW_2026-09-29.md`
 
-Instead:
+Repair02 is complete.
 
-> Every newly managed ChampCity repository is provisioned with a current-schema repository-owned integration policy at bootstrap/adoption time.
+The prior preservation-specific card remains superseded.
 
-The incoming Project-container `.champcity/` tree remains legacy/application state and is not imported into source.
+## Accepted managed-repository policy contract
 
-## Active card
+At a new managed-repository baseline boundary:
 
-`EPGA-R02-01_provision_current_managed_repository_integration_policy.md`
+- incoming Project-container `.champcity` state is not imported as source;
+- the application generates a fresh current integration policy;
+- validation-profile-capable repositories receive the current `integration-gate` policy;
+- other repositories receive the generic application-owned `source-integrity` policy;
+- no project-specific Integration Repair scope is fabricated;
+- the generated policy is force-tracked in repository source;
+- managed reopen never regenerates/overwrites it.
 
-The previously authored preservation-specific card is superseded and must not be implemented.
+## Real ChampCity_AI conversion
 
-## Provisioning rule
+The real ChampCity_AI Project may now be converted through the landing-page **Accept and Convert** action.
 
-During Greenfield bootstrap and Existing Project forced normalization:
+After conversion, stop before further development and perform one source-topology verification of the resulting managed Project.
 
-1. ignore incoming Project-container `.champcity` state;
-2. inspect the source snapshot for **current supported validation capability**, not for legacy policy bytes;
-3. generate a fresh current integration policy;
-4. write it into repository source at `.champcity/integration-policy.json`;
-5. include that generated file in the initial/canonical baseline even when `.champcity/` is ignored;
-6. thereafter the repository-owned policy evolves through normal source control.
+## Known non-blocking consequence
 
-## Default policy classes
+ChampCity_AI's historical project-specific Integration Repair scope is intentionally not migrated.
 
-### Validation-profile-capable repository
+Ordinary integration remains supported.
 
-If the repository contains the exact current ChampCity validation toolkit/authority required by `integration-gate`, generate a current validation-profile policy selecting `integration-gate`.
-
-Do not copy the old policy file.
-
-Do not fabricate Integration Repair scope during bootstrap/adoption.
-
-### Generic repository
-
-If the repository does not contain the current validation-profile authority, generate the application-owned generic source-integrity policy.
-
-This policy performs no repository script execution and exists so every managed Repository has one valid target-owned integration policy.
-
-Project-specific stronger validation/repair policy may be added later through normal managed source changes.
+If a future integration requires automatic Integration Repair, the project will need a current repair scope established through normal managed repository configuration.
 
 ## Stop rule
 
-After EPGA-R02-01 checkpoints, STOP for Architect review.
+No further Existing Project Git-adoption repair is authorized from this review.
 
-Do not convert the real ChampCity_AI Project until that review passes.
+Do not begin unrelated WRB04 convergence or WRB05 as part of this repair.
