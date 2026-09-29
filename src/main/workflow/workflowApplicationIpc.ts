@@ -36,6 +36,18 @@ export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcR
     if (args.length !== 2 || args.some(value => typeof value !== "string" || !value.trim() || value.length > 128)) throw Error("Exact Workflow and WorkItem IDs are required.");
     return execution.getWorkItemValidationProjection(getCurrentProjectRoot(), args[0] as string, args[1] as string);
   });
+  registry.handle("workflow:checkpointRecovery", async (_event, ...args) => {
+    if (args.length !== 2 || args.some(value => typeof value !== "string" || !value.trim() || value.length > 128)) throw Error("Exact Workflow and WorkItem IDs are required.");
+    return execution.getCheckpointRecoveryProjection(getCurrentProjectRoot(), args[0] as string, args[1] as string);
+  });
+  registry.handle("workflow:retryImplementationCheckpoint", async (_event, ...args) => {
+    if (args.length !== 3 || args.some(value => typeof value !== "string" || !value.trim() || value.length > 128)) throw Error("Exact Workflow, WorkItem, and ImplementationRecord IDs are required.");
+    return execution.retryImplementationCheckpoint(getCurrentProjectRoot(), args[0] as string, args[1] as string, args[2] as string);
+  });
+  registry.handle("workflow:retryTesterCheckpoint", async (_event, ...args) => {
+    if (args.length !== 4 || args.some(value => typeof value !== "string" || !value.trim() || value.length > 128)) throw Error("Exact Workflow, WorkItem, ImplementationRecord, and TesterResult IDs are required.");
+    return execution.retryTesterCheckpoint(getCurrentProjectRoot(), args[0] as string, args[1] as string, args[2] as string, args[3] as string);
+  });
   registry.handle("workflow:executionProjection", async (_event, ...args) => {
     if (args.length !== 1 || typeof args[0] !== "string" || !args[0].trim() || args[0].length > 128) throw Error("Exact Workflow ID is required.");
     return execution.getExecutionProjection(getCurrentProjectRoot(), args[0]);

@@ -5,6 +5,7 @@ import type { PhaseValidationProjection, WorkflowExecutionProjection, WorkItemVa
 import type { CodexImplementerExecutionModel, CodexTesterExecutionModel } from "../../shared/workspaceContracts";
 import type { CodexManagedRuntimeStatus } from "../../shared/codexRuntimeContracts";
 import type { IntegrationRepairAttempt, IntegrationRepairPatch } from "../../shared/integrationRepairContracts";
+import type { WorkflowCheckpointRecoveryProjection } from "../../shared/workflowApplicationContracts";
 import { CodexBoundedMcpElicitationPanel, CodexBoundedUserInputPanel } from "./CodexBoundedInteractionPanels";
 
 type Props = { workflow: WorkflowInstanceSummary; onReturn: () => void; browserPanel: ReactNode };
@@ -15,6 +16,7 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel }:
   const [runtime, setRuntime] = useState<CodexManagedRuntimeStatus | null>(null);
   const [implementer, setImplementer] = useState<CodexImplementerExecutionModel | null>(null);
   const [tester, setTester] = useState<CodexTesterExecutionModel | null>(null);
+  const [checkpointRecovery, setCheckpointRecovery] = useState<WorkflowCheckpointRecoveryProjection | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -30,7 +32,7 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel }:
   const [architectDraft, setArchitectDraft] = useState("");
   const [phaseValidation, setPhaseValidation] = useState<Record<string, PhaseValidationProjection>>({});
 
-  const refresh = async () => {
+  const refresh = async (preserveOperationFeedback = false, preserveRuntimeRole?: "implementer" | "tester") => {
     try {
       const [next, models] = await Promise.all([window.champcity.getWorkflowExecutionProjection(workflow.workflowId), window.champcity.getCodexManagedRuntimeStatus()]);
       setProjection(next); setRuntime(models);
@@ -44,14 +46,15 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel }:
       if (selected) {
         const last = selected.implementationAttempts.at(-1);
         setValidation(await window.champcity.getWorkItemValidation(workflow.workflowId, selected.record.id));
-        setImplementer(await window.champcity.getWorkflowWorkItemCodexExecutionStatus(workflow.workflowId, selected.record.id));
-        if (last) setTester(await window.champcity.getWorkflowWorkItemTesterStatus(workflow.workflowId, selected.record.id, last.id));
-        else setTester(null);
+        setCheckpointRecovery(await window.champcity.getWorkflowCheckpointRecovery(workflow.workflowId, selected.record.id));
+        if (preserveRuntimeRole !== "implementer") setImplementer(await window.champcity.getWorkflowWorkItemCodexExecutionStatus(workflow.workflowId, selected.record.id));
+        if (last) { if (preserveRuntimeRole !== "tester") setTester(await window.champcity.getWorkflowWorkItemTesterStatus(workflow.workflowId, selected.record.id, last.id)); }
+        else if (preserveRuntimeRole !== "tester") setTester(null);
       }
       if (["execution-complete", "integration-ready"].includes(next.plan.workflow.body.currentWorkspace)) {
         try { setIntegration(await window.champcity.getWorkflowIntegration(workflow.workflowId)); } catch { setIntegration(null); }
       }
-      setError("");
+      if (!preserveOperationFeedback) setError("");
     } catch (reason) {
       try {
         const current = await window.champcity.getWorkflow(workflow.workflowId);
@@ -59,7 +62,7 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel }:
           setProjection(null); setError(""); setFeedback("Workflow is integrated and closed. Its final state is available from the Workflows Hub."); return;
         }
       } catch { /* Keep the original exact Workflow service error visible. */ }
-      setError(String(reason));
+      if (!preserveOperationFeedback) setError(String(reason));
     }
   };
   useEffect(() => { void refresh(); }, [workflow.workflowId]);
@@ -83,13 +86,16 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel }:
       incomingDependentMappings: projection?.items.filter(candidate => candidate.dependencyIds.includes(entry.record.id)).map(candidate => ({ dependentWorkItemId: candidate.record.id, replacementKeys: [firstKey, secondKey] })) ?? [],
     }, null, 2);
   };
-  const act = async (operation: () => Promise<unknown>, message: string) => {
+  const act = async (operation: () => Promise<unknown>, message: string, role?: "implementer" | "tester") => {
     try { const result = await operation();
       if (result && typeof result === "object" && "state" in result && (result.state === "unavailable" || result.state === "failed" || ("failureReason" in result && result.failureReason))) {
-        if ("eventTail" in result) setImplementer(result as CodexImplementerExecutionModel);
-        setFeedback(""); setError(String("failureReason" in result ? result.failureReason : "Execution could not start.")); await refresh(); return;
+        if (role === "tester") setTester(result as CodexTesterExecutionModel);
+        else if (role === "implementer") setImplementer(result as CodexImplementerExecutionModel);
+        setFeedback(""); setError(String("failureReason" in result ? result.failureReason : "Execution could not start.")); await refresh(true, role); return;
       }
-      setFeedback(message); setError(""); await refresh();
+      if (role === "tester") setTester(result as CodexTesterExecutionModel);
+      else if (role === "implementer") setImplementer(result as CodexImplementerExecutionModel);
+      setFeedback(message); setError(""); await refresh(Boolean(role), role);
     } catch (reason) { setError(String(reason)); }
   };
   const runValidation = async (criterionId: string, policy: string) => act(async () => {
@@ -133,7 +139,7 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel }:
           <p>Prepare the exact Architect handoff, then accept its bounded execution contract before decomposition or Implementer execution.</p>
           <button onClick={() => void act(async () => {
             const solution = projection.plan.solutions[0]; const phase = projection.plan.phases.find(candidate => candidate.phaseId === item.phaseId);
-            const handoff = `Architect WorkItem execution plan\nWorkflow ID: ${workflow.workflowId}\nWorkItem ID/version: ${item.record.id}/${item.record.recordVersion}\nObjective: ${item.record.body.objective}\nAccepted BoundedSolution: ${JSON.stringify(solution)}\nWorkItem Criteria: ${JSON.stringify(projection.plan.criteria.filter(candidate => candidate.ownerId === item.record.id).map(candidate => candidate.record))}\nSolution Criteria: ${JSON.stringify(projection.plan.criteria.filter(candidate => candidate.ownerId === solution?.id).map(candidate => candidate.record))}\nPhase context: ${JSON.stringify(phase ?? null)}\nDependencies: ${JSON.stringify(item.dependencyIds)}\nScope/constraints: ${JSON.stringify({ scopeIn: solution?.body.scopeIn, scopeOut: solution?.body.scopeOut, constraints: solution?.body.constraints })}\nSource mode/context: ${JSON.stringify({ mode: projection.source.state === "non-source" ? "source-neutral" : "source-backed", currentRevisionId: projection.source.currentRevisionId, workSourceLineId: projection.source.workSourceLineId, repositoryCheckoutId: projection.source.repositoryCheckoutId })}\nReturn implementationBoundaries (1..32), affectedPaths (0..128 normalized repo-relative paths; empty for source-neutral), proofIntent (1..32), whether decomposition is required, and bounded current repository context relevant to this exact scope. Do not return raw transcript or Markdown as authority.`;
+            const handoff = `Architect WorkItem execution plan\nWorkflow ID: ${workflow.workflowId}\nWorkItem ID/version: ${item.record.id}/${item.record.recordVersion}\nObjective: ${item.record.body.objective}\nAccepted BoundedSolution: ${JSON.stringify(solution)}\nWorkItem Criteria: ${JSON.stringify(projection.plan.criteria.filter(candidate => candidate.ownerId === item.record.id).map(candidate => candidate.record))}\nSolution Criteria: ${JSON.stringify(projection.plan.criteria.filter(candidate => candidate.ownerId === solution?.id).map(candidate => candidate.record))}\nPhase context: ${JSON.stringify(phase ?? null)}\nDependencies: ${JSON.stringify(item.dependencyIds)}\nScope/constraints: ${JSON.stringify({ scopeIn: solution?.body.scopeIn, scopeOut: solution?.body.scopeOut, constraints: solution?.body.constraints })}\nSource mode/context: ${JSON.stringify({ mode: projection.source.state === "non-source" ? "source-neutral" : "source-backed", currentRevisionId: projection.source.currentRevisionId, workSourceLineId: projection.source.workSourceLineId, repositoryCheckoutId: projection.source.repositoryCheckoutId })}\n${projection.source.state === "non-source" ? "Source-neutral policy: required deterministic ValidationCatalog proof is unavailable. Select a supported policy such as semantic_ai, visual_human, or operator_decision for every required Criterion; canonical acceptance enforces this." : "Source-backed deterministic ValidationCatalog proof is available when appropriate."}\nReturn implementationBoundaries (1..32), affectedPaths (0..128 normalized repo-relative paths; empty for source-neutral), proofIntent (1..32), whether decomposition is required, and bounded current repository context relevant to this exact scope. Do not return raw transcript or Markdown as authority.`;
             await navigator.clipboard.writeText(handoff); return { copied: true };
           }, "Exact Architect handoff copied.")}>Prepare Architect handoff</button>
           <label>Architect structured result<textarea aria-label="Architect structured result" value={architectDraft} onChange={event => setArchitectDraft(event.target.value)} placeholder={'{"implementationBoundaries":[],"affectedPaths":[],"proofIntent":[],"decompositionRequired":false}'} /></label>
@@ -187,26 +193,32 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel }:
           <select aria-label="Reasoning effort" value={selectedModel?.reasoningEffort ?? ""} onChange={async event => {
             if (!selectedModel) return; try { setRuntime(await window.champcity.setCodexModelSelection({ ...selectedModel, reasoningEffort: event.target.value })); } catch (reason) { setError(String(reason)); }
           }}>{(runtime.catalog.find(entry => entry.model === selectedModel?.model)?.supportedReasoningEfforts ?? []).map(effort => <option key={effort} value={effort}>{effort}</option>)}</select></label> : <p role="status">Codex model catalog is unavailable.</p>}
-        {item.eligibility.eligible && item.record.body.implementationBoundaries?.length && ["planned", "ready"].includes(item.record.body.workState) && <button disabled={!selectedModel || implementer?.state === "running" || tester?.state === "running"} onClick={() => selectedModel && void act(() => window.champcity.startWorkflowWorkItemCodexExecution(workflow.workflowId, item.record.id, selectedModel), "Implementer run started.")}>Run Implementer</button>}
+        {item.eligibility.eligible && item.record.body.implementationBoundaries?.length && ["planned", "ready"].includes(item.record.body.workState) && <button disabled={!selectedModel || implementer?.state === "running" || tester?.state === "running"} onClick={() => selectedModel && void act(() => window.champcity.startWorkflowWorkItemCodexExecution(workflow.workflowId, item.record.id, selectedModel), "Implementer run started.", "implementer")}>Run Implementer</button>}
         {implementer && <section aria-label="Implementer runtime status"><p>Exact Implementer state: {implementer.state}{implementer.failureReason ? ` · ${implementer.failureReason}` : ""}</p>{implementer.pendingApproval ? <p>Pending interaction: approval</p> : implementer.pendingUserInput ? <p>Pending interaction: user input</p> : implementer.pendingMcpElicitation ? <p>Pending interaction: MCP elicitation</p> : null}{implementer.eventTail.length > 0 && <details><summary>Recent Implementer events</summary><ul>{implementer.eventTail.slice(-8).map((entry, index) => <li key={index}>{entry}</li>)}</ul></details>}</section>}
         {runtime?.selectionBlocker && <p role="status">{runtime.selectionBlocker}</p>}
         {implementer?.pendingApproval && <section aria-label="Implementer approval request"><h4>Implementer approval</h4><p>{implementer.pendingApproval.impactSummary}</p>
           {implementer.pendingApproval.commandDisplay && <pre>{implementer.pendingApproval.commandDisplay}</pre>}{implementer.pendingApproval.fileChangeSummary && <p>{implementer.pendingApproval.fileChangeSummary}</p>}
           {implementer.pendingApproval.permissionSummary && <p>{implementer.pendingApproval.permissionSummary}</p>}
-          <button onClick={() => void act(() => window.champcity.respondToCodexApproval({ requestId: implementer.pendingApproval!.requestId, decision: "approve", workflowId: workflow.workflowId, workItemId: item.record.id }), "Implementer approval answered.")}>Approve exact request</button>
-          <button onClick={() => void act(() => window.champcity.respondToCodexApproval({ requestId: implementer.pendingApproval!.requestId, decision: "deny", workflowId: workflow.workflowId, workItemId: item.record.id }), "Implementer request denied.")}>Deny exact request</button></section>}
-        {implementer?.pendingUserInput && <CodexBoundedUserInputPanel label="Implementer" pending={implementer.pendingUserInput} onSubmit={(requestId, answers) => void act(() => window.champcity.respondToCodexUserInput({ requestId, answers, workflowId: workflow.workflowId, workItemId: item.record.id }), "Implementer input sent to the exact session.")} />}
-        {implementer?.pendingMcpElicitation && <CodexBoundedMcpElicitationPanel pending={implementer.pendingMcpElicitation} onSubmit={(requestId, action, content) => void act(() => window.champcity.respondToCodexMcpElicitation({ requestId, action, content, workflowId: workflow.workflowId, workItemId: item.record.id }), action === "accept" ? "MCP elicitation answered." : `MCP elicitation ${action}ed.`)} />}
-        {implementer?.state === "running" && <button onClick={() => void act(() => window.champcity.cancelCodexImplementerExecution({ workflowId: workflow.workflowId, workItemId: item.record.id }), "Exact Implementer session cancelled.")}>Cancel Implementer</button>}
+          <button onClick={() => void act(() => window.champcity.respondToCodexApproval({ requestId: implementer.pendingApproval!.requestId, decision: "approve", workflowId: workflow.workflowId, workItemId: item.record.id }), "Implementer approval answered.", "implementer")}>Approve exact request</button>
+          <button onClick={() => void act(() => window.champcity.respondToCodexApproval({ requestId: implementer.pendingApproval!.requestId, decision: "deny", workflowId: workflow.workflowId, workItemId: item.record.id }), "Implementer request denied.", "implementer")}>Deny exact request</button></section>}
+        {implementer?.pendingUserInput && <CodexBoundedUserInputPanel label="Implementer" pending={implementer.pendingUserInput} onSubmit={(requestId, answers) => void act(() => window.champcity.respondToCodexUserInput({ requestId, answers, workflowId: workflow.workflowId, workItemId: item.record.id }), "Implementer input sent to the exact session.", "implementer")} />}
+        {implementer?.pendingMcpElicitation && <CodexBoundedMcpElicitationPanel pending={implementer.pendingMcpElicitation} onSubmit={(requestId, action, content) => void act(() => window.champcity.respondToCodexMcpElicitation({ requestId, action, content, workflowId: workflow.workflowId, workItemId: item.record.id }), action === "accept" ? "MCP elicitation answered." : `MCP elicitation ${action}ed.`, "implementer")} />}
+        {implementer?.state === "running" && <button onClick={() => void act(() => window.champcity.cancelCodexImplementerExecution({ workflowId: workflow.workflowId, workItemId: item.record.id }), "Exact Implementer session cancelled.", "implementer")}>Cancel Implementer</button>}
         <h3>Tester</h3><p>{tester?.testerResultId ? `TesterResult ${tester.testerResultId} · checkpoint ${tester.checkpointState}` : tester?.failureReason ?? "Tester has not completed for the latest implementation."}</p>
         {tester && <section aria-label="Tester runtime status"><p>Exact Tester state: {tester.state}{tester.failureReason ? ` · ${tester.failureReason}` : ""}</p>{tester.pendingApproval ? <p>Pending interaction: approval</p> : tester.pendingUserInput ? <p>Pending interaction: user input</p> : null}{tester.eventTail.length > 0 && <details><summary>Recent Tester events</summary><ul>{tester.eventTail.slice(-8).map((entry, index) => <li key={index}>{entry}</li>)}</ul></details>}</section>}
-        {latest?.body.outcome === "implemented" && selectedModel && <button disabled={tester?.state === "running"} onClick={() => void act(() => window.champcity.startWorkflowWorkItemTester(workflow.workflowId, item.record.id, latest.id, selectedModel), "Tester run started.")}>Run Tester</button>}
+        {checkpointRecovery && checkpointRecovery.sourceMode === "source-backed" && <section aria-label="Source Checkpoint Recovery"><h3>Source Checkpoint Recovery</h3>
+          <p>Implementation checkpoint: {checkpointRecovery.implementation.state}{checkpointRecovery.implementation.implementationRecordId ? <> · ImplementationRecord <code>{checkpointRecovery.implementation.implementationRecordId}</code></> : null}{checkpointRecovery.implementation.checkpointId ? <> · checkpoint <code>{checkpointRecovery.implementation.checkpointId}</code></> : null}{checkpointRecovery.implementation.reason ? ` · ${checkpointRecovery.implementation.reason}` : ""}</p>
+          {checkpointRecovery.implementation.retryable && checkpointRecovery.implementation.implementationRecordId && <button onClick={() => void act(() => window.champcity.retryWorkflowImplementationCheckpoint(workflow.workflowId, item.record.id, checkpointRecovery.implementation.implementationRecordId!), "Implementation checkpoint reconciled.")}>Retry / Reconcile implementation checkpoint</button>}
+          <p>Tester checkpoint: {checkpointRecovery.tester.state}{checkpointRecovery.tester.testerResultId ? <> · TesterResult <code>{checkpointRecovery.tester.testerResultId}</code></> : null}{checkpointRecovery.tester.checkpointId ? <> · checkpoint <code>{checkpointRecovery.tester.checkpointId}</code></> : null}{checkpointRecovery.tester.reason ? ` · ${checkpointRecovery.tester.reason}` : ""}</p>
+          {checkpointRecovery.tester.retryable && checkpointRecovery.tester.implementationRecordId && checkpointRecovery.tester.testerResultId && <button onClick={() => void act(() => window.champcity.retryWorkflowTesterCheckpoint(workflow.workflowId, item.record.id, checkpointRecovery.tester.implementationRecordId!, checkpointRecovery.tester.testerResultId!), "Tester checkpoint reconciled.")}>Retry / Reconcile Tester checkpoint</button>}
+        </section>}
+        {latest?.body.outcome === "implemented" && selectedModel && <button disabled={tester?.state === "running"} onClick={() => void act(() => window.champcity.startWorkflowWorkItemTester(workflow.workflowId, item.record.id, latest.id, selectedModel), "Tester run started.", "tester")}>Run Tester</button>}
         {tester?.pendingApproval && <section aria-label="Tester approval request"><h4>Tester approval</h4><p>{tester.pendingApproval.impactSummary}</p>
           {tester.pendingApproval.commandDisplay && <pre>{tester.pendingApproval.commandDisplay}</pre>}
-          <button onClick={() => void act(() => window.champcity.respondToWorkflowWorkItemTesterApproval(workflow.workflowId, item.record.id, latest!.id, tester.pendingApproval!.requestId, "approve"), "Tester approval answered.")}>Approve exact Tester request</button>
-          <button onClick={() => void act(() => window.champcity.respondToWorkflowWorkItemTesterApproval(workflow.workflowId, item.record.id, latest!.id, tester.pendingApproval!.requestId, "deny"), "Tester request denied.")}>Deny exact Tester request</button></section>}
-        {tester?.pendingUserInput && <CodexBoundedUserInputPanel label="Tester" pending={tester.pendingUserInput} onSubmit={(requestId, answers) => void act(() => window.champcity.respondToWorkflowWorkItemTesterInput(workflow.workflowId, item.record.id, latest!.id, requestId, answers), "Tester input sent to the exact session.")} />}
-        {tester?.state === "running" && latest && <button onClick={() => void act(() => window.champcity.cancelWorkflowWorkItemTester(workflow.workflowId, item.record.id, latest.id), "Exact Tester session cancelled.")}>Cancel Tester</button>}
+          <button onClick={() => void act(() => window.champcity.respondToWorkflowWorkItemTesterApproval(workflow.workflowId, item.record.id, latest!.id, tester.pendingApproval!.requestId, "approve"), "Tester approval answered.", "tester")}>Approve exact Tester request</button>
+          <button onClick={() => void act(() => window.champcity.respondToWorkflowWorkItemTesterApproval(workflow.workflowId, item.record.id, latest!.id, tester.pendingApproval!.requestId, "deny"), "Tester request denied.", "tester")}>Deny exact Tester request</button></section>}
+        {tester?.pendingUserInput && <CodexBoundedUserInputPanel label="Tester" pending={tester.pendingUserInput} onSubmit={(requestId, answers) => void act(() => window.champcity.respondToWorkflowWorkItemTesterInput(workflow.workflowId, item.record.id, latest!.id, requestId, answers), "Tester input sent to the exact session.", "tester")} />}
+        {tester?.state === "running" && latest && <button onClick={() => void act(() => window.champcity.cancelWorkflowWorkItemTester(workflow.workflowId, item.record.id, latest.id), "Exact Tester session cancelled.", "tester")}>Cancel Tester</button>}
         {validation && <><h3>Validator</h3><p>{validation.sourceMode} · {validation.completion.eligible ? "completion eligible" : validation.completion.blockers.join(", ")}</p><ul>{validation.criteria.map(entry => <li key={entry.criterion.id}>
           {entry.criterion.body.statement} — {entry.outcome} · {entry.policy === "semantic_ai" ? "semantic Validator" : entry.policy === "deterministic" ? "deterministic Validator" : entry.policy === "deferred_visual_phase" ? "human visual evidence at Phase close" : "human Operator decision"}{entry.reason ? ` (${entry.reason})` : ""}
           {entry.outcome === "pending" && entry.policy !== "operator_decision" && entry.policy !== "deferred_visual_phase" && <button onClick={() => void runValidation(entry.criterion.id, entry.policy)}>Validate</button>}

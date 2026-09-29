@@ -4,7 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type { EntityId, ProjectId, ProjectStateRecord } from "../../shared/projectState/domainContracts";
 import { createProjectStateService, type WorkflowExecutionPlanView } from "../../shared/projectState/projectStateService";
 import type { ProjectStateStore } from "../../shared/projectState/projectStateStore";
-import type { PhaseValidationProjection, WorkItemExecutionContract, WorkItemValidationProjection, WorkflowExecutionCompletionProjection, WorkflowExecutionPreparationResult, WorkflowExecutionProjection, WorkflowWorkItemDecompositionInput } from "../../shared/workflowApplicationContracts";
+import type { PhaseValidationProjection, WorkItemExecutionContract, WorkItemValidationProjection, WorkflowCheckpointRecoveryProjection, WorkflowExecutionCompletionProjection, WorkflowExecutionPreparationResult, WorkflowExecutionProjection, WorkflowWorkItemDecompositionInput } from "../../shared/workflowApplicationContracts";
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
 import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
 import type { CodexModelSelection } from "../../shared/codexRuntimeContracts";
@@ -13,6 +13,7 @@ import { reviewWorkItemCriterion } from "./semanticWorkItemValidator";
 import { loadCodexAppServerAdapter, type CodexAppServerAdapter } from "../workCardBuilding/codexAppServerTransport";
 import { runBoundedGit } from "../agentHarness/repository/boundedGit";
 import { runDeterministicWorkItemProfile } from "./deterministicWorkItemValidator";
+import { checkpointStructuredTesterResult, retryStructuredImplementationCheckpoint } from "../sourceControl/structuredWorkflowCheckpointService";
 
 const operator = { principalId: "local-operator", principalType: "human" as const, role: "Operator" };
 const workflowApplication = { principalId: "workflow-execution-application", principalType: "system" as const, role: "System" };
@@ -220,8 +221,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
       if (testerResults.length > 1) throw Error("Current implementation has duplicate TesterResults.");
       const tester = testerResults[0] ?? null;
-      if (implementation?.body.outcome === "implemented" && (!tester || tester.body.checkpointState === "pending" || tester.body.checkpointState === "blocked"))
-        throw Error("Exact current TesterResult is missing or its checkpoint is unresolved.");
+      if (implementation?.body.outcome === "implemented" && !tester) throw Error("Exact current TesterResult is missing.");
       if (tester && tester.body.sourceMode !== (projection.source.state === "non-source" ? "source-neutral" : "source-backed"))
         throw Error("TesterResult source mode does not match the exact Workflow.");
       const criterionViews = [];
@@ -263,6 +263,57 @@ export function createWorkflowExecutionApplicationService(dependencies: {
         sourceRevisionId: projection.source.currentRevisionId, implementationRecordId: implementation?.id ?? null,
         testerResultId: tester?.id ?? null, criteria: criterionViews, completion: { eligible: completion.eligible, blockers: completion.blockers } };
     });
+  }
+
+  async function getCheckpointRecoveryProjection(projectRoot: string, workflowId: EntityId, workItemId: EntityId): Promise<WorkflowCheckpointRecoveryProjection> {
+    return withCurrentProject(projectRoot, async (store, projectId) => {
+      const plan = await exactPlan(store, projectId, workflowId);
+      const item = [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].find(candidate => candidate.id === workItemId);
+      if (!item) throw Error("Exact WorkItem is not part of the selected current Workflow.");
+      const sourceMode = (await store.listRelationships(projectId, "baselines_source")).some(edge => edge.toEntityId === workflowId && !edge.endedAt) ? "source-backed" : "source-neutral";
+      const implementations = await createProjectStateService(store, operator).getImplementationAttempts(projectId, workItemId);
+      const implementation = implementations.at(-1) ?? null;
+      const checkpointEdges = (await store.listRelationships(projectId, "checkpoints")).filter(edge => !edge.endedAt);
+      const checkpoints = await store.listEntities(projectId, "SourceCheckpoint");
+      const implementationCheckpointEdge = implementation && checkpointEdges.find(edge => edge.toEntityId === implementation.id);
+      const implementationCheckpoint = implementationCheckpointEdge ? checkpoints.find(record => record.entityType === "SourceCheckpoint" && record.id === implementationCheckpointEdge.fromEntityId) : null;
+      const testerResults = (await store.listEntities(projectId, "TesterResult")).filter((record): record is ProjectStateRecord<"TesterResult"> => record.entityType === "TesterResult" &&
+        record.body.workflowId === workflowId && record.body.workItemId === workItemId && record.body.implementationRecordId === implementation?.id);
+      if (testerResults.length > 1) throw Error("Current implementation has duplicate TesterResults.");
+      const tester = testerResults[0] ?? null;
+      const testerCheckpoint = tester?.body.sourceCheckpointId ? checkpoints.find(record => record.entityType === "SourceCheckpoint" && record.id === tester.body.sourceCheckpointId) : null;
+      let packetValid = false;
+      if (sourceMode === "source-backed" && implementation?.body.executionRef && item.body.workState === "validation_pending") {
+        try {
+          const packetPath = path.join(fs.realpathSync(projectRoot), ".champcity", "runtime", "work-item-attempts", `${implementation.body.executionRef}.json`);
+          const packet = JSON.parse(fs.readFileSync(packetPath, "utf8")) as Record<string, unknown>;
+          const attempt = packet.sourceCheckpointAttempt as Record<string, unknown> | undefined;
+          packetValid = packet.workflowId === workflowId && packet.workItemId === workItemId && packet.projectId === projectId && packet.executionRef === implementation.body.executionRef &&
+            Array.isArray(attempt?.attributablePaths) && attempt.attributablePaths.length > 0;
+        } catch { packetValid = false; }
+      }
+      const implState = sourceMode === "source-neutral" ? "not-applicable" : implementationCheckpoint?.entityType === "SourceCheckpoint" ? implementationCheckpoint.body.checkpointState : implementation?.body.outcome === "implemented" ? "pending" : "not-required";
+      const testerState = sourceMode === "source-neutral" ? "not-applicable" : tester?.body.checkpointState ?? "not-required";
+      const implRetryable = sourceMode === "source-backed" && packetValid && item.body.workState === "validation_pending" && implState !== "committed";
+      const testerRetryable = sourceMode === "source-backed" && Boolean(tester && tester.body.checkpointState === "pending" && tester.body.permanentTestPaths.length && item.body.workState === "validation_pending");
+      return { workflowId, workItemId, sourceMode,
+        implementation: { implementationRecordId: implementation?.id ?? null, checkpointId: implementationCheckpoint?.id ?? null, state: implState, retryable: implRetryable,
+          reason: implRetryable ? null : implState === "not-applicable" ? null : implState === "committed" ? "Implementation checkpoint is committed." : "Exact durable implementation attribution is missing or no longer retryable." },
+        tester: { implementationRecordId: implementation?.id ?? null, testerResultId: tester?.id ?? null, checkpointId: testerCheckpoint?.id ?? null, state: testerState, retryable: testerRetryable,
+          reason: testerRetryable ? null : testerState === "not-applicable" ? null : testerState === "committed" || testerState === "not-required" ? null : "Exact pending TesterResult checkpoint is not safely retryable." } };
+    });
+  }
+
+  async function retryImplementationCheckpoint(projectRoot: string, workflowId: EntityId, workItemId: EntityId, implementationRecordId: EntityId) {
+    const projection = await getCheckpointRecoveryProjection(projectRoot, workflowId, workItemId);
+    if (!projection.implementation.retryable || projection.implementation.implementationRecordId !== implementationRecordId) throw Error("Exact implementation checkpoint is not safely retryable.");
+    return withCurrentProject(projectRoot, (_store, projectId) => retryStructuredImplementationCheckpoint(projectRoot, projectId, workflowId, workItemId, implementationRecordId));
+  }
+
+  async function retryTesterCheckpoint(projectRoot: string, workflowId: EntityId, workItemId: EntityId, implementationRecordId: EntityId, testerResultId: EntityId) {
+    const projection = await getCheckpointRecoveryProjection(projectRoot, workflowId, workItemId);
+    if (!projection.tester.retryable || projection.tester.implementationRecordId !== implementationRecordId || projection.tester.testerResultId !== testerResultId) throw Error("Exact Tester checkpoint is not safely retryable.");
+    return withCurrentProject(projectRoot, (_store, projectId) => checkpointStructuredTesterResult(projectRoot, projectId, testerResultId));
   }
 
   async function decomposeWorkflowWorkItem(projectRoot: string, input: WorkflowWorkItemDecompositionInput) {
@@ -914,7 +965,8 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       .finishWorkItemAttempt(projectId, workflowId, workItemId, executionRef, result));
   }
 
-  return { getExecutionProjection, getWorkflowExecutionCompletionProjection, completeWorkflowExecution, getWorkItemValidationProjection, decomposeWorkflowWorkItem, acceptWorkItemExecutionPlan,
+  return { getExecutionProjection, getWorkflowExecutionCompletionProjection, completeWorkflowExecution, getWorkItemValidationProjection, getCheckpointRecoveryProjection,
+    retryImplementationCheckpoint, retryTesterCheckpoint, decomposeWorkflowWorkItem, acceptWorkItemExecutionPlan,
     recordWorkItemVisualCriterion, recordWorkItemCriterionDecision, getPhaseValidationProjection, recordPhaseVisualCriterion,
     recordPhaseCriterionDecision, validateDeterministicPhaseCriterion, validateSemanticPhaseCriterion,
     completeWorkItem, completePhase, createWorkflowRepair, createPhaseRepair, validateSemanticWorkItemCriterion, validateDeterministicWorkItemCriterion, prepareExecution, createWorkItemExecutionContract, createTesterWorkItemExecutionContract,

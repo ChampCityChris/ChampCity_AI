@@ -564,11 +564,22 @@ export class CodexImplementerExecutionService {
   private async getWorkflowWorkItemStatus(workspaceRoot: string, selector: Extract<CodexExecutionSelector, { ownerKind: "workflow-work-item" }>): Promise<CodexImplementerExecutionModel> {
     const active = this.exactSessionsByOwner.get(exactExecutionOwnerKey(workspaceRoot, selector.workflowId, selector.workItemId));
     if (active?.workflowWorkItem?.workflowId === selector.workflowId && active.workflowWorkItem.workItemId === selector.workItemId) {
-      const canRunAgain = active.state === "failed" || active.state === "cancelled" || active.workflowWorkItem.resultOutcome === "partial" || active.workflowWorkItem.resultOutcome === "failed";
-      return modelFromSession(active, this.now(), { canRunAgain, retryBlocker: canRunAgain ? null : "Refresh the exact WorkItem state before another implementation attempt." });
+      const recovery = await this.workflowExecutionServiceFactory().getCheckpointRecoveryProjection(workspaceRoot, selector.workflowId, selector.workItemId).catch(() => null);
+      const checkpointRecoveryRequired = recovery?.implementation.retryable === true || recovery?.implementation.state === "blocked" || recovery?.implementation.state === "inspection-required" || recovery?.implementation.state === "pending";
+      const canRunAgain = !checkpointRecoveryRequired && (active.state === "failed" || active.state === "cancelled" || active.workflowWorkItem.resultOutcome === "partial" || active.workflowWorkItem.resultOutcome === "failed");
+      return modelFromSession(active, this.now(), { canRunAgain, retryBlocker: checkpointRecoveryRequired
+        ? "Semantic implementation attempt is complete; recover its exact durable SourceCheckpoint instead of rerunning Implementer."
+        : canRunAgain ? null : "Refresh the exact WorkItem state before another implementation attempt." });
     }
     const context = await this.resolveWorkflowWorkItemContext(workspaceRoot, selector);
-    if (context instanceof Error) return unavailableFromPreflight(context);
+    if (context instanceof Error) {
+      const recovery = await this.workflowExecutionServiceFactory().getCheckpointRecoveryProjection(workspaceRoot, selector.workflowId, selector.workItemId).catch(() => null);
+      if (recovery?.implementation.state === "pending" || recovery?.implementation.state === "blocked" || recovery?.implementation.state === "inspection-required")
+        return { ...unavailableFromPreflight(new Error("Semantic implementation attempt is complete; recover its exact durable SourceCheckpoint instead of rerunning Implementer.")),
+          canRunAgain: false, retryBlocker: recovery.implementation.reason ?? "Exact SourceCheckpoint recovery is required.", lastRunState: "completed",
+          workflowId: selector.workflowId, workItemId: selector.workItemId, sourceMode: recovery.sourceMode };
+      return unavailableFromPreflight(context);
+    }
     return readyModel(context);
   }
 
@@ -644,9 +655,14 @@ export class CodexImplementerExecutionService {
     result: { summary: string; deviations: string[]; blockers: string[]; residualRisks: string[]; outcome: "implemented" | "partial" | "blocked" | "failed" | "abandoned" }): Promise<import("../../shared/projectState/domainContracts").ProjectStateRecord<"ImplementationRecord">> {
     const exact = context.workflowWorkItem;
     if (!exact?.executionRef || !exact.evidencePacketPath || !exact.workerDirectory) throw Error("Exact WorkItem attempt evidence identity is incomplete.");
+    const boundedAttributablePaths = exact.sourceBacked ? [...new Set(exact.sourceBacked.attributablePaths)].sort() : [];
+    const sourceCheckpointAttempt = exact.sourceBacked && result.outcome === "implemented" && boundedAttributablePaths.length > 0 && boundedAttributablePaths.length <= 256
+      ? { repositoryCheckoutId: exact.sourceBacked.repositoryCheckoutId, sourceLineId: exact.sourceBacked.sourceLineId,
+        expectedRevisionId: exact.sourceBacked.expectedRevisionId, attributablePaths: boundedAttributablePaths }
+      : undefined;
     const packet = { schemaVersion: 1, projectId: exact.contract.projectId, workflowId: exact.workflowId, workItemId: exact.workItemId,
       executionRef: exact.executionRef, contractDigest: exact.contract.digest, startedAt: new Date(startedAt).toISOString(), completedAt: new Date(this.now()).toISOString(),
-      model: selection?.model ?? null, reasoningEffort: selection?.reasoningEffort ?? null, result };
+      model: selection?.model ?? null, reasoningEffort: selection?.reasoningEffort ?? null, result, ...(sourceCheckpointAttempt ? { sourceCheckpointAttempt } : {}) };
     const bytes = Buffer.from(JSON.stringify(packet));
     if (bytes.length > 48 * 1024) throw Error("Source-neutral WorkItem attempt evidence exceeds its bounded size.");
     const runtimeRoot = fs.realpathSync(path.join(context.projectRoot, ".champcity", "runtime"));

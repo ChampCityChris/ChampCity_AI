@@ -71,6 +71,11 @@ export interface WorkflowExecutionCompletionProjection {
   eligible: boolean;
   blockers: string[];
 }
+export interface WorkflowCheckpointRecoveryProjection {
+  workflowId: EntityId; workItemId: EntityId; sourceMode: "source-backed" | "source-neutral";
+  implementation: { implementationRecordId: EntityId | null; checkpointId: EntityId | null; state: string; retryable: boolean; reason: string | null };
+  tester: { implementationRecordId: EntityId | null; testerResultId: EntityId | null; checkpointId: EntityId | null; state: string; retryable: boolean; reason: string | null };
+}
 
 export interface WorkItemValidationProjection {
   workflowId: EntityId;

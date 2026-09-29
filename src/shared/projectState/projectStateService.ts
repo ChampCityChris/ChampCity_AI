@@ -1498,6 +1498,10 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         const criterion = await requiredRecord(unit, projectId, criterionId);
         if (criterion.entityType !== "Criterion" || criterion.lifecycleState !== "active") fail("Source Criterion is not current.");
       }
+      const sourceBaselines = (await unit.listRelationships(projectId, "baselines_source")).filter(edge => edge.toEntityId === workflow.id && !edge.endedAt);
+      if (sourceBaselines.length === 0 && input.criterionDispositions.some(disposition => disposition.disposition === "split" && disposition.replacements.some(split =>
+        split.criterion.criticality === "required" && split.criterion.validationPolicy === "deterministic")))
+        fail("Required deterministic ValidationCatalog proof is unavailable for this source-neutral Workflow; choose a supported policy.");
       const dispositionById = new Map<EntityId, WorkItemCriterionDisposition>();
       for (const disposition of input.criterionDispositions) {
         if (!disposition || !["transfer", "elevate", "split"].includes(disposition.disposition)) fail("Unsupported Criterion decomposition disposition.");
@@ -2833,6 +2837,12 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       if (criteria.length > 512) fail("Planning graph exceeds its total Criterion bound.");
       const policies = new Set(["deterministic", "semantic_ai", "visual_human", "deferred_visual_phase", "operator_decision"]);
       for (const criterion of criteria) { exactInput(criterion, ["statement", "criticality", "verificationIntent", "validationPolicy"]); if (!policies.has(criterion.validationPolicy)) fail("Criterion validation policy is required and must be supported."); }
+      const sourceEdges = (await unit.listRelationships(projectId, "baselines_source")).filter(edge => edge.toEntityId === workflow.id && !edge.endedAt);
+      if (sourceEdges.length > 1) fail("Current Workflow SourceBaseline identity is ambiguous.");
+      const sourceBaseline = sourceEdges.length === 1 ? await unit.getEntity(projectId, sourceEdges[0].fromEntityId) : null;
+      if (sourceEdges.length === 1 && (sourceBaseline?.entityType !== "SourceBaseline" || sourceBaseline.body.workflowId !== workflow.id)) fail("Current Workflow SourceBaseline identity is invalid.");
+      if (!sourceBaseline && criteria.some(criterion => criterion.criticality === "required" && criterion.validationPolicy === "deterministic"))
+        fail("Required deterministic ValidationCatalog proof is unavailable for this source-neutral Workflow; select semantic AI, human visual, or Operator decision as appropriate.");
       if (graph.topology === "direct" && criteria.some(criterion => criterion.validationPolicy === "deferred_visual_phase"))
         fail("deferred_visual_phase Criteria require a real Phase boundary and cannot be accepted in a direct Workflow.");
       const kindsByWorkflow: Record<WorkflowType, readonly string[]> = { "feature-capability": ["feature", "fix", "maintenance"], "issue-resolution": ["fix", "repair"], "refactor-migration": ["migration", "maintenance"], "integration-composition": ["feature", "fix", "maintenance"], "infrastructure-platform": ["feature", "fix", "maintenance"], "research-prototype": ["feature", "maintenance"], "project-creation": [], "work-intake-routing": [] };

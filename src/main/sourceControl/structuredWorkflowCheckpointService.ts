@@ -137,6 +137,45 @@ export async function checkpointStructuredTesterResult(root: string, projectId: 
   } finally { store.close(); }
 }
 
+/** Retry the one durable source-backed implementation attempt; never accepts renderer paths. */
+export async function retryStructuredImplementationCheckpoint(root: string, projectId: string, workflowId: string,
+  workItemId: string, implementationRecordId: string): Promise<WorkflowCheckpointResult<ProjectStateRecord<"ImplementationRecord">>> {
+  const { selected, store } = open(root, projectId);
+  try {
+    await assertWorkOwner(store, projectId, workflowId, workItemId);
+    const implementation = await store.getEntity(projectId, implementationRecordId);
+    const workItem = await store.getEntity(projectId, workItemId);
+    if (implementation?.entityType !== "ImplementationRecord" || implementation.body.workItemId !== workItemId ||
+      implementation.body.outcome !== "implemented" || !implementation.body.executionRef || workItem?.entityType !== "WorkItem" ||
+      workItem.body.workState !== "validation_pending") throw Error("Exact successful implementation checkpoint recovery is unavailable.");
+    const attempts = (await createProjectStateService(store, operator).getImplementationAttempts(projectId, workItemId));
+    if (attempts.at(-1)?.id !== implementation.id) throw Error("Only the latest successful implementation attempt may be recovered.");
+    const packetPath = path.join(selected, ".champcity", "runtime", "work-item-attempts", `${implementation.body.executionRef}.json`);
+    const stat = fs.statSync(packetPath);
+    if (!stat.isFile() || stat.size > 1_000_000) throw Error("Durable implementation checkpoint attribution packet is missing or oversized.");
+    const packet = JSON.parse(fs.readFileSync(packetPath, "utf8")) as Record<string, unknown>;
+    const attribution = packet.sourceCheckpointAttempt as Record<string, unknown> | undefined;
+    if (!attribution || packet.projectId !== projectId || packet.workflowId !== workflowId || packet.workItemId !== workItemId ||
+      packet.executionRef !== implementation.body.executionRef || !Array.isArray(attribution.attributablePaths) ||
+      attribution.attributablePaths.length < 1 || attribution.attributablePaths.length > 256 ||
+      !attribution.attributablePaths.every(item => typeof item === "string" && item.length <= 512 && !path.isAbsolute(item) &&
+        !item.split(/[\\/]/).includes("..") && /^[A-Za-z0-9_.@+-]+(?:[\\/][A-Za-z0-9_.@+-]+)*$/.test(item)) ||
+      new Set(attribution?.attributablePaths as string[]).size !== attribution?.attributablePaths?.length ||
+      typeof attribution.repositoryCheckoutId !== "string" || typeof attribution.sourceLineId !== "string" ||
+      typeof attribution.expectedRevisionId !== "string" || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(attribution.expectedRevisionId as string))
+      throw Error("Durable implementation checkpoint attribution is invalid or does not match the exact attempt.");
+    const binding = await bindingForWorkflow(store, projectId, workflowId);
+    if (binding.body.repositoryCheckoutId !== attribution.repositoryCheckoutId || binding.body.workSourceLineId !== attribution.sourceLineId)
+      throw Error("Exact SourceBinding no longer matches the saved implementation checkpoint boundary.");
+    const checkpoint = await createImplementationCheckpoint(selected, projectId, {
+      boundaryId: implementation.body.executionRef, workflowId, targetEntityId: implementation.id,
+      sourceLineId: attribution.sourceLineId as string, expectedRevisionId: attribution.expectedRevisionId as string,
+      repositoryCheckoutId: attribution.repositoryCheckoutId as string, attributablePaths: [...attribution.attributablePaths as string[]].sort(),
+    });
+    return { record: implementation, checkpoint };
+  } finally { store.close(); }
+}
+
 /** Existing human review Decisions produce chronology; routine Validator results use their own state. */
 export async function recordStructuredWorkDisposition(root: string, projectId: string, workflowId: string, workItemId: string,
   input: DecisionInput, boundaryId: string): Promise<WorkflowCheckpointResult<ProjectStateRecord<"Decision">>> {

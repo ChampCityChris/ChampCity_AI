@@ -8,7 +8,7 @@ const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/
 const { registerCurrentProject } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
 const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
 const { createWorkflowSourceMaterializationService } = require("../../dist/main/sourceControl/workflowSourceMaterializationService.js");
-const { selectStructuredWorkRoute, recordStructuredImplementation, recordStructuredWorkDisposition } = require("../../dist/main/sourceControl/structuredWorkflowCheckpointService.js");
+const { selectStructuredWorkRoute, recordStructuredImplementation, recordStructuredWorkDisposition, retryStructuredImplementationCheckpoint } = require("../../dist/main/sourceControl/structuredWorkflowCheckpointService.js");
 
 const operator = { principalId: "operator", principalType: "human", role: "Operator" };
 const repositoryId = "workflow-wrapper-repository";
@@ -54,19 +54,51 @@ test("WIR route decisions do not checkpoint; implementation and disposition use 
   await assert.rejects(recordStructuredImplementation(root, project.id, target.id, work.id, { ...implementationInput, executionRef: "historical-owner" }, "historical-implementation", ["feature.txt"]), /unique current Workflow owner/);
   await assert.rejects(recordStructuredImplementation(root, project.id, successor.id, wrong.id, { ...implementationInput, executionRef: "wrong" }, "wrong-owner", ["feature.txt"]), /not owned by the selected target Workflow lineage/);
   fs.writeFileSync(path.join(checkout, "feature.txt"), "implemented\n");
-  const implementation = await recordStructuredImplementation(root, project.id, successor.id, work.id, implementationInput, "implementation-boundary", ["feature.txt"]);
+  const implementation = await recordStructuredImplementation(root, project.id, successor.id, work.id, implementationInput, implementationInput.executionRef, ["feature.txt"]);
   assert.equal(implementation.record.body.workItemId, work.id); assert.equal(implementation.checkpoint.state, "committed");
   assert.equal(git(dev, "branch", "--show-current"), "dev");
   const badDecision = { decisionType: "review", outcome: "accepted", rationale: "Wrong owner", decisionScope: "wrong-owner" };
   await assert.rejects(recordStructuredWorkDisposition(root, project.id, target.id, work.id, { ...badDecision, decisionScope: "historical-owner" }, "historical-disposition"), /unique current Workflow owner/);
   await assert.rejects(recordStructuredWorkDisposition(root, project.id, successor.id, wrong.id, badDecision, "wrong-disposition"), /not owned by the selected target Workflow lineage/);
+  const verify = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  let verifyOpen = true;
+  try {
+    const currentWork = await verify.getEntity(project.id, work.id);
+    await createProjectStateService(verify, operator).reviseRecord(project.id, work.id, { ...currentWork.body, workState: "validation_pending" }, currentWork.recordVersion);
+    const savedCheckpoints = await verify.listEntities(project.id, "SourceCheckpoint");
+    const implementationCheckpoint = savedCheckpoints.find(row => row.body.boundaryId === implementationInput.executionRef);
+    assert.ok(implementationCheckpoint);
+    fs.mkdirSync(path.join(root, ".champcity", "runtime", "work-item-attempts"), { recursive: true });
+    fs.writeFileSync(path.join(root, ".champcity", "runtime", "work-item-attempts", `${implementationInput.executionRef}.json`), JSON.stringify({
+      schemaVersion: 1, projectId: project.id, workflowId: successor.id, workItemId: work.id, executionRef: implementationInput.executionRef,
+      contractDigest: "a".repeat(64), sourceCheckpointAttempt: { repositoryCheckoutId: materialized.binding.body.repositoryCheckoutId,
+        sourceLineId, expectedRevisionId: implementationCheckpoint.body.expectedRevisionId, attributablePaths: ["feature.txt"] },
+    }));
+    const historyBeforeRetry = git(checkout, "rev-list", "--count", "HEAD");
+    const bindingBeforeRetry = (await verify.listEntities(project.id, "SourceBinding")).find(row => row.body.workflowId === successor.id);
+    assert.equal(git(checkout, "rev-parse", "HEAD"), implementationCheckpoint.body.resultingRevisionId);
+    assert.equal(bindingBeforeRetry.body.currentRevisionId, implementationCheckpoint.body.resultingRevisionId);
+    verify.close(); verifyOpen = false;
+    const recovered = await retryStructuredImplementationCheckpoint(root, project.id, successor.id, work.id, implementation.record.id);
+    assert.equal(recovered.checkpoint.state, "committed", recovered.checkpoint.message);
+    assert.equal(recovered.checkpoint.checkpointId, implementation.checkpoint.checkpointId);
+    assert.equal(git(checkout, "rev-list", "--count", "HEAD"), historyBeforeRetry, "retry reuses the durable checkpoint without a duplicate commit");
+    const recoveredStore = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+    const checkpoints = await recoveredStore.listEntities(project.id, "SourceCheckpoint");
+    assert.equal(checkpoints.filter(row => row.body.boundaryId === implementationInput.executionRef).length, 1);
+    recoveredStore.close();
+  } finally {
+    if (verifyOpen) verify.close();
+  }
+  const finalStore = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  try {
+    const checkpoints = await finalStore.listEntities(project.id, "SourceCheckpoint"); assert.equal(checkpoints.length, 1);
+    assert.ok(checkpoints.every(row => row.body.workflowId === successor.id && !Object.hasOwn(row.body, "workIntakeId")));
+    assert.equal(git(checkout, "branch", "--show-current"), sourceLineId);
+  } finally { finalStore.close(); }
   const disposition = await recordStructuredWorkDisposition(root, project.id, successor.id, work.id,
     { decisionType: "review", outcome: "accepted", rationale: "Accepted", decisionScope: "target-owner" }, "disposition-boundary");
   assert.equal(disposition.checkpoint.state, "committed");
-  const verify = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
-  try {
-    const checkpoints = await verify.listEntities(project.id, "SourceCheckpoint"); assert.equal(checkpoints.length, 2);
-    assert.ok(checkpoints.every(row => row.body.workflowId === successor.id && !Object.hasOwn(row.body, "workIntakeId")));
-    assert.equal(git(checkout, "branch", "--show-current"), sourceLineId);
-  } finally { verify.close(); }
+  const afterDisposition = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  try { assert.equal((await afterDisposition.listEntities(project.id, "SourceCheckpoint")).length, 2); } finally { afterDisposition.close(); }
 });

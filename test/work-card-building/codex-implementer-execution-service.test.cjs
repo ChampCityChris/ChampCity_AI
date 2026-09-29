@@ -2173,7 +2173,7 @@ test("exact source-neutral Feature and Issue WorkItem selectors use fake App Ser
   const createGraph = (workflowId, kind, objective) => ({ workflowId, topology: "direct",
     solution: { title: "Accepted solution", objective: "Deliver accepted result", scopeIn: ["bounded"], scopeOut: [], constraints: [], assumptions: [], risks: [] },
     solutionCriteria: [], phases: [], workItems: [{ key: "same-title", kind, title: "Same title", objective, dependencyKeys: [], criteria: [
-      { statement: "Required behavior", criticality: "required", verificationIntent: "Verify the accepted behavior", validationPolicy: "deterministic" },
+      { statement: "Required behavior", criticality: "required", verificationIntent: "Verify the accepted behavior", validationPolicy: "semantic_ai" },
     ] }, { key: "retryable", kind, title: "Retryable", objective: `${objective} retryable`, dependencyKeys: [], criteria: [] }] });
   const feature = await state.createSubstantiveWorkflow(registration.project.id, { workflowType: "feature-capability", title: "Feature", entryWorkspace: "feature-intake" });
   const issue = await state.createSubstantiveWorkflow(registration.project.id, { workflowType: "issue-resolution", title: "Issue", entryWorkspace: "issue-intake" });
@@ -2587,6 +2587,8 @@ test("exact source-backed and source-neutral WorkItems use the bounded Tester li
   assert.ok(checkpointLinks.some(edge => edge.fromEntityId === checkpoints[0].id && edge.toEntityId === records[0].id));
   const exactBinding = bindings.find(binding => binding.body.workflowId === created.workflow.id);
   assert.equal(exactBinding.body.currentRevisionId, checkpoints[0].body.resultingRevisionId);
+  assert.deepEqual(packet.sourceCheckpointAttempt, { repositoryCheckoutId: exactBinding.body.repositoryCheckoutId,
+    sourceLineId: exactBinding.body.workSourceLineId, expectedRevisionId: checkpoints[0].body.expectedRevisionId, attributablePaths: ["feature.txt"] });
   const testerOptions = [];
   let testerAppServerCalls = 0;
   const tester = new CodexTesterExecutionService(async () => { testerAppServerCalls++; return ({

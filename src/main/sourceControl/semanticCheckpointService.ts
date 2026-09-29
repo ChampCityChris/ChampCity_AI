@@ -150,6 +150,28 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
         branch.result.selectedBranch?.commit !== branch.result.head)
         return blocked("Workflow checkout is not on the exact requested source revision.");
       let saved = await exactCheckpoint(store, projectId, request.boundaryId);
+      const fileDigests = paths.map(item => ({ path: item, digest: fileDigest(checkout, item) }));
+      const receiptDigest = digest(JSON.stringify({ version: 1, kind, projectId, boundaryId: request.boundaryId,
+        workflowId: request.workflowId, repositoryCheckoutId: request.repositoryCheckoutId, targetEntityId: request.targetEntityId,
+        dispositionId: kind === "disposition" ? (request as DispositionCheckpointRequest).dispositionId : null,
+        sourceLineId: request.sourceLineId, expectedRevisionId: request.expectedRevisionId, files: fileDigests }));
+      const message = commitMessage(kind, receiptDigest);
+      if (saved && (saved.body.workflowId !== request.workflowId || saved.body.expectedRevisionId !== request.expectedRevisionId ||
+        saved.body.sourceLineId !== request.sourceLineId || saved.body.checkpointKind !== kind || saved.body.receiptDigest !== receiptDigest))
+        return inspection("Checkpoint identity conflicts with saved evidence.", saved.id);
+      if (saved?.body.checkpointState === "committed") {
+        if (!saved.body.resultingRevisionId || branch.result.head !== saved.body.resultingRevisionId || binding.body.currentRevisionId !== saved.body.resultingRevisionId)
+          return inspection("Committed checkpoint no longer matches the current exact source boundary.", saved.id);
+        const committed = await source.inspectCommit({ ref: saved.body.resultingRevisionId });
+        const changed = await source.changedFiles();
+        const relevantChanges = changed.ok ? changed.result.filter(item => !isAppState(item.path)) : [];
+        if (!committed.ok || committed.result.parents.length !== 1 || committed.result.parents[0] !== request.expectedRevisionId ||
+          committed.result.message.trim() !== message || committed.result.changedFiles.map(file => file.path).sort().join("\0") !== paths.join("\0") ||
+          !changed.ok || relevantChanges.length > 0)
+          return inspection("Committed checkpoint source evidence has changed and requires inspection.", saved.id);
+        if (kind === "tester") await state.completeTesterResultCheckpoint(projectId, target.id, saved.id, target.recordVersion);
+        return result(baseline.body.repositoryId, saved);
+      }
       if (branch.result.head !== request.expectedRevisionId) {
         if (!saved || saved.body.workflowId !== request.workflowId || saved.body.expectedRevisionId !== request.expectedRevisionId ||
           saved.body.sourceLineId !== request.sourceLineId || saved.body.checkpointKind !== kind || !saved.body.receiptDigest)
@@ -159,19 +181,6 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
           priorCommit.result.message.trim() !== commitMessage(kind, saved.body.receiptDigest) ||
           priorCommit.result.changedFiles.map(file => file.path).sort().join("\0") !== paths.join("\0"))
           return inspection("Source advanced without matching checkpoint evidence.", saved.id);
-      }
-      const fileDigests = paths.map(item => ({ path: item, digest: fileDigest(checkout, item) }));
-      const receiptDigest = digest(JSON.stringify({ version: 1, kind, projectId, boundaryId: request.boundaryId,
-        workflowId: request.workflowId, repositoryCheckoutId: request.repositoryCheckoutId, targetEntityId: request.targetEntityId,
-        dispositionId: kind === "disposition" ? (request as DispositionCheckpointRequest).dispositionId : null,
-        sourceLineId: request.sourceLineId, expectedRevisionId: request.expectedRevisionId, files: fileDigests }));
-      const message = commitMessage(kind, receiptDigest);
-      if (saved && (saved.body.receiptDigest !== receiptDigest || saved.body.checkpointKind !== kind ||
-        saved.body.expectedRevisionId !== request.expectedRevisionId || saved.body.workflowId !== request.workflowId ||
-        saved.body.sourceLineId !== request.sourceLineId)) return inspection("Checkpoint identity conflicts with saved evidence.", saved.id);
-      if (saved?.body.checkpointState === "committed") {
-        if (kind === "tester") await state.completeTesterResultCheckpoint(projectId, target.id, saved.id, target.recordVersion);
-        return result(baseline.body.repositoryId, saved);
       }
       if (!saved) {
         if (binding.body.currentRevisionId !== request.expectedRevisionId)

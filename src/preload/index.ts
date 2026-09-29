@@ -407,6 +407,9 @@ const api: ChampCityApi = {
     ipcRenderer.invoke("codexImplementer:getWorkflowWorkItemStatus", workflowId, workItemId) as ReturnType<ChampCityApi["getWorkflowWorkItemCodexExecutionStatus"]>,
   getWorkflowWorkItemTesterStatus: (workflowId, workItemId, implementationRecordId) =>
     ipcRenderer.invoke("codexTester:getWorkflowWorkItemStatus", workflowId, workItemId, implementationRecordId) as ReturnType<ChampCityApi["getWorkflowWorkItemTesterStatus"]>,
+  getWorkflowCheckpointRecovery: (workflowId, workItemId) => ipcRenderer.invoke("workflow:checkpointRecovery", workflowId, workItemId) as ReturnType<ChampCityApi["getWorkflowCheckpointRecovery"]>,
+  retryWorkflowImplementationCheckpoint: (workflowId, workItemId, implementationRecordId) => ipcRenderer.invoke("workflow:retryImplementationCheckpoint", workflowId, workItemId, implementationRecordId) as ReturnType<ChampCityApi["retryWorkflowImplementationCheckpoint"]>,
+  retryWorkflowTesterCheckpoint: (workflowId, workItemId, implementationRecordId, testerResultId) => ipcRenderer.invoke("workflow:retryTesterCheckpoint", workflowId, workItemId, implementationRecordId, testerResultId) as ReturnType<ChampCityApi["retryWorkflowTesterCheckpoint"]>,
   getCodexManagedRuntimeStatus: () => ipcRenderer.invoke("codexRuntime:getStatus"),
   setCodexModelSelection: (selection) => ipcRenderer.invoke("codexRuntime:setSelection", selection),
   startCodexImplementerExecution: (selection) =>

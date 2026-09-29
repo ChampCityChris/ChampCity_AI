@@ -1644,6 +1644,9 @@ export interface ChampCityApi {
   getCodexImplementerExecutionStatus: () => Promise<CodexImplementerExecutionModel>;
   getWorkflowWorkItemCodexExecutionStatus: (workflowId: string, workItemId: string) => Promise<CodexImplementerExecutionModel>;
   getWorkflowWorkItemTesterStatus: (workflowId: string, workItemId: string, implementationRecordId: string) => Promise<CodexTesterExecutionModel>;
+  getWorkflowCheckpointRecovery: (workflowId: string, workItemId: string) => Promise<import("./workflowApplicationContracts").WorkflowCheckpointRecoveryProjection>;
+  retryWorkflowImplementationCheckpoint: (workflowId: string, workItemId: string, implementationRecordId: string) => Promise<unknown>;
+  retryWorkflowTesterCheckpoint: (workflowId: string, workItemId: string, implementationRecordId: string, testerResultId: string) => Promise<unknown>;
   getCodexManagedRuntimeStatus: () => Promise<CodexManagedRuntimeStatus>;
   setCodexModelSelection: (selection: CodexModelSelection) => Promise<CodexManagedRuntimeStatus>;
   startCodexImplementerExecution: (selection: CodexModelSelection) => Promise<CodexImplementerExecutionModel>;
