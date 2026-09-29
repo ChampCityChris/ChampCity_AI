@@ -2467,8 +2467,8 @@ export function App(): JSX.Element {
 
   async function continueExistingProjectEntry(selection: SelectedWorkspace, plan: ExistingProjectGitAdoptionPlan): Promise<void> {
     const result = await openInspectedExistingProject(window.champcity, plan);
-    if (result.kind === "manual-intervention-required") {
-      setDocumentError(`${result.reason} No source migration was applied.`);
+    if (result.kind === "conversion-failed") {
+      setDocumentError(result.reason);
       await window.champcity.clearSelectedWorkspace();
       return;
     }
@@ -2495,14 +2495,14 @@ export function App(): JSX.Element {
       const message = error instanceof Error ? error.message : "Existing Project migration failed.";
       if (/stale/i.test(message)) {
         const refreshed = await window.champcity.inspectExistingProjectGitAdoption();
-        if (refreshed.state === "manual-intervention-required") {
+        if (refreshed.state === "conversion-failed") {
           setPendingExistingProjectPlan(null);
           setPendingExistingProjectSelection(null);
-          setDocumentError(`${refreshed.manualReason ?? message} No source migration was applied.`);
+          setDocumentError(refreshed.failureReason ?? message);
           await window.champcity.clearSelectedWorkspace();
-        } else if (refreshed.requiresConsent) {
+        } else if (refreshed.state === "conversion-required") {
           setPendingExistingProjectPlan(refreshed);
-          setDocumentError("Repository state changed. Review the refreshed migration plan before accepting again.");
+          setDocumentError("Project source changed. Review the conversion warning before accepting again.");
         } else {
           await continueExistingProjectEntry(selection, refreshed);
         }
@@ -2510,7 +2510,7 @@ export function App(): JSX.Element {
         const refreshed = await window.champcity.inspectExistingProjectGitAdoption().catch(() => null);
         setPendingExistingProjectPlan(null);
         setPendingExistingProjectSelection(null);
-        setDocumentError(`${refreshed?.manualReason ?? message} No Current Project registration was applied.`);
+        setDocumentError(refreshed?.failureReason ?? message);
         await window.champcity.clearSelectedWorkspace();
       }
     } finally {
@@ -2523,7 +2523,7 @@ export function App(): JSX.Element {
     setPendingExistingProjectPlan(null);
     setPendingExistingProjectSelection(null);
     await window.champcity.clearSelectedWorkspace();
-    setDocumentError("Migration canceled. No source migration or Current Project registration was applied.");
+    setDocumentError("Conversion canceled. No conversion or Current Project registration was applied.");
   }
 
   async function startNewProjectFromLanding(): Promise<void> {

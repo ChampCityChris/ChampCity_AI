@@ -1563,7 +1563,7 @@
     },
     {
       "capabilityId": "current-project-entry-runtime",
-      "description": "Landing entry inspects and adopts Existing Project Git state before Current Project registration; source-neutral entry remains Repository-optional and Greenfield entry bootstraps managed Main/Dev before SPS registration.",
+      "description": "Landing entry classifies Existing Projects into source-neutral, managed-ready, conversion-required, or conversion-failed; warned conversion force-normalizes readable current source before Current Project registration, while Greenfield entry bootstraps managed Main/Dev before SPS registration.",
       "sourcePatterns": [
         "src/main/main.ts",
         "src/main/migrations/legacyAuthorityInventory.ts",
@@ -1605,7 +1605,7 @@
         },
         {
           "behaviorId": "existing-entry-opens-historical-project-as-current-sps-identity",
-          "description": "Existing Project landing entry inspects, warns and obtains consent only for semantic Git normalization, applies source adoption before one SPS registration, preserves historical Markdown without Workflow reconstruction, and keeps non-Git Projects Repository-neutral."
+          "description": "Existing Project landing entry presents one bounded forced-conversion warning, preserves current source before normalizing arbitrary readable Git topology into one canonical Main/Dev baseline, registers SPS only after source success, reopens managed source idempotently, and keeps non-Git Projects Repository-neutral."
         },
         {
           "behaviorId": "greenfield-entry-registers-current-project-and-enters-project-intake-with-main-dev",
@@ -2607,7 +2607,7 @@
     },
     {
       "capabilityId": "managed-project-source-topology",
-      "description": "Existing Git Projects safely materialize the durable Project container, Repository metadata, Main/Dev checkouts, and Agent Harness registrations.",
+      "description": "Existing Git Projects preserve current source, best-effort import readable history, force one canonical baseline, and materialize durable Repository metadata, exact Main/Dev checkouts, and Agent Harness registrations.",
       "sourcePatterns": [
         "src/main/sourceControl/managedProjectSourceService.ts",
         "src/main/sourceControl/projectSourceBootstrap.ts",
@@ -2619,7 +2619,7 @@
       "behaviors": [
         {
           "behaviorId": "conventional-project-adoption-preserves-source-and-registers-durable-main-dev-checkouts",
-          "description": "Conventional Git adoption inspection classifies source, topology, refs, and working state without mutation; journal primitives preserve bounded recovery identity; application preserves source state and registers exact managed Main and Dev checkouts."
+          "description": "Existing Git inspection reduces topology to conversion-required, source preservation precedes mutation, readable refs become bounded baseline ancestry, ordinary Git irregularities fall back rather than block, and successful application registers exact canonical Main and Dev checkouts."
         },
         {
           "behaviorId": "greenfield-source-bootstrap-establishes-deterministic-managed-main-dev-and-ignore-baseline",
@@ -13406,12 +13406,12 @@
       "testPath": "test/project-state/current-project-entry.test.cjs",
       "currentTestCount": {
         "value": 13,
-        "basis": "Thirteen focused entry scenarios include EPGA-HF03 constrained inspection/apply IPC, exact digest validation, apply-before-registration, retry, source-neutral, and managed reopen behavior."
+        "basis": "Thirteen focused entry scenarios include constrained inspection/apply IPC, exact digest validation, forced conversion before registration, retry, source-neutral, managed reopen, and Workflow Hub entry behavior."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 3760,
-        "basis": "Observed normal Windows focused WRB01-05 entry test receipt with real conventional adoption, Project State, Agent Harness checkouts, and MCP read."
+        "milliseconds": 21287,
+        "basis": "Observed EPGA-R01 normal Windows focused entry receipt with forced normalization, Project State, Agent Harness checkouts, MCP read, retry, and landing routing."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "windows",
@@ -13463,7 +13463,7 @@
         {
           "capabilityId": "current-project-entry-runtime",
           "behaviorId": "existing-entry-opens-historical-project-as-current-sps-identity",
-          "proofLocator": "Constrained preload/main inspection and exact-plan apply migrate conventional source before one Current Project registration; source-neutral and managed reopen paths remain direct, retryable, and free of Workflow reconstruction",
+          "proofLocator": "Constrained preload/main inspection and exact-plan forced conversion preserve current source and establish canonical Main/Dev before one Current Project registration; source-neutral and managed reopen paths remain direct, retryable, and free of Workflow reconstruction",
           "proofRole": "primary"
         },
         {
@@ -17486,7 +17486,7 @@
       "testPath": "test/renderer/workflow-hub-shell.test.cjs",
       "currentTestCount": {
         "value": 23,
-        "basis": "Existing renderer navigation proof plus EPGA-HF03 bounded migration warning and controller apply-before-register consent gating scenarios."
+        "basis": "Existing renderer navigation proof plus the EPGA-R01 single forced-conversion warning and controller apply-before-register consent gating scenarios."
       },
       "duration": {
         "kind": "measured",
@@ -17922,13 +17922,13 @@
     {
       "testPath": "test/source-control/managed-project-source.test.cjs",
       "currentTestCount": {
-        "value": 18,
-        "basis": "WRB01 adoption proof plus EPGA-HF01 inspection/journal proof and EPGA-HF02 apply proof for automatic, missing-baseline, feature integration, dirty snapshot, stale/consent, conflict, metadata-only recovery, completion receipt, and idempotent reopen behavior."
+        "value": 10,
+        "basis": "EPGA-R01 forced-normalization proof covers the four-state classifier, ChampCity-style history, feature/detached/missing-ref variants, dirty/untracked/ignored preservation, divergent parents, linked worktrees, submodule/alternate metadata, unreadable Git fallback, partial residue, pre-mutation staging failure, and idempotent reopen."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 4000,
-        "basis": "Observed normal Windows focused WRB01-02 test receipt."
+        "milliseconds": 51993,
+        "basis": "Observed EPGA-R01 normal Windows focused forced-normalization receipt."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "windows",
@@ -17968,7 +17968,7 @@
         {
           "capabilityId": "managed-project-source-topology",
           "behaviorId": "conventional-project-adoption-preserves-source-and-registers-durable-main-dev-checkouts",
-          "proofLocator": "inspection binds topology, refs, and working state; apply revalidates plans, preserves refs/history, creates exact main/dev, integrates only active source, snapshots non-ignored changes, preserves ignored bytes, fails closed on conflicts, and reopens idempotently",
+          "proofLocator": "inspection returns conversion-required for ordinary and irregular Git; apply revalidates consent, snapshots source before mutation, best-effort imports history, creates a conflict-free synthetic baseline from current tracked/dirty/untracked source, preserves ignored bytes locally, forces exact main/dev, falls back from unreadable metadata, and reopens idempotently",
           "proofRole": "primary"
         }
       ]

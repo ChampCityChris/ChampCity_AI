@@ -162,29 +162,27 @@ test("fresh application shell presents the project-neutral landing actions witho
   assert.doesNotMatch(markup, /Project navigation|Workflow navigation|Available workflows/);
 });
 
-test("landing migration warning renders bounded facts with explicit Accept and Cancel actions", () => {
+test("landing conversion warning renders only the material consequence with Accept and Cancel actions", () => {
   const markup = renderToStaticMarkup(React.createElement(LandingWorkspace, {
     feedback: "",
     isChoosing: false,
     migrationPlan: {
-      planId: "a".repeat(64), state: "migration-consent-required", repositoryId: "project-source",
-      currentBranch: "feature/current", currentRevision: "1".repeat(40), mainRevision: "2".repeat(40), devRevision: "3".repeat(40),
-      baselineSourceRef: "main", mainAction: "none", devAction: "merge", activeBranchAction: "merge-into-dev",
-      workingState: { stagedCount: 1, unstagedCount: 2, untrackedCount: 3, ignoredCount: 4, captureSnapshotRequired: true },
+      planId: "a".repeat(64), state: "conversion-required", repositoryId: "project-source", priorGitDetected: true,
       topology: { conventionalGit: true, managedMetadata: false, mainCheckout: false, devCheckout: false, recoveryStaging: false },
-      preservedRefCount: 7, preservedRemoteCount: 1, requiresConsent: true, warnings: [], manualReason: null,
+      preservedRefCount: 7, preservedRemoteCount: 1, requiresConsent: true, warnings: [], failureReason: null,
     },
     onAcceptMigration: () => undefined,
     onCancelMigration: () => undefined,
     onOpenExistingProject: () => undefined,
     onStartNewProject: () => undefined,
   }));
-  assert.match(markup, /Git migration required/);
-  assert.match(markup, /feature\/current/);
-  assert.match(markup, /1 staged, 2 unstaged, 3 untracked/);
-  assert.match(markup, /Accept Migration/);
+  assert.match(markup, /Git conversion required/);
+  assert.match(markup, /Convert this project for ChampCity source control\?/);
+  assert.match(markup, /may change or damage the project&#x27;s existing Git branch, worktree, and repository configuration/);
+  assert.match(markup, /preserve the current project files and will retain readable Git history where possible/);
+  assert.match(markup, /Accept and Convert/);
   assert.match(markup, />Cancel</);
-  assert.match(markup, /will not merge unrelated branches or discard conflicts/);
+  assert.doesNotMatch(markup, /feature\/current|staged|unstaged|untracked|repair|detached|conflict/);
   assert.doesNotMatch(markup, /C:\\|\/Users\//);
 });
 
@@ -195,11 +193,11 @@ test("Existing Project entry controller applies before one registration and gate
     applyExistingProjectGitAdoption: async planId => { calls.push(["apply", planId]); },
     registerCurrentProject: async mode => { calls.push(["register", mode]); return project; },
   };
-  const automatic = { planId: "b".repeat(64), state: "conventional-auto", requiresConsent: false };
+  const automatic = { planId: "b".repeat(64), state: "managed-ready", requiresConsent: false };
   assert.deepEqual(await openInspectedExistingProject(api, automatic), { kind: "ready", project });
   assert.deepEqual(calls, [["apply", automatic.planId], ["register", "existing"]]);
   calls.length = 0;
-  const consent = { ...automatic, state: "migration-consent-required", requiresConsent: true };
+  const consent = { ...automatic, state: "conversion-required", requiresConsent: true };
   assert.deepEqual(await openInspectedExistingProject(api, consent), { kind: "consent-required", plan: consent });
   assert.deepEqual(calls, []);
   await acceptExistingProjectAdoption(api, consent);

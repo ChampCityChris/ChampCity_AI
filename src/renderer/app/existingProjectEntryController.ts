@@ -6,15 +6,15 @@ type ExistingProjectEntryApi = Pick<ChampCityApi, "applyExistingProjectGitAdopti
 export type ExistingProjectEntryResult =
   | { kind: "ready"; project: CurrentProjectRuntimeContext }
   | { kind: "consent-required"; plan: ExistingProjectGitAdoptionPlan }
-  | { kind: "manual-intervention-required"; reason: string };
+  | { kind: "conversion-failed"; reason: string };
 
 /** Product controller for an already-inspected selection; registration always follows successful source adoption. */
 export async function openInspectedExistingProject(api: ExistingProjectEntryApi,
   plan: ExistingProjectGitAdoptionPlan): Promise<ExistingProjectEntryResult> {
-  if (plan.state === "manual-intervention-required") {
-    return { kind: "manual-intervention-required", reason: plan.manualReason ?? "Manual Git normalization is required." };
+  if (plan.state === "conversion-failed") {
+    return { kind: "conversion-failed", reason: plan.failureReason ?? "Project source could not be safely converted." };
   }
-  if (plan.requiresConsent) return { kind: "consent-required", plan };
+  if (plan.state === "conversion-required") return { kind: "consent-required", plan };
   if (plan.state !== "source-neutral") await api.applyExistingProjectGitAdoption(plan.planId);
   return { kind: "ready", project: await api.registerCurrentProject("existing") };
 }

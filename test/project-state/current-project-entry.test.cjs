@@ -393,7 +393,7 @@ test("Existing conventional Project entry preserves source and historical Markdo
     fs, path, MANAGED_PROJECT_SOURCE_PATHS,
   });
   const adoption = await api.inspectExistingProjectGitAdoption();
-  assert.equal(adoption.state, "migration-consent-required");
+  assert.equal(adoption.state, "conversion-required");
   await api.applyExistingProjectGitAdoption(adoption.planId);
   const current = await api.registerCurrentProject("existing");
   assert.ok(entryOrder.indexOf("workspace") < entryOrder.indexOf("source-proof"));
@@ -409,7 +409,9 @@ test("Existing conventional Project entry preserves source and historical Markdo
   assert.equal(git(path.join(selected, "Dev"), "branch", "--show-current"), "dev");
   const afterRefs = git(path.join(selected, "Main"), "for-each-ref", "--format=%(refname)%00%(objectname)", "refs/heads", "refs/remotes", "refs/tags");
   const originalMain = refs.split(/\r?\n/).find(ref => ref.startsWith("refs/heads/main\0"));
-  assert.ok(originalMain && afterRefs.includes(originalMain));
+  assert.ok(originalMain);
+  const originalMainRevision = originalMain.split("\0")[1];
+  assert.equal(git(path.join(selected, "Main"), "merge-base", "--is-ancestor", originalMainRevision, "main"), "");
   assert.match(afterRefs, /refs\/heads\/dev\0/);
   assert.equal(git(path.join(selected, "Main"), "remote", "-v"), remotes);
   assert.deepEqual(checkouts.slice(0, 2).map(checkout => [checkout.role, checkout.projectRelativePath]).sort(), [["dev", "Dev"], ["main", "Main"]]);
@@ -459,7 +461,7 @@ test("managed source establishment remains retryable when SPS registration fails
     fs, path, MANAGED_PROJECT_SOURCE_PATHS,
   });
   const adoption = await api.inspectExistingProjectGitAdoption();
-  assert.equal(adoption.state, "conventional-auto");
+  assert.equal(adoption.state, "conversion-required");
   await api.applyExistingProjectGitAdoption(adoption.planId);
   await assert.rejects(api.registerCurrentProject("existing"), /synthetic SPS registration failure/);
   assert.equal(selectedCurrentProjectId(selected), null);
@@ -497,5 +499,5 @@ test("landing actions route New Project to Project Intake and Existing Project t
     rendererSource.indexOf("async function startNewProjectFromLanding"));
   assert.match(cancel, /clearSelectedWorkspace\(\)/);
   assert.doesNotMatch(cancel, /applyExistingProjectGitAdoption|registerCurrentProject/);
-  assert.match(open, /Repository state changed\. Review the refreshed migration plan before accepting again\./);
+  assert.match(open, /Project source changed\. Review the conversion warning before accepting again\./);
 });

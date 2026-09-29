@@ -23,9 +23,8 @@ export interface ManagedProjectSourceResult {
   materialized: boolean;
 }
 
-async function git(cwd: string, args: string[], options: { optional?: boolean; gitDir?: string } = {}): Promise<string | null> {
-  const command = options.gitDir ? ["--git-dir", options.gitDir, ...args] : args;
-  const result = await runBoundedGit({ cwd, args: command, rejectNonZero: !options.optional });
+async function git(cwd: string, args: string[], optional = false): Promise<string | null> {
+  const result = await runBoundedGit({ cwd, args, rejectNonZero: !optional });
   return result.exitCode === 0 ? result.stdout.trim() : null;
 }
 
@@ -37,59 +36,40 @@ function checkoutId(role: "main" | "dev", repositoryId: string): string {
   return `${role}-${createHash("sha256").update(repositoryId).digest("hex").slice(0, 32)}`;
 }
 
-function gitDirectory(projectRoot: string): string {
-  const candidate = path.join(projectRoot, ".git");
-  if (!fs.existsSync(candidate) || fs.lstatSync(candidate).isSymbolicLink() || !fs.lstatSync(candidate).isDirectory())
-    fail("STALE_SOURCE", "Existing Project adoption requires a conventional repository with an owned .git directory.");
-  return candidate;
-}
-
-function assertNoGitLocks(directory: string): void {
-  const pending = [directory];
-  while (pending.length) {
-    const current = pending.pop()!;
-    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-      const absolute = path.join(current, entry.name);
-      if (entry.name.endsWith(".lock")) fail("STALE_SOURCE", "Git metadata contains an active lock; retry after Git activity completes.");
-      if (entry.isSymbolicLink()) fail("WORKSPACE_ACCESS_DENIED", "Git metadata contains a redirect that cannot be safely adopted.");
-      if (entry.isDirectory()) pending.push(absolute);
-    }
-  }
-}
-
 async function verifyExactCheckout(root: string, role: "main" | "dev", metadataRoot: string): Promise<void> {
-  const resolved = fs.realpathSync(root);
-  if (path.resolve(resolved) !== path.resolve(root) || !fs.statSync(resolved).isDirectory())
+  let resolved: string;
+  try {
+    resolved = fs.realpathSync(root);
+    if (path.resolve(resolved) !== path.resolve(root) || !fs.statSync(resolved).isDirectory()) throw new Error("redirect");
+  } catch {
     fail("WORKSPACE_ACCESS_DENIED", `The ${role} checkout path is redirected or unavailable.`);
+  }
   const [top, branch, common] = await Promise.all([
-    git(resolved, ["rev-parse", "--show-toplevel"]),
-    git(resolved, ["branch", "--show-current"]),
-    git(resolved, ["rev-parse", "--git-common-dir"]),
+    git(resolved!, ["rev-parse", "--show-toplevel"]),
+    git(resolved!, ["branch", "--show-current"]),
+    git(resolved!, ["rev-parse", "--git-common-dir"]),
   ]);
-  if (!top || path.resolve(top) !== path.resolve(resolved) || branch !== role ||
-    !common || path.resolve(resolved, common) !== path.resolve(metadataRoot))
+  if (!top || path.resolve(top) !== path.resolve(resolved!) || branch !== role ||
+    !common || path.resolve(resolved!, common) !== path.resolve(metadataRoot)) {
     fail("STALE_SOURCE", `The ${role} path is not an exact ${role} checkout of the managed Repository.`);
+  }
 }
 
 /** Resolves only the durable managed Dev checkout; Project-container Git fallback is forbidden. */
 export async function resolveManagedDevRepositoryCheckout(projectRoot: string): Promise<string> {
   const topology = resolveManagedProjectSourceTopology(projectRoot);
   if (fs.existsSync(path.join(topology.projectContainerRoot, ".git")) ||
-    !fs.existsSync(topology.repositoryMetadataRoot) || !fs.existsSync(topology.devCheckoutRoot))
+    !fs.existsSync(topology.repositoryMetadataRoot) || !fs.existsSync(topology.devCheckoutRoot)) {
     fail("STALE_SOURCE", "Managed Dev RepositoryCheckout is unavailable; establish managed Project source first.");
-  try {
-    const bare = await git(topology.repositoryMetadataRoot, ["rev-parse", "--is-bare-repository"], { optional: true });
-    if (bare !== "true") fail("STALE_SOURCE", "Managed Repository metadata is not available.");
-    await verifyExactCheckout(topology.devCheckoutRoot, "dev", topology.repositoryMetadataRoot);
-    return topology.devCheckoutRoot;
-  } catch (error) {
-    if (error instanceof AgentHarnessError) throw error;
-    fail("STALE_SOURCE", "Managed Dev RepositoryCheckout is missing, redirected, or invalid.");
   }
+  const bare = await git(topology.repositoryMetadataRoot, ["rev-parse", "--is-bare-repository"], true);
+  if (bare !== "true") fail("STALE_SOURCE", "Managed Repository metadata is not available.");
+  await verifyExactCheckout(topology.devCheckoutRoot, "dev", topology.repositoryMetadataRoot);
+  return topology.devCheckoutRoot;
 }
 
 async function registerCheckouts(input: {
-  root: string; repositoryId: string; workspaceId: string; registration: ManagedProjectCheckoutRegistration; materialized: boolean;
+  root: string; repositoryId: string; workspaceId: string; registration: ManagedProjectCheckoutRegistration;
 }): Promise<ManagedProjectSourceResult> {
   const topology = resolveManagedProjectSourceTopology(input.root);
   const mainCheckout: RepositoryCheckout = { repositoryCheckoutId: checkoutId("main", input.repositoryId), repositoryId: input.repositoryId,
@@ -105,151 +85,29 @@ async function registerCheckouts(input: {
   ]);
   return { projectContainerRoot: topology.projectContainerRoot, repositoryMetadataRoot: topology.repositoryMetadataRoot,
     mainCheckoutRoot: topology.mainCheckoutRoot, devCheckoutRoot: topology.devCheckoutRoot, repositoryId: input.repositoryId,
-    main, dev, materialized: input.materialized };
+    main, dev, materialized: false };
 }
 
-async function existingManaged(input: {
-  root: string; repositoryId: string; workspaceId: string; registration: ManagedProjectCheckoutRegistration;
-}): Promise<ManagedProjectSourceResult> {
-  const topology = resolveManagedProjectSourceTopology(input.root);
-  if (fs.existsSync(path.join(topology.projectContainerRoot, ".git")))
-    fail("WORKSPACE_ACCESS_DENIED", "Project root still contains Git metadata; managed topology is incomplete.");
-  const bare = await git(topology.repositoryMetadataRoot, ["rev-parse", "--is-bare-repository"], { optional: true });
-  if (bare !== "true" || !fs.existsSync(topology.mainCheckoutRoot) || !fs.existsSync(topology.devCheckoutRoot))
-    fail("STALE_SOURCE", "Existing Project has a partial or conflicting managed topology; no source was changed.");
-  await verifyExactCheckout(topology.mainCheckoutRoot, "main", topology.repositoryMetadataRoot);
-  await verifyExactCheckout(topology.devCheckoutRoot, "dev", topology.repositoryMetadataRoot);
-  return registerCheckouts({ ...input, materialized: false });
-}
-
-/** Safely moves a conventional Git Project into the adopted non-Git container plus Main/Dev topology. */
+/** Verifies and registers application-owned topology. Conventional Git conversion is owned by the adoption service. */
 export async function establishManagedProjectSource(input: {
   projectRoot: string;
   repositoryId: string;
   workspaceId: string;
   checkoutRegistration: ManagedProjectCheckoutRegistration;
 }): Promise<ManagedProjectSourceResult> {
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(input.repositoryId) || !input.workspaceId.trim())
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(input.repositoryId) || !input.workspaceId.trim()) {
     fail("WORKSPACE_REGISTRY_CONFLICT", "Exact bounded Repository and Project workspace identities are required.");
+  }
   const topology = resolveManagedProjectSourceTopology(input.projectRoot);
-  const root = topology.projectContainerRoot;
-  const metadataRoot = topology.repositoryMetadataRoot;
-  if (!fs.existsSync(path.join(root, ".git"))) {
-    if (fs.existsSync(metadataRoot)) return existingManaged({ root, repositoryId: input.repositoryId,
-      workspaceId: input.workspaceId, registration: input.checkoutRegistration });
-    fail("STALE_SOURCE", "No existing Git Repository was found; Greenfield bootstrap belongs to WRB01-03.");
+  if (fs.existsSync(path.join(topology.projectContainerRoot, ".git"))) {
+    fail("STALE_SOURCE", "Conventional Git must be converted before managed source registration.");
   }
-  const gitDir = gitDirectory(root);
-  if (fs.existsSync(metadataRoot) || fs.existsSync(topology.mainCheckoutRoot) || fs.existsSync(topology.devCheckoutRoot))
-    fail("WORKSPACE_ACCESS_DENIED", "Existing managed source paths conflict with the conventional Project; no source was changed.");
-  assertNoGitLocks(gitDir);
-  if (fs.existsSync(path.join(root, ".gitmodules")) || fs.existsSync(path.join(gitDir, "objects", "info", "alternates")))
-    fail("STALE_SOURCE", "Repositories with submodules or external object alternates require manual topology adoption.");
-
-  const [top, resolvedGitDir, currentBranch, mainRef, devRef, worktrees, refs, remotes] = await Promise.all([
-    git(root, ["rev-parse", "--show-toplevel"]), git(root, ["rev-parse", "--absolute-git-dir"]),
-    git(root, ["branch", "--show-current"]),
-    git(root, ["show-ref", "--verify", "--hash", "refs/heads/main"], { optional: true }),
-    git(root, ["show-ref", "--verify", "--hash", "refs/heads/dev"], { optional: true }),
-    git(root, ["worktree", "list", "--porcelain"]),
-    git(root, ["for-each-ref", "--format=%(refname)%00%(objectname)", "refs/heads", "refs/remotes", "refs/tags"]),
-    git(root, ["remote", "-v"]),
-  ]);
-  if (!top || path.resolve(top) !== path.resolve(root) || !resolvedGitDir || path.resolve(resolvedGitDir) !== path.resolve(gitDir))
-    fail("WORKSPACE_ACCESS_DENIED", "Selected Project is not the exact root of its conventional Git Repository.");
-  if (currentBranch !== "main" && currentBranch !== "dev") {
-    const boundedBranch = currentBranch ? currentBranch.slice(0, 80) : "detached HEAD";
-    fail("STALE_SOURCE", `Conventional Project is currently on '${boundedBranch}'; adoption supports only main or dev and source was not changed.`);
+  const bare = await git(topology.repositoryMetadataRoot, ["rev-parse", "--is-bare-repository"], true);
+  if (bare !== "true" || !fs.existsSync(topology.mainCheckoutRoot) || !fs.existsSync(topology.devCheckoutRoot)) {
+    fail("STALE_SOURCE", "Existing Project has no complete managed source topology.");
   }
-  if (!mainRef) fail("STALE_SOURCE", "Conventional Project must contain a main ref before adoption; source was not changed.");
-  const createDevRef = !devRef && currentBranch === "main";
-  if (!devRef && !createDevRef) fail("STALE_SOURCE", "A dev ref is required when the current branch cannot establish the main baseline; source was not changed.");
-  if (!refs || remotes === null) fail("STALE_SOURCE", "Conventional Repository refs and remotes could not be inspected; source was not changed.");
-  if (worktrees?.split(/\r?\n/).filter(line => line.startsWith("worktree ")).length !== 1)
-    fail("STALE_SOURCE", "Repository has additional linked worktrees; normalize them before Project topology adoption.");
-  for (const reserved of ["Main", "Dev", ".champcity/repository.git"]) {
-    if (fs.existsSync(path.join(root, reserved))) fail("WORKSPACE_ACCESS_DENIED", `Source entry conflicts with managed path '${reserved}'; no source was changed.`);
-  }
-  const appRoot = path.join(root, ".champcity");
-  const appExisted = fs.existsSync(appRoot);
-  if (!appExisted) fs.mkdirSync(appRoot);
-  if (fs.lstatSync(appRoot).isSymbolicLink() || !fs.lstatSync(appRoot).isDirectory() || path.dirname(fs.realpathSync(appRoot)) !== root)
-    fail("WORKSPACE_ACCESS_DENIED", "Project State storage is redirected or unavailable.");
-  const moved: string[] = [];
-  let originalMetadataMoved = false;
-  let devCreated = false;
-  let mainCreated = false;
-  const dirtyRole = currentBranch as "main" | "dev";
-  const cleanRole = dirtyRole === "main" ? "dev" : "main";
-  const receiverRoot = dirtyRole === "main" ? topology.mainCheckoutRoot : topology.devCheckoutRoot;
-  const cleanCheckoutRoot = cleanRole === "main" ? topology.mainCheckoutRoot : topology.devCheckoutRoot;
-  const stagingOriginal = path.join(appRoot, `original-git-${createHash("sha256").update(input.repositoryId).digest("hex").slice(0, 12)}`);
-  const sourceEntries = fs.readdirSync(root).filter(name => name !== ".git" && name !== ".champcity");
-  let stage = "copy Repository metadata";
-  try {
-    fs.cpSync(gitDir, metadataRoot, { recursive: true, preserveTimestamps: true, errorOnExist: true, force: false });
-    stage = "prepare bare Repository metadata";
-    const bare = await git(root, ["config", "core.bare", "true"], { optional: true, gitDir: metadataRoot });
-    if (bare !== "") fail("STALE_SOURCE", "Repository common metadata could not be prepared as a bare Git directory.");
-    if (createDevRef) {
-      stage = "create copied Dev ref at the exact Main revision";
-      await git(root, ["update-ref", "refs/heads/dev", mainRef], { gitDir: metadataRoot });
-    }
-    stage = `create ${dirtyRole} working-state receiver`;
-    await git(root, ["worktree", "add", "--no-checkout", receiverRoot, dirtyRole], { gitDir: metadataRoot });
-    if (dirtyRole === "main") mainCreated = true;
-    else devCreated = true;
-    await git(receiverRoot, ["reset", "--mixed", dirtyRole]);
-    stage = `create clean ${cleanRole} checkout`;
-    await git(root, ["worktree", "add", cleanCheckoutRoot, cleanRole], { gitDir: metadataRoot });
-    if (cleanRole === "main") mainCreated = true;
-    else devCreated = true;
-    stage = `move Project source entries into ${dirtyRole}`;
-    for (const name of sourceEntries) {
-      const source = path.join(root, name);
-      const destination = path.join(receiverRoot, name);
-      if (fs.existsSync(destination)) fail("WORKSPACE_ACCESS_DENIED", `${dirtyRole} checkout conflicts with existing source entry '${name}'.`);
-      fs.renameSync(source, destination);
-      moved.push(name);
-    }
-    if (fs.existsSync(stagingOriginal)) fail("STALE_SOURCE", "Original Git metadata recovery path already exists.");
-    stage = "move original Git metadata into recovery staging";
-    fs.renameSync(gitDir, stagingOriginal);
-    originalMetadataMoved = true;
-
-    stage = "verify managed checkouts and retained Git metadata";
-    await verifyExactCheckout(topology.mainCheckoutRoot, "main", metadataRoot);
-    await verifyExactCheckout(topology.devCheckoutRoot, "dev", metadataRoot);
-    const [afterRefs, afterRemotes] = await Promise.all([
-      git(topology.mainCheckoutRoot, ["for-each-ref", "--format=%(refname)%00%(objectname)", "refs/heads", "refs/remotes", "refs/tags"]),
-      git(topology.mainCheckoutRoot, ["remote", "-v"]),
-    ]);
-    const expectedRefs = createDevRef ? [...refs.split(/\r?\n/), `refs/heads/dev\0${mainRef}`].sort().join("\n") : refs;
-    if (expectedRefs !== afterRefs || remotes !== afterRemotes)
-      fail("STALE_SOURCE", "Repository refs or remote configuration changed during adoption; inspect the recovery metadata.");
-    const rootGit = await git(root, ["rev-parse", "--show-toplevel"], { optional: true });
-    if (rootGit && path.resolve(rootGit) === path.resolve(root))
-      fail("STALE_SOURCE", "Project root remains Git-backed after managed source preparation.");
-
-  } catch (error) {
-    for (const name of moved.reverse()) {
-      const source = path.join(receiverRoot, name);
-      const destination = path.join(root, name);
-      if (fs.existsSync(source) && !fs.existsSync(destination)) fs.renameSync(source, destination);
-    }
-    if (originalMetadataMoved) {
-      if (fs.existsSync(stagingOriginal) && !fs.existsSync(gitDir)) fs.renameSync(stagingOriginal, gitDir);
-    }
-    if (devCreated) await git(root, ["worktree", "remove", "--force", topology.devCheckoutRoot], { optional: true, gitDir: metadataRoot }).catch(() => undefined);
-    if (mainCreated) await git(root, ["worktree", "remove", "--force", topology.mainCheckoutRoot], { optional: true, gitDir: metadataRoot }).catch(() => undefined);
-    if (fs.existsSync(metadataRoot)) fs.rmSync(metadataRoot, { recursive: true, force: true });
-    if (!appExisted && fs.existsSync(appRoot) && fs.readdirSync(appRoot).length === 0) fs.rmdirSync(appRoot);
-    if (error instanceof AgentHarnessError) throw error;
-    const failureCode = String((error as NodeJS.ErrnoException)?.code ?? (error instanceof Error ? error.name : "unknown"))
-      .replace(/[^A-Z0-9_-]/gi, "_").slice(0, 40);
-    fail("STALE_SOURCE", `Managed Project topology failed during ${stage} (${failureCode}); the original Project source was restored where safe.`);
-  }
-  fs.rmSync(stagingOriginal, { recursive: true, force: true });
-  return registerCheckouts({ root, repositoryId: input.repositoryId, workspaceId: input.workspaceId,
-    registration: input.checkoutRegistration, materialized: true });
+  await verifyExactCheckout(topology.mainCheckoutRoot, "main", topology.repositoryMetadataRoot);
+  await verifyExactCheckout(topology.devCheckoutRoot, "dev", topology.repositoryMetadataRoot);
+  return registerCheckouts({ root: topology.projectContainerRoot, repositoryId: input.repositoryId,
+    workspaceId: input.workspaceId, registration: input.checkoutRegistration });
 }
