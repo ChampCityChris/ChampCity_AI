@@ -2609,7 +2609,9 @@
       "capabilityId": "managed-project-source-topology",
       "description": "Existing Git Projects preserve current source, best-effort import readable history, force one canonical baseline, and materialize durable Repository metadata, exact Main/Dev checkouts, and Agent Harness registrations.",
       "sourcePatterns": [
+        "src/main/sourceControl/existingProjectGitAdoptionService.ts",
         "src/main/sourceControl/managedProjectSourceService.ts",
+        "src/main/sourceControl/managedRepositoryIntegrationPolicy.ts",
         "src/main/sourceControl/projectSourceBootstrap.ts",
         "src/main/sourceControl/sourceControlService.ts"
       ],
@@ -2624,6 +2626,10 @@
         {
           "behaviorId": "greenfield-source-bootstrap-establishes-deterministic-managed-main-dev-and-ignore-baseline",
           "description": "Empty Project bootstrap creates a deterministic tracked ignore baseline and registers sibling Main/Dev checkouts."
+        },
+        {
+          "behaviorId": "managed-repository-integration-policy-provisioning",
+          "description": "Greenfield and forced Existing Project baselines receive one fresh current repository policy selected from exact non-executed validation authority while Project-container runtime state and legacy policy bytes remain excluded."
         }
       ]
     },
@@ -3560,6 +3566,10 @@
         {
           "behaviorId": "application-source-control-returns-attributable-receipts-and-preserves-git-safety",
           "description": "application source control returns attributable receipts and preserves Git safety without MCP"
+        },
+        {
+          "behaviorId": "application-source-integrity-runner",
+          "description": "The universal application-owned runner verifies exact registered candidate identity, revision, cleanliness, conflicts, and repository ownership without executing repository code."
         },
         {
           "behaviorId": "branch-state-existing-branch-switching-and-bounded-history-expose-real-repository-evidence",
@@ -6476,8 +6486,8 @@
     {
       "testPath": "test/agent-harness/integration-policy-semantics.test.cjs",
       "currentTestCount": {
-        "value": 10,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 11,
+        "basis": "EPGA-R02 adds application-owned source-integrity schema and production-provider execution proof to the prior policy suite."
       },
       "duration": {
         "kind": "measured",
@@ -6518,6 +6528,12 @@
         "current-proof-appropriate"
       ],
       "behaviorCoverage": [
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "application-source-integrity-runner",
+          "proofLocator": "application source-integrity policy validates only the registered clean exact candidate",
+          "proofRole": "primary"
+        },
         {
           "capabilityId": "release-and-git-operations",
           "behaviorId": "integration-policy-schema-boundary",
@@ -17922,8 +17938,8 @@
     {
       "testPath": "test/source-control/managed-project-source.test.cjs",
       "currentTestCount": {
-        "value": 10,
-        "basis": "EPGA-R01 forced-normalization proof covers the four-state classifier, a ChampCity-style dev repository with accumulated history and normal origin tracking, feature/detached/missing-ref variants, dirty/untracked/ignored preservation, divergent parents, linked worktrees, submodule/alternate metadata, unreadable Git fallback, partial residue, pre-mutation staging failure, and idempotent reopen."
+        "value": 11,
+        "basis": "EPGA-R02 extends forced-normalization proof with fresh generic/profile policy provisioning, legacy-policy non-import, incomplete-authority fallback, and runtime-state exclusion."
       },
       "duration": {
         "kind": "measured",
@@ -17969,6 +17985,12 @@
           "capabilityId": "managed-project-source-topology",
           "behaviorId": "conventional-project-adoption-preserves-source-and-registers-durable-main-dev-checkouts",
           "proofLocator": "inspection returns conversion-required for ordinary and irregular Git; apply revalidates consent, snapshots source before mutation, best-effort imports history, creates a conflict-free synthetic baseline from current tracked/dirty/untracked source, preserves ignored bytes locally, forces exact main/dev, falls back from unreadable metadata, and reopens idempotently",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "managed-project-source-topology",
+          "behaviorId": "managed-repository-integration-policy-provisioning",
+          "proofLocator": "managed policy provisioning ignores container state and incomplete validation authority falls back safely",
           "proofRole": "primary"
         }
       ]

@@ -32,6 +32,11 @@ test("integration policy rejects untrusted schemas and redirected or unbounded c
     assert.throws(() => parseIntegrationPolicy(value), undefined, label);
   }
   assert.deepEqual(parseIntegrationPolicy(policy), policy);
+  const sourceIntegrity = { schemaVersion: 1, checks: [{ checkId: "champcity-source-integrity", lane: "static", runner: { kind: "source-integrity", timeoutMs: 60000 } }], requiredIntegrationChecks: ["champcity-source-integrity"] };
+  assert.deepEqual(parseIntegrationPolicy(sourceIntegrity), sourceIntegrity);
+  for (const extra of [{ command: "git status" }, { script: "test" }, { path: "." }, { args: [] }]) {
+    assert.throws(() => parseIntegrationPolicy({ ...sourceIntegrity, checks: [{ ...sourceIntegrity.checks[0], runner: { ...sourceIntegrity.checks[0].runner, ...extra } }] }));
+  }
   const repair = { allowedEditableRoots: ["src"], protectedPaths: ["src/protected"], sources: [{ role: "architecture", path: "docs/architecture.md" }] };
   assert.deepEqual(parseIntegrationPolicy({ ...policy, repair }).repair, repair);
   for (const change of [
@@ -59,6 +64,37 @@ test("integration policy rejects untrusted schemas and redirected or unbounded c
   ordered.checks.push({ ...ordered.checks[0], checkId: "second" });
   ordered.requiredIntegrationChecks = ["second", "source"];
   assert.deepEqual(parseIntegrationPolicy(ordered).requiredIntegrationChecks, ["second", "source"]);
+});
+
+test("application source-integrity policy validates only the registered clean exact candidate", async t => {
+  const { createIntegrationPolicyProvider } = require("../../dist/main/planExecution/integrationPolicyProvider.js");
+  const { integrationPaths } = require("../../dist/main/agentHarness/repository/integrationGit.js");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-source-integrity-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  execFileSync("git", ["init", "-b", "dev"], { cwd: root, stdio: "ignore" });
+  execFileSync("git", ["config", "user.name", "Policy Test"], { cwd: root });
+  execFileSync("git", ["config", "user.email", "policy@example.invalid"], { cwd: root });
+  fs.mkdirSync(path.join(root, ".champcity"));
+  fs.writeFileSync(path.join(root, ".champcity", "integration-policy.json"), JSON.stringify({ schemaVersion: 1,
+    checks: [{ checkId: "champcity-source-integrity", lane: "static", runner: { kind: "source-integrity", timeoutMs: 60000 } }],
+    requiredIntegrationChecks: ["champcity-source-integrity"] }));
+  fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ scripts: { "champcity-source-integrity": "node -e \"require('node:fs').writeFileSync('executed.txt','bad')\"" } }));
+  fs.writeFileSync(path.join(root, "README.md"), "candidate source\n");
+  execFileSync("git", ["add", "--all"], { cwd: root });
+  execFileSync("git", ["commit", "-m", "source-integrity fixture"], { cwd: root, stdio: "ignore" });
+  const commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+  const candidateId = "a".repeat(64);
+  const paths = integrationPaths(root, candidateId);
+  fs.mkdirSync(paths.base, { recursive: true });
+  execFileSync("git", ["worktree", "add", "-b", paths.branch, paths.checkout, commit], { cwd: root, stdio: "ignore" });
+  const resolved = await createIntegrationPolicyProvider(root).validationPolicy.resolve(commit);
+  const context = Object.freeze({ repositoryId: "source-integrity-fixture", targetCommit: commit, incomingCommit: commit,
+    candidateCommit: commit, candidateId, targetBranch: "dev", platform: process.platform });
+  const proof = await resolved.checks[0].run(paths.checkout, context);
+  assert.equal(proof.exitCode, 0);
+  assert.equal(fs.existsSync(path.join(paths.checkout, "executed.txt")), false, "candidate repository code was not executed");
+  fs.writeFileSync(path.join(paths.checkout, "README.md"), "dirty candidate\n");
+  assert.equal((await resolved.checks[0].run(paths.checkout, context)).exitCode, 1);
 });
 
 

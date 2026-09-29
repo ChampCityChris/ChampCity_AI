@@ -2,9 +2,13 @@
 
 Status: implemented target-owned candidate-aware validation and routed Integration Repair.
 
-## Repository authority and schema
+## Repository authority, provisioning, and schema
 
-The selected Repository owns `.champcity/integration-policy.json`. This is runtime configuration in the existing `.champcity/` namespace, separate from Work Card validation selection and the metadata under `validation/`. Production does not import runtime code from validation metadata. The registered profile adapter reads bounded target-owned metadata and executes a temporary immutable target toolkit. For one integration, the authoritative policy is the exact blob at the immutable target commit selected by integration-target resolution. Incoming/source working-tree bytes never govern their own candidate.
+The Project container's `<Project>/.champcity/` directory is application-owned operational state. It holds Project State, repository metadata, checkouts, migration recovery records, and runtime evidence; it is not managed source and Existing Project conversion does not import it. The selected managed Repository separately owns `.champcity/integration-policy.json` inside its Main/Dev source tree. After provisioning, that file is ordinary version-controlled repository configuration, separate from Work Card validation selection and the metadata under `validation/`.
+
+Greenfield bootstrap and Existing Project forced normalization call one application-owned provisioner while establishing the canonical baseline. It generates a fresh current-schema policy from the preserved ordinary source snapshot and never reads or preserves a Project-container policy as authority. A repository receives `champcity-integration-gate` only when every fixed validation toolkit file, the capability map, profiles document, and required build/typecheck script definitions are present and structurally usable without executing incoming code. Otherwise it receives the universal `champcity-source-integrity` policy. Provisioning does not fabricate an Integration Repair scope, and reopening an already managed Project does not regenerate or overwrite its repository policy.
+
+Production does not import runtime code from validation metadata. The registered profile adapter reads bounded target-owned metadata and executes a temporary immutable target toolkit. For one integration, the authoritative policy is the exact blob at the immutable target commit selected by integration-target resolution. Incoming/source working-tree bytes never govern their own candidate.
 
 The version 1 document has three required fields and the optional strict `repair` section described below:
 
@@ -16,7 +20,7 @@ The version 1 document has three required fields and the optional strict `repair
 
 Each check has exactly `checkId`, `lane`, and `runner`. Check IDs start with an ASCII letter or digit and contain at most 80 letters, digits, dots, underscores, or hyphens. Supported semantic lanes are `static`, `fast`, `affected-capability`, `integration`, `desktop-platform`, `packaging`, `migration`, `performance-soak`, and `full-regression`.
 
-The initial runner object has exactly `kind: "npm-script"`, `script`, and `timeoutMs`. Script identities use the same bounds as check IDs, additionally allowing colons. Duration must be an integer from 1 through 900000 milliseconds. Arbitrary command text, paths, arguments, extra fields, and unsupported runner kinds are rejected, including in checks not selected as required. Future ecosystems require an application-owned contract variant and registry adapter; the candidate service continues to consume the same check hooks.
+The `npm-script` runner object has exactly `kind`, `script`, and `timeoutMs`. Script identities use the same bounds as check IDs, additionally allowing colons. The universal `source-integrity` runner has exactly `kind` and `timeoutMs`; it accepts no command, script, path, or argument input. The registered `validation-profile` runner is described below. Duration must be an integer from 1 through 900000 milliseconds. Arbitrary command text, paths, arguments, extra fields, and unsupported runner kinds are rejected, including in checks not selected as required. Future ecosystems require an application-owned contract variant and registry adapter; the candidate service continues to consume the same check hooks.
 
 Working-tree policy reads require a UTF-8 JSON ordinary file of at most 65536 bytes. The selected root and every configuration path component are checked for containment and redirection. Symlinks and junctions are rejected. Reads use a bounded buffer and verify the opened file's identity. Target policy resolution instead uses application-owned bounded Git plumbing to read only the fixed repository-relative policy path from an exact commit, without switching a branch or checkout. Missing, malformed, redirected, oversized, and unsupported policies fail closed with fixed messages that do not expose filesystem diagnostics.
 
@@ -39,6 +43,10 @@ Candidate creation, validation, Integration Repair revalidation, service recreat
 An incoming branch may propose a different `.champcity/integration-policy.json`, but that replacement never controls the candidate integrating it. The merged candidate's policy must still parse under the strict supported schema before validation and advancement; missing or invalid replacement policy fails closed. A valid future policy may coexist while the target-owned checks and exact target-owned npm script definitions judge the current candidate. After that candidate integrates, a later candidate may use the new target policy. Replacing a currently governing npm script requires a separately safe transition and cannot be smuggled through the candidate it judges.
 
 Direct application-injected checks used by the existing WIR20/WIR21 fixtures remain supported as an explicit alternative to the production provider. A service cannot combine both sources. The existing clean-checkout, exact-commit, Plan freshness, incoming-history, and target-history checks remain in force. Evidence provides validation results; it does not confer product disposition or publication authority.
+
+### Universal source-integrity runner
+
+The application-owned `source-integrity` runner is the minimum policy for a managed Repository without the complete current validation-profile authority. It executes no repository code and invokes no repository-selected command. Using only registered Integration Candidate and bounded source-control invariants, it verifies that the checkout is the exact registered isolated candidate, belongs to the unchanged selected repository, resolves to the expected candidate revision, has no conflicts, and is clean. It returns bounded deterministic `IntegrationValidationEvidence`. Its standard generated identity is `champcity-source-integrity` in the `static` lane with a 60000 ms ceiling.
 
 ## Current ChampCity composition
 

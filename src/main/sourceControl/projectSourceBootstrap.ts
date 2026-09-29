@@ -6,6 +6,8 @@ import { runBoundedGit } from "../agentHarness/repository/boundedGit";
 import type { ProjectSourceBootstrap, RepositoryCheckout } from "../../shared/sourceLifecycleContracts";
 import { MANAGED_PROJECT_SOURCE_PATHS } from "../../shared/sourceLifecycleContracts";
 import type { AgentHarnessRegisteredRepositoryCheckoutSummary } from "../../shared/workspaceContracts";
+import { INTEGRATION_POLICY_PATH } from "../../shared/integrationPolicyContracts";
+import { writeManagedRepositoryIntegrationPolicy } from "./managedRepositoryIntegrationPolicy";
 
 const initialSubject = "ChampCity initial source baseline";
 const opaqueId = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/;
@@ -51,7 +53,9 @@ export async function bootstrapProjectSource(root: string, repositoryId: string,
     await git(canonical, ["init", "--bare", metadata]);
     await git(canonical, ["--git-dir", metadata, "worktree", "add", "--orphan", "-b", "main", mainRoot]);
     fs.writeFileSync(path.join(mainRoot, ".gitignore"), ignoreBaseline, { flag: "wx" });
+    writeManagedRepositoryIntegrationPolicy(mainRoot);
     await git(mainRoot, ["add", "--", ".gitignore"]);
+    await git(mainRoot, ["add", "-f", "--", INTEGRATION_POLICY_PATH]);
     await runBoundedGit({ cwd: mainRoot,
       args: ["-c", "user.name=ChampCity", "-c", "user.email=champcity@invalid.local", "commit", "-m", initialSubject],
       commitDates: { author: "946684800 +0000", committer: "946684800 +0000" } });

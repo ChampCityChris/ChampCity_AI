@@ -4,11 +4,13 @@ import path from "node:path";
 import { AgentHarnessError } from "../agentHarness/core/errors";
 import { runBoundedGit } from "../agentHarness/repository/boundedGit";
 import type { ExistingProjectGitAdoptionPlan } from "../../shared/sourceControlContracts";
+import { INTEGRATION_POLICY_PATH } from "../../shared/integrationPolicyContracts";
 import {
   establishManagedProjectSource,
   type ManagedProjectCheckoutRegistration,
   type ManagedProjectSourceResult,
 } from "./managedProjectSourceService";
+import { writeManagedRepositoryIntegrationPolicy } from "./managedRepositoryIntegrationPolicy";
 
 export const EXISTING_PROJECT_GIT_ADOPTION_JOURNAL = ".champcity/migrations/existing-project-git-adoption-v1.json";
 export const EXISTING_PROJECT_GIT_ADOPTION_RECEIPT = ".champcity/migrations/existing-project-git-adoption-v1.receipt.json";
@@ -342,6 +344,7 @@ async function createCanonicalBaseline(snapshot: string, metadata: string, evide
   const tracked = new Set(evidence.tracked);
   await updateIndexPaths(snapshot, metadata, "--force-remove", evidence.ignored.filter(relative => !tracked.has(relative)));
   await updateIndexPaths(snapshot, metadata, "add-force", evidence.tracked);
+  await updateIndexPaths(snapshot, metadata, "add-force", [INTEGRATION_POLICY_PATH]);
   const tree = await git(snapshot, ["write-tree"], { gitDir: metadata, workTree: snapshot });
   if (!tree) fail("Canonical baseline tree could not be created from preserved Project source.");
   const parents: string[] = [];
@@ -380,6 +383,8 @@ async function normalizeExistingProject(input: {
   fs.mkdirSync(migrationRoot);
   try {
     copySourceContents(candidate, snapshot, candidate === root);
+    fs.rmSync(path.join(snapshot, ".champcity"), { recursive: true, force: true });
+    writeManagedRepositoryIntegrationPolicy(snapshot);
     inspectReadableTree(snapshot, false);
   } catch (error) {
     fail(`Source preservation staging failed before Git normalization: ${error instanceof Error ? error.message : "filesystem copy failed"}`);
@@ -446,7 +451,7 @@ async function normalizeExistingProject(input: {
     if (gitRelocated && !existsEntry(path.join(root, ".git")) && existsEntry(legacyGit)) fs.renameSync(legacyGit, path.join(root, ".git"));
     if (mainRelocated && !existsEntry(main) && existsEntry(relocatedMain)) fs.renameSync(relocatedMain, main);
     if (devRelocated && !existsEntry(dev) && existsEntry(relocatedDev)) fs.renameSync(relocatedDev, dev);
-    try { copySourceContents(snapshot, root, false); } catch { /* preserved snapshot remains authoritative recovery evidence */ }
+    try { copySourceContents(snapshot, root, true); } catch { /* preserved snapshot remains authoritative recovery evidence */ }
     const reason = error instanceof Error ? error.message.slice(0, 500) : "Existing Project conversion failed.";
     journal = { ...journal, stage: "failed", failureReason: reason };
     writeJsonAtomic(journalPath(root), journal);

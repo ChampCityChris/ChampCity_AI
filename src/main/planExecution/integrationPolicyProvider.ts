@@ -7,6 +7,7 @@ import { integrationPaths, readIntegrationCommitFile, registeredIntegrationCheck
 import type { IntegrationCandidateHooks } from "./integrationCandidateService";
 import { readIntegrationPolicyFile } from "./integrationPolicyFiles";
 import { runIntegrationPolicyCheck } from "./integrationPolicyRunners";
+import { runSourceIntegrity } from "./integrationSourceIntegrityRunner";
 
 const PACKAGE_MANIFEST_MAX_BYTES = 1_000_000;
 const PACKAGE_SCRIPT_MAX_BYTES = 8192;
@@ -31,6 +32,7 @@ export async function loadIntegrationPolicyAtCommit(repositoryRoot: string, targ
 }
 
 function requiredTargetScripts(value: unknown, names: string[]): Map<string, string> {
+  if (!names.length) return new Map();
   const scripts = value && typeof value === "object" && !Array.isArray(value)
     ? (value as { scripts?: unknown }).scripts : undefined;
   if (!scripts || typeof scripts !== "object" || Array.isArray(scripts)) throw Error("Target package manifest does not define the required integration scripts.");
@@ -50,8 +52,11 @@ export function createIntegrationPolicyProvider(repositoryRoot: string, runCheck
   return { validationPolicy: { resolve: async (targetCommit) => {
     const snapshot = await loadIntegrationPolicyAtCommit(root, targetCommit);
     const required = snapshot.policy.requiredIntegrationChecks.map((checkId) => snapshot.policy.checks.find((entry) => entry.checkId === checkId)!);
-    const manifest = parseJsonBytes(await readIntegrationCommitFile(root, targetCommit, "package.json", PACKAGE_MANIFEST_MAX_BYTES), "Target package manifest");
     const npmChecks = required.filter((check) => check.runner.kind === "npm-script");
+    const needsManifest = npmChecks.length > 0 || required.some((check) => check.runner.kind === "validation-profile");
+    const manifest = needsManifest
+      ? parseJsonBytes(await readIntegrationCommitFile(root, targetCommit, "package.json", PACKAGE_MANIFEST_MAX_BYTES), "Target package manifest")
+      : undefined;
     const scripts = requiredTargetScripts(manifest, npmChecks.map((check) => check.runner.kind === "npm-script" ? check.runner.script : ""));
     const profileAuthority = required.some((check) => check.runner.kind === "validation-profile")
       ? await loadValidationProfileAuthority(root, targetCommit, Object.fromEntries(requiredTargetScripts(manifest, ["build", "typecheck"]))) : undefined;
@@ -71,7 +76,9 @@ export function createIntegrationPolicyProvider(repositoryRoot: string, runCheck
         await assertCandidate(candidateRoot);
         const result = check.runner.kind === "validation-profile"
           ? await runValidationProfile(root, candidateRoot, check, context, profileAuthority!)
-          : await runCheck(candidateRoot, check, scripts.get(check.runner.script)!);
+          : check.runner.kind === "source-integrity"
+            ? await runSourceIntegrity(root, candidateRoot, check, context)
+            : await runCheck(candidateRoot, check, scripts.get(check.runner.script)!);
         await assertCandidate(candidateRoot);
         return result;
       } })),

@@ -8,7 +8,8 @@ import type { IntegrationValidationEvidence, IntegrationProfileTelemetry } from 
 import { integrationPaths, readIntegrationChangedPaths, readIntegrationCommitFile } from "../agentHarness/repository/integrationGit";
 import { resolveWindowsNpmInvocation } from "../agentHarness/release/releaseCommandAdapter";
 
-const TOOLKIT_FILES = ["affected.cjs", "authority.cjs", "build.cjs", "catalog-schema.cjs", "catalog.cjs", "child-cleanup.cjs", "executor.cjs", "environment.cjs", "planner.cjs", "process.cjs", "profile-runner.cjs", "scheduler.cjs", "telemetry.cjs"];
+export const VALIDATION_PROFILE_TOOLKIT_FILES = ["affected.cjs", "authority.cjs", "build.cjs", "catalog-schema.cjs", "catalog.cjs", "child-cleanup.cjs", "executor.cjs", "environment.cjs", "planner.cjs", "process.cjs", "profile-runner.cjs", "scheduler.cjs", "telemetry.cjs"] as const;
+export const VALIDATION_PROFILE_REQUIRED_SCRIPTS = ["build", "typecheck"] as const;
 type Evidence = Omit<IntegrationValidationEvidence, "checkId">;
 interface ProfileAuthority {
   targetCommit: string;
@@ -21,7 +22,7 @@ interface ProfileAuthority {
 export async function loadValidationProfileAuthority(root: string, targetCommit: string, scripts: Record<string, string>): Promise<ProfileAuthority> {
   const files: ProfileAuthority["files"] = [];
   // Bounded immutable reads; no incoming code is loaded into the application.
-  for (const name of TOOLKIT_FILES) files.push({ name, bytes: await readIntegrationCommitFile(root, targetCommit, `scripts/validation/${name}`, 128_000) });
+  for (const name of VALIDATION_PROFILE_TOOLKIT_FILES) files.push({ name, bytes: await readIntegrationCommitFile(root, targetCommit, `scripts/validation/${name}`, 128_000) });
   const catalog = await readIntegrationCommitFile(root, targetCommit, "validation/capability-map.json", 1_000_000);
   const profiles = await readIntegrationCommitFile(root, targetCommit, "validation/profiles.json", 128_000);
   const hash = createHash("sha256").update(catalog).update(profiles).update(JSON.stringify(scripts));

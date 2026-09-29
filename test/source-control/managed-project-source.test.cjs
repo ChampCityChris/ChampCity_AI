@@ -4,7 +4,11 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
+const repositoryRoot = path.resolve(__dirname, "../..");
 const { establishManagedProjectSource } = require("../../dist/main/sourceControl/managedProjectSourceService.js");
+const { loadIntegrationPolicyAtCommit, createIntegrationPolicyProvider } = require("../../dist/main/planExecution/integrationPolicyProvider.js");
+const { VALIDATION_PROFILE_TOOLKIT_FILES } = require("../../dist/main/planExecution/integrationValidationProfileRunner.js");
+const { createManagedRepositoryIntegrationPolicy, supportsManagedRepositoryValidationProfile } = require("../../dist/main/sourceControl/managedRepositoryIntegrationPolicy.js");
 const {
   applyExistingProjectGitAdoption,
   inspectExistingProjectGitAdoption,
@@ -73,6 +77,17 @@ function assertManaged(root) {
   return main;
 }
 
+function installCurrentValidationAuthority(root, omitToolkitFile) {
+  fs.copyFileSync(path.join(repositoryRoot, "package.json"), path.join(root, "package.json"));
+  fs.mkdirSync(path.join(root, "validation"), { recursive: true });
+  fs.copyFileSync(path.join(repositoryRoot, "validation", "capability-map.json"), path.join(root, "validation", "capability-map.json"));
+  fs.copyFileSync(path.join(repositoryRoot, "validation", "profiles.json"), path.join(root, "validation", "profiles.json"));
+  fs.mkdirSync(path.join(root, "scripts", "validation"), { recursive: true });
+  for (const name of VALIDATION_PROFILE_TOOLKIT_FILES) {
+    if (name !== omitToolkitFile) fs.copyFileSync(path.join(repositoryRoot, "scripts", "validation", name), path.join(root, "scripts", "validation", name));
+  }
+}
+
 test("inspection exposes only source-neutral, conversion-required, managed-ready, and conversion-failed product states", async context => {
   const neutral = tempRoot(context, "forced-neutral-").root;
   fs.writeFileSync(path.join(neutral, "NOTES.md"), "ordinary source-neutral project\n");
@@ -96,6 +111,10 @@ test("inspection exposes only source-neutral, conversion-required, managed-ready
 
 test("ChampCity-style dev repository with accumulated history normalizes and reopens idempotently", async context => {
   const { root } = conventionalFixture(context, { prefix: "forced-champcity-style-" });
+  installCurrentValidationAuthority(root);
+  fs.mkdirSync(path.join(root, ".champcity"), { recursive: true });
+  const legacyPolicy = "{\"legacy\":true,\"repair\":\"must-not-survive\"}\n";
+  fs.writeFileSync(path.join(root, ".champcity", "integration-policy.json"), legacyPolicy);
   for (let index = 1; index <= 5; index += 1) {
     fs.writeFileSync(path.join(root, `history-${index}.md`), `history ${index}\n`);
     git(root, "add", `history-${index}.md`);
@@ -118,6 +137,15 @@ test("ChampCity-style dev repository with accumulated history normalizes and reo
   assert.equal(git(path.join(root, "Dev"), "merge-base", "--is-ancestor", oldDev, baseline), "");
   assert.match(git(path.join(root, "Dev"), "show-ref"), /refs\/heads\/historical\/release/);
   assert.equal(git(path.join(root, "Dev"), "rev-parse", "refs/remotes/origin/dev"), oldDev);
+  const generatedText = git(path.join(root, "Dev"), "show", `${baseline}:.champcity/integration-policy.json`);
+  assert.notEqual(`${generatedText}\n`, legacyPolicy);
+  const generated = JSON.parse(generatedText);
+  assert.equal(generated.checks[0].runner.kind, "validation-profile");
+  assert.equal(generated.checks[0].runner.profile, "integration-gate");
+  assert.equal("repair" in generated, false);
+  assert.equal((await loadIntegrationPolicyAtCommit(path.join(root, "Dev"), baseline)).policy.checks[0].runner.kind, "validation-profile");
+  const resolved = await createIntegrationPolicyProvider(path.join(root, "Dev")).validationPolicy.resolve(baseline);
+  assert.deepEqual(resolved.checks.map(check => check.checkId), ["champcity-integration-gate"]);
   const reopenedPlan = await inspectExistingProjectGitAdoption(root, "champcity-style");
   assert.equal(reopenedPlan.state, "managed-ready");
   const reopened = registrationCollector();
@@ -125,6 +153,33 @@ test("ChampCity-style dev repository with accumulated history normalizes and reo
     checkoutRegistration: reopened.registration });
   assert.equal(source.materialized, false);
   assert.deepEqual(reopened.checkouts.map(item => item.repositoryCheckoutId).sort(), checkouts.map(item => item.repositoryCheckoutId).sort());
+});
+
+test("managed policy provisioning ignores container state and incomplete validation authority falls back safely", async context => {
+  const { root } = conventionalFixture(context, { prefix: "forced-policy-provisioning-" });
+  fs.mkdirSync(path.join(root, ".champcity", "repository.git"), { recursive: true });
+  fs.mkdirSync(path.join(root, ".champcity", "checkouts", "foreign"), { recursive: true });
+  fs.mkdirSync(path.join(root, ".champcity", "migrations", "foreign"), { recursive: true });
+  fs.writeFileSync(path.join(root, ".champcity", "project-state.sqlite"), "runtime-state");
+  fs.writeFileSync(path.join(root, ".champcity", "arbitrary.json"), "{\"foreign\":true}\n");
+  fs.writeFileSync(path.join(root, ".champcity", "integration-policy.json"), "{\"schemaVersion\":999}\n");
+  const plan = await inspectExistingProjectGitAdoption(root, "generic-policy-project");
+  await applyPlan(root, "generic-policy-project", plan);
+  const baseline = assertManaged(root);
+  const dev = path.join(root, "Dev");
+  const tree = git(dev, "ls-tree", "-r", "--name-only", baseline).split(/\r?\n/);
+  assert.deepEqual(tree.filter(name => name.startsWith(".champcity/")), [".champcity/integration-policy.json"]);
+  const policy = (await loadIntegrationPolicyAtCommit(dev, baseline)).policy;
+  assert.deepEqual(policy, {
+    schemaVersion: 1,
+    checks: [{ checkId: "champcity-source-integrity", lane: "static", runner: { kind: "source-integrity", timeoutMs: 60000 } }],
+    requiredIntegrationChecks: ["champcity-source-integrity"],
+  });
+
+  const incomplete = tempRoot(context, "incomplete-validation-authority-").root;
+  installCurrentValidationAuthority(incomplete, VALIDATION_PROFILE_TOOLKIT_FILES[0]);
+  assert.equal(supportsManagedRepositoryValidationProfile(incomplete), false);
+  assert.equal(createManagedRepositoryIntegrationPolicy(incomplete).checks[0].runner.kind, "source-integrity");
 });
 
 test("feature, detached, missing-main, and missing-dev repositories all take the same forced conversion path", async context => {
