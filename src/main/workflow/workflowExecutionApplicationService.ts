@@ -63,12 +63,26 @@ export function createWorkflowExecutionApplicationService(dependencies: {
 
   async function currentPhaseTesterIds(store: ProjectStateStore, projectId: ProjectId, plan: WorkflowExecutionPlanView, workItemIds: EntityId[], sourceRevisionId: string | null) {
     const state = createProjectStateService(store, operator), results: EntityId[] = [];
+    const revisionChain = sourceRevisionId === null ? null : await state.getWorkflowSourceRevisionChain(projectId, plan.workflow.id);
+    if (sourceRevisionId !== null && revisionChain?.at(-1) !== sourceRevisionId) throw Error("Current Workflow source revision is not the terminal checkpoint-chain revision.");
     for (const workItemId of workItemIds) {
       const implementation = (await state.getImplementationAttempts(projectId, workItemId)).at(-1);
       if (!implementation || implementation.body.outcome !== "implemented") continue;
       const testers = (await store.listEntities(projectId, "TesterResult")).filter((record): record is ProjectStateRecord<"TesterResult"> => record.entityType === "TesterResult" &&
         record.body.workflowId === plan.workflow.id && record.body.workItemId === workItemId && record.body.implementationRecordId === implementation.id && ["not-required", "committed"].includes(record.body.checkpointState));
-      if (testers.length === 1 && (sourceRevisionId === null ? testers[0].body.sourceMode === "source-neutral" && !testers[0].body.candidateRevisionId : testers[0].body.sourceMode === "source-backed" && testers[0].body.candidateRevisionId === sourceRevisionId)) results.push(testers[0].id);
+      if (testers.length !== 1) continue;
+      const tester = testers[0];
+      if (sourceRevisionId === null) {
+        if (tester.body.sourceMode === "source-neutral" && !tester.body.candidateRevisionId) results.push(tester.id);
+        continue;
+      }
+      if (tester.body.sourceMode !== "source-backed" || !tester.body.candidateRevisionId || !revisionChain?.includes(tester.body.candidateRevisionId)) continue;
+      const checkpoints = await store.listEntities(projectId, "SourceCheckpoint");
+      const checkpointEdges = await store.listRelationships(projectId, "checkpoints");
+      if (tester.body.checkpointState === "committed") {
+        const checkpoint = tester.body.sourceCheckpointId ? checkpoints.find(record => record.entityType === "SourceCheckpoint" && record.id === tester.body.sourceCheckpointId) : null;
+        if (checkpoint?.entityType === "SourceCheckpoint" && checkpoint.body.workflowId === plan.workflow.id && checkpoint.body.resultingRevisionId === tester.body.candidateRevisionId && checkpointEdges.some(edge => edge.fromEntityId === checkpoint.id && edge.toEntityId === tester.id && !edge.endedAt)) results.push(tester.id);
+      } else if (tester.body.checkpointState === "not-required" && tester.body.candidateRevisionId === tester.body.implementerRevisionId && checkpoints.some(record => record.entityType === "SourceCheckpoint" && record.body.workflowId === plan.workflow.id && record.body.checkpointKind === "implementation" && record.body.resultingRevisionId === tester.body.candidateRevisionId && checkpointEdges.some(edge => edge.fromEntityId === record.id && edge.toEntityId === implementation.id && !edge.endedAt))) results.push(tester.id);
     }
     return results;
   }
@@ -88,12 +102,14 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       const implementation = await store.getEntity(projectId, tester.body.implementationRecordId);
       if (implementation?.entityType !== "ImplementationRecord") throw Error("Phase member implementation is unavailable.");
       const criterionOutcomes: string[] = [];
-      const criterionIds = plan.criteria.filter(entry => entry.ownerId === workItem.id || plan.solutions.some(solution => solution.id === entry.ownerId)).map(entry => entry.record.id);
-      for (const criterionId of criterionIds) {
-        const criterion = await store.getEntity(projectId, criterionId);
-        if (criterion?.entityType !== "Criterion") continue;
-        const results = validations.filter((record): record is ProjectStateRecord<"Validation"> => record.entityType === "Validation" && record.body.targetEntityId === criterionId && record.body.targetRecordVersion === criterion.recordVersion &&
-          record.body.implementationRecordId === implementation.id && (sourceRevisionId === null ? record.body.sourceBaselineRef === undefined : record.body.sourceBaselineRef === sourceRevisionId) &&
+        const criterionIds = plan.criteria.filter(entry => entry.ownerId === workItem.id || plan.solutions.some(solution => solution.id === entry.ownerId)).map(entry => entry.record.id);
+        for (const criterionId of criterionIds) {
+          const criterion = await store.getEntity(projectId, criterionId);
+          if (criterion?.entityType !== "Criterion") continue;
+          const criterionOwner = plan.criteria.find(entry => entry.record.id === criterionId)?.ownerId;
+          const criterionSourceRevision = plan.solutions.some(solution => solution.id === criterionOwner) ? sourceRevisionId : tester.body.candidateRevisionId ?? sourceRevisionId;
+          const results = validations.filter((record): record is ProjectStateRecord<"Validation"> => record.entityType === "Validation" && record.body.targetEntityId === criterionId && record.body.targetRecordVersion === criterion.recordVersion &&
+          record.body.implementationRecordId === implementation.id && (criterionSourceRevision === null ? record.body.sourceBaselineRef === undefined : record.body.sourceBaselineRef === criterionSourceRevision) &&
           evaluates.some(edge => edge.fromEntityId === record.id && edge.toEntityId === criterionId && !edge.endedAt));
         const latest = results.sort((a,b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)).at(-1);
         if (latest) criterionOutcomes.push(`${criterion.body.statement}: ${latest.body.outcome}`);
@@ -123,8 +139,16 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       for (const item of view.items) {
         if (item.record.body.workState !== "closed") blockers.push(`work-item-open:${item.record.id}`);
         else {
-          const eligibility = await state.getWorkItemCompletionEligibility(projectId, item.record.id, view.source.currentRevisionId ?? undefined);
-          for (const blocker of eligibility.blockers) blockers.push(`work-item:${item.record.id}:${blocker}`);
+          const currentTester = await currentPhaseTesterIds(store, projectId, plan, [item.record.id], view.source.currentRevisionId);
+          if (currentTester.length !== 1) blockers.push(`work-item:${item.record.id}:closed-evidence-not-on-workflow-lineage`);
+          for (const dependencyId of item.dependencyIds) {
+            const dependency = view.items.find(candidate => candidate.record.id === dependencyId);
+            if (!dependency || dependency.record.body.workState !== "closed") blockers.push(`work-item:${item.record.id}:dependency:${dependencyId}`);
+          }
+          for (const repairId of item.repairIds) {
+            const repair = view.items.find(candidate => candidate.record.id === repairId);
+            if (!repair || repair.record.body.workState !== "closed") blockers.push(`work-item:${item.record.id}:repair-open:${repairId}`);
+          }
         }
       }
       for (const phase of plan.phases) if (phase.record.body.phaseState !== "closed") blockers.push(`phase-open:${phase.phaseId}`);
@@ -139,7 +163,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
         const source = await store.getEntity(projectId, edge.fromEntityId);
         if (source?.lifecycleState === "active") blockers.push(`blocking-record:${source.id}`);
       }
-      const phaseAndSolutionOwners = new Set<EntityId>([...plan.phases.map(phase => phase.phaseId), ...plan.solutions.map(solution => solution.id)]);
+      const phaseAndSolutionOwners = new Set<EntityId>(plan.solutions.map(solution => solution.id));
       for (const criterion of plan.criteria.filter(entry => phaseAndSolutionOwners.has(entry.ownerId) && entry.record.lifecycleState === "active" && entry.record.body.criticality === "required")) {
         if (criterion.record.body.validationPolicy === "deferred_visual_phase") continue;
         if (criterion.record.body.validationPolicy === "operator_decision") {
@@ -154,30 +178,10 @@ export function createWorkflowExecutionApplicationService(dependencies: {
         }
       }
       if (view.source.state !== "non-source") {
-        const workflowIds = new Set((await store.listEntities(projectId, "Workflow"))
-          .filter((record): record is WorkflowRecord => record.entityType === "Workflow" && record.lineageId === plan.workflow.lineageId).map(record => record.id));
-        const baselines = (await store.listEntities(projectId, "SourceBaseline"))
-          .filter((record): record is ProjectStateRecord<"SourceBaseline"> => record.entityType === "SourceBaseline" && workflowIds.has(record.body.workflowId));
-        const bindings = (await store.listEntities(projectId, "SourceBinding"))
-          .filter((record): record is ProjectStateRecord<"SourceBinding"> => record.entityType === "SourceBinding" && record.lifecycleState === "active" && workflowIds.has(record.body.workflowId));
-        const checkpoints = (await store.listEntities(projectId, "SourceCheckpoint"))
-          .filter((record): record is ProjectStateRecord<"SourceCheckpoint"> => record.entityType === "SourceCheckpoint" && workflowIds.has(record.body.workflowId));
-        if (baselines.length !== 1 || bindings.length !== 1 || checkpoints.some(record => record.body.checkpointState !== "committed")) blockers.push("source-checkpoint-chain-unresolved");
-        else {
-          const byExpected = new Map<string, string>();
-          for (const checkpoint of checkpoints) {
-            const resulting = checkpoint.body.resultingRevisionId;
-            if (!resulting || byExpected.has(checkpoint.body.expectedRevisionId)) { blockers.push("source-checkpoint-chain-ambiguous"); break; }
-            byExpected.set(checkpoint.body.expectedRevisionId, resulting);
-          }
-          let revision = baselines[0].body.baseRevisionId;
-          for (let count = 0; count < checkpoints.length; count++) {
-            const next = byExpected.get(revision);
-            if (!next || next === revision) { blockers.push("source-checkpoint-chain-gap"); break; }
-            revision = next;
-          }
-          if (revision !== bindings[0].body.currentRevisionId || revision !== view.source.currentRevisionId) blockers.push("source-checkpoint-chain-stale");
-        }
+        try {
+          const revisionChain = await state.getWorkflowSourceRevisionChain(projectId, workflowId);
+          if (!revisionChain || revisionChain.at(-1) !== view.source.currentRevisionId) blockers.push("source-checkpoint-chain-stale");
+        } catch { blockers.push("source-checkpoint-chain-unresolved"); }
       }
       const integrations = (await store.listEntities(projectId, "IntegrationRecord"))
         .filter((record): record is ProjectStateRecord<"IntegrationRecord"> => record.entityType === "IntegrationRecord" && record.body.workflowId === workflowId);
@@ -233,8 +237,11 @@ export function createWorkflowExecutionApplicationService(dependencies: {
         const policy = criterion.body.validationPolicy;
         const latest = validations.at(-1);
         const decisionTargetId = policy === "operator_decision" ? criterion.id : null;
-        const decision = policy === "operator_decision" && tester
-          ? await state.getCriterionOperatorDecisionStatus(projectId, criterion.id, [tester.id]) : null;
+        const decisionEvidenceIds = policy !== "operator_decision" || !tester ? [] : plan.solutions.some(solution => solution.id === ownerId)
+          ? await currentPhaseTesterIds(store, projectId, plan, [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].map(member => member.id), projection.source.currentRevisionId)
+          : [tester.id];
+        const decision = policy === "operator_decision" && decisionEvidenceIds.includes(tester?.id ?? "")
+          ? await state.getCriterionOperatorDecisionStatus(projectId, criterion.id, decisionEvidenceIds) : null;
         const outcome = decisionTargetId
           ? decision?.current && ["approved", "accepted"].includes(decision.state) ? "pass" as const : decision?.current && decision.state === "rejected" ? "fail" as const : "pending" as const
           : latest?.body.outcome ?? (policy === "deferred_visual_phase" ? "deferred" as const : "pending" as const);

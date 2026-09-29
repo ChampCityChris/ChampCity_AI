@@ -707,22 +707,37 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       }
       const currentTesters: ProjectStateRecord<"TesterResult">[] = [];
       const bindings = (await unit.listEntities(projectId, "SourceBinding")).filter((record): record is ProjectStateRecord<"SourceBinding"> => record.entityType === "SourceBinding" && record.lifecycleState === "active" && record.body.workflowId === evidenceContext.workflowId);
+      const solutionOwned = Boolean(evidenceContext.workItemId && plan.solutions.some(solution => solution.id === entry.ownerId));
+      const revisionChain = bindings.length ? await workflowSourceRevisionChain(projectId, evidenceContext.workflowId, unit) : null;
       for (const workItemId of evidenceWorkItems) {
         const workItem = [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].find(candidate => candidate.id === workItemId)!;
         if (evidenceContext.phaseId && workItem.body.workState !== "closed") fail("Every Phase member must be closed before the Phase Operator Decision.");
         const attempts = await getImplementationAttempts(projectId, workItemId);
         const implementation = attempts.at(-1);
-        if (!implementation || implementation.body.outcome !== "implemented" || implementation.body.blockers.length) fail("Operator Decision requires each exact current successful implementation.");
+        if (!implementation || implementation.body.outcome !== "implemented" || implementation.body.blockers.length) {
+          if (solutionOwned && workItemId !== evidenceContext.workItemId) continue;
+          fail("Operator Decision requires the selected WorkItem's exact current successful implementation.");
+        }
         const matches = (await unit.listEntities(projectId, "TesterResult")).filter((record): record is ProjectStateRecord<"TesterResult"> => record.entityType === "TesterResult" &&
           record.body.workflowId === evidenceContext.workflowId && record.body.workItemId === workItemId && record.body.implementationRecordId === implementation.id);
-        if (matches.length !== 1 || !["not-required", "committed"].includes(matches[0].body.checkpointState)) fail("Operator Decision requires one exact completed TesterResult for current evidence.");
+        if (matches.length !== 1 || !["not-required", "committed"].includes(matches[0].body.checkpointState)) {
+          if (solutionOwned && workItemId !== evidenceContext.workItemId) continue;
+          fail("Operator Decision requires one exact completed TesterResult for the selected WorkItem evidence.");
+        }
         const tester = matches[0];
         if (bindings.length) {
-          if (bindings.length !== 1 || bindings[0].body.preparationState !== "ready" || tester.body.sourceMode !== "source-backed" || !bindings[0].body.currentRevisionId || tester.body.candidateRevisionId !== bindings[0].body.currentRevisionId)
-            fail("Operator Decision requires the current source candidate and TesterResult.");
+          if (bindings.length !== 1 || bindings[0].body.preparationState !== "ready" || tester.body.sourceMode !== "source-backed" || !tester.body.candidateRevisionId || !revisionChain?.includes(tester.body.candidateRevisionId))
+            fail("Operator Decision requires a source-backed TesterResult on the exact Workflow checkpoint chain.");
+          if (tester.body.checkpointState === "committed") {
+            const checkpoint = tester.body.sourceCheckpointId ? await unit.getEntity(projectId, tester.body.sourceCheckpointId) : null;
+            const linked = (await unit.listRelationships(projectId, "checkpoints")).some(edge => edge.fromEntityId === checkpoint?.id && edge.toEntityId === tester.id && !edge.endedAt);
+            if (checkpoint?.entityType !== "SourceCheckpoint" || checkpoint.body.workflowId !== evidenceContext.workflowId || checkpoint.body.resultingRevisionId !== tester.body.candidateRevisionId || !linked)
+              fail("Committed TesterResult checkpoint must resolve to and link its candidate revision.");
+          } else if (tester.body.candidateRevisionId !== tester.body.implementerRevisionId) fail("Uncheckpointed TesterResult candidate must equal its implementation revision.");
         } else if (tester.body.sourceMode !== "source-neutral" || tester.body.candidateRevisionId !== undefined) fail("Source-neutral Operator Decision cannot carry repository identity.");
         currentTesters.push(tester);
       }
+      if (solutionOwned && !currentTesters.some(tester => tester.body.workItemId === evidenceContext.workItemId)) fail("Solution Operator Decision requires current Tester evidence for the selected WorkItem boundary.");
       const now = new Date().toISOString();
       let predecessor: ProjectStateRecord<"Decision"> | null = null;
       let terminalPredecessor: ProjectStateRecord<"Decision"> | null = null;
@@ -1380,12 +1395,15 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const governingEdges = (await unit.listRelationships(projectId, "governs")).filter(edge => !edge.endedAt);
       const acceptedSolutions = plan.solutions.filter(solution => plan.decisions.some(decision => governingEdges.some(edge => edge.fromEntityId === decision.id && edge.toEntityId === solution.id)));
       if (acceptedSolutions.length !== 1) fail("Phase Repair requires one accepted BoundedSolution in the exact Workflow.");
+      const sourceBindings = (await unit.listEntities(projectId, "SourceBinding")).filter((record): record is ProjectStateRecord<"SourceBinding"> => record.entityType === "SourceBinding" && record.lifecycleState === "active" && record.body.workflowId === workflow.id);
+      if (sourceBindings.length > 1) fail("Phase Repair source mode is ambiguous for the exact Workflow.");
+      const repairValidationPolicy = sourceBindings.length ? "deterministic" as const : "semantic_ai" as const;
       const ownerEdges = (await unit.listRelationships(projectId, "part_of")).filter(edge => edge.fromEntityId === phaseRecord.id && !edge.endedAt);
       if (ownerEdges.length !== 1 || ownerEdges[0].toEntityId !== workflow.id) fail("Phase is not owned by the exact Workflow.");
       const repair = createProjectStateEntity({ entityType: "WorkItem", projectId, body: { workItemKind: workflow.body.workflowType === "issue-resolution" ? "repair" : "fix",
         title: `Repair: ${criterion.body.statement}`.slice(0, 512), objective: `${failureSummary.trim().slice(0, 3500)} [${failureIdentity}]`, workState: "planned" }, principal: trustedPrincipal });
       const repairCriterion = createProjectStateEntity({ entityType: "Criterion", projectId, body: { statement: `Resolve failed Phase Criterion: ${criterion.body.statement}`.slice(0, 4096),
-        criticality: "required", verificationIntent: criterion.body.verificationIntent, validationPolicy: "deterministic", criterionState: "active" }, principal: trustedPrincipal });
+        criticality: "required", verificationIntent: criterion.body.verificationIntent, validationPolicy: repairValidationPolicy, criterionState: "active" }, principal: trustedPrincipal });
       for (const record of [repair, repairCriterion]) {
         await unit.saveEntity(record, null);
         await recordMutation(unit, { projectId, entityId: record.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: record.createdAt,
@@ -2555,21 +2573,68 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return evidence.filter((record): record is ProjectStateEntity => record?.entityType === "Evidence");
   }
 
-  async function currentPhaseEvidenceTesterIds(projectId: ProjectId, workflowId: EntityId, phaseId: EntityId, currentSourceBaselineRef?: string) {
+  async function workflowSourceRevisionChain(projectId: ProjectId, workflowId: EntityId, reader: ProjectStateStore | ProjectStateUnitOfWork = store): Promise<string[] | null> {
+    const workflow = await reader.getEntity(projectId, workflowId);
+    if (workflow?.entityType !== "Workflow") fail("Source revision lineage requires the exact Workflow.");
+    const lineageWorkflowIds = new Set((await reader.listEntities(projectId, "Workflow"))
+      .filter(record => record.entityType === "Workflow" && record.lineageId === workflow.lineageId).map(record => record.id));
+    const baselines = (await reader.listEntities(projectId, "SourceBaseline"))
+      .filter((record): record is ProjectStateRecord<"SourceBaseline"> => record.entityType === "SourceBaseline" && lineageWorkflowIds.has(record.body.workflowId));
+    const bindings = (await reader.listEntities(projectId, "SourceBinding"))
+      .filter((record): record is ProjectStateRecord<"SourceBinding"> => record.entityType === "SourceBinding" && record.lifecycleState === "active" && record.body.workflowId === workflowId);
+    if (!baselines.length && !bindings.length) return null;
+    if (baselines.length !== 1 || bindings.length !== 1 || bindings[0].body.sourceBaselineId !== baselines[0]?.id || bindings[0].body.preparationState !== "ready" || !bindings[0].body.currentRevisionId || !bindings[0].body.workSourceLineId)
+      fail("Exact Workflow source revision lineage is missing or ambiguous.");
+    const checkpoints = (await reader.listEntities(projectId, "SourceCheckpoint"))
+      .filter((record): record is ProjectStateRecord<"SourceCheckpoint"> => record.entityType === "SourceCheckpoint" && lineageWorkflowIds.has(record.body.workflowId));
+    const byExpected = new Map<string, ProjectStateRecord<"SourceCheckpoint">>();
+    const results = new Set<string>();
+    for (const checkpoint of checkpoints) {
+      if (checkpoint.body.checkpointState !== "committed" || checkpoint.body.sourceLineId !== bindings[0].body.workSourceLineId || !checkpoint.body.resultingRevisionId || byExpected.has(checkpoint.body.expectedRevisionId) || results.has(checkpoint.body.resultingRevisionId))
+        fail("Workflow source checkpoint lineage contains an unresolved checkpoint, fork, or duplicate revision.");
+      byExpected.set(checkpoint.body.expectedRevisionId, checkpoint);
+      results.add(checkpoint.body.resultingRevisionId);
+    }
+    const revisions = [baselines[0].body.baseRevisionId];
+    for (let index = 0; index < checkpoints.length; index++) {
+      const next = byExpected.get(revisions.at(-1)!);
+      if (!next || next.body.resultingRevisionId === revisions.at(-1)) fail("Workflow source checkpoint lineage contains a gap or cycle.");
+      revisions.push(next.body.resultingRevisionId!);
+    }
+    if (revisions.at(-1) !== bindings[0].body.currentRevisionId) fail("Workflow source checkpoint lineage does not terminate at the current SourceBinding revision.");
+    return revisions;
+  }
+
+  async function currentPhaseEvidenceTesterIds(projectId: ProjectId, workflowId: EntityId, phaseId: EntityId, currentSourceBaselineRef?: string, requireClosed = true) {
     const plan = await getWorkflowExecutionPlan(projectId, workflowId);
     const phase = plan.phases.find(candidate => candidate.phaseId === phaseId);
-    if (!phase || !phase.workItemIds.every(id => [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].some(item => item.id === id && item.body.workState === "closed")))
+    if (!phase || requireClosed && !phase.workItemIds.every(id => [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].some(item => item.id === id && item.body.workState === "closed")))
       fail("Phase aggregate evidence requires the exact Phase after all members close.");
     const binding = (await store.listEntities(projectId, "SourceBinding")).filter((record): record is ProjectStateRecord<"SourceBinding"> => record.entityType === "SourceBinding" && record.lifecycleState === "active" && record.body.workflowId === workflowId);
     if (binding.length > 1 || binding.length === 1 && (binding[0].body.preparationState !== "ready" || binding[0].body.currentRevisionId !== currentSourceBaselineRef) || binding.length === 0 && currentSourceBaselineRef !== undefined)
       fail("Phase aggregate evidence source candidate is not current.");
+    const revisionChain = binding.length ? await workflowSourceRevisionChain(projectId, workflowId) : null;
     const ids: EntityId[] = [];
     const items = [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()];
     for (const workItemId of phase.workItemIds) {
       const attempts = await getImplementationAttempts(projectId, workItemId), implementation = attempts.at(-1);
-      if (!implementation || implementation.body.outcome !== "implemented" || implementation.body.blockers.length) fail("Phase aggregate evidence requires each latest successful member implementation.");
+      if (!implementation || implementation.body.outcome !== "implemented" || implementation.body.blockers.length) {
+        if (requireClosed) fail("Phase aggregate evidence requires each latest successful member implementation.");
+        continue;
+      }
       const results = (await store.listEntities(projectId, "TesterResult")).filter((record): record is ProjectStateRecord<"TesterResult"> => record.entityType === "TesterResult" && record.body.workflowId === workflowId && record.body.workItemId === workItemId && record.body.implementationRecordId === implementation.id && ["not-required", "committed"].includes(record.body.checkpointState));
-      if (results.length !== 1 || (binding.length ? results[0].body.sourceMode !== "source-backed" || results[0].body.candidateRevisionId !== currentSourceBaselineRef : results[0].body.sourceMode !== "source-neutral" || results[0].body.candidateRevisionId !== undefined)) fail("Phase aggregate evidence requires one exact current TesterResult per member.");
+      if (results.length !== 1 || (binding.length ? results[0].body.sourceMode !== "source-backed" || !results[0].body.candidateRevisionId || !revisionChain?.includes(results[0].body.candidateRevisionId) : results[0].body.sourceMode !== "source-neutral" || results[0].body.candidateRevisionId !== undefined)) {
+        if (requireClosed) fail("Phase aggregate evidence requires one exact current TesterResult per member on the canonical Workflow revision chain.");
+        continue;
+      }
+      if (binding.length) {
+        const tester = results[0];
+        const checkpoints = await store.listEntities(projectId, "SourceCheckpoint"), links = await store.listRelationships(projectId, "checkpoints");
+        if (tester.body.checkpointState === "committed") {
+          const checkpoint = tester.body.sourceCheckpointId ? await store.getEntity(projectId, tester.body.sourceCheckpointId) : null;
+          if (checkpoint?.entityType !== "SourceCheckpoint" || checkpoint.body.workflowId !== workflowId || checkpoint.body.resultingRevisionId !== tester.body.candidateRevisionId || !links.some(edge => edge.fromEntityId === checkpoint.id && edge.toEntityId === tester.id && !edge.endedAt)) fail("Committed Phase TesterResult must link its exact candidate checkpoint.");
+        } else if (tester.body.candidateRevisionId !== tester.body.implementerRevisionId || !checkpoints.some(record => record.entityType === "SourceCheckpoint" && record.body.workflowId === workflowId && record.body.checkpointKind === "implementation" && record.body.resultingRevisionId === tester.body.candidateRevisionId && links.some(edge => edge.fromEntityId === record.id && edge.toEntityId === implementation.id && !edge.endedAt))) fail("Uncheckpointed Phase TesterResult must match its implementation checkpoint candidate.");
+      }
       ids.push(results[0].id);
     }
     return ids.sort();
@@ -2878,10 +2943,11 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         if (solutionOwned && exactWorkflow) {
           const plan = await getWorkflowExecutionPlan(projectId, exactWorkflow.id);
           evidenceIds = [];
+          const revisionChain = currentSourceBaselineRef === undefined ? null : await workflowSourceRevisionChain(projectId, exactWorkflow.id);
           for (const member of [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()]) {
             const attempts = await getImplementationAttempts(projectId, member.id), current = attempts.at(-1);
             if (!current || current.body.outcome !== "implemented") continue;
-            const results = (await store.listEntities(projectId, "TesterResult")).filter((record): record is ProjectStateRecord<"TesterResult"> => record.entityType === "TesterResult" && record.body.workflowId === exactWorkflow.id && record.body.workItemId === member.id && record.body.implementationRecordId === current.id && ["not-required", "committed"].includes(record.body.checkpointState) && (currentSourceBaselineRef === undefined ? record.body.sourceMode === "source-neutral" : record.body.sourceMode === "source-backed" && record.body.candidateRevisionId === currentSourceBaselineRef));
+            const results = (await store.listEntities(projectId, "TesterResult")).filter((record): record is ProjectStateRecord<"TesterResult"> => record.entityType === "TesterResult" && record.body.workflowId === exactWorkflow.id && record.body.workItemId === member.id && record.body.implementationRecordId === current.id && ["not-required", "committed"].includes(record.body.checkpointState) && (currentSourceBaselineRef === undefined ? record.body.sourceMode === "source-neutral" && record.body.candidateRevisionId === undefined : record.body.sourceMode === "source-backed" && Boolean(record.body.candidateRevisionId && revisionChain?.includes(record.body.candidateRevisionId))));
             if (results.length === 1) evidenceIds.push(results[0].id);
           }
         }
@@ -2957,15 +3023,8 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const workItem = await requiredRecord(store, projectId, id);
       if (workItem.entityType !== "WorkItem" || workItem.body.workState !== "closed") blockers.push(`open-work-item:${id}`);
     }
-    const currentPhaseTesterIds: EntityId[] = [];
-    if (workflowPlan && membership) for (const workItemId of membership.workItemIds) {
-      const attempts = await getImplementationAttempts(projectId, workItemId);
-      const implementation = attempts.at(-1);
-      if (!implementation || implementation.body.outcome !== "implemented") continue;
-      const results = (await store.listEntities(projectId, "TesterResult")).filter((record): record is ProjectStateRecord<"TesterResult"> => record.entityType === "TesterResult" &&
-        record.body.workflowId === workflowPlan!.workflow.id && record.body.workItemId === workItemId && record.body.implementationRecordId === implementation.id && ["not-required", "committed"].includes(record.body.checkpointState));
-      if (results.length === 1 && (currentSourceBaselineRef === undefined ? results[0].body.sourceMode === "source-neutral" : results[0].body.sourceMode === "source-backed" && results[0].body.candidateRevisionId === currentSourceBaselineRef)) currentPhaseTesterIds.push(results[0].id);
-    }
+    const currentPhaseTesterIds = workflowPlan && membership
+      ? await currentPhaseEvidenceTesterIds(projectId, workflowPlan.workflow.id, phaseId, currentSourceBaselineRef, false) : [];
     for (const id of new Set([...(membership?.criterionIds ?? []), ...deferredCriterionIds])) {
       const criterion = await requiredRecord(store, projectId, id);
       if (criterion.entityType !== "Criterion" || criterion.lifecycleState !== "active" || criterion.body.criticality !== "required") continue;
