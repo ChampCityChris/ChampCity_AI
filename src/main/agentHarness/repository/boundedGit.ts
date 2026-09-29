@@ -8,6 +8,7 @@ export const GIT_STDERR_LIMIT_BYTES = 65_536;
 interface GitExecutionOptions {
   cwd: string;
   args: string[];
+  stdin?: string | Buffer;
   /** Only bootstrap uses fixed commit dates to make an interrupted initial revision reproducible. */
   commitDates?: { author: string; committer: string };
   timeoutMs?: number;
@@ -59,7 +60,7 @@ export function runBoundedGit(options: GitExecutionOptions): Promise<GitExecutio
         detached: process.platform !== "win32",
         shell: false,
         windowsHide: true,
-        stdio: ["ignore", "pipe", "pipe"],
+        stdio: [options.stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"],
         env: {
           ...process.env,
           ...(options.commitDates ? { GIT_AUTHOR_DATE: options.commitDates.author, GIT_COMMITTER_DATE: options.commitDates.committer } : {}),
@@ -72,6 +73,10 @@ export function runBoundedGit(options: GitExecutionOptions): Promise<GitExecutio
     } catch {
       reject(new AgentHarnessError("GIT_EXECUTION_FAILED", "Git could not be started."));
       return;
+    }
+    if (child.stdin) {
+      child.stdin.on("error", () => undefined);
+      child.stdin.end(options.stdin);
     }
     if (typeof child.pid === "number") {
       options.onSpawn?.(child.pid);
@@ -127,7 +132,7 @@ export function runBoundedGit(options: GitExecutionOptions): Promise<GitExecutio
     }, timeoutMs);
     timeout.unref();
 
-    child.stdout.on("data", (value: Buffer | string) => {
+    child.stdout!.on("data", (value: Buffer | string) => {
       if (stoppedEarly || terminalError) {
         return;
       }
@@ -147,7 +152,7 @@ export function runBoundedGit(options: GitExecutionOptions): Promise<GitExecutio
       options.onStdout?.(chunk, stop);
     });
 
-    child.stderr.on("data", (value: Buffer | string) => {
+    child.stderr!.on("data", (value: Buffer | string) => {
       if (terminalError) {
         return;
       }

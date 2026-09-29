@@ -17938,8 +17938,8 @@
     {
       "testPath": "test/source-control/managed-project-source.test.cjs",
       "currentTestCount": {
-        "value": 11,
-        "basis": "EPGA-R02 extends forced-normalization proof with fresh generic/profile policy provisioning, legacy-policy non-import, incomplete-authority fallback, and runtime-state exclusion."
+        "value": 14,
+        "basis": "EPGA-R03 extends forced-normalization proof with bounded Git source classification, ignored-root relocation and rollback, non-following Windows junction/link preservation, and pre-normalization residue cleanup."
       },
       "duration": {
         "kind": "measured",
@@ -17984,7 +17984,7 @@
         {
           "capabilityId": "managed-project-source-topology",
           "behaviorId": "conventional-project-adoption-preserves-source-and-registers-durable-main-dev-checkouts",
-          "proofLocator": "inspection returns conversion-required for ordinary and irregular Git; apply revalidates consent, snapshots source before mutation, best-effort imports history, creates a conflict-free synthetic baseline from current tracked/dirty/untracked source, preserves ignored bytes locally, forces exact main/dev, falls back from unreadable metadata, and reopens idempotently",
+          "proofLocator": "inspection and apply derive readable-Git source from a bounded non-following manifest, preserve current tracked/dirty/untracked bytes, relocate ignored roots outside the baseline with rollback, preserve link entries without target traversal, clean failed pre-normalization staging, fall back safely from unreadable metadata, force exact main/dev, and reopen idempotently",
           "proofRole": "primary"
         },
         {

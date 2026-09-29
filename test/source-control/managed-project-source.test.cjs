@@ -201,22 +201,62 @@ test("feature, detached, missing-main, and missing-dev repositories all take the
   }
 });
 
-test("dirty tracked and non-ignored untracked bytes enter the baseline while ignored local bytes survive only in Dev", async context => {
+test("bounded Git source staging excludes a large ignored tree and relocates its junction without traversal", async context => {
   const { root } = conventionalFixture(context, { prefix: "forced-working-state-" });
-  fs.writeFileSync(path.join(root, ".gitignore"), "local.log\n");
+  fs.writeFileSync(path.join(root, ".gitignore"), "local.log\nignored-cache/\n");
   git(root, "add", ".gitignore");
   git(root, "commit", "-m", "ignore local logs");
   fs.writeFileSync(path.join(root, "README.md"), "dirty accepted source\n");
   fs.writeFileSync(path.join(root, "untracked.txt"), "accepted untracked source\n");
   fs.writeFileSync(path.join(root, "local.log"), "ignored local bytes\n");
+  const ignoredCache = path.join(root, "ignored-cache");
+  fs.mkdirSync(path.join(ignoredCache, "packages"), { recursive: true });
+  for (let index = 0; index < 256; index += 1) {
+    fs.writeFileSync(path.join(ignoredCache, "packages", `generated-${index}.js`), `generated ${index}\n`);
+  }
+  const external = path.join(path.dirname(root), "external-local-target");
+  fs.mkdirSync(external);
+  fs.writeFileSync(path.join(external, "sentinel.txt"), "must remain external\n");
+  fs.symlinkSync(external, path.join(ignoredCache, "external-link"), process.platform === "win32" ? "junction" : "dir");
   const inspected = await inspectExistingProjectGitAdoption(root, "working-state");
   await applyPlan(root, "working-state", inspected);
   const baseline = assertManaged(root);
   assert.equal(git(path.join(root, "Main"), "show", `${baseline}:README.md`), "dirty accepted source");
   assert.equal(git(path.join(root, "Main"), "show", `${baseline}:untracked.txt`), "accepted untracked source");
   assert.throws(() => git(path.join(root, "Main"), "show", `${baseline}:local.log`));
+  assert.throws(() => git(path.join(root, "Main"), "show", `${baseline}:ignored-cache/packages/generated-0.js`));
   assert.equal(fs.readFileSync(path.join(root, "Dev", "local.log"), "utf8"), "ignored local bytes\n");
+  assert.equal(fs.readFileSync(path.join(root, "Dev", "ignored-cache", "packages", "generated-255.js"), "utf8"), "generated 255\n");
+  assert.equal(fs.lstatSync(path.join(root, "Dev", "ignored-cache", "external-link")).isSymbolicLink(), true);
+  assert.equal(fs.readFileSync(path.join(external, "sentinel.txt"), "utf8"), "must remain external\n");
   assert.equal(git(path.join(root, "Dev"), "status", "--porcelain"), "");
+});
+
+test("tracked symbolic-link source is preserved as an entry without following its external target", async context => {
+  const { temp, root } = conventionalFixture(context, { prefix: "forced-tracked-link-" });
+  const external = path.join(temp, "external-source-target");
+  fs.mkdirSync(external);
+  fs.writeFileSync(path.join(external, "sentinel.txt"), "external bytes must not be copied\n");
+  const linkName = "tracked-link";
+  const link = path.join(root, linkName);
+  fs.symlinkSync(external, link, process.platform === "win32" ? "junction" : "dir");
+  if (process.platform === "win32") {
+    const descriptor = path.join(temp, "tracked-link-target.txt");
+    fs.writeFileSync(descriptor, fs.readlinkSync(link));
+    const object = git(root, "hash-object", "-w", descriptor);
+    git(root, "update-index", "--add", "--cacheinfo", "120000", object, linkName);
+  } else {
+    git(root, "add", linkName);
+  }
+  git(root, "commit", "-m", "track source link");
+  const inspected = await inspectExistingProjectGitAdoption(root, "tracked-link-source");
+  await applyPlan(root, "tracked-link-source", inspected);
+  const baseline = assertManaged(root);
+  assert.equal(git(path.join(root, "Main"), "ls-tree", baseline, linkName).startsWith("120000 blob "), true);
+  assert.equal(git(path.join(root, "Main"), "ls-tree", "-r", "--name-only", baseline).includes(`${linkName}/sentinel.txt`), false);
+  assert.equal(fs.lstatSync(path.join(root, "Dev", linkName)).isSymbolicLink(), true);
+  assert.equal(fs.readlinkSync(path.join(root, "Dev", linkName)), external);
+  assert.equal(fs.readFileSync(path.join(external, "sentinel.txt"), "utf8"), "external bytes must not be copied\n");
 });
 
 test("divergent readable local tips become bounded baseline parents without merge conflicts", async context => {
@@ -273,7 +313,7 @@ test("submodule and alternate metadata are import evidence rather than admission
 
 test("partly and fully unreadable Git administration fall back to fresh managed history while preserving source", async context => {
   for (const mode of ["partial", "foreign"]) {
-    const { root } = conventionalFixture(context, { prefix: `forced-unreadable-${mode}-` });
+    const { temp, root } = conventionalFixture(context, { prefix: `forced-unreadable-${mode}-` });
     fs.writeFileSync(path.join(root, "CURRENT.txt"), `${mode} current bytes\n`);
     if (mode === "partial") {
       fs.mkdirSync(path.join(root, ".git", "refs", "heads"), { recursive: true });
@@ -282,12 +322,22 @@ test("partly and fully unreadable Git administration fall back to fresh managed 
       fs.rmSync(path.join(root, ".git"), { recursive: true, force: true });
       fs.mkdirSync(path.join(root, ".git"));
       fs.writeFileSync(path.join(root, ".git", "HEAD"), "foreign administration\n");
+      const external = path.join(temp, "external-fallback-target");
+      fs.mkdirSync(external);
+      fs.writeFileSync(path.join(external, "outside.txt"), "outside fallback bytes\n");
+      fs.symlinkSync(external, path.join(root, "source-link"), process.platform === "win32" ? "junction" : "dir");
     }
     const inspected = await inspectExistingProjectGitAdoption(root, `unreadable-${mode}`);
     assert.equal(inspected.state, "conversion-required", mode);
     await applyPlan(root, `unreadable-${mode}`, inspected);
-    assertManaged(root);
+    const baseline = assertManaged(root);
     assert.equal(fs.readFileSync(path.join(root, "Dev", "CURRENT.txt"), "utf8"), `${mode} current bytes\n`);
+    if (mode === "foreign") {
+      assert.equal(git(path.join(root, "Main"), "ls-tree", baseline, "source-link").startsWith("120000 blob "), true);
+      assert.equal(git(path.join(root, "Main"), "ls-tree", "-r", "--name-only", baseline).includes("source-link/outside.txt"), false);
+      assert.equal(fs.lstatSync(path.join(root, "Dev", "source-link")).isSymbolicLink(), true);
+      assert.equal(fs.readFileSync(path.join(temp, "external-fallback-target", "outside.txt"), "utf8"), "outside fallback bytes\n");
+    }
   }
 });
 
@@ -323,6 +373,65 @@ test("source-preservation staging failure aborts before Git or source mutation",
   await assert.rejects(applyPlan(root, "preservation-failure", inspected));
   assert.equal(git(root, "rev-parse", "HEAD"), beforeHead);
   assert.equal(fs.readFileSync(path.join(root, "README.md"), "utf8"), beforeSource);
+  assert.equal(fs.existsSync(path.join(root, ".git")), true);
+  assert.equal(fs.existsSync(path.join(root, "Main")), false);
+  assert.equal(fs.existsSync(path.join(root, "Dev")), false);
+});
+
+test("manifest materialization failure removes only its partial migration staging and leaves a fresh plan", async context => {
+  const { root } = conventionalFixture(context, { prefix: "forced-manifest-failure-" });
+  const beforeHead = git(root, "rev-parse", "HEAD");
+  const beforeSource = fs.readFileSync(path.join(root, "README.md"), "utf8");
+  const inspected = await inspectExistingProjectGitAdoption(root, "manifest-failure");
+  const originalCopyFile = fs.copyFileSync;
+  fs.copyFileSync = (source, destination, ...args) => {
+    if (path.resolve(source) === path.resolve(root, "README.md")) {
+      const error = new Error("synthetic unreadable source");
+      error.code = "EACCES";
+      throw error;
+    }
+    return originalCopyFile(source, destination, ...args);
+  };
+  try {
+    await assert.rejects(applyPlan(root, "manifest-failure", inspected),
+      /canonical source manifest\/materialization failed at 'README\.md'/);
+  } finally {
+    fs.copyFileSync = originalCopyFile;
+  }
+  assert.equal(git(root, "rev-parse", "HEAD"), beforeHead);
+  assert.equal(fs.readFileSync(path.join(root, "README.md"), "utf8"), beforeSource);
+  assert.equal(fs.existsSync(path.join(root, ".git")), true);
+  assert.equal(fs.existsSync(path.join(root, "Main")), false);
+  assert.equal(fs.existsSync(path.join(root, "Dev")), false);
+  const migrations = path.join(root, ".champcity", "migrations");
+  assert.deepEqual(fs.readdirSync(migrations).filter(name => name.startsWith("existing-project-normalization-")), []);
+  const reinspected = await inspectExistingProjectGitAdoption(root, "manifest-failure");
+  assert.equal(reinspected.state, "conversion-required");
+  assert.equal(reinspected.topology.recoveryStaging, false);
+  assert.equal(reinspected.planId, inspected.planId);
+});
+
+test("failure after local-state relocation restores ignored state and original Project authority", async context => {
+  const { root } = conventionalFixture(context, { prefix: "forced-local-rollback-" });
+  fs.writeFileSync(path.join(root, ".gitignore"), "local-state/\n");
+  git(root, "add", ".gitignore");
+  git(root, "commit", "-m", "ignore local state");
+  fs.mkdirSync(path.join(root, "local-state"));
+  fs.writeFileSync(path.join(root, "local-state", "session.bin"), "recoverable local bytes\n");
+  fs.writeFileSync(path.join(root, "README.md"), "dirty source before failure\n");
+  const beforeHead = git(root, "rev-parse", "HEAD");
+  const inspected = await inspectExistingProjectGitAdoption(root, "local-rollback");
+  await assert.rejects(applyExistingProjectGitAdoption({
+    projectRoot: root,
+    repositoryId: "local-rollback",
+    workspaceId: "workspace-local-rollback",
+    checkoutRegistration: { registerRepositoryCheckout: async () => { throw new Error("synthetic registration failure"); } },
+    planId: inspected.planId,
+    consent: true,
+  }), /synthetic registration failure/);
+  assert.equal(git(root, "rev-parse", "HEAD"), beforeHead);
+  assert.equal(fs.readFileSync(path.join(root, "README.md"), "utf8"), "dirty source before failure\n");
+  assert.equal(fs.readFileSync(path.join(root, "local-state", "session.bin"), "utf8"), "recoverable local bytes\n");
   assert.equal(fs.existsSync(path.join(root, ".git")), true);
   assert.equal(fs.existsSync(path.join(root, "Main")), false);
   assert.equal(fs.existsSync(path.join(root, "Dev")), false);
