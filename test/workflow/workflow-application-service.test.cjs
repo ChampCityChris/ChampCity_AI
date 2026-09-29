@@ -253,7 +253,7 @@ test("structured WIR promotes one Architect assessment and atomically opens an e
     await targetPlanner.prepare(env.root, completed.targetWorkflowId, "assessment");
     await targetPlanner.act(env.root, completed.targetWorkflowId, { type: "save-draft", content: "Assess the routed capability." });
     await targetPlanner.act(env.root, completed.targetWorkflowId, { type: "decide", stage: "assessment", outcome: "accept", rationale: "Accept routed assessment.", assessment: acceptedAssessment });
-    const routedGraph = { workflowId: completed.targetWorkflowId, topology: "phased", solution: { title: "Routed capability", objective: "Deliver routed result", scopeIn: ["bounded addition"], scopeOut: ["unrelated changes"], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [{ statement: "Preserve existing behavior", criticality: "required", verificationIntent: "Run the preserved behavior suite", validationPolicy: "deterministic" }], phases: [{ key: "routed-phase", title: "Capability phase", objective: "Deliver capability", sequence: 1 }], workItems: [{ key: "routed-work", kind: "feature", title: "Implement routed addition", objective: "Deliver the addition", phaseKey: "routed-phase", dependencyKeys: [], criteria: [] }] };
+    const routedGraph = { workflowId: completed.targetWorkflowId, topology: "phased", solution: { title: "Routed capability", objective: "Deliver routed result", scopeIn: ["bounded addition"], scopeOut: ["unrelated changes"], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [{ statement: "Preserve existing behavior", criticality: "required", verificationIntent: "Run the preserved behavior suite", validationPolicy: "semantic_ai" }], phases: [{ key: "routed-phase", title: "Capability phase", objective: "Deliver capability", sequence: 1 }], workItems: [{ key: "routed-work", kind: "feature", title: "Implement routed addition", objective: "Deliver the addition", phaseKey: "routed-phase", dependencyKeys: [], criteria: [] }] };
     await targetPlanner.act(env.root, completed.targetWorkflowId, { type: "save-draft", content: "Reviewed routed Feature graph." });
     const routedPlan = await targetPlanner.act(env.root, completed.targetWorkflowId, { type: "decide", stage: "plan", outcome: "accept", rationale: "Accept routed plan.", graph: routedGraph });
     assert.equal(routedPlan.stage, "work-item-map");
@@ -262,7 +262,7 @@ test("structured WIR promotes one Architect assessment and atomically opens an e
     assert.equal(routedPlan.provenance, "routed");
     assert.equal(routedPlan.acceptedPlan.workflow.id, completed.targetWorkflowId);
     assert.equal(routedPlan.acceptedPlan.phases[0].sequence, 1);
-    assert.equal(routedPlan.acceptedPlan.criteria.some(item => item.record.body.validationPolicy === "deterministic"), true);
+    assert.equal(routedPlan.acceptedPlan.criteria.some(item => item.record.body.validationPolicy === "semantic_ai"), true);
     assert.equal((await targetPlanner.get(env.root, completed.targetWorkflowId)).stage, "work-item-map");
     assert.equal((await env.state.getRecord(env.projectId, captured.workflow.id)).lifecycleState, "closed");
     assert.equal((await env.state.getWorkflowExecutionPlan(env.projectId, completed.targetWorkflowId)).solutions[0].id, routedPlan.acceptedPlan.solutions[0].id);
@@ -384,6 +384,7 @@ test("Feature planning persists exact Workflow intake, keeps revision noncanonic
     const planningHandoff = await feature.prepare(env.root, direct.workflow.workflowId, "plan");
     assert.match(planningHandoff.draft.instruction, /Exact accepted Feature assessment from SPS/);
     assert.match(planningHandoff.draft.instruction, /Current Product Baseline/);
+    assert.match(planningHandoff.draft.instruction, /Source-neutral validation policy: required deterministic ValidationCatalog proof is unavailable/i);
     await feature.act(env.root, direct.workflow.workflowId, { type: "save-draft", content: "plan draft placeholder" });
     const graph = { workflowId: direct.workflow.workflowId, topology: "direct", solution: { title: "CSV export", objective: "Export reports", scopeIn: ["CSV"], scopeOut: ["PDF"], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [], workItems: [{ key: "export", kind: "feature", title: "Implement CSV export", objective: "Deliver export", dependencyKeys: [], criteria: [] }] };
     const accepted = await feature.act(env.root, direct.workflow.workflowId, { type: "decide", stage: "plan", outcome: "accept", rationale: "Accept feature graph", graph });
@@ -411,7 +412,7 @@ test("concurrent same-title direct Features accept and reopen isolated canonical
       await planner.prepare(env.root, workflow.workflowId, "assessment");
       await planner.act(env.root, workflow.workflowId, { type: "save-draft", content: `${label} assessment` });
       await planner.act(env.root, workflow.workflowId, { type: "decide", stage: "assessment", outcome: "accept", rationale: `${label} assessment accepted`, assessment: { ...acceptedAssessment, requestedCapabilityDelta: `${label} outcome` } });
-      const graph = { workflowId: workflow.workflowId, topology: "direct", solution: { title: `${label} solution`, objective: `${label} outcome`, scopeIn: [`${label} scope`], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [{ statement: `${label} criterion`, criticality: "required", verificationIntent: `Verify ${label}`, validationPolicy: "deterministic" }], workItems: [{ key: `${label}-work`, kind: "feature", title: `${label} work`, objective: `${label} result`, dependencyKeys: [], criteria: [] }] };
+      const graph = { workflowId: workflow.workflowId, topology: "direct", solution: { title: `${label} solution`, objective: `${label} outcome`, scopeIn: [`${label} scope`], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [{ statement: `${label} criterion`, criticality: "required", verificationIntent: `Verify ${label}`, validationPolicy: "semantic_ai" }], workItems: [{ key: `${label}-work`, kind: "feature", title: `${label} work`, objective: `${label} result`, dependencyKeys: [], criteria: [] }] };
       await planner.act(env.root, workflow.workflowId, { type: "save-draft", content: `${label} reviewed graph` });
       return planner.act(env.root, workflow.workflowId, { type: "decide", stage: "plan", outcome: "accept", rationale: `${label} plan accepted`, graph });
     };
@@ -488,6 +489,7 @@ test("Issue Workflow persists evidence and accepted RCA, keeps revision canonica
     assert.equal((await workflows.getCurrentProjectWorkflow(env.root, first.workflow.workflowId)).workflow.currentWorkspace, "issue-rca");
     const afterRca = await issues.act(env.root, first.workflow.workflowId, { type: "decide-rca", outcome: "accept", rationale: "Evidence supports the cause.", rootCauses: [{ title: "Export state exception", statement: "Export crashes when search state is populated.", rationale: "The reproduced state transition omits the export data shape.", confidence: 0.9, findingIds: [finding.id], evidenceIds: [evidence.evidence[0].id] }] });
     assert.equal(afterRca.stage, "plan");
+    assert.match(afterRca.draft.instruction, /Source-neutral validation policy: required deterministic ValidationCatalog proof is unavailable/i);
     assert.equal((await workflows.getCurrentProjectWorkflow(env.root, first.workflow.workflowId)).workflow.currentWorkspace, "issue-planning");
     assert.equal((await createIssuePlanningService().get(env.root, first.workflow.workflowId)).stage, "plan");
     assert.equal(afterRca.rootCauses.length, 1);

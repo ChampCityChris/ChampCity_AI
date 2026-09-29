@@ -379,6 +379,25 @@ test("exact Workflow IPC atomically decomposes a ready WorkItem and reopens its 
   await assert.rejects(handlers.get("workflow:decomposeWorkItem")({}, { ...input, expectedWorkItemVersion: source.recordVersion - 1 }), /current planned\/ready WorkItem version/);
 });
 
+test("source-neutral typed decomposition rejects a new required deterministic split atomically", async context => {
+  const env = await setup(context);
+  const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "Decomposition policy", entryWorkspace: "feature-intake" });
+  const plan = await env.state.acceptWorkflowPlanningGraph(env.projectId, graph(created.workflow.id, "direct", "feature", [{ key: "large", kind: "feature", title: "Large", objective: "Split safely", dependencyKeys: [],
+    criteria: [{ statement: "Original obligation", criticality: "required", verificationIntent: "Use a supported policy", validationPolicy: "semantic_ai" }] }]));
+  const source = plan.directWorkItems[0], originalCriterion = plan.criteria.find(entry => entry.ownerId === source.id).record;
+  const beforeCount = (await env.store.listEntities(env.projectId)).length;
+  await assert.rejects(env.state.decomposeWorkItem(env.projectId, { workflowId: created.workflow.id, workItemId: source.id, expectedWorkItemVersion: source.recordVersion,
+    replacements: [
+      { key: "a", kind: "feature", title: "Part A", objective: "First part", solutionId: plan.solutions[0].id, dependencyWorkItemIds: [], dependencyReplacementKeys: [] },
+      { key: "b", kind: "feature", title: "Part B", objective: "Second part", solutionId: plan.solutions[0].id, dependencyWorkItemIds: [], dependencyReplacementKeys: [] },
+    ], criterionDispositions: [{ criterionId: originalCriterion.id, disposition: "split", replacements: [
+      { owner: { kind: "replacement", key: "a" }, criterion: { statement: "Unsupported split", criticality: "required", verificationIntent: "Run catalog", validationPolicy: "deterministic" } },
+      { owner: { kind: "replacement", key: "b" }, criterion: { statement: "Supported split", criticality: "required", verificationIntent: "Semantic review", validationPolicy: "semantic_ai" } },
+    ] }], incomingDependentMappings: [] }), /unavailable for this source-neutral Workflow/i);
+  assert.equal((await env.store.listEntities(env.projectId)).length, beforeCount, "rejected decomposition does not persist replacement entities");
+  assert.equal((await env.state.getRecord(env.projectId, source.id)).lifecycleState, "active");
+});
+
 test("typed Workflow WorkItem and Phase completion uses the application principal after exact Tester proof", async context => {
   const env = await setup(context);
   const created = await env.state.createSubstantiveWorkflow(env.projectId, { workflowType: "feature-capability", title: "Exact close", entryWorkspace: "feature-intake" });
