@@ -9,6 +9,7 @@ const loader = require("./renderer-source-loader.cjs");
 const { App } = loader.loadRendererSourceModule("src/renderer/app/App.tsx");
 const { FigmaSidebar } = loader.loadRendererSourceModule("src/renderer/app/figma/FigmaSidebar.tsx");
 const { LandingWorkspace } = loader.loadRendererSourceModule("src/renderer/app/LandingWorkspace.tsx");
+const { acceptExistingProjectAdoption, openInspectedExistingProject } = loader.loadRendererSourceModule("src/renderer/app/existingProjectEntryController.ts");
 const { NestedWorkflowRail } = loader.loadRendererSourceModule("src/renderer/app/NestedWorkflowRail.tsx");
 const { WorkflowHubWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowHubWorkspace.tsx");
 const { WorkflowInstanceWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowInstanceWorkspace.tsx");
@@ -159,6 +160,50 @@ test("fresh application shell presents the project-neutral landing actions witho
   assert.match(markup, /Open Existing Project/);
   assert.match(markup, /Start New Project/);
   assert.doesNotMatch(markup, /Project navigation|Workflow navigation|Available workflows/);
+});
+
+test("landing migration warning renders bounded facts with explicit Accept and Cancel actions", () => {
+  const markup = renderToStaticMarkup(React.createElement(LandingWorkspace, {
+    feedback: "",
+    isChoosing: false,
+    migrationPlan: {
+      planId: "a".repeat(64), state: "migration-consent-required", repositoryId: "project-source",
+      currentBranch: "feature/current", currentRevision: "1".repeat(40), mainRevision: "2".repeat(40), devRevision: "3".repeat(40),
+      baselineSourceRef: "main", mainAction: "none", devAction: "merge", activeBranchAction: "merge-into-dev",
+      workingState: { stagedCount: 1, unstagedCount: 2, untrackedCount: 3, ignoredCount: 4, captureSnapshotRequired: true },
+      topology: { conventionalGit: true, managedMetadata: false, mainCheckout: false, devCheckout: false, recoveryStaging: false },
+      preservedRefCount: 7, preservedRemoteCount: 1, requiresConsent: true, warnings: [], manualReason: null,
+    },
+    onAcceptMigration: () => undefined,
+    onCancelMigration: () => undefined,
+    onOpenExistingProject: () => undefined,
+    onStartNewProject: () => undefined,
+  }));
+  assert.match(markup, /Git migration required/);
+  assert.match(markup, /feature\/current/);
+  assert.match(markup, /1 staged, 2 unstaged, 3 untracked/);
+  assert.match(markup, /Accept Migration/);
+  assert.match(markup, />Cancel</);
+  assert.match(markup, /will not merge unrelated branches or discard conflicts/);
+  assert.doesNotMatch(markup, /C:\\|\/Users\//);
+});
+
+test("Existing Project entry controller applies before one registration and gates consent", async () => {
+  const calls = [];
+  const project = { projectId: "project", projectName: "Project", repositoryId: "source", projectRoot: "opaque", mode: "existing", created: true };
+  const api = {
+    applyExistingProjectGitAdoption: async planId => { calls.push(["apply", planId]); },
+    registerCurrentProject: async mode => { calls.push(["register", mode]); return project; },
+  };
+  const automatic = { planId: "b".repeat(64), state: "conventional-auto", requiresConsent: false };
+  assert.deepEqual(await openInspectedExistingProject(api, automatic), { kind: "ready", project });
+  assert.deepEqual(calls, [["apply", automatic.planId], ["register", "existing"]]);
+  calls.length = 0;
+  const consent = { ...automatic, state: "migration-consent-required", requiresConsent: true };
+  assert.deepEqual(await openInspectedExistingProject(api, consent), { kind: "consent-required", plan: consent });
+  assert.deepEqual(calls, []);
+  await acceptExistingProjectAdoption(api, consent);
+  assert.deepEqual(calls, [["apply", consent.planId], ["register", "existing"]]);
 });
 
 test("Feature workspace is keyed by exact Workflow identity and exposes only its planning front half", () => {

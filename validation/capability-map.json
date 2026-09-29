@@ -1563,7 +1563,7 @@
     },
     {
       "capabilityId": "current-project-entry-runtime",
-      "description": "Landing entry establishes Current Project registration independently from optional Repository identity; Greenfield entry bootstraps managed Main/Dev before SPS registration.",
+      "description": "Landing entry inspects and adopts Existing Project Git state before Current Project registration; source-neutral entry remains Repository-optional and Greenfield entry bootstraps managed Main/Dev before SPS registration.",
       "sourcePatterns": [
         "src/main/main.ts",
         "src/main/migrations/legacyAuthorityInventory.ts",
@@ -1580,6 +1580,10 @@
         "src/main/workflow/workflowApplicationService.ts",
         "src/preload/index.ts",
         "src/renderer/app/App.tsx",
+        "src/renderer/app/LandingWorkspace.tsx",
+        "src/renderer/app/existingProjectEntryController.ts",
+        "src/renderer/styles.css",
+        "src/shared/sourceControlContracts.ts",
         "src/shared/workspaceContracts.ts"
       ],
       "dependsOn": [
@@ -1601,7 +1605,7 @@
         },
         {
           "behaviorId": "existing-entry-opens-historical-project-as-current-sps-identity",
-          "description": "Existing Project landing entry registers SPS identity and preserves historical Markdown without legacy Workflow reconstruction; non-Git Projects have no Repository identity."
+          "description": "Existing Project landing entry inspects, warns and obtains consent only for semantic Git normalization, applies source adoption before one SPS registration, preserves historical Markdown without Workflow reconstruction, and keeps non-Git Projects Repository-neutral."
         },
         {
           "behaviorId": "greenfield-entry-registers-current-project-and-enters-project-intake-with-main-dev",
@@ -13401,8 +13405,8 @@
     {
       "testPath": "test/project-state/current-project-entry.test.cjs",
       "currentTestCount": {
-        "value": 11,
-        "basis": "Counted from node:test declarations in the WRB02-05 checkout."
+        "value": 13,
+        "basis": "Thirteen focused entry scenarios include EPGA-HF03 constrained inspection/apply IPC, exact digest validation, apply-before-registration, retry, source-neutral, and managed reopen behavior."
       },
       "duration": {
         "kind": "measured",
@@ -13459,7 +13463,7 @@
         {
           "capabilityId": "current-project-entry-runtime",
           "behaviorId": "existing-entry-opens-historical-project-as-current-sps-identity",
-          "proofLocator": "Existing Project source candidates are validated before Current Project registration; conventional and managed identities attach only after proof, and established topology remains retryable after SPS failure",
+          "proofLocator": "Constrained preload/main inspection and exact-plan apply migrate conventional source before one Current Project registration; source-neutral and managed reopen paths remain direct, retryable, and free of Workflow reconstruction",
           "proofRole": "primary"
         },
         {
@@ -17481,8 +17485,8 @@
     {
       "testPath": "test/renderer/workflow-hub-shell.test.cjs",
       "currentTestCount": {
-        "value": 15,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit plus Project Creation, Feature, and Issue exact-workflow rendering proofs."
+        "value": 23,
+        "basis": "Existing renderer navigation proof plus EPGA-HF03 bounded migration warning and controller apply-before-register consent gating scenarios."
       },
       "duration": {
         "kind": "measured",

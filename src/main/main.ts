@@ -55,6 +55,7 @@ import { resolveFirstNonApprovedDocument } from "./documents/firstNonApprovedRes
 import { submitProjectIntakeForRepository } from "./projectIntake/projectIntakeService";
 import { createSourceControlService } from "./sourceControl/sourceControlService";
 import { establishManagedProjectSource, resolveManagedDevRepositoryCheckout } from "./sourceControl/managedProjectSourceService";
+import { applyExistingProjectGitAdoption, inspectExistingProjectGitAdoption } from "./sourceControl/existingProjectGitAdoptionService";
 import { CURRENT_PROJECT_REPOSITORY_ID, registerCurrentProject, selectedCurrentProjectId } from "./projectState/currentProjectRegistrationService";
 import { MANAGED_PROJECT_SOURCE_PATHS } from "../shared/sourceLifecycleContracts";
 import { selectedSourceGraphRepositoryId } from "./sourceControl/sourceGraphService";
@@ -352,6 +353,21 @@ ipcMain.handle("workspace:clear", (): WorkspaceSelection => {
   return clearSelectedWorkspace(getUserDataRoot());
 });
 
+ipcMain.handle("project:inspectExistingGitAdoption", async () =>
+  inspectExistingProjectGitAdoption(getRequiredWorkspaceRoot(), CURRENT_PROJECT_REPOSITORY_ID));
+
+ipcMain.handle("project:applyExistingGitAdoption", async (_event, planId: string) => {
+  if (typeof planId !== "string" || !/^[a-f0-9]{64}$/.test(planId)) throw new Error("An exact Existing Project adoption plan is required.");
+  const root = getRequiredWorkspaceRoot();
+  const agentHarness = getAgentHarnessServiceHostClient();
+  const workspace = await agentHarness.registerWorkspace(root);
+  const result = await applyExistingProjectGitAdoption({ projectRoot: root, repositoryId: CURRENT_PROJECT_REPOSITORY_ID,
+    workspaceId: workspace.workspace.workspaceId, planId, consent: true,
+    checkoutRegistration: { registerRepositoryCheckout: (workspaceId: string, checkout: import("../shared/sourceLifecycleContracts").RepositoryCheckout) =>
+      agentHarness.registerRepositoryCheckout(workspaceId, checkout) } });
+  return result.plan;
+});
+
 ipcMain.handle("project:registerCurrent", async (_event, mode: "existing" | "greenfield", projectName?: string) => {
   if (mode !== "existing" && mode !== "greenfield") throw new Error("A current Project registration mode is required.");
   const root = getRequiredWorkspaceRoot();
@@ -378,13 +394,11 @@ ipcMain.handle("project:registerCurrent", async (_event, mode: "existing" | "gre
       projectCreation = await createWorkflowApplicationService().ensureProjectCreationWorkflow(root);
     }
   } else {
-    const hasConventionalGit = fs.existsSync(path.join(root, ".git"));
-    const hasManagedMetadata = fs.existsSync(path.join(root, MANAGED_PROJECT_SOURCE_PATHS.repositoryMetadataRelativePath));
-    const hasManagedMain = fs.existsSync(path.join(root, MANAGED_PROJECT_SOURCE_PATHS.mainCheckoutRelativePath));
-    const hasManagedDev = fs.existsSync(path.join(root, MANAGED_PROJECT_SOURCE_PATHS.devCheckoutRelativePath));
-    const hasManagedComponents = hasManagedMetadata || hasManagedMain || hasManagedDev;
+    const adoption = await inspectExistingProjectGitAdoption(root, CURRENT_PROJECT_REPOSITORY_ID);
+    if (adoption.state !== "source-neutral" && adoption.state !== "managed-ready")
+      throw new Error("Inspect and apply Existing Project Git adoption before Current Project registration.");
     workspace = await agentHarness.registerWorkspace(root);
-    const hasSourceCandidate = hasConventionalGit || hasManagedComponents;
+    const hasSourceCandidate = adoption.state === "managed-ready";
     if (hasSourceCandidate) {
       const checkoutRegistration = { registerRepositoryCheckout: (workspaceId: string, checkout: import("../shared/sourceLifecycleContracts").RepositoryCheckout) =>
         agentHarness.registerRepositoryCheckout(workspaceId, checkout) };

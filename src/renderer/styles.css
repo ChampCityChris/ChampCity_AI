@@ -17,6 +17,7 @@
   --accent: #0284c7;
   --accent-foreground: #ffffff;
   --destructive: #dc2626;
+  --warning: #b45309;
   --border: rgba(0, 0, 0, 0.08);
   --input-background: rgba(0, 0, 0, 0.05);
   --font-weight-medium: 500;
@@ -59,6 +60,7 @@
   --accent: #38bdf8;
   --accent-foreground: #0c0e14;
   --destructive: #f87171;
+  --warning: #f59e0b;
   --border: rgba(255, 255, 255, 0.06);
   --input-background: rgba(255, 255, 255, 0.04);
   --font-weight-medium: 500;
@@ -5086,6 +5088,68 @@ body {
   border: 1px solid var(--border);
   border-radius: 7px;
   font-size: 13px;
+}
+
+.landing-migration-warning {
+  display: grid;
+  gap: 14px;
+  padding: 22px;
+  border: 1px solid color-mix(in srgb, var(--warning) 55%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--warning) 8%, var(--card));
+}
+
+.landing-migration-warning h2,
+.landing-migration-warning p {
+  margin: 0;
+}
+
+.landing-migration-warning dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.landing-migration-warning dl > div {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.35fr) 1fr;
+  gap: 12px;
+}
+
+.landing-migration-warning dt {
+  color: var(--muted-foreground);
+  font-weight: 600;
+}
+
+.landing-migration-warning dd {
+  margin: 0;
+}
+
+.landing-migration-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.landing-migration-actions button {
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--foreground);
+  background: var(--card);
+  cursor: pointer;
+}
+
+.landing-migration-actions button.primary-action {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.landing-migration-actions button:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 @media (max-width: 760px) {

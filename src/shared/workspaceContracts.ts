@@ -1485,6 +1485,8 @@ export interface ChampCityApi {
   readGithubEvidence: (request: GithubEvidenceRequest) => Promise<GithubEvidence>;
   getSelectedWorkspace: () => Promise<WorkspaceSelection>;
   chooseWorkspaceFolder: () => Promise<WorkspaceSelection>;
+  inspectExistingProjectGitAdoption: () => Promise<import("./sourceControlContracts").ExistingProjectGitAdoptionPlan>;
+  applyExistingProjectGitAdoption: (planId: string) => Promise<import("./sourceControlContracts").ExistingProjectGitAdoptionPlan>;
   registerCurrentProject: (mode: "existing" | "greenfield", projectName?: string) => Promise<CurrentProjectRuntimeContext>;
   clearSelectedWorkspace: () => Promise<WorkspaceSelection>;
   getAppInfo: () => Promise<AppInfo>;

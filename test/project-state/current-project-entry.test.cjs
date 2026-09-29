@@ -12,12 +12,14 @@ const { selectedSourceGraphRepositoryId } = require("../../dist/main/sourceContr
 const { resolveManagedDevRepositoryCheckout } = require("../../dist/main/sourceControl/managedProjectSourceService.js");
 const { createSourceControlService } = require("../../dist/main/sourceControl/sourceControlService.js");
 const { establishManagedProjectSource } = require("../../dist/main/sourceControl/managedProjectSourceService.js");
+const { applyExistingProjectGitAdoption, inspectExistingProjectGitAdoption } = require("../../dist/main/sourceControl/existingProjectGitAdoptionService.js");
 const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
 const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
 const { createWorkflowApplicationService } = require("../../dist/main/workflow/workflowApplicationService.js");
 const { getStructuredWorkIntakeProjection } = require("../../dist/main/workIntake/structuredWorkIntakeService.js");
 const { getWorkIntakeProjection } = require("../../dist/main/workIntake/workIntakeService.js");
 const rendererSource = fs.readFileSync(path.resolve(__dirname, "../../src/renderer/app/App.tsx"), "utf8");
+const entryControllerSource = fs.readFileSync(path.resolve(__dirname, "../../src/renderer/app/existingProjectEntryController.ts"), "utf8");
 
 function root(context) {
   const selected = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-entry-"));
@@ -25,6 +27,36 @@ function root(context) {
   return selected;
 }
 function git(rootPath, ...args) { return execFileSync("git", args, { cwd: rootPath, encoding: "utf8" }).trim(); }
+
+test("Existing Project adoption IPC derives selected root and accepts only an exact plan digest", async () => {
+  const selected = "selected-root-owned-by-main";
+  const expectedPlan = { planId: "a".repeat(64), state: "managed-ready" };
+  let inspected;
+  let applied;
+  const harness = {
+    registerWorkspace: async rootPath => ({ workspace: { workspaceId: `workspace:${rootPath}` } }),
+    registerRepositoryCheckout: async () => ({ availability: "available" }),
+  };
+  const { api, invocations } = mainPreloadHarness(["project:inspectExistingGitAdoption", "project:applyExistingGitAdoption"], {
+    getRequiredWorkspaceRoot: () => selected,
+    CURRENT_PROJECT_REPOSITORY_ID,
+    getAgentHarnessServiceHostClient: () => harness,
+    inspectExistingProjectGitAdoption: async (...args) => { inspected = args; return expectedPlan; },
+    applyExistingProjectGitAdoption: async input => { applied = input; return { plan: expectedPlan }; },
+  });
+  assert.equal(await api.inspectExistingProjectGitAdoption(), expectedPlan);
+  assert.deepEqual(inspected, [selected, CURRENT_PROJECT_REPOSITORY_ID]);
+  await assert.rejects(api.applyExistingProjectGitAdoption("not-a-plan"), /exact Existing Project adoption plan/);
+  assert.equal(await api.applyExistingProjectGitAdoption(expectedPlan.planId), expectedPlan);
+  assert.equal(applied.projectRoot, selected);
+  assert.equal(applied.planId, expectedPlan.planId);
+  assert.equal(applied.consent, true);
+  assert.deepEqual(invocations.map(call => [call.channel, call.args.length]), [
+    ["project:inspectExistingGitAdoption", 0],
+    ["project:applyExistingGitAdoption", 1],
+    ["project:applyExistingGitAdoption", 1],
+  ]);
+});
 
 test("Current Project managed Dev resolver fails closed for missing and non-Git checkout paths", async context => {
   const missing = root(context);
@@ -82,7 +114,7 @@ test("Greenfield entry validates an empty container, establishes SPS and registe
     getAgentHarnessServiceHostClient: () => harness,
     createSourceControlService,
     createWorkflowApplicationService,
-    establishManagedProjectSource,
+    establishManagedProjectSource, inspectExistingProjectGitAdoption,
     fs, path, MANAGED_PROJECT_SOURCE_PATHS,
   });
   const current = await api.registerCurrentProject("greenfield", "New Project");
@@ -185,7 +217,7 @@ test("Greenfield entry finishes registration for a compatible managed baseline w
     { fs, path, MANAGED_PROJECT_SOURCE_PATHS });
   const { api } = mainPreloadHarness(["project:registerCurrent"], {
     getRequiredWorkspaceRoot: () => selected, assertGreenfieldProjectEntry, registerCurrentProject, selectedCurrentProjectId, CURRENT_PROJECT_REPOSITORY_ID,
-    getAgentHarnessServiceHostClient: () => harness, createSourceControlService, establishManagedProjectSource,
+    getAgentHarnessServiceHostClient: () => harness, createSourceControlService, establishManagedProjectSource, inspectExistingProjectGitAdoption,
     createWorkflowApplicationService,
     fs, path, MANAGED_PROJECT_SOURCE_PATHS,
   });
@@ -234,7 +266,7 @@ test("non-Git Existing Project entry registers SPS without a placeholder Reposit
   context.after(() => harness.stop().catch(() => undefined));
   const { api } = mainPreloadHarness(["project:registerCurrent", "sourceGraph:get"], {
     getRequiredWorkspaceRoot: () => selected, registerCurrentProject, selectedCurrentProjectId, CURRENT_PROJECT_REPOSITORY_ID,
-    getAgentHarnessServiceHostClient: () => harness, createSourceControlService, establishManagedProjectSource,
+    getAgentHarnessServiceHostClient: () => harness, createSourceControlService, establishManagedProjectSource, inspectExistingProjectGitAdoption,
     selectedSourceGraphRepositoryId, resolveManagedDevRepositoryCheckout: async () => { throw new Error("managed Dev should not be resolved without Source Control capability"); },
     fs, path, MANAGED_PROJECT_SOURCE_PATHS,
   });
@@ -304,7 +336,7 @@ test("invalid or redirected Existing Project source candidates fail before Curre
     context.after(() => harness.stop().catch(() => undefined));
     const { api } = mainPreloadHarness(["project:registerCurrent"], {
       getRequiredWorkspaceRoot: () => selected, registerCurrentProject, selectedCurrentProjectId, CURRENT_PROJECT_REPOSITORY_ID,
-      getAgentHarnessServiceHostClient: () => harness, createSourceControlService, establishManagedProjectSource,
+      getAgentHarnessServiceHostClient: () => harness, createSourceControlService, establishManagedProjectSource, inspectExistingProjectGitAdoption,
       fs, path, MANAGED_PROJECT_SOURCE_PATHS,
     });
     await assert.rejects(api.registerCurrentProject("existing"), undefined, kind);
@@ -350,35 +382,44 @@ test("Existing conventional Project entry preserves source and historical Markdo
     checkouts.push(registered);
     return registered;
   };
-  const { api } = mainPreloadHarness(["project:registerCurrent"], {
+  const { api } = mainPreloadHarness(["project:inspectExistingGitAdoption", "project:applyExistingGitAdoption", "project:registerCurrent"], {
     getRequiredWorkspaceRoot: () => selected,
     registerCurrentProject: (...args) => { entryOrder.push("sps"); return registerCurrentProject(...args); },
     getAgentHarnessServiceHostClient: () => harness, CURRENT_PROJECT_REPOSITORY_ID,
     createSourceControlService,
     establishManagedProjectSource: (...args) => { entryOrder.push("source-proof"); return establishManagedProjectSource(...args); },
+    inspectExistingProjectGitAdoption,
+    applyExistingProjectGitAdoption: (...args) => { entryOrder.push("source-proof"); return applyExistingProjectGitAdoption(...args); },
     fs, path, MANAGED_PROJECT_SOURCE_PATHS,
   });
+  const adoption = await api.inspectExistingProjectGitAdoption();
+  assert.equal(adoption.state, "migration-consent-required");
+  await api.applyExistingProjectGitAdoption(adoption.planId);
   const current = await api.registerCurrentProject("existing");
-  assert.deepEqual(entryOrder.slice(0, 3), ["workspace", "source-proof", "sps"]);
+  assert.ok(entryOrder.indexOf("workspace") < entryOrder.indexOf("source-proof"));
+  assert.ok(entryOrder.indexOf("source-proof") < entryOrder.indexOf("sps"));
   assert.equal(current.projectId, selectedCurrentProjectId(selected));
   assert.equal(current.repositoryId, CURRENT_PROJECT_REPOSITORY_ID);
   assert.equal(current.mode, "existing");
   assert.equal(current.created, true);
   assert.equal(fs.existsSync(path.join(selected, ".git")), false);
-  assert.equal(fs.readFileSync(path.join(selected, "Main", "README.md"), "utf8"), "dirty tracked content\n");
-  assert.equal(fs.readFileSync(path.join(selected, "Main", "WORKFLOW.md"), "utf8"), "Historical record stays a file.\n");
+  assert.equal(fs.readFileSync(path.join(selected, "Dev", "README.md"), "utf8").replace(/\r\n/g, "\n"), "dirty tracked content\n");
+  assert.equal(fs.readFileSync(path.join(selected, "Dev", "WORKFLOW.md"), "utf8").replace(/\r\n/g, "\n"), "Historical record stays a file.\n");
   assert.equal(git(path.join(selected, "Main"), "branch", "--show-current"), "main");
   assert.equal(git(path.join(selected, "Dev"), "branch", "--show-current"), "dev");
-  assert.equal(git(path.join(selected, "Main"), "for-each-ref", "--format=%(refname)%00%(objectname)", "refs/heads", "refs/remotes", "refs/tags"), refs);
+  const afterRefs = git(path.join(selected, "Main"), "for-each-ref", "--format=%(refname)%00%(objectname)", "refs/heads", "refs/remotes", "refs/tags");
+  const originalMain = refs.split(/\r?\n/).find(ref => ref.startsWith("refs/heads/main\0"));
+  assert.ok(originalMain && afterRefs.includes(originalMain));
+  assert.match(afterRefs, /refs\/heads\/dev\0/);
   assert.equal(git(path.join(selected, "Main"), "remote", "-v"), remotes);
   assert.deepEqual(checkouts.slice(0, 2).map(checkout => [checkout.role, checkout.projectRelativePath]).sort(), [["dev", "Dev"], ["main", "Main"]]);
   const reopened = await api.registerCurrentProject("existing");
   assert.equal(reopened.projectId, current.projectId);
   assert.equal(reopened.created, false);
-  assert.deepEqual(checkouts.slice(0, 2).map(checkout => checkout.repositoryCheckoutId).sort(), checkouts.slice(2).map(checkout => checkout.repositoryCheckoutId).sort());
+  assert.deepEqual(checkouts.slice(0, 2).map(checkout => checkout.repositoryCheckoutId).sort(), checkouts.slice(-2).map(checkout => checkout.repositoryCheckoutId).sort());
   const workspaceId = (await harness.listRegisteredWorkspaces()).workspaces[0].workspaceId;
   const mcpRead = await harness.registry.callTool({ name: "repo_toolbox", arguments: { workspaceId, action: "read_file",
-    params: { relativePath: "Main/WORKFLOW.md" } }, scope: "files.read" });
+    params: { relativePath: "Dev/WORKFLOW.md" } }, scope: "files.read" });
   assert.equal(mcpRead.ok, true);
   assert.match(mcpRead.payload.content, /Historical record stays a file/);
   const state = createSQLiteProjectStateStore(path.join(selected, ".champcity", "project-state.sqlite"));
@@ -406,7 +447,7 @@ test("managed source establishment remains retryable when SPS registration fails
   harness.registerWorkspace = rootPath => harness.registerWorkspaceRoot(rootPath);
   context.after(() => harness.stop().catch(() => undefined));
   let failRegistration = true;
-  const { api } = mainPreloadHarness(["project:registerCurrent"], {
+  const { api } = mainPreloadHarness(["project:inspectExistingGitAdoption", "project:applyExistingGitAdoption", "project:registerCurrent"], {
     getRequiredWorkspaceRoot: () => selected,
     registerCurrentProject: (...args) => {
       if (failRegistration) { failRegistration = false; throw new Error("synthetic SPS registration failure"); }
@@ -414,8 +455,12 @@ test("managed source establishment remains retryable when SPS registration fails
     },
     selectedCurrentProjectId, CURRENT_PROJECT_REPOSITORY_ID,
     getAgentHarnessServiceHostClient: () => harness, createSourceControlService, establishManagedProjectSource,
+    inspectExistingProjectGitAdoption, applyExistingProjectGitAdoption,
     fs, path, MANAGED_PROJECT_SOURCE_PATHS,
   });
+  const adoption = await api.inspectExistingProjectGitAdoption();
+  assert.equal(adoption.state, "conventional-auto");
+  await api.applyExistingProjectGitAdoption(adoption.planId);
   await assert.rejects(api.registerCurrentProject("existing"), /synthetic SPS registration failure/);
   assert.equal(selectedCurrentProjectId(selected), null);
   assert.equal(fs.existsSync(path.join(selected, ".git")), false);
@@ -443,6 +488,14 @@ test("landing actions route New Project to Project Intake and Existing Project t
   assert.match(activate, /setSelectedWorkflowId\(opened\.workflow\.workflowId\)/);
   assert.match(activate, /workflowType !== "project-creation"/);
   assert.match(rendererSource, /selectedWorkflowId === workflowInstance\.workflowId/);
-  assert.match(open, /registerCurrentProject\("existing"\)/);
+  assert.match(open, /inspectExistingProjectGitAdoption\(\)/);
+  assert.match(open, /openInspectedExistingProject\(window\.champcity, plan\)/);
+  assert.match(entryControllerSource, /applyExistingProjectGitAdoption\(plan\.planId\)/);
+  assert.match(entryControllerSource, /registerCurrentProject\("existing"\)/);
   assert.match(open, /activateWorkspaceSelection\(selection, "workflow-hub", project\)/);
+  const cancel = rendererSource.slice(rendererSource.indexOf("async function cancelExistingProjectMigration"),
+    rendererSource.indexOf("async function startNewProjectFromLanding"));
+  assert.match(cancel, /clearSelectedWorkspace\(\)/);
+  assert.doesNotMatch(cancel, /applyExistingProjectGitAdoption|registerCurrentProject/);
+  assert.match(open, /Repository state changed\. Review the refreshed migration plan before accepting again\./);
 });

@@ -1,4 +1,5 @@
 import type { CodexModelSelection } from "../../shared/codexRuntimeContracts";
+import type { ExistingProjectGitAdoptionPlan } from "../../shared/sourceControlContracts";
 import { GithubProviderSettings } from "./GithubProviderSettings";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type FormEvent } from "react";
 import { Bot, Clipboard, FileText, FolderOpen, Play, RefreshCw, RotateCcw, Settings as SettingsIcon, Square } from "lucide-react";
@@ -138,6 +139,7 @@ import { FigmaAppStrip } from "./figma/FigmaAppStrip";
 import { FigmaBrowserPanel } from "./figma/FigmaBrowserPanel";
 import { FigmaSidebar, type FigmaThemeMode } from "./figma/FigmaSidebar";
 import { LandingWorkspace } from "./LandingWorkspace";
+import { acceptExistingProjectAdoption, openInspectedExistingProject } from "./existingProjectEntryController";
 import { WorkflowHubWorkspace } from "./WorkflowHubWorkspace";
 import { WorkflowInstanceWorkspace } from "./WorkflowInstanceWorkspace";
 import { WorkflowExecutionWorkspace } from "./WorkflowExecutionWorkspace";
@@ -221,6 +223,7 @@ type LegacyWorkflowForegroundId = "development" | "issue-resolution";
 type ShellView = "landing" | "workflow-hub" | "workflow" | "workflow-instance" | "settings" | "work-intake" | "source-control";
 type SettingsReturnShellView = Exclude<ShellView, "landing" | "settings">;
 type ProjectEntryDestination = "workflow-hub" | "project-intake-capture";
+type SelectedWorkspace = Extract<WorkspaceSelection, { ok: true }>;
 
 const fallbackWorkspace: WorkspaceSelection = {
   ok: false,
@@ -324,6 +327,8 @@ export function App(): JSX.Element {
   const [projectIntakeConfirmation, setProjectIntakeConfirmation] =
     useState<ProjectIntakePostSubmitConfirmation | null>(null);
   const [isChoosing, setIsChoosing] = useState(false);
+  const [pendingExistingProjectPlan, setPendingExistingProjectPlan] = useState<ExistingProjectGitAdoptionPlan | null>(null);
+  const [pendingExistingProjectSelection, setPendingExistingProjectSelection] = useState<SelectedWorkspace | null>(null);
   const [isChoosingProjectRepository, setIsChoosingProjectRepository] = useState(false);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
@@ -2446,16 +2451,79 @@ export function App(): JSX.Element {
   async function openExistingProjectFromLanding(): Promise<void> {
     setIsChoosing(true);
     setDocumentError("");
+    setPendingExistingProjectPlan(null);
+    setPendingExistingProjectSelection(null);
     try {
       const selection = await window.champcity.chooseWorkspaceFolder();
       if (!selection.ok) { setDocumentError(selection.reason); return; }
-      const project = await window.champcity.registerCurrentProject("existing");
-      await activateWorkspaceSelection(selection, "workflow-hub", project);
+      const plan = await window.champcity.inspectExistingProjectGitAdoption();
+      await continueExistingProjectEntry(selection, plan);
     } catch (error) {
       setDocumentError(error instanceof Error ? error.message : "Existing project could not be opened.");
     } finally {
       setIsChoosing(false);
     }
+  }
+
+  async function continueExistingProjectEntry(selection: SelectedWorkspace, plan: ExistingProjectGitAdoptionPlan): Promise<void> {
+    const result = await openInspectedExistingProject(window.champcity, plan);
+    if (result.kind === "manual-intervention-required") {
+      setDocumentError(`${result.reason} No source migration was applied.`);
+      await window.champcity.clearSelectedWorkspace();
+      return;
+    }
+    if (result.kind === "consent-required") {
+      setPendingExistingProjectSelection(selection);
+      setPendingExistingProjectPlan(result.plan);
+      return;
+    }
+    await activateWorkspaceSelection(selection, "workflow-hub", result.project);
+  }
+
+  async function acceptExistingProjectMigration(): Promise<void> {
+    const selection = pendingExistingProjectSelection;
+    const plan = pendingExistingProjectPlan;
+    if (!selection || !plan || isChoosing) return;
+    setIsChoosing(true);
+    setDocumentError("");
+    try {
+      const project = await acceptExistingProjectAdoption(window.champcity, plan);
+      setPendingExistingProjectPlan(null);
+      setPendingExistingProjectSelection(null);
+      await activateWorkspaceSelection(selection, "workflow-hub", project);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Existing Project migration failed.";
+      if (/stale/i.test(message)) {
+        const refreshed = await window.champcity.inspectExistingProjectGitAdoption();
+        if (refreshed.state === "manual-intervention-required") {
+          setPendingExistingProjectPlan(null);
+          setPendingExistingProjectSelection(null);
+          setDocumentError(`${refreshed.manualReason ?? message} No source migration was applied.`);
+          await window.champcity.clearSelectedWorkspace();
+        } else if (refreshed.requiresConsent) {
+          setPendingExistingProjectPlan(refreshed);
+          setDocumentError("Repository state changed. Review the refreshed migration plan before accepting again.");
+        } else {
+          await continueExistingProjectEntry(selection, refreshed);
+        }
+      } else {
+        const refreshed = await window.champcity.inspectExistingProjectGitAdoption().catch(() => null);
+        setPendingExistingProjectPlan(null);
+        setPendingExistingProjectSelection(null);
+        setDocumentError(`${refreshed?.manualReason ?? message} No Current Project registration was applied.`);
+        await window.champcity.clearSelectedWorkspace();
+      }
+    } finally {
+      setIsChoosing(false);
+    }
+  }
+
+  async function cancelExistingProjectMigration(): Promise<void> {
+    if (isChoosing) return;
+    setPendingExistingProjectPlan(null);
+    setPendingExistingProjectSelection(null);
+    await window.champcity.clearSelectedWorkspace();
+    setDocumentError("Migration canceled. No source migration or Current Project registration was applied.");
   }
 
   async function startNewProjectFromLanding(): Promise<void> {
@@ -4095,6 +4163,9 @@ export function App(): JSX.Element {
             <LandingWorkspace
               feedback={documentError}
               isChoosing={isChoosing}
+              migrationPlan={pendingExistingProjectPlan}
+              onAcceptMigration={() => void acceptExistingProjectMigration()}
+              onCancelMigration={() => void cancelExistingProjectMigration()}
               onOpenExistingProject={() => void openExistingProjectFromLanding()}
               onStartNewProject={() => void startNewProjectFromLanding()}
             />
