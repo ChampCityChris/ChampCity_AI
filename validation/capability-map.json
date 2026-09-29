@@ -1571,6 +1571,7 @@
         "src/main/migrations/stagedLegacyImporter.ts",
         "src/main/migrations/structuredProviderCutover.ts",
         "src/main/projectState/currentProjectRegistrationService.ts",
+        "src/main/sourceControl/existingProjectGitAdoptionService.ts",
         "src/main/sourceControl/managedProjectSourceService.ts",
         "src/main/sourceControl/projectSourceBootstrap.ts",
         "src/main/sourceControl/sourceControlService.ts",
@@ -2614,7 +2615,7 @@
       "behaviors": [
         {
           "behaviorId": "conventional-project-adoption-preserves-source-and-registers-durable-main-dev-checkouts",
-          "description": "Conventional Git adoption preserves source state and registers exact managed Main and Dev checkouts."
+          "description": "Conventional Git adoption inspection classifies source, topology, refs, and working state without mutation; journal primitives preserve bounded recovery identity; application preserves source state and registers exact managed Main and Dev checkouts."
         },
         {
           "behaviorId": "greenfield-source-bootstrap-establishes-deterministic-managed-main-dev-and-ignore-baseline",
@@ -17917,8 +17918,8 @@
     {
       "testPath": "test/source-control/managed-project-source.test.cjs",
       "currentTestCount": {
-        "value": 7,
-        "basis": "WRB01-02 conventional adoption, refs/remotes and dirty-content preservation, Agent Harness registration, idempotent reopen, fail-before-mutation, and main-only baseline scenarios; WRB01-R01-02 adds Dev-current preservation and unsupported-branch preflight."
+        "value": 11,
+        "basis": "WRB01 adoption proof plus EPGA-HF01 non-mutating classification, semantic-consent planning, digest freshness, and bounded journal identity validation."
       },
       "duration": {
         "kind": "measured",
@@ -17963,7 +17964,7 @@
         {
           "capabilityId": "managed-project-source-topology",
           "behaviorId": "conventional-project-adoption-preserves-source-and-registers-durable-main-dev-checkouts",
-          "proofLocator": "main-current and dev-current adoption keep dirty tracked/untracked bytes on the matching branch, main-only creates Dev at exact Main revision, and unsupported branches fail before mutation",
+          "proofLocator": "inspection distinguishes source-neutral, clean automatic, semantic-consent, and managed-ready states without mutation; plan digests bind refs and working state; journals reject foreign/stale identities; adoption preserves source and exact Main/Dev registrations",
           "proofRole": "primary"
         }
       ]

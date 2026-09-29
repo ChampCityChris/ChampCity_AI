@@ -6,6 +6,13 @@ const path = require("node:path");
 const test = require("node:test");
 const { AgentHarnessService } = require("../../dist/main/agentHarness/runtime/agentHarnessService.js");
 const { establishManagedProjectSource } = require("../../dist/main/sourceControl/managedProjectSourceService.js");
+const {
+  createExistingProjectGitAdoptionJournal,
+  inspectExistingProjectGitAdoption,
+  inspectExistingProjectGitAdoptionEvidence,
+  loadExistingProjectGitAdoptionJournal,
+  newExistingProjectGitAdoptionJournal,
+} = require("../../dist/main/sourceControl/existingProjectGitAdoptionService.js");
 
 function git(root, ...args) { return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim(); }
 function fixture(context, name = "managed-project-") {
@@ -23,6 +30,76 @@ function fixture(context, name = "managed-project-") {
   git(root, "remote", "add", "origin", "https://example.invalid/team/project.git");
   return { temp, root };
 }
+
+test("Existing Project inspection distinguishes source-neutral and clean conventional source without mutation", async context => {
+  const neutral = fs.mkdtempSync(path.join(os.tmpdir(), "managed-project-neutral-"));
+  context.after(() => fs.rmSync(neutral, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(neutral, "NOTES.md"), "source neutral\n");
+  const neutralBefore = fs.readdirSync(neutral).sort();
+  const neutralPlan = await inspectExistingProjectGitAdoption(neutral, "project-source-inspection");
+  assert.equal(neutralPlan.state, "source-neutral");
+  assert.equal(neutralPlan.repositoryId, null);
+  assert.deepEqual(fs.readdirSync(neutral).sort(), neutralBefore);
+
+  const { root } = fixture(context, "managed-project-inspection-clean-");
+  const beforeRefs = git(root, "show-ref");
+  const beforeStatus = git(root, "status", "--porcelain=v1", "--untracked-files=all");
+  const plan = await inspectExistingProjectGitAdoption(root, "project-source-inspection");
+  assert.equal(plan.state, "conventional-auto");
+  assert.equal(plan.requiresConsent, false);
+  assert.equal(plan.mainAction, "none");
+  assert.equal(plan.devAction, "none");
+  assert.equal(git(root, "show-ref"), beforeRefs);
+  assert.equal(git(root, "status", "--porcelain=v1", "--untracked-files=all"), beforeStatus);
+});
+
+test("inspection plans semantic normalization and binds planId to refs and working state", async context => {
+  const { root } = fixture(context, "managed-project-inspection-semantic-");
+  git(root, "switch", "-c", "feature/current");
+  fs.writeFileSync(path.join(root, "feature.txt"), "feature commit\n");
+  git(root, "add", "feature.txt");
+  git(root, "commit", "-m", "feature work");
+  const branchPlan = await inspectExistingProjectGitAdoption(root, "project-source-semantic");
+  assert.equal(branchPlan.state, "migration-consent-required");
+  assert.equal(branchPlan.activeBranchAction, "fast-forward-dev");
+  assert.equal(branchPlan.requiresConsent, true);
+  git(root, "tag", "inspection-digest-change");
+  const tagPlan = await inspectExistingProjectGitAdoption(root, "project-source-semantic");
+  assert.notEqual(tagPlan.planId, branchPlan.planId);
+  fs.writeFileSync(path.join(root, "dirty.txt"), "working bytes\n");
+  const dirtyPlan = await inspectExistingProjectGitAdoption(root, "project-source-semantic");
+  assert.notEqual(dirtyPlan.planId, tagPlan.planId);
+  assert.equal(dirtyPlan.workingState.captureSnapshotRequired, true);
+  assert.equal(dirtyPlan.workingState.untrackedCount, 1);
+});
+
+test("missing main derives the attached baseline while unsupported topology fails closed", async context => {
+  const { root } = fixture(context, "managed-project-inspection-baseline-");
+  git(root, "branch", "-m", "master");
+  git(root, "branch", "-D", "dev");
+  const plan = await inspectExistingProjectGitAdoption(root, "project-source-baseline");
+  assert.equal(plan.state, "migration-consent-required");
+  assert.equal(plan.baselineSourceRef, "master");
+  assert.equal(plan.mainAction, "create-from-source");
+  assert.equal(plan.devAction, "create-from-main");
+
+  fs.writeFileSync(path.join(root, ".gitmodules"), "[submodule \"foreign\"]\n");
+  const unsupported = await inspectExistingProjectGitAdoption(root, "project-source-baseline");
+  assert.equal(unsupported.state, "manual-intervention-required");
+  assert.match(unsupported.manualReason, /Submodules|alternates/);
+});
+
+test("adoption journal is atomic, bounded, and rejects foreign or stale identity", async context => {
+  const { root } = fixture(context, "managed-project-inspection-journal-");
+  const plan = await inspectExistingProjectGitAdoption(root, "project-source-journal");
+  const evidence = await inspectExistingProjectGitAdoptionEvidence(root);
+  const journal = newExistingProjectGitAdoptionJournal({ repositoryId: "project-source-journal", plan, ...evidence });
+  createExistingProjectGitAdoptionJournal(root, journal);
+  assert.equal(loadExistingProjectGitAdoptionJournal(root, "project-source-journal", plan.planId).stage, "planned");
+  assert.throws(() => loadExistingProjectGitAdoptionJournal(root, "foreign-repository"), /different Repository identity/);
+  assert.throws(() => loadExistingProjectGitAdoptionJournal(root, "project-source-journal", "stale-plan"), /stale inspection plan/);
+  assert.equal(fs.readdirSync(path.join(root, ".champcity", "migrations")).some(name => name.endsWith(".tmp")), false);
+});
 
 test("conventional Project adoption preserves source, Git history, remotes, and registers exact Main/Dev checkouts", async context => {
   const { temp, root } = fixture(context);

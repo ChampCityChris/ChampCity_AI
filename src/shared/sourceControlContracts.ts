@@ -56,3 +56,87 @@ export interface SourceControlChangedFile {
   indexStatus: string;
   worktreeStatus: string;
 }
+
+export type ExistingProjectGitAdoptionState =
+  | "source-neutral"
+  | "managed-ready"
+  | "conventional-auto"
+  | "migration-consent-required"
+  | "resumable-partial"
+  | "manual-intervention-required";
+
+export type ExistingProjectActiveBranchAction =
+  | "none"
+  | "already-contained"
+  | "fast-forward-dev"
+  | "merge-into-dev"
+  | "manual";
+
+/** Renderer-safe inspection result. Paths and working-file names remain main-process-only. */
+export interface ExistingProjectGitAdoptionPlan {
+  planId: string;
+  state: ExistingProjectGitAdoptionState;
+  repositoryId: string | null;
+  currentBranch: string | null;
+  currentRevision: string | null;
+  mainRevision: string | null;
+  devRevision: string | null;
+  baselineSourceRef: string | null;
+  mainAction: "none" | "create-from-source";
+  devAction: "none" | "create-from-main" | "fast-forward" | "merge";
+  activeBranchAction: ExistingProjectActiveBranchAction;
+  workingState: {
+    stagedCount: number;
+    unstagedCount: number;
+    untrackedCount: number;
+    ignoredCount: number;
+    captureSnapshotRequired: boolean;
+  };
+  topology: {
+    conventionalGit: boolean;
+    managedMetadata: boolean;
+    mainCheckout: boolean;
+    devCheckout: boolean;
+    recoveryStaging: boolean;
+  };
+  preservedRefCount: number;
+  preservedRemoteCount: number;
+  requiresConsent: boolean;
+  warnings: string[];
+  manualReason: string | null;
+}
+
+export type ExistingProjectGitAdoptionJournalStage =
+  | "planned"
+  | "metadata-created"
+  | "refs-normalized"
+  | "snapshot-created"
+  | "checkouts-created"
+  | "source-moved"
+  | "root-metadata-staged"
+  | "verified"
+  | "completed"
+  | "rolled-back";
+
+export interface ExistingProjectGitAdoptionJournal {
+  schemaVersion: 1;
+  migrationId: string;
+  repositoryId: string;
+  planId: string;
+  stage: ExistingProjectGitAdoptionJournalStage;
+  originalCurrentBranch: string | null;
+  originalCurrentRevision: string | null;
+  originalRefsDigest: string;
+  originalRemotesDigest: string;
+  workingStateDigest: string;
+  mainRevision: string | null;
+  devRevision: string | null;
+  baselineSourceRef: string | null;
+  activeBranchAction: ExistingProjectActiveBranchAction;
+  captureSnapshotRequired: boolean;
+  resources: string[];
+  failureReason: string | null;
+  finalRefsDigest: string | null;
+  finalRemotesDigest: string | null;
+  completedAt: string | null;
+}

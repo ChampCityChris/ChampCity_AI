@@ -383,9 +383,6 @@ ipcMain.handle("project:registerCurrent", async (_event, mode: "existing" | "gre
     const hasManagedMain = fs.existsSync(path.join(root, MANAGED_PROJECT_SOURCE_PATHS.mainCheckoutRelativePath));
     const hasManagedDev = fs.existsSync(path.join(root, MANAGED_PROJECT_SOURCE_PATHS.devCheckoutRelativePath));
     const hasManagedComponents = hasManagedMetadata || hasManagedMain || hasManagedDev;
-    const hasManagedRepository = hasManagedMetadata && hasManagedMain && hasManagedDev;
-    if (hasManagedComponents && (!hasManagedRepository || hasConventionalGit))
-      throw new Error("Existing Project has an incomplete managed source topology; no Current Project identity was changed.");
     workspace = await agentHarness.registerWorkspace(root);
     const hasSourceCandidate = hasConventionalGit || hasManagedComponents;
     if (hasSourceCandidate) {
