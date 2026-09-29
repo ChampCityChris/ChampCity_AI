@@ -1,35 +1,40 @@
 # Existing Project Git Adoption — Repair03
 
 **Starting baseline:** `2a897f96f60ef8d16606ade4c2b1dfb45fddde5a`  
-**Status:** **ACTIVE — REAL CHAMPCITY_AI CONVERSION BLOCKED**
+**Implementation checkpoint:** `07d2e543e6c64ec4214fef7027bf853cefdfb1ab`  
+**Status:** **ACCEPTED FOR REPAIR03 SCOPE — SUPERSEDED BY REPAIR04 FOR REAL CONVERSION**
 
-## Demonstrated production failure
+## Controlling review
 
-After Repair02 was accepted, the real ChampCity_AI Project was retried through **Accept and Convert**.
+`EPGA_R03_ARCHITECT_REVIEW_2026-09-29.md`
 
-The conversion failed before Git normalization with:
+## Accepted result
 
-```text
-Source preservation staging failed before Git normalization:
-ENOTDIR: not a directory, opendir
-```
+Repair03 closes the demonstrated source-preservation staging failure.
 
-## Architect finding
+The real ChampCity_AI qualification attempt proved that conversion now:
 
-The converter's preservation snapshot recursively copies every ordinary Project-root entry before later applying Git ignore semantics.
+- materializes a bounded source snapshot;
+- avoids canonical traversal of ignored/local-only trees;
+- preserves ignored/local state separately;
+- uses non-following link/junction handling;
+- generates the current managed integration policy in the preserved source snapshot;
+- advances into Git normalization.
 
-That makes canonical source staging traverse ignored/local-only dependency, build, cache, editor, and generated state. The synthetic ignored-file proof covers only a simple file and does not model real Windows ignored-directory or reparse-point behavior.
+## New downstream blocker
 
-Repair03 separates canonical source materialization from ignored/local working-state preservation and removes conversion-owned partial staging when preservation fails before normalization.
+The subsequent real conversion failed during normalization/rollback with EPERM involving:
 
-## Active card
+`.champcity/repository.git`
 
-`EPGA-R03-01_bound_source_staging_and_preserve_local_state.md`
+The journal remained at `normalizing` with no failure reason, proving rollback did not finish cleanly.
 
-## Boundaries
+That defect is outside the Repair03 source-staging scope and is now owned by Repair04.
 
-Repair03 does not change the Repair02 managed integration-policy contract, the one-warning consent UX, canonical main/dev normalization, best-effort readable Git history import, managed reopen semantics, or WRB04/WRB05 work.
+## Next active card
+
+`../Repair04/EPGA-R04-01_fence_git_authority_cutover_and_make_rollback_failure_safe.md`
 
 ## Stop rule
 
-Do not retry the real ChampCity_AI conversion until EPGA-R03-01 is implemented and Architect-reviewed.
+Do not retry the real ChampCity_AI conversion until Repair04 is implemented and Architect-reviewed.
