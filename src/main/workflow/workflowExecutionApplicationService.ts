@@ -11,7 +11,7 @@ import type { CodexModelSelection } from "../../shared/codexRuntimeContracts";
 import { resolveManagedWorkflowCheckoutPath } from "../sourceControl/projectSourceTopology";
 import { reviewWorkItemCriterion } from "./semanticWorkItemValidator";
 import { loadCodexAppServerAdapter, type CodexAppServerAdapter } from "../workCardBuilding/codexAppServerTransport";
-import { runBoundedGit } from "../agentHarness/repository/boundedGit";
+import { runBoundedGit } from "../core/gitExecution";
 import { runDeterministicWorkItemProfile } from "./deterministicWorkItemValidator";
 import { checkpointStructuredTesterResult, retryStructuredImplementationCheckpoint } from "../sourceControl/structuredWorkflowCheckpointService";
 

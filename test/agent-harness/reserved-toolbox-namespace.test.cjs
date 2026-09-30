@@ -18,7 +18,7 @@ const {
 } = require(path.join(repositoryRoot, "dist/main/agentHarness/workspace/workspaceAccess.js"));
 const {
   AgentHarnessError,
-} = require(path.join(repositoryRoot, "dist/main/agentHarness/core/errors.js"));
+} = require(path.join(repositoryRoot, "dist/main/core/applicationErrors.js"));
 
 const RESERVED_TOOLBOX_NAMES = [
   "workspace_toolbox",

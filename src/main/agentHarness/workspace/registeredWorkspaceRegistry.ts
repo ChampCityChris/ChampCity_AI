@@ -1,7 +1,7 @@
-import { managedWorkspaceId, verifyManagedCheckout } from "../repository/managedWorktrees";
+import { managedWorkspaceId, verifyManagedCheckout } from "../../repository/managedWorktrees";
 import fs from "node:fs";
 import path from "node:path";
-import { runBoundedGit } from "../repository/boundedGit";
+import { runBoundedGit } from "../../core/gitExecution";
 import type {
   AgentHarnessRegisteredWorkspaceSummary,
   AgentHarnessWorkspaceRegistrySnapshot,
@@ -9,7 +9,7 @@ import type {
 } from "../../../shared/workspaceContracts";
 import type { RepositoryCheckout } from "../../../shared/sourceLifecycleContracts";
 import { validateRepositoryCheckoutContract, resolveManagedProjectSourceTopology, resolveManagedWorkflowCheckoutPath } from "../../sourceControl/projectSourceTopology";
-import { AgentHarnessError } from "../core/errors";
+import { AgentHarnessError } from "../../core/applicationErrors";
 import {
   resolveWorkspaceRootContextAsync,
   type AgentHarnessWorkspaceContext,

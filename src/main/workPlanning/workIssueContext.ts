@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { parseCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
-import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
+import { resolveRepositoryPath } from "../repository/pathPolicy";
 
 export function workIssueHandoffPath(intakeId: string, decisionId: string): string {
   if (!/^intake-[a-f0-9-]{36}$/.test(intakeId) || !/^decision-[a-f0-9-]{36}$/.test(decisionId)) throw Error("Invalid routed Issue identity.");

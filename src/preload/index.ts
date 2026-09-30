@@ -71,6 +71,7 @@ const api: ChampCityApi = {
   inspectExistingProjectGitAdoption: () => ipcRenderer.invoke("project:inspectExistingGitAdoption") as ReturnType<ChampCityApi["inspectExistingProjectGitAdoption"]>,
   applyExistingProjectGitAdoption: planId => ipcRenderer.invoke("project:applyExistingGitAdoption", planId) as ReturnType<ChampCityApi["applyExistingProjectGitAdoption"]>,
   registerCurrentProject: (mode, projectName) => ipcRenderer.invoke("project:registerCurrent", mode, projectName) as ReturnType<ChampCityApi["registerCurrentProject"]>,
+  reconcileCurrentProjectModelAccess: () => ipcRenderer.invoke("project:reconcileModelAccess") as ReturnType<ChampCityApi["reconcileCurrentProjectModelAccess"]>,
   clearSelectedWorkspace: () => ipcRenderer.invoke("workspace:clear") as Promise<WorkspaceSelection>,
   getAppInfo: () => ipcRenderer.invoke("app:info") as Promise<AppInfo>,
   getAgentHarnessStatus: () => ipcRenderer.invoke("agentHarness:status") as Promise<AgentHarnessStatus>,

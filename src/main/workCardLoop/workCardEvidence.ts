@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { createHash } from "node:crypto";
-import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
+import { resolveRepositoryPath } from "../repository/pathPolicy";
 import type { PlanningDocumentSummary } from "../../shared/documents/planningDocument";
 
 export function sourceDigestsCurrent(root: string, document: PlanningDocumentSummary): boolean {

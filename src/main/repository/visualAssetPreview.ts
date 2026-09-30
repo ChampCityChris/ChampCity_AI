@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { AgentHarnessError } from "../core/errors";
+import { AgentHarnessError } from "../core/applicationErrors";
 import { readVisualAssetPreviewSource } from "./visualAssetReview";
 import { encodeVisualAssetPreview, type VisualAssetCrop } from "./visualAssetPreviewBackend";
 

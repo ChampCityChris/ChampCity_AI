@@ -20,10 +20,10 @@ const {
   createRegisteredWorkspaceAccessProvider,
   resolveWorkspaceRootContext,
 } = require("../../dist/main/agentHarness/workspace/workspaceAccess.js");
-const { AgentHarnessError } = require("../../dist/main/agentHarness/core/errors.js");
+const { AgentHarnessError } = require("../../dist/main/core/applicationErrors.js");
 const {
   REPOSITORY_TRUNCATION_REASONS,
-} = require("../../dist/main/agentHarness/repository/repositoryOperations.js");
+} = require("../../dist/main/repository/repositoryOperations.js");
 const { DeterministicReliabilitySoakHarness } = require("../agent-harness/support/reliabilitySoakHarness.cjs");
 const {createWorkspace,createRegistry,initializeSession,postSessionRequest,callToolRequest,mcpHeaders,deferred,percentile,getJson,emptySessions,emptyContract}=require("../support/mcp-diagnostics-fixture.cjs");
 

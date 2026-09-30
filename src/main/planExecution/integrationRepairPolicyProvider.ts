@@ -6,8 +6,8 @@ import { INTEGRATION_POLICY_PATH, integrationPolicyPath } from "../../shared/int
 import { parseCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
 import { createSourceControlService } from "../sourceControl/sourceControlService";
 import { createWorkIntakeBranchService } from "../workIntake/workIntakeBranchService";
-import { integrationPaths, readIntegrationCommitFile } from "../agentHarness/repository/integrationGit";
-import { integrationSourceBytes, integrationSourceDigest } from "../agentHarness/repository/integrationRepairGit";
+import { integrationPaths, readIntegrationCommitFile } from "../repository/integrationGit";
+import { integrationSourceBytes, integrationSourceDigest } from "../repository/integrationRepairGit";
 import { readIntegrationPolicyFile } from "./integrationPolicyFiles";
 import { loadIntegrationPolicy, loadIntegrationPolicyAtCommit } from "./integrationPolicyProvider";
 

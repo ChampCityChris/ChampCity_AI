@@ -62,6 +62,17 @@ export type WorkspaceSelection =
       reason: string;
     };
 
+export interface ModelAccessProjectionStatus {
+  state: "ready" | "degraded";
+  error: string | null;
+}
+
+export interface ExistingProjectGitAdoptionOutcome {
+  sourcePlan: import("./sourceControlContracts").ExistingProjectGitAdoptionPlan;
+  sourceApplied: boolean;
+  modelAccess: ModelAccessProjectionStatus;
+}
+
 export interface CurrentProjectRuntimeContext {
   projectId: string;
   projectName: string;
@@ -70,6 +81,7 @@ export interface CurrentProjectRuntimeContext {
   mode: "existing" | "greenfield";
   created: boolean;
   projectCreationWorkflowId?: string;
+  modelAccess: ModelAccessProjectionStatus;
 }
 
 export interface McpWorkspaceBinding {
@@ -1486,8 +1498,9 @@ export interface ChampCityApi {
   getSelectedWorkspace: () => Promise<WorkspaceSelection>;
   chooseWorkspaceFolder: () => Promise<WorkspaceSelection>;
   inspectExistingProjectGitAdoption: () => Promise<import("./sourceControlContracts").ExistingProjectGitAdoptionPlan>;
-  applyExistingProjectGitAdoption: (planId: string) => Promise<import("./sourceControlContracts").ExistingProjectGitAdoptionPlan>;
+  applyExistingProjectGitAdoption: (planId: string) => Promise<ExistingProjectGitAdoptionOutcome>;
   registerCurrentProject: (mode: "existing" | "greenfield", projectName?: string) => Promise<CurrentProjectRuntimeContext>;
+  reconcileCurrentProjectModelAccess: () => Promise<ModelAccessProjectionStatus>;
   clearSelectedWorkspace: () => Promise<WorkspaceSelection>;
   getAppInfo: () => Promise<AppInfo>;
   getAgentHarnessStatus: () => Promise<AgentHarnessStatus>;

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { AgentHarnessError } from "../agentHarness/core/errors";
-import { runBoundedGit } from "../agentHarness/repository/boundedGit";
+import { AgentHarnessError } from "../core/applicationErrors";
+import { runBoundedGit } from "../core/gitExecution";
 import type { RepositoryCheckout } from "../../shared/sourceLifecycleContracts";
 import { resolveManagedProjectSourceTopology, validateRepositoryCheckoutContract } from "./projectSourceTopology";
 import { managedRepositoryCheckouts } from "./repositoryCheckoutDescriptors";

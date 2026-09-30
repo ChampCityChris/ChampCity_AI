@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import { AgentHarnessError } from "../core/errors";
-import type { SourceControlPosition } from "../../../shared/sourceControlContracts";
+import { AgentHarnessError } from "../core/applicationErrors";
+import type { SourceControlPosition } from "../../shared/sourceControlContracts";
 import { assertSafeRelativePath, resolveRepositoryPath } from "./pathPolicy";
-import { runBoundedGit } from "./boundedGit";
+import { runBoundedGit } from "../core/gitExecution";
 
 const MAX_COMMIT_MESSAGE_BYTES = 20_000;
 const MAX_STAGING_PATHS = 256;
@@ -383,15 +383,15 @@ export async function inspectGitDiff(root: string, input: GitDiffInput = {}) {
 }
 
 /** Shared porcelain parser previously owned only by SourceControlService. */
-export async function inspectGitChangedFiles(root: string): Promise<import("../../../shared/sourceControlContracts").SourceControlChangedFile[]> {
+export async function inspectGitChangedFiles(root: string): Promise<import("../../shared/sourceControlContracts").SourceControlChangedFile[]> {
   const output = await runRefGit(root, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
   const records = output.stdout.split("\0");
   if (records.pop() !== "") throw gitPrecondition("Git returned incomplete changed-file evidence.");
-  const files: import("../../../shared/sourceControlContracts").SourceControlChangedFile[] = [];
+  const files: import("../../shared/sourceControlContracts").SourceControlChangedFile[] = [];
   for (let index = 0; index < records.length; index++) {
     const record = records[index];
     if (record.length < 4 || record[2] !== " ") throw gitPrecondition("Git returned invalid changed-file evidence.");
-    const file: import("../../../shared/sourceControlContracts").SourceControlChangedFile = {
+    const file: import("../../shared/sourceControlContracts").SourceControlChangedFile = {
       path: record.slice(3), indexStatus: record[0], worktreeStatus: record[1],
     };
     if (/[RC]/.test(record.slice(0, 2))) {

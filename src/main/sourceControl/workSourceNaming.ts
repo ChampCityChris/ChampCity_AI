@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { AgentHarnessError } from "../agentHarness/core/errors";
+import { AgentHarnessError } from "../core/applicationErrors";
 
 export function workIntakeBranchName(intakeId: string): string {
   if (typeof intakeId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(intakeId)) {

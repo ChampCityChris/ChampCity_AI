@@ -7,7 +7,7 @@ import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStat
 import { createSourceControlService } from "./sourceControlService";
 import { resolveManagedProjectSourceTopology, resolveManagedWorkflowCheckoutPath, validateRepositoryCheckoutContract } from "./projectSourceTopology";
 import { workflowRepositoryCheckout } from "./repositoryCheckoutDescriptors";
-import { isGitWorkTree, runBoundedGit } from "../agentHarness/repository/boundedGit";
+import { isGitWorkTree, runBoundedGit } from "../core/gitExecution";
 import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
 
 export interface WorkflowSourceMaterializationResult {

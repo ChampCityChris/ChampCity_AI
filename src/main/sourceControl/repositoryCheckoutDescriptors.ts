@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { MANAGED_PROJECT_SOURCE_PATHS, type RepositoryCheckout } from "../../shared/sourceLifecycleContracts";
-import { AgentHarnessError } from "../agentHarness/core/errors";
+import { AgentHarnessError } from "../core/applicationErrors";
 import { workflowSourceLineName } from "./workSourceNaming";
 
 const opaqueId = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/;

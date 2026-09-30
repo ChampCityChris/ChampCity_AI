@@ -8,7 +8,7 @@ import type { DirectWorkflowStartRequest, WorkflowInstanceSummary, WorkflowInven
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
 import { currentProjectRepositoryId, selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
 import { resolveManagedDevRepositoryCheckout } from "../sourceControl/managedProjectSourceService";
-import { runBoundedGit } from "../agentHarness/repository/boundedGit";
+import { runBoundedGit } from "../core/gitExecution";
 
 const operator = { principalId: "local-operator", principalType: "human" as const, role: "Operator" };
 type WorkflowRecord = ProjectStateRecord<"Workflow">;

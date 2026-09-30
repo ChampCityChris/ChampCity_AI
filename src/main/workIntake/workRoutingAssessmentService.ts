@@ -6,7 +6,7 @@ import type { SourceRevision } from "../../shared/documents/planningDocument";
 import type { WorkIntakeRecord } from "../../shared/workIntakeContracts";
 import { isWorkRouteId, workRouteProfiles, workRouteTraitIds, type WorkRouteTrait } from "../../shared/workIntakeRoutingContracts";
 import type { WorkRoutingAssessmentModel, WorkRoutingAssessmentRecord } from "../../shared/workRoutingAssessmentContracts";
-import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
+import { resolveRepositoryPath } from "../repository/pathPolicy";
 import { buildDeterministicArchitectDraftSubmissionId } from "../architectOutputs/architectDraftPaths";
 import { createArchitectOutputRegistry } from "../architectOutputs/architectOutputRegistry";
 import { getActiveArchitectOutputRuntimeSubmission, getArchitectOutputRuntimeStatus, prepareArchitectOutputRuntimeSubmission } from "../architectOutputs/architectOutputRuntimeService";

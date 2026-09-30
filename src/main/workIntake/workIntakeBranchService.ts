@@ -1,5 +1,5 @@
 import { readApplicationCheckpointReceipt } from "../planExecution/applicationCheckpointReceipt";
-import { AgentHarnessError } from "../agentHarness/core/errors";
+import { AgentHarnessError } from "../core/applicationErrors";
 import { createSourceControlService } from "../sourceControl/sourceControlService";
 import { workIntakeBranchName } from "../sourceControl/workSourceNaming";
 import type { SourceControlResult } from "../../shared/sourceControlContracts";

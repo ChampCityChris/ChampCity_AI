@@ -7,12 +7,12 @@ const test = require("node:test");
 const sharp = require("sharp");
 const { Client } = require("@modelcontextprotocol/sdk/client/index.js");
 const { StreamableHTTPClientTransport } = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
-const { createVisualAssetPreview } = require("../../dist/main/agentHarness/repository/visualAssetPreview.js");
-const backend = require("../../dist/main/agentHarness/repository/visualAssetPreviewBackend.js");
-const { readVisualAssetPreviewSource, readVisualAssetImage } = require("../../dist/main/agentHarness/repository/visualAssetReview.js");
+const { createVisualAssetPreview } = require("../../dist/main/repository/visualAssetPreview.js");
+const backend = require("../../dist/main/repository/visualAssetPreviewBackend.js");
+const { readVisualAssetPreviewSource, readVisualAssetImage } = require("../../dist/main/repository/visualAssetReview.js");
 const { createAgentHarnessToolRegistry } = require("../../dist/main/agentHarness/tools/toolRegistry.js");
 const { createRegisteredWorkspaceAccessProvider, resolveWorkspaceRootContext } = require("../../dist/main/agentHarness/workspace/workspaceAccess.js");
-const { AgentHarnessError } = require("../../dist/main/agentHarness/core/errors.js");
+const { AgentHarnessError } = require("../../dist/main/core/applicationErrors.js");
 const { startAgentHarnessHttpRuntime } = require("../../dist/main/agentHarness/runtime/httpRuntime.js");
 
 function fixture(t) {

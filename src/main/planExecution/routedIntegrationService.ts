@@ -13,7 +13,7 @@ import { createIntegrationPolicyProvider } from "./integrationPolicyProvider";
 import { createIntegrationRepairPolicyProvider } from "./integrationRepairPolicyProvider";
 import { readApplicationCheckpointReceipt } from "./applicationCheckpointReceipt";
 import type { WorkItemCheckpointEvidence } from "../../shared/workItemCheckpointContracts";
-import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
+import { resolveRepositoryPath } from "../repository/pathPolicy";
 import { workPlanningKernel } from "../workPlanning/workPlanningKernel";
 import { workIssueContext } from "../workPlanning/workIssueContext";
 import { getIssueCloseProjection, getIssueCorrectionIntegrationEvidence } from "../issueResolution/issueResolutionService";

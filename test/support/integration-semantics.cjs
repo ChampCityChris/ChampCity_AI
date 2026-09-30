@@ -3,8 +3,8 @@ const fs=require('node:fs');
 const cp=require('node:child_process');
 const sourceModule=require('../../dist/main/sourceControl/sourceControlService.js');
 const branchModule=require('../../dist/main/workIntake/workIntakeBranchService.js');
-const integration=require('../../dist/main/agentHarness/repository/integrationGit.js');
-const repair=require('../../dist/main/agentHarness/repository/integrationRepairGit.js');
+const integration=require('../../dist/main/repository/integrationGit.js');
+const repair=require('../../dist/main/repository/integrationRepairGit.js');
 function installSemanticSourceFixture(t, { verifyCheckpoints = false, allowCheckpointChain = false } = {}){
  const git=(root,...args)=>cp.execFileSync('git',['-c','core.longpaths=true',...args],{cwd:root,encoding:'utf8',stdio:['ignore','pipe','pipe'],windowsHide:true}).trim();
  const branchHeads=new Map(),histories=new Map(),statuses=new Map();

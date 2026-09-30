@@ -15,7 +15,7 @@ import { createWorkflowExecutionApplicationService } from "../workflow/workflowE
 import { determineTestLifecycle, type TestLifecycleCatalogProof, type TestLifecycleDeterminationResult } from "../validation/testLifecycleDeterminationService";
 import { loadCodexAppServerAdapter, type CodexAppServerThreadAdapter, type CodexAppServerThreadEvent } from "./codexAppServerTransport";
 import type { CodexAppServerExecutionAdapter } from "./codexImplementerExecutionService";
-import { runBoundedGit } from "../agentHarness/repository/boundedGit";
+import { runBoundedGit } from "../core/gitExecution";
 import { acquireWorkflowExecutionLease, workflowExecutionLeaseKey } from "./workflowExecutionLease";
 
 const recommendations: readonly TesterRecommendation[] = ["reuse-existing-proof", "permanent-proof-change-warranted", "lifecycle-review-candidate", "no-permanent-test-required", "production-defect-suspected"];

@@ -1612,6 +1612,15 @@ h1 {
   color: #fbbf24;
 }
 
+.current-workspace-banner .model-access-degraded {
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.current-workspace-banner .model-access-degraded span {
+  grid-column: 1 / -1;
+}
+
 .workspace-action-panel,
 .intake-form,
 .work-card-intake-workspace,

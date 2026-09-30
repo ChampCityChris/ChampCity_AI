@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { AgentHarnessError } from "../agentHarness/core/errors";
+import { AgentHarnessError } from "../core/applicationErrors";
 import {
   MANAGED_PROJECT_SOURCE_PATHS,
   type RepositoryCheckout,

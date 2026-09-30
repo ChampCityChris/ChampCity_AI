@@ -12,13 +12,13 @@ const {
   readRepositoryFile,
   searchRepositoryFiles,
   writeTextArtifact,
-} = require("../../dist/main/agentHarness/repository/repositoryOperations.js");
+} = require("../../dist/main/repository/repositoryOperations.js");
 const {
   GIT_COMMAND_TIMEOUT_MS,
   GIT_STDERR_LIMIT_BYTES,
   GIT_STDOUT_LIMIT_BYTES,
   runBoundedGit,
-} = require("../../dist/main/agentHarness/repository/boundedGit.js");
+} = require("../../dist/main/core/gitExecution.js");
 const {
   AgentHarnessService,
 } = require("../../dist/main/agentHarness/runtime/agentHarnessService.js");

@@ -68,7 +68,7 @@ test("integration policy rejects untrusted schemas and redirected or unbounded c
 
 test("application source-integrity policy validates only the registered clean exact candidate", async t => {
   const { createIntegrationPolicyProvider } = require("../../dist/main/planExecution/integrationPolicyProvider.js");
-  const { integrationPaths } = require("../../dist/main/agentHarness/repository/integrationGit.js");
+  const { integrationPaths } = require("../../dist/main/repository/integrationGit.js");
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-source-integrity-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   execFileSync("git", ["init", "-b", "dev"], { cwd: root, stdio: "ignore" });

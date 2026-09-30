@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import type { RoutedIssueLineage } from "../../shared/routedIssueLineageContracts";
 import { parseCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
-import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
+import { resolveRepositoryPath } from "../repository/pathPolicy";
 import { issueEvidenceBytes, workIssueHandoffPath } from "./workIssueContext";
 
 const intakePattern = /^intake-[a-f0-9-]{36}$/;

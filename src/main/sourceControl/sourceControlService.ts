@@ -1,9 +1,9 @@
-import { skipIsolatedOperationStep, beginIsolatedOperation, inspectIsolatedOperation, continueIsolatedOperation, abortIsolatedOperation, advanceIsolatedOperation } from "../agentHarness/repository/isolatedGitOperations";
-import { discardManagedWorktree, type ManagedWorkspaceStore } from "../agentHarness/repository/managedWorktrees";
+import { skipIsolatedOperationStep, beginIsolatedOperation, inspectIsolatedOperation, continueIsolatedOperation, abortIsolatedOperation, advanceIsolatedOperation } from "../repository/isolatedGitOperations";
+import { discardManagedWorktree, type ManagedWorkspaceStore } from "../repository/managedWorktrees";
 import fs from "node:fs";
 import path from "node:path";
-import { AgentHarnessError } from "../agentHarness/core/errors";
-import { runBoundedGit, isGitWorkTree } from "../agentHarness/repository/boundedGit";
+import { AgentHarnessError } from "../core/applicationErrors";
+import { runBoundedGit, isGitWorkTree } from "../core/gitExecution";
 import {
   inspectGitReflog, replaceGitBranchRef, pushGitWithLease, deleteGitUntrackedPaths,
   inspectGitDiff, inspectGitChangedFiles, inspectGitCommit, compareGitRefs, listGitTags, inspectGitRemotes, unstageGitChanges, restoreGitFiles,
@@ -12,17 +12,17 @@ import {
   commitGitChanges, deleteGitBranch, fastForwardGitBranch, fetchGitRemote,
   inspectGitBranchState, inspectGitHistory, inspectGitHistoryWithMessages, inspectGitPosition, prepareGitBranch, pushGitBranch,
   stageGitChanges, switchGitBranch,
-} from "../agentHarness/repository/gitMutations";
-import { gitDiff, gitStatus, preCommitSafetyScan } from "../agentHarness/repository/repositoryOperations";
-import { abortIntegrationCheckout, advanceIntegrationTarget, createIntegrationCheckout, inspectIntegrationCheckout, inspectIntegrationTarget, mergeIntegrationCheckout } from "../agentHarness/repository/integrationGit";
-import { commitIntegrationRepair, integrationRepairChangedPaths, integrationRepairDiffs, snapshotIntegrationRepair } from "../agentHarness/repository/integrationRepairGit";
+} from "../repository/gitMutations";
+import { gitDiff, gitStatus, preCommitSafetyScan } from "../repository/repositoryOperations";
+import { abortIntegrationCheckout, advanceIntegrationTarget, createIntegrationCheckout, inspectIntegrationCheckout, inspectIntegrationTarget, mergeIntegrationCheckout } from "../repository/integrationGit";
+import { commitIntegrationRepair, integrationRepairChangedPaths, integrationRepairDiffs, snapshotIntegrationRepair } from "../repository/integrationRepairGit";
 import type {
   SourceControlOperation, SourceControlPosition,
   SourceControlReceipt, SourceControlResult,
 } from "../../shared/sourceControlContracts";
 import type { CreateWorkSourceInput, ProjectSourceBootstrap, SourceGraphOptions, SourceRevisionSelector, WorkSourceBinding } from "../../shared/sourceLifecycleContracts";
 import { workflowSourceLineName } from "./workSourceNaming";
-import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
+import { resolveRepositoryPath } from "../repository/pathPolicy";
 import { bootstrapProjectSource as establishProjectSource } from "./projectSourceBootstrap";
 import { getSourceGraph, getSourceGraphRevisionDetail } from "./sourceGraphService";
 

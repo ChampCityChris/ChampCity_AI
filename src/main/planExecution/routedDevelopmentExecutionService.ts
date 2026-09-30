@@ -18,7 +18,7 @@ import { createArchitectOutputRegistry } from "../architectOutputs/architectOutp
 import { prepareArchitectOutputRuntimeSubmission, getArchitectOutputRuntimeStatus, getActiveArchitectOutputRuntimeSubmission } from "../architectOutputs/architectOutputRuntimeService";
 import { approveFormalWorkCardAndRegisterReport, getWorkCardBuildingReviewProjection, resolveWorkCardImplementerReportContext, setImplementerReportDisposition, requireReadyImplementerReportForReview, requireCurrentImplementerReportForRepair, buildApprovedRepairWorkCardAndReportDocuments } from "../workCardBuilding/workCardBuildingReviewService";
 import { updateCanonicalMarkdownDisposition, writeCanonicalMarkdownDocuments } from "../documents/canonicalMarkdownDocumentWriter";
-import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
+import { resolveRepositoryPath } from "../repository/pathPolicy";
 
 import { createRepairWorkCard, createRepairWorkCardArchitectOutputDefinition, resolveExactActiveRepairWorkCardContext, resolveTerminalApprovedRepairImplementationContext } from "../workCardRepair/workCardRepairService";
 import { createValidationAttempt, buildAdvisoryArchitectReviewPrompt, applyOperatorValidationDecision, type OperatorValidationDecisionInput } from "../workCardValidation/workCardValidationService";

@@ -5,7 +5,7 @@ import { spawn } from "node:child_process";
 import type { IntegrationPolicyCheck, IntegrationValidationContext } from "../../shared/integrationPolicyContracts";
 import { integrationPolicyPath, INTEGRATION_VALIDATION_LANES } from "../../shared/integrationPolicyContracts";
 import type { IntegrationValidationEvidence, IntegrationProfileTelemetry } from "../../shared/integrationCandidateContracts";
-import { integrationPaths, readIntegrationChangedPaths, readIntegrationCommitFile } from "../agentHarness/repository/integrationGit";
+import { integrationPaths, readIntegrationChangedPaths, readIntegrationCommitFile } from "../repository/integrationGit";
 import { resolveWindowsNpmInvocation } from "../agentHarness/release/releaseCommandAdapter";
 
 export const VALIDATION_PROFILE_TOOLKIT_FILES = ["affected.cjs", "authority.cjs", "build.cjs", "catalog-schema.cjs", "catalog.cjs", "child-cleanup.cjs", "executor.cjs", "environment.cjs", "planner.cjs", "process.cjs", "profile-runner.cjs", "scheduler.cjs", "telemetry.cjs"] as const;

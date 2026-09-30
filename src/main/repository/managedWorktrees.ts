@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { AgentHarnessError } from "../core/errors";
-import { runBoundedGit } from "./boundedGit";
+import { AgentHarnessError } from "../core/applicationErrors";
+import { runBoundedGit } from "../core/gitExecution";
 import { createGitBranchFromRef, inspectGitBranchState, inspectGitHistory, inspectGitChangedFiles } from "./gitMutations";
-import type { AgentHarnessWorkspaceContext } from "../workspace/workspaceAccess";
+import type { AgentHarnessWorkspaceContext } from "../agentHarness/workspace/workspaceAccess";
 
 export interface ManagedWorkspaceStore {
   registerManaged(root: string, commonDirectory: string, checkoutName: string): Promise<unknown>;

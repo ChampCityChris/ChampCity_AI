@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { INTEGRATION_POLICY_PATH, INTEGRATION_POLICY_MAX_BYTES, parseIntegrationPolicy } from "../../shared/integrationPolicyContracts";
-import { integrationPaths, readIntegrationCommitFile, registeredIntegrationCheckout } from "../agentHarness/repository/integrationGit";
+import { integrationPaths, readIntegrationCommitFile, registeredIntegrationCheckout } from "../repository/integrationGit";
 import type { IntegrationCandidateHooks } from "./integrationCandidateService";
 import { readIntegrationPolicyFile } from "./integrationPolicyFiles";
 import { runIntegrationPolicyCheck } from "./integrationPolicyRunners";

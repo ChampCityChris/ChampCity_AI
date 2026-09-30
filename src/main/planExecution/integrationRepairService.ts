@@ -4,8 +4,8 @@ import type { IntegrationCandidateRecord } from "../../shared/integrationCandida
 import type { IntegrationRepairAttempt, IntegrationRepairPatch, IntegrationRepairPolicy } from "../../shared/integrationRepairContracts";
 import type { SourceControlResult } from "../../shared/sourceControlContracts";
 import { parseCanonicalMarkdownDocument, serializeCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
-import { integrationPaths } from "../agentHarness/repository/integrationGit";
-import { assertIntegrationSourceText, integrationSourceBytes, integrationSourceDigest, integrationSourceFile } from "../agentHarness/repository/integrationRepairGit";
+import { integrationPaths } from "../repository/integrationGit";
+import { assertIntegrationSourceText, integrationSourceBytes, integrationSourceDigest, integrationSourceFile } from "../repository/integrationRepairGit";
 import type { SourceControlService } from "../sourceControl/sourceControlService";
 
 interface IntegrationRepairOwner {

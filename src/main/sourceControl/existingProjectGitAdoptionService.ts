@@ -1,8 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { AgentHarnessError } from "../agentHarness/core/errors";
-import { runBoundedGit, type GitExecutionResult } from "../agentHarness/repository/boundedGit";
+import { AgentHarnessError } from "../core/applicationErrors";
+import { runBoundedGit, type GitExecutionResult } from "../core/gitExecution";
 import type { ExistingProjectGitAdoptionPlan } from "../../shared/sourceControlContracts";
 import { INTEGRATION_POLICY_PATH } from "../../shared/integrationPolicyContracts";
 import {

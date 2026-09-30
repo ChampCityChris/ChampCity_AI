@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
-import { AgentHarnessError } from "../core/errors";
-import { runBoundedGit } from "./boundedGit";
+import { AgentHarnessError } from "../core/applicationErrors";
+import { runBoundedGit } from "../core/gitExecution";
 import { replaceGitBranchRef, advanceGitBranchRef, assertNoGitOperation, inspectGitBranchState, inspectGitHistory, inspectGitOperationState, inspectGitCheckout, resolveGitTransformCommit } from "./gitMutations";
 import { commonGitDirectory, createManagedWorktree, managedGit, managedWorkspaceId, resolveManagedCheckout, type ManagedWorkspaceStore } from "./managedWorktrees";
 

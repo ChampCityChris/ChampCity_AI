@@ -13,8 +13,8 @@ import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStat
 import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
 import { resolveManagedProjectSourceTopology, resolveManagedWorkflowCheckoutPath } from "./projectSourceTopology";
 import { createSourceControlService } from "./sourceControlService";
-import { integrationCommonDirectory, integrationPaths, readIntegrationCommitFile } from "../agentHarness/repository/integrationGit";
-import { integrationSourceBytes, integrationSourceDigest } from "../agentHarness/repository/integrationRepairGit";
+import { integrationCommonDirectory, integrationPaths, readIntegrationCommitFile } from "../repository/integrationGit";
+import { integrationSourceBytes, integrationSourceDigest } from "../repository/integrationRepairGit";
 import { createProjectStateService } from "../../shared/projectState/projectStateService";
 
 const operator = { principalId: "local-operator", principalType: "human" as const, role: "Operator" };

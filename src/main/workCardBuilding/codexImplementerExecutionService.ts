@@ -62,7 +62,7 @@ import { publishRepositoryCheckoutAccess, type RepositoryCheckoutAccessProjectio
 import { createImplementationCheckpoint } from "../sourceControl/semanticCheckpointService";
 import { resolveManagedProjectSourceTopology, resolveManagedWorkflowCheckoutPath } from "../sourceControl/projectSourceTopology";
 import { workflowSourceLineName } from "../sourceControl/workSourceNaming";
-import { runBoundedGit } from "../agentHarness/repository/boundedGit";
+import { runBoundedGit } from "../core/gitExecution";
 import { workflowRepositoryCheckoutId } from "../sourceControl/projectSourceTopology";
 
 export const CODEX_RUNTIME_UNAVAILABLE_MESSAGE =

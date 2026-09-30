@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { AgentHarnessError } from "../core/errors";
+import { AgentHarnessError } from "./applicationErrors";
 
 export const GIT_COMMAND_TIMEOUT_MS = 15_000;
 export const GIT_STDOUT_LIMIT_BYTES = 1_000_000;

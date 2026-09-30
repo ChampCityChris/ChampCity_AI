@@ -2,12 +2,12 @@ import { inspectGitDiff, type GitDiffInput } from "./gitMutations";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { AgentHarnessError } from "../core/errors";
+import { AgentHarnessError } from "../core/applicationErrors";
 import {
   enumerateGitCandidates,
   isGitWorkTree,
   runBoundedGit,
-} from "./boundedGit";
+} from "../core/gitExecution";
 import { assertGenericMarkdownMutationAllowed } from "./controlledMarkdownDrafts";
 import { assertSafeRelativePath, isPathInside, resolveRepositoryPath, toRepositoryRelativePath } from "./pathPolicy";
 import {

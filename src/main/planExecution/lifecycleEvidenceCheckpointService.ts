@@ -5,7 +5,7 @@ import { parseCanonicalMarkdownDocument, serializeCanonicalMarkdownDocument } fr
 import type { LifecycleEvidenceBoundary, LifecycleEvidenceCheckpointArtifact, LifecycleEvidenceCheckpointEvidence, LifecycleEvidenceCheckpointResult } from "../../shared/lifecycleEvidenceCheckpointContracts";
 import type { SourceControlReceipt, SourceControlResult } from "../../shared/sourceControlContracts";
 import type { WorkIntakeBranchBinding } from "../../shared/workIntakeBranchContracts";
-import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
+import { resolveRepositoryPath } from "../repository/pathPolicy";
 import { createSourceControlService } from "../sourceControl/sourceControlService";
 import { createWorkIntakeBranchService } from "../workIntake/workIntakeBranchService";
 import { readWorkIntake } from "../workIntake/workIntakeService";

@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process'),test=require('node:test');
 const {applyValidationLaneFixtureContract,validationFixture}=require('../support/validation-fixture.cjs');
 const {createIntegrationPolicyProvider}=require('../../dist/main/planExecution/integrationPolicyProvider.js');
-const {integrationPaths}=require('../../dist/main/agentHarness/repository/integrationGit.js');
+const {integrationPaths}=require('../../dist/main/repository/integrationGit.js');
 const {parseIntegrationPolicy}=require('../../dist/shared/integrationPolicyContracts.js');
 
 test('candidate profile uses immutable target toolkit ownership and revisions through repair revalidation',async t=>{

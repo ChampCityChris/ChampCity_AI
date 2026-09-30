@@ -7,7 +7,7 @@ import type {
   AgentHarnessControlledRestartDisposition,
 } from "../../../shared/workspaceContracts";
 import { AgentHarnessService } from "./agentHarnessService";
-import { AgentHarnessError } from "../core/errors";
+import { AgentHarnessError } from "../../core/applicationErrors";
 import {
   agentHarnessProcessProtocolVersion,
   isAgentHarnessControlRequest,

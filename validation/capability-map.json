@@ -224,8 +224,11 @@
       "capabilityId": "agent-harness-repository-operations",
       "description": "Contained Agent Harness repository reads, writes, patches, enumeration, and toolbox dispatch.",
       "sourcePatterns": [
-        "src/main/agentHarness/repository/**",
-        "src/main/agentHarness/tools/toolRegistry.ts"
+        "src/main/agentHarness/test/testToolbox.ts",
+        "src/main/agentHarness/tools/toolRegistry.ts",
+        "src/main/core/applicationErrors.ts",
+        "src/main/core/gitExecution.ts",
+        "src/main/repository/**"
       ],
       "dependsOn": [
         "workspace-registry"
@@ -1572,6 +1575,7 @@
         "src/main/migrations/legacyEquivalenceVerification.ts",
         "src/main/migrations/stagedLegacyImporter.ts",
         "src/main/migrations/structuredProviderCutover.ts",
+        "src/main/modelAccess/projectModelAccessCoordinator.ts",
         "src/main/projectState/currentProjectRegistrationService.ts",
         "src/main/sourceControl/existingProjectGitAdoptionService.ts",
         "src/main/sourceControl/managedProjectSourceService.ts",
@@ -3528,9 +3532,12 @@
       "description": "Candidate validation, bounded Git mutations, release actions, and repository-state evidence.",
       "sourcePatterns": [
         ".champcity/integration-policy.json",
-        "src/main/agentHarness/repository/gitMutations.ts",
+        "src/main/agentHarness/release/candidateValidationSnapshot.ts",
+        "src/main/agentHarness/release/releaseCommandAdapter.ts",
+        "src/main/agentHarness/release/releaseToolbox.ts",
         "src/main/agentHarness/tools/releaseToolbox.ts",
         "src/main/planExecution/**",
+        "src/main/repository/gitMutations.ts",
         "src/main/sourceControl/**",
         "src/main/workIntake/workIntakeBranchService.ts",
         "src/shared/integration*",
@@ -3541,6 +3548,7 @@
         "test/support/git-mutation-fixtures.cjs",
         "test/support/integration-scenarios.cjs",
         "test/support/integration-semantics.cjs",
+        "test/support/research-integration-scenarios.cjs",
         "test/support/windows-test.cjs"
       ],
       "dependsOn": [
@@ -4045,6 +4053,8 @@
         "src/main/validation/testLifecycleDeterminationService.ts",
         "src/main/workCardPlanning/workItemDecompositionService.ts",
         "src/main/workIntake/workRouteDecisionService.ts",
+        "src/main/workIntake/workRoutingAssessmentService.ts",
+        "src/main/workPlanning/workIssueContext.ts",
         "src/main/workPlanning/workIssueRoutingService.ts",
         "src/main/workPlanning/workPlanningKernel.ts",
         "src/shared/issueResolutionContracts.ts",
@@ -4184,8 +4194,8 @@
       "capabilityId": "visual-asset-handling",
       "description": "Bounded image evidence, visual-asset preview, transforms, and repository writes.",
       "sourcePatterns": [
-        "src/main/agentHarness/repository/visualAssets.ts",
-        "src/main/agentHarness/tools/visualAssetToolbox.ts"
+        "src/main/agentHarness/tools/visualAssetToolbox.ts",
+        "src/main/repository/visualAssets.ts"
       ],
       "dependsOn": [
         "agent-harness-repository-operations"

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { requireBoundMcpWorkspace } from "../../integrations/mcpWorkspacePromptContract";
-import { AgentHarnessError } from "../core/errors";
+import { AgentHarnessError } from "../../core/applicationErrors";
 import type { RepositoryCheckout } from "../../../shared/sourceLifecycleContracts";
 import type { AgentHarnessRegisteredRepositoryCheckoutSummary } from "../../../shared/workspaceContracts";
 

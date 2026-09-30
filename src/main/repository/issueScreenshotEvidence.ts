@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
-import { AgentHarnessError } from "../core/errors";
+import { AgentHarnessError } from "../core/applicationErrors";
 import {
   assertSupportedImageBounds,
   inspectSupportedImageBytes,
   SupportedImageValidationError,
   type SupportedImageMimeType,
-} from "../../supportedImageValidation";
+} from "../supportedImageValidation";
 import { resolveRepositoryPath } from "./pathPolicy";
 
 const MAX_ISSUE_SCREENSHOT_BYTES = 5_000_000;

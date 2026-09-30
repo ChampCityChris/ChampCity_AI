@@ -34,12 +34,12 @@ const {
 } = require("../../dist/main/agentHarness/tools/toolRegistry.js");
 const {
   inspectControlledMarkdownDraft,
-} = require("../../dist/main/agentHarness/repository/controlledMarkdownDrafts.js");
+} = require("../../dist/main/repository/controlledMarkdownDrafts.js");
 const {
   createRegisteredWorkspaceAccessProvider,
   resolveWorkspaceRootContext,
 } = require("../../dist/main/agentHarness/workspace/workspaceAccess.js");
-const { AgentHarnessError } = require("../../dist/main/agentHarness/core/errors.js");
+const { AgentHarnessError } = require("../../dist/main/core/applicationErrors.js");
 
 function createSelectedProjectAccessProvider(options) {
   return createRegisteredWorkspaceAccessProvider({

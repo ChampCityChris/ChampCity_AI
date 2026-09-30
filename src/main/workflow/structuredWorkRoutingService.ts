@@ -9,8 +9,8 @@ import { createProjectStateService } from "../../shared/projectState/projectStat
 import type { ProjectStateStore } from "../../shared/projectState/projectStateStore";
 import type { StructuredWorkRoutingAssessment, StructuredWorkRoutingDecisionInput, StructuredWorkRoutingModel } from "../../shared/structuredWorkRoutingContracts";
 import { workRouteTraitIds, type WorkRouteTrait } from "../../shared/workIntakeRoutingContracts";
-import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
-import { runBoundedGit } from "../agentHarness/repository/boundedGit";
+import { resolveRepositoryPath } from "../repository/pathPolicy";
+import { runBoundedGit } from "../core/gitExecution";
 import { buildMcpWorkspaceBindingPromptBlock, buildWriteMarkdownArtifactJsonBlock } from "../integrations/mcpWorkspacePromptContract";
 import { createArchitectOutputRegistry } from "../architectOutputs/architectOutputRegistry";
 import { prepareArchitectOutputRuntimeSubmission, getActiveArchitectOutputRuntimeSubmission, type ActiveArchitectOutputRuntimeSubmission } from "../architectOutputs/architectOutputRuntimeService";

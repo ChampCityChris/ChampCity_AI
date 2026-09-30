@@ -6,7 +6,7 @@ function registerIntegrationScenarios(title, scenarios, options = {}) {
   require("../support/execution-metrics.cjs").measureExecution(t,title);
   const { createIntegrationCandidateService } = require("../../dist/main/planExecution/integrationCandidateService.js");
   const { workIntakeBranchName } = require("../../dist/main/workIntake/workIntakeBranchService.js");
-  const { integrationPaths } = require("../../dist/main/agentHarness/repository/integrationGit.js");
+  const { integrationPaths } = require("../../dist/main/repository/integrationGit.js");
   const { execFileSync } = require("node:child_process");
   const { createIntegrationPolicyProvider, loadIntegrationPolicyAtCommit } = require("../../dist/main/planExecution/integrationPolicyProvider.js");
   const { createIntegrationRepairPolicyProvider } = require("../../dist/main/planExecution/integrationRepairPolicyProvider.js");

@@ -1,16 +1,16 @@
-import { skipIsolatedOperationStep, beginIsolatedOperation, inspectIsolatedOperation, continueIsolatedOperation, abortIsolatedOperation, advanceIsolatedOperation, type IsolatedOperationKind } from "../repository/isolatedGitOperations";
-import { discardManagedWorktree, createManagedWorktree, listManagedWorktrees, inspectManagedWorktree, removeManagedWorktree, type ManagedWorkspaceStore } from "../repository/managedWorktrees";
-import { AgentHarnessError, toBoundedError } from "../core/errors";
-import { writeAttachedImage } from "../repository/attachedImages";
-import { replaceControlledMarkdownBody } from "../repository/controlledMarkdownDrafts";
-import { readIssueScreenshotEvidence } from "../repository/issueScreenshotEvidence";
-import { copyRepositoryFile, moveRepositoryFile } from "../repository/fileOperations";
-import { createVisualAssetPreview } from "../repository/visualAssetPreview";
+import { skipIsolatedOperationStep, beginIsolatedOperation, inspectIsolatedOperation, continueIsolatedOperation, abortIsolatedOperation, advanceIsolatedOperation, type IsolatedOperationKind } from "../../repository/isolatedGitOperations";
+import { discardManagedWorktree, createManagedWorktree, listManagedWorktrees, inspectManagedWorktree, removeManagedWorktree, type ManagedWorkspaceStore } from "../../repository/managedWorktrees";
+import { AgentHarnessError, toBoundedError } from "../../core/applicationErrors";
+import { writeAttachedImage } from "../../repository/attachedImages";
+import { replaceControlledMarkdownBody } from "../../repository/controlledMarkdownDrafts";
+import { readIssueScreenshotEvidence } from "../../repository/issueScreenshotEvidence";
+import { copyRepositoryFile, moveRepositoryFile } from "../../repository/fileOperations";
+import { createVisualAssetPreview } from "../../repository/visualAssetPreview";
 import {
   compareVisualAssetImages,
   inspectVisualAssetImage,
   readVisualAssetImage,
-} from "../repository/visualAssetReview";
+} from "../../repository/visualAssetReview";
 import {
   gitDiff,
   gitStatus,
@@ -23,7 +23,7 @@ import {
   readRepositoryTextLines,
   searchRepositoryFiles,
   writeTextArtifact,
-} from "../repository/repositoryOperations";
+} from "../../repository/repositoryOperations";
 import {
   inspectGitReflog, replaceGitBranchRef, pushGitWithLease, deleteGitUntrackedPaths,
   inspectGitChangedFiles, inspectGitCommit, compareGitRefs, listGitTags, inspectGitRemotes, unstageGitChanges, restoreGitFiles,
@@ -50,11 +50,11 @@ import {
   stageGitChanges,
   switchGitBranch,
   verifyGitTag,
-} from "../repository/gitMutations";
+} from "../../repository/gitMutations";
 import {
   applyApprovedPatch,
   registerPatchProposal,
-} from "../repository/patches";
+} from "../../repository/patches";
 import { createReleaseToolbox, type ReleaseToolbox } from "../release/releaseToolbox";
 import { executeTestToolbox, type TestToolboxAction } from "../test/testToolbox";
 import { INTEGRATION_VALIDATION_LANES, INTEGRATION_VALIDATION_PROFILES } from "../../../shared/integrationPolicyContracts";

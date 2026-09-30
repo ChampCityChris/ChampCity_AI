@@ -2,7 +2,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { TextDecoder } from "node:util";
-import { AgentHarnessError } from "../core/errors";
+import { AgentHarnessError } from "../core/applicationErrors";
 import { resolveRepositoryPath } from "./pathPolicy";
 
 export const TEXT_INLINE_THRESHOLD_BYTES = 16_384;

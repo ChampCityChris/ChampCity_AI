@@ -5,7 +5,7 @@ import type { SourceControlReceipt, SourceControlResult } from "../../shared/sou
 import type { WorkIntakeBranchBinding } from "../../shared/workIntakeBranchContracts";
 import type { WorkItemCheckpointEvidence, WorkItemCheckpointResult } from "../../shared/workItemCheckpointContracts";
 import { parseCanonicalMarkdownDocument, serializeCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
-import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
+import { resolveRepositoryPath } from "../repository/pathPolicy";
 import { createSourceControlService } from "../sourceControl/sourceControlService";
 import { createWorkIntakeBranchService } from "../workIntake/workIntakeBranchService";
 import { readWorkIntake } from "../workIntake/workIntakeService";

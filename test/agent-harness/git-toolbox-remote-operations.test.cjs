@@ -7,7 +7,7 @@ const test = require("node:test");
 const ts = require("typescript");
 
 const repositoryRoot = path.resolve(__dirname, "../..");
-const { AgentHarnessError } = require("../../dist/main/agentHarness/core/errors.js");
+const { AgentHarnessError } = require("../../dist/main/core/applicationErrors.js");
 const { createSourceControlService } = require("../../dist/main/sourceControl/sourceControlService.js");
 const {
   createWorkIntakeBranchService, workIntakeBranchName,

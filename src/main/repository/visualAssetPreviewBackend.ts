@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { AgentHarnessError } from "../core/errors";
+import { AgentHarnessError } from "../core/applicationErrors";
 import {
   VISUAL_ASSET_PREVIEW_SOURCE_MAX_PIXELS,
   type VisualAssetMetadata,

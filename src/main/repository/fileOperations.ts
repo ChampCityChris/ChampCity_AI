@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { AgentHarnessError } from "../core/errors";
+import { AgentHarnessError } from "../core/applicationErrors";
 import { isPathInside, resolveRepositoryPath } from "./pathPolicy";
 
 export const MAX_REPOSITORY_FILE_OPERATION_BYTES = 2_147_483_648;

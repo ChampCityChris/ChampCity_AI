@@ -5,9 +5,9 @@ import {
   metadataCloseDelimiter,
   metadataOpenDelimiter,
   parseCanonicalMarkdownDocument,
-} from "../../../shared/documents/canonicalMarkdown";
-import { replaceCanonicalMarkdownBodyPreservingMetadata } from "../../documents/canonicalMarkdownDocumentWriter";
-import { AgentHarnessError } from "../core/errors";
+} from "../../shared/documents/canonicalMarkdown";
+import { replaceCanonicalMarkdownBodyPreservingMetadata } from "../documents/canonicalMarkdownDocumentWriter";
+import { AgentHarnessError } from "../core/applicationErrors";
 import { resolveRepositoryPath } from "./pathPolicy";
 
 export const MAX_CONTROLLED_MARKDOWN_BODY_BYTES = 500_000;

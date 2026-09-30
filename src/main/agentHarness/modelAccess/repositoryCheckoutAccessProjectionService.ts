@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { runBoundedGit } from "../repository/boundedGit";
+import { runBoundedGit } from "../../core/gitExecution";
 import type { RepositoryCheckout } from "../../../shared/sourceLifecycleContracts";
 import type { AgentHarnessRegisteredRepositoryCheckoutSummary } from "../../../shared/workspaceContracts";
 import { conventionalRepositoryCheckout } from "../../sourceControl/repositoryCheckoutDescriptors";

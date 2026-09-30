@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { createHash } from "node:crypto";
 import type { IntegrationCompletionEvidence } from "../../shared/integrationCompletionContracts";
 import type { LifecycleEvidenceBoundary } from "../../shared/lifecycleEvidenceCheckpointContracts";
-import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
+import { resolveRepositoryPath } from "../repository/pathPolicy";
 import { readWorkIntake } from "../workIntake/workIntakeService";
 import { createWorkIntakeBranchService } from "../workIntake/workIntakeBranchService";
 import { getWorkRouteDecision } from "../workIntake/workRouteDecisionService";

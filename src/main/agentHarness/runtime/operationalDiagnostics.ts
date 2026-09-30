@@ -9,7 +9,7 @@ import type {
   AgentHarnessToolContractDiagnostics,
 } from "../../../shared/workspaceContracts";
 import type { AgentHarnessToolResult } from "../tools/toolRegistry";
-import { isRepositoryTruncationReason } from "../repository/repositoryOperations";
+import { isRepositoryTruncationReason } from "../../repository/repositoryOperations";
 
 const DEFAULT_AUDIT_CAPACITY = 100;
 const DEFAULT_LATENCY_CAPACITY = 512;

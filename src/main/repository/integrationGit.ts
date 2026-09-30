@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { AgentHarnessError } from "../core/errors";
-import { runBoundedGit } from "./boundedGit";
+import { AgentHarnessError } from "../core/applicationErrors";
+import { runBoundedGit } from "../core/gitExecution";
 import { advanceGitBranchRef, inspectGitCheckout, inspectGitBranchState, inspectGitHistory } from "./gitMutations";
 
 const fail = (message: string) => new AgentHarnessError("GIT_EXECUTION_FAILED", message);

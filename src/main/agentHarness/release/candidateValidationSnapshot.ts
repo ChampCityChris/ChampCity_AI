@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { AgentHarnessError } from "../core/errors";
+import { AgentHarnessError } from "../../core/applicationErrors";
 import { resolveWindowsNpmInvocation } from "./releaseCommandAdapter";
 
 const CANDIDATE_TEMP_PREFIX = "champcity-candidate-validation-";

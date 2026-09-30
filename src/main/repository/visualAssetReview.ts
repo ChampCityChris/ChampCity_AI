@@ -7,8 +7,8 @@ import {
   SupportedImageValidationError,
   type DetectedSupportedImage,
   type SupportedImageMimeType,
-} from "../../supportedImageValidation";
-import { AgentHarnessError } from "../core/errors";
+} from "../supportedImageValidation";
+import { AgentHarnessError } from "../core/applicationErrors";
 import { isPathInside, resolveRepositoryPath } from "./pathPolicy";
 
 export const VISUAL_ASSET_MAX_BYTES = 24_000_000;

@@ -79,7 +79,7 @@ import {
   buildWriteMarkdownArtifactJsonBlock,
   resolveMcpWorkspaceBindingForPrompt,
 } from "../integrations/mcpWorkspacePromptContract";
-import { inspectControlledMarkdownDraft } from "../agentHarness/repository/controlledMarkdownDrafts";
+import { inspectControlledMarkdownDraft } from "../repository/controlledMarkdownDrafts";
 import { buildOperatorValidationAdvisoryPrompt } from "../workCardValidation/workCardValidationService";
 import {
   assertSupportedImageBounds,

@@ -2541,6 +2541,12 @@ export function App(): JSX.Element {
     }
   }
 
+  async function retryCurrentProjectModelAccess(): Promise<void> {
+    if (!currentProject) return;
+    const modelAccess = await window.champcity.reconcileCurrentProjectModelAccess();
+    setCurrentProject({ ...currentProject, modelAccess });
+  }
+
   async function activateWorkspaceSelection(
     selection: WorkspaceSelection,
     destination: ProjectEntryDestination,
@@ -4514,6 +4520,7 @@ export function App(): JSX.Element {
               activeWorkspaceLabel={activeWorkspace.label}
               currentProject={currentProject}
               model={currentModel}
+              onRetryModelAccess={() => void retryCurrentProjectModelAccess()}
               resolverResult={resolverResult}
               suppress={isWorkCardReportReview}
             />
@@ -6827,12 +6834,14 @@ function CurrentWorkspaceBanner({
   activeWorkspaceLabel,
   currentProject,
   model,
+  onRetryModelAccess,
   resolverResult,
   suppress,
 }: {
   activeWorkspaceLabel: string;
   currentProject: CurrentProjectRuntimeContext | null;
   model: CurrentWorkspaceModel | null;
+  onRetryModelAccess: () => void;
   resolverResult: FirstNonApprovedResult | null;
   suppress?: boolean;
 }): JSX.Element | null {
@@ -6849,6 +6858,13 @@ function CurrentWorkspaceBanner({
   return (
     <section className="current-workspace-banner" aria-label="Current required workflow step" data-project-id={currentProject?.projectId}>
       {currentProject ? <div><span>Current Project</span><strong>{currentProject.projectName}</strong><small>{currentProject.projectId}</small></div> : null}
+      {currentProject?.modelAccess.state === "degraded" ? (
+        <div className="banner-wide blocker model-access-degraded">
+          <span>Model Access Degraded</span>
+          <strong title={currentProject.modelAccess.error ?? undefined}>{currentProject.modelAccess.error ?? "Agent Harness model access is unavailable."}</strong>
+          <button className="text-button" onClick={onRetryModelAccess} type="button">Retry Model Access</button>
+        </div>
+      ) : null}
       <div>
         <span>Current Required Workflow Step</span>
         <strong>{requiredWorkspaceLabel ?? current?.owningWorkspace ?? activeWorkspaceLabel}</strong>

@@ -5,13 +5,13 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
-const { AgentHarnessError } = require("../../dist/main/agentHarness/core/errors.js");
+const { AgentHarnessError } = require("../../dist/main/core/applicationErrors.js");
 const {
   MAX_REPOSITORY_FILE_OPERATION_BYTES,
   assertRepositoryFileOperationSize,
   copyRepositoryFile,
   moveRepositoryFile,
-} = require("../../dist/main/agentHarness/repository/fileOperations.js");
+} = require("../../dist/main/repository/fileOperations.js");
 const {
   createAgentHarnessToolRegistry,
 } = require("../../dist/main/agentHarness/tools/toolRegistry.js");

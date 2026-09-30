@@ -5,7 +5,7 @@ import { metadataWithDisposition, parseCanonicalMarkdownDocument } from "../../s
 import type { SourceRevision } from "../../shared/documents/planningDocument";
 import type { WorkPlanningArtifact, WorkPlanningIdentity, WorkPlanningModel, WorkPlanningProfile, WorkPlanningReviewInput, WorkPlanningStage } from "../../shared/workPlanningContracts";
 import type { WorkRouteDecisionModel } from "../../shared/workRouteDecisionContracts";
-import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
+import { resolveRepositoryPath } from "../repository/pathPolicy";
 import { createSourceControlService } from "../sourceControl/sourceControlService";
 import { checkpointOperatorDisposition } from "../planExecution/operatorDispositionCheckpoint";
 import { buildDeterministicArchitectDraftSubmissionId } from "../architectOutputs/architectDraftPaths";

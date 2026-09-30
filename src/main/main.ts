@@ -58,8 +58,11 @@ import { establishManagedProjectSource, resolveManagedDevRepositoryCheckout } fr
 import { applyExistingProjectGitAdoption, inspectExistingProjectGitAdoption } from "./sourceControl/existingProjectGitAdoptionService";
 import { CURRENT_PROJECT_REPOSITORY_ID, registerCurrentProject, selectedCurrentProjectId } from "./projectState/currentProjectRegistrationService";
 import { MANAGED_PROJECT_SOURCE_PATHS } from "../shared/sourceLifecycleContracts";
-import { conventionalRepositoryCheckout } from "./sourceControl/repositoryCheckoutDescriptors";
-import { publishRepositoryCheckoutAccess, revokeRepositoryCheckoutAccess } from "./agentHarness/modelAccess/repositoryCheckoutAccessProjectionService";
+import {
+  quiesceConventionalProjectModelAccess,
+  reconcileConventionalProjectModelAccess,
+  reconcileProjectModelAccess,
+} from "./modelAccess/projectModelAccessCoordinator";
 import { selectedSourceGraphRepositoryId } from "./sourceControl/sourceGraphService";
 import { registerWorkflowApplicationIpc } from "./workflow/workflowApplicationIpc";
 import { registerFeaturePlanningIpc } from "./featurePlanning/featurePlanningIpc";
@@ -361,53 +364,42 @@ ipcMain.handle("project:inspectExistingGitAdoption", async () =>
 ipcMain.handle("project:applyExistingGitAdoption", async (_event, planId: string) => {
   if (typeof planId !== "string" || !/^[a-f0-9]{64}$/.test(planId)) throw new Error("An exact Existing Project adoption plan is required.");
   const root = getRequiredWorkspaceRoot();
-  const agentHarness = getAgentHarnessServiceHostClient();
-  const workspace = await agentHarness.registerWorkspace(root);
-  const workspaceId = workspace.workspace.workspaceId;
-  const projection = {
-    registerRepositoryCheckout: (id: string, checkout: import("../shared/sourceLifecycleContracts").RepositoryCheckout) => agentHarness.registerRepositoryCheckout(id, checkout),
-    unregisterRepositoryCheckout: (id: string, checkoutId: string) => agentHarness.unregisterRepositoryCheckout(id, checkoutId),
-  };
-  const conventional = conventionalRepositoryCheckout(workspaceId);
-  await revokeRepositoryCheckoutAccess(workspaceId, [conventional], projection);
+  const initialModelAccess = await quiesceConventionalProjectModelAccess(root, getAgentHarnessServiceHostClient);
   let result: Awaited<ReturnType<typeof applyExistingProjectGitAdoption>>;
   try {
     result = await applyExistingProjectGitAdoption({ projectRoot: root, repositoryId: CURRENT_PROJECT_REPOSITORY_ID, planId, consent: true });
   } catch (error) {
     if (fs.existsSync(path.join(root, ".git"))) {
-      try { await publishRepositoryCheckoutAccess(workspaceId, [conventional], projection); } catch { /* preserve source failure */ }
+      await reconcileConventionalProjectModelAccess(root, getAgentHarnessServiceHostClient);
     }
     throw error;
   }
-  if (result.source) {
-    try { await publishRepositoryCheckoutAccess(workspaceId, [result.source.mainCheckout, result.source.devCheckout], projection); }
-    catch { throw new Error("Existing Project source conversion completed, but Agent Harness model access could not be published."); }
-  }
-  return result.plan;
+  const modelAccess = result.source
+    ? await reconcileProjectModelAccess(root, [result.source.mainCheckout, result.source.devCheckout], getAgentHarnessServiceHostClient)
+    : initialModelAccess;
+  return { sourcePlan: result.plan, sourceApplied: result.applied, modelAccess };
 });
 
 ipcMain.handle("project:registerCurrent", async (_event, mode: "existing" | "greenfield", projectName?: string) => {
   if (mode !== "existing" && mode !== "greenfield") throw new Error("A current Project registration mode is required.");
   const root = getRequiredWorkspaceRoot();
-  const agentHarness = getAgentHarnessServiceHostClient();
-  let workspace: Awaited<ReturnType<typeof agentHarness.registerWorkspace>>;
   let registration;
+  let sourceCheckouts: import("../shared/sourceLifecycleContracts").RepositoryCheckout[] = [];
   let projectCreation: Awaited<ReturnType<ReturnType<typeof createWorkflowApplicationService>["ensureProjectCreationWorkflow"]>> | null = null;
   if (mode === "greenfield") {
     const existingProjectId = selectedCurrentProjectId(root);
     if (existingProjectId) {
+      const source = await establishManagedProjectSource({ projectRoot: root, repositoryId: CURRENT_PROJECT_REPOSITORY_ID });
+      sourceCheckouts = [source.mainCheckout, source.devCheckout];
       registration = await registerCurrentProject(root, mode);
       if (registration.project.body.description !== "Greenfield Project")
         throw new Error("Start New Project cannot reopen an Existing Project; use Existing Project.");
       projectCreation = await createWorkflowApplicationService().completeIncompleteGreenfieldInitialization(root);
     } else {
       assertGreenfieldProjectEntry(root);
-      workspace = await agentHarness.registerWorkspace(root);
       const result = await createSourceControlService({ repositoryId: CURRENT_PROJECT_REPOSITORY_ID, repositoryRoot: root }).bootstrapProjectSource();
       if (!result.ok) throw new Error(result.error.message);
-      await publishRepositoryCheckoutAccess(workspace.workspace.workspaceId, [result.result.mainCheckout, result.result.devCheckout], {
-        registerRepositoryCheckout: (workspaceId, checkout) => agentHarness.registerRepositoryCheckout(workspaceId, checkout),
-      });
+      sourceCheckouts = [result.result.mainCheckout, result.result.devCheckout];
       registration = await registerCurrentProject(root, mode, { ...(projectName === undefined ? {} : { projectName }), sourceRepositoryId: CURRENT_PROJECT_REPOSITORY_ID });
       projectCreation = await createWorkflowApplicationService().ensureProjectCreationWorkflow(root);
     }
@@ -415,21 +407,30 @@ ipcMain.handle("project:registerCurrent", async (_event, mode: "existing" | "gre
     const adoption = await inspectExistingProjectGitAdoption(root, CURRENT_PROJECT_REPOSITORY_ID);
     if (adoption.state !== "source-neutral" && adoption.state !== "managed-ready")
       throw new Error("Inspect and apply Existing Project Git adoption before Current Project registration.");
-    workspace = await agentHarness.registerWorkspace(root);
     const hasSourceCandidate = adoption.state === "managed-ready";
     if (hasSourceCandidate) {
       const source = await establishManagedProjectSource({ projectRoot: root, repositoryId: CURRENT_PROJECT_REPOSITORY_ID });
-      await publishRepositoryCheckoutAccess(workspace.workspace.workspaceId, [source.mainCheckout, source.devCheckout], {
-        registerRepositoryCheckout: (workspaceId, checkout) => agentHarness.registerRepositoryCheckout(workspaceId, checkout),
-      });
+      sourceCheckouts = [source.mainCheckout, source.devCheckout];
     }
     registration = await registerCurrentProject(root, mode, { ...(projectName === undefined ? {} : { projectName }),
       ...(hasSourceCandidate ? { sourceRepositoryId: CURRENT_PROJECT_REPOSITORY_ID } : {}) });
   }
+  const modelAccess = await reconcileProjectModelAccess(root, sourceCheckouts, getAgentHarnessServiceHostClient);
   const repositoryId = registration.repositoryResource?.body.logicalName ?? null;
   return { projectId: registration.project.id, projectName: registration.project.body.name, repositoryId,
     projectRoot: root, mode, created: registration.created,
+    modelAccess,
     ...(projectCreation ? { projectCreationWorkflowId: projectCreation.workflow.workflowId } : {}) };
+});
+
+ipcMain.handle("project:reconcileModelAccess", async () => {
+  const root = getRequiredWorkspaceRoot();
+  if (!selectedCurrentProjectId(root)) throw new Error("Select or open a Current Project before reconciling model access.");
+  const adoption = await inspectExistingProjectGitAdoption(root, CURRENT_PROJECT_REPOSITORY_ID);
+  if (adoption.state === "source-neutral") return reconcileProjectModelAccess(root, [], getAgentHarnessServiceHostClient);
+  if (adoption.state !== "managed-ready") throw new Error("Current Project source is not ready for model-access reconciliation.");
+  const source = await establishManagedProjectSource({ projectRoot: root, repositoryId: CURRENT_PROJECT_REPOSITORY_ID });
+  return reconcileProjectModelAccess(root, [source.mainCheckout, source.devCheckout], getAgentHarnessServiceHostClient);
 });
 
 function assertGreenfieldProjectEntry(root: string): void {

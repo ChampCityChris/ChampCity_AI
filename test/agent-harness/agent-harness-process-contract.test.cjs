@@ -2,6 +2,21 @@ const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("n
 const repositoryRoot=path.resolve(__dirname,"../..");
 function read(relativePath){return fs.readFileSync(path.join(repositoryRoot,relativePath),"utf8");}
 
+test("Source Control production modules do not import Agent Harness implementation modules", () => {
+  const ts = require("typescript");
+  const sourceRoot = path.join(repositoryRoot, "src/main/sourceControl");
+  for (const name of fs.readdirSync(sourceRoot).filter(entry => entry.endsWith(".ts"))) {
+    const absolute = path.join(sourceRoot, name);
+    const tree = ts.createSourceFile(absolute, fs.readFileSync(absolute, "utf8"), ts.ScriptTarget.Latest, true);
+    for (const statement of tree.statements) {
+      if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+      const target = path.resolve(sourceRoot, statement.moduleSpecifier.text);
+      assert.equal(target.startsWith(path.join(repositoryRoot, "src/main/agentHarness")), false,
+        `${name} imports Agent Harness implementation ${statement.moduleSpecifier.text}`);
+    }
+  }
+});
+
 
 test("Desktop and Service Host controllers do not import worker-owned runtime implementations", () => {
   const ts = require("typescript");
@@ -18,7 +33,7 @@ test("Desktop and Service Host controllers do not import worker-owned runtime im
     const forbiddenPaths = forbidden.map((name) => path.join(repositoryRoot, runtimeRoot, name));
     forbiddenPaths.push(
       path.join(repositoryRoot, "src/main/agentHarness/tools/toolRegistry"),
-      path.join(repositoryRoot, "src/main/agentHarness/repository/repositoryOperations"),
+      path.join(repositoryRoot, "src/main/repository/repositoryOperations"),
     );
     function visit(node) {
       let specifier;

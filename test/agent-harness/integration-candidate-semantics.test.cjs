@@ -7,7 +7,7 @@ const path=require('node:path');
 const {execFileSync}=require('node:child_process');
 const test=require('node:test');
 const {createIntegrationCandidateService}=require('../../dist/main/planExecution/integrationCandidateService.js');
-const {integrationPaths}=require('../../dist/main/agentHarness/repository/integrationGit.js');
+const {integrationPaths}=require('../../dist/main/repository/integrationGit.js');
 
 test('exact Workflow candidate integrates from a managed linked Dev checkout without WorkIntake identity',async t=>{
  require('../support/execution-metrics.cjs').measureExecution(t,'workflow-exact-integration-linked-dev');
@@ -29,7 +29,7 @@ test('exact Workflow candidate integrates from a managed linked Dev checkout wit
   checks:[{checkId:'fixture-source',run:async candidateRoot=>({exitCode:fs.readFileSync(path.join(candidateRoot,'feature.txt'),'utf8').includes('accepted')?0:1,summary:'Workflow candidate source check'})}]});
  const candidate=await service.create();
  assert.equal(candidate.status,'validated');assert.equal(candidate.workflowId,workflowId);assert.equal('intakeId' in candidate,false);
- const common=(await require('../../dist/main/agentHarness/repository/integrationGit.js').integrationCommonDirectory(dev));
+ const common=(await require('../../dist/main/repository/integrationGit.js').integrationCommonDirectory(dev));
  assert.equal(path.dirname(path.dirname(integrationPaths(dev,candidate.candidateId).base)),common);
  const integrated=await service.advance(candidate.candidateId);
  assert.equal(integrated.status,'integrated');assert.equal(git(dev,'rev-parse','refs/heads/dev'),integrated.targetAfterRevisionId);

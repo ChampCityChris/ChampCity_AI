@@ -20,7 +20,7 @@ const {
   createRegisteredWorkspaceAccessProvider,
   resolveWorkspaceRootContext,
 } = require("../../dist/main/agentHarness/workspace/workspaceAccess.js");
-const { AgentHarnessError } = require("../../dist/main/agentHarness/core/errors.js");
+const { AgentHarnessError } = require("../../dist/main/core/applicationErrors.js");
 const {createRuntime,createRegistry,createWorkspace,initializeSession,postSessionRequest,deleteSession,openSessionStream,closeSessionStreams,pickSessionDiagnostics,mcpHeaders,listToolsRequest,callToolRequest,issueOAuthToken,postJson,deferred,waitFor}=require("../support/mcp-session-fixture.cjs");
 
 

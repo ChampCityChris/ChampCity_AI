@@ -15,20 +15,30 @@ function createCompiledFixture(container, name) {
     lifecycle: "agentHarness/runtime/agentHarnessServiceLifecycle.js",
     server: "agentHarness/runtime/agentHarnessServiceHostServer.js",
     tools: "agentHarness/tools/toolRegistry.js",
-    repository: "agentHarness/repository/repositoryOperations.js",
+    repository: "repository/repositoryOperations.js",
   };
   for (const [key, relativePath] of Object.entries(modules)) {
     const target = path.join(mainRoot, ...relativePath.split("/"));
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, `module.exports = ${JSON.stringify(`${key}-runtime-v1`)};\n`, "utf8");
   }
+  fs.writeFileSync(
+    path.join(mainRoot, ...modules.tools.split("/")),
+    "module.exports = require('../../repository/repositoryOperations');\n",
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(mainRoot, ...modules.repository.split("/")),
+    "module.exports = require('./controlledMarkdownDrafts');\n",
+    "utf8",
+  );
   const externalPath = path.join(mainRoot, "documents", "canonicalMarkdownDocumentWriter.js");
   fs.mkdirSync(path.dirname(externalPath), { recursive: true });
   fs.writeFileSync(externalPath, "module.exports = 'external-runtime-v1';\n", "utf8");
-  const dependentPath = path.join(mainRoot, "agentHarness", "repository", "controlledMarkdownDrafts.js");
+  const dependentPath = path.join(mainRoot, "repository", "controlledMarkdownDrafts.js");
   fs.writeFileSync(
     dependentPath,
-    "module.exports = require('../../documents/canonicalMarkdownDocumentWriter');\n",
+    "module.exports = require('../documents/canonicalMarkdownDocumentWriter');\n",
     "utf8",
   );
   return { mainRoot, modules, externalPath };

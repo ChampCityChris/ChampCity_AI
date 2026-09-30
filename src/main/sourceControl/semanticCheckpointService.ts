@@ -10,7 +10,7 @@ import { selectedCurrentProjectId } from "../projectState/currentProjectRegistra
 import { createSourceControlService } from "./sourceControlService";
 import { resolveManagedProjectSourceTopology, resolveManagedWorkflowCheckoutPath, workflowRepositoryCheckoutId } from "./projectSourceTopology";
 import { workflowSourceLineName } from "./workSourceNaming";
-import { runBoundedGit } from "../agentHarness/repository/boundedGit";
+import { runBoundedGit } from "../core/gitExecution";
 
 const principal = { principalId: "local-operator", principalType: "human" as const, role: "Operator" };
 const activeRoots = new Set<string>();

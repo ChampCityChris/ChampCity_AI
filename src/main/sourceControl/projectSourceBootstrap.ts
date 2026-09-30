@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { AgentHarnessError } from "../agentHarness/core/errors";
-import { runBoundedGit } from "../agentHarness/repository/boundedGit";
+import { AgentHarnessError } from "../core/applicationErrors";
+import { runBoundedGit } from "../core/gitExecution";
 import type { ProjectSourceBootstrap } from "../../shared/sourceLifecycleContracts";
 import { MANAGED_PROJECT_SOURCE_PATHS } from "../../shared/sourceLifecycleContracts";
 import { INTEGRATION_POLICY_PATH } from "../../shared/integrationPolicyContracts";

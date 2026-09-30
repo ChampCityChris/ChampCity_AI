@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { IntegrationValidationEvidence } from "../../shared/integrationCandidateContracts";
 import type { IntegrationPolicyCheck, IntegrationValidationContext } from "../../shared/integrationPolicyContracts";
-import { inspectIntegrationCheckout, integrationCommonDirectory, integrationPaths, registeredIntegrationCheckout } from "../agentHarness/repository/integrationGit";
+import { inspectIntegrationCheckout, integrationCommonDirectory, integrationPaths, registeredIntegrationCheckout } from "../repository/integrationGit";
 
 type Evidence = Omit<IntegrationValidationEvidence, "checkId">;
 

@@ -7,12 +7,12 @@ import type { IntegrationCompletionEvidence } from "../../shared/integrationComp
 import type { WorkIntakeBranchBinding } from "../../shared/workIntakeBranchContracts";
 import type { SourceControlResult } from "../../shared/sourceControlContracts";
 import { parseCanonicalMarkdownDocument, serializeCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
-import { integrationCommonDirectory, integrationPaths } from "../agentHarness/repository/integrationGit";
+import { integrationCommonDirectory, integrationPaths } from "../repository/integrationGit";
 import { createSourceControlService } from "../sourceControl/sourceControlService";
 import { createWorkIntakeBranchService } from "../workIntake/workIntakeBranchService";
 import { createIntegrationRepairController } from "./integrationRepairService";
 import type { IntegrationRepairPolicy } from "../../shared/integrationRepairContracts";
-import { assertIntegrationSourceText } from "../agentHarness/repository/integrationRepairGit";
+import { assertIntegrationSourceText } from "../repository/integrationRepairGit";
 
 /** Main-process adapters supply current durable completion evidence and the required validation policy, never renderer commands. */
 export interface IntegrationValidationCheck {

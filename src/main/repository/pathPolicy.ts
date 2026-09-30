@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { AgentHarnessError } from "../core/errors";
+import { AgentHarnessError } from "../core/applicationErrors";
 
 function normalizeForComparison(value: string): string {
   const resolved = path.resolve(value);

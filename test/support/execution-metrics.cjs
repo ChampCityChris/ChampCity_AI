@@ -1,7 +1,7 @@
 const {performance}=require('node:perf_hooks');
 const cp=require('node:child_process');
 function measureExecution(t,label){
- const bounded=require('../../dist/main/agentHarness/repository/boundedGit.js');
+ const bounded=require('../../dist/main/core/gitExecution.js');
  const run=bounded.runBoundedGit,spawn=cp.spawn,execFileSync=cp.execFileSync;
  const counts={boundedGit:0,fixtureGit:0,npm:0,checkouts:0};const started=performance.now();
  t.mock.method(bounded,'runBoundedGit',function(options){counts.boundedGit++;if(options.args.includes('worktree')&&options.args.includes('add'))counts.checkouts++;return run(options)});

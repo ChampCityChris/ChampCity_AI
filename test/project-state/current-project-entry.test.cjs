@@ -12,9 +12,17 @@ const { selectedSourceGraphRepositoryId } = require("../../dist/main/sourceContr
 const { resolveManagedDevRepositoryCheckout } = require("../../dist/main/sourceControl/managedProjectSourceService.js");
 const { createSourceControlService } = require("../../dist/main/sourceControl/sourceControlService.js");
 const { establishManagedProjectSource } = require("../../dist/main/sourceControl/managedProjectSourceService.js");
-const { applyExistingProjectGitAdoption, inspectExistingProjectGitAdoption } = require("../../dist/main/sourceControl/existingProjectGitAdoptionService.js");
-const { conventionalRepositoryCheckout } = require("../../dist/main/sourceControl/repositoryCheckoutDescriptors.js");
-const { publishRepositoryCheckoutAccess, revokeRepositoryCheckoutAccess } = require("../../dist/main/agentHarness/modelAccess/repositoryCheckoutAccessProjectionService.js");
+const {
+  applyExistingProjectGitAdoption,
+  inspectExistingProjectGitAdoption,
+  EXISTING_PROJECT_GIT_ADOPTION_JOURNAL,
+  EXISTING_PROJECT_GIT_ADOPTION_RECEIPT,
+} = require("../../dist/main/sourceControl/existingProjectGitAdoptionService.js");
+const {
+  quiesceConventionalProjectModelAccess,
+  reconcileConventionalProjectModelAccess,
+  reconcileProjectModelAccess,
+} = require("../../dist/main/modelAccess/projectModelAccessCoordinator.js");
 const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
 const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
 const { createWorkflowApplicationService } = require("../../dist/main/workflow/workflowApplicationService.js");
@@ -25,7 +33,11 @@ const { acceptExistingProjectAdoption, openInspectedExistingProject } = renderer
   .loadRendererSourceModule("src/renderer/app/existingProjectEntryController.ts");
 const rendererSource = fs.readFileSync(path.resolve(__dirname, "../../src/renderer/app/App.tsx"), "utf8");
 const entryControllerSource = fs.readFileSync(path.resolve(__dirname, "../../src/renderer/app/existingProjectEntryController.ts"), "utf8");
-const sourceProjectionContext = { conventionalRepositoryCheckout, publishRepositoryCheckoutAccess, revokeRepositoryCheckoutAccess };
+const sourceProjectionContext = {
+  quiesceConventionalProjectModelAccess,
+  reconcileConventionalProjectModelAccess,
+  reconcileProjectModelAccess,
+};
 
 function root(context) {
   const selected = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-entry-"));
@@ -33,6 +45,15 @@ function root(context) {
   return selected;
 }
 function git(rootPath, ...args) { return execFileSync("git", args, { cwd: rootPath, encoding: "utf8" }).trim(); }
+function initializeConventionalGit(rootPath) {
+  git(rootPath, "init", "-b", "main");
+  git(rootPath, "config", "user.name", "Synthetic Test");
+  git(rootPath, "config", "user.email", "test@example.invalid");
+  fs.writeFileSync(path.join(rootPath, "README.md"), "baseline\n");
+  git(rootPath, "add", "README.md");
+  git(rootPath, "commit", "-m", "baseline");
+  git(rootPath, "branch", "dev");
+}
 
 test("Existing Project adoption IPC derives selected root and accepts only an exact plan digest", async () => {
   const selected = "selected-root-owned-by-main";
@@ -55,7 +76,11 @@ test("Existing Project adoption IPC derives selected root and accepts only an ex
   assert.equal(await api.inspectExistingProjectGitAdoption(), expectedPlan);
   assert.deepEqual(inspected, [selected, CURRENT_PROJECT_REPOSITORY_ID]);
   await assert.rejects(api.applyExistingProjectGitAdoption("not-a-plan"), /exact Existing Project adoption plan/);
-  assert.equal(await api.applyExistingProjectGitAdoption(expectedPlan.planId), expectedPlan);
+  const outcome = await api.applyExistingProjectGitAdoption(expectedPlan.planId);
+  assert.equal(outcome.sourcePlan, expectedPlan);
+  assert.equal(outcome.sourceApplied, undefined);
+  assert.equal(outcome.modelAccess.state, "ready");
+  assert.equal(outcome.modelAccess.error, null);
   assert.equal(applied.projectRoot, selected);
   assert.equal(applied.planId, expectedPlan.planId);
   assert.equal(applied.consent, true);
@@ -250,7 +275,7 @@ test("incomplete Greenfield Current Project retries Project Creation once with i
   const registration = await registerCurrentProject(selected, "greenfield", { projectName: "Retry Greenfield", sourceRepositoryId: CURRENT_PROJECT_REPOSITORY_ID });
   const { api } = mainPreloadHarness(["project:registerCurrent"], {
     getRequiredWorkspaceRoot: () => selected, assertGreenfieldProjectEntry: () => undefined, registerCurrentProject, selectedCurrentProjectId,
-    CURRENT_PROJECT_REPOSITORY_ID, getAgentHarnessServiceHostClient: () => harness, createSourceControlService,
+    CURRENT_PROJECT_REPOSITORY_ID, getAgentHarnessServiceHostClient: () => harness, createSourceControlService, establishManagedProjectSource,
     createWorkflowApplicationService, fs, path, MANAGED_PROJECT_SOURCE_PATHS, ...sourceProjectionContext,
   });
   const retried = await api.registerCurrentProject("greenfield", "Ignored replacement name");
@@ -492,6 +517,141 @@ test("managed source establishment remains retryable when SPS registration fails
     const resources = (await store.listEntities(retried.projectId, "ProjectResource"));
     assert.equal(resources.filter(row => row.entityType === "ProjectResource" && row.body.resourceType === "source-repository").length, 1);
   } finally { store.close(); await harness.stop().catch(() => undefined); }
+});
+
+test("Existing Project conversion and managed reopen preserve source and Current Project state while Agent Harness is unavailable", async context => {
+  const selected = root(context);
+  initializeConventionalGit(selected);
+  const unavailable = { registerWorkspace: async () => { throw new Error("synthetic Agent Harness unavailable"); } };
+  const { api } = mainPreloadHarness([
+    "project:inspectExistingGitAdoption", "project:applyExistingGitAdoption", "project:registerCurrent",
+  ], {
+    getRequiredWorkspaceRoot: () => selected,
+    getAgentHarnessServiceHostClient: () => unavailable,
+    registerCurrentProject, selectedCurrentProjectId, CURRENT_PROJECT_REPOSITORY_ID,
+    createSourceControlService, createWorkflowApplicationService, establishManagedProjectSource,
+    inspectExistingProjectGitAdoption, applyExistingProjectGitAdoption,
+    fs, path, MANAGED_PROJECT_SOURCE_PATHS, ...sourceProjectionContext,
+  });
+  const plan = await api.inspectExistingProjectGitAdoption();
+  const converted = await api.applyExistingProjectGitAdoption(plan.planId);
+  assert.equal(converted.sourceApplied, true);
+  assert.equal(converted.sourcePlan.state, "managed-ready");
+  assert.equal(converted.modelAccess.state, "degraded");
+  const current = await api.registerCurrentProject("existing", "Unavailable Harness Project");
+  assert.equal(current.repositoryId, CURRENT_PROJECT_REPOSITORY_ID);
+  assert.equal(current.modelAccess.state, "degraded");
+  assert.equal(selectedCurrentProjectId(selected), current.projectId);
+  assert.equal(fs.existsSync(path.join(selected, ".git")), false);
+  assert.equal(fs.existsSync(path.join(selected, ".champcity", "repository.git")), true);
+  const reopened = await api.registerCurrentProject("existing");
+  assert.equal(reopened.projectId, current.projectId);
+  assert.equal(reopened.created, false);
+  assert.equal(reopened.modelAccess.state, "degraded");
+});
+
+test("Greenfield bootstrap and Current Project registration complete before unavailable model-access projection", async context => {
+  const selected = root(context);
+  let harnessAvailable = false;
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-harness-greenfield-reconcile-"));
+  context.after(() => fs.rmSync(userData, { recursive: true, force: true }));
+  const harness = new AgentHarnessService({ userDataRoot: userData });
+  harness.registerWorkspace = async rootPath => {
+    if (!harnessAvailable) throw new Error("synthetic Agent Harness unavailable");
+    return harness.registerWorkspaceRoot(rootPath);
+  };
+  context.after(() => harness.stop().catch(() => undefined));
+  const { assertGreenfieldProjectEntry } = loadProductionFunctions("src/main/main.ts", ["assertGreenfieldProjectEntry"],
+    { fs, path, MANAGED_PROJECT_SOURCE_PATHS });
+  const { api } = mainPreloadHarness(["project:registerCurrent", "project:reconcileModelAccess"], {
+    getRequiredWorkspaceRoot: () => selected,
+    assertGreenfieldProjectEntry,
+    getAgentHarnessServiceHostClient: () => harness,
+    registerCurrentProject, selectedCurrentProjectId, CURRENT_PROJECT_REPOSITORY_ID,
+    createSourceControlService, createWorkflowApplicationService, establishManagedProjectSource,
+    inspectExistingProjectGitAdoption,
+    fs, path, MANAGED_PROJECT_SOURCE_PATHS, ...sourceProjectionContext,
+  });
+  const current = await api.registerCurrentProject("greenfield", "Degraded Greenfield");
+  assert.equal(current.repositoryId, CURRENT_PROJECT_REPOSITORY_ID);
+  assert.equal(current.modelAccess.state, "degraded");
+  assert.equal(selectedCurrentProjectId(selected), current.projectId);
+  assert.equal(git(path.join(selected, "Main"), "branch", "--show-current"), "main");
+  assert.equal(git(path.join(selected, "Dev"), "branch", "--show-current"), "dev");
+  harnessAvailable = true;
+  assert.deepEqual(await api.reconcileCurrentProjectModelAccess(), { state: "ready", error: null });
+  const workspaceId = (await harness.listRegisteredWorkspaces()).workspaces[0].workspaceId;
+  assert.deepEqual((await harness.listRepositoryCheckouts(workspaceId)).map(item => item.role).sort(), ["dev", "main"]);
+});
+
+test("a live conventional checkout lease blocks conversion before Source Control mutation and retry succeeds after release", async context => {
+  const selected = root(context);
+  initializeConventionalGit(selected);
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-harness-busy-quiesce-"));
+  context.after(() => fs.rmSync(userData, { recursive: true, force: true }));
+  const harness = new AgentHarnessService({ userDataRoot: userData });
+  harness.registerWorkspace = rootPath => harness.registerWorkspaceRoot(rootPath);
+  const registered = await harness.registerWorkspace(selected);
+  const conventional = (await harness.listRepositoryCheckouts(registered.workspace.workspaceId)).find(item => item.role === "conventional");
+  assert.ok(conventional);
+  const lease = await harness.workspaceRegistry.resolveRepositoryCheckoutContext(registered.workspace.workspaceId, conventional.repositoryCheckoutId);
+  harness.unregisterRepositoryCheckout = (workspaceId, checkoutId) => harness.workspaceRegistry.unregisterRepositoryCheckout(workspaceId, checkoutId, 10);
+  context.after(() => { lease.release(); return harness.stop().catch(() => undefined); });
+  const { api } = mainPreloadHarness(["project:inspectExistingGitAdoption", "project:applyExistingGitAdoption"], {
+    getRequiredWorkspaceRoot: () => selected,
+    getAgentHarnessServiceHostClient: () => harness,
+    CURRENT_PROJECT_REPOSITORY_ID, inspectExistingProjectGitAdoption, applyExistingProjectGitAdoption,
+    fs, path, ...sourceProjectionContext,
+  });
+  const plan = await api.inspectExistingProjectGitAdoption();
+  await assert.rejects(api.applyExistingProjectGitAdoption(plan.planId), /checkout is busy; Git conversion was not started/);
+  assert.equal(fs.existsSync(path.join(selected, ".git")), true);
+  assert.equal(fs.existsSync(path.join(selected, ...EXISTING_PROJECT_GIT_ADOPTION_JOURNAL.split("/"))), false);
+  lease.release();
+  const retried = await api.applyExistingProjectGitAdoption(plan.planId);
+  assert.equal(retried.sourceApplied, true);
+  assert.equal(retried.sourcePlan.state, "managed-ready");
+  assert.equal(fs.existsSync(path.join(selected, ".git")), false);
+});
+
+test("post-conversion projection outage stays degraded and later reconciliation does not rerun conversion", async context => {
+  const selected = root(context);
+  initializeConventionalGit(selected);
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-harness-projection-retry-"));
+  context.after(() => fs.rmSync(userData, { recursive: true, force: true }));
+  const harness = new AgentHarnessService({ userDataRoot: userData });
+  harness.registerWorkspace = rootPath => harness.registerWorkspaceRoot(rootPath);
+  const realRegisterCheckout = harness.registerRepositoryCheckout.bind(harness);
+  let projectionAvailable = false;
+  harness.registerRepositoryCheckout = async (workspaceId, checkout) => {
+    if (checkout.role !== "conventional" && !projectionAvailable) throw new Error("synthetic managed projection outage");
+    return realRegisterCheckout(workspaceId, checkout);
+  };
+  context.after(() => harness.stop().catch(() => undefined));
+  let conversionCalls = 0;
+  const { api } = mainPreloadHarness([
+    "project:inspectExistingGitAdoption", "project:applyExistingGitAdoption", "project:registerCurrent", "project:reconcileModelAccess",
+  ], {
+    getRequiredWorkspaceRoot: () => selected,
+    getAgentHarnessServiceHostClient: () => harness,
+    registerCurrentProject, selectedCurrentProjectId, CURRENT_PROJECT_REPOSITORY_ID,
+    createSourceControlService, createWorkflowApplicationService, establishManagedProjectSource, inspectExistingProjectGitAdoption,
+    applyExistingProjectGitAdoption: input => { conversionCalls += 1; return applyExistingProjectGitAdoption(input); },
+    fs, path, MANAGED_PROJECT_SOURCE_PATHS, ...sourceProjectionContext,
+  });
+  const plan = await api.inspectExistingProjectGitAdoption();
+  const converted = await api.applyExistingProjectGitAdoption(plan.planId);
+  assert.equal(converted.sourceApplied, true);
+  assert.equal(converted.modelAccess.state, "degraded");
+  assert.equal(JSON.parse(fs.readFileSync(path.join(selected, ...EXISTING_PROJECT_GIT_ADOPTION_JOURNAL.split("/")), "utf8")).stage, "completed");
+  assert.equal(JSON.parse(fs.readFileSync(path.join(selected, ...EXISTING_PROJECT_GIT_ADOPTION_RECEIPT.split("/")), "utf8")).stage, "completed");
+  const current = await api.registerCurrentProject("existing");
+  assert.equal(current.modelAccess.state, "degraded");
+  assert.equal(selectedCurrentProjectId(selected), current.projectId);
+  assert.equal(fs.existsSync(path.join(selected, ".git")), false);
+  projectionAvailable = true;
+  assert.deepEqual(await api.reconcileCurrentProjectModelAccess(), { state: "ready", error: null });
+  assert.equal(conversionCalls, 1);
 });
 
 test("landing actions route New Project to Project Intake and Existing Project to the Hub", () => {

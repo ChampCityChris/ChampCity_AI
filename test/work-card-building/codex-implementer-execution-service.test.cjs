@@ -32,7 +32,7 @@ const {
 } = require("../../dist/main/issueResolution/issueResolutionService.js");
 const {
   replaceControlledMarkdownBody,
-} = require("../../dist/main/agentHarness/repository/controlledMarkdownDrafts.js");
+} = require("../../dist/main/repository/controlledMarkdownDrafts.js");
 const {
   parseCanonicalMarkdownDocument,
   serializeCanonicalMarkdownDocument,
@@ -2548,11 +2548,11 @@ test("exact source-backed and source-neutral WorkItems use the bounded Tester li
     } }; } };
   }, undefined, () => ({ sandboxMode: "workspace-write", approvalPolicy: "on-request", approvalsReviewer: "user", networkAccessEnabled: false }),
   undefined, undefined, fixture.manager, dependencies => createWorkflowExecutionApplicationService(dependencies));
-  service.configureSourceCheckoutRegistration(async () => ({ registerRepositoryCheckout: async (_workspaceId, checkout) => {
+  service.configureSourceCheckoutProjection(async () => ({ workspaceId: "source-execution", projection: { registerRepositoryCheckout: async (_workspaceId, checkout) => {
     checkoutRegistrations++;
     return { ...checkout, ...(checkout.workflowId === unrelated.workflow.id ? { projectRelativePath: `.champcity/checkouts/${created.workflow.id}` } : {}),
       availability: "available", validationError: null };
-  } }));
+  } } }));
   const unrelatedStart = await service.start(root, { ownerKind: "workflow-work-item", workflowId: unrelated.workflow.id, workItemId: unrelatedPlan.directWorkItems[0].id }, selection);
   assert.equal(unrelatedStart.state, "unavailable");
   assert.equal(appServerCalls, 0);

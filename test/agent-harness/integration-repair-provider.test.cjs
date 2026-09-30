@@ -2,7 +2,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('nod
 const {createIntegrationRepairPolicyProvider,deriveIntegrationRepairEditablePaths:derive}=require('../../dist/main/planExecution/integrationRepairPolicyProvider.js');
 const {workIntakeBranchName}=require('../../dist/main/workIntake/workIntakeBranchService.js');
 const {projectPlanExecution}=require('../../dist/main/planExecution/planExecutor.js');
-const {integrationPaths}=require('../../dist/main/agentHarness/repository/integrationGit.js');
+const {integrationPaths}=require('../../dist/main/repository/integrationGit.js');
 const {writeDoc}=require('../support/canonical-markdown-fixtures.cjs');
 
 test('real Integration Repair provider binds immutable policy changed paths ownership and governing bytes',async t=>{

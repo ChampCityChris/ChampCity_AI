@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import { parseCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
 import type { WorkIntakeRecord, WorkProjectIdentity } from "../../shared/workIntakeContracts";
-import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
+import { resolveRepositoryPath } from "../repository/pathPolicy";
 import { assertLegacyCanonicalReadAllowed } from "../documents/legacyCanonicalWriteFence";
 import { workIntakeBranchName } from "./workIntakeBranchService";
 

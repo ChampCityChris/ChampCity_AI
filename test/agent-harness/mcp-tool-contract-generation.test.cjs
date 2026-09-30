@@ -24,7 +24,7 @@ const {
   createRegisteredWorkspaceAccessProvider,
   resolveWorkspaceRootContext,
 } = require(path.join(root, "dist/main/agentHarness/workspace/workspaceAccess.js"));
-const { AgentHarnessError } = require(path.join(root, "dist/main/agentHarness/core/errors.js"));
+const { AgentHarnessError } = require(path.join(root, "dist/main/core/applicationErrors.js"));
 const { Client } = require("@modelcontextprotocol/sdk/client/index.js");
 const {
   StreamableHTTPClientTransport,

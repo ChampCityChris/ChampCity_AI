@@ -9,7 +9,7 @@ const {
   resolveWorkspaceRootContext: resolveSelectedProjectContext,
   createRegisteredWorkspaceAccessProvider,
 } = require("../../dist/main/agentHarness/workspace/workspaceAccess.js");
-const { AgentHarnessError } = require("../../dist/main/agentHarness/core/errors.js");
+const { AgentHarnessError } = require("../../dist/main/core/applicationErrors.js");
 
 function createSelectedProjectAccessProvider(options) {
   return createRegisteredWorkspaceAccessProvider({
@@ -39,20 +39,20 @@ const {
   readRepositoryTextLines,
   readRepositoryMarkdownSection,
   searchRepositoryFiles,
-} = require("../../dist/main/agentHarness/repository/repositoryOperations.js");
+} = require("../../dist/main/repository/repositoryOperations.js");
 const {
   applyApprovedPatch,
   registerPatchProposal,
-} = require("../../dist/main/agentHarness/repository/patches.js");
+} = require("../../dist/main/repository/patches.js");
 const {
   createAgentHarnessToolRegistry,
 } = require("../../dist/main/agentHarness/tools/toolRegistry.js");
 const {
   inspectControlledMarkdownDraft,
-} = require("../../dist/main/agentHarness/repository/controlledMarkdownDrafts.js");
+} = require("../../dist/main/repository/controlledMarkdownDrafts.js");
 const {
   readIssueScreenshotEvidence,
-} = require("../../dist/main/agentHarness/repository/issueScreenshotEvidence.js");
+} = require("../../dist/main/repository/issueScreenshotEvidence.js");
 const {
   parseCanonicalMarkdownDocument,
   serializeCanonicalMarkdownDocument,

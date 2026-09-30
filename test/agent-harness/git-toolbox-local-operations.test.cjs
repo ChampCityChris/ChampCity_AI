@@ -7,7 +7,7 @@ const test = require("node:test");
 const ts = require("typescript");
 
 const repositoryRoot = path.resolve(__dirname, "../..");
-const { AgentHarnessError } = require("../../dist/main/agentHarness/core/errors.js");
+const { AgentHarnessError } = require("../../dist/main/core/applicationErrors.js");
 const { createSourceControlService } = require("../../dist/main/sourceControl/sourceControlService.js");
 const {
   createWorkIntakeBranchService, workIntakeBranchName,
@@ -60,7 +60,7 @@ test("Git dispatch and mutation modules do not import workflow decision services
 
   for (const relativePath of [
     "src/main/agentHarness/tools/toolRegistry.ts",
-    "src/main/agentHarness/repository/gitMutations.ts",
+    "src/main/repository/gitMutations.ts",
     "src/main/sourceControl/sourceControlService.ts",
   ]) {
     const filePath = path.join(repositoryRoot, relativePath);

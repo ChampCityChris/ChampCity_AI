@@ -1,11 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
-import { AgentHarnessError } from "../core/errors";
+import { AgentHarnessError } from "../core/applicationErrors";
 import {
   assertSupportedImageBounds,
   inspectSupportedImageBytes,
   SupportedImageValidationError,
-} from "../../supportedImageValidation";
+} from "../supportedImageValidation";
 import { isPathInside, resolveRepositoryPath } from "./pathPolicy";
 
 const MAX_IMAGE_BYTES = 5_000_000;

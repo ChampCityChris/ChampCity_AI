@@ -7,7 +7,7 @@ const test = require("node:test");
 const ts = require("typescript");
 
 const repositoryRoot = path.resolve(__dirname, "../..");
-const { AgentHarnessError } = require("../../dist/main/agentHarness/core/errors.js");
+const { AgentHarnessError } = require("../../dist/main/core/applicationErrors.js");
 const { createSourceControlService } = require("../../dist/main/sourceControl/sourceControlService.js");
 const {
   createWorkIntakeBranchService, workIntakeBranchName,
@@ -138,7 +138,7 @@ test("delete_tag recovers after remote success followed by local deletion failur
   const { root, remote, registry, baseline, tagName } = createTagDeletionFixture();
   git(root, ["tag", tagName]);
   await requireSuccess(callGit(registry, root, "push_tag", { tagName }));
-  const boundedGit = require(path.join(repositoryRoot, "dist/main/agentHarness/repository/boundedGit.js"));
+  const boundedGit = require(path.join(repositoryRoot, "dist/main/core/gitExecution.js"));
   const realRun = boundedGit.runBoundedGit;
   const calls = [];
   const mocked = t.mock.method(boundedGit, "runBoundedGit", async (options) => {

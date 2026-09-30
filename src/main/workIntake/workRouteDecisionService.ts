@@ -4,7 +4,7 @@ import { metadataWithSubstantiveRevision, parseCanonicalMarkdownDocument, type C
 import type { SourceRevision } from "../../shared/documents/planningDocument";
 import { isWorkRouteId, type OperatorRouteDecision, type OperatorRouteSelection, type WorkRouteRerouteRecommendation, type WorkRouteSupersession } from "../../shared/workIntakeRoutingContracts";
 import type { WorkRouteDecisionEntry, WorkRouteDecisionInput, WorkRouteDecisionModel, WorkRouteRerouteInput } from "../../shared/workRouteDecisionContracts";
-import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
+import { resolveRepositoryPath } from "../repository/pathPolicy";
 import { writeCanonicalMarkdownDocuments, type WriteCanonicalMarkdownDocumentInput } from "../documents/canonicalMarkdownDocumentWriter";
 import { assertLegacyCanonicalReadAllowed } from "../documents/legacyCanonicalWriteFence";
 import { listPlanningDocuments } from "../documents/planningDocumentService";

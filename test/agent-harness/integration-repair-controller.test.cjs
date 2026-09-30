@@ -5,8 +5,8 @@ const path=require('node:path');
 const test=require('node:test');
 const {execFileSync}=require('node:child_process');
 const {createIntegrationRepairController}=require('../../dist/main/planExecution/integrationRepairService.js');
-const {integrationPaths}=require('../../dist/main/agentHarness/repository/integrationGit.js');
-const {integrationSourceDigest:digest}=require('../../dist/main/agentHarness/repository/integrationRepairGit.js');
+const {integrationPaths}=require('../../dist/main/repository/integrationGit.js');
+const {integrationSourceDigest:digest}=require('../../dist/main/repository/integrationRepairGit.js');
 const {writeDoc}=require('../support/canonical-markdown-fixtures.cjs');
 
 test('Integration candidate storage resolves a linked checkout to its exact Git common directory',async t=>{
