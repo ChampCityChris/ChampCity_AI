@@ -228,6 +228,7 @@
         "src/main/agentHarness/tools/toolRegistry.ts",
         "src/main/core/applicationErrors.ts",
         "src/main/core/gitExecution.ts",
+        "src/main/core/projectSourceOperationCoordinator.ts",
         "src/main/repository/**"
       ],
       "dependsOn": [
@@ -269,6 +270,10 @@
         {
           "behaviorId": "agent-harness-repository-listing-does-not-follow-out-of-root-symlink-directories",
           "description": "Agent Harness repository listing does not follow out-of-root symlink directories"
+        },
+        {
+          "behaviorId": "agent-harness-tool-dispatch-holds-application-source-operation-leases",
+          "description": "Agent Harness Project tool dispatch holds and releases shared application source-operation leases around repository and Git execution"
         },
         {
           "behaviorId": "artifact-toolbox-replace-markdown-body-preserves-drafttype-metadata-and-rejects-stale-or-unsafe",
@@ -1570,6 +1575,7 @@
       "description": "Landing entry classifies Existing Projects into source-neutral, managed-ready, conversion-required, or conversion-failed; warned conversion force-normalizes readable current source before Current Project registration, while Greenfield entry bootstraps managed Main/Dev before SPS registration.",
       "sourcePatterns": [
         "src/main/agentHarness/modelAccess/repositoryCheckoutAccessProjectionService.ts",
+        "src/main/core/projectSourceOperationCoordinator.ts",
         "src/main/main.ts",
         "src/main/migrations/legacyAuthorityInventory.ts",
         "src/main/migrations/legacyEquivalenceVerification.ts",
@@ -1615,12 +1621,20 @@
           "description": "Existing Project landing entry presents one bounded forced-conversion warning, preserves current source before normalizing arbitrary readable Git topology into one canonical Main/Dev baseline, registers SPS only after source success, reopens managed source idempotently, and keeps non-Git Projects Repository-neutral."
         },
         {
+          "behaviorId": "existing-project-conversion-uses-a-cross-process-machine-source-fence",
+          "description": "Existing Project conversion acquires a bounded exclusive application source-operation lease that drains shared model operations, blocks later operations, recovers stale ownership, and leaves unrelated Projects independent."
+        },
+        {
           "behaviorId": "greenfield-entry-registers-current-project-and-enters-project-intake-with-main-dev",
           "description": "Greenfield entry establishes a deterministic managed baseline before SPS identity, can finish an existing compatible baseline, and creates one idempotent Project Creation Workflow without creating Work Intake."
         },
         {
           "behaviorId": "non-source-current-project-hub-omits-source-control-and-fails-closed-on-source-graph",
           "description": "Non-source Current Project Hub omits Source Control and Source Graph fails before managed Dev resolution."
+        },
+        {
+          "behaviorId": "project-ui-entry-requires-canonical-admission-and-current-project-identity",
+          "description": "Landing and sidebar Open or Change Project actions share canonical Existing Project admission, Clear returns to selection, Workflow Hub requires Current Project identity, and Project Intake cannot rebind an arbitrary folder."
         }
       ]
     },
@@ -5305,8 +5319,8 @@
     {
       "testPath": "test/agent-harness/agent-harness-core.test.cjs",
       "currentTestCount": {
-        "value": 14,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 15,
+        "basis": "Fifteen focused Agent Harness core scenarios include shared application source-operation lease acquisition and release at tool dispatch."
       },
       "duration": {
         "kind": "measured",
@@ -5392,6 +5406,12 @@
           "capabilityId": "agent-harness-repository-operations",
           "behaviorId": "agent-harness-repository-listing-does-not-follow-out-of-root-symlink-directories",
           "proofLocator": "Agent Harness repository listing does not follow out-of-root symlink directories",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "agent-harness-repository-operations",
+          "behaviorId": "agent-harness-tool-dispatch-holds-application-source-operation-leases",
+          "proofLocator": "Agent Harness repository mutation plus Git inspection and mutation paths acquire and release a shared application source-operation lease against the Project root",
           "proofRole": "primary"
         },
         {
@@ -13498,8 +13518,8 @@
     {
       "testPath": "test/project-state/current-project-entry.test.cjs",
       "currentTestCount": {
-        "value": 13,
-        "basis": "Thirteen focused entry scenarios include the real renderer entry controller over constrained preload/main IPC, exact digest validation, warning/accept conversion before registration, retry, source-neutral, managed reopen without another warning, and Workflow Hub routing behavior."
+        "value": 19,
+        "basis": "Nineteen focused entry scenarios include canonical renderer admission, constrained preload/main IPC, machine-owned conversion fencing across processes, stale recovery, warning/accept conversion before registration, retry, source-neutral, managed reopen, Greenfield, and Workflow Hub identity routing."
       },
       "duration": {
         "kind": "measured",
@@ -13561,6 +13581,12 @@
         },
         {
           "capabilityId": "current-project-entry-runtime",
+          "behaviorId": "existing-project-conversion-uses-a-cross-process-machine-source-fence",
+          "proofLocator": "Shared operation A delays exclusive conversion, exclusive intent prevents later operation B, unrelated Project C remains usable, a detached child process participates through the same hashed namespace, and synthetic stale ownership is recovered",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "current-project-entry-runtime",
           "behaviorId": "greenfield-entry-registers-current-project-and-enters-project-intake-with-main-dev",
           "proofLocator": "Greenfield IPC registers Current Project and one optional Repository after managed Main/Dev bootstrap; Source Graph/revision detail and Work Intake projection use managed Dev plus Project SPS",
           "proofRole": "primary"
@@ -13569,6 +13595,12 @@
           "capabilityId": "current-project-entry-runtime",
           "behaviorId": "non-source-current-project-hub-omits-source-control-and-fails-closed-on-source-graph",
           "proofLocator": "Non-Git Existing Project IPC returns null repositoryId and only the registration marker; Source Graph rejects before managed Dev resolution",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "current-project-entry-runtime",
+          "behaviorId": "project-ui-entry-requires-canonical-admission-and-current-project-identity",
+          "proofLocator": "The shared renderer admission controller owns choose-inspect-decide-register ordering; sidebar delegates to it, Clear and Cancel return to landing, Hub activation rejects null Current Project, and Project Intake binds only the Current Project root",
           "proofRole": "primary"
         },
         {

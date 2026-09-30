@@ -139,7 +139,7 @@ import { FigmaAppStrip } from "./figma/FigmaAppStrip";
 import { FigmaBrowserPanel } from "./figma/FigmaBrowserPanel";
 import { FigmaSidebar, type FigmaThemeMode } from "./figma/FigmaSidebar";
 import { LandingWorkspace } from "./LandingWorkspace";
-import { acceptExistingProjectAdoption, openInspectedExistingProject } from "./existingProjectEntryController";
+import { acceptExistingProjectAdoption, admitExistingProject, openInspectedExistingProject } from "./existingProjectEntryController";
 import { WorkflowHubWorkspace } from "./WorkflowHubWorkspace";
 import { WorkflowInstanceWorkspace } from "./WorkflowInstanceWorkspace";
 import { WorkflowExecutionWorkspace } from "./WorkflowExecutionWorkspace";
@@ -1203,25 +1203,17 @@ export function App(): JSX.Element {
   const selectedDocumentHasLocalError =
     Boolean(selectedSummary?.readError);
   async function chooseWorkspace(): Promise<void> {
-    setIsChoosing(true);
-    setDocumentError("");
-    try {
-      await activateWorkspaceSelection(
-        await window.champcity.chooseWorkspaceFolder(),
-        "workflow-hub",
-      );
-    } catch (error) {
-      setDocumentError(error instanceof Error ? error.message : "Project could not be selected.");
-    } finally {
-      setIsChoosing(false);
-    }
+    await openExistingProject();
   }
 
   async function clearWorkspace(): Promise<void> {
     setWorkspace(await window.champcity.clearSelectedWorkspace());
     clearRepositoryDerivedState();
+    setCurrentProject(null);
+    setPendingExistingProjectPlan(null);
+    setPendingExistingProjectSelection(null);
     setProjectIntake((current) => ({ ...current, projectRepository: "" }));
-    setShellView("workflow-hub");
+    setShellView("landing");
     setActiveWorkflowId(null);
     setActiveWorkspaceId(workspaceDefinitions[0].id);
   }
@@ -1230,12 +1222,11 @@ export function App(): JSX.Element {
     setIsChoosingProjectRepository(true);
     setDocumentError("");
     try {
-      await activateWorkspaceSelection(
-        await window.champcity.chooseWorkspaceFolder(),
-        "workflow-hub",
-      );
+      if (!currentProject || !workspace.ok) throw new Error("Open a Current Project before binding its Repository.");
+      setProjectIntake((current) => ({ ...current, projectRepository: workspace.workspaceRoot }));
+      setFeedback("Project Repository is bound to the Current Project root.");
     } catch (error) {
-      setDocumentError(error instanceof Error ? error.message : "Project repository could not be selected.");
+      setDocumentError(error instanceof Error ? error.message : "Project Repository could not be bound.");
     } finally {
       setIsChoosingProjectRepository(false);
     }
@@ -2448,16 +2439,29 @@ export function App(): JSX.Element {
     }
   }
 
-  async function openExistingProjectFromLanding(): Promise<void> {
+  async function openExistingProject(): Promise<void> {
     setIsChoosing(true);
     setDocumentError("");
     setPendingExistingProjectPlan(null);
     setPendingExistingProjectSelection(null);
     try {
-      const selection = await window.champcity.chooseWorkspaceFolder();
-      if (!selection.ok) { setDocumentError(selection.reason); return; }
-      const plan = await window.champcity.inspectExistingProjectGitAdoption();
-      await continueExistingProjectEntry(selection, plan);
+      const result = await admitExistingProject(window.champcity);
+      if (result.kind === "selection-failed") { setDocumentError(result.reason); return; }
+      clearRepositoryDerivedState();
+      setCurrentProject(null);
+      setWorkspace(result.selection);
+      setShellView("landing");
+      if (result.kind === "conversion-failed") {
+        setDocumentError(result.reason);
+        setWorkspace(await window.champcity.clearSelectedWorkspace());
+        return;
+      }
+      if (result.kind === "consent-required") {
+        setPendingExistingProjectSelection(result.selection);
+        setPendingExistingProjectPlan(result.plan);
+        return;
+      }
+      await activateWorkspaceSelection(result.selection, "workflow-hub", result.project);
     } catch (error) {
       setDocumentError(error instanceof Error ? error.message : "Existing project could not be opened.");
     } finally {
@@ -2469,7 +2473,9 @@ export function App(): JSX.Element {
     const result = await openInspectedExistingProject(window.champcity, plan);
     if (result.kind === "conversion-failed") {
       setDocumentError(result.reason);
-      await window.champcity.clearSelectedWorkspace();
+      setWorkspace(await window.champcity.clearSelectedWorkspace());
+      setCurrentProject(null);
+      setShellView("landing");
       return;
     }
     if (result.kind === "consent-required") {
@@ -2499,7 +2505,9 @@ export function App(): JSX.Element {
           setPendingExistingProjectPlan(null);
           setPendingExistingProjectSelection(null);
           setDocumentError(refreshed.failureReason ?? message);
-          await window.champcity.clearSelectedWorkspace();
+          setWorkspace(await window.champcity.clearSelectedWorkspace());
+          setCurrentProject(null);
+          setShellView("landing");
         } else if (refreshed.state === "conversion-required") {
           setPendingExistingProjectPlan(refreshed);
           setDocumentError("Project source changed. Review the conversion warning before accepting again.");
@@ -2511,7 +2519,9 @@ export function App(): JSX.Element {
         setPendingExistingProjectPlan(null);
         setPendingExistingProjectSelection(null);
         setDocumentError(refreshed?.failureReason ?? message);
-        await window.champcity.clearSelectedWorkspace();
+        setWorkspace(await window.champcity.clearSelectedWorkspace());
+        setCurrentProject(null);
+        setShellView("landing");
       }
     } finally {
       setIsChoosing(false);
@@ -2522,7 +2532,10 @@ export function App(): JSX.Element {
     if (isChoosing) return;
     setPendingExistingProjectPlan(null);
     setPendingExistingProjectSelection(null);
-    await window.champcity.clearSelectedWorkspace();
+    setWorkspace(await window.champcity.clearSelectedWorkspace());
+    clearRepositoryDerivedState();
+    setCurrentProject(null);
+    setShellView("landing");
     setDocumentError("Conversion canceled. No conversion or Current Project registration was applied.");
   }
 
@@ -2556,6 +2569,7 @@ export function App(): JSX.Element {
       setDocumentError(selection.reason);
       return;
     }
+    if (!project) throw Error("A Current Project is required before opening a Project workspace.");
 
     clearRepositoryDerivedState();
     setCurrentProject(project);
@@ -4172,7 +4186,7 @@ export function App(): JSX.Element {
               migrationPlan={pendingExistingProjectPlan}
               onAcceptMigration={() => void acceptExistingProjectMigration()}
               onCancelMigration={() => void cancelExistingProjectMigration()}
-              onOpenExistingProject={() => void openExistingProjectFromLanding()}
+              onOpenExistingProject={() => void openExistingProject()}
               onStartNewProject={() => void startNewProjectFromLanding()}
             />
           ) : isWorkIntakeForeground && workIntakeProjection?.authority === "structured" ? (

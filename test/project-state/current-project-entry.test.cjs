@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { execFileSync } = require("node:child_process");
+const { execFileSync, spawn } = require("node:child_process");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -18,26 +18,36 @@ const {
   EXISTING_PROJECT_GIT_ADOPTION_JOURNAL,
   EXISTING_PROJECT_GIT_ADOPTION_RECEIPT,
 } = require("../../dist/main/sourceControl/existingProjectGitAdoptionService.js");
+const { reconcileProjectModelAccess } = require("../../dist/main/modelAccess/projectModelAccessCoordinator.js");
 const {
-  quiesceConventionalProjectModelAccess,
-  reconcileConventionalProjectModelAccess,
-  reconcileProjectModelAccess,
-} = require("../../dist/main/modelAccess/projectModelAccessCoordinator.js");
+  createProjectSourceOperationCoordinator,
+  projectSourceOperationLeaseDirectory,
+} = require("../../dist/main/core/projectSourceOperationCoordinator.js");
 const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
 const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
 const { createWorkflowApplicationService } = require("../../dist/main/workflow/workflowApplicationService.js");
 const { getStructuredWorkIntakeProjection } = require("../../dist/main/workIntake/structuredWorkIntakeService.js");
 const { getWorkIntakeProjection } = require("../../dist/main/workIntake/workIntakeService.js");
 const rendererLoader = require("../renderer/renderer-source-loader.cjs");
-const { acceptExistingProjectAdoption, openInspectedExistingProject } = rendererLoader
+const { acceptExistingProjectAdoption, admitExistingProject, openInspectedExistingProject } = rendererLoader
   .loadRendererSourceModule("src/renderer/app/existingProjectEntryController.ts");
 const rendererSource = fs.readFileSync(path.resolve(__dirname, "../../src/renderer/app/App.tsx"), "utf8");
 const entryControllerSource = fs.readFileSync(path.resolve(__dirname, "../../src/renderer/app/existingProjectEntryController.ts"), "utf8");
 const sourceProjectionContext = {
-  quiesceConventionalProjectModelAccess,
-  reconcileConventionalProjectModelAccess,
   reconcileProjectModelAccess,
+  projectSourceOperationCoordinator: {
+    acquireExclusive: async () => ({ release: async () => undefined }),
+  },
 };
+
+async function waitFor(predicate, message, timeoutMs = 2_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await predicate()) return;
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  assert.fail(message);
+}
 
 function root(context) {
   const selected = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-entry-"));
@@ -427,11 +437,13 @@ test("real controller path warns, converts, registers, enters the Hub contract, 
     applyExistingProjectGitAdoption: (...args) => { entryOrder.push("source-proof"); return applyExistingProjectGitAdoption(...args); },
     fs, path, MANAGED_PROJECT_SOURCE_PATHS, ...sourceProjectionContext,
   });
-  const adoption = await api.inspectExistingProjectGitAdoption();
+  const admitted = await admitExistingProject({ ...api, chooseWorkspaceFolder: async () => ({ ok: true, workspaceRoot: selected }) });
+  assert.equal(admitted.kind, "consent-required");
+  const adoption = admitted.plan;
   assert.equal(adoption.state, "conversion-required");
-  assert.deepEqual(await openInspectedExistingProject(api, adoption), { kind: "consent-required", plan: adoption });
+  assert.equal(admitted.selection.workspaceRoot, selected);
   const current = await acceptExistingProjectAdoption(api, adoption);
-  assert.ok(entryOrder.indexOf("workspace") < entryOrder.indexOf("source-proof"));
+  assert.ok(entryOrder.indexOf("source-proof") < entryOrder.indexOf("workspace"));
   assert.ok(entryOrder.indexOf("source-proof") < entryOrder.indexOf("sps"));
   assert.equal(current.projectId, selectedCurrentProjectId(selected));
   assert.equal(current.repositoryId, CURRENT_PROJECT_REPOSITORY_ID);
@@ -584,34 +596,112 @@ test("Greenfield bootstrap and Current Project registration complete before unav
   assert.deepEqual((await harness.listRepositoryCheckouts(workspaceId)).map(item => item.role).sort(), ["dev", "main"]);
 });
 
-test("a live conventional checkout lease blocks conversion before Source Control mutation and retry succeeds after release", async context => {
+test("machine-owned shared source lease blocks conversion before mutation and new work waits behind exclusive intent", async context => {
   const selected = root(context);
   initializeConventionalGit(selected);
-  const userData = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-harness-busy-quiesce-"));
+  const unrelated = root(context);
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-source-fence-conversion-"));
   context.after(() => fs.rmSync(userData, { recursive: true, force: true }));
-  const harness = new AgentHarnessService({ userDataRoot: userData });
-  harness.registerWorkspace = rootPath => harness.registerWorkspaceRoot(rootPath);
-  const registered = await harness.registerWorkspace(selected);
-  const conventional = (await harness.listRepositoryCheckouts(registered.workspace.workspaceId)).find(item => item.role === "conventional");
-  assert.ok(conventional);
-  const lease = await harness.workspaceRegistry.resolveRepositoryCheckoutContext(registered.workspace.workspaceId, conventional.repositoryCheckoutId);
-  harness.unregisterRepositoryCheckout = (workspaceId, checkoutId) => harness.workspaceRegistry.unregisterRepositoryCheckout(workspaceId, checkoutId, 10);
-  context.after(() => { lease.release(); return harness.stop().catch(() => undefined); });
+  const coordinator = createProjectSourceOperationCoordinator({ userDataRoot: userData, acquisitionTimeoutMs: 10_000, staleLeaseMs: 2_000 });
+  const activeModelOperation = await coordinator.acquireShared(selected, "model-operation-a");
+  const unavailable = { registerWorkspace: async () => { throw new Error("synthetic Agent Harness unavailable"); } };
   const { api } = mainPreloadHarness(["project:inspectExistingGitAdoption", "project:applyExistingGitAdoption"], {
     getRequiredWorkspaceRoot: () => selected,
-    getAgentHarnessServiceHostClient: () => harness,
+    getAgentHarnessServiceHostClient: () => unavailable,
     CURRENT_PROJECT_REPOSITORY_ID, inspectExistingProjectGitAdoption, applyExistingProjectGitAdoption,
-    fs, path, ...sourceProjectionContext,
+    fs, path, reconcileProjectModelAccess, projectSourceOperationCoordinator: coordinator,
   });
   const plan = await api.inspectExistingProjectGitAdoption();
-  await assert.rejects(api.applyExistingProjectGitAdoption(plan.planId), /checkout is busy; Git conversion was not started/);
+  let conversionCompleted = false;
+  const conversion = api.applyExistingProjectGitAdoption(plan.planId).then(result => { conversionCompleted = true; return result; });
+  const leaseRoot = projectSourceOperationLeaseDirectory(userData, selected);
+  await waitFor(() => fs.existsSync(path.join(leaseRoot, "exclusive-intent")), "exclusive intent was not established");
+  let modelOperationBStarted = false;
+  const modelOperationB = coordinator.acquireShared(selected, "model-operation-b").then(async lease => {
+    modelOperationBStarted = true;
+    await lease.release();
+  });
+  const unrelatedLease = await coordinator.acquireShared(unrelated, "unrelated-project-c");
+  await new Promise(resolve => setTimeout(resolve, 40));
+  assert.equal(modelOperationBStarted, false);
+  assert.equal(conversionCompleted, false);
   assert.equal(fs.existsSync(path.join(selected, ".git")), true);
   assert.equal(fs.existsSync(path.join(selected, ...EXISTING_PROJECT_GIT_ADOPTION_JOURNAL.split("/"))), false);
-  lease.release();
-  const retried = await api.applyExistingProjectGitAdoption(plan.planId);
-  assert.equal(retried.sourceApplied, true);
-  assert.equal(retried.sourcePlan.state, "managed-ready");
+  await unrelatedLease.release();
+  await activeModelOperation.release();
+  const converted = await conversion;
+  await modelOperationB;
+  assert.equal(converted.sourceApplied, true);
+  assert.equal(converted.sourcePlan.state, "managed-ready");
+  assert.equal(converted.modelAccess.state, "degraded");
   assert.equal(fs.existsSync(path.join(selected, ".git")), false);
+});
+
+test("source-operation fence coordinates across processes without persisting raw Project paths", async context => {
+  const selected = root(context);
+  const unrelated = root(context);
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-source-fence-process-"));
+  context.after(() => fs.rmSync(userData, { recursive: true, force: true }));
+  const modulePath = path.resolve(__dirname, "../../dist/main/core/projectSourceOperationCoordinator.js");
+  const childScript = `
+    const { createProjectSourceOperationCoordinator } = require(${JSON.stringify(modulePath)});
+    const coordinator = createProjectSourceOperationCoordinator({ userDataRoot: process.argv[1], acquisitionTimeoutMs: 10000, staleLeaseMs: 2000 });
+    coordinator.acquireShared(process.argv[2], "detached-service-host-operation").then(lease => {
+      process.stdout.write("acquired\\n");
+      process.stdin.once("data", async () => { await lease.release(); process.stdout.write("released\\n"); process.exit(0); });
+    }).catch(error => { process.stderr.write(String(error)); process.exit(1); });
+  `;
+  const child = spawn(process.execPath, ["-e", childScript, userData, selected], { stdio: ["pipe", "pipe", "pipe"] });
+  context.after(() => { if (child.exitCode === null) child.kill(); });
+  let stdout = "";
+  child.stdout.on("data", chunk => { stdout += chunk.toString(); });
+  let stderr = "";
+  child.stderr.on("data", chunk => { stderr += chunk.toString(); });
+  await waitFor(() => stdout.includes("acquired"), `child shared lease failed: ${stderr}`);
+
+  const coordinator = createProjectSourceOperationCoordinator({ userDataRoot: userData, acquisitionTimeoutMs: 10_000, staleLeaseMs: 2_000 });
+  let exclusiveAcquired = false;
+  const exclusivePromise = coordinator.acquireExclusive(selected, "desktop-source-transition").then(lease => {
+    exclusiveAcquired = true;
+    return lease;
+  });
+  const leaseRoot = projectSourceOperationLeaseDirectory(userData, selected);
+  await waitFor(() => fs.existsSync(path.join(leaseRoot, "exclusive-intent")), "cross-process exclusive intent was not visible");
+  let laterSharedAcquired = false;
+  const laterSharedPromise = coordinator.acquireShared(selected, "later-model-operation").then(async lease => {
+    laterSharedAcquired = true;
+    await lease.release();
+  });
+  const unrelatedLease = await coordinator.acquireShared(unrelated, "unrelated-project-operation");
+  await new Promise(resolve => setTimeout(resolve, 40));
+  assert.equal(exclusiveAcquired, false);
+  assert.equal(laterSharedAcquired, false);
+  await unrelatedLease.release();
+  child.stdin.write("release\n");
+  const exclusiveLease = await exclusivePromise;
+  assert.equal(laterSharedAcquired, false);
+  await exclusiveLease.release();
+  await laterSharedPromise;
+  await waitFor(() => child.exitCode !== null, `child did not exit: ${stderr}`);
+  assert.equal(child.exitCode, 0, stderr);
+  assert.equal(fs.readdirSync(leaseRoot, { recursive: true }).join("\n").includes(selected), false);
+});
+
+test("source-operation fence deterministically recovers synthetic stale ownership", async context => {
+  const selected = root(context);
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-source-fence-stale-"));
+  context.after(() => fs.rmSync(userData, { recursive: true, force: true }));
+  const leaseRoot = projectSourceOperationLeaseDirectory(userData, selected);
+  const staleIntent = path.join(leaseRoot, "exclusive-intent");
+  fs.mkdirSync(staleIntent, { recursive: true });
+  fs.writeFileSync(path.join(staleIntent, "owner.json"), JSON.stringify({
+    pid: 2147483647, token: "stale-owner", owner: "terminated-owner", heartbeatAt: Date.now(),
+  }));
+  const coordinator = createProjectSourceOperationCoordinator({ userDataRoot: userData, acquisitionTimeoutMs: 500, staleLeaseMs: 100 });
+  const lease = await coordinator.acquireShared(selected, "recovery-operation");
+  assert.equal(fs.existsSync(staleIntent), false);
+  assert.equal(JSON.stringify(fs.readdirSync(path.dirname(leaseRoot))).includes(selected), false);
+  await lease.release();
 });
 
 test("post-conversion projection outage stays degraded and later reconciliation does not rerun conversion", async context => {
@@ -654,27 +744,48 @@ test("post-conversion projection outage stays degraded and later reconciliation 
   assert.equal(conversionCalls, 1);
 });
 
-test("landing actions route New Project to Project Intake and Existing Project to the Hub", () => {
+test("all Project entry actions use canonical admission while Clear and Intake cannot bypass Current Project identity", () => {
   const start = rendererSource.slice(rendererSource.indexOf("async function startNewProjectFromLanding"),
     rendererSource.indexOf("async function activateWorkspaceSelection"));
-  const open = rendererSource.slice(rendererSource.indexOf("async function openExistingProjectFromLanding"),
+  const open = rendererSource.slice(rendererSource.indexOf("async function openExistingProject()"),
     rendererSource.indexOf("async function startNewProjectFromLanding"));
+  const sidebarOpen = rendererSource.slice(rendererSource.indexOf("async function chooseWorkspace()"),
+    rendererSource.indexOf("async function clearWorkspace()"));
+  const clear = rendererSource.slice(rendererSource.indexOf("async function clearWorkspace()"),
+    rendererSource.indexOf("async function chooseProjectRepository()"));
+  const intakeRepository = rendererSource.slice(rendererSource.indexOf("async function chooseProjectRepository()"),
+    rendererSource.indexOf("async function submitProjectIntake()"));
   assert.match(start, /registerCurrentProject\("greenfield"\)/);
   assert.match(start, /activateWorkspaceSelection\(selection, "project-intake-capture", project\)/);
   assert.doesNotMatch(start, /openWorkIntake/);
+  assert.match(sidebarOpen, /await openExistingProject\(\)/);
+  assert.match(rendererSource, /onChooseProject=\{chooseWorkspace\}/);
+  assert.match(open, /admitExistingProject\(window\.champcity\)/);
+  assert.match(open, /setShellView\("landing"\)/);
+  assert.doesNotMatch(open, /chooseWorkspaceFolder\(\)/);
+  assert.match(entryControllerSource, /chooseWorkspaceFolder\(\)/);
+  assert.match(entryControllerSource, /inspectExistingProjectGitAdoption\(\)/);
+  assert.ok(entryControllerSource.indexOf("chooseWorkspaceFolder()") < entryControllerSource.indexOf("inspectExistingProjectGitAdoption()"));
+  assert.match(clear, /setCurrentProject\(null\)/);
+  assert.match(clear, /setPendingExistingProjectPlan\(null\)/);
+  assert.match(clear, /setShellView\("landing"\)/);
+  assert.doesNotMatch(clear, /setShellView\("workflow-hub"\)/);
+  assert.doesNotMatch(intakeRepository, /chooseWorkspaceFolder|activateWorkspaceSelection/);
+  assert.match(intakeRepository, /projectRepository: workspace\.workspaceRoot/);
   const activate = rendererSource.slice(rendererSource.indexOf("async function activateWorkspaceSelection"), rendererSource.indexOf("function clearRepositoryDerivedState"));
+  assert.match(activate, /if \(!project\) throw Error\("A Current Project is required before opening a Project workspace\."\)/);
   assert.match(activate, /getWorkflow\(project\.projectCreationWorkflowId\)/);
   assert.match(activate, /setSelectedWorkflowId\(opened\.workflow\.workflowId\)/);
   assert.match(activate, /workflowType !== "project-creation"/);
   assert.match(rendererSource, /selectedWorkflowId === workflowInstance\.workflowId/);
-  assert.match(open, /inspectExistingProjectGitAdoption\(\)/);
-  assert.match(open, /openInspectedExistingProject\(window\.champcity, plan\)/);
   assert.match(entryControllerSource, /applyExistingProjectGitAdoption\(plan\.planId\)/);
   assert.match(entryControllerSource, /registerCurrentProject\("existing"\)/);
-  assert.match(open, /activateWorkspaceSelection\(selection, "workflow-hub", project\)/);
+  assert.match(open, /activateWorkspaceSelection\(result\.selection, "workflow-hub", result\.project\)/);
   const cancel = rendererSource.slice(rendererSource.indexOf("async function cancelExistingProjectMigration"),
     rendererSource.indexOf("async function startNewProjectFromLanding"));
   assert.match(cancel, /clearSelectedWorkspace\(\)/);
+  assert.match(cancel, /setCurrentProject\(null\)/);
+  assert.match(cancel, /setShellView\("landing"\)/);
   assert.doesNotMatch(cancel, /applyExistingProjectGitAdoption|registerCurrentProject/);
   assert.match(open, /Project source changed\. Review the conversion warning before accepting again\./);
 });

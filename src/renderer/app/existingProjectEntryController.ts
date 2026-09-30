@@ -1,12 +1,26 @@
 import type { ExistingProjectGitAdoptionPlan } from "../../shared/sourceControlContracts";
-import type { ChampCityApi, CurrentProjectRuntimeContext } from "../../shared/workspaceContracts";
+import type { ChampCityApi, CurrentProjectRuntimeContext, WorkspaceSelection } from "../../shared/workspaceContracts";
 
-type ExistingProjectEntryApi = Pick<ChampCityApi, "applyExistingProjectGitAdoption" | "registerCurrentProject">;
+type ExistingProjectEntryApi = Pick<ChampCityApi,
+  "applyExistingProjectGitAdoption" | "chooseWorkspaceFolder" | "inspectExistingProjectGitAdoption" | "registerCurrentProject">;
+type SelectedWorkspace = Extract<WorkspaceSelection, { ok: true }>;
 
 export type ExistingProjectEntryResult =
   | { kind: "ready"; project: CurrentProjectRuntimeContext }
   | { kind: "consent-required"; plan: ExistingProjectGitAdoptionPlan }
   | { kind: "conversion-failed"; reason: string };
+
+export type ExistingProjectAdmissionResult =
+  | { kind: "selection-failed"; reason: string }
+  | ({ selection: SelectedWorkspace } & ExistingProjectEntryResult);
+
+/** Every Open/Change Existing Project action enters through this chooser, inspection, and admission path. */
+export async function admitExistingProject(api: ExistingProjectEntryApi): Promise<ExistingProjectAdmissionResult> {
+  const selection = await api.chooseWorkspaceFolder();
+  if (!selection.ok) return { kind: "selection-failed", reason: selection.reason };
+  const plan = await api.inspectExistingProjectGitAdoption();
+  return { selection, ...await openInspectedExistingProject(api, plan) };
+}
 
 /** Product controller for an already-inspected selection; registration always follows successful source adoption. */
 export async function openInspectedExistingProject(api: ExistingProjectEntryApi,

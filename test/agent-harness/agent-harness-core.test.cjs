@@ -29,6 +29,9 @@ function createSelectedProjectAccessProvider(options) {
         availability: "available",
       }];
     },
+    ...(options.resolveRepositoryCheckoutContext
+      ? { resolveRepositoryCheckoutContext: options.resolveRepositoryCheckoutContext }
+      : {}),
   });
 }
 const {
@@ -372,6 +375,9 @@ test("Agent Harness public registry rejects foreign workspace IDs and unavailabl
   const { root, userDataRoot } = createWorkspace("FO76_Collector");
   const workspaceAccess = createSelectedProjectAccessProvider({
     getSelectedProjectRoot: () => root,
+    resolveRepositoryCheckoutContext: async () => {
+      throw new AgentHarnessError("GIT_CAPABILITY_UNAVAILABLE", "No Git RepositoryCheckout is registered.");
+    },
   });
   const registry = createAgentHarnessToolRegistry({ workspaceAccess, userDataRoot });
   const toolNames = registry.listTools().map((tool) => tool.name);
@@ -406,11 +412,57 @@ test("Agent Harness public registry rejects foreign workspace IDs and unavailabl
 
   const mutation = await registry.callTool({
     name: "git_toolbox",
-    arguments: { workspaceId: "fo76_collector", action: "commit", params: { message: "bounded test" } },
+    arguments: { workspaceId: "fo76_collector", action: "commit", params: {
+      repositoryCheckoutId: "unavailable-checkout", message: "bounded test",
+    } },
     scope: "files.write",
   });
   assert.equal(mutation.ok, false);
   assert.equal(mutation.error.code, "GIT_CAPABILITY_UNAVAILABLE");
+});
+
+test("Agent Harness tool dispatch holds and releases application source-operation leases", async () => {
+  const { root, userDataRoot } = createWorkspace("Source_Fenced_Project");
+  const workspaceAccess = createSelectedProjectAccessProvider({ getSelectedProjectRoot: () => root });
+  const events = [];
+  const sourceOperationCoordinator = {
+    async acquireShared(projectRoot, owner) {
+      events.push(["acquire", projectRoot, owner]);
+      return { async release() { events.push(["release", projectRoot, owner]); } };
+    },
+  };
+  const registry = createAgentHarnessToolRegistry({ workspaceAccess, userDataRoot, sourceOperationCoordinator });
+  const repoMutation = await registry.callTool({
+    name: "repo_toolbox",
+    arguments: { workspaceId: "source_fenced_project", action: "write_markdown_artifact", params: {
+      relativePath: "docs/fenced.md", content: "# Fenced\n",
+    } },
+    scope: "files.read files.write",
+  });
+  assert.equal(repoMutation.ok, true);
+  const gitInspection = await registry.callTool({
+    name: "git_toolbox",
+    arguments: { workspaceId: "source_fenced_project", action: "status", params: { repositoryCheckoutId: "missing-checkout" } },
+    scope: "files.read",
+  });
+  assert.equal(gitInspection.ok, false);
+  const gitMutation = await registry.callTool({
+    name: "git_toolbox",
+    arguments: { workspaceId: "source_fenced_project", action: "commit", params: {
+      repositoryCheckoutId: "missing-checkout", message: "must not run",
+    } },
+    scope: "files.write",
+  });
+  assert.equal(gitMutation.ok, false);
+  assert.deepEqual(events.map(event => [event[0], event[2]]), [
+    ["acquire", "repo_toolbox:write_markdown_artifact"],
+    ["release", "repo_toolbox:write_markdown_artifact"],
+    ["acquire", "git_toolbox:status"],
+    ["release", "git_toolbox:status"],
+    ["acquire", "git_toolbox:commit"],
+    ["release", "git_toolbox:commit"],
+  ]);
+  assert.ok(events.every(event => event[1] === root));
 });
 
 test("Agent Harness public registry exposes only action-scoped read contracts under files.read", () => {

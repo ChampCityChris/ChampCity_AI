@@ -58,11 +58,8 @@ import { establishManagedProjectSource, resolveManagedDevRepositoryCheckout } fr
 import { applyExistingProjectGitAdoption, inspectExistingProjectGitAdoption } from "./sourceControl/existingProjectGitAdoptionService";
 import { CURRENT_PROJECT_REPOSITORY_ID, registerCurrentProject, selectedCurrentProjectId } from "./projectState/currentProjectRegistrationService";
 import { MANAGED_PROJECT_SOURCE_PATHS } from "../shared/sourceLifecycleContracts";
-import {
-  quiesceConventionalProjectModelAccess,
-  reconcileConventionalProjectModelAccess,
-  reconcileProjectModelAccess,
-} from "./modelAccess/projectModelAccessCoordinator";
+import { reconcileProjectModelAccess } from "./modelAccess/projectModelAccessCoordinator";
+import { createProjectSourceOperationCoordinator } from "./core/projectSourceOperationCoordinator";
 import { selectedSourceGraphRepositoryId } from "./sourceControl/sourceGraphService";
 import { registerWorkflowApplicationIpc } from "./workflow/workflowApplicationIpc";
 import { registerFeaturePlanningIpc } from "./featurePlanning/featurePlanningIpc";
@@ -217,6 +214,7 @@ let desktopExclusionConfirmed = false;
 let desktopRuntimeReady = false;
 let pendingSecondInstanceActivation = false;
 const sessionActiveWorkspace = new SessionActiveWorkspaceSelection();
+const projectSourceOperationCoordinator = createProjectSourceOperationCoordinator({ userDataRoot: getUserDataRoot() });
 const githubProviderService = new GithubProviderService({ runtime: createGithubRuntimeOperations(getUserDataRoot()) });
 registerGithubProviderIpc(ipcMain, githubProviderService, getRequiredWorkspaceRoot);
 const selectedWorkspaceEvidenceNotifier = new SelectedWorkspaceEvidenceNotifier((notification) => {
@@ -364,19 +362,18 @@ ipcMain.handle("project:inspectExistingGitAdoption", async () =>
 ipcMain.handle("project:applyExistingGitAdoption", async (_event, planId: string) => {
   if (typeof planId !== "string" || !/^[a-f0-9]{64}$/.test(planId)) throw new Error("An exact Existing Project adoption plan is required.");
   const root = getRequiredWorkspaceRoot();
-  const initialModelAccess = await quiesceConventionalProjectModelAccess(root, getAgentHarnessServiceHostClient);
+  const sourceLease = await projectSourceOperationCoordinator.acquireExclusive(root, "existing-project-git-adoption");
   let result: Awaited<ReturnType<typeof applyExistingProjectGitAdoption>>;
   try {
     result = await applyExistingProjectGitAdoption({ projectRoot: root, repositoryId: CURRENT_PROJECT_REPOSITORY_ID, planId, consent: true });
-  } catch (error) {
-    if (fs.existsSync(path.join(root, ".git"))) {
-      await reconcileConventionalProjectModelAccess(root, getAgentHarnessServiceHostClient);
-    }
-    throw error;
+  } finally {
+    await sourceLease.release();
   }
-  const modelAccess = result.source
-    ? await reconcileProjectModelAccess(root, [result.source.mainCheckout, result.source.devCheckout], getAgentHarnessServiceHostClient)
-    : initialModelAccess;
+  const modelAccess = await reconcileProjectModelAccess(
+    root,
+    result.source ? [result.source.mainCheckout, result.source.devCheckout] : [],
+    getAgentHarnessServiceHostClient,
+  );
   return { sourcePlan: result.plan, sourceApplied: result.applied, modelAccess };
 });
 

@@ -1,6 +1,11 @@
 import { skipIsolatedOperationStep, beginIsolatedOperation, inspectIsolatedOperation, continueIsolatedOperation, abortIsolatedOperation, advanceIsolatedOperation, type IsolatedOperationKind } from "../../repository/isolatedGitOperations";
 import { discardManagedWorktree, createManagedWorktree, listManagedWorktrees, inspectManagedWorktree, removeManagedWorktree, type ManagedWorkspaceStore } from "../../repository/managedWorktrees";
 import { AgentHarnessError, toBoundedError } from "../../core/applicationErrors";
+import {
+  createProjectSourceOperationCoordinator,
+  type ProjectSourceOperationCoordinator,
+  type ProjectSourceOperationLease,
+} from "../../core/projectSourceOperationCoordinator";
 import { writeAttachedImage } from "../../repository/attachedImages";
 import { replaceControlledMarkdownBody } from "../../repository/controlledMarkdownDrafts";
 import { readIssueScreenshotEvidence } from "../../repository/issueScreenshotEvidence";
@@ -242,6 +247,7 @@ interface RegistryOptions {
   userDataRoot: string;
   runtimeDiagnostics?: () => Record<string, unknown>;
   releaseToolbox?: ReleaseToolbox;
+  sourceOperationCoordinator?: ProjectSourceOperationCoordinator;
 }
 
 const IMAGE_BEARING_DISPATCH_RESULT = Symbol("image-bearing-dispatch-result");
@@ -254,6 +260,8 @@ interface ImageBearingDispatchResult {
 
 export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentHarnessToolRegistry {
   const releaseToolbox = options.releaseToolbox ?? createReleaseToolbox();
+  const sourceOperationCoordinator = options.sourceOperationCoordinator ??
+    createProjectSourceOperationCoordinator({ userDataRoot: options.userDataRoot });
   const providers = createToolProviders(releaseToolbox);
   const providerByName = new Map(providers.map((provider) => [provider.name, provider]));
   return {
@@ -290,6 +298,8 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
           throw new AgentHarnessError("INVALID_INPUT", "workspaceId must be a bounded workspace identity.");
         }
         let context = await options.workspaceAccess.resolveWorkspaceContext(args.workspaceId);
+        const projectRoot = context.root;
+        let sourceOperationLease: ProjectSourceOperationLease | undefined;
         const checkoutBound = isCheckoutBoundAction(contract.kind);
         const suppliedParams = args.params && typeof args.params === "object" && !Array.isArray(args.params)
           ? args.params as Record<string, unknown> : {};
@@ -298,13 +308,14 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
         }
         const params = validateParams(args.params, contract);
         let releaseCheckout: (() => void) | undefined;
-        if (checkoutBound) {
-          const checkout = await options.workspaceAccess.resolveRepositoryCheckoutContext(args.workspaceId, params.repositoryCheckoutId);
-          context = { ...context, root: checkout.root, gitBacked: true, capabilities: { ...context.capabilities, gitInspection: true } };
-          releaseCheckout = checkout.release;
-        }
-        assertActionAccess(context, contract.kind);
         try {
+          sourceOperationLease = await sourceOperationCoordinator.acquireShared(projectRoot, `${provider.name}:${action}`);
+          if (checkoutBound) {
+            const checkout = await options.workspaceAccess.resolveRepositoryCheckoutContext(args.workspaceId, params.repositoryCheckoutId);
+            context = { ...context, root: checkout.root, gitBacked: true, capabilities: { ...context.capabilities, gitInspection: true } };
+            releaseCheckout = checkout.release;
+          }
+          assertActionAccess(context, contract.kind);
           const dispatchResult = await contract.dispatch({
             context,
             params,
@@ -325,6 +336,7 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
             payload: dispatchResult, attemptId, timestamp };
         } finally {
           releaseCheckout?.();
+          await sourceOperationLease?.release();
         }
       } catch (error) {
         return {
