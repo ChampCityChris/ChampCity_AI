@@ -91,13 +91,7 @@ export function resolveManagedWorkflowCheckoutPath(projectContainerRoot: string,
     checkoutRoot, projectRelativePath };
 }
 
-/** Deterministic opaque checkout identity for a Workflow's immutable source anchor. */
-export function workflowRepositoryCheckoutId(workflowId: string): string {
-  if (typeof workflowId !== "string" || !canonicalWorkflowId.test(workflowId)) {
-    throw new AgentHarnessError("INVALID_INPUT", "Workflow ID must be a canonical lowercase UUID.");
-  }
-  return `workflow-${workflowId}`;
-}
+export { workflowRepositoryCheckoutId } from "./repositoryCheckoutDescriptors";
 
 function canonicalRelativePath(value: unknown): value is string {
   if (typeof value !== "string" || value.length === 0 || value.includes("\\") || value.startsWith("/") || value.endsWith("/")) return false;

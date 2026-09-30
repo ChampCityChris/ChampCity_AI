@@ -30,7 +30,6 @@ export const agentHarnessServiceHostOperations = [
   "register-workspace",
   "unregister-workspace",
   "register-repository-checkout",
-  "list-repository-checkouts",
   "unregister-repository-checkout",
   "service-host-shutdown",
   "background-agent-user-exit",
@@ -76,7 +75,6 @@ export interface AgentHarnessServiceHostRequestPayloads {
   "register-workspace": { workspaceRoot: string };
   "unregister-workspace": { workspaceId: string };
   "register-repository-checkout": { workspaceId: string; checkout: RepositoryCheckout };
-  "list-repository-checkouts": { workspaceId: string };
   "unregister-repository-checkout": { workspaceId: string; repositoryCheckoutId: string };
   "service-host-shutdown": null;
   "background-agent-user-exit": null;
@@ -99,7 +97,6 @@ export interface AgentHarnessServiceHostResponsePayloads {
   };
   "unregister-workspace": AgentHarnessWorkspaceRegistrySnapshot;
   "register-repository-checkout": AgentHarnessRegisteredRepositoryCheckoutSummary;
-  "list-repository-checkouts": AgentHarnessRegisteredRepositoryCheckoutSummary[];
   "unregister-repository-checkout": AgentHarnessRegisteredRepositoryCheckoutSummary[];
   "service-host-shutdown": null;
   "background-agent-user-exit": null;
@@ -161,7 +158,6 @@ export function isAgentHarnessServiceHostRequest(value: unknown): value is Agent
       (value.operation !== "handshake" && typeof value.expectedInstanceId === "string" && value.expectedInstanceId.length > 0)) &&
     Object.prototype.hasOwnProperty.call(value, "payload") &&
     (value.operation !== "register-repository-checkout" || isSemanticCheckoutRequest(value.payload)) &&
-    (value.operation !== "list-repository-checkouts" || isBoundedWorkspaceIdentityPayload(value.payload)) &&
     (value.operation !== "unregister-repository-checkout" || (isRecord(value.payload) && typeof value.payload.workspaceId === "string" && typeof value.payload.repositoryCheckoutId === "string" && !hasHostPathFields(value.payload)));
 }
 
@@ -267,14 +263,6 @@ function isAgentHarnessServiceHostOperation(value: unknown): value is AgentHarne
 
 function isSemanticCheckoutRequest(value: unknown): boolean {
   return isRecord(value) && typeof value.workspaceId === "string" && isRecord(value.checkout) && !hasHostPathFields(value) && !hasHostPathFields(value.checkout);
-}
-
-function isBoundedWorkspaceIdentityPayload(value: unknown): boolean {
-  return isRecord(value) &&
-    typeof value.workspaceId === "string" &&
-    value.workspaceId.trim().length > 0 &&
-    value.workspaceId.length <= 160 &&
-    !hasHostPathFields(value);
 }
 
 function hasHostPathFields(value: object): boolean {

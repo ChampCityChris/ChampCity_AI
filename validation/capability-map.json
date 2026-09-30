@@ -1566,6 +1566,7 @@
       "capabilityId": "current-project-entry-runtime",
       "description": "Landing entry classifies Existing Projects into source-neutral, managed-ready, conversion-required, or conversion-failed; warned conversion force-normalizes readable current source before Current Project registration, while Greenfield entry bootstraps managed Main/Dev before SPS registration.",
       "sourcePatterns": [
+        "src/main/agentHarness/modelAccess/repositoryCheckoutAccessProjectionService.ts",
         "src/main/main.ts",
         "src/main/migrations/legacyAuthorityInventory.ts",
         "src/main/migrations/legacyEquivalenceVerification.ts",
@@ -1575,6 +1576,7 @@
         "src/main/sourceControl/existingProjectGitAdoptionService.ts",
         "src/main/sourceControl/managedProjectSourceService.ts",
         "src/main/sourceControl/projectSourceBootstrap.ts",
+        "src/main/sourceControl/repositoryCheckoutDescriptors.ts",
         "src/main/sourceControl/sourceControlService.ts",
         "src/main/sourceControl/sourceGraphService.ts",
         "src/main/workIntake/structuredWorkIntakeService.ts",
@@ -2612,12 +2614,13 @@
     },
     {
       "capabilityId": "managed-project-source-topology",
-      "description": "Existing Git Projects preserve current source, best-effort import readable history, force one canonical baseline, and materialize durable Repository metadata, exact Main/Dev checkouts, and Agent Harness registrations.",
+      "description": "Existing Git Projects preserve current source, best-effort import readable history, force one canonical baseline, and materialize durable Repository metadata plus deterministic exact Main/Dev checkout descriptors independently of model access.",
       "sourcePatterns": [
         "src/main/sourceControl/existingProjectGitAdoptionService.ts",
         "src/main/sourceControl/managedProjectSourceService.ts",
         "src/main/sourceControl/managedRepositoryIntegrationPolicy.ts",
         "src/main/sourceControl/projectSourceBootstrap.ts",
+        "src/main/sourceControl/repositoryCheckoutDescriptors.ts",
         "src/main/sourceControl/sourceControlService.ts"
       ],
       "dependsOn": [
@@ -2626,11 +2629,11 @@
       "behaviors": [
         {
           "behaviorId": "conventional-project-adoption-preserves-source-and-registers-durable-main-dev-checkouts",
-          "description": "Existing Git inspection reduces topology to conversion-required, source preservation precedes mutation, readable refs become bounded baseline ancestry, ordinary Git irregularities fall back rather than block, and successful application registers exact canonical Main and Dev checkouts."
+          "description": "Existing Git inspection reduces topology to conversion-required, source preservation precedes mutation, readable refs become bounded baseline ancestry, ordinary Git irregularities fall back rather than block, and successful application returns exact canonical Main and Dev descriptors without model-access dependencies."
         },
         {
           "behaviorId": "greenfield-source-bootstrap-establishes-deterministic-managed-main-dev-and-ignore-baseline",
-          "description": "Empty Project bootstrap creates a deterministic tracked ignore baseline and registers sibling Main/Dev checkouts."
+          "description": "Empty Project bootstrap creates a deterministic tracked ignore baseline and returns sibling Main/Dev descriptors without model-access dependencies."
         },
         {
           "behaviorId": "managed-repository-integration-policy-provisioning",
@@ -5153,9 +5156,9 @@
       "capabilityId": "workspace-registry",
       "description": "Registered workspace identity, repository binding, enumeration, and exact-root access.",
       "sourcePatterns": [
+        "src/main/agentHarness/modelAccess/repositoryCheckoutAccessProjectionService.ts",
         "src/main/agentHarness/workspace/**",
-        "src/main/documents/repositoryBinding.ts",
-        "src/main/sourceControl/repositoryCheckoutReconciliationService.ts"
+        "src/main/documents/repositoryBinding.ts"
       ],
       "dependsOn": [],
       "behaviors": [
@@ -7383,8 +7386,8 @@
     {
       "testPath": "test/agent-harness/registered-workspace-registry.test.cjs",
       "currentTestCount": {
-        "value": 14,
-        "basis": "Observed EPGA-R04-R01 normal-Windows focused run covering atomic reservation, retirement recovery, conventional provisioning, startup reconciliation, and preserved registry behavior."
+        "value": 15,
+        "basis": "EPGA-R04-R03 focused normal-Windows owner run adds downstream publish, public discovery, idempotence, revocation, and model-access outage isolation while preserving registry behavior."
       },
       "duration": {
         "kind": "measured",
@@ -18002,8 +18005,8 @@
     {
       "testPath": "test/source-control/managed-project-source.test.cjs",
       "currentTestCount": {
-        "value": 17,
-        "basis": "EPGA-R04-R01 focused normal-Windows proof adds pre-cutover checkout-retirement failure while preserving Repair02/03/04 adoption, rollback, and policy scenarios."
+        "value": 16,
+        "basis": "EPGA-R04-R03 focused normal-Windows proof removes model-access retirement/registration from Source Control, adds the import guard, and preserves source-only adoption, rollback, and policy scenarios."
       },
       "duration": {
         "kind": "measured",
@@ -18409,8 +18412,8 @@
     {
       "testPath": "test/source-control/workflow-source-materialization.test.cjs",
       "currentTestCount": {
-        "value": 3,
-        "basis": "Three focused synthetic Project State and real-Git tests cover exact baseline, supersession, concurrent checkouts, retries, path conflicts, and pre-mutation rejection."
+        "value": 6,
+        "basis": "EPGA-R04-R03 focused synthetic Project State and real-Git tests cover exact baseline, supersession, concurrent checkouts, ready validation, path conflicts, pre-mutation rejection, and post-materialization model-access outage isolation."
       },
       "duration": {
         "kind": "estimated",
@@ -19993,7 +19996,7 @@
       "testPath": "test/work-intake/greenfield-source-bootstrap.test.cjs",
       "currentTestCount": {
         "value": 1,
-        "basis": "WRB01-03 deterministic managed source baseline, tracked ignore behavior, descriptor registration, and idempotent reopen."
+        "basis": "EPGA-R04-R03 deterministic managed source baseline, tracked ignore behavior, descriptor return without Agent Harness, and idempotent reopen."
       },
       "duration": {
         "kind": "measured",

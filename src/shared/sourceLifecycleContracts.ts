@@ -80,6 +80,8 @@ export interface WorkSourceBinding {
 
 export interface ProjectSourceBootstrap {
   repositoryId: string;
+  mainCheckout: RepositoryCheckout;
+  devCheckout: RepositoryCheckout;
   initialRevision: SourceRevision;
   initialCommitDigest: string;
   stableLine: SourceLine;

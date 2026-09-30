@@ -58,6 +58,8 @@ import { establishManagedProjectSource, resolveManagedDevRepositoryCheckout } fr
 import { applyExistingProjectGitAdoption, inspectExistingProjectGitAdoption } from "./sourceControl/existingProjectGitAdoptionService";
 import { CURRENT_PROJECT_REPOSITORY_ID, registerCurrentProject, selectedCurrentProjectId } from "./projectState/currentProjectRegistrationService";
 import { MANAGED_PROJECT_SOURCE_PATHS } from "../shared/sourceLifecycleContracts";
+import { conventionalRepositoryCheckout } from "./sourceControl/repositoryCheckoutDescriptors";
+import { publishRepositoryCheckoutAccess, revokeRepositoryCheckoutAccess } from "./agentHarness/modelAccess/repositoryCheckoutAccessProjectionService";
 import { selectedSourceGraphRepositoryId } from "./sourceControl/sourceGraphService";
 import { registerWorkflowApplicationIpc } from "./workflow/workflowApplicationIpc";
 import { registerFeaturePlanningIpc } from "./featurePlanning/featurePlanningIpc";
@@ -361,15 +363,26 @@ ipcMain.handle("project:applyExistingGitAdoption", async (_event, planId: string
   const root = getRequiredWorkspaceRoot();
   const agentHarness = getAgentHarnessServiceHostClient();
   const workspace = await agentHarness.registerWorkspace(root);
-  const result = await applyExistingProjectGitAdoption({ projectRoot: root, repositoryId: CURRENT_PROJECT_REPOSITORY_ID,
-    workspaceId: workspace.workspace.workspaceId, planId, consent: true,
-    checkoutRegistration: {
-      registerRepositoryCheckout: (workspaceId: string, checkout: import("../shared/sourceLifecycleContracts").RepositoryCheckout) =>
-        agentHarness.registerRepositoryCheckout(workspaceId, checkout),
-      unregisterRepositoryCheckout: (workspaceId: string, repositoryCheckoutId: string) =>
-        agentHarness.unregisterRepositoryCheckout(workspaceId, repositoryCheckoutId),
-      listRepositoryCheckouts: (workspaceId: string) => agentHarness.listRepositoryCheckouts(workspaceId),
-    } });
+  const workspaceId = workspace.workspace.workspaceId;
+  const projection = {
+    registerRepositoryCheckout: (id: string, checkout: import("../shared/sourceLifecycleContracts").RepositoryCheckout) => agentHarness.registerRepositoryCheckout(id, checkout),
+    unregisterRepositoryCheckout: (id: string, checkoutId: string) => agentHarness.unregisterRepositoryCheckout(id, checkoutId),
+  };
+  const conventional = conventionalRepositoryCheckout(workspaceId);
+  await revokeRepositoryCheckoutAccess(workspaceId, [conventional], projection);
+  let result: Awaited<ReturnType<typeof applyExistingProjectGitAdoption>>;
+  try {
+    result = await applyExistingProjectGitAdoption({ projectRoot: root, repositoryId: CURRENT_PROJECT_REPOSITORY_ID, planId, consent: true });
+  } catch (error) {
+    if (fs.existsSync(path.join(root, ".git"))) {
+      try { await publishRepositoryCheckoutAccess(workspaceId, [conventional], projection); } catch { /* preserve source failure */ }
+    }
+    throw error;
+  }
+  if (result.source) {
+    try { await publishRepositoryCheckoutAccess(workspaceId, [result.source.mainCheckout, result.source.devCheckout], projection); }
+    catch { throw new Error("Existing Project source conversion completed, but Agent Harness model access could not be published."); }
+  }
   return result.plan;
 });
 
@@ -390,11 +403,11 @@ ipcMain.handle("project:registerCurrent", async (_event, mode: "existing" | "gre
     } else {
       assertGreenfieldProjectEntry(root);
       workspace = await agentHarness.registerWorkspace(root);
-      const checkoutRegistration = { workspaceId: workspace.workspace.workspaceId,
-        registerRepositoryCheckout: (workspaceId: string, checkout: import("../shared/sourceLifecycleContracts").RepositoryCheckout) =>
-          agentHarness.registerRepositoryCheckout(workspaceId, checkout) };
-      const result = await createSourceControlService({ repositoryId: CURRENT_PROJECT_REPOSITORY_ID, repositoryRoot: root, checkoutRegistration }).bootstrapProjectSource();
+      const result = await createSourceControlService({ repositoryId: CURRENT_PROJECT_REPOSITORY_ID, repositoryRoot: root }).bootstrapProjectSource();
       if (!result.ok) throw new Error(result.error.message);
+      await publishRepositoryCheckoutAccess(workspace.workspace.workspaceId, [result.result.mainCheckout, result.result.devCheckout], {
+        registerRepositoryCheckout: (workspaceId, checkout) => agentHarness.registerRepositoryCheckout(workspaceId, checkout),
+      });
       registration = await registerCurrentProject(root, mode, { ...(projectName === undefined ? {} : { projectName }), sourceRepositoryId: CURRENT_PROJECT_REPOSITORY_ID });
       projectCreation = await createWorkflowApplicationService().ensureProjectCreationWorkflow(root);
     }
@@ -405,10 +418,10 @@ ipcMain.handle("project:registerCurrent", async (_event, mode: "existing" | "gre
     workspace = await agentHarness.registerWorkspace(root);
     const hasSourceCandidate = adoption.state === "managed-ready";
     if (hasSourceCandidate) {
-      const checkoutRegistration = { registerRepositoryCheckout: (workspaceId: string, checkout: import("../shared/sourceLifecycleContracts").RepositoryCheckout) =>
-        agentHarness.registerRepositoryCheckout(workspaceId, checkout) };
-      await establishManagedProjectSource({ projectRoot: root, repositoryId: CURRENT_PROJECT_REPOSITORY_ID,
-        workspaceId: workspace.workspace.workspaceId, checkoutRegistration });
+      const source = await establishManagedProjectSource({ projectRoot: root, repositoryId: CURRENT_PROJECT_REPOSITORY_ID });
+      await publishRepositoryCheckoutAccess(workspace.workspace.workspaceId, [source.mainCheckout, source.devCheckout], {
+        registerRepositoryCheckout: (workspaceId, checkout) => agentHarness.registerRepositoryCheckout(workspaceId, checkout),
+      });
     }
     registration = await registerCurrentProject(root, mode, { ...(projectName === undefined ? {} : { projectName }),
       ...(hasSourceCandidate ? { sourceRepositoryId: CURRENT_PROJECT_REPOSITORY_ID } : {}) });
@@ -1056,12 +1069,13 @@ ipcMain.handle("codexImplementer:start", (_event, selection: CodexModelSelection
 });
 
 ipcMain.handle("codexImplementer:startWorkflowWorkItem", (_event, workflowId: string, workItemId: string, selection: CodexModelSelection): Promise<CodexImplementerExecutionModel> => {
-  codexImplementerExecutionService.configureSourceCheckoutRegistration(async (projectRoot, _projectId) => {
+  codexImplementerExecutionService.configureSourceCheckoutProjection(async (projectRoot, _projectId) => {
     const binding = requireBoundMcpWorkspace(projectRoot);
     const agentHarness = getAgentHarnessServiceHostClient();
     const registered = await agentHarness.registerWorkspace(projectRoot);
     if (registered.workspace.workspaceId !== binding.workspaceId) throw new Error("Selected Project and Agent Harness workspace identities do not match.");
-    return { registerRepositoryCheckout: (workspaceId, checkout) => agentHarness.registerRepositoryCheckout(workspaceId, checkout) };
+    return { workspaceId: binding.workspaceId,
+      projection: { registerRepositoryCheckout: (workspaceId, checkout) => agentHarness.registerRepositoryCheckout(workspaceId, checkout) } };
   });
   return codexImplementerExecutionService.start(getRequiredWorkspaceRoot(), { ownerKind: "workflow-work-item", workflowId, workItemId }, selection);
 });

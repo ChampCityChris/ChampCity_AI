@@ -273,13 +273,6 @@ export class AgentHarnessController {
     return result;
   }
 
-  async listRepositoryCheckouts(workspaceId: string): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary[]> {
-    await this.ensureWorker(false);
-    const result = await this.sendRequest("list-repository-checkouts", { workspaceId });
-    if (!isAgentHarnessRegisteredRepositoryCheckoutSummaryArray(result)) throw new AgentHarnessControllerError("AGENT_HARNESS_REGISTRY_RESPONSE_INVALID", "Worker returned invalid checkout summaries.");
-    return result;
-  }
-
   async unregisterRepositoryCheckout(workspaceId: string, repositoryCheckoutId: string): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary[]> {
     await this.ensureWorker(false);
     const result = await this.sendRequest("unregister-repository-checkout", { workspaceId, repositoryCheckoutId });

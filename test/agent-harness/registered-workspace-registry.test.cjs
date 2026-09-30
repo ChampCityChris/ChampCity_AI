@@ -12,6 +12,16 @@ const {
   getRegisteredWorkspaceRegistryPath,
   RegisteredWorkspaceRegistry,
 } = require("../../dist/main/agentHarness/workspace/registeredWorkspaceRegistry.js");
+const { bootstrapProjectSource } = require("../../dist/main/sourceControl/projectSourceBootstrap.js");
+const {
+  conventionalRepositoryCheckout,
+  managedRepositoryCheckouts,
+  workflowRepositoryCheckout,
+} = require("../../dist/main/sourceControl/repositoryCheckoutDescriptors.js");
+const {
+  publishRepositoryCheckoutAccess,
+  revokeRepositoryCheckoutAccess,
+} = require("../../dist/main/agentHarness/modelAccess/repositoryCheckoutAccessProjectionService.js");
 
 test("registered workspace registry durably stores two exact projects and re-registration is idempotent", async () => {
   const fixture = createFixture();
@@ -226,6 +236,53 @@ test("generic registration stays Git-neutral while production activation provisi
   assert.equal(stale.ok, false);
   assert.equal(stale.error.code, "GIT_CAPABILITY_UNAVAILABLE");
   assert.equal(stale.error.message.includes(project), false);
+});
+
+test("application projection publishes, discovers, revokes, and fails independently of managed Git", async context => {
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-model-access-projection-"));
+  context.after(() => fs.rmSync(container, { recursive: true, force: true }));
+  const project = path.join(container, "Projection Project");
+  fs.mkdirSync(project);
+  const source = await bootstrapProjectSource(project, "projection-repository");
+  const service = new AgentHarnessService({ userDataRoot: path.join(container, "user-data") });
+  const registered = await service.registerWorkspaceRoot(project);
+  const workspaceId = registered.workspace.workspaceId;
+  const projection = {
+    registerRepositoryCheckout: (id, checkout) => service.registerRepositoryCheckout(id, checkout),
+    unregisterRepositoryCheckout: (id, checkoutId) => service.unregisterRepositoryCheckout(id, checkoutId),
+  };
+  const expected = managedRepositoryCheckouts("projection-repository");
+  assert.deepEqual(source.mainCheckout, expected.mainCheckout);
+  assert.deepEqual(source.devCheckout, expected.devCheckout);
+  assert.deepEqual(conventionalRepositoryCheckout(workspaceId), conventionalRepositoryCheckout(workspaceId));
+  assert.deepEqual(workflowRepositoryCheckout("projection-repository", "11111111-1111-4111-8111-111111111111"),
+    workflowRepositoryCheckout("projection-repository", "11111111-1111-4111-8111-111111111111"));
+
+  await publishRepositoryCheckoutAccess(workspaceId, [source.mainCheckout, source.devCheckout], projection);
+  await publishRepositoryCheckoutAccess(workspaceId, [source.mainCheckout, source.devCheckout], projection);
+  const tools = service.toolRegistry();
+  const discovered = await tools.callTool({ name: "git_toolbox", scope: "files.read",
+    arguments: { workspaceId, action: "list_repository_checkouts" } });
+  assert.equal(discovered.ok, true);
+  assert.deepEqual(discovered.payload.map(item => item.role).sort(), ["dev", "main"]);
+
+  const mainRoot = path.join(project, "Main");
+  const devRoot = path.join(project, "Dev");
+  const before = [execFileSync("git", ["rev-parse", "HEAD"], { cwd: mainRoot, encoding: "utf8" }).trim(),
+    execFileSync("git", ["rev-parse", "HEAD"], { cwd: devRoot, encoding: "utf8" }).trim()];
+  await revokeRepositoryCheckoutAccess(workspaceId, [source.mainCheckout, source.devCheckout], projection);
+  const revoked = await tools.callTool({ name: "git_toolbox", scope: "files.read",
+    arguments: { workspaceId, action: "list_repository_checkouts" } });
+  assert.deepEqual(revoked.payload, []);
+  assert.deepEqual([execFileSync("git", ["rev-parse", "HEAD"], { cwd: mainRoot, encoding: "utf8" }).trim(),
+    execFileSync("git", ["rev-parse", "HEAD"], { cwd: devRoot, encoding: "utf8" }).trim()], before);
+
+  await assert.rejects(publishRepositoryCheckoutAccess(workspaceId, [source.mainCheckout], {
+    registerRepositoryCheckout: async () => { throw new Error("synthetic Agent Harness outage"); },
+  }), /synthetic Agent Harness outage/);
+  assert.deepEqual([execFileSync("git", ["rev-parse", "HEAD"], { cwd: mainRoot, encoding: "utf8" }).trim(),
+    execFileSync("git", ["rev-parse", "HEAD"], { cwd: devRoot, encoding: "utf8" }).trim()], before);
+  assert.equal(fs.existsSync(path.join(project, ".git")), false);
 });
 
 test("checkout retirement rejects new repository operations, drains an active lease, and leaves workspace reads available", async () => {

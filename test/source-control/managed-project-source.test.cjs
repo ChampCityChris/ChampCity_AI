@@ -40,31 +40,14 @@ function conventionalFixture(context, options = {}) {
   return fixture;
 }
 
-function registrationCollector() {
-  const checkouts = [];
-  return {
-    checkouts,
-    registration: {
-      registerRepositoryCheckout: async (workspaceId, checkout) => {
-        const result = { ...checkout, workspaceId };
-        checkouts.push(result);
-        return result;
-      },
-    },
-  };
-}
-
 async function applyPlan(root, repositoryId, plan) {
-  const collected = registrationCollector();
   const result = await applyExistingProjectGitAdoption({
     projectRoot: root,
     repositoryId,
-    workspaceId: `workspace-${repositoryId}`,
-    checkoutRegistration: collected.registration,
     planId: plan.planId,
     consent: true,
   });
-  return { result, checkouts: collected.checkouts };
+  return result;
 }
 
 function assertManaged(root) {
@@ -110,6 +93,17 @@ test("inspection exposes only source-neutral, conversion-required, managed-ready
   assert.equal((await inspectExistingProjectGitAdoption(root, "conversion-project")).state, "managed-ready");
 });
 
+test("Source Control modules do not import Agent Harness runtime, MCP runtime, or toolbox implementations", () => {
+  const sourceRoot = path.join(repositoryRoot, "src", "main", "sourceControl");
+  const files = fs.readdirSync(sourceRoot).filter(name => name.endsWith(".ts"));
+  const forbidden = /(?:agentHarness\/(?:runtime|tools)|mcpServer|mcpRuntime|toolRegistry|toolbox)/;
+  for (const name of files) {
+    const text = fs.readFileSync(path.join(sourceRoot, name), "utf8");
+    const imports = [...text.matchAll(/from\s+["']([^"']+)["']/g)].map(match => match[1]);
+    assert.deepEqual(imports.filter(specifier => forbidden.test(specifier)), [], name);
+  }
+});
+
 test("ChampCity-style dev repository with accumulated history normalizes and reopens idempotently", async context => {
   const { root } = conventionalFixture(context, { prefix: "forced-champcity-style-" });
   installCurrentValidationAuthority(root);
@@ -131,10 +125,10 @@ test("ChampCity-style dev repository with accumulated history normalizes and reo
   git(root, "branch", "--set-upstream-to=origin/dev", "dev");
   const plan = await inspectExistingProjectGitAdoption(root, "champcity-style");
   assert.equal(plan.state, "conversion-required");
-  const { result, checkouts } = await applyPlan(root, "champcity-style", plan);
+  const result = await applyPlan(root, "champcity-style", plan);
   const baseline = assertManaged(root);
   assert.equal(result.plan.state, "managed-ready");
-  assert.deepEqual(checkouts.map(item => item.role).sort(), ["dev", "main"]);
+  assert.deepEqual([result.source.mainCheckout.role, result.source.devCheckout.role].sort(), ["dev", "main"]);
   assert.equal(git(path.join(root, "Dev"), "merge-base", "--is-ancestor", oldDev, baseline), "");
   assert.match(git(path.join(root, "Dev"), "show-ref"), /refs\/heads\/historical\/release/);
   assert.equal(git(path.join(root, "Dev"), "rev-parse", "refs/remotes/origin/dev"), oldDev);
@@ -149,11 +143,10 @@ test("ChampCity-style dev repository with accumulated history normalizes and reo
   assert.deepEqual(resolved.checks.map(check => check.checkId), ["champcity-integration-gate"]);
   const reopenedPlan = await inspectExistingProjectGitAdoption(root, "champcity-style");
   assert.equal(reopenedPlan.state, "managed-ready");
-  const reopened = registrationCollector();
-  const source = await establishManagedProjectSource({ projectRoot: root, repositoryId: "champcity-style", workspaceId: "workspace-champcity-style",
-    checkoutRegistration: reopened.registration });
+  const source = await establishManagedProjectSource({ projectRoot: root, repositoryId: "champcity-style" });
   assert.equal(source.materialized, false);
-  assert.deepEqual(reopened.checkouts.map(item => item.repositoryCheckoutId).sort(), checkouts.map(item => item.repositoryCheckoutId).sort());
+  assert.deepEqual([source.mainCheckout.repositoryCheckoutId, source.devCheckout.repositoryCheckoutId].sort(),
+    [result.source.mainCheckout.repositoryCheckoutId, result.source.devCheckout.repositoryCheckoutId].sort());
 });
 
 test("managed policy provisioning ignores container state and incomplete validation authority falls back safely", async context => {
@@ -398,48 +391,6 @@ test("managed metadata cutover retries transient Windows sharing failures within
   assertManaged(root);
 });
 
-test("checkout retirement timeout fails before metadata cutover without redundant re-registration", async context => {
-  const { root } = conventionalFixture(context, { prefix: "forced-checkout-retirement-timeout-" });
-  const plan = await inspectExistingProjectGitAdoption(root, "retirement-timeout");
-  const conventional = {
-    repositoryCheckoutId: "conventional-timeout",
-    repositoryId: "application-owned-conventional",
-    sourceLineId: "conventional",
-    role: "conventional",
-    projectRelativePath: ".",
-    availability: "available",
-    validationError: null,
-  };
-  let registerCalls = 0;
-  await assert.rejects(applyExistingProjectGitAdoption({
-    projectRoot: root,
-    repositoryId: "retirement-timeout",
-    workspaceId: "workspace-retirement-timeout",
-    planId: plan.planId,
-    consent: true,
-    checkoutRegistration: {
-      listRepositoryCheckouts: async () => [conventional],
-      unregisterRepositoryCheckout: async () => {
-        const error = new Error("RepositoryCheckout did not drain within the bounded retirement deadline.");
-        error.code = "REPOSITORY_CHECKOUT_RETIRING";
-        throw error;
-      },
-      registerRepositoryCheckout: async (_workspaceId, checkout) => {
-        registerCalls += 1;
-        return { ...checkout, availability: "available", validationError: null };
-      },
-    },
-  }), /conventional checkout retirement failed/);
-  assert.equal(registerCalls, 0);
-  assert.equal(fs.existsSync(path.join(root, ".git")), true);
-  assert.equal(fs.existsSync(path.join(root, ".champcity", "repository.git")), false);
-  const journal = JSON.parse(fs.readFileSync(path.join(root, ...EXISTING_PROJECT_GIT_ADOPTION_JOURNAL.split("/")), "utf8"));
-  assert.equal(journal.stage, "failed");
-  assert.equal(journal.failurePhase, "conventional checkout retirement");
-  assert.equal(journal.originalRootGitAuthoritative, true);
-  assert.equal(journal.conventionalCheckoutRestored, null);
-});
-
 test("exhausted metadata relocation preserves the primary failure, root Git, and pre-existing metadata", async context => {
   const { root } = conventionalFixture(context, { prefix: "forced-metadata-failure-" });
   const metadata = path.join(root, ".champcity", "repository.git");
@@ -518,35 +469,4 @@ test("manifest materialization failure removes only its partial migration stagin
   assert.equal(reinspected.state, "conversion-required");
   assert.equal(reinspected.topology.recoveryStaging, false);
   assert.equal(reinspected.planId, inspected.planId);
-});
-
-test("failure after local-state relocation restores ignored state and original Project authority", async context => {
-  const { root } = conventionalFixture(context, { prefix: "forced-local-rollback-" });
-  fs.writeFileSync(path.join(root, ".gitignore"), "local-state/\n");
-  git(root, "add", ".gitignore");
-  git(root, "commit", "-m", "ignore local state");
-  fs.mkdirSync(path.join(root, "local-state"));
-  fs.writeFileSync(path.join(root, "local-state", "session.bin"), "recoverable local bytes\n");
-  fs.writeFileSync(path.join(root, "README.md"), "dirty source before failure\n");
-  const beforeHead = git(root, "rev-parse", "HEAD");
-  const inspected = await inspectExistingProjectGitAdoption(root, "local-rollback");
-  await assert.rejects(applyExistingProjectGitAdoption({
-    projectRoot: root,
-    repositoryId: "local-rollback",
-    workspaceId: "workspace-local-rollback",
-    checkoutRegistration: { registerRepositoryCheckout: async () => { throw new Error("synthetic registration failure"); } },
-    planId: inspected.planId,
-    consent: true,
-  }), /synthetic registration failure/);
-  assert.equal(git(root, "rev-parse", "HEAD"), beforeHead);
-  assert.equal(fs.readFileSync(path.join(root, "README.md"), "utf8"), "dirty source before failure\n");
-  assert.equal(fs.readFileSync(path.join(root, "local-state", "session.bin"), "utf8"), "recoverable local bytes\n");
-  assert.equal(fs.existsSync(path.join(root, ".git")), true);
-  assert.equal(fs.existsSync(path.join(root, "Main")), false);
-  assert.equal(fs.existsSync(path.join(root, "Dev")), false);
-  const journal = JSON.parse(fs.readFileSync(path.join(root, ".champcity", "migrations", "existing-project-git-adoption-v1.json"), "utf8"));
-  assert.equal(journal.stage, "failed");
-  assert.match(journal.failureReason, /synthetic registration failure/);
-  assert.equal(journal.failurePhase, "managed checkout registration");
-  assert.equal(journal.originalRootGitAuthoritative, true);
 });

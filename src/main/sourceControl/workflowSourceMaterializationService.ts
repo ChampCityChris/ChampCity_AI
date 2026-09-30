@@ -2,18 +2,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { createProjectStateService } from "../../shared/projectState/projectStateService";
 import type { ProjectStateRecord, ProjectStateRecord as StateRecord } from "../../shared/projectState/domainContracts";
-import type { AgentHarnessRegisteredRepositoryCheckoutSummary } from "../../shared/workspaceContracts";
 import { MANAGED_PROJECT_SOURCE_PATHS, type RepositoryCheckout } from "../../shared/sourceLifecycleContracts";
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
 import { createSourceControlService } from "./sourceControlService";
-import { resolveManagedProjectSourceTopology, resolveManagedWorkflowCheckoutPath, validateRepositoryCheckoutContract, workflowRepositoryCheckoutId } from "./projectSourceTopology";
-import { workflowSourceLineName } from "./workSourceNaming";
+import { resolveManagedProjectSourceTopology, resolveManagedWorkflowCheckoutPath, validateRepositoryCheckoutContract } from "./projectSourceTopology";
+import { workflowRepositoryCheckout } from "./repositoryCheckoutDescriptors";
 import { isGitWorkTree, runBoundedGit } from "../agentHarness/repository/boundedGit";
 import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
 
-export interface RepositoryCheckoutRegistrationPort {
-  registerRepositoryCheckout(workspaceId: string, checkout: RepositoryCheckout): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary>;
-}
 export interface WorkflowSourceMaterializationResult {
   binding: StateRecord<"SourceBinding">;
   checkout: RepositoryCheckout;
@@ -34,8 +30,6 @@ function revision(value: string): boolean { return /^[a-f0-9]{40,64}$/.test(valu
 export function createWorkflowSourceMaterializationService(options: {
   projectContainerRoot: string;
   projectId: string;
-  mcpWorkspaceId: string;
-  checkoutRegistration: RepositoryCheckoutRegistrationPort;
 }) {
   async function materialize(workflowId: string): Promise<WorkflowSourceMaterializationResult> {
     if (typeof workflowId !== "string" || !canonicalWorkflowId.test(workflowId)) fail("A canonical Workflow ID is required.");
@@ -76,9 +70,8 @@ export function createWorkflowSourceMaterializationService(options: {
       const commonDev = path.resolve(devRoot, (await runBoundedGit({ cwd: devRoot, args: ["rev-parse", "--git-common-dir"] })).stdout.trim());
 
       const anchorId = baseline.body.workflowId;
-      const sourceLineId = workflowSourceLineName(anchorId);
-      const checkout: RepositoryCheckout = { repositoryCheckoutId: workflowRepositoryCheckoutId(anchorId), repositoryId: baseline.body.repositoryId,
-        sourceLineId, role: "workflow", projectRelativePath: `${MANAGED_PROJECT_SOURCE_PATHS.workflowCheckoutRootRelativePath}/${anchorId}`, workflowId: anchorId };
+      const checkout = workflowRepositoryCheckout(baseline.body.repositoryId, anchorId);
+      const sourceLineId = checkout.sourceLineId;
       if (!validateRepositoryCheckoutContract(checkout).valid) fail("Generated RepositoryCheckout contract is invalid.");
       const ready = binding.body.preparationState === "ready";
       const expectedHead = ready ? binding.body.currentRevisionId : baseline.body.baseRevisionId;
@@ -157,10 +150,6 @@ export function createWorkflowSourceMaterializationService(options: {
         if (commonCheckout !== commonDev) fail("Workflow checkout belongs to another Git repository.", "REPOSITORY_CHECKOUT_MATERIALIZATION_FAILED");
         const dirty = (await runBoundedGit({ cwd: checkoutRoot, args: ["status", "--porcelain", "--untracked-files=all"] })).stdout;
         if (dirty) fail("Workflow checkout is not clean.", "REPOSITORY_CHECKOUT_MATERIALIZATION_FAILED");
-        let registered: AgentHarnessRegisteredRepositoryCheckoutSummary;
-        try { registered = await options.checkoutRegistration.registerRepositoryCheckout(options.mcpWorkspaceId, checkout); }
-        catch { fail("Agent Harness checkout registration failed.", "REPOSITORY_CHECKOUT_REGISTRATION_FAILED"); }
-        if (registered.repositoryCheckoutId !== checkout.repositoryCheckoutId || registered.repositoryId !== checkout.repositoryId || registered.sourceLineId !== checkout.sourceLineId || registered.role !== checkout.role || registered.projectRelativePath !== checkout.projectRelativePath || registered.workflowId !== checkout.workflowId || registered.availability !== "available" || registered.validationError !== null) fail("Agent Harness did not confirm the exact checkout registration.", "REPOSITORY_CHECKOUT_REGISTRATION_FAILED");
         if (ready) return { binding, checkout };
         const latest = await store.getEntity(options.projectId, binding.id) as Binding;
         binding = await state.updateSourceBinding(options.projectId, binding.id,

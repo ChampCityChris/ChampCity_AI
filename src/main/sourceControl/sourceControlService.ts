@@ -20,8 +20,7 @@ import type {
   SourceControlOperation, SourceControlPosition,
   SourceControlReceipt, SourceControlResult,
 } from "../../shared/sourceControlContracts";
-import type { CreateWorkSourceInput, ProjectSourceBootstrap, RepositoryCheckout, SourceGraphOptions, SourceRevisionSelector, WorkSourceBinding } from "../../shared/sourceLifecycleContracts";
-import type { AgentHarnessRegisteredRepositoryCheckoutSummary } from "../../shared/workspaceContracts";
+import type { CreateWorkSourceInput, ProjectSourceBootstrap, SourceGraphOptions, SourceRevisionSelector, WorkSourceBinding } from "../../shared/sourceLifecycleContracts";
 import { workflowSourceLineName } from "./workSourceNaming";
 import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
 import { bootstrapProjectSource as establishProjectSource } from "./projectSourceBootstrap";
@@ -29,7 +28,7 @@ import { getSourceGraph, getSourceGraphRevisionDetail } from "./sourceGraphServi
 
 /** Called by trusted main-process services with a selected repository, without MCP/model mediation. */
 export function createSourceControlService(binding: { repositoryId: string; repositoryRoot: string; projectContainerRoot?: string; managedWorkspaces?: ManagedWorkspaceStore;
-  checkoutRegistration?: { workspaceId: string; registerRepositoryCheckout(workspaceId: string, checkout: RepositoryCheckout): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary> } }) {
+}) {
   const repositoryId = binding.repositoryId;
   const root = path.resolve(binding.repositoryRoot);
   let repositoryVerification: Promise<void> | undefined;
@@ -121,7 +120,7 @@ export function createSourceControlService(binding: { repositoryId: string; repo
       const receipt: SourceControlReceipt = { repositoryId, operation: "bootstrap-project-source", startedAt: new Date().toISOString(),
         completedAt: "", before: null, after: null };
       try {
-        const result = await establishProjectSource(root, repositoryId, binding.checkoutRegistration);
+        const result = await establishProjectSource(root, repositoryId);
         // The selected Project container is intentionally non-Git; the source receipts
         // from this operation are represented by the returned Main/Dev baseline.
         receipt.after = null;

@@ -58,10 +58,10 @@ import { createWorkflowExecutionApplicationService } from "../workflow/workflowE
 import { acquireWorkflowExecutionLease, workflowExecutionLeaseKey } from "./workflowExecutionLease";
 import type { WorkItemExecutionContract } from "../../shared/workflowApplicationContracts";
 import { createWorkflowSourceMaterializationService } from "../sourceControl/workflowSourceMaterializationService";
+import { publishRepositoryCheckoutAccess, type RepositoryCheckoutAccessProjectionPort } from "../agentHarness/modelAccess/repositoryCheckoutAccessProjectionService";
 import { createImplementationCheckpoint } from "../sourceControl/semanticCheckpointService";
 import { resolveManagedProjectSourceTopology, resolveManagedWorkflowCheckoutPath } from "../sourceControl/projectSourceTopology";
 import { workflowSourceLineName } from "../sourceControl/workSourceNaming";
-import { requireBoundMcpWorkspace } from "../integrations/mcpWorkspacePromptContract";
 import { runBoundedGit } from "../agentHarness/repository/boundedGit";
 import { workflowRepositoryCheckoutId } from "../sourceControl/projectSourceTopology";
 
@@ -224,21 +224,21 @@ export class CodexImplementerExecutionService {
   private readonly exactSessionsByOwner = new Map<string, SessionRecord>();
   private readonly preflightByWorkspaceRoot = new Map<string, DevelopmentEnvironmentPreflightResult>();
   private shutdownPromise: Promise<void> | null = null;
-  private sourceCheckoutRegistration: ((projectRoot: string, projectId: string) => Promise<import("../sourceControl/workflowSourceMaterializationService").RepositoryCheckoutRegistrationPort>) | null = null;
+  private sourceCheckoutProjection: ((projectRoot: string, projectId: string) => Promise<{ workspaceId: string; projection: RepositoryCheckoutAccessProjectionPort }>) | null = null;
 
-  configureSourceCheckoutRegistration(factory: (projectRoot: string, projectId: string) => Promise<import("../sourceControl/workflowSourceMaterializationService").RepositoryCheckoutRegistrationPort>): void {
-    this.sourceCheckoutRegistration = factory;
+  configureSourceCheckoutProjection(factory: (projectRoot: string, projectId: string) => Promise<{ workspaceId: string; projection: RepositoryCheckoutAccessProjectionPort }>): void {
+    this.sourceCheckoutProjection = factory;
   }
 
   private workflowKernel(projectRoot?: string, projectId?: string) {
-    const materializeWorkflowSource = this.sourceCheckoutRegistration && projectRoot && projectId
+    const materializeWorkflowSource = this.sourceCheckoutProjection && projectRoot && projectId
       ? async (root: string, exactProjectId: string, workflowId: string) => {
           if (root !== projectRoot || exactProjectId !== projectId) throw Error("Selected Current Project changed during source preparation.");
-          const checkoutRegistration = await this.sourceCheckoutRegistration!(root, exactProjectId);
-          const mcpWorkspaceId = requireBoundMcpWorkspace(root).workspaceId;
-          const materializer = createWorkflowSourceMaterializationService({ projectContainerRoot: root, projectId: exactProjectId,
-            mcpWorkspaceId, checkoutRegistration });
-          return materializer.materialize(workflowId);
+          const materializer = createWorkflowSourceMaterializationService({ projectContainerRoot: root, projectId: exactProjectId });
+          const materialized = await materializer.materialize(workflowId);
+          const access = await this.sourceCheckoutProjection!(root, exactProjectId);
+          await publishRepositoryCheckoutAccess(access.workspaceId, [materialized.checkout], access.projection);
+          return materialized;
         }
       : undefined;
     return this.workflowExecutionServiceFactory({ ...(materializeWorkflowSource ? { materializeWorkflowSource } : {}) });

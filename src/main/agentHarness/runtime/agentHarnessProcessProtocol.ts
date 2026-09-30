@@ -29,7 +29,6 @@ export const agentHarnessControlOperations = [
   "register-workspace",
   "unregister-workspace",
   "register-repository-checkout",
-  "list-repository-checkouts",
   "unregister-repository-checkout",
   "shutdown",
 ] as const;
@@ -82,7 +81,6 @@ export interface AgentHarnessControlRequestPayloads {
   "register-workspace": { workspaceRoot: string };
   "unregister-workspace": { workspaceId: string };
   "register-repository-checkout": { workspaceId: string; checkout: RepositoryCheckout };
-  "list-repository-checkouts": { workspaceId: string };
   "unregister-repository-checkout": { workspaceId: string; repositoryCheckoutId: string };
   shutdown: null;
 }
@@ -103,7 +101,6 @@ export interface AgentHarnessControlResponsePayloads {
   "register-workspace": AgentHarnessWorkspaceRegistrationControlResult;
   "unregister-workspace": AgentHarnessWorkspaceRegistrySnapshot;
   "register-repository-checkout": AgentHarnessRegisteredRepositoryCheckoutSummary;
-  "list-repository-checkouts": AgentHarnessRegisteredRepositoryCheckoutSummary[];
   "unregister-repository-checkout": AgentHarnessRegisteredRepositoryCheckoutSummary[];
   shutdown: AgentHarnessStatus;
 }
@@ -162,7 +159,6 @@ export function isAgentHarnessControlRequest(value: unknown): value is AgentHarn
     isAgentHarnessControlOperation(value.operation) &&
     Object.prototype.hasOwnProperty.call(value, "payload") &&
     (value.operation !== "register-repository-checkout" || isSemanticCheckoutRequest(value.payload)) &&
-    (value.operation !== "list-repository-checkouts" || isBoundedWorkspaceIdentityPayload(value.payload)) &&
     (value.operation !== "unregister-repository-checkout" || (isRecord(value.payload) && typeof value.payload.workspaceId === "string" && typeof value.payload.repositoryCheckoutId === "string" && !hasHostPathFields(value.payload)));
 }
 
@@ -196,14 +192,6 @@ function isAgentHarnessControlOperation(value: unknown): value is AgentHarnessCo
 
 function isSemanticCheckoutRequest(value: unknown): boolean {
   return isRecord(value) && typeof value.workspaceId === "string" && typeof value.checkout === "object" && value.checkout !== null && !Array.isArray(value.checkout) && !hasHostPathFields(value) && !hasHostPathFields(value.checkout);
-}
-
-function isBoundedWorkspaceIdentityPayload(value: unknown): boolean {
-  return isRecord(value) &&
-    typeof value.workspaceId === "string" &&
-    value.workspaceId.trim().length > 0 &&
-    value.workspaceId.length <= 160 &&
-    !hasHostPathFields(value);
 }
 
 function hasHostPathFields(value: object): boolean {

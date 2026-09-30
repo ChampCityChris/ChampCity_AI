@@ -40,8 +40,7 @@ test("WIR route decisions do not checkpoint; implementation and disposition use 
   await state.createRelationship(project.id, wrong.id, "part_of", other.workflow.id);
   const baseline = await state.createWorkflowSourceBaseline(project.id, target.id, { repositoryId, integrationTargetSourceLineId: "dev", baseRevisionId: baseRevision });
   const successor = (await state.supersedeRecord(project.id, target.id, { ...target.body, title: "Feature successor" }, 1)).successor;
-  const materializer = createWorkflowSourceMaterializationService({ projectContainerRoot: root, projectId: project.id, mcpWorkspaceId: "project",
-    checkoutRegistration: { registerRepositoryCheckout: async (_id, checkout) => ({ ...checkout, availability: "available", validationError: null }) } });
+  const materializer = createWorkflowSourceMaterializationService({ projectContainerRoot: root, projectId: project.id });
   const materialized = await materializer.materialize(successor.id); store.close();
   assert.equal(materialized.binding.body.sourceBaselineId, baseline.id);
   const checkout = path.join(root, materialized.checkout.projectRelativePath);

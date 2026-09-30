@@ -731,7 +731,9 @@ test("healthy Service Host client routes exact registered Projects A and B indep
     assert.match(unbound.structuredContent.error.message, /workspace|project/i);
 
     await client.registerWorkspace(projectA);
-    const reconciledCheckouts = await client.listRepositoryCheckouts("project_a");
+    const discovery = await callTool(mcpClient, "git_toolbox", { workspaceId: "project_a", action: "list_repository_checkouts" });
+    assert.equal(discovery.structuredContent.ok, true);
+    const reconciledCheckouts = discovery.structuredContent.payload;
     assert.equal(reconciledCheckouts.length, 1);
     assert.equal(reconciledCheckouts[0].role, "conventional");
     assert.equal(reconciledCheckouts[0].projectRelativePath, ".");
@@ -740,10 +742,12 @@ test("healthy Service Host client routes exact registered Projects A and B indep
       await client.unregisterRepositoryCheckout("project_a", reconciledCheckouts[0].repositoryCheckoutId),
       [],
     );
-    assert.deepEqual(await client.listRepositoryCheckouts("project_a"), []);
+    const revoked = await callTool(mcpClient, "git_toolbox", { workspaceId: "project_a", action: "list_repository_checkouts" });
+    assert.deepEqual(revoked.structuredContent.payload, []);
     await client.registerWorkspace(projectA);
+    const reconciled = await callTool(mcpClient, "git_toolbox", { workspaceId: "project_a", action: "list_repository_checkouts" });
     assert.deepEqual(
-      (await client.listRepositoryCheckouts("project_a")).map((checkout) => checkout.repositoryCheckoutId),
+      reconciled.structuredContent.payload.map((checkout) => checkout.repositoryCheckoutId),
       [reconciledCheckouts[0].repositoryCheckoutId],
     );
     const exactA = await readWorkspace(mcpClient, "project_a");

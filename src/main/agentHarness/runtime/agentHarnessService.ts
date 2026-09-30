@@ -25,7 +25,7 @@ import {
 import { startAgentHarnessHttpRuntime, type AgentHarnessHttpRuntimeHandle } from "./httpRuntime";
 import { captureAgentHarnessPublicToolContract } from "./mcpServer";
 import { importLegacyOAuthClientRegistry, readOAuthStoreDiagnostics } from "./oauthStore";
-import { reconcileWorkspaceRepositoryCheckouts } from "../../sourceControl/repositoryCheckoutReconciliationService";
+import { reconcileWorkspaceRepositoryCheckouts } from "../modelAccess/repositoryCheckoutAccessProjectionService";
 
 export type AgentHarnessRuntimeState = "stopped" | "starting" | "running" | "stopping" | "failed";
 

@@ -7,6 +7,7 @@ const test = require("node:test");
 const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
 const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
 const { createWorkflowSourceMaterializationService } = require("../../dist/main/sourceControl/workflowSourceMaterializationService.js");
+const { publishRepositoryCheckoutAccess } = require("../../dist/main/agentHarness/modelAccess/repositoryCheckoutAccessProjectionService.js");
 const { registerCurrentProject, selectedCurrentProjectId } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
 const { bootstrapProjectSource } = require("../../dist/main/sourceControl/projectSourceBootstrap.js");
 
@@ -44,9 +45,8 @@ async function workflowWithBaseline(env, projectId, title, revision = env.r1) {
     sourceSeed: { repositoryId, integrationTargetSourceLineId: "dev", baseRevisionId: revision } });
   return { workflow: created.workflow, baseline: created.sourceBaseline, binding: created.sourceBinding };
 }
-function materializer(env, projectId, register = async (_workspaceId, checkout) => ({ ...checkout, availability: "available", validationError: null })) {
-  return createWorkflowSourceMaterializationService({ projectContainerRoot: env.root, projectId,
-    mcpWorkspaceId: "project-workspace", checkoutRegistration: { registerRepositoryCheckout: register } });
+function materializer(env, projectId) {
+  return createWorkflowSourceMaterializationService({ projectContainerRoot: env.root, projectId });
 }
 
 test("Workflow materialization preserves exact baseline across Dev advance, supersession, concurrent checkouts, and ready retries", async context => {
@@ -61,15 +61,7 @@ test("Workflow materialization preserves exact baseline across Dev advance, supe
   const createdSecond = await workflowWithBaseline(env, projectId, "Second", env.r1);
   env.store.close();
 
-  const registrations = new Map();
-  const register = async (workspaceId, checkout) => {
-    assert.equal(workspaceId, "project-workspace");
-    const prior = registrations.get(checkout.repositoryCheckoutId);
-    if (prior) assert.deepEqual(prior, checkout);
-    registrations.set(checkout.repositoryCheckoutId, checkout);
-    return { ...checkout, availability: "available", validationError: null };
-  };
-  const service = materializer(env, projectId, register);
+  const service = materializer(env, projectId);
   assert.equal(createdSecond.baseline.body.workflowId, createdSecond.workflow.id);
   assert.equal(createdSecond.binding.body.workflowId, createdSecond.workflow.id);
   assert.equal(createdSecond.binding.body.preparationState, "unprepared");
@@ -85,8 +77,6 @@ test("Workflow materialization preserves exact baseline across Dev advance, supe
   assert.equal(two.binding.body.sourceBaselineId, createdSecond.baseline.id);
   assert.equal(two.binding.body.preparationState, "ready");
   assert.equal(two.binding.body.workSourceLineId, `workflow/${createdSecond.workflow.id}`);
-  assert.equal(registrations.get(two.checkout.repositoryCheckoutId).workflowId, createdSecond.workflow.id);
-  assert.deepEqual(registrations.get(two.checkout.repositoryCheckoutId), two.checkout);
   assert.notEqual(one.binding.id, two.binding.id);
   assert.notEqual(one.checkout.projectRelativePath, two.checkout.projectRelativePath);
   assert.equal(git(env.dev, "rev-parse", "dev"), r2);
@@ -101,7 +91,6 @@ test("Workflow materialization preserves exact baseline across Dev advance, supe
   const retried = await service.materialize(successor.id);
   assert.equal(retried.binding.recordVersion, readyRevision);
   assert.equal(git(env.dev, "rev-parse", "dev"), r2);
-  assert.equal(registrations.size, 2);
 });
 
 test("ready binding with a missing checkout blocks without recreating it", async context => {
@@ -127,25 +116,40 @@ test("ready binding with a missing checkout blocks without recreating it", async
   } finally { verify.close(); }
 });
 
-test("ready semantic identity drift blocks before provider registration or source creation", async context => {
+test("model-access projection failure leaves a ready Workflow checkout and Git state intact", async context => {
+  const env = await setup(context);
+  const projectId = await structuredProject(env);
+  const { workflow } = await workflowWithBaseline(env, projectId, "Projection outage");
+  env.store.close();
+  const ready = await materializer(env, projectId).materialize(workflow.id);
+  const checkoutRoot = path.join(env.root, ready.checkout.projectRelativePath);
+  const before = git(checkoutRoot, "rev-parse", "HEAD");
+  await assert.rejects(publishRepositoryCheckoutAccess("project-workspace", [ready.checkout], {
+    registerRepositoryCheckout: async () => { throw new Error("synthetic model-access outage"); },
+  }), /synthetic model-access outage/);
+  assert.equal(git(checkoutRoot, "rev-parse", "HEAD"), before);
+  assert.equal(git(checkoutRoot, "branch", "--show-current"), ready.checkout.sourceLineId);
+  const verify = createSQLiteProjectStateStore(path.join(env.root, ".champcity", "project-state.sqlite"));
+  try {
+    const binding = await verify.getEntity(projectId, ready.binding.id);
+    assert.equal(binding.body.preparationState, "ready");
+    assert.equal(binding.body.repositoryCheckoutId, ready.checkout.repositoryCheckoutId);
+  } finally { verify.close(); }
+});
+
+test("ready semantic identity drift blocks before source creation", async context => {
   const env = await setup(context);
   const projectId = await structuredProject(env);
   const { workflow } = await workflowWithBaseline(env, projectId, "Semantic ready drift");
   env.store.close();
-  let registrationCount = 0;
-  const service = materializer(env, projectId, async (_id, checkout) => {
-    registrationCount++;
-    return { ...checkout, availability: "available", validationError: null };
-  });
+  const service = materializer(env, projectId);
   const ready = await service.materialize(workflow.id);
   const verify = createSQLiteProjectStateStore(path.join(env.root, ".champcity", "project-state.sqlite"));
   try {
     const state = createProjectStateService(verify, operator);
     const changed = await state.updateSourceBinding(projectId, ready.binding.id,
       { repositoryCheckoutId: `workflow-${workflow.id}-drift` }, ready.binding.recordVersion);
-    const registrationsBeforeRetry = registrationCount;
     await assert.rejects(service.materialize(workflow.id), /Ready SourceBinding identity conflicts/);
-    assert.equal(registrationCount, registrationsBeforeRetry);
     assert.equal(git(env.dev, "branch", "--format=%(refname:short)", "--list", "workflow/*"), `workflow/${workflow.id}`);
     assert.deepEqual(fs.readdirSync(path.join(env.root, ".champcity", "checkouts")), [workflow.id]);
     const binding = await verify.getEntity(projectId, ready.binding.id);
@@ -155,21 +159,7 @@ test("ready semantic identity drift blocks before provider registration or sourc
   } finally { verify.close(); }
 });
 
-test("blocked registration retry recovers exact branch and worktree; conflicting checkout path is preserved", async context => {
-  const env = await setup(context);
-  const projectId = await structuredProject(env);
-  const { workflow } = await workflowWithBaseline(env, projectId, "Recover");
-  env.store.close();
-  let registrationFails = true;
-  const service = materializer(env, projectId, async (_id, checkout) => {
-    if (registrationFails) throw Error("registration temporarily unavailable");
-    return { ...checkout, availability: "available", validationError: null };
-  });
-  await assert.rejects(service.materialize(workflow.id));
-  assert.equal(fs.existsSync(path.join(env.root, ".champcity", "checkouts", workflow.id)), true);
-  registrationFails = false;
-  assert.equal((await service.materialize(workflow.id)).binding.body.preparationState, "ready");
-
+test("conflicting checkout path is preserved and blocks materialization", async context => {
   const conflict = await setup(context);
   const conflictProjectId = await structuredProject(conflict);
   const conflicting = await workflowWithBaseline(conflict, conflictProjectId, "Conflict");

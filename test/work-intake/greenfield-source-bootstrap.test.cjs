@@ -21,16 +21,14 @@ function root(context) {
 }
 test("semantic greenfield bootstrap creates deterministic managed Main/Dev with tracked ignore baseline", async context => {
   const selected = root(context);
-  const registrationCalls = [];
-  const source = createSourceControlService({ repositoryId: "repository-greenfield", repositoryRoot: selected,
-    checkoutRegistration: { workspaceId: "project-workspace", registerRepositoryCheckout: async (_workspaceId, checkout) => {
-      registrationCalls.push(checkout); return { ...checkout, availability: "available", validationError: null };
-    } } });
+  const source = createSourceControlService({ repositoryId: "repository-greenfield", repositoryRoot: selected });
   const first = await source.bootstrapProjectSource();
   assert.equal(first.ok, true, JSON.stringify(first));
   const initial = first.result.initialRevision.revisionId;
   assert.equal(first.result.stableLine.headRevisionId, initial);
   assert.equal(first.result.integrationTarget.headRevisionId, initial);
+  assert.equal(first.result.mainCheckout.role, "main");
+  assert.equal(first.result.devCheckout.role, "dev");
   assert.equal(fs.existsSync(path.join(selected, ".git")), false);
   const main = path.join(selected, "Main");
   const dev = path.join(selected, "Dev");
@@ -55,8 +53,8 @@ test("semantic greenfield bootstrap creates deterministic managed Main/Dev with 
   assert.equal(git(dev, "rev-parse", "HEAD"), initial);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dev, ".champcity", "integration-policy.json"), "utf8")), managedPolicy,
     "managed reopen does not regenerate or overwrite repository policy");
-  assert.equal(registrationCalls.length, 4);
-  assert.deepEqual(registrationCalls.slice(0, 2).map(checkout => checkout.role), ["main", "dev"]);
+  assert.deepEqual(recovered.result.mainCheckout, first.result.mainCheckout);
+  assert.deepEqual(recovered.result.devCheckout, first.result.devCheckout);
   const another = root(context);
   const same = await createSourceControlService({ repositoryId: "repository-second", repositoryRoot: another }).bootstrapProjectSource();
   assert.equal(same.ok, true, JSON.stringify(same));

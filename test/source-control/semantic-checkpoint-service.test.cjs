@@ -34,8 +34,7 @@ async function fixture(context) {
   const implementation = await state.recordImplementation(project.id, work.id, { summary: "Implemented", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
   const decision = await state.recordDecision(project.id, work.id, { decisionType: "accept", outcome: "accepted", rationale: "Reviewed", decisionScope: "work-item" });
   store.close();
-  const materializer = createWorkflowSourceMaterializationService({ projectContainerRoot: root, projectId: project.id, mcpWorkspaceId: "project",
-    checkoutRegistration: { registerRepositoryCheckout: async (_id, checkout) => ({ ...checkout, availability: "available", validationError: null }) } });
+  const materializer = createWorkflowSourceMaterializationService({ projectContainerRoot: root, projectId: project.id });
   const materialized = await materializer.materialize(workflow.id);
   const checkout = path.join(root, materialized.checkout.projectRelativePath);
   return { root, dev, checkout, projectId: project.id, workflowId: workflow.id, checkoutId: materialized.checkout.repositoryCheckoutId,
@@ -159,8 +158,7 @@ test("independent Workflow checkouts use independent checkpoint exclusion keys",
   await state.createRelationship(f.projectId, work.id, "part_of", phase.id);
   const implementationRecord = await state.recordImplementation(f.projectId, work.id, { summary: "Implemented", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
   store.close();
-  const materializer = createWorkflowSourceMaterializationService({ projectContainerRoot: f.root, projectId: f.projectId, mcpWorkspaceId: "project",
-    checkoutRegistration: { registerRepositoryCheckout: async (_id, checkout) => ({ ...checkout, availability: "available", validationError: null }) } });
+  const materializer = createWorkflowSourceMaterializationService({ projectContainerRoot: f.root, projectId: f.projectId });
   const second = await materializer.materialize(workflow.id); assert.notEqual(second.binding.body.workflowId, f.workflowId);
   assert.notEqual(second.checkout.repositoryCheckoutId, f.checkoutId);
   const secondRoot = path.join(f.root, second.checkout.projectRelativePath);

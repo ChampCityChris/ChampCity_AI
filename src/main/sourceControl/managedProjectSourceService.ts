@@ -1,17 +1,10 @@
-import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { AgentHarnessError } from "../agentHarness/core/errors";
 import { runBoundedGit } from "../agentHarness/repository/boundedGit";
-import { MANAGED_PROJECT_SOURCE_PATHS, type RepositoryCheckout } from "../../shared/sourceLifecycleContracts";
-import type { AgentHarnessRegisteredRepositoryCheckoutSummary } from "../../shared/workspaceContracts";
+import type { RepositoryCheckout } from "../../shared/sourceLifecycleContracts";
 import { resolveManagedProjectSourceTopology, validateRepositoryCheckoutContract } from "./projectSourceTopology";
-
-export interface ManagedProjectCheckoutRegistration {
-  registerRepositoryCheckout(workspaceId: string, checkout: RepositoryCheckout): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary>;
-  unregisterRepositoryCheckout?(workspaceId: string, repositoryCheckoutId: string): Promise<unknown>;
-  listRepositoryCheckouts?(workspaceId: string): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary[]>;
-}
+import { managedRepositoryCheckouts } from "./repositoryCheckoutDescriptors";
 
 export interface ManagedProjectSourceResult {
   projectContainerRoot: string;
@@ -19,8 +12,8 @@ export interface ManagedProjectSourceResult {
   mainCheckoutRoot: string;
   devCheckoutRoot: string;
   repositoryId: string;
-  main: AgentHarnessRegisteredRepositoryCheckoutSummary;
-  dev: AgentHarnessRegisteredRepositoryCheckoutSummary;
+  mainCheckout: RepositoryCheckout;
+  devCheckout: RepositoryCheckout;
   materialized: boolean;
 }
 
@@ -31,10 +24,6 @@ async function git(cwd: string, args: string[], optional = false): Promise<strin
 
 function fail(code: "WORKSPACE_ACCESS_DENIED" | "STALE_SOURCE" | "WORKSPACE_REGISTRY_CONFLICT", message: string): never {
   throw new AgentHarnessError(code, message);
-}
-
-function checkoutId(role: "main" | "dev", repositoryId: string): string {
-  return `${role}-${createHash("sha256").update(repositoryId).digest("hex").slice(0, 32)}`;
 }
 
 async function verifyExactCheckout(root: string, role: "main" | "dev", metadataRoot: string): Promise<void> {
@@ -69,35 +58,24 @@ export async function resolveManagedDevRepositoryCheckout(projectRoot: string): 
   return topology.devCheckoutRoot;
 }
 
-async function registerCheckouts(input: {
-  root: string; repositoryId: string; workspaceId: string; registration: ManagedProjectCheckoutRegistration;
-}): Promise<ManagedProjectSourceResult> {
-  const topology = resolveManagedProjectSourceTopology(input.root);
-  const mainCheckout: RepositoryCheckout = { repositoryCheckoutId: checkoutId("main", input.repositoryId), repositoryId: input.repositoryId,
-    sourceLineId: "main", role: "main", projectRelativePath: MANAGED_PROJECT_SOURCE_PATHS.mainCheckoutRelativePath };
-  const devCheckout: RepositoryCheckout = { repositoryCheckoutId: checkoutId("dev", input.repositoryId), repositoryId: input.repositoryId,
-    sourceLineId: "dev", role: "dev", projectRelativePath: MANAGED_PROJECT_SOURCE_PATHS.devCheckoutRelativePath };
+function managedSourceResult(root: string, repositoryId: string): ManagedProjectSourceResult {
+  const topology = resolveManagedProjectSourceTopology(root);
+  const { mainCheckout, devCheckout } = managedRepositoryCheckouts(repositoryId);
   for (const descriptor of [mainCheckout, devCheckout]) {
     if (!validateRepositoryCheckoutContract(descriptor).valid) fail("WORKSPACE_REGISTRY_CONFLICT", "Managed checkout descriptor failed contract validation.");
   }
-  const [main, dev] = await Promise.all([
-    input.registration.registerRepositoryCheckout(input.workspaceId, mainCheckout),
-    input.registration.registerRepositoryCheckout(input.workspaceId, devCheckout),
-  ]);
   return { projectContainerRoot: topology.projectContainerRoot, repositoryMetadataRoot: topology.repositoryMetadataRoot,
-    mainCheckoutRoot: topology.mainCheckoutRoot, devCheckoutRoot: topology.devCheckoutRoot, repositoryId: input.repositoryId,
-    main, dev, materialized: false };
+    mainCheckoutRoot: topology.mainCheckoutRoot, devCheckoutRoot: topology.devCheckoutRoot, repositoryId,
+    mainCheckout, devCheckout, materialized: false };
 }
 
-/** Verifies and registers application-owned topology. Conventional Git conversion is owned by the adoption service. */
+/** Verifies application-owned topology and returns its deterministic checkout descriptors. */
 export async function establishManagedProjectSource(input: {
   projectRoot: string;
   repositoryId: string;
-  workspaceId: string;
-  checkoutRegistration: ManagedProjectCheckoutRegistration;
 }): Promise<ManagedProjectSourceResult> {
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(input.repositoryId) || !input.workspaceId.trim()) {
-    fail("WORKSPACE_REGISTRY_CONFLICT", "Exact bounded Repository and Project workspace identities are required.");
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(input.repositoryId)) {
+    fail("WORKSPACE_REGISTRY_CONFLICT", "An exact bounded Repository identity is required.");
   }
   const topology = resolveManagedProjectSourceTopology(input.projectRoot);
   if (fs.existsSync(path.join(topology.projectContainerRoot, ".git"))) {
@@ -109,6 +87,5 @@ export async function establishManagedProjectSource(input: {
   }
   await verifyExactCheckout(topology.mainCheckoutRoot, "main", topology.repositoryMetadataRoot);
   await verifyExactCheckout(topology.devCheckoutRoot, "dev", topology.repositoryMetadataRoot);
-  return registerCheckouts({ root: topology.projectContainerRoot, repositoryId: input.repositoryId,
-    workspaceId: input.workspaceId, registration: input.checkoutRegistration });
+  return managedSourceResult(topology.projectContainerRoot, input.repositoryId);
 }

@@ -91,7 +91,7 @@ test("worker and host protocol validators accept registered-workspace controls a
     "initialize", "status", "start", "stop", "restart", "heartbeat", "prepare-suspend",
     "resume-reconcile", "prepare-controlled-restart", "save-configuration",
     "import-legacy-oauth-clients", "list-registered-workspaces", "register-workspace",
-    "unregister-workspace", "register-repository-checkout", "list-repository-checkouts",
+    "unregister-workspace", "register-repository-checkout",
     "unregister-repository-checkout", "shutdown",
   ]);
   assert.deepEqual(host.agentHarnessServiceHostOperations, [
@@ -99,7 +99,7 @@ test("worker and host protocol validators accept registered-workspace controls a
     "agent-harness-stop", "agent-harness-restart", "agent-harness-save-configuration",
     "agent-harness-import-legacy-oauth-clients", "list-registered-workspaces",
     "register-workspace", "unregister-workspace", "register-repository-checkout",
-    "list-repository-checkouts", "unregister-repository-checkout", "service-host-shutdown",
+    "unregister-repository-checkout", "service-host-shutdown",
     "background-agent-user-exit", "service-host-controlled-restart",
   ]);
   for (const [validate, protocolVersion] of [
@@ -113,21 +113,7 @@ test("worker and host protocol validators accept registered-workspace controls a
       assert.equal(validate({ ...valid, requestId: "" }), false);
       assert.equal(validate({ ...valid, protocolVersion: -1 }), false);
     }
-    const listRequest = { ...request, operation: "list-repository-checkouts", payload: { workspaceId: "fixture_workspace" } };
-    assert.equal(validate(listRequest), true);
-    for (const payload of [
-      null,
-      [],
-      {},
-      { workspaceId: "" },
-      { workspaceId: "   " },
-      { workspaceId: "x".repeat(161) },
-      { workspaceId: "fixture_workspace", root: "C:\\fixture" },
-      { workspaceId: "fixture_workspace", workspaceRoot: "C:\\fixture" },
-      { workspaceId: "fixture_workspace", absolutePath: "C:\\fixture" },
-    ]) {
-      assert.equal(validate({ ...listRequest, payload }), false);
-    }
+    assert.equal(validate({ ...request, operation: "list-repository-checkouts", payload: { workspaceId: "fixture_workspace" } }), false);
     for (const operation of ["activate-workspace", "deactivate-workspace", "query-workspace-access", "confirm-workspace-access"]) {
       assert.equal(validate({ ...request, operation }), false);
     }

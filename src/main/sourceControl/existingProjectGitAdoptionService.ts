@@ -7,7 +7,6 @@ import type { ExistingProjectGitAdoptionPlan } from "../../shared/sourceControlC
 import { INTEGRATION_POLICY_PATH } from "../../shared/integrationPolicyContracts";
 import {
   establishManagedProjectSource,
-  type ManagedProjectCheckoutRegistration,
   type ManagedProjectSourceResult,
 } from "./managedProjectSourceService";
 import { writeManagedRepositoryIntegrationPolicy } from "./managedRepositoryIntegrationPolicy";
@@ -57,8 +56,8 @@ interface ConversionJournal {
   migrationId: string;
   repositoryId: string;
   planId: string;
-  stage: "source-preserved" | "candidate-prepared" | "checkout-retired" | "metadata-cutover" |
-    "root-git-relocated" | "worktrees-created" | "checkout-registration" | "verified" | "completed" | "failed";
+  stage: "source-preserved" | "candidate-prepared" | "metadata-cutover" |
+    "root-git-relocated" | "worktrees-created" | "verified" | "completed" | "failed";
   migrationRelativePath: string;
   sourceSnapshotRelativePath: string;
   baselineRevision: string | null;
@@ -69,7 +68,6 @@ interface ConversionJournal {
   originalRootGitAuthoritative: boolean;
   cleanupWarnings: string[];
   retainedRecoveryPaths: string[];
-  conventionalCheckoutRestored: boolean | null;
   completedAt: string | null;
 }
 
@@ -650,7 +648,7 @@ async function retainAttemptPath(source: string, destination: string): Promise<{
 }
 
 async function normalizeExistingProject(input: {
-  root: string; repositoryId: string; workspaceId: string; checkoutRegistration: ManagedProjectCheckoutRegistration; planId: string;
+  root: string; repositoryId: string; planId: string;
 }): Promise<ManagedProjectSourceResult> {
   const root = input.root;
   const appRoot = applicationRoot(root);
@@ -693,7 +691,7 @@ async function normalizeExistingProject(input: {
     sourceSnapshotRelativePath: path.relative(root, snapshot).replace(/\\/g, "/"),
     baselineRevision: null, importedRefCount: 0, baselineParentCount: 0, failureReason: null, failurePhase: null,
     originalRootGitAuthoritative: existsEntry(path.join(root, ".git")), cleanupWarnings: [], retainedRecoveryPaths: [],
-    conventionalCheckoutRestored: null, completedAt: null,
+    completedAt: null,
   };
   writeJsonAtomic(journalPath(root), journal);
 
@@ -713,8 +711,6 @@ async function normalizeExistingProject(input: {
   let finalMetadataInstalled = false;
   let mainCreated = false;
   let devCreated = false;
-  let conventionalCheckout: import("../../shared/sourceLifecycleContracts").RepositoryCheckout | null = null;
-  let conventionalCheckoutRetired = false;
   let relocatedLocalState: RelocatedLocalState[] = [];
   let phase = "candidate repository preparation";
   try {
@@ -726,20 +722,6 @@ async function normalizeExistingProject(input: {
     journal = { ...journal, stage: "candidate-prepared", baselineRevision: baseline.revision, importedRefCount,
       baselineParentCount: baseline.parentCount };
     writeJsonAtomic(journalPath(root), journal);
-
-    phase = "conventional checkout retirement";
-    if (input.checkoutRegistration.listRepositoryCheckouts && input.checkoutRegistration.unregisterRepositoryCheckout) {
-      const summaries = await input.checkoutRegistration.listRepositoryCheckouts(input.workspaceId);
-      const exposed = summaries.find(item => item.role === "conventional" && item.projectRelativePath === ".");
-      if (exposed) {
-        conventionalCheckout = { repositoryCheckoutId: exposed.repositoryCheckoutId, repositoryId: exposed.repositoryId,
-          sourceLineId: exposed.sourceLineId, role: exposed.role, projectRelativePath: exposed.projectRelativePath };
-        await input.checkoutRegistration.unregisterRepositoryCheckout(input.workspaceId, exposed.repositoryCheckoutId);
-        conventionalCheckoutRetired = true;
-        journal = { ...journal, stage: "checkout-retired" };
-        writeJsonAtomic(journalPath(root), journal);
-      }
-    }
 
     phase = "managed metadata cutover";
     if (existsEntry(metadata)) {
@@ -796,11 +778,10 @@ async function normalizeExistingProject(input: {
       if ([".git", ".champcity", "Main", "Dev"].includes(name)) continue;
       removeEntryNonFollowing(path.join(root, name));
     }
-    phase = "managed checkout registration";
-    journal = { ...journal, stage: "checkout-registration" };
+    phase = "managed source verification";
+    journal = { ...journal, stage: "verified" };
     writeJsonAtomic(journalPath(root), journal);
-    const registered = await establishManagedProjectSource({ projectRoot: root, repositoryId: input.repositoryId,
-      workspaceId: input.workspaceId, checkoutRegistration: input.checkoutRegistration });
+    const registered = await establishManagedProjectSource({ projectRoot: root, repositoryId: input.repositoryId });
     journal = { ...journal, stage: "completed", completedAt: new Date().toISOString() };
     writeJsonAtomic(journalPath(root), journal);
     writeJsonAtomic(receiptPath(root), journal);
@@ -813,14 +794,6 @@ async function normalizeExistingProject(input: {
     try { restoreRelocatedLocalState(relocatedLocalState); relocatedLocalState = []; }
     catch (restoreError) { warn("local-state restore", restoreError instanceof Error ? restoreError.message : String(restoreError)); }
 
-    if (input.checkoutRegistration.listRepositoryCheckouts && input.checkoutRegistration.unregisterRepositoryCheckout) {
-      try {
-        const registered = await input.checkoutRegistration.listRepositoryCheckouts(input.workspaceId);
-        for (const item of registered.filter(value => value.role === "main" || value.role === "dev")) {
-          await input.checkoutRegistration.unregisterRepositoryCheckout(input.workspaceId, item.repositoryCheckoutId);
-        }
-      } catch (cleanupError) { warn("managed checkout unregister", cleanupError instanceof Error ? cleanupError.message : String(cleanupError)); }
-    }
     for (const [created, checkout, recoveryName] of [[devCreated, dev, "failed-managed-Dev"], [mainCreated, main, "failed-managed-Main"]] as const) {
       if (!created || !existsEntry(checkout)) continue;
       const retained = path.join(migrationRoot, recoveryName);
@@ -854,14 +827,8 @@ async function normalizeExistingProject(input: {
     try { copySourceContents(snapshot, root, true); }
     catch (restoreError) { warn("source restore", restoreError instanceof Error ? restoreError.message : String(restoreError)); }
 
-    let conventionalCheckoutRestored: boolean | null = conventionalCheckoutRetired ? false : null;
-    if (conventionalCheckoutRetired && conventionalCheckout && existsEntry(path.join(root, ".git"))) {
-      try { await input.checkoutRegistration.registerRepositoryCheckout(input.workspaceId, conventionalCheckout); conventionalCheckoutRestored = true; }
-      catch (restoreError) { warn("conventional checkout restore", restoreError instanceof Error ? restoreError.message : String(restoreError)); }
-    }
     journal = { ...journal, stage: "failed", failureReason: primaryReason, failurePhase: phase,
-      originalRootGitAuthoritative: existsEntry(path.join(root, ".git")), cleanupWarnings, retainedRecoveryPaths,
-      conventionalCheckoutRestored };
+      originalRootGitAuthoritative: existsEntry(path.join(root, ".git")), cleanupWarnings, retainedRecoveryPaths };
     try { writeJsonAtomic(journalPath(root), journal); }
     catch (journalError) { cleanupWarnings.push(`failed journal write: ${journalError instanceof Error ? journalError.message : String(journalError)}`.slice(0, 500)); }
     const summary = cleanupWarnings.length ? ` Cleanup warnings: ${cleanupWarnings.join(" | ")}` : "";
@@ -873,8 +840,6 @@ async function normalizeExistingProject(input: {
 export async function applyExistingProjectGitAdoption(input: {
   projectRoot: string;
   repositoryId: string;
-  workspaceId: string;
-  checkoutRegistration: ManagedProjectCheckoutRegistration;
   planId: string;
   consent: boolean;
 }): Promise<ExistingProjectGitAdoptionApplyResult> {
@@ -884,12 +849,10 @@ export async function applyExistingProjectGitAdoption(input: {
   if (inspected.state === "conversion-failed") fail(inspected.failureReason ?? "Existing Project source cannot be safely converted.");
   if (inspected.state === "source-neutral") return { plan: inspected, source: null, applied: false };
   if (inspected.state === "managed-ready") {
-    const source = await establishManagedProjectSource({ projectRoot: root, repositoryId: input.repositoryId,
-      workspaceId: input.workspaceId, checkoutRegistration: input.checkoutRegistration });
+    const source = await establishManagedProjectSource({ projectRoot: root, repositoryId: input.repositoryId });
     return { plan: inspected, source, applied: false };
   }
   if (!input.consent) fail("Existing Project conversion requires explicit consent.");
-  const source = await normalizeExistingProject({ root, repositoryId: input.repositoryId, workspaceId: input.workspaceId,
-    checkoutRegistration: input.checkoutRegistration, planId: input.planId });
+  const source = await normalizeExistingProject({ root, repositoryId: input.repositoryId, planId: input.planId });
   return { plan: await inspectExistingProjectGitAdoption(root, input.repositoryId), source, applied: true };
 }

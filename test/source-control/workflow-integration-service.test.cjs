@@ -62,8 +62,7 @@ async function qualifyExactWorkflowIntegration(context, workflowType) {
   const baseline = await state.createWorkflowSourceBaseline(projectId, created.workflow.id,
     { repositoryId: CURRENT_PROJECT_REPOSITORY_ID, integrationTargetSourceLineId: "dev", baseRevisionId: git(dev, "rev-parse", "dev") });
   store.close();
-  const materializer = createWorkflowSourceMaterializationService({ projectContainerRoot: root, projectId, mcpWorkspaceId: "fixture",
-    checkoutRegistration: { registerRepositoryCheckout: async (_id, checkout) => ({ ...checkout, availability: "available", validationError: null }) } });
+  const materializer = createWorkflowSourceMaterializationService({ projectContainerRoot: root, projectId });
   const materialized = await materializer.materialize(created.workflow.id);
   const checkout = path.join(root, materialized.checkout.projectRelativePath);
   const kernel = createWorkflowExecutionApplicationService();
