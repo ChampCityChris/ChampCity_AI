@@ -192,11 +192,7 @@ export function createStructuredWorkRoutingService(dependencies: {
     const context = await exactContext(store, projectId, intakeId, routingWorkflowId);
     const currentAssessment = context.latestAssessment;
     const assessmentSource = currentAssessment ? assessmentVersionAndDev(currentAssessment) : null;
-    let assessmentStale = context.assessmentStale;
-    if (assessmentSource?.devRevision) {
-      try { assessmentStale ||= await readDevRevision(root) !== assessmentSource.devRevision; }
-      catch { assessmentStale = true; }
-    }
+    const assessmentStale = context.assessmentStale;
     let assessment: StructuredWorkRoutingAssessment | null = null;
     if (currentAssessment) {
       if (!isWIRRoute(currentAssessment.body.recommendation) || currentAssessment.body.alternate !== undefined && !isWIRRoute(currentAssessment.body.alternate))
@@ -294,11 +290,6 @@ export function createStructuredWorkRoutingService(dependencies: {
       const rationale = input.rationale?.trim() || "Operator accepted Architect recommendation.";
       if (context.currentReview?.body.outcome === "revision_requested") throw Error("Prepare and review the requested revised assessment before selecting a route.");
       if (!context.latestAssessment || context.latestAssessment.id !== input.assessmentId || context.assessmentStale) throw Error("Presented RouteAssessment is stale or unavailable.");
-      const assessmentSource = assessmentVersionAndDev(context.latestAssessment);
-      if (assessmentSource.devRevision) {
-        try { if (await readDevRevision(root) !== assessmentSource.devRevision) throw Error("Managed Dev HEAD changed; refresh and prepare a current routing assessment."); }
-        catch (failure) { if (failure instanceof Error && failure.message.includes("Managed Dev HEAD changed")) throw failure; throw Error("Managed Dev HEAD is unavailable; prepare a current routing assessment."); }
-      }
       const state = createProjectStateService(store, operator);
       if (input.disposition === "request-revision") {
         await state.recordWorkIntakeRouteRevisionRequest(projectId, intakeId, { assessmentId: input.assessmentId, rationale },
@@ -312,7 +303,6 @@ export function createStructuredWorkRoutingService(dependencies: {
       let sourceSeed: { repositoryId: string; integrationTargetSourceLineId: string; baseRevisionId: string } | undefined;
       if (repositoryId) {
         const baseRevisionId = await readDevRevision(root);
-        if (assessmentSource.devRevision && assessmentSource.devRevision !== baseRevisionId) throw Error("Managed Dev HEAD changed; prepare a current routing assessment.");
         sourceSeed = { repositoryId, integrationTargetSourceLineId: "dev", baseRevisionId };
       }
       const correlationId = `wir-route-${randomUUID()}`;

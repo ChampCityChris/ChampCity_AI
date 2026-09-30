@@ -14,7 +14,10 @@ function withState(values, render) {
   const originalEffect = React.useEffect;
   const originalRef = React.useRef;
   let index = 0;
-  React.useState = (initial) => [index < values.length ? values[index++] : initial, () => undefined];
+  React.useState = (initial) => {
+    const slot = index++;
+    return [slot < values.length ? values[slot] : initial, value => { values[slot] = value; }];
+  };
   React.useEffect = () => undefined;
   React.useRef = initial => ({ current: initial });
   try { return render(); } finally { React.useState = original; React.useEffect = originalEffect; React.useRef = originalRef; }
@@ -122,6 +125,8 @@ test("stale assessment remains visible with an enabled primary recovery action a
   assert.match(markup, /Routing Assessment/);
   assert.match(markup, /Earlier advice/);
   assert.match(markup, /Assessment needs refresh/);
+  assert.match(markup, /The Work Intake changed after this recommendation was prepared/);
+  assert.doesNotMatch(markup, /source evidence changed/);
   assert.match(markup, /Previous recommendation: <strong>Refactor \/ Migration<\/strong>.*stale/);
   assert.doesNotMatch(markup, /Accept Recommendation|Use Override Route|Request Revised Assessment/);
   assert.match(markup, /work-routing-recovery/);
@@ -172,8 +177,29 @@ test("live accept and override hand off exact targets while revision stays in Ro
         decisions.push(input);
         return { ...model, targetWorkflowId: target, reviewState: target ? "decided" : "revision-requested" };
       } } };
-      const element = withState([model, route, rationale, false, "", ""], () =>
-        StructuredWorkRoutingWorkspace(routingProps(model, id => routed.push(id))));
+      const values = [model, route, rationale, false, "", ""];
+      const render = () => withState(values, () => StructuredWorkRoutingWorkspace(routingProps(model, id => routed.push(id))));
+      let element = render();
+      if (disposition === "accept") {
+        function control(node, type) {
+          if (!node || typeof node !== "object") return null;
+          if (node.type === type) return node;
+          for (const child of [...React.Children.toArray(node.props?.children), node.props?.documentColumn, node.props?.browserActions]) {
+            const found = control(child, type);
+            if (found) return found;
+          }
+          return null;
+        }
+        control(element, "textarea").props.onChange({ target: { value: "Proceed after review" } });
+        element = render();
+        control(element, "select").props.onChange({ target: { value: "refactor-migration" } });
+        element = render();
+        assert.equal(findButton(element, label).props.disabled, false);
+        control(element, "select").props.onChange({ target: { value: "feature-change" } });
+        element = render();
+        assert.equal(values[0], model);
+        assert.equal(decisions.length, 0);
+      }
       const button = findButton(element, label);
       assert.ok(button);
       assert.equal(button.props.disabled, false);
@@ -182,7 +208,10 @@ test("live accept and override hand off exact targets while revision stays in Ro
       assert.equal(decisions.length, 1);
       assert.equal(decisions[0].disposition, disposition);
       assert.equal(decisions[0].assessmentId, "current");
-      if (disposition === "accept") assert.equal(decisions[0].rationale, undefined);
+      if (disposition === "accept") {
+        assert.equal(decisions[0].rationale, "Proceed after review");
+        assert.equal(Object.hasOwn(decisions[0], "route"), false);
+      }
       if (disposition === "override") assert.equal(decisions[0].route, "refactor-migration");
       assert.deepEqual(routed, target ? [target] : []);
     }

@@ -315,6 +315,13 @@ test("structured WIR accepts without prose, retains optional notes, and requires
     const history = await env.state.getWorkRouteHistory(env.projectId, first.captured.intake.id);
     assert.equal(history.decisions[0].body.rationale, "Operator accepted Architect recommendation.");
     assert.equal((await env.state.getRecord(env.projectId, first.captured.workflow.id)).lifecycleState, "closed");
+    const changed = await assessed("changed intake");
+    await env.state.reviseWorkIntake(env.projectId, changed.captured.intake.id, { desiredOutcome: "Changed result" }, changed.captured.intake.recordVersion);
+    assert.equal((await routing.get(env.root, changed.captured.intake.id, changed.captured.workflow.id)).assessment.stale, true);
+    for (const disposition of ["accept", "override"]) {
+      await assert.rejects(routing.decide(env.root, changed.captured.intake.id, changed.captured.workflow.id,
+        { assessmentId: changed.assessmentId, disposition, ...(disposition === "override" ? { route: "refactor-migration" } : {}), rationale: "Route changed request" }), /stale or unavailable/);
+    }
     const second = await assessed("optional note");
     const noted = await routing.decide(env.root, second.captured.intake.id, second.captured.workflow.id,
       { assessmentId: second.assessmentId, disposition: "accept", rationale: "  Proceed after review.  " });
@@ -325,40 +332,54 @@ test("structured WIR accepts without prose, retains optional notes, and requires
 });
 
 test("structured source-backed WIR captures optional Dev evidence and gives its target the same lazy baseline shape", async context => {
-  const env = await setup(context, { sourceRepositoryId: "structured-wir-repository" });
-  try {
-    await bootstrapProjectSource(env.root, "structured-wir-repository");
-    const captured = await env.state.createWorkIntake(env.projectId, { request: "Fix a defect", desiredOutcome: "Correct behavior",
-      constraints: [], evidenceContext: [], requestedIntegrationTarget: "dev" });
-    let revision = "a".repeat(40);
-    const routing = createStructuredWorkRoutingService({ readDevRevision: async () => revision });
-    const prepared = await routing.prepare(env.root, captured.intake.id, captured.workflow.id);
-    const slot = prepared.preparedSubmission.expectedDraftSlots[0];
-    const draftPath = path.join(env.root, slot.draftRelativePath);
-    fs.mkdirSync(path.dirname(draftPath), { recursive: true });
-    fs.writeFileSync(draftPath, "# Work Intake Routing Assessment\n\n## Recommended Route\nissue-resolution\n\n## Traits\nNone\n\n## Rationale\nThe request describes a defect.\n\n## Alternate Route\nNone\n", "utf8");
-    const promoted = await routing.get(env.root, captured.intake.id, captured.workflow.id);
-    assert.equal(promoted.assessment.stale, false);
-    revision = "b".repeat(40);
-    const stale = await routing.get(env.root, captured.intake.id, captured.workflow.id);
-    assert.equal(stale.assessment.stale, true);
-    await assert.rejects(routing.decide(env.root, captured.intake.id, captured.workflow.id, { assessmentId: promoted.assessment.assessmentId,
-      disposition: "accept", rationale: "Stale source evidence must not route." }), /stale or unavailable|Managed Dev HEAD changed/);
-    assert.equal((await env.store.listEntities(env.projectId, "Workflow")).filter(record => record.entityType === "Workflow" && record.body.workflowType !== "work-intake-routing").length, 0);
-    revision = "a".repeat(40);
-    const completed = await routing.decide(env.root, captured.intake.id, captured.workflow.id, { assessmentId: promoted.assessment.assessmentId,
-      disposition: "accept", rationale: "Investigate the reported defect." });
-    const baselines = (await env.store.listEntities(env.projectId, "SourceBaseline")).filter(record => record.entityType === "SourceBaseline");
-    const bindings = (await env.store.listEntities(env.projectId, "SourceBinding")).filter(record => record.entityType === "SourceBinding");
-    assert.equal(baselines.length, 1);
-    assert.equal(baselines[0].body.workflowId, completed.targetWorkflowId);
-    assert.equal(baselines[0].body.repositoryId, "structured-wir-repository");
-    assert.equal(baselines[0].body.integrationTargetSourceLineId, "dev");
-    assert.equal(baselines[0].body.baseRevisionId, revision);
-    assert.equal(bindings.length, 1);
-    assert.equal(bindings[0].body.preparationState, "unprepared");
-    assert.equal((await env.store.listEntities(env.projectId, "WorkSourceLine")).length, 0);
-  } finally { env.store.close(); }
+  for (const disposition of ["accept", "override", "request-revision"]) {
+    const env = await setup(context, { sourceRepositoryId: "structured-wir-repository" });
+    try {
+      await bootstrapProjectSource(env.root, "structured-wir-repository");
+      const captured = await env.state.createWorkIntake(env.projectId, { request: "Fix a defect", desiredOutcome: "Correct behavior",
+        constraints: [], evidenceContext: [], requestedIntegrationTarget: "dev" });
+      let revision = "a".repeat(40);
+      const routing = createStructuredWorkRoutingService({ readDevRevision: async () => revision });
+      const prepared = await routing.prepare(env.root, captured.intake.id, captured.workflow.id);
+      const slot = prepared.preparedSubmission.expectedDraftSlots[0];
+      const draftPath = path.join(env.root, slot.draftRelativePath);
+      fs.mkdirSync(path.dirname(draftPath), { recursive: true });
+      fs.writeFileSync(draftPath, "# Work Intake Routing Assessment\n\n## Recommended Route\nissue-resolution\n\n## Traits\nNone\n\n## Rationale\nThe request describes a defect.\n\n## Alternate Route\nNone\n", "utf8");
+      const promoted = await routing.get(env.root, captured.intake.id, captured.workflow.id);
+      assert.equal(promoted.assessment.stale, false);
+      const assessmentId = promoted.assessment.assessmentId;
+      const provenance = (await env.state.getRecord(env.projectId, assessmentId)).provenance.sourceRef;
+      assert.match(provenance, new RegExp(`;dev-head:${revision}$`));
+      revision = "b".repeat(40);
+      const current = await routing.get(env.root, captured.intake.id, captured.workflow.id);
+      assert.equal(current.assessment.assessmentId, assessmentId);
+      assert.equal(current.assessment.stale, false);
+      assert.equal(current.closed, false);
+      const completed = await routing.decide(env.root, captured.intake.id, captured.workflow.id, { assessmentId: promoted.assessment.assessmentId,
+        disposition, ...(disposition === "override" ? { route: "refactor-migration" } : {}), rationale: "Investigate the reported defect." });
+      assert.equal((await env.state.getRecord(env.projectId, assessmentId)).provenance.sourceRef, provenance);
+      if (disposition === "request-revision") {
+        assert.equal(completed.reviewState, "revision-requested");
+        assert.equal(completed.targetWorkflowId, null);
+        assert.equal((await env.store.listEntities(env.projectId, "SourceBaseline")).length, 0);
+        continue;
+      }
+      assert.ok(completed.targetWorkflowId);
+      assert.equal(completed.selectedRoute, disposition === "accept" ? "issue-resolution" : "refactor-migration");
+      assert.equal((await env.state.getRecord(env.projectId, completed.targetWorkflowId)).body.workflowType,
+        disposition === "accept" ? "issue-resolution" : "refactor-migration");
+      const baselines = (await env.store.listEntities(env.projectId, "SourceBaseline")).filter(record => record.entityType === "SourceBaseline");
+      const bindings = (await env.store.listEntities(env.projectId, "SourceBinding")).filter(record => record.entityType === "SourceBinding");
+      assert.equal(baselines.length, 1);
+      assert.equal(baselines[0].body.workflowId, completed.targetWorkflowId);
+      assert.equal(baselines[0].body.repositoryId, "structured-wir-repository");
+      assert.equal(baselines[0].body.integrationTargetSourceLineId, "dev");
+      assert.equal(baselines[0].body.baseRevisionId, revision);
+      assert.equal(bindings.length, 1);
+      assert.equal(bindings[0].body.preparationState, "unprepared");
+      assert.equal((await env.store.listEntities(env.projectId, "WorkSourceLine")).length, 0);
+    } finally { env.store.close(); }
+  }
 });
 
 test("structured WIR allows unavailable source during assessment and leaves no partial decision after failed Dev preflight", async context => {

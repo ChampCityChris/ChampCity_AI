@@ -176,7 +176,7 @@ export function StructuredWorkRoutingWorkspace({ intakeId, routingWorkflowId, br
         {assessment && viewState !== "stale" ? <p>{assessment.stale ? "Previous recommendation" : "Architect recommendation"}: <strong>{routeLabel(assessment.recommendation)}</strong></p> : null}
         {viewState === "stale" ? <div className="work-routing-recovery" aria-label="Stale assessment recovery">
           <strong>Assessment needs refresh</strong>
-          <p>The Work Intake or source evidence changed after this recommendation was prepared. Prepare a current Architect assessment before selecting a route.</p>
+          <p>The Work Intake changed after this recommendation was prepared. Prepare a current Architect assessment before selecting a route.</p>
           <p>Previous recommendation: <strong>{routeLabel(assessment!.recommendation)}</strong> <span>(stale)</span></p>
           <button className="work-routing-button work-routing-button-primary" type="button" disabled={busy} onClick={() => void run("prepare")}>Prepare Current Assessment</button>
         </div> : null}
