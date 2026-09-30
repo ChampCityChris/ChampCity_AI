@@ -141,6 +141,7 @@ import { FigmaSidebar, type FigmaThemeMode } from "./figma/FigmaSidebar";
 import { LandingWorkspace } from "./LandingWorkspace";
 import { acceptExistingProjectAdoption, admitExistingProject, openInspectedExistingProject } from "./existingProjectEntryController";
 import { WorkflowHubWorkspace } from "./WorkflowHubWorkspace";
+import { WorkflowTypeWorkspace } from "./WorkflowTypeWorkspace";
 import { WorkflowInstanceWorkspace } from "./WorkflowInstanceWorkspace";
 import { WorkflowExecutionWorkspace } from "./WorkflowExecutionWorkspace";
 import { FeaturePlanningWorkspace } from "./FeaturePlanningWorkspace";
@@ -153,6 +154,7 @@ import { shouldShowClosedWorkIntakeSummary, workflowPlanningSurface } from "./wo
 import type { WorkIntakeProjection } from "../../shared/workIntakeContracts";
 import { isWorkflowReviewDocument } from "./workflowReviewDocuments";
 import type { DirectWorkflowStartRequest, WorkflowInstanceSummary, WorkflowInventory } from "../../shared/workflowApplicationContracts";
+import type { WorkflowType } from "../../shared/projectState/workflowTypeRegistry";
 import type {
   IssueArchitectPlanningProjection,
   IssueArchitectReviewInput,
@@ -220,7 +222,7 @@ const activeWorkCardResumeWorkspaceIds = new Set<WorkspaceId>([
 export const settingsWorkspaceId = "settings" as WorkspaceId;
 
 type LegacyWorkflowForegroundId = "development" | "issue-resolution";
-type ShellView = "landing" | "workflow-hub" | "workflow" | "workflow-instance" | "settings" | "work-intake" | "source-control";
+type ShellView = "landing" | "workflow-hub" | "workflow-type" | "workflow" | "workflow-instance" | "settings" | "work-intake" | "source-control";
 type SettingsReturnShellView = Exclude<ShellView, "landing" | "settings">;
 type ProjectEntryDestination = "workflow-hub" | "project-intake-capture";
 type SelectedWorkspace = Extract<WorkspaceSelection, { ok: true }>;
@@ -293,6 +295,7 @@ export function App(): JSX.Element {
   const [selectedWorkIntakeId, setSelectedWorkIntakeId] = useState<string | null>(null);
   const [activeWorkflowId, setActiveWorkflowId] = useState<LegacyWorkflowForegroundId | null>(null);
   const [workflowInventory, setWorkflowInventory] = useState<WorkflowInventory | null>(null);
+  const [selectedWorkflowType, setSelectedWorkflowType] = useState<WorkflowType | null>(null);
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
   const [workflowInstance, setWorkflowInstance] = useState<WorkflowInstanceSummary | null>(null);
   const [isWorkflowInventoryLoading, setIsWorkflowInventoryLoading] = useState(false);
@@ -477,6 +480,7 @@ export function App(): JSX.Element {
     activeIssueFixCardStepId === "implement";
   const isLandingForeground = shellView === "landing";
   const isWorkflowHubForeground = shellView === "workflow-hub";
+  const isWorkflowTypeForeground = shellView === "workflow-type";
   const isWorkflowInstanceForeground = shellView === "workflow-instance";
   const isWorkIntakeForeground = shellView === "work-intake";
   const isSourceControlForeground = shellView === "source-control";
@@ -492,7 +496,7 @@ export function App(): JSX.Element {
     [issueInventory, selectedIssueId],
   );
   useEffect(() => {
-    if (!workspace.ok || !currentProject || shellView !== "workflow-hub") return;
+    if (!workspace.ok || !currentProject || (shellView !== "workflow-hub" && shellView !== "workflow-type")) return;
     void refreshWorkflowInventory(selectedWorkflowId);
   }, [workspace.ok, workspace.ok ? workspace.workspaceRoot : null, currentProject?.projectId, shellView, selectedWorkflowId]);
   evidenceRefreshTargetRef.current = currentEvidenceRefreshTarget();
@@ -2604,6 +2608,7 @@ export function App(): JSX.Element {
   function clearRepositoryDerivedState(): void {
     workflowInventoryRefreshRequestRef.current += 1;
     setWorkflowInventory(null);
+    setSelectedWorkflowType(null);
     setSelectedWorkflowId(null);
     setWorkflowInstance(null);
     setIsWorkflowInventoryLoading(false);
@@ -2784,7 +2789,8 @@ export function App(): JSX.Element {
   }
 
   function openSettingsWorkspace(): void {
-    const returnShellView = shellView === "workflow" ? "workflow" : "workflow-hub";
+    const returnShellView = shellView === "workflow" || shellView === "workflow-type" || shellView === "workflow-instance"
+      ? shellView : "workflow-hub";
     setSettingsReturnShellView(returnShellView);
     setSettingsReturnWorkflowId(returnShellView === "workflow" ? activeWorkflowId : null);
     const next = openSettingsNavigationState(activeWorkspaceId, priorWorkflowWorkspaceId);
@@ -2794,6 +2800,10 @@ export function App(): JSX.Element {
   }
 
   function returnFromSettingsWorkspace(): void {
+    if (settingsReturnShellView === "workflow-type" || settingsReturnShellView === "workflow-instance") {
+      setShellView(settingsReturnShellView);
+      return;
+    }
     if (settingsReturnShellView === "workflow-hub") {
       setShellView("workflow-hub");
       setActiveWorkflowId(null);
@@ -2812,6 +2822,7 @@ export function App(): JSX.Element {
   async function refreshWorkflowInventory(preferredWorkflowId: string | null = selectedWorkflowId): Promise<WorkflowInventory | null> {
     if (!workspace.ok || !currentProject) {
       setWorkflowInventory(null);
+      setSelectedWorkflowType(null);
       setSelectedWorkflowId(null);
       setWorkflowInstance(null);
       return null;
@@ -2828,7 +2839,7 @@ export function App(): JSX.Element {
       setSelectedWorkflowId(exists ? preferredWorkflowId : null);
       if (!exists) {
         setWorkflowInstance(null);
-        if (shellView === "workflow-instance") setShellView("workflow-hub");
+        if (shellView === "workflow-instance") setShellView(selectedWorkflowType ? "workflow-type" : "workflow-hub");
       }
       return next;
     } catch (failure) {
@@ -2856,6 +2867,7 @@ export function App(): JSX.Element {
     setWorkflowHubError("");
     try {
       const result = await window.champcity.getWorkflow(workflowId);
+      setSelectedWorkflowType(result.workflow.workflowType === "project-creation" ? null : result.workflow.workflowType);
       setSelectedWorkflowId(result.workflow.workflowId);
       if (result.workflow.workflowType === "work-intake-routing") {
         if (shouldShowClosedWorkIntakeSummary(result.workflow)) {
@@ -2885,6 +2897,7 @@ export function App(): JSX.Element {
     if (!refreshed || !refreshed.groups.some(group => group.workflows.some(item => item.workflowId === created.workflow.workflowId)))
       throw Error("The new Workflow was not available in the refreshed Current Project inventory.");
     const opened = await window.champcity.getWorkflow(created.workflow.workflowId);
+    setSelectedWorkflowType(opened.workflow.workflowType);
     setSelectedWorkflowId(opened.workflow.workflowId);
     setWorkflowInstance(opened.workflow);
     setActiveWorkflowId(null);
@@ -2897,6 +2910,7 @@ export function App(): JSX.Element {
       if (!refreshed || !refreshed.groups.some(group => group.workflows.some(item => item.workflowId === workflowId)))
         throw Error("The routed target Workflow was not available in the refreshed Current Project inventory.");
       const opened = await window.champcity.getWorkflow(workflowId);
+      setSelectedWorkflowType(opened.workflow.workflowType);
       setSelectedWorkflowId(opened.workflow.workflowId);
       setWorkflowInstance(opened.workflow);
       setActiveWorkflowId(null);
@@ -2911,6 +2925,7 @@ export function App(): JSX.Element {
       const projection = await window.champcity.getWorkIntakeProjection();
       if (projection.authority !== "structured") throw Error("Current Project Work Intake is unavailable.");
       setWorkIntakeProjection(projection);
+      setSelectedWorkflowType("work-intake-routing");
       setSelectedWorkIntakeId(null);
       setSelectedWorkflowId(null);
       setWorkflowInstance(null);
@@ -2922,7 +2937,15 @@ export function App(): JSX.Element {
   }
 
   function returnToWorkflowHub(): void {
+    setSelectedWorkflowType(null);
     setShellView("workflow-hub");
+    setActiveWorkflowId(null);
+  }
+
+  function returnToWorkflowType(): void {
+    setSelectedWorkflowId(null);
+    setWorkflowInstance(null);
+    setShellView(selectedWorkflowType ? "workflow-type" : "workflow-hub");
     setActiveWorkflowId(null);
   }
 
@@ -4193,9 +4216,9 @@ export function App(): JSX.Element {
             selectedWorkIntakeId && selectedWorkflowId ? (
               <StructuredWorkRoutingWorkspace intakeId={selectedWorkIntakeId} routingWorkflowId={selectedWorkflowId}
                 browserPanel={routedArchitectBrowserPanel} onReloadBrowser={() => void reloadArchitectBrowser()}
-                onReturn={returnToWorkflowHub} onRouted={workflowId => void openRoutedTargetWorkflow(workflowId)} />
+                onReturn={returnToWorkflowType} onRouted={workflowId => void openRoutedTargetWorkflow(workflowId)} />
             ) : <WorkIntakeWorkspace key={`${workspace.workspaceRoot}-new`} projection={workIntakeProjection}
-              onReturn={returnToWorkflowHub} onSaved={async (intakeId) => {
+              onReturn={returnToWorkflowType} onSaved={async (intakeId) => {
                 const refreshedProjection = await window.champcity.getWorkIntakeProjection();
                 const captured = refreshedProjection.capturedIntakes?.find(item => item.intakeId === intakeId);
                 const inventory = await refreshWorkflowInventory(null);
@@ -4211,11 +4234,19 @@ export function App(): JSX.Element {
             <SourceControlWorkspace key={workspace.ok ? workspace.workspaceRoot : "none"}
               projectName={projectDisplayName(workspace)} onReturn={returnToWorkflowHub} />
           ) : isWorkflowInstanceForeground ? (
-            workflowInstance && workflowPlanningSurface(workflowInstance) === "execution" ? <WorkflowExecutionWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowHub} browserPanel={routedArchitectBrowserPanel} />
-              : workflowInstance && workflowPlanningSurface(workflowInstance) === "feature" ? <FeaturePlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowHub} browserPanel={routedArchitectBrowserPanel} />
-              : workflowInstance && workflowPlanningSurface(workflowInstance) === "issue" ? <IssueWorkflowPlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowHub} browserPanel={routedArchitectBrowserPanel} />
-              : workflowInstance ? <WorkflowInstanceWorkspace workflow={workflowInstance} onReturn={returnToWorkflowHub} />
+            workflowInstance && workflowPlanningSurface(workflowInstance) === "execution" ? <WorkflowExecutionWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
+              : workflowInstance && workflowPlanningSurface(workflowInstance) === "feature" ? <FeaturePlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
+              : workflowInstance && workflowPlanningSurface(workflowInstance) === "issue" ? <IssueWorkflowPlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
+              : workflowInstance ? <WorkflowInstanceWorkspace workflow={workflowInstance} onReturn={returnToWorkflowType} />
               : <p role="status">Loading Workflow…</p>
+          ) : isWorkflowTypeForeground && selectedWorkflowType ? (
+            <WorkflowTypeWorkspace key={selectedWorkflowType} workflowType={selectedWorkflowType}
+              workflows={workflowInventory?.groups.find(group => group.workflowType === selectedWorkflowType)?.workflows ?? []}
+              loading={isWorkflowInventoryLoading} error={workflowHubError}
+              onOpenWorkflow={workflowId => void openCurrentWorkflow(workflowId)}
+              onStartWorkflow={startDirectWorkflow}
+              onStartWorkIntake={() => void openWorkIntake()}
+              onReturn={returnToWorkflowHub} />
           ) : isWorkflowHubForeground ? (
             <>
               {issueCloseActionFeedback ? (
@@ -4224,14 +4255,12 @@ export function App(): JSX.Element {
                 </div>
               ) : null}
               <WorkflowHubWorkspace
-                onOpenWorkflow={workflowId => void openCurrentWorkflow(workflowId)}
-                onStartWorkflow={startDirectWorkflow}
-                onStartWorkIntake={() => void openWorkIntake()}
+                onSelectType={workflowType => { setSelectedWorkflowType(workflowType); setSelectedWorkflowId(null); setWorkflowInstance(null); setShellView("workflow-type"); }}
+                onOpenGreenfield={workflowId => void openCurrentWorkflow(workflowId)}
                 onOpenSourceControl={() => { if (currentProject?.repositoryId) setShellView("source-control"); }}
                 projectName={projectDisplayName(workspace)}
                 sourceControlAvailable={currentProject?.repositoryId !== null && currentProject?.repositoryId !== undefined}
                 inventory={workflowInventory}
-                selectedWorkflowId={selectedWorkflowId}
                 loading={isWorkflowInventoryLoading}
                 error={workflowHubError}
                 workspace={workspace}

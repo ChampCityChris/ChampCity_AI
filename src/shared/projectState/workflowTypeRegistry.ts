@@ -14,6 +14,7 @@ export type WorkflowType = (typeof WORKFLOW_TYPE_IDS)[number];
 export interface WorkflowTypeDefinition {
   readonly workflowType: WorkflowType;
   readonly label: string;
+  readonly purpose: string;
   readonly repeatable: boolean;
   readonly entryWorkspace: string;
   readonly directStart: boolean;
@@ -22,14 +23,14 @@ export interface WorkflowTypeDefinition {
 }
 
 const definitions = {
-  "project-creation": { workflowType: "project-creation", label: "Project Creation / Greenfield", repeatable: false, entryWorkspace: "project-intake", directStart: false, hubOrder: 0 },
-  "feature-capability": { workflowType: "feature-capability", label: "Feature / Capability", repeatable: true, entryWorkspace: "feature-intake", directStart: true, hubOrder: 1, startLabel: "Start Feature" },
-  "refactor-migration": { workflowType: "refactor-migration", label: "Refactor / Migration", repeatable: true, entryWorkspace: "refactor-intake", directStart: true, hubOrder: 2, startLabel: "Start Migration" },
-  "integration-composition": { workflowType: "integration-composition", label: "Integration / Composition", repeatable: true, entryWorkspace: "integration-intake", directStart: true, hubOrder: 3, startLabel: "Start Integration" },
-  "infrastructure-platform": { workflowType: "infrastructure-platform", label: "Infrastructure / Platform", repeatable: true, entryWorkspace: "infrastructure-intake", directStart: true, hubOrder: 4, startLabel: "Start Infrastructure Work" },
-  "research-prototype": { workflowType: "research-prototype", label: "Research / Prototype", repeatable: true, entryWorkspace: "research-intake", directStart: true, hubOrder: 5, startLabel: "Start Research" },
-  "issue-resolution": { workflowType: "issue-resolution", label: "Issue Resolution", repeatable: true, entryWorkspace: "issue-intake", directStart: true, hubOrder: 6, startLabel: "New Issue" },
-  "work-intake-routing": { workflowType: "work-intake-routing", label: "Work Intake Routing", repeatable: true, entryWorkspace: "work-intake", directStart: false, hubOrder: 7 },
+  "project-creation": { workflowType: "project-creation", label: "Greenfield Project", purpose: "Use to create and guide a brand-new project from initial intake through first project setup.", repeatable: false, entryWorkspace: "project-intake", directStart: false, hubOrder: 1 },
+  "feature-capability": { workflowType: "feature-capability", label: "Feature / Capability", purpose: "Use for adding or improving product functionality in an existing project.", repeatable: true, entryWorkspace: "feature-intake", directStart: true, hubOrder: 2, startLabel: "Start Feature" },
+  "refactor-migration": { workflowType: "refactor-migration", label: "Refactor / Migration", purpose: "Use for structural changes, internal redesigns, upgrades, or migrations.", repeatable: true, entryWorkspace: "refactor-intake", directStart: true, hubOrder: 3, startLabel: "Start Migration" },
+  "integration-composition": { workflowType: "integration-composition", label: "Integration / Composition", purpose: "Use when combining systems, tools, services, or components into a coordinated solution.", repeatable: true, entryWorkspace: "integration-intake", directStart: true, hubOrder: 4, startLabel: "Start Integration" },
+  "infrastructure-platform": { workflowType: "infrastructure-platform", label: "Infrastructure / Platform", purpose: "Use for environment, platform, deployment, hosting, tooling, or operational foundation work.", repeatable: true, entryWorkspace: "infrastructure-intake", directStart: true, hubOrder: 6, startLabel: "Start Infrastructure Work" },
+  "research-prototype": { workflowType: "research-prototype", label: "Research / Prototype", purpose: "Use to explore ideas, test feasibility, or develop proofs of concept before committed implementation.", repeatable: true, entryWorkspace: "research-intake", directStart: true, hubOrder: 7, startLabel: "Start Research" },
+  "issue-resolution": { workflowType: "issue-resolution", label: "Issue Resolution", purpose: "Use to diagnose, repair, and validate defects, regressions, or broken behavior.", repeatable: true, entryWorkspace: "issue-intake", directStart: true, hubOrder: 5, startLabel: "New Issue" },
+  "work-intake-routing": { workflowType: "work-intake-routing", label: "Work Intake Routing", purpose: "Use when you are not yet sure which workflow should handle the work.", repeatable: true, entryWorkspace: "work-intake", directStart: false, hubOrder: 0 },
 } satisfies Record<WorkflowType, WorkflowTypeDefinition>;
 
 export const WORKFLOW_TYPE_REGISTRY: Readonly<Record<WorkflowType, WorkflowTypeDefinition>> = Object.freeze(

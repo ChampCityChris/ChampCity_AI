@@ -5345,6 +5345,104 @@ body {
   align-items: end;
 }
 
+.workflow-launcher-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+
+.workflow-launcher-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 224px;
+  padding: 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.06);
+}
+
+.workflow-launcher-card h2,
+.workflow-type-workspace h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.workflow-launcher-card p,
+.workflow-type-workspace-header p {
+  margin: 0;
+  color: var(--figma-shell-muted);
+  line-height: 1.45;
+}
+
+.workflow-launcher-status {
+  margin-top: auto;
+  color: var(--figma-shell-muted);
+  font-size: 13px;
+}
+
+.workflow-launcher-card button,
+.workflow-launcher-disabled-action {
+  display: block;
+  width: 100%;
+  min-height: 38px;
+  padding: 9px 12px;
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--primary) 14%, var(--card));
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+}
+
+.workflow-launcher-card button:hover,
+.workflow-launcher-card button:focus-visible {
+  border-color: var(--primary);
+}
+
+.workflow-launcher-card.is-disabled {
+  background: color-mix(in srgb, var(--muted) 45%, var(--card));
+  opacity: 0.65;
+}
+
+.workflow-launcher-disabled-action { cursor: default; }
+
+.workflow-type-workspace {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 18px;
+  min-height: 100%;
+  padding: 24px;
+  color: var(--foreground);
+}
+
+.workflow-type-workspace-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 20px;
+  width: 100%;
+}
+
+.workflow-type-workspace-header h1 { margin: 0 0 8px; }
+.workflow-type-workspace .workflow-instance-list { width: 100%; }
+
+@media (max-width: 1050px) {
+  .workflow-launcher-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  .workflow-launcher-grid { grid-template-columns: minmax(0, 1fr); }
+  .workflow-type-workspace-header { flex-direction: column; }
+}
+
 .workflow-source-control-action,
 .workflow-start-action,
 .workflow-start-form-actions button,

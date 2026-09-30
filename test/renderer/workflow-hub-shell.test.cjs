@@ -12,6 +12,7 @@ const { LandingWorkspace } = loader.loadRendererSourceModule("src/renderer/app/L
 const { acceptExistingProjectAdoption, openInspectedExistingProject } = loader.loadRendererSourceModule("src/renderer/app/existingProjectEntryController.ts");
 const { NestedWorkflowRail } = loader.loadRendererSourceModule("src/renderer/app/NestedWorkflowRail.tsx");
 const { WorkflowHubWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowHubWorkspace.tsx");
+const { WorkflowTypeWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowTypeWorkspace.tsx");
 const { WorkflowInstanceWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowInstanceWorkspace.tsx");
 const { WorkflowExecutionWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowExecutionWorkspace.tsx");
 const { FeaturePlanningWorkspace } = loader.loadRendererSourceModule("src/renderer/app/FeaturePlanningWorkspace.tsx");
@@ -190,7 +191,7 @@ test("Existing Project entry controller applies before one registration and gate
   const calls = [];
   const project = { projectId: "project", projectName: "Project", repositoryId: "source", projectRoot: "opaque", mode: "existing", created: true };
   const api = {
-    applyExistingProjectGitAdoption: async planId => { calls.push(["apply", planId]); },
+    applyExistingProjectGitAdoption: async planId => { calls.push(["apply", planId]); return { sourceApplied: false }; },
     registerCurrentProject: async mode => { calls.push(["register", mode]); return project; },
   };
   const automatic = { planId: "b".repeat(64), state: "managed-ready", requiresConsent: false };
@@ -296,56 +297,81 @@ test("Hub with no selected project renders project-selection shell without Devel
   assert.doesNotMatch(hubMarkup, /Development|Current Required Workflow Step|Phase Loop|Work Card loop/);
 });
 
-test("Selected-project Hub groups independent Workflow instances and direct starts", () => {
+test("Selected-project Hub is an eight-card stable launcher with canonical order and purpose", () => {
   const instance = (workflowId, workflowType, title, lifecycleState = "active") => ({
     workflowId, workflowType, title, lineageId: `lineage-${workflowId}`, workflowState: lifecycleState === "closed" ? "closed" : "intake",
     lifecycleState, currentWorkspace: "feature-intake", createdAt: "2026-01-01", updatedAt: "2026-01-01",
   });
   const markup = renderToStaticMarkup(React.createElement(WorkflowHubWorkspace, {
     onOpenSourceControl: () => undefined,
-    onOpenWorkflow: () => undefined,
-    onStartWorkflow: async () => undefined,
-    onStartWorkIntake: () => undefined,
+    onSelectType: () => undefined,
+    onOpenGreenfield: () => undefined,
     projectName: "ChampCity_AI",
     sourceControlAvailable: true,
     inventory: { groups: [
       { workflowType: "feature-capability", workflows: [instance("feature-1111", "feature-capability", "Improve onboarding"), instance("feature-2222", "feature-capability", "Add dashboard", "closed")] },
-      { workflowType: "issue-resolution", workflows: [instance("issue-1111", "issue-resolution", "Startup crash"), instance("issue-2222", "issue-resolution", "Broken export")] },
+      { workflowType: "issue-resolution", workflows: Array.from({ length: 50 }, (_, index) => instance(`issue-${index}`, "issue-resolution", `Issue ${index}`)) },
       { workflowType: "work-intake-routing", workflows: [instance("wir-1111", "work-intake-routing", "Route request")] },
-    ] }, selectedWorkflowId: "feature-2222", loading: false, error: "",
+    ] }, loading: false, error: "",
     workspace: { ok: true, workspaceRoot: "<PROJECT_REPO>" },
   }));
 
   assert.match(markup, /<h1 id="workspace-heading">Workflows<\/h1>/);
-  assert.match(markup, /Feature \/ Capability/);
-  assert.match(markup, /\+ Start Feature/);
-  assert.match(markup, /Improve onboarding/);
-  assert.match(markup, /Add dashboard/);
-  assert.match(markup, /Completed/);
-  assert.match(markup, /aria-label="Open Add dashboard \(feature-\)/);
-  assert.match(markup, /\+ Help Me Route New Work/);
-  assert.match(markup, /Broken export/);
-  assert.match(markup, /2 instances/);
+  const order = [...markup.matchAll(/id="workflow-card-([^"]+)"/g)].map(match => match[1]);
+  assert.deepEqual(order, ["work-intake-routing", "project-creation", "feature-capability", "refactor-migration",
+    "integration-composition", "issue-resolution", "infrastructure-platform", "research-prototype"]);
+  for (const definition of Object.values(WORKFLOW_TYPE_REGISTRY)) {
+    assert.ok(markup.includes(definition.purpose), `purpose for ${definition.workflowType}`);
+  }
+  assert.equal((markup.match(/class="workflow-launcher-card/g) ?? []).length, 8);
+  assert.match(markup, /Open Work Intake Routing/);
+  assert.match(markup, /Open Feature \/ Capability/);
+  assert.match(markup, /Not applicable to this existing or migrated project/);
+  assert.doesNotMatch(markup, /Workflow title|workflow-instance-list|Improve onboarding|Add dashboard|Issue 49|Route request|Start New/);
   assert.match(markup, /Source Control/);
-  assert.doesNotMatch(markup, /Continue legacy Development or Issue work|Existing workflow recovery|Continue Development|Open Issue Resolution/);
-  assert.doesNotMatch(markup, /Plan, implement, review, and validate planned software development\.|Investigate and resolve problems in the current project baseline\./);
-  assert.equal((markup.match(/class="workflow-type-group"/g) ?? []).length, 7);
 });
 
-test("Hub represents the one-time Project Creation instance without a direct-start action", () => {
+test("Greenfield card stays enabled for completed and reopened Project Creation history", () => {
   const instance = { workflowId: "project-create-1", workflowType: "project-creation", title: "New product",
-    lineageId: "lineage-project-create-1", workflowState: "active", lifecycleState: "active", currentWorkspace: "project-intake",
+    lineageId: "lineage-project-create-1", workflowState: "closed", lifecycleState: "closed", currentWorkspace: "project-intake",
     createdAt: "2026-01-01", updatedAt: "2026-01-01" };
   const markup = renderToStaticMarkup(React.createElement(WorkflowHubWorkspace, {
-    onOpenSourceControl: () => undefined, onOpenWorkflow: () => undefined, onStartWorkflow: async () => undefined,
-    onStartWorkIntake: () => undefined, projectName: "New product", sourceControlAvailable: true,
-    inventory: { groups: [{ workflowType: "project-creation", workflows: [instance] }] }, selectedWorkflowId: instance.workflowId,
+    onOpenSourceControl: () => undefined, onSelectType: () => undefined, onOpenGreenfield: () => undefined,
+    projectName: "New product", sourceControlAvailable: true,
+    inventory: { groups: [{ workflowType: "project-creation", workflows: [instance] }] },
     loading: false, error: "", workspace: { ok: true, workspaceRoot: "<PROJECT_REPO>" },
   }));
-  assert.match(markup, /Project Creation \/ Greenfield/);
-  assert.match(markup, /New product/);
-  assert.match(markup, /aria-label="Open New product \(project-/);
-  assert.doesNotMatch(markup, /\+ Start Project Creation/);
+  assert.match(markup, /Greenfield Project/);
+  assert.match(markup, /Completed/);
+  assert.match(markup, /View Greenfield Project/);
+  assert.doesNotMatch(markup, /workflow-instance-list|Start New|Unavailable/);
+});
+
+test("Hub card actions navigate by type or exact Greenfield identity without starting Workflows", () => {
+  const selected = [];
+  const greenfield = [];
+  const workflow = { workflowId: "greenfield-exact-id", workflowType: "project-creation", title: "Origin",
+    lineageId: "lineage", workflowState: "intake", lifecycleState: "active", currentWorkspace: "project-intake",
+    createdAt: "now", updatedAt: "now" };
+  const element = WorkflowHubWorkspace({
+    onSelectType: type => selected.push(type), onOpenGreenfield: id => greenfield.push(id),
+    onOpenSourceControl() {}, projectName: "Reopened", sourceControlAvailable: false,
+    inventory: { groups: [{ workflowType: "project-creation", workflows: [workflow] }] },
+    loading: false, error: "", workspace: { ok: true, workspaceRoot: "<PROJECT_REPO>" },
+  });
+  function buttons(node) {
+    if (Array.isArray(node)) return node.flatMap(buttons);
+    if (!React.isValidElement(node)) return [];
+    return [...(node.type === "button" ? [node] : []), ...buttons(node.props.children)];
+  }
+  const actions = buttons(element);
+  const label = button => String(button.props.children);
+  actions.find(button => label(button) === "Open Feature / Capability").props.onClick();
+  actions.find(button => label(button) === "Open Work Intake Routing").props.onClick();
+  actions.find(button => label(button) === "View Greenfield Project").props.onClick();
+  assert.deepEqual(selected, ["feature-capability", "work-intake-routing"]);
+  assert.deepEqual(greenfield, ["greenfield-exact-id"]);
+  assert.equal(actions.length, 8);
 });
 
 test("Hub actions preserve exact Workflow identity and route WIR rows to their exact intake", () => {
@@ -368,21 +394,50 @@ test("Hub actions preserve exact Workflow identity and route WIR rows to their e
   assert.match(declarations.get("openCurrentWorkflow"), /openWorkIntakeForWorkflow\(result\.workflow\.workIntakeId, result\.workflow\.workflowId\)/);
   assert.match(declarations.get("openWorkIntakeForWorkflow"), /item\.intakeId === intakeId/);
   assert.match(declarations.get("openWorkIntakeForWorkflow"), /setShellView\("work-intake"\)/);
-  assert.match(source, /onStartWorkIntake=\{\(\) => void openWorkIntake\(\)\}/);
+  assert.match(source, /onSelectType=\{workflowType => \{ setSelectedWorkflowType\(workflowType\)/);
+  assert.match(source, /onOpenGreenfield=\{workflowId => void openCurrentWorkflow\(workflowId\)\}/);
   assert.match(source, /onOpenWorkflow=\{workflowId => void openCurrentWorkflow\(workflowId\)\}/);
+  assert.match(source, /onStartWorkIntake=\{\(\) => void openWorkIntake\(\)\}/);
+  assert.match(declarations.get("returnToWorkflowType"), /setShellView\(selectedWorkflowType \? "workflow-type" : "workflow-hub"\)/);
+  assert.match(source, /onReturn=\{returnToWorkflowType\}/);
   assert.match(source, /setSelectedWorkflowId\(routing\.workflowId\)/);
   assert.doesNotMatch(declarations.get("startDirectWorkflow"), /startWorkIntake|createWorkIntake|submitWorkIntake/);
 });
 
 test("non-source Current Project Hub omits Source Control", () => {
   const markup = renderToStaticMarkup(React.createElement(WorkflowHubWorkspace, {
-    onOpenSourceControl: () => undefined, onOpenWorkflow: () => undefined, onStartWorkflow: async () => undefined,
-    onStartWorkIntake: () => undefined, inventory: { groups: [] }, selectedWorkflowId: null, loading: false, error: "",
+    onOpenSourceControl: () => undefined, onSelectType: () => undefined, onOpenGreenfield: () => undefined,
+    inventory: { groups: [] }, loading: false, error: "",
     projectName: "Notes Project", sourceControlAvailable: false,
     workspace: { ok: true, workspaceRoot: "<PROJECT_REPO>" },
   }));
   assert.doesNotMatch(markup, /Source Control|View source graph/);
-  assert.match(markup, /\+ New Issue/);
+  assert.match(markup, /Open Issue Resolution/);
+  assert.match(markup, /Not applicable to this existing or migrated project/);
+});
+
+test("reusable workflow-type surface owns exact inventory and creation entry for all repeatable types", () => {
+  const substantive = Object.values(WORKFLOW_TYPE_REGISTRY).filter(definition => definition.directStart);
+  for (const definition of substantive) {
+    const workflow = { workflowId: `${definition.workflowType}-exact`, workflowType: definition.workflowType,
+      title: `Existing ${definition.label}`, workflowState: "intake", lifecycleState: "active",
+      currentWorkspace: definition.entryWorkspace, lineageId: "lineage", createdAt: "now", updatedAt: "now" };
+    const markup = renderToStaticMarkup(React.createElement(WorkflowTypeWorkspace, {
+      workflowType: definition.workflowType, workflows: [workflow], loading: false, error: "",
+      onOpenWorkflow() {}, onStartWorkflow: async () => undefined, onStartWorkIntake() {}, onReturn() {},
+    }));
+    assert.match(markup, /Start New/);
+    assert.ok(markup.includes(workflow.title));
+    assert.ok(markup.includes(`${definition.workflowType}-exact`.slice(0, 8)));
+    assert.match(markup, /Back to Workflows/);
+    assert.ok(markup.includes(definition.purpose));
+  }
+  const wir = renderToStaticMarkup(React.createElement(WorkflowTypeWorkspace, {
+    workflowType: "work-intake-routing", workflows: [], loading: false, error: "",
+    onOpenWorkflow() {}, onStartWorkflow: async () => undefined, onStartWorkIntake() {}, onReturn() {},
+  }));
+  assert.match(wir, /Start New Work Intake/);
+  assert.doesNotMatch(wir, /Workflow title|<form/);
 });
 
 test("Workflow IPC accepts exact bounded arguments and binds calls to the main-selected project", async () => {

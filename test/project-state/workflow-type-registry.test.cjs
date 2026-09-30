@@ -11,14 +11,14 @@ const {
 } = require("../../dist/shared/projectState/workflowTypeRegistry.js");
 
 const expected = [
-  ["project-creation", "Project Creation / Greenfield", false, "project-intake", false, 0, undefined],
-  ["feature-capability", "Feature / Capability", true, "feature-intake", true, 1, "Start Feature"],
-  ["refactor-migration", "Refactor / Migration", true, "refactor-intake", true, 2, "Start Migration"],
-  ["integration-composition", "Integration / Composition", true, "integration-intake", true, 3, "Start Integration"],
-  ["infrastructure-platform", "Infrastructure / Platform", true, "infrastructure-intake", true, 4, "Start Infrastructure Work"],
-  ["research-prototype", "Research / Prototype", true, "research-intake", true, 5, "Start Research"],
-  ["issue-resolution", "Issue Resolution", true, "issue-intake", true, 6, "New Issue"],
-  ["work-intake-routing", "Work Intake Routing", true, "work-intake", false, 7, undefined],
+  ["project-creation", "Greenfield Project", false, "project-intake", false, 1, undefined],
+  ["feature-capability", "Feature / Capability", true, "feature-intake", true, 2, "Start Feature"],
+  ["refactor-migration", "Refactor / Migration", true, "refactor-intake", true, 3, "Start Migration"],
+  ["integration-composition", "Integration / Composition", true, "integration-intake", true, 4, "Start Integration"],
+  ["infrastructure-platform", "Infrastructure / Platform", true, "infrastructure-intake", true, 6, "Start Infrastructure Work"],
+  ["research-prototype", "Research / Prototype", true, "research-intake", true, 7, "Start Research"],
+  ["issue-resolution", "Issue Resolution", true, "issue-intake", true, 5, "New Issue"],
+  ["work-intake-routing", "Work Intake Routing", true, "work-intake", false, 0, undefined],
 ];
 
 test("canonical Workflow type registry has exact IDs and repeatability metadata", () => {
@@ -30,10 +30,15 @@ test("canonical Workflow type registry has exact IDs and repeatability metadata"
     const definition = getWorkflowTypeDefinition(id);
     assert.equal(isWorkflowType(id), true);
     assert.ok(definition);
+    assert.ok(definition.purpose && definition.purpose.startsWith("Use "));
     return [definition.workflowType, definition.label, definition.repeatable, definition.entryWorkspace, definition.directStart,
       definition.hubOrder, definition.startLabel];
   }), expected);
   assert.deepEqual(expected.filter(([, , repeatable]) => !repeatable).map(([id]) => id), ["project-creation"]);
+  assert.deepEqual(Object.values(WORKFLOW_TYPE_REGISTRY).sort((a, b) => a.hubOrder - b.hubOrder).map(row => row.workflowType), [
+    "work-intake-routing", "project-creation", "feature-capability", "refactor-migration",
+    "integration-composition", "issue-resolution", "infrastructure-platform", "research-prototype",
+  ]);
 });
 
 test("Existing-Project WIR route mapping is exact and excludes Greenfield and unknown routes", () => {
