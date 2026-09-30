@@ -286,8 +286,12 @@ export function createStructuredWorkRoutingService(dependencies: {
     return withCurrentProject(root, async (store, projectId) => {
       const context = await exactContext(store, projectId, intakeId, routingWorkflowId);
       if (!input || Object.keys(input).some(key => !["assessmentId", "disposition", "route", "rationale"].includes(key)) ||
-        !["accept", "override", "request-revision"].includes(input.disposition) || typeof input.rationale !== "string" || !input.rationale.trim() || input.rationale.trim().length > 4000)
+        !["accept", "override", "request-revision"].includes(input.disposition) ||
+        (input.rationale !== undefined && typeof input.rationale !== "string") ||
+        (input.rationale?.trim().length ?? 0) > 4000 ||
+        (input.disposition !== "accept" && !input.rationale?.trim()))
         throw Error("A bounded Operator route decision is required.");
+      const rationale = input.rationale?.trim() || "Operator accepted Architect recommendation.";
       if (context.currentReview?.body.outcome === "revision_requested") throw Error("Prepare and review the requested revised assessment before selecting a route.");
       if (!context.latestAssessment || context.latestAssessment.id !== input.assessmentId || context.assessmentStale) throw Error("Presented RouteAssessment is stale or unavailable.");
       const assessmentSource = assessmentVersionAndDev(context.latestAssessment);
@@ -297,7 +301,7 @@ export function createStructuredWorkRoutingService(dependencies: {
       }
       const state = createProjectStateService(store, operator);
       if (input.disposition === "request-revision") {
-        await state.recordWorkIntakeRouteRevisionRequest(projectId, intakeId, { assessmentId: input.assessmentId, rationale: input.rationale.trim() },
+        await state.recordWorkIntakeRouteRevisionRequest(projectId, intakeId, { assessmentId: input.assessmentId, rationale },
           { reason: "Request revised Architect routing assessment", correlationId: `wir-revision-${randomUUID()}` });
         return currentModel(canonicalRoot, store, projectId, intakeId, routingWorkflowId);
       }
@@ -313,7 +317,7 @@ export function createStructuredWorkRoutingService(dependencies: {
       }
       const correlationId = `wir-route-${randomUUID()}`;
       await state.completeWorkIntakeRouteHandoff(projectId, { intakeId, routingWorkflowId, assessmentId: input.assessmentId,
-        disposition: input.disposition, route, rationale: input.rationale.trim(), targetTitle: context.intake.body.request.slice(0, 200).trim() || "Routed Work",
+        disposition: input.disposition, route, rationale, targetTitle: context.intake.body.request.slice(0, 200).trim() || "Routed Work",
         ...(sourceSeed ? { sourceSeed } : {}) }, { reason: "Complete structured WIR route handoff", correlationId });
       return currentModel(canonicalRoot, store, projectId, intakeId, routingWorkflowId);
     });

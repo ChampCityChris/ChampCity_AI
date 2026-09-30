@@ -284,6 +284,46 @@ test("structured WIR promotes one Architect assessment and atomically opens an e
   } finally { env.store.close(); }
 });
 
+test("structured WIR accepts without prose, retains optional notes, and requires override and revision rationale", async context => {
+  const env = await setup(context);
+  const routing = createStructuredWorkRoutingService({ readDevRevision: async () => { throw Error("No managed source"); } });
+  async function assessed(suffix) {
+    const captured = await env.state.createWorkIntake(env.projectId, { request: `Route request ${suffix}`, desiredOutcome: "Choose a workflow",
+      constraints: [], evidenceContext: [], requestedIntegrationTarget: "dev" });
+    const prepared = await routing.prepare(env.root, captured.intake.id, captured.workflow.id);
+    const draftPath = path.join(env.root, prepared.preparedSubmission.expectedDraftSlots[0].draftRelativePath);
+    fs.mkdirSync(path.dirname(draftPath), { recursive: true });
+    fs.writeFileSync(draftPath, "# Work Intake Routing Assessment\n\n## Recommended Route\nfeature-change\n\n## Traits\nNone\n\n## Rationale\nA bounded capability change.\n\n## Alternate Route\nNone\n", "utf8");
+    const promoted = await routing.get(env.root, captured.intake.id, captured.workflow.id);
+    assert.ok(promoted.assessment, promoted.error);
+    return { captured, assessmentId: promoted.assessment.assessmentId };
+  }
+  try {
+    const first = await assessed("default");
+    const decideFirst = input => routing.decide(env.root, first.captured.intake.id, first.captured.workflow.id,
+      { assessmentId: first.assessmentId, ...input });
+    await assert.rejects(decideFirst({ disposition: "override", route: "refactor-migration" }), /bounded Operator route decision/);
+    await assert.rejects(decideFirst({ disposition: "override", route: "refactor-migration", rationale: "  " }), /bounded Operator route decision/);
+    await assert.rejects(decideFirst({ disposition: "request-revision" }), /bounded Operator route decision/);
+    await assert.rejects(decideFirst({ disposition: "request-revision", rationale: "  " }), /bounded Operator route decision/);
+    await assert.rejects(decideFirst({ disposition: "accept", route: "refactor-migration" }), /Accept does not accept an override route/);
+    const completed = await decideFirst({ disposition: "accept" });
+    assert.equal(completed.selectedRoute, "feature-change");
+    assert.equal(completed.closed, true);
+    assert.ok(completed.targetWorkflowId);
+    assert.equal((await env.state.getRecord(env.projectId, completed.targetWorkflowId)).body.workflowType, "feature-capability");
+    const history = await env.state.getWorkRouteHistory(env.projectId, first.captured.intake.id);
+    assert.equal(history.decisions[0].body.rationale, "Operator accepted Architect recommendation.");
+    assert.equal((await env.state.getRecord(env.projectId, first.captured.workflow.id)).lifecycleState, "closed");
+    const second = await assessed("optional note");
+    const noted = await routing.decide(env.root, second.captured.intake.id, second.captured.workflow.id,
+      { assessmentId: second.assessmentId, disposition: "accept", rationale: "  Proceed after review.  " });
+    assert.equal(noted.selectedRoute, "feature-change");
+    assert.equal((await env.state.getWorkRouteHistory(env.projectId, second.captured.intake.id)).decisions[0].body.rationale,
+      "Proceed after review.");
+  } finally { env.store.close(); }
+});
+
 test("structured source-backed WIR captures optional Dev evidence and gives its target the same lazy baseline shape", async context => {
   const env = await setup(context, { sourceRepositoryId: "structured-wir-repository" });
   try {

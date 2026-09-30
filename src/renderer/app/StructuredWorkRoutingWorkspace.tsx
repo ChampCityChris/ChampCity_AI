@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Clipboard, FileText, FolderOpen, RefreshCw } from "lucide-react";
 import type { StructuredWorkRoutingDecisionInput, StructuredWorkRoutingModel } from "../../shared/structuredWorkRoutingContracts";
 import type { ExistingProjectWorkRoute } from "../../shared/projectState/workflowTypeRegistry";
@@ -13,6 +13,36 @@ const routes: ReadonlyArray<{ id: ExistingProjectWorkRoute; label: string }> = [
   { id: "research-prototype", label: "Research / Prototype" },
   { id: "issue-resolution", label: "Issue Resolution" },
 ];
+
+export const structuredRoutingPollIntervalMs = 1500;
+
+export function shouldPollStructuredWorkRouting(model: StructuredWorkRoutingModel | null): boolean {
+  return !!model?.preparedSubmission &&
+    (model.preparedSubmission.state === "waiting-for-drafts" || model.preparedSubmission.state === "partial-draft-set") &&
+    !model.closed && !model.targetWorkflowId;
+}
+
+export function startStructuredRoutingPolling(model: StructuredWorkRoutingModel | null,
+  read: () => Promise<StructuredWorkRoutingModel>, onModel: (next: StructuredWorkRoutingModel) => void,
+  onError: (failure: unknown) => void,
+  schedule: (callback: () => void, interval: number) => ReturnType<typeof setInterval> = setInterval,
+  cancel: (timer: ReturnType<typeof setInterval>) => void = clearInterval): () => void {
+  if (!shouldPollStructuredWorkRouting(model)) return () => undefined;
+  let active = true;
+  let inFlight = false;
+  const timer = schedule(() => {
+    if (!active || inFlight) return;
+    inFlight = true;
+    void read().then(next => {
+      if (!active) return;
+      onModel(next);
+      if (!shouldPollStructuredWorkRouting(next)) { active = false; cancel(timer); }
+    }).catch(failure => {
+      if (active) onError(failure);
+    }).finally(() => { inFlight = false; });
+  }, structuredRoutingPollIntervalMs);
+  return () => { active = false; cancel(timer); };
+}
 
 export function routeStructuredWIRTarget(targetWorkflowId: string | null, source: "load" | "refresh" | "live-decision" | "explicit-open",
   onRouted: (workflowId: string) => void): void {
@@ -33,26 +63,39 @@ export function StructuredWorkRoutingWorkspace({ intakeId, routingWorkflowId, br
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
+  const mounted = useRef(false);
+  const identity = `${intakeId}\u0000${routingWorkflowId}`;
+  const identityRef = useRef(identity);
+  identityRef.current = identity;
+  const refreshPromise = useRef<{ identity: string; request: Promise<StructuredWorkRoutingModel> } | null>(null);
 
-  async function refresh(showFeedback = false): Promise<void> {
-    setError("");
-    const next = await window.champcity.getStructuredWorkRouting(intakeId, routingWorkflowId);
-    setModel(next);
-    setRoute(next.assessment?.recommendation ?? "feature-change");
-    routeStructuredWIRTarget(next.targetWorkflowId, "refresh", onRouted);
-    if (showFeedback) setFeedback("Routing evidence refreshed from Project State.");
+  async function refresh(showFeedback = false): Promise<StructuredWorkRoutingModel> {
+    if (refreshPromise.current?.identity === identity) return refreshPromise.current.request;
+    const request = window.champcity.getStructuredWorkRouting(intakeId, routingWorkflowId);
+    refreshPromise.current = { identity, request };
+    try {
+      const next = await request;
+      if (mounted.current && identityRef.current === identity) {
+        setError("");
+        setModel(next);
+        setRoute(next.assessment?.recommendation ?? "feature-change");
+        routeStructuredWIRTarget(next.targetWorkflowId, "refresh", onRouted);
+        if (showFeedback) setFeedback("Routing evidence refreshed from Project State.");
+      }
+      return next;
+    } finally { if (refreshPromise.current?.request === request) refreshPromise.current = null; }
   }
 
   useEffect(() => {
-    let current = true;
-    window.champcity.getStructuredWorkRouting(intakeId, routingWorkflowId).then(next => {
-      if (!current) return;
-      setModel(next);
-      setRoute(next.assessment?.recommendation ?? "feature-change");
-      routeStructuredWIRTarget(next.targetWorkflowId, "load", onRouted);
-    }).catch(failure => { if (current) setError(failure instanceof Error ? failure.message : "Routing could not be loaded."); });
-    return () => { current = false; };
+    mounted.current = true;
+    setModel(null);
+    void refresh().catch(failure => { if (mounted.current) setError(failure instanceof Error ? failure.message : "Routing could not be loaded."); });
+    return () => { mounted.current = false; };
   }, [intakeId, routingWorkflowId]);
+
+  useEffect(() => startStructuredRoutingPolling(model, () => refresh(), () => undefined,
+    failure => { if (mounted.current) setError(failure instanceof Error ? failure.message : "Routing refresh failed."); }),
+  [model, intakeId, routingWorkflowId]);
 
   async function run(action: "prepare" | "copy"): Promise<void> {
     setBusy(true); setError(""); setFeedback("");
@@ -71,11 +114,13 @@ export function StructuredWorkRoutingWorkspace({ intakeId, routingWorkflowId, br
   }
 
   async function decide(disposition: StructuredWorkRoutingDecisionInput["disposition"]): Promise<void> {
-    if (!model?.assessment || !rationale.trim()) return;
+    if (!model?.assessment || !canDecide || (disposition !== "accept" && !rationale.trim()) ||
+      (disposition === "override" && route === model.assessment.recommendation)) return;
     setBusy(true); setError(""); setFeedback("");
     try {
       const next = await window.champcity.decideStructuredWorkRouting(intakeId, routingWorkflowId, {
-        assessmentId: model.assessment.assessmentId, disposition, rationale: rationale.trim(),
+        assessmentId: model.assessment.assessmentId, disposition,
+        ...(rationale.trim() ? { rationale: rationale.trim() } : {}),
         ...(disposition === "override" ? { route } : {}),
       });
       setModel(next); setRationale("");
@@ -118,19 +163,22 @@ export function StructuredWorkRoutingWorkspace({ intakeId, routingWorkflowId, br
         <p role="status">{model?.closed ? "This Work Intake is closed." : assessment?.stale ? "Work Intake or optional source evidence changed. Prepare a current assessment." : model?.targetWorkflowId ? "Route selected. The target Workflow is ready." : model?.reviewState === "revision-requested" ? "A revised recommendation was requested. Prepare a new Architect handoff." : assessment ? "Recommendation ready for your route decision." : "Prepare an Architect handoff to get a route recommendation."}</p>
         {assessment ? <p>Architect recommendation: <strong>{routeLabel(assessment.recommendation)}</strong></p> : null}
         {canDecide ? <>
-          <label>Decision rationale or revision instructions<textarea maxLength={4000} value={rationale} onChange={event => setRationale(event.target.value)} /></label>
-          <div className="figma-disposition-row">
-            <button className="apply-button" type="button" disabled={busy || !rationale.trim()} onClick={() => void decide("accept")}>Accept Recommendation</button>
-            <label>Override Route<select value={route} onChange={event => setRoute(event.target.value as ExistingProjectWorkRoute)}>
-              {routes.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
-            </select></label>
-            <button type="button" disabled={busy || !rationale.trim() || route === assessment.recommendation} onClick={() => void decide("override")}>Select Override Route</button>
-            <button type="button" disabled={busy || !rationale.trim()} onClick={() => void decide("request-revision")}>Request Revised Assessment</button>
+          <label className="work-routing-rationale">Override / revision rationale<textarea maxLength={4000} value={rationale} onChange={event => setRationale(event.target.value)} /></label>
+          <p className="work-routing-rationale-help">Optional when accepting the recommendation. Required to override the route or request a revised assessment.</p>
+          <div className="work-routing-actions">
+            <div className="work-routing-action-group"><button className="work-routing-button work-routing-button-primary" type="button" disabled={busy || !canDecide} onClick={() => void decide("accept")}>Accept Recommendation</button></div>
+            <div className="work-routing-action-group work-routing-override">
+              <label>Override Route<select value={route} disabled={busy} onChange={event => setRoute(event.target.value as ExistingProjectWorkRoute)}>
+                {routes.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+              </select></label>
+              <button className="work-routing-button work-routing-button-secondary" type="button" disabled={busy || !canDecide || !rationale.trim() || route === assessment.recommendation} onClick={() => void decide("override")}>Use Override Route</button>
+            </div>
+            <div className="work-routing-action-group"><button className="work-routing-button work-routing-button-warning" type="button" disabled={busy || !canDecide || !rationale.trim()} onClick={() => void decide("request-revision")}>Request Revised Assessment</button></div>
           </div>
         </> : null}
         {model?.selectedRoute ? <p>Selected route: {routeLabel(model.selectedRoute)}</p> : null}
-        {model?.targetWorkflowId ? <button className="apply-button" type="button" onClick={() => routeStructuredWIRTarget(model.targetWorkflowId, "explicit-open", onRouted)}>Open routed Workflow</button> : null}
-        <button type="button" onClick={onReturn}>Back to Workflows</button>
+        {model?.targetWorkflowId ? <button className="work-routing-button work-routing-button-primary" type="button" onClick={() => routeStructuredWIRTarget(model.targetWorkflowId, "explicit-open", onRouted)}>Open routed Workflow</button> : null}
+        <button className="work-routing-button work-routing-button-tertiary" type="button" onClick={onReturn}>Back to Workflows</button>
       </section>
     </>}
   />;

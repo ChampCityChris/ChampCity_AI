@@ -38,5 +38,5 @@ export interface StructuredWorkRoutingDecisionInput {
   assessmentId: string;
   disposition: "accept" | "override" | "request-revision";
   route?: ExistingProjectWorkRoute;
-  rationale: string;
+  rationale?: string;
 }

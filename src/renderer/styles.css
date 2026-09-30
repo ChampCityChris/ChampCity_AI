@@ -8985,7 +8985,6 @@ body {
   flex-wrap: wrap;
 }
 
-.work-routing-decision .figma-disposition-row,
 .work-planning-decision .figma-disposition-row,
 .work-decomposition-decision .figma-disposition-row {
   display: grid;
@@ -8998,6 +8997,110 @@ body {
 .work-planning-decision textarea,
 .work-decomposition-decision textarea {
   width: 100%;
+}
+
+.work-routing-decision {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 14px;
+}
+
+.work-routing-decision > p,
+.work-routing-decision > label,
+.work-routing-decision > button {
+  margin-left: 14px;
+  margin-right: 14px;
+}
+
+.work-routing-rationale {
+  display: grid;
+  gap: 6px;
+}
+
+.work-routing-rationale-help {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.work-routing-actions {
+  display: grid;
+  gap: 10px;
+  padding: 0 14px;
+}
+
+.work-routing-action-group {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.work-routing-override {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+}
+
+.work-routing-override label {
+  display: grid;
+  gap: 6px;
+  min-width: min(100%, 190px);
+  flex: 1;
+}
+
+.work-routing-decision select {
+  min-height: 36px;
+  padding: 6px 9px;
+  color: var(--foreground);
+  background: var(--input-background);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.work-routing-button {
+  min-height: 36px;
+  padding: 8px 12px;
+  color: var(--foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 650;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.work-routing-button-primary {
+  color: var(--primary-foreground);
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.work-routing-button-warning {
+  color: var(--foreground);
+  border-color: color-mix(in srgb, var(--destructive) 55%, var(--border));
+}
+
+.work-routing-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary) 18%, var(--card));
+  border-color: var(--primary);
+}
+
+.work-routing-button-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary) 82%, var(--foreground));
+}
+
+.work-routing-button:focus-visible,
+.work-routing-decision select:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.work-routing-button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+  filter: grayscale(0.35);
 }
 
 .work-routed-planning-workspace .figma-document-card {
