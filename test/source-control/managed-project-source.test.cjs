@@ -348,11 +348,17 @@ test("known normalizing journal plus partial managed metadata residue is recover
   fs.writeFileSync(path.join(root, ".champcity", "repository.git", "residue.txt"), "old metadata\n");
   const oldMigration = path.join(root, ".champcity", "migrations", "existing-project-normalization-old-attempt");
   fs.mkdirSync(path.join(oldMigration, "source-snapshot"), { recursive: true });
+  fs.mkdirSync(path.join(oldMigration, "candidate-repository.git"), { recursive: true });
+  fs.writeFileSync(path.join(oldMigration, "candidate-repository.git", "retained-candidate.txt"), "retained failed candidate\n");
   fs.writeFileSync(path.join(root, ".champcity", "migrations", "existing-project-git-adoption-v1.json"), JSON.stringify({
-    schemaVersion: 2, migrationId: "old-attempt", repositoryId: "partial-residue", planId: "old-plan", stage: "normalizing",
+    schemaVersion: 3, migrationId: "old-attempt", repositoryId: "partial-residue", planId: "old-plan", stage: "failed",
     migrationRelativePath: ".champcity/migrations/existing-project-normalization-old-attempt",
     sourceSnapshotRelativePath: ".champcity/migrations/existing-project-normalization-old-attempt/source-snapshot",
-    baselineRevision: null, importedRefCount: 0, baselineParentCount: 0, failureReason: null, completedAt: null,
+    baselineRevision: "1111111111111111111111111111111111111111", importedRefCount: 13, baselineParentCount: 1,
+    failureReason: "Service Host control connection closed.", failurePhase: "conventional checkout retirement",
+    originalRootGitAuthoritative: true, cleanupWarnings: [],
+    retainedRecoveryPaths: [".champcity/migrations/existing-project-normalization-old-attempt/candidate-repository.git"],
+    conventionalCheckoutRestored: null, completedAt: null,
   }, null, 2));
   fs.mkdirSync(path.join(root, "Main"));
   fs.writeFileSync(path.join(root, "Main", "old-main.txt"), "old main bytes\n");
@@ -361,6 +367,7 @@ test("known normalizing journal plus partial managed metadata residue is recover
   fs.writeFileSync(path.join(root, "CURRENT.txt"), "selected source\n");
   const inspected = await inspectExistingProjectGitAdoption(root, "partial-residue");
   assert.equal(inspected.state, "conversion-required");
+  assert.notEqual(inspected.planId, "old-plan");
   await applyPlan(root, "partial-residue", inspected);
   assertManaged(root);
   assert.equal(fs.readFileSync(path.join(root, "Dev", "CURRENT.txt"), "utf8"), "selected source\n");

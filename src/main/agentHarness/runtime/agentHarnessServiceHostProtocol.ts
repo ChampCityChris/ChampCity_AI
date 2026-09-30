@@ -17,24 +17,27 @@ import {
 
 export { agentHarnessServiceHostControlProtocolVersion } from "./agentHarnessServiceHostDescriptor";
 
-export type AgentHarnessServiceHostOperation =
-  | "handshake"
-  | "reconcile-descriptor"
-  | "agent-harness-status"
-  | "agent-harness-start"
-  | "agent-harness-stop"
-  | "agent-harness-restart"
-  | "agent-harness-save-configuration"
-  | "agent-harness-import-legacy-oauth-clients"
-  | "list-registered-workspaces"
-  | "register-workspace"
-  | "unregister-workspace"
-  | "register-repository-checkout"
-  | "list-repository-checkouts"
-  | "unregister-repository-checkout"
-  | "service-host-shutdown"
-  | "background-agent-user-exit"
-  | "service-host-controlled-restart";
+export const agentHarnessServiceHostOperations = [
+  "handshake",
+  "reconcile-descriptor",
+  "agent-harness-status",
+  "agent-harness-start",
+  "agent-harness-stop",
+  "agent-harness-restart",
+  "agent-harness-save-configuration",
+  "agent-harness-import-legacy-oauth-clients",
+  "list-registered-workspaces",
+  "register-workspace",
+  "unregister-workspace",
+  "register-repository-checkout",
+  "list-repository-checkouts",
+  "unregister-repository-checkout",
+  "service-host-shutdown",
+  "background-agent-user-exit",
+  "service-host-controlled-restart",
+] as const;
+
+export type AgentHarnessServiceHostOperation = typeof agentHarnessServiceHostOperations[number];
 
 export interface AgentHarnessServiceHostIdentity {
   descriptorSchemaVersion: AgentHarnessServiceHostDescriptor["schemaVersion"];
@@ -144,24 +147,7 @@ export type AgentHarnessServiceHostResponse =
   | AgentHarnessServiceHostSuccessResponse
   | AgentHarnessServiceHostFailureResponse;
 
-const serviceHostOperations = new Set<AgentHarnessServiceHostOperation>([
-  "handshake",
-  "reconcile-descriptor",
-  "agent-harness-status",
-  "agent-harness-start",
-  "agent-harness-stop",
-  "agent-harness-restart",
-  "agent-harness-save-configuration",
-  "agent-harness-import-legacy-oauth-clients",
-  "list-registered-workspaces",
-  "register-workspace",
-  "unregister-workspace",
-  "register-repository-checkout",
-  "unregister-repository-checkout",
-  "service-host-shutdown",
-  "background-agent-user-exit",
-  "service-host-controlled-restart",
-]);
+const serviceHostOperations = new Set<string>(agentHarnessServiceHostOperations);
 
 export function isAgentHarnessServiceHostRequest(value: unknown): value is AgentHarnessServiceHostRequest {
   return isRecord(value) &&
@@ -175,6 +161,7 @@ export function isAgentHarnessServiceHostRequest(value: unknown): value is Agent
       (value.operation !== "handshake" && typeof value.expectedInstanceId === "string" && value.expectedInstanceId.length > 0)) &&
     Object.prototype.hasOwnProperty.call(value, "payload") &&
     (value.operation !== "register-repository-checkout" || isSemanticCheckoutRequest(value.payload)) &&
+    (value.operation !== "list-repository-checkouts" || isBoundedWorkspaceIdentityPayload(value.payload)) &&
     (value.operation !== "unregister-repository-checkout" || (isRecord(value.payload) && typeof value.payload.workspaceId === "string" && typeof value.payload.repositoryCheckoutId === "string" && !hasHostPathFields(value.payload)));
 }
 
@@ -275,15 +262,23 @@ function isControlledRestartDisposition(value: unknown): boolean {
 }
 
 function isAgentHarnessServiceHostOperation(value: unknown): value is AgentHarnessServiceHostOperation {
-  return typeof value === "string" && serviceHostOperations.has(value as AgentHarnessServiceHostOperation);
+  return typeof value === "string" && serviceHostOperations.has(value);
 }
 
 function isSemanticCheckoutRequest(value: unknown): boolean {
   return isRecord(value) && typeof value.workspaceId === "string" && isRecord(value.checkout) && !hasHostPathFields(value) && !hasHostPathFields(value.checkout);
 }
 
+function isBoundedWorkspaceIdentityPayload(value: unknown): boolean {
+  return isRecord(value) &&
+    typeof value.workspaceId === "string" &&
+    value.workspaceId.trim().length > 0 &&
+    value.workspaceId.length <= 160 &&
+    !hasHostPathFields(value);
+}
+
 function hasHostPathFields(value: object): boolean {
-  return ["root", "absoluteRoot", "checkoutRoot", "gitCommonDirectory", "canonicalRoot", "absolutePath"].some((key) => Object.prototype.hasOwnProperty.call(value, key));
+  return ["root", "workspaceRoot", "absoluteRoot", "checkoutRoot", "gitCommonDirectory", "canonicalRoot", "absolutePath"].some((key) => Object.prototype.hasOwnProperty.call(value, key));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

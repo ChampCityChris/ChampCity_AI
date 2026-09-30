@@ -484,7 +484,9 @@ test("production Service Host survives desktop exit and the next desktop reconne
       action: "list_repository_checkouts",
     });
     assert.equal(gitStatus.structuredContent.ok, true);
-    assert.deepEqual(gitStatus.structuredContent.payload, []);
+    assert.equal(gitStatus.structuredContent.payload.length, 1);
+    assert.equal(gitStatus.structuredContent.payload[0].role, "conventional");
+    assert.equal(gitStatus.structuredContent.payload[0].projectRelativePath, ".");
     await mcpClient.close();
     mcpClient = null;
 
@@ -729,6 +731,21 @@ test("healthy Service Host client routes exact registered Projects A and B indep
     assert.match(unbound.structuredContent.error.message, /workspace|project/i);
 
     await client.registerWorkspace(projectA);
+    const reconciledCheckouts = await client.listRepositoryCheckouts("project_a");
+    assert.equal(reconciledCheckouts.length, 1);
+    assert.equal(reconciledCheckouts[0].role, "conventional");
+    assert.equal(reconciledCheckouts[0].projectRelativePath, ".");
+    assert.equal("root" in reconciledCheckouts[0], false);
+    assert.deepEqual(
+      await client.unregisterRepositoryCheckout("project_a", reconciledCheckouts[0].repositoryCheckoutId),
+      [],
+    );
+    assert.deepEqual(await client.listRepositoryCheckouts("project_a"), []);
+    await client.registerWorkspace(projectA);
+    assert.deepEqual(
+      (await client.listRepositoryCheckouts("project_a")).map((checkout) => checkout.repositoryCheckoutId),
+      [reconciledCheckouts[0].repositoryCheckoutId],
+    );
     const exactA = await readWorkspace(mcpClient, "project_a");
     assert.equal(exactA.structuredContent.ok, true);
     assert.match(exactA.structuredContent.payload.content, /alpha healthy access project/);

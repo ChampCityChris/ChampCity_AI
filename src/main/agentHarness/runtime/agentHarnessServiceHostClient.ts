@@ -53,6 +53,7 @@ interface AgentHarnessServiceHostClientOptions {
 export type AgentHarnessServiceHostEndpointProbe =
   | { state: "live"; identity: AgentHarnessServiceHostIdentity }
   | { state: "absent" }
+  | { state: "incompatible"; code: "SERVICE_HOST_PROTOCOL_INCOMPATIBLE"; error: string }
   | { state: "indeterminate"; error: string };
 
 export class AgentHarnessServiceHostClientError extends Error {
@@ -87,6 +88,12 @@ export class AgentHarnessServiceHostClient {
     this.discoveryTimeoutMs = options.discoveryTimeoutMs ?? 15_000;
     this.discoveryPollIntervalMs = options.discoveryPollIntervalMs ?? 50;
     this.expectedBuildIdentity = options.expectedBuildIdentity ?? null;
+    if (this.expectedBuildIdentity && !/^sha256:[0-9a-f]{64}$/i.test(this.expectedBuildIdentity)) {
+      throw new AgentHarnessServiceHostClientError(
+        "SERVICE_HOST_EXPECTED_BUILD_IDENTITY_INVALID",
+        "Agent Harness Service Host client requires a valid expected build identity.",
+      );
+    }
   }
 
   async connect(): Promise<AgentHarnessServiceHostIdentity> {
@@ -279,44 +286,7 @@ export class AgentHarnessServiceHostClient {
   async controlledRestartServiceHost(): Promise<AgentHarnessServiceHostIdentity> {
     const descriptor = await this.ensureDescriptor();
     const expectedBuildIdentity = this.expectedBuildIdentity ?? descriptor.runtimeBuildIdentity;
-    const disposition = await this.invokeWithDescriptor(
-      descriptor,
-      "service-host-controlled-restart",
-      { expectedBuildIdentity },
-    );
-    this.lastControlledRestart = disposition;
-    this.descriptor = null;
-    this.lifecycleIdentity = null;
-    this.lifecycleState = "recovering";
-    const absenceDeadline = Date.now() + this.discoveryTimeoutMs;
-    while (Date.now() < absenceDeadline) {
-      const probe = await probeAgentHarnessServiceHostEndpoint(this.userDataRoot, Math.min(this.requestTimeoutMs, 500));
-      if (probe.state === "absent") {
-        break;
-      }
-      await delay(this.discoveryPollIntervalMs);
-    }
-    await this.launchServiceHost();
-    const replacementDeadline = Date.now() + this.discoveryTimeoutMs;
-    while (Date.now() < replacementDeadline) {
-      const probe = await probeAgentHarnessServiceHostEndpoint(this.userDataRoot, Math.min(this.requestTimeoutMs, 1_000));
-      if (probe.state === "live" && probe.identity.instanceId !== descriptor.instanceId) {
-        const identity = await this.acceptDiscoveredIdentity(probe.identity);
-        if (identity.runtimeBuildIdentity !== expectedBuildIdentity) {
-          this.acceptLifecycleIdentity(identity);
-          throw new AgentHarnessServiceHostClientError(
-            "SERVICE_HOST_BUILD_GENERATION_MISMATCH",
-            "Replacement Service Host did not confirm the expected build generation.",
-          );
-        }
-        return identity;
-      }
-      await delay(this.discoveryPollIntervalMs);
-    }
-    throw new AgentHarnessServiceHostClientError(
-      "SERVICE_HOST_CONTROLLED_RESTART_TIMEOUT",
-      "Replacement Service Host did not confirm readiness within the bounded deadline.",
-    );
+    return this.restartDiscoveredServiceHost(descriptor, expectedBuildIdentity, false);
   }
 
   disconnect(): void {
@@ -327,7 +297,18 @@ export class AgentHarnessServiceHostClient {
   private async discoverAndHandshake(): Promise<AgentHarnessServiceHostIdentity> {
     const initialProbe = await probeAgentHarnessServiceHostEndpoint(this.userDataRoot, this.requestTimeoutMs);
     if (initialProbe.state === "live") {
+      if (this.expectedBuildIdentity &&
+        initialProbe.identity.runtimeBuildIdentity !== this.expectedBuildIdentity) {
+        return this.restartDiscoveredServiceHost(
+          createAgentHarnessServiceHostDescriptorFromIdentity(this.userDataRoot, initialProbe.identity),
+          this.expectedBuildIdentity,
+          true,
+        );
+      }
       return this.acceptDiscoveredIdentity(initialProbe.identity);
+    }
+    if (initialProbe.state === "incompatible") {
+      throw new AgentHarnessServiceHostClientError(initialProbe.code, initialProbe.error);
     }
     if (initialProbe.state === "indeterminate") {
       throw new AgentHarnessServiceHostClientError(
@@ -358,7 +339,16 @@ export class AgentHarnessServiceHostClient {
     while (Date.now() < deadline) {
       const probe = await probeAgentHarnessServiceHostEndpoint(this.userDataRoot, this.requestTimeoutMs);
       if (probe.state === "live") {
+        if (this.expectedBuildIdentity && probe.identity.runtimeBuildIdentity !== this.expectedBuildIdentity) {
+          throw new AgentHarnessServiceHostClientError(
+            "SERVICE_HOST_BUILD_GENERATION_MISMATCH",
+            "Newly launched Service Host did not confirm the expected build generation.",
+          );
+        }
         return this.acceptDiscoveredIdentity(probe.identity);
+      }
+      if (probe.state === "incompatible") {
+        throw new AgentHarnessServiceHostClientError(probe.code, probe.error);
       }
       if (probe.state === "indeterminate") {
         lastError = probe.error;
@@ -400,6 +390,79 @@ export class AgentHarnessServiceHostClient {
     this.descriptor = descriptor;
     this.acceptLifecycleIdentity(reconciled);
     return reconciled;
+  }
+
+  private async restartDiscoveredServiceHost(
+    descriptor: AgentHarnessServiceHostDescriptor,
+    expectedBuildIdentity: string,
+    generationMismatch: boolean,
+  ): Promise<AgentHarnessServiceHostIdentity> {
+    let disposition: AgentHarnessServiceHostLifecycleStatus["lastControlledRestart"];
+    try {
+      disposition = await this.invokeWithDescriptor(
+        descriptor,
+        "service-host-controlled-restart",
+        { expectedBuildIdentity },
+      );
+    } catch (error) {
+      if (!generationMismatch) {
+        throw error;
+      }
+      throw new AgentHarnessServiceHostClientError(
+        "SERVICE_HOST_BUILD_GENERATION_INCOMPATIBLE",
+        `Live Service Host generation could not perform the required controlled replacement: ${boundedMessage(error)}`,
+      );
+    }
+    this.lastControlledRestart = disposition;
+    this.descriptor = null;
+    this.lifecycleIdentity = null;
+    this.lifecycleState = "recovering";
+
+    const absenceDeadline = Date.now() + this.discoveryTimeoutMs;
+    let absenceObserved = false;
+    while (Date.now() < absenceDeadline) {
+      const probe = await probeAgentHarnessServiceHostEndpoint(
+        this.userDataRoot,
+        Math.min(this.requestTimeoutMs, 500),
+      );
+      if (probe.state === "absent") {
+        absenceObserved = true;
+        break;
+      }
+      await delay(this.discoveryPollIntervalMs);
+    }
+    if (!absenceObserved) {
+      throw new AgentHarnessServiceHostClientError(
+        "SERVICE_HOST_CONTROLLED_RESTART_TIMEOUT",
+        "Prior Service Host did not release its control endpoint within the bounded deadline.",
+      );
+    }
+
+    await this.launchServiceHost();
+    const replacementDeadline = Date.now() + this.discoveryTimeoutMs;
+    while (Date.now() < replacementDeadline) {
+      const probe = await probeAgentHarnessServiceHostEndpoint(
+        this.userDataRoot,
+        Math.min(this.requestTimeoutMs, 1_000),
+      );
+      if (probe.state === "incompatible") {
+        throw new AgentHarnessServiceHostClientError(probe.code, probe.error);
+      }
+      if (probe.state === "live" && probe.identity.instanceId !== descriptor.instanceId) {
+        if (probe.identity.runtimeBuildIdentity !== expectedBuildIdentity) {
+          throw new AgentHarnessServiceHostClientError(
+            "SERVICE_HOST_BUILD_GENERATION_MISMATCH",
+            "Replacement Service Host did not confirm the expected build generation.",
+          );
+        }
+        return this.acceptDiscoveredIdentity(probe.identity);
+      }
+      await delay(this.discoveryPollIntervalMs);
+    }
+    throw new AgentHarnessServiceHostClientError(
+      "SERVICE_HOST_CONTROLLED_RESTART_TIMEOUT",
+      "Replacement Service Host did not confirm readiness within the bounded deadline.",
+    );
   }
 
   private async ensureDescriptor(): Promise<AgentHarnessServiceHostDescriptor> {
@@ -658,6 +721,13 @@ export async function probeAgentHarnessServiceHostEndpoint(
     };
     connection.write(request);
     const response = await connection.read(timeoutMs);
+    if (reportsIncompatibleControlProtocol(response, request.requestId)) {
+      return {
+        state: "incompatible",
+        code: "SERVICE_HOST_PROTOCOL_INCOMPATIBLE",
+        error: "Live Service Host uses an incompatible control protocol and cannot receive current control operations.",
+      };
+    }
     const identity = isAgentHarnessServiceHostResponse(response) && response.ok
       ? normalizeAgentHarnessServiceHostIdentity(response.result)
       : null;
@@ -810,6 +880,23 @@ function isEndpointDefinitelyAbsent(error: unknown): boolean {
     return false;
   }
   return ["ENOENT", "ECONNREFUSED"].includes(String(error.code));
+}
+
+function reportsIncompatibleControlProtocol(response: unknown, requestId: string): boolean {
+  if (!isRecord(response) || response.kind !== "response" || response.requestId !== requestId) {
+    return false;
+  }
+  if (typeof response.protocolVersion === "number" &&
+    response.protocolVersion !== agentHarnessServiceHostControlProtocolVersion) {
+    return true;
+  }
+  return isRecord(response.result) &&
+    typeof response.result.controlProtocolVersion === "number" &&
+    response.result.controlProtocolVersion !== agentHarnessServiceHostControlProtocolVersion;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function isRecoverableServiceHostTransportError(error: unknown): boolean {
