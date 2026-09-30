@@ -1,54 +1,59 @@
 # Existing Project Git Adoption — Repair04
 
 **Starting baseline:** `07d2e543e6c64ec4214fef7027bf853cefdfb1ab`  
-**Architect revision baseline:** `73a260aa8fd9b2f2e9b8620b01101f8634567f93`  
-**Implementation checkpoint:** `643ea5ed24552b34b9cafa3592b4965703fdb28c`  
+**Repair04 implementation:** `643ea5ed24552b34b9cafa3592b4965703fdb28c`  
 **Repair01 checkpoint:** `f59d5d779f8192d14f47c1175d3a33b871b0c2e4`  
-**Status:** **ACCEPTED — REAL CHAMPCITY_AI QUALIFICATION RETRY AUTHORIZED**
+**Repair02 checkpoint:** `e10bc59e5813cd7be769d1c92b9e71a51200d11b`  
+**Status:** **REPAIR03 ACTIVE — QUALIFICATION BLOCKED**
 
-## Controlling reviews
+## Current architecture correction
 
-- `EPGA_R04_ARCHITECT_REVIEW_2026-09-29.md`
-- `Repair01/EPGA_R04_R01_ARCHITECT_REVIEW_2026-09-29.md`
+Repair04 correctly established that:
 
-## Accepted authority model
+- a Workspace is a Git-neutral model-access directory;
+- non-Git workspaces are first-class;
+- RepositoryCheckout is the semantic identity used when a model deliberately accesses Git;
+- the application owns repository topology.
 
-Repair04 establishes:
+However, subsequent implementation coupled Source Control to Agent Harness checkout-registration state.
 
-- **Workspace** — generic model-access directory; Git-neutral and valid with zero repositories.
-- **RepositoryCheckout** — explicit model-facing Git authority for one validated working copy.
-- **Application/source-control layer** — owns Git discovery, checkout provisioning, adoption, normalization, and managed topology.
+That coupling is now rejected.
 
-The Agent Harness workspace registry does not infer Git authority from a root `.git`.
+Source Control must own and execute Git independently. Agent Harness/MCP checkout exposure is a downstream model-access projection.
 
-Non-Git folders remain permanent supported workspaces.
+## Controlling Repair03 documents
 
-The Operator's 2026-09-29 workspace/Git authority decision supersedes the earlier RCO-HF01 workspace-root Git authorization rule. RCO-HF01 remains an unchanged historical record.
+- `Repair03/EPGA_R04_R03_ARCHITECT_CORRECTION_2026-09-29.md`
+- `Repair03/EPGA-R04-R03_decouple_source_control_from_agent_harness_model_access.md`
 
-## Accepted cutover mechanics
+## Repair02 disposition
 
-Repair04 + Repair01 now provide:
+Repair02 checkpoint `e10bc59...` is not being wholesale reverted.
 
-- deterministic conventional checkout provisioning for exact root Git workspaces;
-- atomic checkout operation reservation and retirement;
-- bounded retirement drain with usable-authority restoration on failure;
-- staged candidate managed metadata;
-- managed-metadata/root-Git cutover separation;
-- bounded Windows rename/remove retry;
-- explicit attempt-owned recovery state;
-- primary-failure-preserving rollback;
-- truthful failed journal semantics;
-- interrupted-normalization recovery;
-- exact Main/Dev RepositoryCheckout registration after successful conversion.
+Its independently valid Agent Harness lifecycle hardening may remain.
+
+Repair03 removes the invalid Source Control dependency that Repair02 reinforced and removes the private checkout-list control if it no longer has a legitimate consumer.
+
+## Current invariant
+
+```text
+Source Control owns Git
+    ->
+application/model-access projection mirrors allowed checkout access
+    ->
+MCP exposes selected capabilities to external models
+```
+
+Never:
+
+```text
+Agent Harness/MCP state
+    ->
+determines Source Control authority or Git topology
+```
 
 ## Qualification state
 
-No real ChampCity_AI conversion has been performed after this accepted checkpoint.
+Do not retry the real ChampCity_AI conversion until Repair03 is implemented and Architect-reviewed.
 
-The prior interrupted schema-2 normalization evidence remains in place intentionally.
-
-## Next action
-
-Retry the real ChampCity_AI Existing Project conversion using the current code/build.
-
-If the retry fails, preserve the exact state and error rather than manually cleaning migration evidence.
+Preserve the existing schema-3 failed migration evidence.
