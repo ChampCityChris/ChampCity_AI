@@ -1,18 +1,25 @@
 # Development Environment Resolution / Repair01
 
-**Status:** ACTIVE
+**Implementation checkpoint:** `7fb736276fcc1f50ed66640c73ea3cb669e860b5`  
+**Status:** **ACCEPTED — RUNTIME REPRO RETEST AUTHORIZED**
 
 Controlling card:
 
 `DER-R01_probe_before_provider_resolution_and_fix_terminal_ux.md`
 
-This repair addresses the Greenfield Work Card environment blocker where a generically-probeable executable such as `ffprobe` is already installed but ChampCity skips its deterministic probe, falls directly into ambiguous provider resolution, and remains blocked after Environment Resolution.
+Architect review:
 
-The repair also fixes misleading terminal UX:
+`ARCHITECT_REVIEW_2026-09-30.md`
 
-- Environment Resolution does not require an Implementer Report;
-- ready environment state enables Work Card implementation;
-- unresolved environment state is warning/amber, not green;
+Accepted behavior:
+
+- generically-probeable managed executables are probed before provider/WinGet resolution;
+- a satisfied probe immediately satisfies preflight;
+- missing/incompatible tools retain provider fallback;
+- post-Environment-Resolution deterministic preflight remains authoritative;
+- ready state enables Work Card implementation;
+- unresolved state remains blocking and warning/amber;
+- Environment Resolution does not require or complain about an Implementer Report;
 - actual Work Card Implementer Report enforcement remains unchanged.
 
-Stop after implementation for Architect review.
+Next step: retest the original Signal_Forge Greenfield environment-resolution flow.
