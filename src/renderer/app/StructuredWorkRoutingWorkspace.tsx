@@ -22,6 +22,17 @@ export function shouldPollStructuredWorkRouting(model: StructuredWorkRoutingMode
     !model.closed && !model.targetWorkflowId;
 }
 
+export type StructuredRoutingViewState = "empty" | "pending" | "current" | "stale" | "revision-requested" | "routed" | "closed";
+
+export function structuredRoutingViewState(model: StructuredWorkRoutingModel | null): StructuredRoutingViewState {
+  if (model?.closed) return "closed";
+  if (model?.targetWorkflowId) return "routed";
+  if (shouldPollStructuredWorkRouting(model)) return "pending";
+  if (model?.assessment?.stale) return "stale";
+  if (model?.reviewState === "revision-requested") return "revision-requested";
+  return model?.assessment ? "current" : "empty";
+}
+
 export function startStructuredRoutingPolling(model: StructuredWorkRoutingModel | null,
   read: () => Promise<StructuredWorkRoutingModel>, onModel: (next: StructuredWorkRoutingModel) => void,
   onError: (failure: unknown) => void,
@@ -104,7 +115,7 @@ export function StructuredWorkRoutingWorkspace({ intakeId, routingWorkflowId, br
         const next = await window.champcity.prepareStructuredWorkRouting(intakeId, routingWorkflowId);
         setModel(next);
         setRoute(next.assessment?.recommendation ?? route);
-        setFeedback("Architect handoff prepared. Copy it when ready.");
+        setFeedback("Current Architect assessment handoff prepared. Submit it to the Architect; this screen will update automatically when the assessment is ready.");
       } else {
         await window.champcity.copyStructuredWorkRouting(intakeId, routingWorkflowId);
         setFeedback("Architect handoff copied.");
@@ -134,18 +145,19 @@ export function StructuredWorkRoutingWorkspace({ intakeId, routingWorkflowId, br
   const routeLabel = (value: ExistingProjectWorkRoute) => routes.find(item => item.id === value)?.label ?? value;
   const intakeMarkdown = model ? `# Work Intake\n\n## Request\n${model.request}\n\n## Desired outcome\n${model.desiredOutcome}\n\n## Constraints\n${model.constraints.join("\n") || "None supplied."}\n\n## Evidence context\n${model.evidenceContext.join("\n") || "None supplied."}` : "# Work Intake\n\nLoading Project State…";
   const assessmentMarkdown = assessment ? `# Routing Assessment\n\n## Recommended route\n${routeLabel(assessment.recommendation)}\n\n## Rationale\n${assessment.rationale}\n\n## Work traits\n${assessment.traits.map(item => item.replaceAll("-", " ")).join(", ") || "None identified"}${assessment.alternate ? `\n\n## Alternate route\n${routeLabel(assessment.alternate)}` : ""}${assessment.evidenceNotes ? `\n\n## Inspected evidence notes\n${assessment.evidenceNotes}` : ""}` : "";
-  const canDecide = !!assessment && !assessment.stale && !model?.closed && !model?.targetWorkflowId && model?.reviewState !== "revision-requested";
+  const viewState = structuredRoutingViewState(model);
+  const canDecide = !!assessment && viewState === "current";
 
   return <DocumentChatWorkspaceShell
     bodyClassName="work-intake-doc-chat-workspace" browserColumnClassName="work-intake-browser-column"
     className="work-intake-stage-workspace work-routing-workspace" documentColumnClassName="work-intake-document-column"
     eyebrow="Work Intake" heading="Routing" summary="Review the request, consider Architect advice, and choose a route."
     browserPanel={model?.closed ? null : browserPanel}
-    browserActions={model?.closed ? null : <section className="figma-browser-actions-panel" aria-label="Routing browser actions">
+    browserActions={model?.closed ? null : <section className="figma-browser-actions-panel work-routing-browser-actions" aria-label="Routing browser actions">
       <header><span>Browser Actions</span></header>
       <div className="figma-browser-actions-row">
         <button type="button" className="primary-action" disabled={busy} onClick={onReloadBrowser}><RefreshCw aria-hidden="true" size={14} />Reload ChatGPT</button>
-        <button type="button" disabled={busy || model?.closed} onClick={() => void run("prepare")}><FolderOpen aria-hidden="true" size={14} />Prepare Handoff</button>
+        <button type="button" disabled={busy} onClick={() => void run("prepare")}><FolderOpen aria-hidden="true" size={14} />Prepare Handoff</button>
         <button type="button" disabled={busy || !model?.preparedInstruction} onClick={() => void run("copy")}><Clipboard aria-hidden="true" size={14} />Copy Handoff</button>
         <button type="button" disabled={busy} onClick={() => { setBusy(true); void refresh(true).catch(failure => setError(failure instanceof Error ? failure.message : "Refresh failed.")).finally(() => setBusy(false)); }}><RefreshCw aria-hidden="true" size={14} />Refresh</button>
       </div>
@@ -160,8 +172,15 @@ export function StructuredWorkRoutingWorkspace({ intakeId, routingWorkflowId, br
       </article>
       <section className="figma-disposition-panel work-routing-decision" aria-label="Operator route decision">
         <header><span>Route Decision</span></header>
-        <p role="status">{model?.closed ? "This Work Intake is closed." : assessment?.stale ? "Work Intake or optional source evidence changed. Prepare a current assessment." : model?.targetWorkflowId ? "Route selected. The target Workflow is ready." : model?.reviewState === "revision-requested" ? "A revised recommendation was requested. Prepare a new Architect handoff." : assessment ? "Recommendation ready for your route decision." : "Prepare an Architect handoff to get a route recommendation."}</p>
-        {assessment ? <p>Architect recommendation: <strong>{routeLabel(assessment.recommendation)}</strong></p> : null}
+        <p role="status">{viewState === "closed" ? "This Work Intake is closed." : viewState === "routed" ? "Route selected. The target Workflow is ready." : viewState === "pending" ? "Waiting for the current Architect assessment." : viewState === "stale" ? "Route decision unavailable while this assessment is stale." : viewState === "revision-requested" ? "A revised recommendation was requested. Prepare a new Architect handoff." : viewState === "current" ? "Recommendation ready for your route decision." : "Prepare an Architect handoff to get a route recommendation."}</p>
+        {assessment && viewState !== "stale" ? <p>{assessment.stale ? "Previous recommendation" : "Architect recommendation"}: <strong>{routeLabel(assessment.recommendation)}</strong></p> : null}
+        {viewState === "stale" ? <div className="work-routing-recovery" aria-label="Stale assessment recovery">
+          <strong>Assessment needs refresh</strong>
+          <p>The Work Intake or source evidence changed after this recommendation was prepared. Prepare a current Architect assessment before selecting a route.</p>
+          <p>Previous recommendation: <strong>{routeLabel(assessment!.recommendation)}</strong> <span>(stale)</span></p>
+          <button className="work-routing-button work-routing-button-primary" type="button" disabled={busy} onClick={() => void run("prepare")}>Prepare Current Assessment</button>
+        </div> : null}
+        {viewState === "revision-requested" ? <button className="work-routing-button work-routing-button-primary" type="button" disabled={busy} onClick={() => void run("prepare")}>Prepare Revised Assessment</button> : null}
         {canDecide ? <>
           <label className="work-routing-rationale">Override / revision rationale<textarea maxLength={4000} value={rationale} onChange={event => setRationale(event.target.value)} /></label>
           <p className="work-routing-rationale-help">Optional when accepting the recommendation. Required to override the route or request a revised assessment.</p>

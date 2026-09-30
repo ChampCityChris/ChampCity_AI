@@ -8985,6 +8985,27 @@ body {
   flex-wrap: wrap;
 }
 
+.work-routing-browser-actions .figma-browser-actions-row button:not(:disabled) {
+  color: var(--foreground);
+  opacity: 1;
+  cursor: pointer;
+}
+
+.work-routing-browser-actions .figma-browser-actions-row button:not(:disabled):hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.work-routing-browser-actions .figma-browser-actions-row button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.work-routing-browser-actions .figma-browser-actions-row button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 .work-planning-decision .figma-disposition-row,
 .work-decomposition-decision .figma-disposition-row {
   display: grid;
@@ -9010,6 +9031,24 @@ body {
 .work-routing-decision > button {
   margin-left: 14px;
   margin-right: 14px;
+}
+
+.work-routing-recovery {
+  display: grid;
+  gap: 10px;
+  margin: 0 14px;
+  padding: 14px;
+  border: 1px solid var(--primary);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--primary) 8%, var(--card));
+}
+
+.work-routing-recovery p {
+  margin: 0;
+}
+
+.work-routing-recovery button {
+  justify-self: start;
 }
 
 .work-routing-rationale {

@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const { loadRendererSourceModule } = require("./renderer-source-loader.cjs");
 
 const { WorkIntakeWorkspace } = loadRendererSourceModule("src/renderer/app/WorkIntakeWorkspace.tsx");
-const { StructuredWorkRoutingWorkspace, routeStructuredWIRTarget, shouldPollStructuredWorkRouting,
+const { StructuredWorkRoutingWorkspace, structuredRoutingViewState, routeStructuredWIRTarget, shouldPollStructuredWorkRouting,
   startStructuredRoutingPolling, structuredRoutingPollIntervalMs } = loadRendererSourceModule("src/renderer/app/StructuredWorkRoutingWorkspace.tsx");
 
 function withState(values, render) {
@@ -18,6 +18,27 @@ function withState(values, render) {
   React.useEffect = () => undefined;
   React.useRef = initial => ({ current: initial });
   try { return render(); } finally { React.useState = original; React.useEffect = originalEffect; React.useRef = originalRef; }
+}
+
+function findButton(element, label) {
+  if (!element || typeof element !== "object") return null;
+  if (element.type === "button" && React.Children.toArray(element.props.children).some(child => child === label)) return element;
+  for (const child of [...React.Children.toArray(element.props?.children), element.props?.documentColumn, element.props?.browserActions]) {
+    const found = findButton(child, label);
+    if (found) return found;
+  }
+  return null;
+}
+
+function routingProps(model, onRouted = () => undefined) {
+  return { intakeId: model.intakeId, routingWorkflowId: model.routingWorkflowId,
+    browserPanel: null, onReloadBrowser() {}, onReturn() {}, onRouted };
+}
+
+function routingModel(overrides = {}) {
+  return { projectId: "project-1", intakeId: "intake-1", routingWorkflowId: "workflow-1", request: "Improve search",
+    desiredOutcome: "Relevant results", constraints: [], evidenceContext: [], intakeRecordVersion: 2, intakeState: "captured", workflowState: "active",
+    assessment: null, reviewState: "none", selectedRoute: null, targetWorkflowId: null, closed: false, ...overrides };
 }
 
 test("structured Work Intake has no branch ownership or legacy source controls", () => {
@@ -77,6 +98,44 @@ test("WIR navigation stays on load and refresh, opens explicitly, and hands off 
   assert.deepEqual(calls, ["target-exact", "new-target"]);
 });
 
+test("structured WIR view states keep stale and revision recovery separate from decisions", () => {
+  const assessment = { assessmentId: "old", recommendation: "refactor-migration", stale: false, traits: [], rationale: "Earlier advice", evidenceNotes: "", sourceRecordVersion: 1 };
+  const base = routingModel();
+  for (const [model, expected] of [
+    [base, "empty"],
+    [routingModel({ preparedSubmission: { state: "waiting-for-drafts" } }), "pending"],
+    [routingModel({ assessment }), "current"],
+    [routingModel({ assessment: { ...assessment, stale: true } }), "stale"],
+    [routingModel({ assessment, reviewState: "revision-requested" }), "revision-requested"],
+    [routingModel({ assessment, targetWorkflowId: "target" }), "routed"],
+    [routingModel({ assessment, closed: true }), "closed"],
+  ]) assert.equal(structuredRoutingViewState(model), expected);
+  assert.equal(structuredRoutingViewState(routingModel({ assessment: { ...assessment, stale: true },
+    preparedSubmission: { state: "partial-draft-set" } })), "pending");
+});
+
+test("stale assessment remains visible with an enabled primary recovery action and no route decisions", () => {
+  const model = routingModel({ assessment: { assessmentId: "old", recommendation: "refactor-migration", stale: true,
+    traits: ["migration"], rationale: "Earlier advice", evidenceNotes: "Prior evidence", sourceRecordVersion: 1 } });
+  const element = withState([model, "refactor-migration", "", false, "", ""], () => StructuredWorkRoutingWorkspace(routingProps(model)));
+  const markup = renderToStaticMarkup(element);
+  assert.match(markup, /Routing Assessment/);
+  assert.match(markup, /Earlier advice/);
+  assert.match(markup, /Assessment needs refresh/);
+  assert.match(markup, /Previous recommendation: <strong>Refactor \/ Migration<\/strong>.*stale/);
+  assert.doesNotMatch(markup, /Accept Recommendation|Use Override Route|Request Revised Assessment/);
+  assert.match(markup, /work-routing-recovery/);
+  const prepare = findButton(element, "Prepare Current Assessment");
+  assert.ok(prepare);
+  assert.equal(prepare.props.disabled, false);
+  assert.match(prepare.props.className, /work-routing-button-primary/);
+  assert.ok(findButton(element, "Back to Workflows"));
+  const css = fs.readFileSync("src/renderer/styles.css", "utf8");
+  assert.match(css, /\.work-routing-recovery \{[^}]*border: 1px solid var\(--primary\)/s);
+  assert.match(css, /\.work-routing-browser-actions .*button:not\(:disabled\) \{[^}]*opacity: 1;[^}]*cursor: pointer/s);
+  assert.match(css, /\.work-routing-browser-actions .*button:disabled \{[^}]*cursor: not-allowed;[^}]*opacity: 0\.48/s);
+});
+
 test("structured WIR decision affordances and empty-text gates are explicit", () => {
   const model = { projectId: "project-1", intakeId: "intake-1", routingWorkflowId: "workflow-1", request: "Improve search",
     desiredOutcome: "Relevant results", constraints: [], evidenceContext: [], intakeRecordVersion: 1, intakeState: "captured", workflowState: "active",
@@ -96,6 +155,64 @@ test("structured WIR decision affordances and empty-text gates are explicit", ()
     assert.ok(css.includes(selector), selector);
   assert.match(css, /\.work-routing-button \{[^}]*cursor: pointer/s);
   assert.match(css, /\.work-routing-button:disabled \{[^}]*cursor: not-allowed/s);
+});
+
+test("live accept and override hand off exact targets while revision stays in Routing", async () => {
+  const model = routingModel({ assessment: { assessmentId: "current", recommendation: "feature-change", stale: false,
+    traits: [], rationale: "Current advice", evidenceNotes: "", sourceRecordVersion: 2 } });
+  const originalWindow = global.window;
+  try {
+    for (const [disposition, label, route, rationale, target] of [
+      ["accept", "Accept Recommendation", "feature-change", "", "accepted-target"],
+      ["override", "Use Override Route", "refactor-migration", "Different route", "override-target"],
+      ["request-revision", "Request Revised Assessment", "feature-change", "More evidence", null],
+    ]) {
+      const routed = [], decisions = [];
+      global.window = { champcity: { decideStructuredWorkRouting: async (_intake, _workflow, input) => {
+        decisions.push(input);
+        return { ...model, targetWorkflowId: target, reviewState: target ? "decided" : "revision-requested" };
+      } } };
+      const element = withState([model, route, rationale, false, "", ""], () =>
+        StructuredWorkRoutingWorkspace(routingProps(model, id => routed.push(id))));
+      const button = findButton(element, label);
+      assert.ok(button);
+      assert.equal(button.props.disabled, false);
+      button.props.onClick();
+      await new Promise(resolve => setImmediate(resolve));
+      assert.equal(decisions.length, 1);
+      assert.equal(decisions[0].disposition, disposition);
+      assert.equal(decisions[0].assessmentId, "current");
+      if (disposition === "accept") assert.equal(decisions[0].rationale, undefined);
+      if (disposition === "override") assert.equal(decisions[0].route, "refactor-migration");
+      assert.deepEqual(routed, target ? [target] : []);
+    }
+  } finally { global.window = originalWindow; }
+});
+
+test("App routed handoff opens the exact target Workflow instance", async () => {
+  const ts = require("typescript");
+  const source = fs.readFileSync("src/renderer/app/App.tsx", "utf8");
+  const ast = ts.createSourceFile("App.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let declaration;
+  function visit(node) {
+    if (ts.isFunctionDeclaration(node) && node.name?.text === "openRoutedTargetWorkflow") declaration = node;
+    ts.forEachChild(node, visit);
+  }
+  visit(ast);
+  assert.ok(declaration);
+  assert.match(source, /onRouted=\{workflowId => void openRoutedTargetWorkflow\(workflowId\)\}/);
+  const js = ts.transpileModule(declaration.getText(ast), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  const state = {};
+  const target = "exact-routed-workflow";
+  const open = new Function("refreshWorkflowInventory", "window", "setSelectedWorkflowType", "setSelectedWorkflowId",
+    "setWorkflowInstance", "setActiveWorkflowId", "setShellView", "setWorkflowHubError", `${js}; return openRoutedTargetWorkflow;`)(
+    async id => { assert.equal(id, target); return { groups: [{ workflows: [{ workflowId: target }] }] }; },
+    { champcity: { getWorkflow: async id => { assert.equal(id, target); return { workflow: { workflowId: target, workflowType: "refactor-migration" } }; } } },
+    value => { state.type = value; }, value => { state.id = value; }, value => { state.instance = value; },
+    value => { state.active = value; }, value => { state.view = value; }, value => { state.error = value; });
+  await open(target);
+  assert.deepEqual(state, { type: "refactor-migration", id: target,
+    instance: { workflowId: target, workflowType: "refactor-migration" }, active: null, view: "workflow-instance" });
 });
 
 test("structured WIR polling promotes in place without overlap and stops at all terminal boundaries", async () => {
@@ -136,18 +253,17 @@ test("structured WIR polling promotes in place without overlap and stops at all 
   assert.equal(unmountedUpdate, false);
 });
 
-test("mounted routing workspace renders a promoted assessment from automatic refresh", async () => {
-  const pending = { projectId: "project-1", intakeId: "intake-1", routingWorkflowId: "workflow-1", request: "Improve search",
-    desiredOutcome: "Relevant results", constraints: [], evidenceContext: [], intakeRecordVersion: 1, intakeState: "captured", workflowState: "active",
-    assessment: null, reviewState: "none", selectedRoute: null, targetWorkflowId: null, closed: false,
-    preparedSubmission: { state: "waiting-for-drafts" } };
+test("mounted stale routing workspace prepares through the existing API and restores decisions by polling", async () => {
+  const stale = routingModel({ assessment: { assessmentId: "old", recommendation: "refactor-migration", traits: [],
+    rationale: "Previous advice.", evidenceNotes: "", sourceRecordVersion: 1, stale: true } });
+  const pending = { ...stale, preparedSubmission: { state: "waiting-for-drafts" }, preparedInstruction: "Architect handoff" };
   const promoted = { ...pending, assessment: { assessmentId: "assessment-1", recommendation: "feature-change", traits: [],
-    rationale: "A bounded change.", evidenceNotes: "", sourceRecordVersion: 1, stale: false },
+    rationale: "A bounded change.", evidenceNotes: "", sourceRecordVersion: 2, stale: false },
     preparedSubmission: { state: "promoted" } };
   const original = { state: React.useState, effect: React.useEffect, ref: React.useRef,
     interval: global.setInterval, clear: global.clearInterval, window: global.window };
   const states = [], refs = [], effects = [];
-  let hook = 0, effectIndex = 0, tick, cancellations = 0, reads = 0;
+  let hook = 0, effectIndex = 0, tick, cancellations = 0, reads = 0, preparations = 0, routed = 0;
   React.useState = initial => {
     const index = hook++;
     if (!(index in states)) states[index] = initial;
@@ -168,9 +284,14 @@ test("mounted routing workspace renders a promoted assessment from automatic ref
   };
   global.setInterval = callback => { tick = callback; return 1; };
   global.clearInterval = () => { cancellations++; };
-  global.window = { champcity: { getStructuredWorkRouting: async () => { reads++; return reads === 1 ? pending : promoted; } } };
-  const props = { intakeId: pending.intakeId, routingWorkflowId: pending.routingWorkflowId, browserPanel: null,
-    onReloadBrowser() {}, onReturn() {}, onRouted() {} };
+  global.window = { champcity: {
+    getStructuredWorkRouting: async () => { reads++; return reads === 1 ? stale : promoted; },
+    prepareStructuredWorkRouting: async (intakeId, workflowId) => {
+      assert.equal(intakeId, stale.intakeId); assert.equal(workflowId, stale.routingWorkflowId);
+      preparations++; return pending;
+    },
+  } };
+  const props = routingProps(stale, () => { routed++; });
   function render() {
     hook = 0; effectIndex = 0;
     return StructuredWorkRoutingWorkspace(props);
@@ -178,17 +299,29 @@ test("mounted routing workspace renders a promoted assessment from automatic ref
   try {
     render();
     await new Promise(resolve => setImmediate(resolve));
-    const before = renderToStaticMarkup(render());
-    assert.match(before, /Prepare an Architect handoff to get a route recommendation/);
+    const beforeElement = render();
+    const before = renderToStaticMarkup(beforeElement);
+    assert.match(before, /Prepare Current Assessment/);
     assert.doesNotMatch(before, /Accept Recommendation/);
     assert.equal(reads, 1);
+    await findButton(beforeElement, "Prepare Current Assessment").props.onClick();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(preparations, 1);
+    const waiting = renderToStaticMarkup(render());
+    assert.match(waiting, /Waiting for the current Architect assessment/);
+    assert.match(waiting, /Copy Handoff/);
+    assert.doesNotMatch(waiting, /Prepare Current Assessment|Accept Recommendation/);
+    assert.equal(typeof tick, "function");
     tick();
     await new Promise(resolve => setImmediate(resolve));
     const after = renderToStaticMarkup(render());
     assert.match(after, /Routing Assessment/);
     assert.match(after, /Recommendation ready for your route decision/);
     assert.match(after, /Accept Recommendation/);
+    assert.match(after, /Use Override Route|Request Revised Assessment/);
+    assert.doesNotMatch(after, /Prepare Current Assessment/);
     assert.equal(reads, 2);
+    assert.equal(routed, 0);
     assert.ok(cancellations >= 1);
     tick(); assert.equal(reads, 2);
   } finally {
