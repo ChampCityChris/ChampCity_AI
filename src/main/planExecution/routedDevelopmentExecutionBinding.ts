@@ -3,7 +3,7 @@ import fs from "node:fs";
 import { isDeepStrictEqual } from "node:util";
 import { parseCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
 import type { RoutedDevelopmentExecutionBinding } from "../../shared/routedDevelopmentExecutionContracts";
-import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
+import { resolveRepositoryPath } from "../repository/pathPolicy";
 import { writeCanonicalMarkdownDocumentOnce } from "../documents/canonicalMarkdownDocumentWriter";
 import { listPlanningDocuments } from "../documents/planningDocumentService";
 import { createWorkIntakeBranchService } from "../workIntake/workIntakeBranchService";

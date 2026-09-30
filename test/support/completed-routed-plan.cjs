@@ -6,7 +6,7 @@ const boundary=require('../fixtures/routed-completed/boundary.cjs');
 function seedCompletedRoutedPlan(t){
  const root=tempWorkspace('champcity-completed-route-');t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const git=(...args)=>cp.execFileSync('git',args,{cwd:root,encoding:'utf8',stdio:['ignore','pipe','pipe'],windowsHide:true}).trim();
- git('init','-b','main');git('config','user.name','Fixture');git('config','user.email','fixture@example.invalid');git('config','core.autocrlf','false');
+ git('init','-b','dev');git('config','user.name','Fixture');git('config','user.email','fixture@example.invalid');git('config','core.autocrlf','false');
  fs.writeFileSync(path.join(root,'.gitignore'),'/planning/\n');fs.writeFileSync(path.join(root,'source.js'),"module.exports = ['base'];\n");
  fs.writeFileSync(path.join(root,'verify.cjs'),"const fs=require('node:fs');const values=require('./source.js');if(!values.includes('incoming')||(fs.existsSync('target.accepted')&&!values.includes('target')))process.exit(1);\n");
  fs.writeFileSync(path.join(root,'package.json'),JSON.stringify({private:true,scripts:{verify:'node verify.cjs'}}));

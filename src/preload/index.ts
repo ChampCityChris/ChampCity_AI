@@ -14,24 +14,53 @@ import type {
 } from "../shared/workspaceContracts";
 
 const api: ChampCityApi = {
-  runRoutedWorkflow: (intakeId, action, input) => ipcRenderer.invoke("routedWorkflow:action", intakeId, action, input),
+  getIssueWorkflowPlanning: workflowId => ipcRenderer.invoke("issuePlanning:get", workflowId) as ReturnType<ChampCityApi["getIssueWorkflowPlanning"]>,
+  saveIssueWorkflowIntake: (workflowId, intake) => ipcRenderer.invoke("issuePlanning:saveIntake", workflowId, intake) as ReturnType<ChampCityApi["saveIssueWorkflowIntake"]>,
+  addIssueWorkflowEvidence: (workflowId, files) => ipcRenderer.invoke("issuePlanning:addEvidence", workflowId, files) as ReturnType<ChampCityApi["addIssueWorkflowEvidence"]>,
+  prepareIssueWorkflowPlanning: (workflowId, stage) => ipcRenderer.invoke("issuePlanning:prepare", workflowId, stage) as ReturnType<ChampCityApi["prepareIssueWorkflowPlanning"]>,
+  actOnIssueWorkflowPlanning: (workflowId, action) => ipcRenderer.invoke("issuePlanning:act", workflowId, action) as ReturnType<ChampCityApi["actOnIssueWorkflowPlanning"]>,
+  copyIssueWorkflowPlanningHandoff: workflowId => ipcRenderer.invoke("issuePlanning:copy", workflowId) as ReturnType<ChampCityApi["copyIssueWorkflowPlanningHandoff"]>,
+  getFeaturePlanning: workflowId => ipcRenderer.invoke("featurePlanning:get", workflowId) as ReturnType<ChampCityApi["getFeaturePlanning"]>,
+  saveFeatureIntake: (workflowId, intake) => ipcRenderer.invoke("featurePlanning:saveIntake", workflowId, intake) as ReturnType<ChampCityApi["saveFeatureIntake"]>,
+  prepareFeaturePlanning: (workflowId, stage) => ipcRenderer.invoke("featurePlanning:prepare", workflowId, stage) as ReturnType<ChampCityApi["prepareFeaturePlanning"]>,
+  actOnFeaturePlanning: (workflowId, action) => ipcRenderer.invoke("featurePlanning:act", workflowId, action) as ReturnType<ChampCityApi["actOnFeaturePlanning"]>,
+  copyFeaturePlanningHandoff: workflowId => ipcRenderer.invoke("featurePlanning:copy", workflowId) as ReturnType<ChampCityApi["copyFeaturePlanningHandoff"]>,
+  getStructuredWorkRouting: (intakeId, workflowId) => ipcRenderer.invoke("structuredWIR:get", intakeId, workflowId) as ReturnType<ChampCityApi["getStructuredWorkRouting"]>,
+  prepareStructuredWorkRouting: (intakeId, workflowId) => ipcRenderer.invoke("structuredWIR:prepare", intakeId, workflowId) as ReturnType<ChampCityApi["prepareStructuredWorkRouting"]>,
+  decideStructuredWorkRouting: (intakeId, workflowId, input) => ipcRenderer.invoke("structuredWIR:decide", intakeId, workflowId, input) as ReturnType<ChampCityApi["decideStructuredWorkRouting"]>,
+  copyStructuredWorkRouting: (intakeId, workflowId) => ipcRenderer.invoke("structuredWIR:copy", intakeId, workflowId) as ReturnType<ChampCityApi["copyStructuredWorkRouting"]>,
+  listWorkflows: () => ipcRenderer.invoke("workflow:list") as ReturnType<ChampCityApi["listWorkflows"]>,
+  startWorkflow: (request) => ipcRenderer.invoke("workflow:start", request) as ReturnType<ChampCityApi["startWorkflow"]>,
+  getWorkflow: (workflowId) => ipcRenderer.invoke("workflow:get", workflowId) as ReturnType<ChampCityApi["getWorkflow"]>,
+  getWorkItemValidation: (workflowId, workItemId) => ipcRenderer.invoke("workflow:workItemValidation", workflowId, workItemId) as ReturnType<ChampCityApi["getWorkItemValidation"]>,
+  getWorkflowExecutionProjection: workflowId => ipcRenderer.invoke("workflow:executionProjection", workflowId) as ReturnType<ChampCityApi["getWorkflowExecutionProjection"]>,
+  decomposeWorkflowWorkItem: input => ipcRenderer.invoke("workflow:decomposeWorkItem", input) as ReturnType<ChampCityApi["decomposeWorkflowWorkItem"]>,
+  acceptWorkflowWorkItemExecutionPlan: input => ipcRenderer.invoke("workflow:acceptWorkItemExecutionPlan", input) as ReturnType<ChampCityApi["acceptWorkflowWorkItemExecutionPlan"]>,
+  recordWorkflowWorkItemVisualCriterion: input => ipcRenderer.invoke("workflow:recordWorkItemVisualCriterion", input) as ReturnType<ChampCityApi["recordWorkflowWorkItemVisualCriterion"]>,
+  recordWorkflowWorkItemCriterionDecision: input => ipcRenderer.invoke("workflow:recordWorkItemCriterionDecision", input) as ReturnType<ChampCityApi["recordWorkflowWorkItemCriterionDecision"]>,
+  getWorkflowPhaseValidation: (workflowId, phaseId) => ipcRenderer.invoke("workflow:phaseValidation", workflowId, phaseId) as ReturnType<ChampCityApi["getWorkflowPhaseValidation"]>,
+  validateWorkflowPhaseDeterministicCriterion: (workflowId, phaseId, criterionId) => ipcRenderer.invoke("workflow:validateDeterministicPhaseCriterion", workflowId, phaseId, criterionId) as ReturnType<ChampCityApi["validateWorkflowPhaseDeterministicCriterion"]>,
+  validateWorkflowPhaseSemanticCriterion: (workflowId, phaseId, criterionId, selection) => ipcRenderer.invoke("workflow:validateSemanticPhaseCriterion", workflowId, phaseId, criterionId, selection) as ReturnType<ChampCityApi["validateWorkflowPhaseSemanticCriterion"]>,
+  recordWorkflowPhaseVisualCriterion: input => ipcRenderer.invoke("workflow:recordPhaseVisualCriterion", input) as ReturnType<ChampCityApi["recordWorkflowPhaseVisualCriterion"]>,
+  recordWorkflowPhaseCriterionDecision: input => ipcRenderer.invoke("workflow:recordPhaseCriterionDecision", input) as ReturnType<ChampCityApi["recordWorkflowPhaseCriterionDecision"]>,
+  completeWorkflowWorkItem: (workflowId, workItemId, expectedVersion) => ipcRenderer.invoke("workflow:completeWorkItem", workflowId, workItemId, expectedVersion) as ReturnType<ChampCityApi["completeWorkflowWorkItem"]>,
+  completeWorkflowPhase: (workflowId, phaseId, expectedVersion) => ipcRenderer.invoke("workflow:completePhase", workflowId, phaseId, expectedVersion) as ReturnType<ChampCityApi["completeWorkflowPhase"]>,
+  getWorkflowExecutionCompletion: (workflowId) => ipcRenderer.invoke("workflow:executionCompletion", workflowId) as ReturnType<ChampCityApi["getWorkflowExecutionCompletion"]>,
+  completeWorkflowExecution: (workflowId, expectedVersion) => ipcRenderer.invoke("workflow:completeExecution", workflowId, expectedVersion) as ReturnType<ChampCityApi["completeWorkflowExecution"]>,
+  getWorkflowIntegration: (workflowId) => ipcRenderer.invoke("workflow:integrationQuery", workflowId) as ReturnType<ChampCityApi["getWorkflowIntegration"]>,
+  integrateWorkflow: (workflowId) => ipcRenderer.invoke("workflow:integrate", workflowId) as ReturnType<ChampCityApi["integrateWorkflow"]>,
+  prepareWorkflowIntegrationRepair: (workflowId, candidateId) => ipcRenderer.invoke("workflow:integrationPrepareRepair", workflowId, candidateId) as ReturnType<ChampCityApi["prepareWorkflowIntegrationRepair"]>,
+  applyWorkflowIntegrationRepair: (workflowId, candidateId, repairId, patches) => ipcRenderer.invoke("workflow:integrationApplyRepair", workflowId, candidateId, repairId, patches) as ReturnType<ChampCityApi["applyWorkflowIntegrationRepair"]>,
+  completeWorkflowIntegrationRepair: (workflowId, candidateId, repairId) => ipcRenderer.invoke("workflow:integrationCompleteRepair", workflowId, candidateId, repairId) as ReturnType<ChampCityApi["completeWorkflowIntegrationRepair"]>,
+  requestWorkflowIntegrationDecision: (workflowId, candidateId, repairId, rationale) => ipcRenderer.invoke("workflow:integrationOperatorDecision", workflowId, candidateId, repairId, rationale) as ReturnType<ChampCityApi["requestWorkflowIntegrationDecision"]>,
+  createWorkflowRepair: (workflowId, workItemId, failureEvidenceId) => ipcRenderer.invoke("workflow:createRepair", workflowId, workItemId, failureEvidenceId) as ReturnType<ChampCityApi["createWorkflowRepair"]>,
+  createWorkflowPhaseRepair: (workflowId, phaseId, failureEvidenceId) => ipcRenderer.invoke("workflow:createPhaseRepair", workflowId, phaseId, failureEvidenceId) as ReturnType<ChampCityApi["createWorkflowPhaseRepair"]>,
+  validateSemanticWorkflowCriterion: (workflowId, workItemId, criterionId, selection) => ipcRenderer.invoke("workflow:validateSemanticCriterion", workflowId, workItemId, criterionId, selection) as ReturnType<ChampCityApi["validateSemanticWorkflowCriterion"]>,
+  validateDeterministicWorkflowCriterion: (workflowId, workItemId, criterionId) => ipcRenderer.invoke("workflow:validateDeterministicCriterion", workflowId, workItemId, criterionId) as ReturnType<ChampCityApi["validateDeterministicWorkflowCriterion"]>,
+  getSourceGraph: (options) => ipcRenderer.invoke("sourceGraph:get", options),
+  getSourceGraphRevisionDetail: (revisionId) => ipcRenderer.invoke("sourceGraph:revisionDetail", revisionId),
   getWorkIntakeProjection: () => ipcRenderer.invoke("workIntake:projection"),
-  readWorkIntake: (intakeId) => ipcRenderer.invoke("workIntake:read", intakeId),
   submitWorkIntake: (submission) => ipcRenderer.invoke("workIntake:submit", submission),
-  prepareWorkRoutingAssessment: (intakeId) => ipcRenderer.invoke("workRouting:prepare", intakeId),
-  getWorkRoutingAssessment: (intakeId) => ipcRenderer.invoke("workRouting:status", intakeId),
-  copyWorkRoutingAssessment: (intakeId) => ipcRenderer.invoke("workRouting:copy", intakeId),
-  getWorkRouteDecision: (intakeId) => ipcRenderer.invoke("workRoute:status", intakeId),
-  runWorkIssueAction: (intakeId, action, input) => ipcRenderer.invoke("workIssue:action", intakeId, action, input),
-  decideWorkRoute: (intakeId, input) => ipcRenderer.invoke("workRoute:decide", intakeId, input),
-  getWorkPlanning: (intakeId, stage) => ipcRenderer.invoke("workPlanning:status", intakeId, stage),
-  getWorkItemDecomposition: (intakeId, workItemId) => ipcRenderer.invoke("workDecomposition:status", intakeId, workItemId),
-  prepareWorkItemDecomposition: (intakeId, workItemId) => ipcRenderer.invoke("workDecomposition:prepare", intakeId, workItemId),
-  copyWorkItemDecomposition: (intakeId, workItemId) => ipcRenderer.invoke("workDecomposition:copy", intakeId, workItemId),
-  reviewWorkItemDecomposition: (intakeId, workItemId, input) => ipcRenderer.invoke("workDecomposition:review", intakeId, workItemId, input),
-  prepareWorkPlanning: (intakeId, stage) => ipcRenderer.invoke("workPlanning:prepare", intakeId, stage),
-  copyWorkPlanning: (intakeId, stage) => ipcRenderer.invoke("workPlanning:copy", intakeId, stage),
-  reviewWorkPlanning: (intakeId, stage, input) => ipcRenderer.invoke("workPlanning:review", intakeId, stage, input),
   getGithubProviderStatus: () => ipcRenderer.invoke("githubProvider:status"),
   connectGithubProvider: () => ipcRenderer.invoke("githubProvider:connect"),
   restartGithubProvider: () => ipcRenderer.invoke("githubProvider:restart"),
@@ -39,6 +68,10 @@ const api: ChampCityApi = {
   readGithubEvidence: (request) => ipcRenderer.invoke("githubProvider:read", request),
   getSelectedWorkspace: () => ipcRenderer.invoke("workspace:get") as Promise<WorkspaceSelection>,
   chooseWorkspaceFolder: () => ipcRenderer.invoke("workspace:choose") as Promise<WorkspaceSelection>,
+  inspectExistingProjectGitAdoption: () => ipcRenderer.invoke("project:inspectExistingGitAdoption") as ReturnType<ChampCityApi["inspectExistingProjectGitAdoption"]>,
+  applyExistingProjectGitAdoption: planId => ipcRenderer.invoke("project:applyExistingGitAdoption", planId) as ReturnType<ChampCityApi["applyExistingProjectGitAdoption"]>,
+  registerCurrentProject: (mode, projectName) => ipcRenderer.invoke("project:registerCurrent", mode, projectName) as ReturnType<ChampCityApi["registerCurrentProject"]>,
+  reconcileCurrentProjectModelAccess: () => ipcRenderer.invoke("project:reconcileModelAccess") as ReturnType<ChampCityApi["reconcileCurrentProjectModelAccess"]>,
   clearSelectedWorkspace: () => ipcRenderer.invoke("workspace:clear") as Promise<WorkspaceSelection>,
   getAppInfo: () => ipcRenderer.invoke("app:info") as Promise<AppInfo>,
   getAgentHarnessStatus: () => ipcRenderer.invoke("agentHarness:status") as Promise<AgentHarnessStatus>,
@@ -373,6 +406,13 @@ const api: ChampCityApi = {
     ipcRenderer.invoke(
       "codexImplementer:getStatus",
     ) as ReturnType<ChampCityApi["getCodexImplementerExecutionStatus"]>,
+  getWorkflowWorkItemCodexExecutionStatus: (workflowId, workItemId) =>
+    ipcRenderer.invoke("codexImplementer:getWorkflowWorkItemStatus", workflowId, workItemId) as ReturnType<ChampCityApi["getWorkflowWorkItemCodexExecutionStatus"]>,
+  getWorkflowWorkItemTesterStatus: (workflowId, workItemId, implementationRecordId) =>
+    ipcRenderer.invoke("codexTester:getWorkflowWorkItemStatus", workflowId, workItemId, implementationRecordId) as ReturnType<ChampCityApi["getWorkflowWorkItemTesterStatus"]>,
+  getWorkflowCheckpointRecovery: (workflowId, workItemId) => ipcRenderer.invoke("workflow:checkpointRecovery", workflowId, workItemId) as ReturnType<ChampCityApi["getWorkflowCheckpointRecovery"]>,
+  retryWorkflowImplementationCheckpoint: (workflowId, workItemId, implementationRecordId) => ipcRenderer.invoke("workflow:retryImplementationCheckpoint", workflowId, workItemId, implementationRecordId) as ReturnType<ChampCityApi["retryWorkflowImplementationCheckpoint"]>,
+  retryWorkflowTesterCheckpoint: (workflowId, workItemId, implementationRecordId, testerResultId) => ipcRenderer.invoke("workflow:retryTesterCheckpoint", workflowId, workItemId, implementationRecordId, testerResultId) as ReturnType<ChampCityApi["retryWorkflowTesterCheckpoint"]>,
   getCodexManagedRuntimeStatus: () => ipcRenderer.invoke("codexRuntime:getStatus"),
   setCodexModelSelection: (selection) => ipcRenderer.invoke("codexRuntime:setSelection", selection),
   startCodexImplementerExecution: (selection) =>
@@ -380,6 +420,16 @@ const api: ChampCityApi = {
       "codexImplementer:start",
       selection,
     ) as ReturnType<ChampCityApi["startCodexImplementerExecution"]>,
+  startWorkflowWorkItemCodexExecution: (workflowId, workItemId, selection) =>
+    ipcRenderer.invoke("codexImplementer:startWorkflowWorkItem", workflowId, workItemId, selection) as ReturnType<ChampCityApi["startWorkflowWorkItemCodexExecution"]>,
+  startWorkflowWorkItemTester: (workflowId, workItemId, implementationRecordId, selection) =>
+    ipcRenderer.invoke("codexTester:startWorkflowWorkItem", workflowId, workItemId, implementationRecordId, selection) as ReturnType<ChampCityApi["startWorkflowWorkItemTester"]>,
+  cancelWorkflowWorkItemTester: (workflowId, workItemId, implementationRecordId) =>
+    ipcRenderer.invoke("codexTester:cancel", workflowId, workItemId, implementationRecordId) as ReturnType<ChampCityApi["cancelWorkflowWorkItemTester"]>,
+  respondToWorkflowWorkItemTesterApproval: (workflowId, workItemId, implementationRecordId, requestId, decision) =>
+    ipcRenderer.invoke("codexTester:respondToApproval", workflowId, workItemId, implementationRecordId, requestId, decision) as ReturnType<ChampCityApi["respondToWorkflowWorkItemTesterApproval"]>,
+  respondToWorkflowWorkItemTesterInput: (workflowId, workItemId, implementationRecordId, requestId, answers) =>
+    ipcRenderer.invoke("codexTester:respondToUserInput", workflowId, workItemId, implementationRecordId, requestId, answers) as ReturnType<ChampCityApi["respondToWorkflowWorkItemTesterInput"]>,
   startCodexEnvironmentResolution: () =>
     ipcRenderer.invoke(
       "codexImplementer:startEnvironmentResolution",
@@ -399,9 +449,10 @@ const api: ChampCityApi = {
       "codexImplementer:respondToMcpElicitation",
       response,
     ) as ReturnType<ChampCityApi["respondToCodexMcpElicitation"]>,
-  cancelCodexImplementerExecution: () =>
+  cancelCodexImplementerExecution: (identity) =>
     ipcRenderer.invoke(
       "codexImplementer:cancel",
+      identity,
     ) as ReturnType<ChampCityApi["cancelCodexImplementerExecution"]>,
   generateCurrentHandoff: () =>
     ipcRenderer.invoke(

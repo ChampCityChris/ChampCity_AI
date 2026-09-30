@@ -11,6 +11,7 @@ import type { DocumentDispositionStatus } from "../../shared/documents/documentD
 import type { SourceRevision } from "../../shared/documents/planningDocument";
 import { writeArtifactTransaction } from "./artifactTransaction";
 import { invalidatePlanningRepositorySnapshotPaths } from "./planningRepositorySnapshot";
+import { assertLegacyCanonicalWriteAllowed } from "./legacyCanonicalWriteFence";
 
 interface CanonicalMarkdownWriterTestHooks {
   failInstalledVerification?: (relativePath: string) => Error | string | undefined;
@@ -44,6 +45,7 @@ export function writeCanonicalMarkdownDocuments(
     throw new Error("Canonical document transaction requires at least one document.");
   }
   const workspaceRoot = path.resolve(inputs[0].workspaceRoot);
+  assertLegacyCanonicalWriteAllowed(workspaceRoot);
   const seenRelativePaths = new Set<string>();
   const documents = inputs.map((input) => {
     if (path.resolve(input.workspaceRoot) !== workspaceRoot) {
@@ -97,6 +99,7 @@ export function writeCanonicalMarkdownDocumentOnce(
   input: WriteCanonicalMarkdownDocumentInput,
 ): void {
   const workspaceRoot = path.resolve(input.workspaceRoot);
+  assertLegacyCanonicalWriteAllowed(workspaceRoot);
   const relativePath = validateMarkdownRelativePath(input.relativePath);
   const absolutePath = path.resolve(workspaceRoot, relativePath);
   const content = serializeCanonicalMarkdownDocument(input.metadata, input.bodyMarkdown);
@@ -143,6 +146,7 @@ export function replaceCanonicalMarkdownBodyPreservingMetadata(input: {
   expectedMetadata: CanonicalDocumentMetadata;
   bodyMarkdown: string;
 }): void {
+  assertLegacyCanonicalWriteAllowed(input.workspaceRoot);
   const relativePath = validateMarkdownRelativePath(input.relativePath);
   const bodyMarkdown = `${input.bodyMarkdown.replace(/\r\n?/g, "\n").replace(/\n*$/, "")}\n`;
   const content = `${input.metadataEnvelope}\n\n${bodyMarkdown}`;

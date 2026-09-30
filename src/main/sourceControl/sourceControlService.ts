@@ -1,9 +1,9 @@
-import { skipIsolatedOperationStep, beginIsolatedOperation, inspectIsolatedOperation, continueIsolatedOperation, abortIsolatedOperation, advanceIsolatedOperation } from "../agentHarness/repository/isolatedGitOperations";
-import { discardManagedWorktree, type ManagedWorkspaceStore } from "../agentHarness/repository/managedWorktrees";
+import { skipIsolatedOperationStep, beginIsolatedOperation, inspectIsolatedOperation, continueIsolatedOperation, abortIsolatedOperation, advanceIsolatedOperation } from "../repository/isolatedGitOperations";
+import { discardManagedWorktree, type ManagedWorkspaceStore } from "../repository/managedWorktrees";
 import fs from "node:fs";
 import path from "node:path";
-import { AgentHarnessError } from "../agentHarness/core/errors";
-import { runBoundedGit, isGitWorkTree } from "../agentHarness/repository/boundedGit";
+import { AgentHarnessError } from "../core/applicationErrors";
+import { runBoundedGit, isGitWorkTree } from "../core/gitExecution";
 import {
   inspectGitReflog, replaceGitBranchRef, pushGitWithLease, deleteGitUntrackedPaths,
   inspectGitDiff, inspectGitChangedFiles, inspectGitCommit, compareGitRefs, listGitTags, inspectGitRemotes, unstageGitChanges, restoreGitFiles,
@@ -12,17 +12,23 @@ import {
   commitGitChanges, deleteGitBranch, fastForwardGitBranch, fetchGitRemote,
   inspectGitBranchState, inspectGitHistory, inspectGitHistoryWithMessages, inspectGitPosition, prepareGitBranch, pushGitBranch,
   stageGitChanges, switchGitBranch,
-} from "../agentHarness/repository/gitMutations";
-import { gitDiff, gitStatus, preCommitSafetyScan } from "../agentHarness/repository/repositoryOperations";
-import { abortIntegrationCheckout, advanceIntegrationTarget, createIntegrationCheckout, inspectIntegrationCheckout, inspectIntegrationTarget, mergeIntegrationCheckout } from "../agentHarness/repository/integrationGit";
-import { commitIntegrationRepair, integrationRepairChangedPaths, integrationRepairDiffs, snapshotIntegrationRepair } from "../agentHarness/repository/integrationRepairGit";
+} from "../repository/gitMutations";
+import { gitDiff, gitStatus, preCommitSafetyScan } from "../repository/repositoryOperations";
+import { abortIntegrationCheckout, advanceIntegrationTarget, createIntegrationCheckout, inspectIntegrationCheckout, inspectIntegrationTarget, mergeIntegrationCheckout } from "../repository/integrationGit";
+import { commitIntegrationRepair, integrationRepairChangedPaths, integrationRepairDiffs, snapshotIntegrationRepair } from "../repository/integrationRepairGit";
 import type {
   SourceControlOperation, SourceControlPosition,
   SourceControlReceipt, SourceControlResult,
 } from "../../shared/sourceControlContracts";
+import type { CreateWorkSourceInput, ProjectSourceBootstrap, SourceGraphOptions, SourceRevisionSelector, WorkSourceBinding } from "../../shared/sourceLifecycleContracts";
+import { workflowSourceLineName } from "./workSourceNaming";
+import { resolveRepositoryPath } from "../repository/pathPolicy";
+import { bootstrapProjectSource as establishProjectSource } from "./projectSourceBootstrap";
+import { getSourceGraph, getSourceGraphRevisionDetail } from "./sourceGraphService";
 
 /** Called by trusted main-process services with a selected repository, without MCP/model mediation. */
-export function createSourceControlService(binding: { repositoryId: string; repositoryRoot: string; managedWorkspaces?: ManagedWorkspaceStore }) {
+export function createSourceControlService(binding: { repositoryId: string; repositoryRoot: string; projectContainerRoot?: string; managedWorkspaces?: ManagedWorkspaceStore;
+}) {
   const repositoryId = binding.repositoryId;
   const root = path.resolve(binding.repositoryRoot);
   let repositoryVerification: Promise<void> | undefined;
@@ -106,6 +112,54 @@ export function createSourceControlService(binding: { repositoryId: string; repo
   const changedFiles = () => inspectGitChangedFiles(root);
 
   return {
+    getSourceGraph: (options?: SourceGraphOptions) => run("source-graph", false,
+      () => getSourceGraph(root, repositoryId, options, binding.projectContainerRoot)),
+    getSourceGraphRevisionDetail: (revisionId: string) => run("source-graph-revision-detail", false,
+      () => getSourceGraphRevisionDetail(root, revisionId)),
+    bootstrapProjectSource: async (): Promise<SourceControlResult<ProjectSourceBootstrap>> => {
+      const receipt: SourceControlReceipt = { repositoryId, operation: "bootstrap-project-source", startedAt: new Date().toISOString(),
+        completedAt: "", before: null, after: null };
+      try {
+        const result = await establishProjectSource(root, repositoryId);
+        // The selected Project container is intentionally non-Git; the source receipts
+        // from this operation are represented by the returned Main/Dev baseline.
+        receipt.after = null;
+        receipt.completedAt = new Date().toISOString();
+        return { ok: true, receipt, result };
+      } catch (error) {
+        receipt.completedAt = new Date().toISOString();
+        return { ok: false, receipt, error: { code: error instanceof AgentHarnessError ? error.code : "RUNTIME_ERROR",
+          message: error instanceof AgentHarnessError
+            ? error.message.replaceAll(root, "<PROJECT_REPO>").replace(/[\r\n]+/g, " ").slice(0, 1000)
+            : "Project source bootstrap could not complete.",
+          phase: "operation", mutationMayHaveOccurred: true } };
+      }
+    },
+    resolveSourceRevision: (selector: SourceRevisionSelector) => run("resolve-source-revision", false, async () => {
+      if (selector.kind === "source-line") {
+        const state = await inspectGitBranchState(root, selector.sourceLineId);
+        if (!state.selectedBranch) throw new AgentHarnessError("STALE_SOURCE", "Source line is unavailable.");
+        return { repositoryId, revisionId: state.selectedBranch.commit };
+      }
+      if (selector.kind === "revision" && /^[a-f0-9]{40,64}$/.test(selector.revisionId)) {
+        const commit = await inspectGitCommit(root, { ref: selector.revisionId });
+        return { repositoryId, revisionId: commit.commit };
+      }
+      throw new AgentHarnessError("INVALID_INPUT", "An exact source revision or source line is required.");
+    }),
+    createWorkSource: (input: CreateWorkSourceInput) => run<WorkSourceBinding>("create-work-source", true, async () => {
+      if (input.baseRevision.repositoryId !== repositoryId || !/^[a-f0-9]{40,64}$/.test(input.baseRevision.revisionId)) {
+        throw new AgentHarnessError("INVALID_INPUT", "An exact source revision in the selected repository is required.");
+      }
+      if (!input.owner || input.owner.kind !== "workflow") throw new AgentHarnessError("INVALID_INPUT", "A Workflow source owner is required.");
+      const sourceLineId = workflowSourceLineName(input.owner.workflowId);
+      const created = await createGitBranchFromRef(root, { branchName: sourceLineId, sourceRef: input.baseRevision.revisionId });
+      return {
+        owner: { kind: "workflow", workflowId: input.owner.workflowId },
+        baseRevision: input.baseRevision,
+        sourceLine: { repositoryId, sourceLineId, providerBranchName: created.branchName, headRevisionId: created.sourceCommit },
+      };
+    }),
     inspectReflog: (input: Parameters<typeof inspectGitReflog>[1] = {}) => run("inspect-reflog", false, () => inspectGitReflog(root, input)),
     replaceBranchRef: (input: Parameters<typeof replaceGitBranchRef>[1]) => run("replace-branch-ref", true, () => replaceGitBranchRef(root, input)),
     pushWithLease: (input: Parameters<typeof pushGitWithLease>[1]) => run("push-with-lease", true, () => pushGitWithLease(root, input)),
@@ -152,6 +206,16 @@ export function createSourceControlService(binding: { repositoryId: string; repo
     unstage: (paths: string[]) => run("unstage", true, () => unstageGitChanges(root, paths)),
     restoreFiles: (input: Parameters<typeof restoreGitFiles>[1]) => run("restore-files", true, () => restoreGitFiles(root, input)),
     changedFiles: () => run("changed-files", false, changedFiles),
+    isPathAtHead: (relativePath: string) => run("inspect-path-at-head", false, async () => {
+      const resolved = resolveRepositoryPath(root, relativePath);
+      if (resolved.relativePath !== relativePath) throw new AgentHarnessError("INVALID_INPUT", "Exact repository-relative path required.");
+      const tracked = await runBoundedGit({ cwd: root, args: ["ls-files", "--error-unmatch", "--", relativePath], rejectNonZero: false });
+      if (tracked.exitCode === 1) return false;
+      if (tracked.exitCode !== 0) throw new AgentHarnessError("GIT_EXECUTION_FAILED", "Source path tracking cannot be inspected.");
+      const diff = await runBoundedGit({ cwd: root, args: ["diff", "--quiet", "HEAD", "--", relativePath], rejectNonZero: false });
+      if (diff.exitCode !== 0 && diff.exitCode !== 1) throw new AgentHarnessError("GIT_EXECUTION_FAILED", "Source path revision cannot be inspected.");
+      return diff.exitCode === 0;
+    }),
     readiness: () => run("readiness", false, async () => {
       const status = await gitStatus(root, true);
       return {
@@ -171,6 +235,8 @@ export function createSourceControlService(binding: { repositoryId: string; repo
     switchBranch: (branchName: string) => run("switch-branch", true, () => switchGitBranch(root, branchName)),
     stage: (paths: string[], options?: { includeIgnored?: boolean }) => run("stage", true, () => stageGitChanges(root, paths, options)),
     commit: (message: string, expectedHead?: string) => run("commit", true, () => commitGitChanges(root, message, expectedHead)),
+    checkpointCommit: (message: string, expectedHead: string, allowEmpty = false) =>
+      run("checkpoint-commit", true, () => commitGitChanges(root, message, expectedHead, allowEmpty, true)),
     amendCommit: (input: Parameters<typeof amendGitCommit>[1]) => run("amend-commit", true, () => amendGitCommit(root, input)),
     revertCommit: (input: Parameters<typeof revertGitCommit>[1]) => run("revert-commit", true, () => revertGitCommit(root, input)),
     cherryPickCommit: (input: Parameters<typeof cherryPickGitCommit>[1]) => run("cherry-pick-commit", true, () => cherryPickGitCommit(root, input)),

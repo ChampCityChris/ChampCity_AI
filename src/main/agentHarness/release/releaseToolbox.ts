@@ -2,8 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { AgentHarnessError } from "../core/errors";
-import { toBoundedError } from "../core/errors";
+import { AgentHarnessError } from "../../core/applicationErrors";
+import { toBoundedError } from "../../core/applicationErrors";
 import {
   type CandidateValidationSnapshotReceipt,
   withCandidateValidationSnapshot,

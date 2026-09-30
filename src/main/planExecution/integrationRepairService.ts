@@ -4,8 +4,8 @@ import type { IntegrationCandidateRecord } from "../../shared/integrationCandida
 import type { IntegrationRepairAttempt, IntegrationRepairPatch, IntegrationRepairPolicy } from "../../shared/integrationRepairContracts";
 import type { SourceControlResult } from "../../shared/sourceControlContracts";
 import { parseCanonicalMarkdownDocument, serializeCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
-import { integrationPaths } from "../agentHarness/repository/integrationGit";
-import { assertIntegrationSourceText, integrationSourceBytes, integrationSourceDigest, integrationSourceFile } from "../agentHarness/repository/integrationRepairGit";
+import { integrationPaths } from "../repository/integrationGit";
+import { assertIntegrationSourceText, integrationSourceBytes, integrationSourceDigest, integrationSourceFile } from "../repository/integrationRepairGit";
 import type { SourceControlService } from "../sourceControl/sourceControlService";
 
 interface IntegrationRepairOwner {
@@ -17,6 +17,7 @@ interface IntegrationRepairOwner {
   validate: (record: IntegrationCandidateRecord) => Promise<IntegrationCandidateRecord>;
   exclusive: <T>(action: () => Promise<T>) => Promise<T>;
   policy?: (record: IntegrationCandidateRecord) => Promise<IntegrationRepairPolicy>;
+  context?: (record: IntegrationCandidateRecord, policy: IntegrationRepairPolicy) => Promise<{ sourceDigests: Record<string, string>; context: string }>;
 }
 const safeText = (value: string) => value.replaceAll("<!-- CHAMPCITY-METADATA", "[canonical metadata begins]").replaceAll("CHAMPCITY-METADATA -->", "[canonical metadata ends]");
 export function createIntegrationRepairController(owner: IntegrationRepairOwner) {
@@ -45,7 +46,14 @@ export function createIntegrationRepairController(owner: IntegrationRepairOwner)
     if (parsed.metadata.artifactType !== "integration-repair" || parsed.metadata.identity.candidateId !== candidateId || parsed.metadata.identity.repairId !== repairId || record?.candidateId !== candidateId || record.repairId !== repairId || !record.policy || !record.snapshot) throw Error("Integration Repair identity is invalid.");
     return { ...record, prompt: parsed.bodyMarkdown };
   }
-  function sourceContext(record: IntegrationCandidateRecord, policy: IntegrationRepairPolicy) {
+  async function sourceContext(record: IntegrationCandidateRecord, policy: IntegrationRepairPolicy) {
+    if (owner.context) {
+      const semantic = await owner.context(record, policy);
+      if (!semantic || !semantic.sourceDigests || typeof semantic.context !== "string" || semantic.context.length > 80_000)
+        throw Error("Integration Repair governing context exceeds its bound.");
+      assertIntegrationSourceText(semantic.context);
+      return semantic;
+    }
     if (!Array.isArray(policy.sources) || policy.sources.length < 2 || policy.sources.length > 16 || policy.sources.filter((entry) => entry.role === "intake").length !== 1 || policy.sources.filter((entry) => entry.role === "completion").length !== 1 || new Set(policy.sources.map((entry) => entry.path)).size !== policy.sources.length) throw Error("Integration Repair requires exact Intake, completion evidence and bounded relevant contracts.");
     const sourceDigests: Record<string, string> = {}; const context: string[] = [];
     for (const source of policy.sources) {
@@ -84,7 +92,7 @@ export function createIntegrationRepairController(owner: IntegrationRepairOwner)
       const resolved = await owner.policy?.(record);
       if (JSON.stringify(resolved) !== JSON.stringify(attempt.policy)) throw Error("Integration Repair scope policy changed; Operator/replanning is required.");
     }
-    const current = sourceContext(record, attempt.policy);
+    const current = await sourceContext(record, attempt.policy);
     if (JSON.stringify(current.sourceDigests) !== JSON.stringify(attempt.sourceDigests)) throw Error("Integration Repair governing intent changed; no Git continuation is allowed.");
     return { record, attempt };
   }
@@ -97,7 +105,7 @@ export function createIntegrationRepairController(owner: IntegrationRepairOwner)
       if (!owner.policy) throw Error("Application integration policy has not supplied bounded repair source evidence.");
       const policy = await owner.policy(record); const attemptNumber = (record.repairAttemptCount ?? 0) + 1;
       if (attemptNumber > 10) throw Error("Integration Repair attempt bound reached; Operator disposition is required.");
-      const { sourceDigests, context } = sourceContext(record, policy);
+      const { sourceDigests, context } = await sourceContext(record, policy);
       if (policy.editablePaths.some((entry) => Object.hasOwn(sourceDigests, entry))) throw Error("Integration Repair may not edit its governing intent or contracts.");
       const snapshot = unwrap(await owner.source.snapshotIntegrationRepair(candidateId, policy.editablePaths), record);
       if (snapshot.head !== record.candidateCommit || snapshot.unmerged.some((entry) => !policy.editablePaths.includes(entry))) throw Error("Integration Repair source/head is outside the bounded candidate context.");
@@ -105,7 +113,7 @@ export function createIntegrationRepairController(owner: IntegrationRepairOwner)
       const regions = snapshot.unmerged.map((entry) => `### ${entry}\n\n${safeText(integrationSourceBytes(integrationPaths(owner.root, candidateId).checkout, entry) ?? "Deleted conflict source")}`).join("\n\n");
       const sourceBodies = policy.editablePaths.map((entry) => `### ${entry}\n\n${safeText(integrationSourceBytes(integrationPaths(owner.root, candidateId).checkout, entry) ?? "Source is absent; creation is allowed only within the accepted scope.")}`).join("\n\n");
       const repairId = `REPAIR${String(attemptNumber).padStart(2, "0")}`;
-      const prompt = `# Integration Repair ${repairId}\n\nResolve only source in <INTEGRATION_CANDIDATE>. Preserve the accepted behavior and intent of both histories.\n\nDo not run Git merge, add, commit, checkout-ours/theirs, merge-continue, push, reset, rebase, tag, or target-branch switching. Do not alter Git administration, receipts, planning intent, or files outside the explicit editable set. ChampCity owns every Git transition and validation retry. Return a bounded source patch with each path, current SHA-256 and replacement content (null only for explicit deletion).\n\nIf reconciliation changes approved scope or architecture, or requires choosing between incompatible accepted intents, stop and report an Operator decision with the conflicting intents. Do not select a semantic winner.\n\nCandidate: ${candidateId}\nMerge base: ${record.mergeBase}\nTarget: ${record.targetBranch} at ${record.targetCommit}\nIncoming: ${record.incomingBranch} at ${record.incomingCommit}\n\n## Editable source and starting hashes\n\n${JSON.stringify(snapshot.editable, null, 2)}\n\n${sourceBodies}\n\n## Governing intent and contracts\n\n${context}\n\n## Target diff\n\n${safeText(diffs.targetDiff)}\n\n## Incoming diff\n\n${safeText(diffs.incomingDiff)}\n\n## Conflicted regions\n\n${regions || "No textual conflicts; repair the failed semantic validation."}\n\n## Failed validation evidence\n\n${JSON.stringify(record.validation, null, 2)}\n`;
+      const prompt = `# Integration Repair ${repairId}\n\nResolve only the declared editable source in the isolated working directory supplied by ChampCity. Preserve the accepted behavior and intent of both histories.\n\nDo not run Git merge, add, commit, checkout-ours/theirs, merge-continue, push, reset, rebase, tag, or target-branch switching. Do not alter Git administration, receipts, planning intent, or files outside the explicit editable set. ChampCity owns every Git transition and validation retry. Edit source files directly; ChampCity will construct and apply bounded source patches from the resulting bytes. Do not create an Implementer Report or return a JSON patch response.\n\nIf reconciliation changes approved scope or architecture, or requires choosing between incompatible accepted intents, stop for an Operator decision. Make no edits and end with OPERATOR_DECISION_REQUIRED: followed by the conflicting intents. Do not select a semantic winner.\n\nCandidate: ${candidateId}\nMerge base: ${record.mergeBase}\nTarget: ${record.targetBranch} at ${record.targetCommit}\nIncoming: ${record.incomingBranch} at ${record.incomingCommit}\n\n## Editable source and starting hashes\n\n${JSON.stringify(snapshot.editable, null, 2)}\n\n${sourceBodies}\n\n## Governing intent and contracts\n\n${context}\n\n## Target diff\n\n${safeText(diffs.targetDiff)}\n\n## Incoming diff\n\n${safeText(diffs.incomingDiff)}\n\n## Conflicted regions\n\n${regions || "No textual conflicts; repair the failed semantic validation."}\n\n## Failed validation evidence\n\n${JSON.stringify(record.validation, null, 2)}\n`;
       if (prompt.length > 350_000) throw Error("Integration Repair handoff exceeds its bounded context.");
       const attempt: IntegrationRepairAttempt = { repairId, candidateId, attempt: attemptNumber, status: "prepared", snapshot, sourceDigests, policy, validation: [], message: "Bounded source resolution prepared.", prompt };
       persist(attempt); record.repairAttemptCount = attemptNumber; record.activeRepairId = repairId; owner.persist(record); return attempt;

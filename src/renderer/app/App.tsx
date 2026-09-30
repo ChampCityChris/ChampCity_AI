@@ -1,4 +1,5 @@
 import type { CodexModelSelection } from "../../shared/codexRuntimeContracts";
+import type { ExistingProjectGitAdoptionPlan } from "../../shared/sourceControlContracts";
 import { GithubProviderSettings } from "./GithubProviderSettings";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type FormEvent } from "react";
 import { Bot, Clipboard, FileText, FolderOpen, Play, RefreshCw, RotateCcw, Settings as SettingsIcon, Square } from "lucide-react";
@@ -7,6 +8,7 @@ import {
   type CloseReturnSelectionProjection,
   type CodexImplementerExecutionModel,
   type CurrentWorkspaceModel,
+  type CurrentProjectRuntimeContext,
   type DevelopmentPostMutationProjection,
   type AgentHarnessAuthenticationMode,
   type AgentHarnessSettingsInput,
@@ -137,11 +139,20 @@ import { FigmaAppStrip } from "./figma/FigmaAppStrip";
 import { FigmaBrowserPanel } from "./figma/FigmaBrowserPanel";
 import { FigmaSidebar, type FigmaThemeMode } from "./figma/FigmaSidebar";
 import { LandingWorkspace } from "./LandingWorkspace";
+import { acceptExistingProjectAdoption, admitExistingProject, openInspectedExistingProject } from "./existingProjectEntryController";
 import { WorkflowHubWorkspace } from "./WorkflowHubWorkspace";
+import { WorkflowInstanceWorkspace } from "./WorkflowInstanceWorkspace";
+import { WorkflowExecutionWorkspace } from "./WorkflowExecutionWorkspace";
+import { FeaturePlanningWorkspace } from "./FeaturePlanningWorkspace";
+import { IssueWorkflowPlanningWorkspace } from "./IssueWorkflowPlanningWorkspace";
+import { SourceControlWorkspace } from "./SourceControlWorkspace";
 import { WorkIntakeWorkspace } from "./WorkIntakeWorkspace";
+import { StructuredWorkRoutingWorkspace } from "./StructuredWorkRoutingWorkspace";
+import { shouldAttachArchitectSurface } from "./architectSurfaceEligibility";
+import { shouldShowClosedWorkIntakeSummary, workflowPlanningSurface } from "./workflowPlanningDispatch";
 import type { WorkIntakeProjection } from "../../shared/workIntakeContracts";
 import { isWorkflowReviewDocument } from "./workflowReviewDocuments";
-import type { WorkflowId } from "../../shared/workflowHubContracts";
+import type { DirectWorkflowStartRequest, WorkflowInstanceSummary, WorkflowInventory } from "../../shared/workflowApplicationContracts";
 import type {
   IssueArchitectPlanningProjection,
   IssueArchitectReviewInput,
@@ -208,9 +219,11 @@ const activeWorkCardResumeWorkspaceIds = new Set<WorkspaceId>([
 ]);
 export const settingsWorkspaceId = "settings" as WorkspaceId;
 
-type ShellView = "landing" | "workflow-hub" | "workflow" | "settings" | "work-intake";
+type LegacyWorkflowForegroundId = "development" | "issue-resolution";
+type ShellView = "landing" | "workflow-hub" | "workflow" | "workflow-instance" | "settings" | "work-intake" | "source-control";
 type SettingsReturnShellView = Exclude<ShellView, "landing" | "settings">;
-type ProjectEntryDestination = "workflow-hub" | "project-intake-capture" | "work-intake";
+type ProjectEntryDestination = "workflow-hub" | "project-intake-capture";
+type SelectedWorkspace = Extract<WorkspaceSelection, { ok: true }>;
 
 const fallbackWorkspace: WorkspaceSelection = {
   ok: false,
@@ -277,12 +290,19 @@ export function App(): JSX.Element {
   );
   const [shellView, setShellView] = useState<ShellView>("landing");
   const [workIntakeProjection, setWorkIntakeProjection] = useState<WorkIntakeProjection | null>(null);
-  const [activeWorkflowId, setActiveWorkflowId] = useState<WorkflowId | null>(null);
+  const [selectedWorkIntakeId, setSelectedWorkIntakeId] = useState<string | null>(null);
+  const [activeWorkflowId, setActiveWorkflowId] = useState<LegacyWorkflowForegroundId | null>(null);
+  const [workflowInventory, setWorkflowInventory] = useState<WorkflowInventory | null>(null);
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
+  const [workflowInstance, setWorkflowInstance] = useState<WorkflowInstanceSummary | null>(null);
+  const [isWorkflowInventoryLoading, setIsWorkflowInventoryLoading] = useState(false);
+  const [workflowHubError, setWorkflowHubError] = useState("");
   const [settingsReturnShellView, setSettingsReturnShellView] =
     useState<SettingsReturnShellView>("workflow-hub");
   const [settingsReturnWorkflowId, setSettingsReturnWorkflowId] =
-    useState<WorkflowId | null>(null);
+    useState<LegacyWorkflowForegroundId | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceSelection>(fallbackWorkspace);
+  const [currentProject, setCurrentProject] = useState<CurrentProjectRuntimeContext | null>(null);
   const [agentHarnessStatus, setAgentHarnessStatus] =
     useState<AgentHarnessStatus | null>(null);
   const [agentHarnessServiceHostLifecycleStatus, setAgentHarnessServiceHostLifecycleStatus] =
@@ -296,6 +316,7 @@ export function App(): JSX.Element {
   const [agentHarnessServiceHostSettingsPending, setAgentHarnessServiceHostSettingsPending] = useState(false);
   const [agentHarnessActionFeedback, setAgentHarnessActionFeedback] = useState("");
   const [agentHarnessActionError, setAgentHarnessActionError] = useState("");
+  const workflowInventoryRefreshRequestRef = useRef(0);
   const [documents, setDocuments] = useState<PlanningDocumentSummary[]>([]);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<PlanningDocumentDetail | null>(null);
@@ -306,6 +327,8 @@ export function App(): JSX.Element {
   const [projectIntakeConfirmation, setProjectIntakeConfirmation] =
     useState<ProjectIntakePostSubmitConfirmation | null>(null);
   const [isChoosing, setIsChoosing] = useState(false);
+  const [pendingExistingProjectPlan, setPendingExistingProjectPlan] = useState<ExistingProjectGitAdoptionPlan | null>(null);
+  const [pendingExistingProjectSelection, setPendingExistingProjectSelection] = useState<SelectedWorkspace | null>(null);
   const [isChoosingProjectRepository, setIsChoosingProjectRepository] = useState(false);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
@@ -444,7 +467,8 @@ export function App(): JSX.Element {
   const architectBrowserWorkspaceAvailable =
     isVisibleArchitectOutputWorkspace || isWorkCardReportReview;
   const isDevelopmentForeground =
-    shellView === "workflow" && activeWorkflowId === "development";
+    shellView === "workflow" && ((workflowInstance?.workflowType === "project-creation" &&
+      selectedWorkflowId === workflowInstance.workflowId) || (!currentProject && activeWorkflowId === "development"));
   const isIssueResolutionForeground =
     shellView === "workflow" && activeWorkflowId === "issue-resolution";
   const isIssueCodexExecutionForeground =
@@ -453,23 +477,24 @@ export function App(): JSX.Element {
     activeIssueFixCardStepId === "implement";
   const isLandingForeground = shellView === "landing";
   const isWorkflowHubForeground = shellView === "workflow-hub";
+  const isWorkflowInstanceForeground = shellView === "workflow-instance";
   const isWorkIntakeForeground = shellView === "work-intake";
+  const isSourceControlForeground = shellView === "source-control";
   const shouldAttachEmbeddedArchitectSurface =
-    ((isDevelopmentForeground &&
-      (architectBrowserWorkspaceAvailable || isWorkCardRepair)) ||
-      (isIssueResolutionForeground &&
-        (
-          activeIssueStageId === "architect-planning" ||
-          activeIssueStageId === "issue-planning" ||
-          (activeIssueStageId === "fix-cards" &&
-            (activeIssueFixCardStepId === "planning" || activeIssueFixCardStepId === "review-validation" || activeIssueFixCardStepId === "repair"))
-        ))) &&
-    isArchitectPaneVisible;
+    shouldAttachArchitectSurface({ paneVisible: isArchitectPaneVisible, developmentForeground: isDevelopmentForeground,
+      developmentBrowserAvailable: architectBrowserWorkspaceAvailable, workCardRepair: isWorkCardRepair,
+      issueForeground: isIssueResolutionForeground, issueStageId: activeIssueStageId, issueFixCardStepId: activeIssueFixCardStepId,
+      workIntakeForeground: isWorkIntakeForeground, workIntakeStageId: selectedWorkIntakeId && selectedWorkflowId ? "routing" : "intake",
+      featureForeground: isWorkflowInstanceForeground && workflowPlanningSurface(workflowInstance) !== "generic" });
   const isSettingsWorkspace = shellView === "settings";
   const currentIssue = useMemo(
     () => issueInventory?.issues.find((issue) => issue.issueId === selectedIssueId) ?? null,
     [issueInventory, selectedIssueId],
   );
+  useEffect(() => {
+    if (!workspace.ok || !currentProject || shellView !== "workflow-hub") return;
+    void refreshWorkflowInventory(selectedWorkflowId);
+  }, [workspace.ok, workspace.ok ? workspace.workspaceRoot : null, currentProject?.projectId, shellView, selectedWorkflowId]);
   evidenceRefreshTargetRef.current = currentEvidenceRefreshTarget();
   const selectedIssueFixCardId = issueFixCardProjection?.selectedCandidate?.fixCardId ?? null;
   const selectedIssueImplementationId = issueFixCardProjection?.currentImplementationId ?? selectedIssueFixCardId;
@@ -1178,25 +1203,17 @@ export function App(): JSX.Element {
   const selectedDocumentHasLocalError =
     Boolean(selectedSummary?.readError);
   async function chooseWorkspace(): Promise<void> {
-    setIsChoosing(true);
-    setDocumentError("");
-    try {
-      await activateWorkspaceSelection(
-        await window.champcity.chooseWorkspaceFolder(),
-        "workflow-hub",
-      );
-    } catch (error) {
-      setDocumentError(error instanceof Error ? error.message : "Project could not be selected.");
-    } finally {
-      setIsChoosing(false);
-    }
+    await openExistingProject();
   }
 
   async function clearWorkspace(): Promise<void> {
     setWorkspace(await window.champcity.clearSelectedWorkspace());
     clearRepositoryDerivedState();
+    setCurrentProject(null);
+    setPendingExistingProjectPlan(null);
+    setPendingExistingProjectSelection(null);
     setProjectIntake((current) => ({ ...current, projectRepository: "" }));
-    setShellView("workflow-hub");
+    setShellView("landing");
     setActiveWorkflowId(null);
     setActiveWorkspaceId(workspaceDefinitions[0].id);
   }
@@ -1205,12 +1222,11 @@ export function App(): JSX.Element {
     setIsChoosingProjectRepository(true);
     setDocumentError("");
     try {
-      await activateWorkspaceSelection(
-        await window.champcity.chooseWorkspaceFolder(),
-        "workflow-hub",
-      );
+      if (!currentProject || !workspace.ok) throw new Error("Open a Current Project before binding its Repository.");
+      setProjectIntake((current) => ({ ...current, projectRepository: workspace.workspaceRoot }));
+      setFeedback("Project Repository is bound to the Current Project root.");
     } catch (error) {
-      setDocumentError(error instanceof Error ? error.message : "Project repository could not be selected.");
+      setDocumentError(error instanceof Error ? error.message : "Project Repository could not be bound.");
     } finally {
       setIsChoosingProjectRepository(false);
     }
@@ -2423,14 +2439,29 @@ export function App(): JSX.Element {
     }
   }
 
-  async function openExistingProjectFromLanding(): Promise<void> {
+  async function openExistingProject(): Promise<void> {
     setIsChoosing(true);
     setDocumentError("");
+    setPendingExistingProjectPlan(null);
+    setPendingExistingProjectSelection(null);
     try {
-      await activateWorkspaceSelection(
-        await window.champcity.chooseWorkspaceFolder(),
-        "workflow-hub",
-      );
+      const result = await admitExistingProject(window.champcity);
+      if (result.kind === "selection-failed") { setDocumentError(result.reason); return; }
+      clearRepositoryDerivedState();
+      setCurrentProject(null);
+      setWorkspace(result.selection);
+      setShellView("landing");
+      if (result.kind === "conversion-failed") {
+        setDocumentError(result.reason);
+        setWorkspace(await window.champcity.clearSelectedWorkspace());
+        return;
+      }
+      if (result.kind === "consent-required") {
+        setPendingExistingProjectSelection(result.selection);
+        setPendingExistingProjectPlan(result.plan);
+        return;
+      }
+      await activateWorkspaceSelection(result.selection, "workflow-hub", result.project);
     } catch (error) {
       setDocumentError(error instanceof Error ? error.message : "Existing project could not be opened.");
     } finally {
@@ -2438,14 +2469,84 @@ export function App(): JSX.Element {
     }
   }
 
+  async function continueExistingProjectEntry(selection: SelectedWorkspace, plan: ExistingProjectGitAdoptionPlan): Promise<void> {
+    const result = await openInspectedExistingProject(window.champcity, plan);
+    if (result.kind === "conversion-failed") {
+      setDocumentError(result.reason);
+      setWorkspace(await window.champcity.clearSelectedWorkspace());
+      setCurrentProject(null);
+      setShellView("landing");
+      return;
+    }
+    if (result.kind === "consent-required") {
+      setPendingExistingProjectSelection(selection);
+      setPendingExistingProjectPlan(result.plan);
+      return;
+    }
+    await activateWorkspaceSelection(selection, "workflow-hub", result.project);
+  }
+
+  async function acceptExistingProjectMigration(): Promise<void> {
+    const selection = pendingExistingProjectSelection;
+    const plan = pendingExistingProjectPlan;
+    if (!selection || !plan || isChoosing) return;
+    setIsChoosing(true);
+    setDocumentError("");
+    try {
+      const project = await acceptExistingProjectAdoption(window.champcity, plan);
+      setPendingExistingProjectPlan(null);
+      setPendingExistingProjectSelection(null);
+      await activateWorkspaceSelection(selection, "workflow-hub", project);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Existing Project migration failed.";
+      if (/stale/i.test(message)) {
+        const refreshed = await window.champcity.inspectExistingProjectGitAdoption();
+        if (refreshed.state === "conversion-failed") {
+          setPendingExistingProjectPlan(null);
+          setPendingExistingProjectSelection(null);
+          setDocumentError(refreshed.failureReason ?? message);
+          setWorkspace(await window.champcity.clearSelectedWorkspace());
+          setCurrentProject(null);
+          setShellView("landing");
+        } else if (refreshed.state === "conversion-required") {
+          setPendingExistingProjectPlan(refreshed);
+          setDocumentError("Project source changed. Review the conversion warning before accepting again.");
+        } else {
+          await continueExistingProjectEntry(selection, refreshed);
+        }
+      } else {
+        const refreshed = await window.champcity.inspectExistingProjectGitAdoption().catch(() => null);
+        setPendingExistingProjectPlan(null);
+        setPendingExistingProjectSelection(null);
+        setDocumentError(refreshed?.failureReason ?? message);
+        setWorkspace(await window.champcity.clearSelectedWorkspace());
+        setCurrentProject(null);
+        setShellView("landing");
+      }
+    } finally {
+      setIsChoosing(false);
+    }
+  }
+
+  async function cancelExistingProjectMigration(): Promise<void> {
+    if (isChoosing) return;
+    setPendingExistingProjectPlan(null);
+    setPendingExistingProjectSelection(null);
+    setWorkspace(await window.champcity.clearSelectedWorkspace());
+    clearRepositoryDerivedState();
+    setCurrentProject(null);
+    setShellView("landing");
+    setDocumentError("Conversion canceled. No conversion or Current Project registration was applied.");
+  }
+
   async function startNewProjectFromLanding(): Promise<void> {
     setIsChoosing(true);
     setDocumentError("");
     try {
-      await activateWorkspaceSelection(
-        await window.champcity.chooseWorkspaceFolder(),
-        "work-intake",
-      );
+      const selection = await window.champcity.chooseWorkspaceFolder();
+      if (!selection.ok) { setDocumentError(selection.reason); return; }
+      const project = await window.champcity.registerCurrentProject("greenfield");
+      await activateWorkspaceSelection(selection, "project-intake-capture", project);
     } catch (error) {
       setDocumentError(error instanceof Error ? error.message : "New project directory could not be selected.");
     } finally {
@@ -2453,16 +2554,25 @@ export function App(): JSX.Element {
     }
   }
 
+  async function retryCurrentProjectModelAccess(): Promise<void> {
+    if (!currentProject) return;
+    const modelAccess = await window.champcity.reconcileCurrentProjectModelAccess();
+    setCurrentProject({ ...currentProject, modelAccess });
+  }
+
   async function activateWorkspaceSelection(
     selection: WorkspaceSelection,
     destination: ProjectEntryDestination,
+    project: CurrentProjectRuntimeContext | null = null,
   ): Promise<void> {
     if (!selection.ok) {
       setDocumentError(selection.reason);
       return;
     }
+    if (!project) throw Error("A Current Project is required before opening a Project workspace.");
 
     clearRepositoryDerivedState();
+    setCurrentProject(project);
     setWorkspace(selection);
     if (selection.mcpRegistrationError) {
       setDocumentError(`Project selected, but MCP registration failed: ${selection.mcpRegistrationError}`);
@@ -2472,13 +2582,15 @@ export function App(): JSX.Element {
       projectRepository: selection.workspaceRoot,
     }));
 
-    if (destination === "work-intake") {
-      await openWorkIntake();
-      return;
-    }
     if (destination === "project-intake-capture") {
+      if (!project?.projectCreationWorkflowId) throw Error("Project Creation Workflow identity is unavailable.");
+      const opened = await window.champcity.getWorkflow(project.projectCreationWorkflowId);
+      if (opened.workflow.workflowType !== "project-creation" || opened.workflow.workflowId !== project.projectCreationWorkflowId)
+        throw Error("Project Creation Workflow identity could not be verified.");
+      setSelectedWorkflowId(opened.workflow.workflowId);
+      setWorkflowInstance(opened.workflow);
       setShellView("workflow");
-      setActiveWorkflowId("development");
+      setActiveWorkflowId(null);
       setActiveWorkspaceId("project-intake-capture");
       setPriorWorkflowWorkspaceId("project-intake-capture");
       return;
@@ -2490,7 +2602,14 @@ export function App(): JSX.Element {
   }
 
   function clearRepositoryDerivedState(): void {
+    workflowInventoryRefreshRequestRef.current += 1;
+    setWorkflowInventory(null);
+    setSelectedWorkflowId(null);
+    setWorkflowInstance(null);
+    setIsWorkflowInventoryLoading(false);
+    setWorkflowHubError("");
     setWorkIntakeProjection(null);
+    setSelectedWorkIntakeId(null);
     const clearedPostSubmitState = clearProjectIntakePostSubmitReviewState({
       confirmation: projectIntakeConfirmation,
       viewedWorkspaceId: activeWorkspaceId,
@@ -2639,7 +2758,7 @@ export function App(): JSX.Element {
     }
     if (destinationWorkspaceId !== settingsWorkspaceId) {
       setShellView("workflow");
-      setActiveWorkflowId("development");
+      setActiveWorkflowId(isDevelopmentForeground ? null : "development");
     }
     setActiveWorkspaceId(destinationWorkspaceId);
     if (destinationWorkspaceId !== settingsWorkspaceId) {
@@ -2690,27 +2809,111 @@ export function App(): JSX.Element {
     transitionToWorkflowStep(returnFromSettingsNavigationState(priorWorkflowWorkspaceId));
   }
 
-  async function openWorkflow(workflowId: WorkflowId): Promise<void> {
-    if (!workspace.ok) {
-      setDocumentError("Select a project before opening a workflow.");
-      return;
+  async function refreshWorkflowInventory(preferredWorkflowId: string | null = selectedWorkflowId): Promise<WorkflowInventory | null> {
+    if (!workspace.ok || !currentProject) {
+      setWorkflowInventory(null);
+      setSelectedWorkflowId(null);
+      setWorkflowInstance(null);
+      return null;
     }
-    setIssueCloseActionFeedback("");
-    if (workflowId === "issue-resolution") {
-      setShellView("workflow");
-      setActiveWorkflowId("issue-resolution");
-      setActiveWorkspaceId(workspaceDefinitions[0].id);
-      await refreshIssueInventory(undefined, true);
-      return;
+    const requestId = workflowInventoryRefreshRequestRef.current + 1;
+    workflowInventoryRefreshRequestRef.current = requestId;
+    setIsWorkflowInventoryLoading(true);
+    setWorkflowHubError("");
+    try {
+      const next = await window.champcity.listWorkflows();
+      if (requestId !== workflowInventoryRefreshRequestRef.current) return null;
+      const exists = preferredWorkflowId !== null && next.groups.some(group => group.workflows.some(item => item.workflowId === preferredWorkflowId));
+      setWorkflowInventory(next);
+      setSelectedWorkflowId(exists ? preferredWorkflowId : null);
+      if (!exists) {
+        setWorkflowInstance(null);
+        if (shellView === "workflow-instance") setShellView("workflow-hub");
+      }
+      return next;
+    } catch (failure) {
+      if (requestId === workflowInventoryRefreshRequestRef.current)
+        setWorkflowHubError(failure instanceof Error ? failure.message : "Workflow inventory could not be loaded.");
+      return null;
+    } finally {
+      if (requestId === workflowInventoryRefreshRequestRef.current) setIsWorkflowInventoryLoading(false);
     }
-    setShellView("workflow");
-    setActiveWorkflowId("development");
-    await refreshDocuments({ useResolver: true });
+  }
+
+  async function openWorkIntakeForWorkflow(intakeId: string, routingWorkflowId: string): Promise<void> {
+    const projection = await window.champcity.getWorkIntakeProjection();
+    if (projection.authority !== "structured") throw Error("Current Project Work Intake routing is unavailable.");
+    const captured = projection.capturedIntakes?.find(item => item.intakeId === intakeId);
+    if (!captured) throw Error("The Work Intake for this Workflow is no longer available.");
+    setWorkIntakeProjection({ ...projection, currentCapturedIntake: captured });
+    setSelectedWorkIntakeId(intakeId);
+    setSelectedWorkflowId(routingWorkflowId);
+    setActiveWorkflowId(null);
+    setShellView("work-intake");
+  }
+
+  async function openCurrentWorkflow(workflowId: string): Promise<void> {
+    setWorkflowHubError("");
+    try {
+      const result = await window.champcity.getWorkflow(workflowId);
+      setSelectedWorkflowId(result.workflow.workflowId);
+      if (result.workflow.workflowType === "work-intake-routing") {
+        if (shouldShowClosedWorkIntakeSummary(result.workflow)) {
+          setWorkflowInstance(result.workflow); setActiveWorkflowId(null); setShellView("workflow-instance"); return;
+        }
+        if (!result.workflow.workIntakeId) throw Error("The Work Intake for this Workflow is unavailable.");
+        setWorkflowInstance(null);
+        await openWorkIntakeForWorkflow(result.workflow.workIntakeId, result.workflow.workflowId);
+        return;
+      }
+      setWorkflowInstance(result.workflow);
+      setActiveWorkflowId(null);
+      if (result.workflow.workflowType === "project-creation") {
+        setActiveWorkspaceId("project-intake-capture");
+        setPriorWorkflowWorkspaceId("project-intake-capture");
+        setShellView("workflow");
+      } else setShellView("workflow-instance");
+    } catch (failure) {
+      setWorkflowHubError(failure instanceof Error ? failure.message : "Workflow could not be opened.");
+    }
+  }
+
+  async function startDirectWorkflow(request: DirectWorkflowStartRequest): Promise<void> {
+    setWorkflowHubError("");
+    const created = await window.champcity.startWorkflow(request);
+    const refreshed = await refreshWorkflowInventory(created.workflow.workflowId);
+    if (!refreshed || !refreshed.groups.some(group => group.workflows.some(item => item.workflowId === created.workflow.workflowId)))
+      throw Error("The new Workflow was not available in the refreshed Current Project inventory.");
+    const opened = await window.champcity.getWorkflow(created.workflow.workflowId);
+    setSelectedWorkflowId(opened.workflow.workflowId);
+    setWorkflowInstance(opened.workflow);
+    setActiveWorkflowId(null);
+    setShellView("workflow-instance");
+  }
+
+  async function openRoutedTargetWorkflow(workflowId: string): Promise<void> {
+    try {
+      const refreshed = await refreshWorkflowInventory(workflowId);
+      if (!refreshed || !refreshed.groups.some(group => group.workflows.some(item => item.workflowId === workflowId)))
+        throw Error("The routed target Workflow was not available in the refreshed Current Project inventory.");
+      const opened = await window.champcity.getWorkflow(workflowId);
+      setSelectedWorkflowId(opened.workflow.workflowId);
+      setWorkflowInstance(opened.workflow);
+      setActiveWorkflowId(null);
+      setShellView("workflow-instance");
+    } catch (failure) {
+      setWorkflowHubError(failure instanceof Error ? failure.message : "Routed Workflow could not be opened.");
+    }
   }
 
   async function openWorkIntake(): Promise<void> {
     try {
-      setWorkIntakeProjection(await window.champcity.getWorkIntakeProjection());
+      const projection = await window.champcity.getWorkIntakeProjection();
+      if (projection.authority !== "structured") throw Error("Current Project Work Intake is unavailable.");
+      setWorkIntakeProjection(projection);
+      setSelectedWorkIntakeId(null);
+      setSelectedWorkflowId(null);
+      setWorkflowInstance(null);
       setActiveWorkflowId(null);
       setShellView("work-intake");
     } catch (error) {
@@ -3091,7 +3294,6 @@ export function App(): JSX.Element {
       const navigation = await window.champcity.getIssueResolutionNavigationProjection(currentIssue.issueId);
       setIssueNavigationProjection(navigation);
       await refreshIssueInventory(currentIssue.issueId);
-      returnToWorkflowHub();
     } catch (error) {
       setIssueCloseActionError(error instanceof Error ? error.message : "Issue Close failed.");
       await refreshIssueCloseProjection(currentIssue.issueId);
@@ -3766,6 +3968,7 @@ export function App(): JSX.Element {
     !isWorkCardClose &&
     !isWorkCardMap;
   const usesFigmaWorkspaceBody =
+    isWorkIntakeForeground ||
     isWorkflowHubForeground ||
     activeWorkspaceId === "project-intake-capture" ||
     isVisibleArchitectOutputWorkspace ||
@@ -3879,6 +4082,10 @@ export function App(): JSX.Element {
       />
     </div>
   ) : null;
+  const routedArchitectBrowserPanel = isArchitectPaneVisible ? <FigmaBrowserPanel hostRef={architectHostRef}
+    onReload={() => void reloadArchitectBrowser()} onRetry={() => void retryArchitectBrowser()}
+    retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
+    statusLabel={architectBrowserPresentation(architectStatus).label} /> : null;
 
   return (
     <div className={`app-root ${themeMode === "dark" ? "dark" : ""}`}>
@@ -3914,7 +4121,6 @@ export function App(): JSX.Element {
           onStageChange={setActiveIssueStageId}
         />
       ) : null}
-
       <div className={isLandingForeground ? "app-body landing-app-body" : "app-body"}>
           {!isSettingsWorkspace && (agentHarnessServiceHostLifecycleStatus?.restartRequired || agentHarnessActionError) ? (
             <div className="service-host-shell-notice">
@@ -3941,6 +4147,8 @@ export function App(): JSX.Element {
                 ? "development"
                 : isIssueResolutionForeground
                 ? "issue-resolution"
+                : isSourceControlForeground
+                ? "source-control"
                 : "hub"
             }
             onChooseProject={chooseWorkspace}
@@ -3962,6 +4170,7 @@ export function App(): JSX.Element {
             isLandingForeground ? "landing-surface" : "",
             !isLandingForeground && usesFigmaWorkspaceBody ? "figma-workspace-surface" : "",
             isWorkflowHubForeground ? "workflow-hub-surface" : "",
+            isSourceControlForeground ? "source-control-surface" : "",
             isIssueResolutionForeground ? "issue-resolution-surface" : "",
             isSettingsWorkspace ? "settings-workspace-surface" : "",
             isVisibleArchitectOutputWorkspace ? "architect-interview-surface" : "",
@@ -3974,20 +4183,39 @@ export function App(): JSX.Element {
             <LandingWorkspace
               feedback={documentError}
               isChoosing={isChoosing}
-              onOpenExistingProject={() => void openExistingProjectFromLanding()}
+              migrationPlan={pendingExistingProjectPlan}
+              onAcceptMigration={() => void acceptExistingProjectMigration()}
+              onCancelMigration={() => void cancelExistingProjectMigration()}
+              onOpenExistingProject={() => void openExistingProject()}
               onStartNewProject={() => void startNewProjectFromLanding()}
             />
-          ) : isWorkIntakeForeground && workIntakeProjection ? (
-            <WorkIntakeWorkspace
-              key={workspace.workspaceRoot}
-              projection={workIntakeProjection}
-              onReturn={returnToWorkflowHub}
-              onRefresh={async () => setWorkIntakeProjection(await window.champcity.getWorkIntakeProjection())}
-              onOpenIssue={(issueId) => {
-                setShellView("workflow"); setActiveWorkflowId("issue-resolution");
-                void refreshIssueInventory(issueId, true);
-              }}
-            />
+          ) : isWorkIntakeForeground && workIntakeProjection?.authority === "structured" ? (
+            selectedWorkIntakeId && selectedWorkflowId ? (
+              <StructuredWorkRoutingWorkspace intakeId={selectedWorkIntakeId} routingWorkflowId={selectedWorkflowId}
+                browserPanel={routedArchitectBrowserPanel} onReloadBrowser={() => void reloadArchitectBrowser()}
+                onReturn={returnToWorkflowHub} onRouted={workflowId => void openRoutedTargetWorkflow(workflowId)} />
+            ) : <WorkIntakeWorkspace key={`${workspace.workspaceRoot}-new`} projection={workIntakeProjection}
+              onReturn={returnToWorkflowHub} onSaved={async (intakeId) => {
+                const refreshedProjection = await window.champcity.getWorkIntakeProjection();
+                const captured = refreshedProjection.capturedIntakes?.find(item => item.intakeId === intakeId);
+                const inventory = await refreshWorkflowInventory(null);
+                if (!inventory) throw Error("Workflow inventory could not be refreshed after saving Work Intake.");
+                const routing = inventory.groups.find(group => group.workflowType === "work-intake-routing")?.workflows.find(item => item.workIntakeId === intakeId);
+                if (!captured || !routing) throw Error("Saved Work Intake routing identity is unavailable.");
+                setWorkIntakeProjection({ ...refreshedProjection, currentCapturedIntake: captured });
+                setSelectedWorkIntakeId(intakeId);
+                setWorkflowInstance(null);
+                setSelectedWorkflowId(routing.workflowId);
+              }} />
+          ) : isSourceControlForeground ? (
+            <SourceControlWorkspace key={workspace.ok ? workspace.workspaceRoot : "none"}
+              projectName={projectDisplayName(workspace)} onReturn={returnToWorkflowHub} />
+          ) : isWorkflowInstanceForeground ? (
+            workflowInstance && workflowPlanningSurface(workflowInstance) === "execution" ? <WorkflowExecutionWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowHub} browserPanel={routedArchitectBrowserPanel} />
+              : workflowInstance && workflowPlanningSurface(workflowInstance) === "feature" ? <FeaturePlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowHub} browserPanel={routedArchitectBrowserPanel} />
+              : workflowInstance && workflowPlanningSurface(workflowInstance) === "issue" ? <IssueWorkflowPlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowHub} browserPanel={routedArchitectBrowserPanel} />
+              : workflowInstance ? <WorkflowInstanceWorkspace workflow={workflowInstance} onReturn={returnToWorkflowHub} />
+              : <p role="status">Loading Workflow…</p>
           ) : isWorkflowHubForeground ? (
             <>
               {issueCloseActionFeedback ? (
@@ -3996,10 +4224,16 @@ export function App(): JSX.Element {
                 </div>
               ) : null}
               <WorkflowHubWorkspace
-                isEnteringDevelopment={isLoadingDocuments && activeWorkflowId === "development"}
-                onOpenWorkflow={(workflowId) => void openWorkflow(workflowId)}
-                onStartWork={() => void openWorkIntake()}
+                onOpenWorkflow={workflowId => void openCurrentWorkflow(workflowId)}
+                onStartWorkflow={startDirectWorkflow}
+                onStartWorkIntake={() => void openWorkIntake()}
+                onOpenSourceControl={() => { if (currentProject?.repositoryId) setShellView("source-control"); }}
                 projectName={projectDisplayName(workspace)}
+                sourceControlAvailable={currentProject?.repositoryId !== null && currentProject?.repositoryId !== undefined}
+                inventory={workflowInventory}
+                selectedWorkflowId={selectedWorkflowId}
+                loading={isWorkflowInventoryLoading}
+                error={workflowHubError}
                 workspace={workspace}
               />
               {documentError ? <p role="alert">{documentError}</p> : null}
@@ -4298,7 +4532,9 @@ export function App(): JSX.Element {
           {!usesFigmaWorkspaceBody ? (
             <CurrentWorkspaceBanner
               activeWorkspaceLabel={activeWorkspace.label}
+              currentProject={currentProject}
               model={currentModel}
+              onRetryModelAccess={() => void retryCurrentProjectModelAccess()}
               resolverResult={resolverResult}
               suppress={isWorkCardReportReview}
             />
@@ -6610,12 +6846,16 @@ function projectDisplayName(selection: WorkspaceSelection): string {
 
 function CurrentWorkspaceBanner({
   activeWorkspaceLabel,
+  currentProject,
   model,
+  onRetryModelAccess,
   resolverResult,
   suppress,
 }: {
   activeWorkspaceLabel: string;
+  currentProject: CurrentProjectRuntimeContext | null;
   model: CurrentWorkspaceModel | null;
+  onRetryModelAccess: () => void;
   resolverResult: FirstNonApprovedResult | null;
   suppress?: boolean;
 }): JSX.Element | null {
@@ -6630,7 +6870,15 @@ function CurrentWorkspaceBanner({
     ? workspaceDefinitions.find((definition) => definition.id === model.activeWorkspaceId)?.label
     : null;
   return (
-    <section className="current-workspace-banner" aria-label="Current required workflow step">
+    <section className="current-workspace-banner" aria-label="Current required workflow step" data-project-id={currentProject?.projectId}>
+      {currentProject ? <div><span>Current Project</span><strong>{currentProject.projectName}</strong><small>{currentProject.projectId}</small></div> : null}
+      {currentProject?.modelAccess.state === "degraded" ? (
+        <div className="banner-wide blocker model-access-degraded">
+          <span>Model Access Degraded</span>
+          <strong title={currentProject.modelAccess.error ?? undefined}>{currentProject.modelAccess.error ?? "Agent Harness model access is unavailable."}</strong>
+          <button className="text-button" onClick={onRetryModelAccess} type="button">Retry Model Access</button>
+        </div>
+      ) : null}
       <div>
         <span>Current Required Workflow Step</span>
         <strong>{requiredWorkspaceLabel ?? current?.owningWorkspace ?? activeWorkspaceLabel}</strong>

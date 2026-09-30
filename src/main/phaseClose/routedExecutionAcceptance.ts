@@ -5,7 +5,7 @@ import { isDeepStrictEqual } from "node:util";
 import type { CanonicalDocumentMetadata } from "../../shared/documents/canonicalMarkdown";
 import type { ExecutionBoundaryEvidence, ExecutionCriterionEvidence, PlanExecutionInput } from "../../shared/planExecutionContracts";
 import type { RoutedAcceptanceBoundary, RoutedAcceptanceInput, RoutedAcceptanceProjection, RoutedDevelopmentExecutionBinding } from "../../shared/routedDevelopmentExecutionContracts";
-import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
+import { resolveRepositoryPath } from "../repository/pathPolicy";
 import { listPlanningDocuments, evaluateDocumentFreshness } from "../documents/planningDocumentService";
 import { writeCanonicalMarkdownDocument, updateCanonicalMarkdownDisposition } from "../documents/canonicalMarkdownDocumentWriter";
 import { inheritRepositoryBindingFromSourceRevisions, mergeRepositoryBindingIntoWorkflowData } from "../documents/repositoryBinding";

@@ -3,10 +3,26 @@ const fs=require('node:fs');
 const os=require('node:os');
 const path=require('node:path');
 const test=require('node:test');
+const {execFileSync}=require('node:child_process');
 const {createIntegrationRepairController}=require('../../dist/main/planExecution/integrationRepairService.js');
-const {integrationPaths}=require('../../dist/main/agentHarness/repository/integrationGit.js');
-const {integrationSourceDigest:digest}=require('../../dist/main/agentHarness/repository/integrationRepairGit.js');
+const {integrationPaths}=require('../../dist/main/repository/integrationGit.js');
+const {integrationSourceDigest:digest}=require('../../dist/main/repository/integrationRepairGit.js');
 const {writeDoc}=require('../support/canonical-markdown-fixtures.cjs');
+
+test('Integration candidate storage resolves a linked checkout to its exact Git common directory',async t=>{
+ require('../support/execution-metrics.cjs').measureExecution(t,'integration-linked-common-directory');
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'champcity-integration-linked-'));
+ t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const primary=path.join(root,'primary'),linked=path.join(root,'Dev');fs.mkdirSync(primary);
+ const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
+ git(primary,'init','-b','dev');git(primary,'config','user.email','fixture@example.invalid');git(primary,'config','user.name','Fixture');
+ fs.writeFileSync(path.join(primary,'README.md'),'fixture\n');git(primary,'add','README.md');git(primary,'commit','-m','fixture');
+ git(primary,'worktree','add',linked,'-b','feature/fixture');
+ assert.equal(fs.lstatSync(path.join(linked,'.git')).isFile(),true);
+ const candidateId='a'.repeat(64),paths=integrationPaths(linked,candidateId);
+ assert.equal(path.dirname(path.dirname(paths.base)),fs.realpathSync(path.join(primary,'.git')));
+ assert.equal(paths.checkout.startsWith(path.join(primary,'.git','champcity-integration')),true);
+});
 
 test('Integration Repair controller preserves retry ownership patch disposition intent and Operator decisions without process setup',async t=>{
  require('../support/execution-metrics.cjs').measureExecution(t,'repair-controller');

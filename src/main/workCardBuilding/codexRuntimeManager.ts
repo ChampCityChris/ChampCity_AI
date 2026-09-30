@@ -23,6 +23,8 @@ export class CodexRuntimeManager {
   private initialization: Promise<void> | null = null;
   private runtime: ManagedCodexRuntime | null = null;
   private locked = false;
+  private concurrentExactRuns = 0;
+  private readonly maxConcurrentExactRuns = 4;
   private saving = false;
   private state: CodexManagedRuntimeStatus = {
     version: null, updateState: "initializing", catalog: [], selection: null,
@@ -44,7 +46,7 @@ export class CodexRuntimeManager {
   }
 
   getStatus(): CodexManagedRuntimeStatus {
-    return structuredClone({ ...this.state, busy: this.locked || this.saving });
+    return structuredClone({ ...this.state, busy: this.locked || this.concurrentExactRuns > 0 || this.saving });
   }
 
   private adoptInitializationResult(result: CodexRuntimeInitializationResult): void {
@@ -82,7 +84,7 @@ export class CodexRuntimeManager {
   }
 
   acquire(value: unknown): { selection: CodexModelSelection; release: () => void } {
-    if (this.locked || this.saving) throw new Error("A Codex run or selection save is already active.");
+    if (this.locked || this.concurrentExactRuns > 0 || this.saving) throw new Error("A Codex run or selection save is already active.");
     if (!this.isReady()) throw new Error("Codex runtime is not ready. Wait for startup initialization.");
     const blocker = selectionBlocker(this.state.catalog, value);
     if (blocker) throw new Error(blocker);
@@ -91,6 +93,20 @@ export class CodexRuntimeManager {
     let released = false;
     return { selection: { model: input.model, reasoningEffort: input.reasoningEffort }, release: () => {
       if (!released) { released = true; this.locked = false; }
+    } };
+  }
+
+  /** Exact Workflow/WorkItem owners may run concurrently up to the shared process capacity. */
+  acquireConcurrentExact(value: unknown): { selection: CodexModelSelection; release: () => void } {
+    if (this.locked || this.saving || this.concurrentExactRuns >= this.maxConcurrentExactRuns) throw new Error("The shared Codex execution capacity is busy.");
+    if (!this.isReady()) throw new Error("Codex runtime is not ready. Wait for startup initialization.");
+    const blocker = selectionBlocker(this.state.catalog, value);
+    if (blocker) throw new Error(blocker);
+    const input = value as CodexModelSelection;
+    this.concurrentExactRuns++;
+    let released = false;
+    return { selection: { model: input.model, reasoningEffort: input.reasoningEffort }, release: () => {
+      if (!released) { released = true; this.concurrentExactRuns = Math.max(0, this.concurrentExactRuns - 1); }
     } };
   }
 

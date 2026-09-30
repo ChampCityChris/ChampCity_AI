@@ -164,6 +164,12 @@ async function runBoundaryScenario() {
 
     const registeredA = await controller.registerWorkspace(projectA);
     const registeredB = await controller.registerWorkspace(projectB);
+    const devCheckout = path.join(projectA, "Dev");
+    fs.mkdirSync(devCheckout, { recursive: true });
+    execFileSync("git", ["init", "-b", "dev"], { cwd: devCheckout, stdio: "ignore" });
+    const checkout = { repositoryCheckoutId: "worker-dev", repositoryId: "worker-repo", sourceLineId: "dev", role: "dev", projectRelativePath: "Dev" };
+    const checkoutSummary = await controller.registerRepositoryCheckout("project_a", checkout);
+    assert.equal(checkoutSummary.availability, "available");
     assert.equal(registeredA.workspace.workspaceId, "project_a");
     assert.equal(registeredB.workspace.workspaceId, "project_b");
     assert.deepEqual((await controller.listRegisteredWorkspaces()).workspaces.map((entry) => entry.workspaceId), ["project_a", "project_b"]);
@@ -204,26 +210,13 @@ async function runBoundaryScenario() {
     const gitA = await callTool(mcpClient, "git_toolbox", {
       workspaceId: "project_a",
       action: "status",
+      params: { repositoryCheckoutId: "worker-dev" },
     });
     assert.equal(gitA.structuredContent.ok, true);
-    assert.equal(gitA.structuredContent.payload.gitBacked, true);
+    assert.equal(path.resolve(execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd: devCheckout, encoding: "utf8" }).trim()), path.resolve(devCheckout));
+    assert.throws(() => execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd: projectA, stdio: ["ignore", "pipe", "ignore"] }));
 
     assert.equal(fs.existsSync(path.join(projectA, "planning", "phases")), false);
-    fs.writeFileSync(path.join(projectA, "worker-bounded.txt"), "worker-backed mutation\n", "utf8");
-    const boundedMutation = await callTool(mcpClient, "git_toolbox", {
-      workspaceId: "project_a",
-      action: "stage_changes",
-      params: { paths: ["worker-bounded.txt"] },
-    });
-    assert.equal(boundedMutation.structuredContent.ok, true);
-    assert.deepEqual(boundedMutation.structuredContent.payload.stagedPaths, ["worker-bounded.txt"]);
-    assert.equal(
-      execFileSync("git", ["diff", "--cached", "--name-only", "--", "worker-bounded.txt"], {
-        cwd: projectA,
-        encoding: "utf8",
-      }).trim(),
-      "worker-bounded.txt",
-    );
 
     const readBWhileAIsAvailable = await callTool(mcpClient, "repo_toolbox", {
       workspaceId: "project_b",
@@ -381,7 +374,6 @@ async function waitForControllerRecovery(controller, failedWorkerPid, timeoutMs)
 function createWorkspace(container, name, readme) {
   const root = path.join(container, name);
   fs.mkdirSync(root, { recursive: true });
-  execFileSync("git", ["init"], { cwd: root, stdio: "ignore" });
   fs.writeFileSync(path.join(root, "README.md"), `${readme}\n`, "utf8");
   fs.mkdirSync(path.join(root, "docs"), { recursive: true });
   fs.writeFileSync(path.join(root, "docs", "overview.md"), `${name} documentation\n`, "utf8");

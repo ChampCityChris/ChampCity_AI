@@ -7,7 +7,7 @@ const test = require("node:test");
 const ts = require("typescript");
 
 const repositoryRoot = path.resolve(__dirname, "../..");
-const { AgentHarnessError } = require("../../dist/main/agentHarness/core/errors.js");
+const { AgentHarnessError } = require("../../dist/main/core/applicationErrors.js");
 const { createSourceControlService } = require("../../dist/main/sourceControl/sourceControlService.js");
 const {
   createWorkIntakeBranchService, workIntakeBranchName,
@@ -46,8 +46,8 @@ const {
   createTagDeletionFixture,
 } = require("../support/git-mutation-fixtures.cjs");
 
-test("generic source completion checkpoints only attributed files on the Intake branch and keeps remote failure separate", async (t) => {
-  const { submitWorkIntake, getWorkIntakeProjection } = require("../../dist/main/workIntake/workIntakeService.js");
+test("generic source completion checkpoints only attributed files on the retained legacy execution source and keeps remote failure separate", async (t) => {
+  const { createLegacyWorkIntakeFixture } = require("../support/work-intake-fixtures.cjs");
   const { captureWorkItemCheckpoint, observeCheckpointChanges } = require("../../dist/main/planExecution/workItemCheckpointService.js");
   const { completePlanWorkItemSource } = require("../../dist/main/planExecution/planExecutor.js");
   const { readCheckpointReceipt } = require("../../dist/main/planExecution/workItemCheckpointReceipt.js");
@@ -56,7 +56,7 @@ test("generic source completion checkpoints only attributed files on the Intake 
   fs.writeFileSync(path.join(root, ".gitignore"), "/planning/\n");
   commitAllFixtureState(root, "fixture baseline");
   const before = git(root, ["rev-parse", "HEAD"]);
-  const created = await submitWorkIntake(root, { projectId: null, projectName: "Checkpoint product", workRequest: "Correct bounded behavior", desiredOutcome: "Preserve accepted behavior", knownConstraints: "", hasExistingSourceOrPlanning: true, repositoryReviewContext: "", baseBranch: git(root, ["branch", "--show-current"]), baseCommit: before });
+  const created = await createLegacyWorkIntakeFixture(root, { projectId: null, projectName: "Checkpoint product", workRequest: "Correct bounded behavior", desiredOutcome: "Preserve accepted behavior", knownConstraints: "", hasExistingSourceOrPlanning: true, repositoryReviewContext: "", baseBranch: git(root, ["branch", "--show-current"]), baseCommit: before });
   assert.equal(created.ok, true);
   const intake = created.value;
   const routeDecisionId = "decision-00000000-0000-4000-8000-000000000001";
@@ -99,7 +99,7 @@ test("generic source completion checkpoints only attributed files on the Intake 
   assert.equal(receipt.reportSha256, require("node:crypto").createHash("sha256").update(fs.readFileSync(path.join(root, reportPath))).digest("hex"));
   assert.equal(readCanonical(root, reportPath).metadata.documentDisposition.status, "Pending", "Checkpoint does not approve implementation");
   assert.equal(fs.readFileSync(path.join(root, intake.relativePath), "utf8"), intakeBefore, "Bookkeeping does not stale planning intent sources");
-  assert.equal((await getWorkIntakeProjection(root)).currentIntake.branchBinding.currentHead, result.commit);
+  assert.equal((await createWorkIntakeBranchService({ repositoryId: intake.branchBinding.repositoryId, repositoryRoot: root }).verify(intake.branchBinding)).currentHead, result.commit);
   assert.equal((await createWorkIntakeBranchService({ repositoryId: intake.branchBinding.repositoryId, repositoryRoot: root }).verify(intake.branchBinding)).currentHead, result.commit);
   const retry = await completePlanWorkItemSource(root, { capture, implementationSucceeded: true, reportReady: true });
   assert.equal(retry.status, "blocked"); assert.equal(git(root, ["rev-parse", "HEAD"]), result.commit);
@@ -195,8 +195,8 @@ test("research lifecycle checkpoint commits approved no-plan evidence without ma
   const receipt = readLifecycleCheckpointReceipt(runGit("show", "--no-patch", "--format=%B", result.checkpoint.commit), result.checkpoint.checkpointId);
   assert.equal(receipt.boundary.kind, "research");
   assert.deepEqual(receipt.boundary, completion.boundary);
-  const expected = ["planning/work-intake/PROJECT.md", intake.relativePath, route.relativePath, route.selection.sourceAssessment.path, assessmentPath].sort();
-  assert.deepEqual(receipt.files.map((entry) => entry.path), expected);
+  assert.deepEqual(receipt.files.map((entry) => entry.path), []);
+  assert.equal(receipt.emptyLifecycleCheckpoint, true, "Planning review already committed the approved source evidence");
   assert.deepEqual(receipt.files.map((entry) => entry.path), [...receipt.files.map((entry) => entry.path)].sort());
   assert.equal(fs.existsSync(path.join(root, workPlanningArtifactPath(intake.intakeId, route.selection.decisionId, "plan"))), false);
   assert.equal(runGit("status", "--porcelain"), "");

@@ -20,7 +20,7 @@ const {
   createRegisteredWorkspaceAccessProvider,
   resolveWorkspaceRootContext,
 } = require("../../dist/main/agentHarness/workspace/workspaceAccess.js");
-const { AgentHarnessError } = require("../../dist/main/agentHarness/core/errors.js");
+const { AgentHarnessError } = require("../../dist/main/core/applicationErrors.js");
 
 async function createRuntime(fixture, overrides = {}) {
   return startAgentHarnessHttpRuntime({

@@ -37,6 +37,7 @@ export class SelectedWorkspaceEvidenceNotifier {
   private pendingTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingTimerGeneration: number | null = null;
   private activeRoot: string | null = null;
+  private paused = false;
   private generation = 0;
   private sequence = 0;
 
@@ -54,22 +55,31 @@ export class SelectedWorkspaceEvidenceNotifier {
 
   selectWorkspace(workspaceRoot: string): number {
     this.stopWatchers();
+    this.paused = false;
     this.generation += 1;
     const selectedGeneration = this.generation;
     this.activeRoot = path.resolve(workspaceRoot);
-    this.rootWatcher = this.tryWatch(
-      this.activeRoot,
-      false,
-      (_eventType, filename) => this.handleWorkspaceRootChange(selectedGeneration, filename),
-    );
-    evidenceDomains.forEach((domain) => this.ensureDomainWatcher(domain, selectedGeneration));
+    this.startWatchers(selectedGeneration);
     return selectedGeneration;
   }
 
   clear(): void {
     this.stopWatchers();
+    this.paused = false;
     this.generation += 1;
     this.activeRoot = null;
+  }
+
+  pause(): void {
+    if (this.paused || this.activeRoot === null) return;
+    this.paused = true;
+    this.stopWatchers();
+  }
+
+  resume(): void {
+    if (!this.paused) return;
+    this.paused = false;
+    if (this.activeRoot !== null) this.startWatchers(this.generation);
   }
 
   currentGeneration(): number {
@@ -78,6 +88,16 @@ export class SelectedWorkspaceEvidenceNotifier {
 
   notifyForTest(domain: WorkspaceEvidenceDomain, generation = this.generation): void {
     this.queueDomain(domain, generation);
+  }
+
+  private startWatchers(generation: number): void {
+    if (!this.activeRoot || this.paused || generation !== this.generation) return;
+    this.rootWatcher = this.tryWatch(
+      this.activeRoot,
+      false,
+      (_eventType, filename) => this.handleWorkspaceRootChange(generation, filename),
+    );
+    evidenceDomains.forEach((domain) => this.ensureDomainWatcher(domain, generation));
   }
 
   private handleWorkspaceRootChange(
@@ -166,7 +186,7 @@ export class SelectedWorkspaceEvidenceNotifier {
   }
 
   private isCurrent(generation: number): boolean {
-    return this.activeRoot !== null && generation === this.generation;
+    return this.activeRoot !== null && !this.paused && generation === this.generation;
   }
 
   private stopWatchers(): void {

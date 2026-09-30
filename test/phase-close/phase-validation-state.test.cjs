@@ -328,9 +328,9 @@ test("routed direct Plan requires explicit current Plan acceptance after durable
   require("node:fs").writeFileSync(require("node:path").join(root, evidencePath), evidenceBytes);
   const plan = read(binding.planPath);
   write(binding.planPath, { ...plan.metadata, artifactRevision: plan.metadata.artifactRevision + 1 }, plan.bodyMarkdown);
-  await assert.rejects(api.query(), /binding|stale|superseded/);
+  await assert.rejects(api.query(), /binding|stale|superseded|current approved/);
   assert.equal(require("node:fs").existsSync(require("node:path").join(root, "planning/phases")), false);
-  assert.equal(fixture.git("rev-parse", "HEAD"), fixture.initialHead);
+  assert.notEqual(fixture.git("rev-parse", "HEAD"), fixture.initialHead, "planning review advanced the source line");
 });
 
 test("routed genuine Phase acceptance gates successors and remains separate from Plan acceptance", async (t) => {
@@ -371,8 +371,7 @@ test("routed genuine Phase acceptance gates successors and remains separate from
 
 async function routedAcceptanceFixture(t, phased) {
   const fs = require("node:fs"), path = require("node:path");
-  const { seedPreparedApprovedRoutedWorkPlan, bypassLifecycleEvidenceCheckpoints } = require("../support/work-intake-fixtures.cjs");
-  bypassLifecycleEvidenceCheckpoints(t);
+  const { seedPreparedApprovedRoutedWorkPlan } = require("../support/work-intake-fixtures.cjs");
   const { createRoutedDevelopmentExecutionService } = require("../../dist/main/planExecution/routedDevelopmentExecutionService.js");
   const { resolveWorkItemArtifactScope, workItemArtifactIdentity } = require("../../dist/main/workCardLoop/workItemArtifactScope.js");
   const { generateRoutedWorkCardIntakeHandoff } = require("../../dist/main/workCardIntake/workCardIntakeService.js");

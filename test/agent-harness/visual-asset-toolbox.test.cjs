@@ -18,7 +18,7 @@ const {
   readVisualAssetImage,
   inspectVisualAssetImage,
   compareVisualAssetImages,
-} = require(path.join(repositoryRoot, "dist/main/agentHarness/repository/visualAssetReview.js"));
+} = require(path.join(repositoryRoot, "dist/main/repository/visualAssetReview.js"));
 const {
   createAgentHarnessToolRegistry,
 } = require(path.join(repositoryRoot, "dist/main/agentHarness/tools/toolRegistry.js"));
@@ -28,7 +28,7 @@ const {
 } = require(path.join(repositoryRoot, "dist/main/agentHarness/workspace/workspaceAccess.js"));
 const {
   AgentHarnessError,
-} = require(path.join(repositoryRoot, "dist/main/agentHarness/core/errors.js"));
+} = require(path.join(repositoryRoot, "dist/main/core/applicationErrors.js"));
 
 test("visual asset reader detects PNG, JPEG, and WebP bytes and returns deterministic metadata", () => {
   const fixture = createWorkspace("Visual_Metadata_Project");

@@ -158,9 +158,9 @@ Uninstall verifies scope, gracefully shuts down the invoking user's admitted Ser
 
 ## Operator authority and task scope
 
-The human Operator is the only authority over whether work may be performed. Work Cards, Repair Cards, Issues, prompts, workflow state, metadata, agents, host services, and MCP can record decisions, carry bounded instructions, constrain execution, or provide evidence, but none can serve as a permission principal.
+The human Operator is the only authority over whether work may be performed. Once the Operator directs an active Work Card, Repair Card, or package, that artifact carries the delegated bounded task scope; it does not become a separate permission principal. Issues, prompts, workflow state, metadata, agents, host services, and MCP may carry instructions, constraints, or evidence but do not create independent authority.
 
-The executing agent follows the Operator's current direction and the current task's constraints, including an explicit `no Git this turn` prohibition. MCP does not interpret planning documents or workflow state to decide whether the Operator intended a Git action. For bounded Git mutation, the Agent Harness enforces exact registered workspace identity and containment, Git-backed state, `files.write` OAuth scope, published action schemas, and deterministic command preconditions.
+The executing agent follows the Operator's current direction and the current task's constraints, including an explicit `no Git this turn` prohibition. A bounded Git operation explicitly required by the active Operator-directed task—such as an attributable checkpoint commit—is ordinary task execution and does not require a second approval. MCP does not infer additional Git scope beyond the active task. For bounded Git mutation, the Agent Harness enforces exact registered workspace identity and containment, Git-backed state, `files.write` OAuth scope, published action schemas, and deterministic command preconditions.
 
 ## Local-first trust boundaries
 

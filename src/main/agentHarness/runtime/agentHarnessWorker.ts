@@ -2,11 +2,12 @@ import type {
   AgentHarnessStatus,
   AgentHarnessWorkspaceRegistrySnapshot,
   AgentHarnessRegisteredWorkspaceSummary,
+  AgentHarnessRegisteredRepositoryCheckoutSummary,
   LegacyOAuthClientImportResult,
   AgentHarnessControlledRestartDisposition,
 } from "../../../shared/workspaceContracts";
 import { AgentHarnessService } from "./agentHarnessService";
-import { AgentHarnessError } from "../core/errors";
+import { AgentHarnessError } from "../../core/applicationErrors";
 import {
   agentHarnessProcessProtocolVersion,
   isAgentHarnessControlRequest,
@@ -60,7 +61,7 @@ async function executeControlRequest(
   AgentHarnessControlledRestartDisposition |
   LegacyOAuthClientImportResult |
   AgentHarnessWorkspaceRegistrySnapshot |
-  { workspace: AgentHarnessRegisteredWorkspaceSummary; registry: AgentHarnessWorkspaceRegistrySnapshot }
+  { workspace: AgentHarnessRegisteredWorkspaceSummary; registry: AgentHarnessWorkspaceRegistrySnapshot } | AgentHarnessRegisteredRepositoryCheckoutSummary | AgentHarnessRegisteredRepositoryCheckoutSummary[]
 > {
   switch (request.operation) {
     case "initialize":
@@ -91,6 +92,10 @@ async function executeControlRequest(
       return requireService().registerWorkspaceRoot(request.payload.workspaceRoot);
     case "unregister-workspace":
       return requireService().unregisterWorkspace(request.payload.workspaceId);
+    case "register-repository-checkout":
+      return requireService().registerRepositoryCheckout(request.payload.workspaceId, request.payload.checkout);
+    case "unregister-repository-checkout":
+      return requireService().unregisterRepositoryCheckout(request.payload.workspaceId, request.payload.repositoryCheckoutId);
     case "shutdown":
       return requireService().stop();
   }
@@ -136,7 +141,7 @@ function respondSuccess(
     AgentHarnessControlledRestartDisposition |
     LegacyOAuthClientImportResult |
     AgentHarnessWorkspaceRegistrySnapshot |
-    { workspace: AgentHarnessRegisteredWorkspaceSummary; registry: AgentHarnessWorkspaceRegistrySnapshot },
+    { workspace: AgentHarnessRegisteredWorkspaceSummary; registry: AgentHarnessWorkspaceRegistrySnapshot } | AgentHarnessRegisteredRepositoryCheckoutSummary | AgentHarnessRegisteredRepositoryCheckoutSummary[],
 ): void {
   controlPort.postMessage({
     protocolVersion: agentHarnessProcessProtocolVersion,

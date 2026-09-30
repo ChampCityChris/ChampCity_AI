@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
+import type { RepositoryCheckout } from "../../../shared/sourceLifecycleContracts";
 import { utilityProcess, type UtilityProcess } from "electron";
 import type {
   AgentHarnessSettingsInput,
   AgentHarnessStatus,
   AgentHarnessWorkspaceRegistrySnapshot,
   AgentHarnessRegisteredWorkspaceSummary,
+  AgentHarnessRegisteredRepositoryCheckoutSummary,
   LegacyOAuthClientImportResult,
   AgentHarnessControlledRestartDisposition,
 } from "../../../shared/workspaceContracts";
@@ -14,6 +16,8 @@ import {
   isAgentHarnessStatus,
   isAgentHarnessWorkspaceRegistrySnapshot,
   isAgentHarnessWorkspaceRegistrationControlResult,
+  isAgentHarnessRegisteredRepositoryCheckoutSummary,
+  isAgentHarnessRegisteredRepositoryCheckoutSummaryArray,
   type AgentHarnessControlOperation,
   type AgentHarnessControlRequest,
   type AgentHarnessControlRequestPayloads,
@@ -260,6 +264,20 @@ export class AgentHarnessController {
       throw new AgentHarnessControllerError("AGENT_HARNESS_REGISTRY_RESPONSE_INVALID", "Worker returned an invalid registry snapshot.");
     }
     return registry;
+  }
+
+  async registerRepositoryCheckout(workspaceId: string, checkout: RepositoryCheckout): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary> {
+    await this.ensureWorker(false);
+    const result = await this.sendRequest("register-repository-checkout", { workspaceId, checkout });
+    if (!isAgentHarnessRegisteredRepositoryCheckoutSummary(result)) throw new AgentHarnessControllerError("AGENT_HARNESS_REGISTRY_RESPONSE_INVALID", "Worker returned an invalid checkout summary.");
+    return result;
+  }
+
+  async unregisterRepositoryCheckout(workspaceId: string, repositoryCheckoutId: string): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary[]> {
+    await this.ensureWorker(false);
+    const result = await this.sendRequest("unregister-repository-checkout", { workspaceId, repositoryCheckoutId });
+    if (!isAgentHarnessRegisteredRepositoryCheckoutSummaryArray(result)) throw new AgentHarnessControllerError("AGENT_HARNESS_REGISTRY_RESPONSE_INVALID", "Worker returned invalid checkout summaries.");
+    return result;
   }
 
   async shutdown(): Promise<void> {

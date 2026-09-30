@@ -77,7 +77,7 @@ async function listenIdentityHost(address, identity, options = {}) {
               }
             : identity;
           const response = {
-            protocolVersion: 1,
+            protocolVersion: options.protocolVersion ?? 1,
             kind: "response",
             requestId: request.requestId,
             operation: request.operation,
@@ -112,7 +112,7 @@ async function listenIdentityHost(address, identity, options = {}) {
   };
 }
 
-test("identity normalization accepts only the prior protocol-v1 omission of trayPresent", () => {
+test("identity normalization accepts only the prior protocol-v1 omission of trayPresent", async () => {
   const current = serviceHostIdentity();
   assert.equal(protocol.isAgentHarnessServiceHostIdentity(current), true);
   assert.equal(protocol.normalizeAgentHarnessServiceHostIdentity(current).trayPresent, true);
@@ -127,6 +127,36 @@ test("identity normalization accepts only the prior protocol-v1 omission of tray
   delete missingCoreIdentity.instanceId;
   assert.equal(protocol.normalizeAgentHarnessServiceHostIdentity(missingCoreIdentity), null);
   assert.equal(protocol.normalizeAgentHarnessServiceHostIdentity({ ...prior, controlProtocolVersion: 2 }), null);
+
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-incompatible-service-host-"));
+  const userDataRoot = path.join(container, "user-data");
+  const address = getAgentHarnessServiceHostControlAddress(userDataRoot);
+  let incompatibleHost;
+  let launchCount = 0;
+  try {
+    incompatibleHost = await listenIdentityHost(
+      address,
+      serviceHostIdentity({ controlProtocolVersion: 2 }),
+      { protocolVersion: 2 },
+    );
+    const client = new AgentHarnessServiceHostClient({
+      userDataRoot,
+      expectedBuildIdentity: `sha256:${"b".repeat(64)}`,
+      requestTimeoutMs: 1_000,
+      discoveryTimeoutMs: 1_000,
+      discoveryPollIntervalMs: 10,
+      launchServiceHost: () => { launchCount += 1; },
+    });
+    await assert.rejects(
+      () => client.connect(),
+      (error) => error.code === "SERVICE_HOST_PROTOCOL_INCOMPATIBLE",
+    );
+    assert.deepEqual(incompatibleHost.operations, ["handshake"]);
+    assert.equal(launchCount, 0);
+  } finally {
+    await incompatibleHost?.close();
+    fs.rmSync(container, { recursive: true, force: true });
+  }
 });
 
 test("client discovers a stale prior identity and reaches controlled restart to a current tray host", async () => {
@@ -144,6 +174,7 @@ test("client discovers a stale prior identity and reaches controlled restart to 
   });
   let priorHost;
   let replacementHost;
+  let launchCount = 0;
   try {
     priorHost = await listenIdentityHost(address, priorIdentity, { closeOnControlledRestart: true });
     const client = new AgentHarnessServiceHostClient({
@@ -153,23 +184,21 @@ test("client discovers a stale prior identity and reaches controlled restart to 
       discoveryTimeoutMs: 3_000,
       discoveryPollIntervalMs: 10,
       launchServiceHost: async () => {
+        launchCount += 1;
         replacementHost = await listenIdentityHost(address, replacementIdentity);
       },
     });
 
-    const discovered = await client.connect();
-    assert.equal(discovered.trayPresent, false);
-    const staleStatus = await client.lifecycleStatus();
-    assert.equal(staleStatus.state, "restart-required");
-    assert.equal(staleStatus.reason, "build-generation-mismatch");
-    assert.equal(staleStatus.trayPresent, false);
-
-    const replacement = await client.controlledRestartServiceHost();
+    const replacement = await client.connect();
     assert.equal(replacement.instanceId, replacementIdentity.instanceId);
     assert.equal(replacement.runtimeBuildIdentity, expectedBuildIdentity);
     assert.equal(replacement.trayPresent, true);
-    assert.ok(priorHost.operations.includes("service-host-controlled-restart"));
+    assert.equal(launchCount, 1);
+    assert.deepEqual(priorHost.operations, ["handshake", "service-host-controlled-restart"]);
     assert.ok(replacementHost.operations.includes("reconcile-descriptor"));
+    const lifecycle = await client.lifecycleStatus();
+    assert.equal(lifecycle.restartRequired, false);
+    assert.equal(lifecycle.runtimeBuildIdentity, expectedBuildIdentity);
   } finally {
     await replacementHost?.close();
     await priorHost?.close();

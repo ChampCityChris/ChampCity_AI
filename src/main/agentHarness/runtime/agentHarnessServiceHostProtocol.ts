@@ -3,11 +3,13 @@ import type {
   AgentHarnessStatus,
   AgentHarnessWorkspaceRegistrySnapshot,
   AgentHarnessRegisteredWorkspaceSummary,
+  AgentHarnessRegisteredRepositoryCheckoutSummary,
   LegacyOAuthClientImportResult,
   AgentHarnessControlledRestartDisposition,
   AgentHarnessServiceLifecycleState,
   AgentHarnessServiceRecoveryReason,
 } from "../../../shared/workspaceContracts";
+import type { RepositoryCheckout } from "../../../shared/sourceLifecycleContracts";
 import {
   agentHarnessServiceHostControlProtocolVersion,
   type AgentHarnessServiceHostDescriptor,
@@ -15,21 +17,26 @@ import {
 
 export { agentHarnessServiceHostControlProtocolVersion } from "./agentHarnessServiceHostDescriptor";
 
-export type AgentHarnessServiceHostOperation =
-  | "handshake"
-  | "reconcile-descriptor"
-  | "agent-harness-status"
-  | "agent-harness-start"
-  | "agent-harness-stop"
-  | "agent-harness-restart"
-  | "agent-harness-save-configuration"
-  | "agent-harness-import-legacy-oauth-clients"
-  | "list-registered-workspaces"
-  | "register-workspace"
-  | "unregister-workspace"
-  | "service-host-shutdown"
-  | "background-agent-user-exit"
-  | "service-host-controlled-restart";
+export const agentHarnessServiceHostOperations = [
+  "handshake",
+  "reconcile-descriptor",
+  "agent-harness-status",
+  "agent-harness-start",
+  "agent-harness-stop",
+  "agent-harness-restart",
+  "agent-harness-save-configuration",
+  "agent-harness-import-legacy-oauth-clients",
+  "list-registered-workspaces",
+  "register-workspace",
+  "unregister-workspace",
+  "register-repository-checkout",
+  "unregister-repository-checkout",
+  "service-host-shutdown",
+  "background-agent-user-exit",
+  "service-host-controlled-restart",
+] as const;
+
+export type AgentHarnessServiceHostOperation = typeof agentHarnessServiceHostOperations[number];
 
 export interface AgentHarnessServiceHostIdentity {
   descriptorSchemaVersion: AgentHarnessServiceHostDescriptor["schemaVersion"];
@@ -67,6 +74,8 @@ export interface AgentHarnessServiceHostRequestPayloads {
   "list-registered-workspaces": null;
   "register-workspace": { workspaceRoot: string };
   "unregister-workspace": { workspaceId: string };
+  "register-repository-checkout": { workspaceId: string; checkout: RepositoryCheckout };
+  "unregister-repository-checkout": { workspaceId: string; repositoryCheckoutId: string };
   "service-host-shutdown": null;
   "background-agent-user-exit": null;
   "service-host-controlled-restart": { expectedBuildIdentity: string };
@@ -87,6 +96,8 @@ export interface AgentHarnessServiceHostResponsePayloads {
     registry: AgentHarnessWorkspaceRegistrySnapshot;
   };
   "unregister-workspace": AgentHarnessWorkspaceRegistrySnapshot;
+  "register-repository-checkout": AgentHarnessRegisteredRepositoryCheckoutSummary;
+  "unregister-repository-checkout": AgentHarnessRegisteredRepositoryCheckoutSummary[];
   "service-host-shutdown": null;
   "background-agent-user-exit": null;
   "service-host-controlled-restart": AgentHarnessControlledRestartDisposition;
@@ -133,22 +144,7 @@ export type AgentHarnessServiceHostResponse =
   | AgentHarnessServiceHostSuccessResponse
   | AgentHarnessServiceHostFailureResponse;
 
-const serviceHostOperations = new Set<AgentHarnessServiceHostOperation>([
-  "handshake",
-  "reconcile-descriptor",
-  "agent-harness-status",
-  "agent-harness-start",
-  "agent-harness-stop",
-  "agent-harness-restart",
-  "agent-harness-save-configuration",
-  "agent-harness-import-legacy-oauth-clients",
-  "list-registered-workspaces",
-  "register-workspace",
-  "unregister-workspace",
-  "service-host-shutdown",
-  "background-agent-user-exit",
-  "service-host-controlled-restart",
-]);
+const serviceHostOperations = new Set<string>(agentHarnessServiceHostOperations);
 
 export function isAgentHarnessServiceHostRequest(value: unknown): value is AgentHarnessServiceHostRequest {
   return isRecord(value) &&
@@ -160,7 +156,9 @@ export function isAgentHarnessServiceHostRequest(value: unknown): value is Agent
     ((value.operation === "handshake" &&
       (value.expectedInstanceId === null || (typeof value.expectedInstanceId === "string" && value.expectedInstanceId.length > 0))) ||
       (value.operation !== "handshake" && typeof value.expectedInstanceId === "string" && value.expectedInstanceId.length > 0)) &&
-    Object.prototype.hasOwnProperty.call(value, "payload");
+    Object.prototype.hasOwnProperty.call(value, "payload") &&
+    (value.operation !== "register-repository-checkout" || isSemanticCheckoutRequest(value.payload)) &&
+    (value.operation !== "unregister-repository-checkout" || (isRecord(value.payload) && typeof value.payload.workspaceId === "string" && typeof value.payload.repositoryCheckoutId === "string" && !hasHostPathFields(value.payload)));
 }
 
 export function isAgentHarnessServiceHostResponse(value: unknown): value is AgentHarnessServiceHostResponse {
@@ -260,7 +258,15 @@ function isControlledRestartDisposition(value: unknown): boolean {
 }
 
 function isAgentHarnessServiceHostOperation(value: unknown): value is AgentHarnessServiceHostOperation {
-  return typeof value === "string" && serviceHostOperations.has(value as AgentHarnessServiceHostOperation);
+  return typeof value === "string" && serviceHostOperations.has(value);
+}
+
+function isSemanticCheckoutRequest(value: unknown): boolean {
+  return isRecord(value) && typeof value.workspaceId === "string" && isRecord(value.checkout) && !hasHostPathFields(value) && !hasHostPathFields(value.checkout);
+}
+
+function hasHostPathFields(value: object): boolean {
+  return ["root", "workspaceRoot", "absoluteRoot", "checkoutRoot", "gitCommonDirectory", "canonicalRoot", "absolutePath"].some((key) => Object.prototype.hasOwnProperty.call(value, key));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

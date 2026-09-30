@@ -6,8 +6,8 @@ import { INTEGRATION_POLICY_PATH, integrationPolicyPath } from "../../shared/int
 import { parseCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
 import { createSourceControlService } from "../sourceControl/sourceControlService";
 import { createWorkIntakeBranchService } from "../workIntake/workIntakeBranchService";
-import { integrationPaths, readIntegrationCommitFile } from "../agentHarness/repository/integrationGit";
-import { integrationSourceBytes, integrationSourceDigest } from "../agentHarness/repository/integrationRepairGit";
+import { integrationPaths, readIntegrationCommitFile } from "../repository/integrationGit";
+import { integrationSourceBytes, integrationSourceDigest } from "../repository/integrationRepairGit";
 import { readIntegrationPolicyFile } from "./integrationPolicyFiles";
 import { loadIntegrationPolicy, loadIntegrationPolicyAtCommit } from "./integrationPolicyProvider";
 
@@ -41,6 +41,7 @@ export function createIntegrationRepairPolicyProvider(hooks: {
   const source = createSourceControlService({ repositoryRoot: root, repositoryId: hooks.repositoryId });
   return { repairPolicy: async (record) => {
     const current = await hooks.load();
+    if ("workflowId" in current.binding) stop("WorkIntake repair policy cannot own an exact Workflow Integration Repair.");
     const binding = await createWorkIntakeBranchService({ repositoryRoot: root, repositoryId: hooks.repositoryId }).verify(current.binding);
     if (record.repositoryId !== hooks.repositoryId || record.intakeId !== binding.intakeId || record.incomingCommit !== binding.currentHead
       || record.incomingBranch !== binding.workBranch || record.targetBranch !== binding.baseBranch || record.baseCommit !== binding.baseCommit

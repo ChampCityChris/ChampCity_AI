@@ -22,7 +22,8 @@ export interface IntegrationValidationEvidence {
 export interface IntegrationCandidateRecord {
   candidateId: string;
   repositoryId: string;
-  intakeId: string;
+  intakeId?: string;
+  workflowId?: string;
   completion: IntegrationCompletionEvidence;
   baseCommit: string;
   incomingBranch: string;
@@ -33,6 +34,8 @@ export interface IntegrationCandidateRecord {
   mergeBase: string;
   candidateBranch: string;
   candidateCommit?: string;
+  /** Exact target ref observed after application-owned advancement. */
+  targetAfterRevisionId?: string;
   remote?: string;
   status: "constructing" | "conflicted" | "validation-failed" | "validated" | "integrated" | "failed" | "aborted" | "operator-decision";
   repairAttemptCount?: number;

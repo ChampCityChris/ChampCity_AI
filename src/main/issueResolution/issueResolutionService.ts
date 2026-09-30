@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { assertLegacyCanonicalWriteAllowed } from "../documents/legacyCanonicalWriteFence";
 import { readRoutedIssueExecutionPlan } from "../planExecution/issueExecutionPlan";
 import { acceptIssueExecutionPhase, issuePhaseAcceptancePath, projectIssueExecution } from "../planExecution/issueExecutionAdapter";
 import crypto from "node:crypto";
@@ -78,7 +79,7 @@ import {
   buildWriteMarkdownArtifactJsonBlock,
   resolveMcpWorkspaceBindingForPrompt,
 } from "../integrations/mcpWorkspacePromptContract";
-import { inspectControlledMarkdownDraft } from "../agentHarness/repository/controlledMarkdownDrafts";
+import { inspectControlledMarkdownDraft } from "../repository/controlledMarkdownDrafts";
 import { buildOperatorValidationAdvisoryPrompt } from "../workCardValidation/workCardValidationService";
 import {
   assertSupportedImageBounds,
@@ -8198,6 +8199,7 @@ function nextIssueNumericId(entries: IssueDirectoryEntry[]): number {
 }
 
 function containedPath(workspaceRoot: string, relativePath: string): string {
+  assertLegacyCanonicalWriteAllowed(workspaceRoot);
   const target = path.resolve(workspaceRoot, relativePath);
   if (!isInside(workspaceRoot, target)) {
     throw new Error("Issue path escapes selected workspace.");

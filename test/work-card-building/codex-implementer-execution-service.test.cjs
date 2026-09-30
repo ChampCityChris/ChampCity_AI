@@ -9,6 +9,7 @@ const {
   CODEX_AUTH_UNAVAILABLE_MESSAGE,
   CODEX_RUNTIME_UNAVAILABLE_MESSAGE,
 } = require("../../dist/main/workCardBuilding/codexImplementerExecutionService.js");
+const { isEligibleTesterPath, parseTesterResult } = require("../../dist/main/workCardBuilding/codexTesterExecutionService.js");
 const {
   generateCurrentHandoff,
   getCurrentWorkspaceModel,
@@ -31,7 +32,7 @@ const {
 } = require("../../dist/main/issueResolution/issueResolutionService.js");
 const {
   replaceControlledMarkdownBody,
-} = require("../../dist/main/agentHarness/repository/controlledMarkdownDrafts.js");
+} = require("../../dist/main/repository/controlledMarkdownDrafts.js");
 const {
   parseCanonicalMarkdownDocument,
   serializeCanonicalMarkdownDocument,
@@ -53,8 +54,8 @@ test("Codex Implementer service starts App Server thread from current Implement 
   fs.writeFileSync(path.join(root, ".gitignore"), "/planning/\n");
   fixtureGit("init", "-b", "main"); fixtureGit("config", "user.name", "Fixture"); fixtureGit("config", "user.email", "fixture@example.invalid");
   fixtureGit("add", "--all"); fixtureGit("commit", "-m", "fixture baseline");
-  const { submitWorkIntake } = require("../../dist/main/workIntake/workIntakeService.js");
-  const submitted = await submitWorkIntake(root, { projectId: null, projectName: "Implementation fixture", workRequest: "Bounded implementation", desiredOutcome: "Current behavior passes", knownConstraints: "", hasExistingSourceOrPlanning: true, repositoryReviewContext: "", baseBranch: "main", baseCommit: fixtureGit("rev-parse", "HEAD") });
+  const { createLegacyWorkIntakeFixture } = require("../support/work-intake-fixtures.cjs");
+  const submitted = await createLegacyWorkIntakeFixture(root, { projectId: null, projectName: "Implementation fixture", workRequest: "Bounded implementation", desiredOutcome: "Current behavior passes", knownConstraints: "", hasExistingSourceOrPlanning: true, repositoryReviewContext: "", baseBranch: "main", baseCommit: fixtureGit("rev-parse", "HEAD") });
   assert.equal(submitted.ok, true);
   const formalFile = path.join(root, "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md");
   const formal = parseCanonicalMarkdownDocument(fs.readFileSync(formalFile, "utf8"));
@@ -130,6 +131,48 @@ test("Codex Implementer service starts App Server thread from current Implement 
   assert.match(captured.prompt, /human interaction such as UAC approval.*resumable interaction boundary/);
   assert.doesNotMatch(captured.prompt, /Application-verified development environment:/);
   assert.equal(captured.turnOptions.signal instanceof AbortSignal, true);
+});
+
+test("Tester result contract accepts only the bounded permanent proof package and application-owned capability attribution", () => {
+  assert.equal(isEligibleTesterPath("test/work-card-building/example.test.cjs"), true);
+  for (const path of ["test/fixtures/sample.test.ts", "test/support/helper.js", "test/snapshots/view.snap", "test/data/expected.json", "test/a.test.json", "validation/capability-map.json"]) {
+    assert.equal(isEligibleTesterPath(path), true, path);
+  }
+  for (const path of ["src/main/index.test.ts", "validation/catalog.json", "test/../src/main/a.test.ts", "C:/repo/test/a.test.ts", "test/.env", "test/node_modules/pkg/index.js", ".champcity/state.json", "package.json"]) {
+    assert.equal(isEligibleTesterPath(path), false, path);
+  }
+  const result = parseTesterResult(JSON.stringify({ recommendation: "permanent-proof-change-warranted", permanentTestPaths: [],
+    determinationEvidence: ["bounded evidence"], unknowns: [], rationale: "Permanent regression proof is warranted." }));
+  assert.deepEqual(result.permanentTestPaths, []);
+  assert.throws(() => parseTesterResult(JSON.stringify({ recommendation: "no-permanent-test-required", affectedCapabilityIds: ["invented"],
+    permanentTestPaths: [], determinationEvidence: ["bounded evidence"], unknowns: [], rationale: "Unsupported capability attribution." })));
+});
+
+test("exact Implementer and Tester mutation leases serialize one checkout, isolate neutral workers, and recover stale owners", () => {
+  const { acquireWorkflowExecutionLease, workflowExecutionLeaseKey } = require("../../dist/main/workCardBuilding/workflowExecutionLease.js");
+  const root = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "champcity-wrb04-lease-"));
+  try {
+    const checkoutA = path.join(root, "workflow-a"), checkoutB = path.join(root, "workflow-b");
+    fs.mkdirSync(checkoutA); fs.mkdirSync(checkoutB);
+    const implementer = acquireWorkflowExecutionLease(workflowExecutionLeaseKey("source-backed", checkoutA), "Implementer");
+    assert.ok(implementer);
+    assert.equal(acquireWorkflowExecutionLease(workflowExecutionLeaseKey("source-backed", checkoutA), "Tester"), null);
+    const independent = acquireWorkflowExecutionLease(workflowExecutionLeaseKey("source-backed", checkoutB), "Implementer");
+    const neutralOne = acquireWorkflowExecutionLease(workflowExecutionLeaseKey("source-neutral", path.join(root, "worker-one")), "Tester");
+    const neutralTwo = acquireWorkflowExecutionLease(workflowExecutionLeaseKey("source-neutral", path.join(root, "worker-two")), "Tester");
+    assert.ok(independent); assert.ok(neutralOne); assert.ok(neutralTwo);
+    implementer.release();
+    const afterRelease = acquireWorkflowExecutionLease(workflowExecutionLeaseKey("source-backed", checkoutA), "Tester");
+    assert.ok(afterRelease);
+    independent.release();
+    const stale = acquireWorkflowExecutionLease(workflowExecutionLeaseKey("source-backed", checkoutB), "Tester", 1);
+    assert.ok(stale);
+    const recovered = acquireWorkflowExecutionLease(workflowExecutionLeaseKey("source-backed", checkoutB), "Implementer", 1 + 30 * 60 * 1000 + 1);
+    assert.ok(recovered);
+    stale.release();
+    assert.equal(acquireWorkflowExecutionLease(workflowExecutionLeaseKey("source-backed", checkoutB), "Tester", 1 + 30 * 60 * 1000 + 2), null);
+    neutralOne.release(); neutralTwo.release(); recovered.release(); afterRelease.release();
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
 test("Codex Implementer idle status polling is side-effect free and does not provision environment", async () => {
@@ -1641,6 +1684,17 @@ async function waitForState(service, root, expectedState, attempts = 40) {
   return status;
 }
 
+async function waitForSelectorState(service, root, selector, expectedState, attempts = 40) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const status = await service.getStatus(root, selector);
+    if (status.state === expectedState) return status;
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  const status = await service.getStatus(root, selector);
+  assert.equal(status.state, expectedState);
+  return status;
+}
+
 async function waitForIssueState(service, root, selector, expectedState) {
   for (let attempt = 0; attempt < 40; attempt += 1) {
     const status = await service.getStatus(root, selector);
@@ -2103,6 +2157,261 @@ function writeSubstantiveImplementerReport(root, {
 }
 
 
+test("exact source-neutral Feature and Issue WorkItem selectors use fake App Server and typed attempt finalization", async (t) => {
+  const { runtimeFixture, selection } = require("../support/codex-runtime.cjs");
+  const { createWorkflowExecutionApplicationService } = require("../../dist/main/workflow/workflowExecutionApplicationService.js");
+  const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
+  const { registerCurrentProject } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
+  const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
+  const { CodexTesterExecutionService } = require("../../dist/main/workCardBuilding/codexTesterExecutionService.js");
+  const root = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "champcity-wrb04-02c-"));
+  const registration = await registerCurrentProject(root, "existing", { projectName: "Exact Codex fixture" });
+  const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  t.after(() => { store.close(); fs.rmSync(root, { recursive: true, force: true }); });
+  const principal = { principalId: "test-operator", principalType: "human", role: "Operator" };
+  const state = createProjectStateService(store, principal);
+  const createGraph = (workflowId, kind, objective) => ({ workflowId, topology: "direct",
+    solution: { title: "Accepted solution", objective: "Deliver accepted result", scopeIn: ["bounded"], scopeOut: [], constraints: [], assumptions: [], risks: [] },
+    solutionCriteria: [], phases: [], workItems: [{ key: "same-title", kind, title: "Same title", objective, dependencyKeys: [], criteria: [
+      { statement: "Required behavior", criticality: "required", verificationIntent: "Verify the accepted behavior", validationPolicy: "semantic_ai" },
+    ] }, { key: "retryable", kind, title: "Retryable", objective: `${objective} retryable`, dependencyKeys: [], criteria: [] }] });
+  const feature = await state.createSubstantiveWorkflow(registration.project.id, { workflowType: "feature-capability", title: "Feature", entryWorkspace: "feature-intake" });
+  const issue = await state.createSubstantiveWorkflow(registration.project.id, { workflowType: "issue-resolution", title: "Issue", entryWorkspace: "issue-intake" });
+  const featurePlan = await state.acceptWorkflowPlanningGraph(registration.project.id, createGraph(feature.workflow.id, "feature", "Feature objective"));
+  const issuePlan = await state.acceptWorkflowPlanningGraph(registration.project.id, createGraph(issue.workflow.id, "fix", "Issue objective"));
+  const featureItem = featurePlan.directWorkItems.find(item => item.body.title === "Same title");
+  const issueItem = issuePlan.directWorkItems.find(item => item.body.title === "Same title");
+  const partialItem = featurePlan.directWorkItems.find(item => item.body.title === "Retryable");
+  const failedItem = issuePlan.directWorkItems.find(item => item.body.title === "Retryable");
+  const planningKernel = createWorkflowExecutionApplicationService();
+  for (const [workflowId, candidate] of [[feature.workflow.id, featureItem], [issue.workflow.id, issueItem], [feature.workflow.id, partialItem], [issue.workflow.id, failedItem]])
+    await planningKernel.acceptWorkItemExecutionPlan(root, { workflowId, workItemId: candidate.id, expectedVersion: candidate.recordVersion,
+      plan: { implementationBoundaries: ["Implement this exact WorkItem"], affectedPaths: [], proofIntent: ["Run focused WorkItem proof"] } });
+  const legacyCalls = [];
+  const currentModule = require("../../dist/main/currentWorkflow/currentWorkflowService.js");
+  const routedModule = require("../../dist/main/planExecution/routedImplementerContext.js");
+  const issueModule = require("../../dist/main/issueResolution/issueResolutionService.js");
+  const docsModule = require("../../dist/main/documents/planningDocumentService.js");
+  const originals = [currentModule.getCurrentWorkspaceModel, routedModule.resolveRoutedImplementerContext, issueModule.resolveIssueFixCardCodexExecutionContext, docsModule.listPlanningDocuments, docsModule.evaluateDocumentFreshness];
+  currentModule.getCurrentWorkspaceModel = () => { legacyCalls.push("current"); throw Error("legacy current workspace resolver called"); };
+  routedModule.resolveRoutedImplementerContext = () => { legacyCalls.push("routed"); throw Error("legacy routed resolver called"); };
+  issueModule.resolveIssueFixCardCodexExecutionContext = () => { legacyCalls.push("issue-card"); throw Error("legacy Issue card resolver called"); };
+  docsModule.listPlanningDocuments = () => { legacyCalls.push("markdown"); throw Error("legacy Markdown discovery called"); };
+  docsModule.evaluateDocumentFreshness = () => { legacyCalls.push("freshness"); throw Error("legacy report freshness called"); };
+  t.after(() => {
+    currentModule.getCurrentWorkspaceModel = originals[0]; routedModule.resolveRoutedImplementerContext = originals[1];
+    issueModule.resolveIssueFixCardCodexExecutionContext = originals[2]; docsModule.listPlanningDocuments = originals[3]; docsModule.evaluateDocumentFreshness = originals[4];
+  });
+  const captured = [];
+  let appServerCalls = 0;
+  const fixture = runtimeFixture();
+  await fixture.ready;
+  const service = new CodexImplementerExecutionService(async () => {
+    appServerCalls++;
+    return { startThread(options) {
+      const call = { options };
+      captured.push(call);
+      return { id: `fake-${appServerCalls}`, async runStreamed(prompt) {
+        call.prompt = prompt;
+        return { events: (async function* () {
+          if (appServerCalls === 4) {
+            yield { type: "item.completed", item: { type: "agent_message", text: "This is not semantic completion JSON." } };
+            yield { type: "turn.completed" };
+            return;
+          }
+          yield { type: "item.completed", item: { type: "agent_message", text: JSON.stringify({ summary: appServerCalls === 3 ? "Partial semantic WorkItem" : "Completed semantic WorkItem", deviations: [], blockers: [], residualRisks: [], outcome: appServerCalls === 3 ? "partial" : "implemented" }) } };
+          yield { type: "turn.completed" };
+        })() };
+      } };
+    } };
+  }, undefined, input => { assert.equal(input.executionKind, "workflow-work-item-implementation"); return { sandboxMode: "workspace-write", approvalPolicy: "on-request", approvalsReviewer: "user", networkAccessEnabled: false }; }, undefined, undefined,
+  fixture.manager, () => createWorkflowExecutionApplicationService());
+  for (const [workflowId, item] of [[feature.workflow.id, featureItem], [issue.workflow.id, issueItem]]) {
+    const selector = { ownerKind: "workflow-work-item", workflowId, workItemId: item.id };
+    const ready = await service.getStatus(root, selector);
+    assert.equal(ready.state, "ready");
+    assert.equal(ready.workCardId, item.id);
+    assert.equal(ready.formalWorkCardPath, null);
+    const started = await service.start(root, selector, selection);
+    assert.equal(started.state, "running");
+    const completed = await waitForSelectorState(service, root, selector, "completed");
+    assert.equal(completed.failureReason, null);
+    assert.equal(completed.checkpoint.status, "not-required");
+    assert.equal(completed.reportUpdated, true);
+    assert.equal(captured.at(-1).options.workingDirectory, path.join(root, ".champcity", "runtime", "work-item-workers", path.basename(captured.at(-1).options.workingDirectory)));
+    assert.notEqual(captured.at(-1).options.workingDirectory, root);
+    assert.deepEqual(captured.at(-1).options.writableRoots, [captured.at(-1).options.workingDirectory]);
+    assert.equal(captured.at(-1).options.sandboxMode, "workspace-write");
+    assert.equal(captured.at(-1).options.approvalPolicy, "on-request");
+    assert.equal(captured.at(-1).options.networkAccessEnabled, false);
+    assert.match(captured.at(-1).prompt, new RegExp(`Workflow ID: ${workflowId}`));
+    assert.match(captured.at(-1).prompt, new RegExp(`WorkItem ID: ${item.id}`));
+    assert.match(captured.at(-1).prompt, /source-neutral/);
+    assert.match(captured.at(-1).prompt, /exactly one JSON object/);
+  }
+  assert.deepEqual(legacyCalls, []);
+  assert.equal(appServerCalls, 2);
+  const records = await store.listEntities(registration.project.id, "ImplementationRecord");
+  assert.equal(records.length, 2);
+  assert.ok(records.every(record => record.body.outcome === "implemented" && record.body.executionRef));
+  const currentItems = await store.listEntities(registration.project.id, "WorkItem");
+  assert.ok(currentItems.filter(item => [featureItem.id, issueItem.id].includes(item.id)).every(item => item.body.workState === "validation_pending"));
+  assert.equal((await store.listEntities(registration.project.id, "SourceCheckpoint")).length, 0);
+  const packets = fs.readdirSync(path.join(root, ".champcity", "runtime", "work-item-attempts"));
+  assert.equal(packets.length, 2);
+  for (const packetFile of packets) {
+    const packet = JSON.parse(fs.readFileSync(path.join(root, ".champcity", "runtime", "work-item-attempts", packetFile), "utf8"));
+    assert.equal(packet.schemaVersion, 1);
+    assert.equal(packet.contractDigest.length, 64);
+    assert.equal(packet.result.outcome, "implemented");
+  }
+
+  const partialSelector = { ownerKind: "workflow-work-item", workflowId: feature.workflow.id, workItemId: partialItem.id };
+  const partialStarted = await service.start(root, partialSelector, selection);
+  assert.equal(partialStarted.state, "running", partialStarted.failureReason);
+  const partialCompletion = await waitForSelectorState(service, root, partialSelector, "completed");
+  assert.equal(partialCompletion.canRunAgain, true);
+  const partialRecord = (await store.listEntities(registration.project.id, "ImplementationRecord")).find(record => record.body.workItemId === partialItem.id);
+  assert.equal(partialRecord.body.outcome, "partial");
+  assert.equal((await store.getEntity(registration.project.id, partialItem.id)).body.workState, "ready");
+
+  const failedSelector = { ownerKind: "workflow-work-item", workflowId: issue.workflow.id, workItemId: failedItem.id };
+  const failedStarted = await service.start(root, failedSelector, selection);
+  assert.equal(failedStarted.state, "running", failedStarted.failureReason);
+  const failedCompletion = await waitForSelectorState(service, root, failedSelector, "failed");
+  assert.equal(failedCompletion.checkpoint.status, "not-required");
+  const failedRecord = (await store.listEntities(registration.project.id, "ImplementationRecord")).find(record => record.body.workItemId === failedItem.id);
+  assert.equal(failedRecord.body.outcome, "failed");
+  assert.equal((await store.getEntity(registration.project.id, failedItem.id)).body.workState, "ready");
+
+  const currentIssueItem = await store.getEntity(registration.project.id, issueItem.id);
+  const blocked = await state.reviseRecord(registration.project.id, issueItem.id, { ...currentIssueItem.body, workState: "blocked" }, currentIssueItem.recordVersion);
+  const blockedStart = await service.start(root, { ownerKind: "workflow-work-item", workflowId: issue.workflow.id, workItemId: blocked.id }, selection);
+  assert.equal(blockedStart.state, "unavailable");
+  assert.equal(appServerCalls, 4);
+  const sourceWorkflow = await state.createSubstantiveWorkflow(registration.project.id, { workflowType: "feature-capability", title: "Source-backed", entryWorkspace: "feature-intake" });
+  const sourceBaseline = await state.createWorkflowSourceBaseline(registration.project.id, sourceWorkflow.workflow.id, { repositoryId: "source-backed", integrationTargetSourceLineId: "dev", baseRevisionId: "base" });
+  await state.createWorkflowSourceBinding(registration.project.id, sourceWorkflow.workflow.id, sourceBaseline.id);
+  const sourcePlan = await state.acceptWorkflowPlanningGraph(registration.project.id, createGraph(sourceWorkflow.workflow.id, "feature", "Source-backed objective"));
+  const sourcePlanningKernel = createWorkflowExecutionApplicationService();
+  await sourcePlanningKernel.acceptWorkItemExecutionPlan(root, { workflowId: sourceWorkflow.workflow.id, workItemId: sourcePlan.directWorkItems[0].id, expectedVersion: sourcePlan.directWorkItems[0].recordVersion,
+    plan: { implementationBoundaries: ["Implement the source-backed objective"], affectedPaths: ["src/example.ts"], proofIntent: ["Run focused source proof"] } });
+  const sourceRejected = await service.start(root, { ownerKind: "workflow-work-item", workflowId: sourceWorkflow.workflow.id, workItemId: sourcePlan.directWorkItems[0].id }, selection);
+  assert.equal(sourceRejected.state, "unavailable");
+  assert.match(sourceRejected.failureReason, /SOURCE_CHECKOUT_PREPARATION_UNAVAILABLE/i);
+  const sourceMutationRejected = await service.start(root, { ownerKind: "workflow-work-item", workflowId: feature.workflow.id, workItemId: featureItem.id, sourceMutation: "required" }, selection);
+  assert.equal(sourceMutationRejected.state, "unavailable");
+  assert.match(sourceMutationRejected.failureReason, /source mutation options are not accepted/i);
+  assert.equal(appServerCalls, 4);
+});
+
+test("exact Workflow Implementer input request resumes only through its Workflow and WorkItem selector", async t => {
+  const { runtimeFixture, selection } = require("../support/codex-runtime.cjs");
+  const { createWorkflowExecutionApplicationService } = require("../../dist/main/workflow/workflowExecutionApplicationService.js");
+  const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
+  const { registerCurrentProject } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
+  const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
+  const root = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "champcity-exact-pending-interaction-"));
+  const registration = await registerCurrentProject(root, "existing", { projectName: "Exact pending interaction" });
+  const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  t.after(() => { store.close(); fs.rmSync(root, { recursive: true, force: true }); });
+  const state = createProjectStateService(store, { principalId: "interaction-operator", principalType: "human", role: "Operator" });
+  const workflow = await state.createSubstantiveWorkflow(registration.project.id, { workflowType: "feature-capability", title: "Pending exact", entryWorkspace: "feature-intake" });
+  const plan = await state.acceptWorkflowPlanningGraph(registration.project.id, { workflowId: workflow.workflow.id, topology: "direct",
+    solution: { title: "Accepted", objective: "Continue exact execution", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [] },
+    solutionCriteria: [], phases: [], workItems: [{ key: "work", kind: "feature", title: "Wait for input", objective: "Resume exact session", dependencyKeys: [], criteria: [] }] });
+  const item = plan.directWorkItems[0], selector = { ownerKind: "workflow-work-item", workflowId: workflow.workflow.id, workItemId: item.id };
+  const execution = createWorkflowExecutionApplicationService();
+  await execution.acceptWorkItemExecutionPlan(root, { workflowId: workflow.workflow.id, workItemId: item.id, expectedVersion: item.recordVersion,
+    plan: { implementationBoundaries: ["Resume exact session"], affectedPaths: [], proofIntent: ["Confirm resumed output"] } });
+  let answerSession;
+  const inputAnswered = new Promise(resolve => { answerSession = resolve; });
+  let capturedResponse;
+  const fixture = runtimeFixture(); await fixture.ready;
+  const service = new CodexImplementerExecutionService(async () => ({ startThread() { return { id: "exact-pending-thread",
+    async runStreamed() { return { events: (async function* () {
+      yield { type: "user_input.requested", request: { requestId: "input-1", threadId: "exact-pending-thread", turnId: "exact-turn", itemId: "exact-input",
+        questions: [{ id: "next_step", header: "Next Step", question: "How should execution continue?", options: [{ label: "Continue", description: "Resume this exact run." }] }] } };
+      await inputAnswered;
+      yield { type: "item.completed", item: { type: "agent_message", text: JSON.stringify({ summary: "Resumed exact WorkItem", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" }) } };
+      yield { type: "turn.completed" };
+    })() }; },
+    async respondToUserInput(requestId, answers) { capturedResponse = { requestId, answers }; answerSession(); } }; } }),
+    undefined, () => ({ sandboxMode: "workspace-write", approvalPolicy: "on-request", approvalsReviewer: "user", networkAccessEnabled: false }),
+    undefined, undefined, fixture.manager, () => createWorkflowExecutionApplicationService());
+  await service.start(root, selector, selection);
+  let pending;
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    pending = await service.getStatus(root, selector);
+    if (pending.pendingUserInput) break;
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  assert.equal(pending.pendingUserInput.requestId, "input-1");
+  assert.equal(pending.workflowId, workflow.workflow.id); assert.equal(pending.workItemId, item.id);
+  const answered = await service.respondToUserInput(root, "input-1", { next_step: ["Continue"] }, selector);
+  assert.equal(answered.pendingUserInput, null);
+  assert.deepEqual(capturedResponse, { requestId: "input-1", answers: { next_step: ["Continue"] } });
+  assert.equal((await waitForSelectorState(service, root, selector, "completed")).workflowId, workflow.workflow.id);
+});
+
+test("exact Workflow Tester input response resumes only its Workflow, WorkItem, and ImplementationRecord session", async t => {
+  const { runtimeFixture, selection } = require("../support/codex-runtime.cjs");
+  const { createWorkflowExecutionApplicationService } = require("../../dist/main/workflow/workflowExecutionApplicationService.js");
+  const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
+  const { registerCurrentProject } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
+  const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
+  const { CodexTesterExecutionService } = require("../../dist/main/workCardBuilding/codexTesterExecutionService.js");
+  const root = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "champcity-exact-tester-input-"));
+  const registration = await registerCurrentProject(root, "existing", { projectName: "Exact Tester input" });
+  const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  t.after(() => { store.close(); fs.rmSync(root, { recursive: true, force: true }); });
+  const state = createProjectStateService(store, { principalId: "tester-input-operator", principalType: "human", role: "Operator" });
+  const workflow = await state.createSubstantiveWorkflow(registration.project.id, { workflowType: "feature-capability", title: "Tester input", entryWorkspace: "feature-intake" });
+  const plan = await state.acceptWorkflowPlanningGraph(registration.project.id, { workflowId: workflow.workflow.id, topology: "direct",
+    solution: { title: "Accepted", objective: "Verify exact output", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [] },
+    solutionCriteria: [], phases: [], workItems: [{ key: "work", kind: "feature", title: "Tester target", objective: "Tester waits for input", dependencyKeys: [], criteria: [] }] });
+  const item = plan.directWorkItems[0], execution = createWorkflowExecutionApplicationService();
+  const accepted = await execution.acceptWorkItemExecutionPlan(root, { workflowId: workflow.workflow.id, workItemId: item.id, expectedVersion: item.recordVersion,
+    plan: { implementationBoundaries: ["Implement output"], affectedPaths: [], proofIntent: ["Review exact output"] } });
+  const attempt = await execution.beginWorkItemAttempt(root, workflow.workflow.id, item.id, accepted.recordVersion, "tester-input-implementation");
+  const implementation = await execution.finishWorkItemAttempt(root, workflow.workflow.id, item.id, attempt.executionRef,
+    { summary: "Implemented", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+  const ids = { workflowId: workflow.workflow.id, workItemId: item.id, implementationRecordId: implementation.id };
+  let releaseInput, capturedResponse;
+  const inputAnswered = new Promise(resolve => { releaseInput = resolve; });
+  const fixture = runtimeFixture(); await fixture.ready;
+  const tester = new CodexTesterExecutionService(async () => ({ startThread() { return { id: "exact-tester-input",
+    async runStreamed() { return { events: (async function* () {
+      yield { type: "user_input.requested", request: { requestId: "tester-input-1", threadId: "exact-tester-input", turnId: "turn-1", itemId: "input-1",
+        questions: [{ id: "test_scope", header: "Scope", question: "Which scope should be checked?", options: [{ label: "Accepted", description: "Use accepted scope." }] }] } };
+      await inputAnswered;
+      yield { type: "item.completed", item: { type: "agent_message", text: JSON.stringify({ recommendation: "reuse-existing-proof", permanentTestPaths: [],
+        determinationEvidence: ["Reviewed the exact implemented attempt."], unknowns: [], rationale: "No additional permanent test is required." }) } };
+      yield { type: "turn.completed" };
+    })() }; },
+    async respondToUserInput(requestId, answers) { capturedResponse = { requestId, answers }; releaseInput(); } }; } }), undefined);
+  await tester.start(root, ids, selection);
+  let pending;
+  for (let attemptIndex = 0; attemptIndex < 80; attemptIndex += 1) {
+    pending = await tester.getStatus(root, ids);
+    if (pending.pendingUserInput) break;
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  assert.equal(pending.pendingUserInput.requestId, "tester-input-1");
+  assert.deepEqual([pending.workflowId, pending.workItemId, pending.implementationRecordId], [ids.workflowId, ids.workItemId, ids.implementationRecordId]);
+  const answered = await tester.respondToUserInput(root, ids, "tester-input-1", { test_scope: ["Accepted"] });
+  assert.equal(answered.pendingUserInput, null);
+  assert.deepEqual(capturedResponse, { requestId: "tester-input-1", answers: { test_scope: ["Accepted"] } });
+  let completed;
+  for (let attemptIndex = 0; attemptIndex < 80; attemptIndex += 1) {
+    completed = await tester.getStatus(root, ids);
+    if (completed.state === "completed" || completed.state === "failed") break;
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  assert.equal(completed.state, "completed", completed.failureReason);
+  assert.equal(completed.workflowId, ids.workflowId);
+});
+
 // Existing lifecycle tests explicitly supply the new runtime identity through a per-test fixture.
 function createService(...args) {
   const { runtimeFixture, selection } = require("../support/codex-runtime.cjs");
@@ -2175,3 +2484,242 @@ for (const workflow of ["development", "issue"]) {
     await service.shutdownActiveExecutions();
   });
 }
+
+test("exact source-backed and source-neutral WorkItems use the bounded Tester lifecycle", async t => {
+  const { CodexTesterExecutionService } = require("../../dist/main/workCardBuilding/codexTesterExecutionService.js");
+  const { execFileSync } = require("node:child_process");
+  const { runtimeFixture, selection } = require("../support/codex-runtime.cjs");
+  const { createWorkflowExecutionApplicationService } = require("../../dist/main/workflow/workflowExecutionApplicationService.js");
+  const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
+  const { registerCurrentProject } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
+  const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
+  const root = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "champcity-wrb04-02d-source-execution-"));
+  const project = await registerCurrentProject(root, "existing", { projectName: "Source execution fixture" });
+  const dev = path.join(root, "Dev"); fs.mkdirSync(dev);
+  const git = (...args) => execFileSync("git", args, { cwd: dev, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  git("init", "-b", "dev"); git("config", "user.name", "Test Operator"); git("config", "user.email", "operator@example.invalid");
+  fs.mkdirSync(path.join(dev, "test"), { recursive: true });
+  fs.writeFileSync(path.join(dev, "test", "seed.test.cjs"), "// Existing permanent test proof\n");
+  fs.mkdirSync(path.join(dev, "validation"), { recursive: true });
+  fs.writeFileSync(path.join(dev, "validation", "capability-map.json"), JSON.stringify({ schemaVersion: 4,
+    capabilities: [{ capabilityId: "feature-behavior", sourcePatterns: ["feature.txt"] }],
+    tests: [{ testPath: "test/seed.test.cjs", proposedValidationLane: "fast", duration: { kind: "estimated", milliseconds: 100 },
+      execution: { ownedResources: ["temp-filesystem-isolated"] }, behaviorCoverage: [{ capabilityId: "feature-behavior", behaviorId: "feature-behavior-is-protected", proofRole: "primary" }] }] }));
+  fs.writeFileSync(path.join(dev, "feature.txt"), "baseline\n"); git("add", "--all"); git("commit", "-m", "baseline");
+  const revision = git("rev-parse", "HEAD");
+  fs.writeFileSync(path.join(root, ".champcity", "mcp-workspace-binding.json"), JSON.stringify({ mcpWorkspaceId: "source-execution-fixture", gitBacked: true }));
+  const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  const state = createProjectStateService(store, { principalId: "test-operator", principalType: "human", role: "Operator" });
+  t.after(() => { store.close(); fs.rmSync(root, { recursive: true, force: true }); });
+  const created = await state.createSubstantiveWorkflow(project.project.id, { workflowType: "feature-capability", title: "Source exact", entryWorkspace: "feature-intake" });
+  const baseline = await state.createWorkflowSourceBaseline(project.project.id, created.workflow.id, { repositoryId: "source-execution-repository", integrationTargetSourceLineId: "dev", baseRevisionId: revision });
+  await state.createWorkflowSourceBinding(project.project.id, created.workflow.id, baseline.id);
+  const plan = await state.acceptWorkflowPlanningGraph(project.project.id, { workflowId: created.workflow.id, topology: "direct",
+    solution: { title: "Accepted", objective: "Implement the source change", scopeIn: ["feature.txt"], scopeOut: [], constraints: [], assumptions: [], risks: [] },
+    solutionCriteria: [], phases: [], workItems: [
+      { key: "source-item", kind: "feature", title: "Same title", objective: "Change feature.txt", dependencyKeys: [], criteria: [] },
+      { key: "unsafe-item", kind: "feature", title: "Unsafe attribution", objective: "Change a source file", dependencyKeys: [], criteria: [] },
+      { key: "unsafe-restore-item", kind: "feature", title: "Unsafe restore", objective: "Exercise bounded restore refusal", dependencyKeys: [], criteria: [] },
+    ] });
+  const item = plan.directWorkItems.find(candidate => candidate.body.title === "Same title");
+  const unsafeItem = plan.directWorkItems.find(candidate => candidate.body.title === "Unsafe attribution");
+  const unsafeRestoreItem = plan.directWorkItems.find(candidate => candidate.body.title === "Unsafe restore");
+  const planning = createWorkflowExecutionApplicationService();
+  for (const candidate of [item, unsafeItem, unsafeRestoreItem]) await planning.acceptWorkItemExecutionPlan(root, { workflowId: created.workflow.id, workItemId: candidate.id, expectedVersion: candidate.recordVersion,
+    plan: { implementationBoundaries: ["Change only accepted source files"], affectedPaths: ["feature.txt"], proofIntent: ["Run focused source proof"] } });
+  const unrelated = await state.createSubstantiveWorkflow(project.project.id, { workflowType: "issue-resolution", title: "Unrelated source", entryWorkspace: "issue-intake",
+    sourceSeed: { repositoryId: "source-execution-repository", integrationTargetSourceLineId: "dev", baseRevisionId: revision } });
+  const unrelatedPlan = await state.acceptWorkflowPlanningGraph(project.project.id, { workflowId: unrelated.workflow.id, topology: "direct",
+    solution: { title: "Other", objective: "Other", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [], phases: [],
+    workItems: [{ key: "unrelated-item", kind: "fix", title: "Same title", objective: "Not this checkout", dependencyKeys: [], criteria: [] }] });
+  const fixture = runtimeFixture(); await fixture.ready;
+  let appServerCalls = 0; let checkoutRegistrations = 0; const captured = [];
+  const service = new CodexImplementerExecutionService(async () => {
+    appServerCalls++;
+    return { startThread(options) { captured.push(options); return { id: "source-thread", async runStreamed() {
+      const relative = appServerCalls === 1 ? "feature.txt" : appServerCalls === 2 ? "unreported.txt" : "unreported-dir";
+      if (appServerCalls > 2) { fs.mkdirSync(path.join(options.workingDirectory, relative), { recursive: true }); fs.writeFileSync(path.join(options.workingDirectory, relative, "nested.txt"), "unsafe\n"); }
+      else fs.writeFileSync(path.join(options.workingDirectory, relative), "implemented\n");
+      return { events: (async function* () {
+        yield { type: "item.completed", item: { type: "file_change", changes: [{ path: relative }], status: "completed" } };
+        yield { type: "item.completed", item: { type: "agent_message", text: JSON.stringify({ summary: "Implemented the exact source WorkItem", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" }) } };
+        yield { type: "turn.completed" };
+      })() };
+    } }; } };
+  }, undefined, () => ({ sandboxMode: "workspace-write", approvalPolicy: "on-request", approvalsReviewer: "user", networkAccessEnabled: false }),
+  undefined, undefined, fixture.manager, dependencies => createWorkflowExecutionApplicationService(dependencies));
+  service.configureSourceCheckoutProjection(async () => ({ workspaceId: "source-execution", projection: { registerRepositoryCheckout: async (_workspaceId, checkout) => {
+    checkoutRegistrations++;
+    return { ...checkout, ...(checkout.workflowId === unrelated.workflow.id ? { projectRelativePath: `.champcity/checkouts/${created.workflow.id}` } : {}),
+      availability: "available", validationError: null };
+  } } }));
+  const unrelatedStart = await service.start(root, { ownerKind: "workflow-work-item", workflowId: unrelated.workflow.id, workItemId: unrelatedPlan.directWorkItems[0].id }, selection);
+  assert.equal(unrelatedStart.state, "unavailable");
+  assert.equal(appServerCalls, 0);
+  assert.equal((await store.listEntities(project.project.id, "ImplementationRecord")).length, 0);
+  const selector = { ownerKind: "workflow-work-item", workflowId: created.workflow.id, workItemId: item.id };
+  const started = await service.start(root, selector, selection);
+  assert.equal(started.state, "running", started.failureReason);
+  assert.equal(started.workflowId, created.workflow.id);
+  assert.equal(started.workItemId, item.id);
+  assert.equal(started.sourceMode, "source-backed");
+  assert.equal(started.formalWorkCardPath, null);
+  assert.equal(started.implementerReportPath, null);
+  const completed = await waitForSelectorState(service, root, selector, "completed", 300);
+  assert.equal(completed.failureReason, null);
+  assert.equal(completed.checkpoint.status, "committed", completed.checkpoint.message);
+  assert.notEqual(captured[0].workingDirectory, root);
+  assert.equal(captured[0].workingDirectory, path.join(root, ".champcity", "checkouts", created.workflow.id));
+  assert.deepEqual(captured[0].writableRoots, [captured[0].workingDirectory]);
+  assert.match(captured[0].workingDirectory, /checkouts/);
+  const records = await store.listEntities(project.project.id, "ImplementationRecord");
+  const checkpoints = await store.listEntities(project.project.id, "SourceCheckpoint");
+  const bindings = await store.listEntities(project.project.id, "SourceBinding");
+  assert.equal(records.length, 1, "one exact implementation record after the first source run");
+  assert.equal(checkpoints.length, 1, "one structured checkpoint after the first source run");
+  assert.equal(bindings.length, 2, "one source binding for each source-backed Workflow");
+  assert.equal(records[0].body.workItemId, item.id); assert.equal(records[0].body.outcome, "implemented");
+  const packet = JSON.parse(fs.readFileSync(path.join(root, ".champcity", "runtime", "work-item-attempts", `${records[0].body.executionRef}.json`), "utf8"));
+  assert.equal(packet.result.summary, "Implemented the exact source WorkItem");
+  assert.equal(checkpoints[0].body.workflowId, created.workflow.id);
+  assert.equal(checkpoints[0].body.checkpointState, "committed");
+  const checkpointLinks = await store.listRelationships(project.project.id, "checkpoints");
+  assert.ok(checkpointLinks.some(edge => edge.fromEntityId === checkpoints[0].id && edge.toEntityId === records[0].id));
+  const exactBinding = bindings.find(binding => binding.body.workflowId === created.workflow.id);
+  assert.equal(exactBinding.body.currentRevisionId, checkpoints[0].body.resultingRevisionId);
+  assert.deepEqual(packet.sourceCheckpointAttempt, { repositoryCheckoutId: exactBinding.body.repositoryCheckoutId,
+    sourceLineId: exactBinding.body.workSourceLineId, expectedRevisionId: checkpoints[0].body.expectedRevisionId, attributablePaths: ["feature.txt"] });
+  const testerOptions = [];
+  let testerAppServerCalls = 0;
+  const tester = new CodexTesterExecutionService(async () => { testerAppServerCalls++; return ({
+    startThread(options) { testerOptions.push(options); return { id: "tester-thread", async runStreamed(prompt) {
+      assert.match(prompt, /Bounded lifecycle determination/);
+      if (prompt.includes("Source mode: source-neutral")) {
+        assert.match(prompt, /Do not write files/);
+        assert.doesNotMatch(prompt, /Implementer revision:/);
+        return { events: (async function* () {
+          yield { type: "item.completed", item: { type: "agent_message", text: JSON.stringify({ recommendation: "lifecycle-review-candidate",
+            permanentTestPaths: [], determinationEvidence: ["Reviewed the source-neutral implementation attempt."], unknowns: ["No repository-backed permanent proof surface exists."], rationale: "No source revision or repository proof is available in source-neutral mode." }) } };
+          yield { type: "turn.completed" };
+        })() };
+      }
+      assert.match(prompt, /ValidationCatalog proof covers affected capabilities: test\/seed\.test\.cjs/);
+      fs.writeFileSync(path.join(options.workingDirectory, "test", "feature.test.cjs"), "// Tester-owned permanent proof\n");
+      fs.mkdirSync(path.join(options.workingDirectory, "test", "fixtures"), { recursive: true });
+      fs.writeFileSync(path.join(options.workingDirectory, "test", "fixtures", "feature-data.json"), "{\"covered\":true}\n");
+      fs.appendFileSync(path.join(options.workingDirectory, "validation", "capability-map.json"), "\n");
+      return { events: (async function* () {
+        yield { type: "item.completed", item: { type: "file_change", changes: [{ path: "test/feature.test.cjs" }, { path: "test/fixtures/feature-data.json" }, { path: "validation/capability-map.json" }], status: "completed" } };
+        yield { type: "item.completed", item: { type: "agent_message", text: JSON.stringify({ recommendation: "permanent-proof-change-warranted",
+          permanentTestPaths: ["test/feature.test.cjs", "test/fixtures/feature-data.json", "validation/capability-map.json"], determinationEvidence: ["Tester reviewed the exact implementation revision."], unknowns: [], rationale: "The behavior needs permanent regression proof." }) } };
+        yield { type: "turn.completed" };
+      })() };
+    } }; }
+  }); });
+  const testerIds = { workflowId: created.workflow.id, workItemId: item.id, implementationRecordId: records[0].id };
+  const sourceNeutral = await state.createSubstantiveWorkflow(project.project.id, { workflowType: "feature-capability", title: "Source neutral Tester", entryWorkspace: "feature-intake" });
+  const neutralPlan = await state.acceptWorkflowPlanningGraph(project.project.id, { workflowId: sourceNeutral.workflow.id, topology: "direct",
+    solution: { title: "Neutral accepted solution", objective: "Complete without repository source", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [] },
+    solutionCriteria: [], phases: [], workItems: [{ key: "neutral-item", kind: "feature", title: "Same title", objective: "No source anchor", dependencyKeys: [], criteria: [] }] });
+  const neutralWork = neutralPlan.directWorkItems[0];
+  const neutralExecutionPlan = await createWorkflowExecutionApplicationService().acceptWorkItemExecutionPlan(root, { workflowId: sourceNeutral.workflow.id, workItemId: neutralWork.id,
+    expectedVersion: neutralWork.recordVersion, plan: { implementationBoundaries: ["Keep the WorkItem source-neutral"], affectedPaths: [], proofIntent: ["Review source-neutral semantic completion"] } });
+  const neutralImplementer = createProjectStateService(store, { principalId: "neutral-implementer", principalType: "agent", role: "Implementer" });
+  const neutralRef = "neutral-execution";
+  await neutralImplementer.beginWorkItemAttempt(project.project.id, sourceNeutral.workflow.id, neutralWork.id, neutralExecutionPlan.recordVersion, neutralRef);
+  const neutralImplementation = await neutralImplementer.finishWorkItemAttempt(project.project.id, sourceNeutral.workflow.id, neutralWork.id, neutralRef,
+    { summary: "Implementation complete", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
+  const neutralStatus = await tester.getStatus(root, { workflowId: sourceNeutral.workflow.id, workItemId: neutralWork.id, implementationRecordId: neutralImplementation.id });
+  assert.equal(neutralStatus.state, "ready", neutralStatus.failureReason);
+  assert.equal(neutralStatus.sourceMode, "source-neutral");
+  const neutralIds = { workflowId: sourceNeutral.workflow.id, workItemId: neutralWork.id, implementationRecordId: neutralImplementation.id };
+  const neutralStarted = await tester.start(root, neutralIds, selection);
+  assert.equal(neutralStarted.state, "running");
+  let neutralCompleted;
+  for (let attempt = 0; attempt < 300; attempt += 1) { neutralCompleted = await tester.getStatus(root, neutralIds); if (neutralCompleted.state !== "running") break; await new Promise(resolve => setTimeout(resolve, 10)); }
+  assert.equal(neutralCompleted.state, "completed", neutralCompleted.failureReason);
+  const neutralResult = await state.getRecord(project.project.id, neutralCompleted.testerResultId);
+  assert.equal(neutralResult.body.sourceMode, "source-neutral");
+  assert.equal(neutralResult.body.implementerRevisionId, undefined);
+  assert.equal(neutralResult.body.candidateRevisionId, undefined);
+  assert.equal(neutralResult.body.sourceCheckpointId, undefined);
+  assert.deepEqual(neutralResult.body.permanentTestPaths, []);
+  assert.equal((await store.listEntities(project.project.id, "SourceCheckpoint")).filter(record => record.entityType === "SourceCheckpoint" && record.body.workflowId === sourceNeutral.workflow.id).length, 0);
+  assert.equal(testerOptions[0].networkAccessEnabled, false);
+  assert.equal(testerOptions[0].writableRoots.length, 1);
+  assert.match(testerOptions[0].writableRoots[0], /tester-workers/);
+  const exactCheckout = path.join(root, ".champcity", "checkouts", created.workflow.id);
+  const dirtyFile = path.join(exactCheckout, "pre-existing-dirty.txt");
+  fs.writeFileSync(dirtyFile, "dirty before Tester\n");
+  const dirtyStatus = await tester.getStatus(root, testerIds);
+  assert.equal(dirtyStatus.state, "unavailable");
+  assert.match(dirtyStatus.failureReason, /dirty/i);
+  assert.equal(testerAppServerCalls, 1);
+  fs.unlinkSync(dirtyFile);
+  const testerReady = await tester.getStatus(root, testerIds);
+  assert.equal(testerReady.state, "ready", testerReady.failureReason);
+  const testerStarted = await tester.start(root, testerIds, selection);
+  assert.equal(testerStarted.state, "running");
+  let testerCompleted;
+  for (let attempt = 0; attempt < 300; attempt += 1) {
+    testerCompleted = await tester.getStatus(root, testerIds);
+    if (testerCompleted.state !== "running") break;
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  assert.equal(testerCompleted.state, "completed", testerCompleted.failureReason);
+  assert.equal(testerCompleted.failureReason, null);
+  assert.equal(testerCompleted.checkpointState, "committed");
+  assert.equal(testerCompleted.sourceMode, "source-backed");
+  assert.ok(testerCompleted.testerResultId);
+  assert.ok(testerCompleted.candidateRevisionId);
+  assert.equal(testerOptions[0].sandboxMode, "workspace-write");
+  assert.equal(testerOptions[0].networkAccessEnabled, false);
+  assert.deepEqual(testerOptions[1].writableRoots, [path.join(testerOptions[1].workingDirectory, "test"), path.join(testerOptions[1].workingDirectory, "validation")]);
+  const testerResult = await state.getRecord(project.project.id, testerCompleted.testerResultId);
+  assert.equal(testerResult.body.implementationRecordId, records[0].id);
+  assert.deepEqual(testerResult.body.affectedCapabilityIds, ["feature-behavior"]);
+  assert.equal(testerResult.body.checkpointState, "committed");
+  assert.deepEqual(testerResult.body.permanentTestPaths, ["test/feature.test.cjs", "test/fixtures/feature-data.json", "validation/capability-map.json"]);
+  const testerCheckpoints = (await store.listEntities(project.project.id, "SourceCheckpoint")).filter(row => row.entityType === "SourceCheckpoint" && row.body.checkpointKind === "tester");
+  assert.equal(testerCheckpoints.length, 1);
+  assert.equal(testerCheckpoints[0].body.checkpointState, "committed");
+  assert.equal(testerCheckpoints[0].body.resultingRevisionId, testerCompleted.candidateRevisionId);
+  assert.deepEqual(execFileSync("git", ["show", "--format=", "--name-only", "HEAD"], { cwd: exactCheckout, encoding: "utf8" }).split(/\r?\n/).filter(Boolean).sort(), testerResult.body.permanentTestPaths);
+  assert.equal(testerResult.body.sourceCheckpointId, testerCheckpoints[0].id);
+  assert.ok((await store.listRelationships(project.project.id, "checkpoints")).some(edge => edge.fromEntityId === testerCheckpoints[0].id && edge.toEntityId === testerResult.id));
+  const bindingAfterTester = await state.getRecord(project.project.id, exactBinding.id);
+  assert.equal(bindingAfterTester.body.currentRevisionId, testerCompleted.candidateRevisionId);
+  assert.equal(exactBinding.body.currentRevisionId, checkpoints[0].body.resultingRevisionId, "pre-tester binding snapshot remains on the implementation revision");
+  assert.equal(git("branch", "--show-current"), "dev");
+  assert.equal(appServerCalls, 1);
+  const unsafeSelector = { ownerKind: "workflow-work-item", workflowId: created.workflow.id, workItemId: unsafeItem.id };
+  const unsafeStart = await service.start(root, unsafeSelector, selection);
+  assert.equal(unsafeStart.state, "running");
+  const unsafeCompleted = await waitForSelectorState(service, root, unsafeSelector, "failed", 300);
+  assert.equal(unsafeCompleted.checkpoint.status, "not-required");
+  assert.match(unsafeCompleted.checkpoint.message, /restored/i);
+  const finalRecords = await store.listEntities(project.project.id, "ImplementationRecord");
+  const finalCheckpoints = await store.listEntities(project.project.id, "SourceCheckpoint");
+  assert.equal(finalRecords.length, 3); assert.equal(finalCheckpoints.length, 2);
+  const unsafeAttempt = finalRecords.find(record => record.body.workItemId === unsafeItem.id);
+  assert.equal(unsafeAttempt.body.outcome, "failed");
+  assert.equal((await state.getRecord(project.project.id, unsafeItem.id)).body.workState, "ready");
+  assert.equal(fs.readFileSync(path.join(root, ".champcity", "checkouts", created.workflow.id, "feature.txt"), "utf8"), "implemented\n",
+    "the earlier successful checkpoint remains untouched while rejected paths are restored");
+  assert.equal(fs.existsSync(path.join(root, ".champcity", "checkouts", created.workflow.id, "unreported.txt")), false);
+  assert.equal(execFileSync("git", ["rev-parse", "HEAD"], { cwd: path.join(root, ".champcity", "checkouts", created.workflow.id), encoding: "utf8" }).trim(), bindingAfterTester.body.currentRevisionId);
+  assert.equal(execFileSync("git", ["status", "--porcelain", "--untracked-files=all"], { cwd: path.join(root, ".champcity", "checkouts", created.workflow.id), encoding: "utf8" }).trim(), "");
+  assert.equal((await store.listEntities(project.project.id, "SourceCheckpoint")).filter(record => record.entityType === "SourceCheckpoint" && record.body.boundaryId === unsafeAttempt.body.executionRef).length, 0);
+  const oldPlanVersion = (await state.getRecord(project.project.id, unsafeItem.id)).recordVersion;
+  const revised = await planning.acceptWorkItemExecutionPlan(root, { workflowId: created.workflow.id, workItemId: unsafeItem.id, expectedVersion: oldPlanVersion,
+    plan: { implementationBoundaries: ["Make the broader change under reviewed scope"], affectedPaths: ["feature.txt"], proofIntent: ["Retry in the accepted expanded scope"] } });
+  assert.equal(revised.recordVersion, oldPlanVersion + 1);
+  const restoreFailureStart = await service.start(root, { ownerKind: "workflow-work-item", workflowId: created.workflow.id, workItemId: unsafeRestoreItem.id }, selection);
+  assert.equal(restoreFailureStart.state, "running");
+  const restoreFailure = await waitForSelectorState(service, root, { ownerKind: "workflow-work-item", workflowId: created.workflow.id, workItemId: unsafeRestoreItem.id }, "failed", 300);
+  assert.equal(restoreFailure.checkpoint.status, "blocked");
+  assert.match(restoreFailure.checkpoint.message, /recovery|restore|outside/i);
+  assert.equal((await state.getRecord(project.project.id, unsafeRestoreItem.id)).body.workState, "blocked");
+  assert.equal(checkoutRegistrations, 4);
+  assert.equal(appServerCalls, 3);
+});

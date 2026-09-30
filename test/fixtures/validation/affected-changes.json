@@ -6,7 +6,7 @@
     "src/main/agentHarness/runtime/httpRuntime.ts"
   ],
   "shared": [
-    "src/main/agentHarness/repository/gitMutations.ts"
+    "src/main/repository/gitMutations.ts"
   ],
   "multiple": [
     "src/shared/developmentEnvironment/developmentEnvironmentContract.ts",

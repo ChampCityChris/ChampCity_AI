@@ -18,7 +18,7 @@ import { createArchitectOutputRegistry } from "../architectOutputs/architectOutp
 import { prepareArchitectOutputRuntimeSubmission, getArchitectOutputRuntimeStatus, getActiveArchitectOutputRuntimeSubmission } from "../architectOutputs/architectOutputRuntimeService";
 import { approveFormalWorkCardAndRegisterReport, getWorkCardBuildingReviewProjection, resolveWorkCardImplementerReportContext, setImplementerReportDisposition, requireReadyImplementerReportForReview, requireCurrentImplementerReportForRepair, buildApprovedRepairWorkCardAndReportDocuments } from "../workCardBuilding/workCardBuildingReviewService";
 import { updateCanonicalMarkdownDisposition, writeCanonicalMarkdownDocuments } from "../documents/canonicalMarkdownDocumentWriter";
-import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
+import { resolveRepositoryPath } from "../repository/pathPolicy";
 
 import { createRepairWorkCard, createRepairWorkCardArchitectOutputDefinition, resolveExactActiveRepairWorkCardContext, resolveTerminalApprovedRepairImplementationContext } from "../workCardRepair/workCardRepairService";
 import { createValidationAttempt, buildAdvisoryArchitectReviewPrompt, applyOperatorValidationDecision, type OperatorValidationDecisionInput } from "../workCardValidation/workCardValidationService";
@@ -28,6 +28,7 @@ import { resolveWorkCardCloseReturnConsumption, consumeWorkCardCloseReturn } fro
 import { loadRoutedAcceptance, routedAcceptanceBoundaries, routedAcceptancePath, saveRoutedAcceptance, reviewRoutedAcceptance } from "../phaseClose/routedExecutionAcceptance";
 import type { RoutedAcceptanceRequest, RoutedAcceptanceInput, RoutedDevelopmentExecutionProjection } from "../../shared/routedDevelopmentExecutionContracts";
 import { checkpointLifecycleEvidence } from "./lifecycleEvidenceCheckpointService";
+import { checkpointOperatorDisposition } from "./operatorDispositionCheckpoint";
 import type { LifecycleEvidenceCheckpointResult } from "../../shared/lifecycleEvidenceCheckpointContracts";
 
 const actionsInProgress = new Set<string>();
@@ -39,6 +40,14 @@ function requireDurableLifecycleCheckpoint(result: LifecycleEvidenceCheckpointRe
     throw Error(`Lifecycle evidence was written but its machine checkpoint did not complete${operation ? ` during ${operation}` : ""}: ${result.message}`);
   }
   return result;
+}
+
+async function checkpointReview(root: string, intakeId: string, role: string, artifactPath: string,
+  revision: number, disposition: DocumentDispositionStatus, paths: string[]): Promise<LifecycleEvidenceCheckpointResult> {
+  const decisionId = `${role}-${createHash("sha256").update(JSON.stringify({ artifactPath, revision, disposition })).digest("hex")}`;
+  const checkpoint = await checkpointOperatorDisposition(root, intakeId, decisionId, paths);
+  if (checkpoint.status !== "committed") throw Error(`Operator disposition was saved but its source checkpoint is pending: ${checkpoint.message}`);
+  return checkpoint;
 }
 
 /** Resolve existing lifecycle evidence; the generic executor alone decides progression. */
@@ -194,7 +203,9 @@ export function createRoutedDevelopmentExecutionService(workspaceRoot: string, i
     reviewAcceptance(request: RoutedAcceptanceRequest & { expectedRevision: number; disposition: "Approved" | "RevisionRequested" | "Rejected"; notes?: string }) {
       return acceptanceAction(request, async (state) => {
         const result = reviewRoutedAcceptance(workspaceRoot, state.binding, state.input, request, state.planningContext);
-        if (request.disposition !== "Approved") return result;
+        if (request.disposition !== "Approved") return { ...result, checkpoint: await checkpointReview(workspaceRoot, intakeId,
+          "acceptance", result.relativePath, request.expectedRevision, request.disposition,
+          [state.binding.relativePath, state.binding.planPath, result.relativePath]) };
         const checkpoint = requireDurableLifecycleCheckpoint(await checkpointLifecycleEvidence(workspaceRoot, {
           binding: state.binding.branchBinding,
           boundary: { ...request.boundary, routeDecisionId: state.binding.identity.routeDecisionId, planId: state.binding.identity.planId, planRevision: state.binding.planRevision },
@@ -207,16 +218,25 @@ export function createRoutedDevelopmentExecutionService(workspaceRoot: string, i
     prepare(request: RoutedWorkItemRequest) { return action(request, (state, entry) => draft(state, entry, true)); },
     getDraft(request: RoutedWorkItemRequest) { return action(request, (state, entry) => draft(state, entry, false)); },
     reviewFormal(request: RoutedWorkItemRequest & { expectedRevision: number; disposition: DocumentDispositionStatus; notes?: string }) {
-      return action(request, (_state, entry) => {
+      return action(request, async (state, entry) => {
         if (entry.repairContext || !entry.formal || entry.formal.metadata.artifactRevision !== request.expectedRevision || !["Approved", "RevisionRequested", "Rejected"].includes(request.disposition)) throw Error("Current Formal Work Card review revision and disposition are required.");
         if (request.disposition === "Approved") approveFormalWorkCardAndRegisterReport({ workspaceRoot, formalWorkCardPath: entry.formal.markdownPath, scope: entry.scope, notes: request.notes });
         else updateCanonicalMarkdownDisposition({ workspaceRoot, relativePath: entry.formal.markdownPath, status: request.disposition, notes: request.notes ?? "", reviewedAt: new Date().toISOString() });
+        const paths = [state.binding.relativePath, state.binding.planPath, entry.handoff!.markdownPath, entry.formal.markdownPath];
+        if (request.disposition === "Approved") paths.push(getWorkCardBuildingReviewProjection(workspaceRoot, entry.scope, entry.executionWorkCardId).implementerReportPath);
+        return { checkpoint: await checkpointReview(workspaceRoot, intakeId, "formal", entry.formal.markdownPath,
+          request.expectedRevision, request.disposition, paths) };
       });
     },
     createValidationAttempt(request: RoutedWorkItemRequest) { return action(request, (_state, entry) => createValidationAttempt(workspaceRoot, entry.scope, entry.executionWorkCardId)); },
     advisoryReview(request: RoutedWorkItemRequest) { return action(request, (_state, entry) => buildAdvisoryArchitectReviewPrompt(workspaceRoot, entry.scope, entry.executionWorkCardId)); },
     validate(request: RoutedWorkItemRequest & { decision: OperatorValidationDecisionInput }) {
-      return action(request, (_state, entry) => applyOperatorValidationDecision(workspaceRoot, entry.scope, entry.executionWorkCardId, request.decision));
+      return action(request, async (state, entry) => {
+        const result = applyOperatorValidationDecision(workspaceRoot, entry.scope, entry.executionWorkCardId, request.decision);
+        return { ...result, checkpoint: await checkpointReview(workspaceRoot, intakeId, "validation", result.markdownPath,
+          result.attemptNumber, result.status, [state.binding.relativePath, state.binding.planPath,
+            getWorkCardBuildingReviewProjection(workspaceRoot, entry.scope, entry.executionWorkCardId).implementerReportPath, result.markdownPath]) };
+      });
     },
     createRepair(request: RoutedWorkItemRequest & { defect: string }) {
       return action(request, (_state, entry) => {
@@ -229,11 +249,15 @@ export function createRoutedDevelopmentExecutionService(workspaceRoot: string, i
     prepareRepair(request: RoutedWorkItemRequest) { return action(request, (state, entry) => repairDraft(state, entry, true)); },
     getRepairDraft(request: RoutedWorkItemRequest) { return action(request, (state, entry) => repairDraft(state, entry, false)); },
     reviewRepair(request: RoutedWorkItemRequest & { repairId: string; expectedRevision: number; disposition: DocumentDispositionStatus; notes?: string }) {
-      return action(request, (_state, entry) => {
+      return action(request, async (state, entry) => {
         const repair = entry.repairContext;
         if (!repair?.existing || repair.repairId !== request.repairId || repair.existing.metadata.artifactRevision !== request.expectedRevision || !["Approved", "RevisionRequested", "Rejected"].includes(request.disposition)) throw Error("Exact current Repair Work Card review is required.");
         if (request.disposition === "Approved") writeCanonicalMarkdownDocuments(buildApprovedRepairWorkCardAndReportDocuments({ workspaceRoot, repairWorkCardPath: repair.targetPath, scope: entry.scope, approvedStatus: "Approved", notes: request.notes ?? "", reviewedAt: new Date().toISOString() }));
         else updateCanonicalMarkdownDisposition({ workspaceRoot, relativePath: repair.targetPath, status: request.disposition, notes: request.notes ?? "", reviewedAt: new Date().toISOString() });
+        const paths = [state.binding.relativePath, state.binding.planPath, repair.handoff.markdownPath, repair.targetPath];
+        if (request.disposition === "Approved") paths.push(getWorkCardBuildingReviewProjection(workspaceRoot, entry.scope, entry.executionWorkCardId).implementerReportPath);
+        return { checkpoint: await checkpointReview(workspaceRoot, intakeId, "repair", repair.targetPath,
+          request.expectedRevision, request.disposition, paths) };
       });
     },
     close(request: RoutedWorkItemRequest) {
@@ -253,10 +277,12 @@ export function createRoutedDevelopmentExecutionService(workspaceRoot: string, i
     },
     buildingReview(request: RoutedWorkItemRequest) { return action(request, (_state, entry) => getWorkCardBuildingReviewProjection(workspaceRoot, entry.scope, entry.executionWorkCardId)); },
     reviewReport(request: RoutedWorkItemRequest & { expectedRevision: number; disposition: DocumentDispositionStatus; notes?: string }) {
-      return action(request, (_state, entry) => {
+      return action(request, async (state, entry) => {
         const report: PlanningDocumentSummary = requireReadyImplementerReportForReview(workspaceRoot, entry.scope, entry.executionWorkCardId);
         if (report.metadata.artifactRevision !== request.expectedRevision || !["Approved", "RevisionRequested", "Rejected"].includes(request.disposition)) throw Error("Current Implementer Report review revision and disposition are required.");
-        return setImplementerReportDisposition(workspaceRoot, entry.scope, entry.executionWorkCardId, request.disposition, request.notes);
+        const result = setImplementerReportDisposition(workspaceRoot, entry.scope, entry.executionWorkCardId, request.disposition, request.notes);
+        return { ...result, checkpoint: await checkpointReview(workspaceRoot, intakeId, "report", report.markdownPath,
+          request.expectedRevision, request.disposition, [state.binding.relativePath, state.binding.planPath, report.markdownPath]) };
       });
     },
   };

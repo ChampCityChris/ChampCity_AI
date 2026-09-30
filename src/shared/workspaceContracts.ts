@@ -62,6 +62,28 @@ export type WorkspaceSelection =
       reason: string;
     };
 
+export interface ModelAccessProjectionStatus {
+  state: "ready" | "degraded";
+  error: string | null;
+}
+
+export interface ExistingProjectGitAdoptionOutcome {
+  sourcePlan: import("./sourceControlContracts").ExistingProjectGitAdoptionPlan;
+  sourceApplied: boolean;
+  modelAccess: ModelAccessProjectionStatus;
+}
+
+export interface CurrentProjectRuntimeContext {
+  projectId: string;
+  projectName: string;
+  repositoryId: string | null;
+  projectRoot: string;
+  mode: "existing" | "greenfield";
+  created: boolean;
+  projectCreationWorkflowId?: string;
+  modelAccess: ModelAccessProjectionStatus;
+}
+
 export interface McpWorkspaceBinding {
   mcpWorkspaceId: string;
   label?: string;
@@ -304,6 +326,17 @@ export interface AgentHarnessRegisteredWorkspaceSummary {
   workspaceId: string;
   repositoryName: string;
   gitBacked: boolean;
+  availability: "available" | "unavailable";
+  validationError: string | null;
+}
+
+export interface AgentHarnessRegisteredRepositoryCheckoutSummary {
+  repositoryCheckoutId: string;
+  repositoryId: string;
+  sourceLineId: string;
+  role: "conventional" | "main" | "dev" | "workflow";
+  projectRelativePath: string;
+  workflowId?: string;
   availability: "available" | "unavailable";
   validationError: string | null;
 }
@@ -1128,7 +1161,9 @@ export type CodexImplementerExecutionState =
 export type CodexImplementerIntegrationMode = "app-server-stdio";
 export type CodexImplementerExecutionKind =
   | "work-card-implementation"
-  | "environment-resolution";
+  | "workflow-work-item-implementation"
+  | "environment-resolution"
+  | "integration-repair";
 
 export interface CodexRuntimeCapabilityStatus {
   state: "not-read" | "read" | "unavailable";
@@ -1225,17 +1260,23 @@ export interface CodexPendingMcpElicitationModel {
 export interface CodexUserInputResponse {
   requestId: string;
   answers: Record<string, string[]>;
+  workflowId?: string;
+  workItemId?: string;
 }
 
 export interface CodexMcpElicitationResponse {
   requestId: string;
   action: "accept" | "decline" | "cancel";
   content: unknown | null;
+  workflowId?: string;
+  workItemId?: string;
 }
 
 export interface CodexApprovalResponse {
   requestId: string;
   decision: "approve" | "deny";
+  workflowId?: string;
+  workItemId?: string;
 }
 
 export interface CodexImplementerExecutionModel {
@@ -1248,6 +1289,11 @@ export interface CodexImplementerExecutionModel {
   retryBlocker: string | null;
   integrationMode: CodexImplementerIntegrationMode;
   phaseId: string | null;
+  workflowId: string | null;
+  workItemId: string | null;
+  workItemVersion: number | null;
+  executionContractDigest: string | null;
+  sourceMode: "source-backed" | "source-neutral" | null;
   workCardId: string | null;
   workCardTitle: string | null;
   projectRoot: string | null;
@@ -1273,6 +1319,25 @@ export interface CodexImplementerExecutionModel {
   reportUpdated: boolean;
   reportSha256After: string | null;
   developmentEnvironmentPreflight: DevelopmentEnvironmentPreflightResult | null;
+}
+
+export interface CodexTesterExecutionModel {
+  state: CodexImplementerExecutionState;
+  workflowId: string;
+  workItemId: string;
+  implementationRecordId: string;
+  sourceMode: "source-backed" | "source-neutral" | null;
+  projectId: string | null;
+  testerResultId: string | null;
+  candidateRevisionId: string | null;
+  checkpointState: "not-required" | "pending" | "committed" | "blocked" | "inspection-required" | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  eventTail: string[];
+  failureReason: string | null;
+  runtimeState: CodexRuntimeStateModel | null;
+  pendingApproval: CodexPendingApprovalModel | null;
+  pendingUserInput: CodexPendingUserInputModel | null;
 }
 
 export function codexImplementerAvailabilityLabel(
@@ -1378,23 +1443,52 @@ export interface WorkspaceMigrationResult {
 }
 
 export interface ChampCityApi {
-  runRoutedWorkflow: (intakeId: string, action: import("./routedWorkflowContracts").RoutedWorkflowAction, input?: import("./routedWorkflowContracts").RoutedWorkflowInput) => Promise<import("./routedWorkflowContracts").RoutedWorkflowModel>;
+  getIssueWorkflowPlanning(workflowId: string): Promise<import("./issuePlanningContracts").IssuePlanningProjection>;
+  saveIssueWorkflowIntake(workflowId: string, intake: import("./issuePlanningContracts").IssueIntakeInput): Promise<import("./issuePlanningContracts").IssuePlanningProjection>;
+  addIssueWorkflowEvidence(workflowId: string, files: import("./issuePlanningContracts").IssueEvidenceInput[]): Promise<import("./issuePlanningContracts").IssuePlanningProjection>;
+  prepareIssueWorkflowPlanning(workflowId: string, stage: "rca" | "plan"): Promise<import("./issuePlanningContracts").IssuePlanningProjection>;
+  actOnIssueWorkflowPlanning(workflowId: string, action: import("./issuePlanningContracts").IssuePlanningAction): Promise<import("./issuePlanningContracts").IssuePlanningProjection>;
+  copyIssueWorkflowPlanningHandoff(workflowId: string): Promise<{ copied: boolean }>;
+  getFeaturePlanning(workflowId: string): Promise<import("./featurePlanningContracts").FeaturePlanningProjection>;
+  saveFeatureIntake(workflowId: string, intake: import("./featurePlanningContracts").FeatureIntakeInput): Promise<import("./featurePlanningContracts").FeaturePlanningProjection>;
+  prepareFeaturePlanning(workflowId: string, stage: "assessment" | "plan"): Promise<import("./featurePlanningContracts").FeaturePlanningProjection>;
+  actOnFeaturePlanning(workflowId: string, action: import("./featurePlanningContracts").FeaturePlanningAction): Promise<import("./featurePlanningContracts").FeaturePlanningProjection>;
+  copyFeaturePlanningHandoff(workflowId: string): Promise<{ copied: boolean }>;
+  getStructuredWorkRouting: (intakeId: string, routingWorkflowId: string) => Promise<import("./structuredWorkRoutingContracts").StructuredWorkRoutingModel>;
+  prepareStructuredWorkRouting: (intakeId: string, routingWorkflowId: string) => Promise<import("./structuredWorkRoutingContracts").StructuredWorkRoutingModel>;
+  decideStructuredWorkRouting: (intakeId: string, routingWorkflowId: string, input: import("./structuredWorkRoutingContracts").StructuredWorkRoutingDecisionInput) => Promise<import("./structuredWorkRoutingContracts").StructuredWorkRoutingModel>;
+  copyStructuredWorkRouting: (intakeId: string, routingWorkflowId: string) => Promise<{ copied: true }>;
+  listWorkflows: () => Promise<import("./workflowApplicationContracts").WorkflowInventory>;
+  startWorkflow: (request: import("./workflowApplicationContracts").DirectWorkflowStartRequest) => Promise<import("./workflowApplicationContracts").DirectWorkflowStartResult>;
+  getWorkflow: (workflowId: string) => Promise<import("./workflowApplicationContracts").WorkflowOpenResult>;
+  getWorkItemValidation: (workflowId: string, workItemId: string) => Promise<import("./workflowApplicationContracts").WorkItemValidationProjection>;
+  getWorkflowExecutionProjection: (workflowId: string) => Promise<import("./workflowApplicationContracts").WorkflowExecutionProjection>;
+  decomposeWorkflowWorkItem: (input: import("./workflowApplicationContracts").WorkflowWorkItemDecompositionInput) => Promise<{ result: { source: import("./projectState/domainContracts").ProjectStateRecord<"WorkItem">; replacements: import("./projectState/domainContracts").ProjectStateRecord<"WorkItem">[] }; projection: import("./workflowApplicationContracts").WorkflowExecutionProjection }>;
+  acceptWorkflowWorkItemExecutionPlan: (input: import("./workflowApplicationContracts").WorkItemExecutionPlanInput) => Promise<import("./projectState/domainContracts").ProjectStateRecord<"WorkItem">>;
+  recordWorkflowWorkItemVisualCriterion: (input: import("./workflowApplicationContracts").WorkflowWorkItemVisualCriterionInput) => Promise<{ validation: import("./projectState/domainContracts").ProjectStateRecord<"Validation">; projection: import("./workflowApplicationContracts").WorkflowExecutionProjection }>;
+  recordWorkflowWorkItemCriterionDecision: (input: import("./workflowApplicationContracts").WorkflowWorkItemCriterionDecisionInput) => Promise<{ decision: import("./projectState/domainContracts").ProjectStateRecord<"Decision">; projection: import("./workflowApplicationContracts").WorkItemValidationProjection }>;
+  getWorkflowPhaseValidation: (workflowId: string, phaseId: string) => Promise<import("./workflowApplicationContracts").PhaseValidationProjection>;
+  validateWorkflowPhaseDeterministicCriterion: (workflowId: string, phaseId: string, criterionId: string) => Promise<unknown>;
+  validateWorkflowPhaseSemanticCriterion: (workflowId: string, phaseId: string, criterionId: string, selection: CodexModelSelection) => Promise<unknown>;
+  recordWorkflowPhaseVisualCriterion: (input: import("./workflowApplicationContracts").WorkflowPhaseVisualCriterionInput) => Promise<{ validation: import("./projectState/domainContracts").ProjectStateRecord<"Validation">; projection: import("./workflowApplicationContracts").PhaseValidationProjection }>;
+  recordWorkflowPhaseCriterionDecision: (input: import("./workflowApplicationContracts").WorkflowPhaseCriterionDecisionInput) => Promise<{ decision: import("./projectState/domainContracts").ProjectStateRecord<"Decision">; projection: import("./workflowApplicationContracts").PhaseValidationProjection }>;
+  completeWorkflowWorkItem: (workflowId: string, workItemId: string, expectedVersion: number) => Promise<import("./projectState/domainContracts").ProjectStateRecord<"WorkItem">>;
+  completeWorkflowPhase: (workflowId: string, phaseId: string, expectedVersion: number) => Promise<import("./projectState/domainContracts").ProjectStateRecord<"Phase">>;
+  getWorkflowExecutionCompletion: (workflowId: string) => Promise<import("./workflowApplicationContracts").WorkflowExecutionCompletionProjection>;
+  completeWorkflowExecution: (workflowId: string, expectedVersion: number) => Promise<import("./projectState/domainContracts").ProjectStateRecord<"Workflow">>;
+  getWorkflowIntegration: (workflowId: string) => Promise<{ completion: import("./integrationCompletionContracts").IntegrationCompletionEvidence; candidates: import("./integrationCandidateContracts").IntegrationCandidateRecord[] }>;
+  integrateWorkflow: (workflowId: string) => Promise<{ candidate: import("./integrationCandidateContracts").IntegrationCandidateRecord; integration: import("./projectState/domainContracts").ProjectStateRecord<"IntegrationRecord"> }>;
+  prepareWorkflowIntegrationRepair: (workflowId: string, candidateId: string) => Promise<import("./integrationRepairContracts").IntegrationRepairAttempt>;
+  applyWorkflowIntegrationRepair: (workflowId: string, candidateId: string, repairId: string, patches: import("./integrationRepairContracts").IntegrationRepairPatch[]) => Promise<import("./integrationRepairContracts").IntegrationRepairAttempt>;
+  completeWorkflowIntegrationRepair: (workflowId: string, candidateId: string, repairId: string) => Promise<unknown>;
+  requestWorkflowIntegrationDecision: (workflowId: string, candidateId: string, repairId: string, rationale: string) => Promise<import("./integrationCandidateContracts").IntegrationCandidateRecord>;
+  createWorkflowRepair: (workflowId: string, workItemId: string, failureEvidenceId: string) => Promise<{ repair: import("./projectState/domainContracts").ProjectStateRecord<"WorkItem">; criterion: import("./projectState/domainContracts").ProjectStateRecord<"Criterion">; failureIdentity: string }>;
+  createWorkflowPhaseRepair: (workflowId: string, phaseId: string, failureEvidenceId: string) => Promise<{ repair: import("./projectState/domainContracts").ProjectStateRecord<"WorkItem">; criterion: import("./projectState/domainContracts").ProjectStateRecord<"Criterion">; failureIdentity: string }>;
+  validateSemanticWorkflowCriterion: (workflowId: string, workItemId: string, criterionId: string, selection: CodexModelSelection) => Promise<{ validation: import("./projectState/domainContracts").ProjectStateRecord<"Validation"> | null; repair: unknown; sourceMode: "source-backed" | "source-neutral" }>;
+  validateDeterministicWorkflowCriterion: (workflowId: string, workItemId: string, criterionId: string) => Promise<{ validation: import("./projectState/domainContracts").ProjectStateRecord<"Validation"> | null; repair: unknown; reason: string | null; sourceMode: "source-backed" | "source-neutral" }>;
+  getSourceGraph: (options?: import("./sourceLifecycleContracts").SourceGraphOptions) => Promise<import("./sourceControlContracts").SourceControlResult<import("./sourceLifecycleContracts").SourceGraph>>;
+  getSourceGraphRevisionDetail: (revisionId: string) => Promise<import("./sourceControlContracts").SourceControlResult<import("./sourceLifecycleContracts").SourceGraphRevisionDetail>>;
   getWorkIntakeProjection: () => Promise<import("./workIntakeContracts").WorkIntakeProjection>;
-  prepareWorkRoutingAssessment: (intakeId: string) => Promise<import("./workRoutingAssessmentContracts").WorkRoutingAssessmentModel>;
-  getWorkRoutingAssessment: (intakeId: string) => Promise<import("./workRoutingAssessmentContracts").WorkRoutingAssessmentModel>;
-  copyWorkRoutingAssessment: (intakeId: string) => Promise<void>;
-  getWorkRouteDecision: (intakeId: string) => Promise<import("./workRouteDecisionContracts").WorkRouteDecisionModel>;
-  runWorkIssueAction: (intakeId: string, action: import("./issueResolutionContracts").WorkIssueAction, input?: import("./issueResolutionContracts").WorkIssueActionInput) => Promise<import("./issueResolutionContracts").WorkIssueModel>;
-  decideWorkRoute: (intakeId: string, input: import("./workRouteDecisionContracts").WorkRouteDecisionInput) => Promise<import("./workRouteDecisionContracts").WorkRouteDecisionModel>;
-  getWorkPlanning: (intakeId: string, stage: import("./workPlanningContracts").WorkPlanningStage) => Promise<import("./workPlanningContracts").WorkPlanningModel>;
-  getWorkItemDecomposition: (intakeId: string, workItemId: string) => Promise<import("./workItemDecompositionContracts").WorkItemDecompositionModel>;
-  prepareWorkItemDecomposition: (intakeId: string, workItemId: string) => Promise<import("./workItemDecompositionContracts").WorkItemDecompositionModel>;
-  copyWorkItemDecomposition: (intakeId: string, workItemId: string) => Promise<void>;
-  reviewWorkItemDecomposition: (intakeId: string, workItemId: string, input: import("./workItemDecompositionContracts").WorkItemDecompositionReview) => Promise<import("./workItemDecompositionContracts").WorkItemDecompositionModel>;
-  prepareWorkPlanning: (intakeId: string, stage: import("./workPlanningContracts").WorkPlanningStage) => Promise<import("./workPlanningContracts").WorkPlanningModel>;
-  copyWorkPlanning: (intakeId: string, stage: import("./workPlanningContracts").WorkPlanningStage) => Promise<void>;
-  reviewWorkPlanning: (intakeId: string, stage: import("./workPlanningContracts").WorkPlanningStage, input: import("./workPlanningContracts").WorkPlanningReviewInput) => Promise<import("./workPlanningContracts").WorkPlanningModel>;
-  readWorkIntake: (intakeId: string) => Promise<import("./workIntakeContracts").WorkIntakeRecord>;
   submitWorkIntake: (submission: import("./workIntakeContracts").WorkIntakeSubmission) => Promise<import("./workIntakeContracts").WorkIntakeSubmissionResult>;
   getGithubProviderStatus: () => Promise<GithubProviderStatus>;
   connectGithubProvider: () => Promise<GithubProviderStatus>;
@@ -1403,6 +1497,10 @@ export interface ChampCityApi {
   readGithubEvidence: (request: GithubEvidenceRequest) => Promise<GithubEvidence>;
   getSelectedWorkspace: () => Promise<WorkspaceSelection>;
   chooseWorkspaceFolder: () => Promise<WorkspaceSelection>;
+  inspectExistingProjectGitAdoption: () => Promise<import("./sourceControlContracts").ExistingProjectGitAdoptionPlan>;
+  applyExistingProjectGitAdoption: (planId: string) => Promise<ExistingProjectGitAdoptionOutcome>;
+  registerCurrentProject: (mode: "existing" | "greenfield", projectName?: string) => Promise<CurrentProjectRuntimeContext>;
+  reconcileCurrentProjectModelAccess: () => Promise<ModelAccessProjectionStatus>;
   clearSelectedWorkspace: () => Promise<WorkspaceSelection>;
   getAppInfo: () => Promise<AppInfo>;
   getAgentHarnessStatus: () => Promise<AgentHarnessStatus>;
@@ -1559,14 +1657,24 @@ export interface ChampCityApi {
   getCurrentWorkspaceModel: () => Promise<CurrentWorkspaceModel>;
   getPhaseValidationActionProjection: () => Promise<PhaseValidationActionProjection>;
   getCodexImplementerExecutionStatus: () => Promise<CodexImplementerExecutionModel>;
+  getWorkflowWorkItemCodexExecutionStatus: (workflowId: string, workItemId: string) => Promise<CodexImplementerExecutionModel>;
+  getWorkflowWorkItemTesterStatus: (workflowId: string, workItemId: string, implementationRecordId: string) => Promise<CodexTesterExecutionModel>;
+  getWorkflowCheckpointRecovery: (workflowId: string, workItemId: string) => Promise<import("./workflowApplicationContracts").WorkflowCheckpointRecoveryProjection>;
+  retryWorkflowImplementationCheckpoint: (workflowId: string, workItemId: string, implementationRecordId: string) => Promise<unknown>;
+  retryWorkflowTesterCheckpoint: (workflowId: string, workItemId: string, implementationRecordId: string, testerResultId: string) => Promise<unknown>;
   getCodexManagedRuntimeStatus: () => Promise<CodexManagedRuntimeStatus>;
   setCodexModelSelection: (selection: CodexModelSelection) => Promise<CodexManagedRuntimeStatus>;
   startCodexImplementerExecution: (selection: CodexModelSelection) => Promise<CodexImplementerExecutionModel>;
+  startWorkflowWorkItemCodexExecution: (workflowId: string, workItemId: string, selection: CodexModelSelection) => Promise<CodexImplementerExecutionModel>;
+  startWorkflowWorkItemTester: (workflowId: string, workItemId: string, implementationRecordId: string, selection: CodexModelSelection) => Promise<CodexTesterExecutionModel>;
+  cancelWorkflowWorkItemTester: (workflowId: string, workItemId: string, implementationRecordId: string) => Promise<CodexTesterExecutionModel>;
+  respondToWorkflowWorkItemTesterApproval: (workflowId: string, workItemId: string, implementationRecordId: string, requestId: string, decision: "approve" | "deny") => Promise<CodexTesterExecutionModel>;
+  respondToWorkflowWorkItemTesterInput: (workflowId: string, workItemId: string, implementationRecordId: string, requestId: string, answers: Record<string, string[]>) => Promise<CodexTesterExecutionModel>;
   startCodexEnvironmentResolution: () => Promise<CodexImplementerExecutionModel>;
   respondToCodexApproval: (response: CodexApprovalResponse) => Promise<CodexImplementerExecutionModel>;
   respondToCodexUserInput: (response: CodexUserInputResponse) => Promise<CodexImplementerExecutionModel>;
   respondToCodexMcpElicitation: (response: CodexMcpElicitationResponse) => Promise<CodexImplementerExecutionModel>;
-  cancelCodexImplementerExecution: () => Promise<CodexImplementerExecutionModel>;
+  cancelCodexImplementerExecution: (identity?: { workflowId: string; workItemId: string }) => Promise<CodexImplementerExecutionModel>;
   generateCurrentHandoff: () => Promise<RuntimeActionResult>;
   getWorkCardMapProjection: (
     phaseId: string,

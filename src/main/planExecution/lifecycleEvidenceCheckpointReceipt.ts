@@ -12,7 +12,7 @@ export const lifecycleCheckpointIdFor = (evidence: LifecycleEvidenceCheckpointEv
 
 export function lifecycleCheckpointSubject(boundary: LifecycleEvidenceBoundary, checkpointId: string): string {
   const label = boundary.kind === "work-item" ? boundary.workItemId : boundary.kind === "phase" ? boundary.phaseId
-    : boundary.kind === "research" ? boundary.assessmentId : boundary.planId;
+    : boundary.kind === "research" ? boundary.assessmentId : boundary.kind === "operator-disposition" ? boundary.decisionId : boundary.planId;
   return `${label}: lifecycle checkpoint ${checkpointId}`;
 }
 
@@ -23,6 +23,9 @@ function validIdentifier(value: unknown): value is string {
 function validBoundary(value: unknown): value is LifecycleEvidenceBoundary {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const boundary = value as Record<string, unknown>;
+  if (boundary.kind === "operator-disposition") return validIdentifier(boundary.decisionId) &&
+    (boundary.issueId === undefined || /^ISSUE_\d+$/.test(String(boundary.issueId))) &&
+    Object.keys(boundary).every((key) => ["kind", "decisionId", "issueId"].includes(key));
   if (!validIdentifier(boundary.routeDecisionId)) return false;
   if (boundary.kind === "research") return validIdentifier(boundary.assessmentId) && Number.isSafeInteger(boundary.assessmentRevision) && Number(boundary.assessmentRevision) >= 1 &&
     Object.keys(boundary).every((key) => ["kind", "routeDecisionId", "assessmentId", "assessmentRevision"].includes(key));
@@ -45,7 +48,9 @@ export function readLifecycleCheckpointReceipt(bytes: string, checkpointId: stri
     !evidence || lifecycleCheckpointIdFor(evidence) !== checkpointId || document.metadata.identity.checkpointId !== checkpointId ||
     document.metadata.identity.intakeId !== evidence.intakeId || document.metadata.identity.boundaryKind !== evidence.boundary?.kind ||
     !validIdentifier(evidence.intakeId) || !validIdentifier(evidence.repositoryId) || !branchPattern.test(evidence.workBranch) ||
-    !commitPattern.test(evidence.beforeHead) || !validBoundary(evidence.boundary) || !Array.isArray(files) || !files.length || files.length > 100 ||
+    !commitPattern.test(evidence.beforeHead) || !validBoundary(evidence.boundary) || !Array.isArray(files) || files.length > 100 ||
+    (files.length === 0 ? evidence.emptyLifecycleCheckpoint !== true || !["research", "phase", "plan"].includes(evidence.boundary.kind)
+      : evidence.emptyLifecycleCheckpoint !== undefined) ||
     files.some((entry) => !entry || typeof entry.path !== "string" || !entry.path || !digestPattern.test(entry.sha256) ||
       !validIdentifier(entry.artifactType) || !Number.isSafeInteger(entry.artifactRevision) || entry.artifactRevision < 1) ||
     new Set(files.map((entry) => entry.path)).size !== files.length ||

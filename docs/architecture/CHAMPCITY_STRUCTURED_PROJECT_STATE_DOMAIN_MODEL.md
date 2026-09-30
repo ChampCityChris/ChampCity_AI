@@ -106,7 +106,7 @@ A Project represents the enduring product/software project, not a repository che
 | `createdAt` | Project creation |
 | `updatedAt` | Last project-level update |
 
-A Project owns zero or more Findings, Root Causes, Bounded Solutions, Criteria, Work Items, Validations, Evidence objects, Decisions, Relationships, and Project Resources.
+A Project owns zero or more Work Intakes, Workflows, Phases, Findings, Root Causes, Bounded Solutions, Criteria, Work Items, Implementation Records, Validations, Evidence objects, Decisions, Relationships, Regression Obligations, source/integration semantic records, and Project Resources.
 
 ## 6. Project Resource
 
@@ -501,7 +501,7 @@ Canonical relationship vocabulary should include at minimum:
 | `defines_criterion` | BoundedSolution/WorkItem → Criterion |
 | `implements` | WorkItem → BoundedSolution |
 | `repairs` | WorkItem → WorkItem |
-| `part_of` | WorkItem → WorkItem |
+| `part_of` | WorkItem → WorkItem/Phase/Workflow; Phase → Workflow |
 | `depends_on` | WorkItem → WorkItem |
 | `blocks` | Entity → Entity |
 | `evaluates` | Validation → Criterion/WorkItem/Solution |
@@ -510,6 +510,9 @@ Canonical relationship vocabulary should include at minimum:
 | `derived_from` | Entity → Entity |
 | `supersedes` | Successor → Predecessor |
 | `relates_to` | Entity → Entity |
+| `workflow_member` | BoundedSolution/Finding/RootCause → exact substantive Workflow |
+
+Workflow front-half planning records use `workflow_member` for exact Workflow ownership. A Bounded Solution, Finding, or Root Cause used in a current planning graph belongs to one Workflow; the predicate cannot target Work Intake Routing or Project Creation. `Phase → Workflow` and direct `WorkItem → Workflow` continue to use `part_of`; phased work uses `WorkItem → Phase`. Workflow identity scopes phase sequence numbers and dependency edges.
 
 Relationship types should be centrally registered by the Product Core rather than invented ad hoc by models.
 
@@ -1042,7 +1045,7 @@ The arrows do not run backward during ordinary operation. ChampCity must not ren
 | Existing Markdown artifact/concept | Canonical replacement | Markdown after migration |
 |---|---|---|
 | Project-state document | `CurrentProjectStateView` derived from the Project aggregate | Generated project-state snapshot/export |
-| Work intake / framed request | Project metadata + Findings + Decisions + Relationships as applicable | Generated intake summary/export |
+| Work intake / framed request | `WorkIntake` + related RouteAssessment/Decisions/Evidence/SourceBinding | Generated intake summary/export |
 | Planning document | Findings + Root Causes + Bounded Solutions + Decisions + Relationships | Generated planning/solution view; legacy source retained as provenance when migrated |
 | Issue document | `Finding` plus related Evidence, Root Causes, Decisions, and Relationships | Generated issue view |
 | RCA document or section | `RootCause` + supporting/contradicting Evidence + `explains` relationships | Generated RCA view |

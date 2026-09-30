@@ -207,7 +207,7 @@ export async function cleanupBackgroundAgentForUninstall(
   const dependencies = { ...defaultUninstallCleanupDependencies, ...dependencyOverrides };
   try {
     const initialProbe = await dependencies.probe(userDataRoot, 2_000);
-    if (initialProbe.state === "indeterminate") {
+    if (initialProbe.state === "indeterminate" || initialProbe.state === "incompatible") {
       throw new ChampCityMaintenanceError(
         champCityMaintenanceExitCode.endpointOwnershipIndeterminate,
         initialProbe.error,

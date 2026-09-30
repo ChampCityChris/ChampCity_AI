@@ -12,13 +12,13 @@ const {
   readRepositoryFile,
   searchRepositoryFiles,
   writeTextArtifact,
-} = require("../../dist/main/agentHarness/repository/repositoryOperations.js");
+} = require("../../dist/main/repository/repositoryOperations.js");
 const {
   GIT_COMMAND_TIMEOUT_MS,
   GIT_STDERR_LIMIT_BYTES,
   GIT_STDOUT_LIMIT_BYTES,
   runBoundedGit,
-} = require("../../dist/main/agentHarness/repository/boundedGit.js");
+} = require("../../dist/main/core/gitExecution.js");
 const {
   AgentHarnessService,
 } = require("../../dist/main/agentHarness/runtime/agentHarnessService.js");
@@ -257,7 +257,7 @@ test("bounded Git cancels streamed output and terminates children on either outp
   }
 });
 
-test("Git status and public toolboxes contain nested registered roots while preserving repository-root status", async () => {
+test("repo_toolbox and workspace-only git_toolbox status stay within the registered root", async () => {
   const nested = createGitWorkspace("Parent Git Project");
   const registeredRoot = path.join(nested, "Registered Workspace");
   write(nested, "outside.txt", "outside baseline\n");
@@ -292,13 +292,19 @@ test("Git status and public toolboxes contain nested registered roots while pres
   const gitToolStatus = await nestedService.toolRegistry().callTool({
     name: "git_toolbox",
     scope: "files.read",
-    arguments: { workspaceId: nestedWorkspaceId, action: "status" },
+    arguments: { workspaceId: nestedWorkspaceId, action: "status", params: {} },
   });
-  assert.equal(gitToolStatus.ok, true);
-  assert.deepEqual(Object.keys(gitToolStatus.payload).sort(), ["gitBacked", "shortStatus"]);
+  assert.equal(gitToolStatus.ok, true, JSON.stringify(gitToolStatus.error));
   assert.match(gitToolStatus.payload.shortStatus, /inside\.txt/);
   assert.match(gitToolStatus.payload.shortStatus, /nested\/child\.txt/);
   assert.doesNotMatch(gitToolStatus.payload.shortStatus, /outside\.txt|\.\.\//);
+  const unregisteredTarget = await nestedService.toolRegistry().callTool({
+    name: "git_toolbox",
+    scope: "files.read",
+    arguments: { workspaceId: nestedWorkspaceId, action: "status", params: { repositoryCheckoutId: "inferred-project-root" } },
+  });
+  assert.equal(unregisteredTarget.ok, false);
+  assert.equal(unregisteredTarget.error.code, "WORKSPACE_ACCESS_DENIED");
 
   const repoToolStatus = await nestedService.toolRegistry().callTool({
     name: "repo_toolbox",
@@ -332,10 +338,9 @@ test("Git status and public toolboxes contain nested registered roots while pres
   const ordinaryStatus = await ordinaryService.toolRegistry().callTool({
     name: "git_toolbox",
     scope: "files.read",
-    arguments: { workspaceId: ordinaryRegistration.workspace.workspaceId, action: "status" },
+    arguments: { workspaceId: ordinaryRegistration.workspace.workspaceId, action: "status", params: {} },
   });
-  assert.equal(ordinaryStatus.ok, true);
-  assert.deepEqual(Object.keys(ordinaryStatus.payload).sort(), ["gitBacked", "shortStatus"]);
+  assert.equal(ordinaryStatus.ok, true, JSON.stringify(ordinaryStatus.error));
   assert.match(ordinaryStatus.payload.shortStatus, /tracked\.txt/);
   assert.match(ordinaryStatus.payload.shortStatus, /untracked\.txt/);
 });

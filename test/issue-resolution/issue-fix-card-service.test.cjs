@@ -28,7 +28,7 @@ const {
 const {
   inspectControlledMarkdownDraft,
   replaceControlledMarkdownBody,
-} = require("../../dist/main/agentHarness/repository/controlledMarkdownDrafts.js");
+} = require("../../dist/main/repository/controlledMarkdownDrafts.js");
 const {
   __setCanonicalMarkdownWriterTestHooks,
 } = require("../../dist/main/documents/canonicalMarkdownDocumentWriter.js");

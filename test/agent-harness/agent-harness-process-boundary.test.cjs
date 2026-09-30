@@ -30,7 +30,7 @@ test("actual Electron utility-process boundary preserves MCP routing, controls, 
   assert.equal(processExists(evidence.failedWorkerPid), false);
   assert.equal(processExists(evidence.recoveredWorkerPid), false);
   context.diagnostic(
-    `isolated worker evidence: distinct initial/recovered process identities; bounded stage_changes crossed the worker-backed public MCP path without workflow or planning fixtures; ${evidence.heartbeatCount} host-loop heartbeats during ${evidence.operationDurationMs}ms broad MCP search; ${evidence.toolCount} public tools; graceful shutdown`,
+    `isolated worker evidence: distinct initial/recovered process identities; checkout-targeted Git status crossed the worker-backed public MCP path; ${evidence.heartbeatCount} host-loop heartbeats during ${evidence.operationDurationMs}ms broad MCP search; ${evidence.toolCount} public tools; graceful shutdown`,
   );
 });
 
@@ -132,9 +132,23 @@ test("desktop client recovers crashed hosts with durable multi-project registrat
     });
     const firstIdentity = await client.connect();
     currentIdentity = firstIdentity;
+    fs.rmSync(path.join(projectA, ".git"), { recursive: true, force: true });
     await client.registerWorkspace(projectA);
     await client.registerWorkspace(projectB);
+    const dev = path.join(projectA, "Dev");
+    fs.mkdirSync(dev, { recursive: true });
+    fs.writeFileSync(path.join(dev, "checkout-only.txt"), "Service Host checkout proof\n", "utf8");
+    execFileSync("git", ["init", "-b", "dev"], { cwd: dev, stdio: "ignore" });
+    const checkout = { repositoryCheckoutId: "host-dev", repositoryId: "host-repo", sourceLineId: "dev", role: "dev", projectRelativePath: "Dev" };
+    const registeredCheckout = await client.registerRepositoryCheckout("project_a", checkout);
+    assert.equal(registeredCheckout.availability, "available");
     const beforeRecovery = await client.status();
+    const mcp = await connectMcpClient(beforeRecovery.mcpEndpoint);
+    const gitResult = await callTool(mcp, "git_toolbox", { workspaceId: "project_a", action: "status", params: { repositoryCheckoutId: "host-dev" } });
+    assert.equal(gitResult.structuredContent.ok, true, JSON.stringify(gitResult.structuredContent.error));
+    assert.equal(path.resolve(execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd: dev, encoding: "utf8" }).trim()), path.resolve(dev));
+    assert.throws(() => execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd: projectA, stdio: ["ignore", "pipe", "ignore"] }));
+    await mcp.close();
     assert.deepEqual(beforeRecovery.registeredWorkspaceIds, ["project_a", "project_b"]);
     const firstHealthEndpoint = beforeRecovery.healthEndpoint;
     process.kill(firstIdentity.serviceHostProcessId, "SIGTERM");
@@ -467,9 +481,12 @@ test("production Service Host survives desktop exit and the next desktop reconne
     assert.equal(written.structuredContent.ok, true);
     const gitStatus = await callTool(mcpClient, "git_toolbox", {
       workspaceId: "project_a",
-      action: "status",
+      action: "list_repository_checkouts",
     });
     assert.equal(gitStatus.structuredContent.ok, true);
+    assert.equal(gitStatus.structuredContent.payload.length, 1);
+    assert.equal(gitStatus.structuredContent.payload[0].role, "conventional");
+    assert.equal(gitStatus.structuredContent.payload[0].projectRelativePath, ".");
     await mcpClient.close();
     mcpClient = null;
 
@@ -714,6 +731,25 @@ test("healthy Service Host client routes exact registered Projects A and B indep
     assert.match(unbound.structuredContent.error.message, /workspace|project/i);
 
     await client.registerWorkspace(projectA);
+    const discovery = await callTool(mcpClient, "git_toolbox", { workspaceId: "project_a", action: "list_repository_checkouts" });
+    assert.equal(discovery.structuredContent.ok, true);
+    const reconciledCheckouts = discovery.structuredContent.payload;
+    assert.equal(reconciledCheckouts.length, 1);
+    assert.equal(reconciledCheckouts[0].role, "conventional");
+    assert.equal(reconciledCheckouts[0].projectRelativePath, ".");
+    assert.equal("root" in reconciledCheckouts[0], false);
+    assert.deepEqual(
+      await client.unregisterRepositoryCheckout("project_a", reconciledCheckouts[0].repositoryCheckoutId),
+      [],
+    );
+    const revoked = await callTool(mcpClient, "git_toolbox", { workspaceId: "project_a", action: "list_repository_checkouts" });
+    assert.deepEqual(revoked.structuredContent.payload, []);
+    await client.registerWorkspace(projectA);
+    const reconciled = await callTool(mcpClient, "git_toolbox", { workspaceId: "project_a", action: "list_repository_checkouts" });
+    assert.deepEqual(
+      reconciled.structuredContent.payload.map((checkout) => checkout.repositoryCheckoutId),
+      [reconciledCheckouts[0].repositoryCheckoutId],
+    );
     const exactA = await readWorkspace(mcpClient, "project_a");
     assert.equal(exactA.structuredContent.ok, true);
     assert.match(exactA.structuredContent.payload.content, /alpha healthy access project/);

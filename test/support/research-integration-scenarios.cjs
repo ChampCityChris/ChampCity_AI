@@ -64,7 +64,7 @@ function seedResearchIntegrationCompletion(t) {
 }
 
 function seedTerminalCandidateRecord(fixture, template, completion) {
-  const { integrationPaths } = require('../../dist/main/agentHarness/repository/integrationGit.js');
+  const { integrationPaths } = require('../../dist/main/repository/integrationGit.js');
   const { serializeCanonicalMarkdownDocument } = require('../../dist/shared/documents/canonicalMarkdown.js');
   const identity = [template.repositoryId, template.intakeId, completion.kind, completion.routeDecisionId, completion.completionId,
     completion.revision, completion.fingerprint, completion.sourcePath, template.baseCommit, template.incomingCommit, template.targetCommit,

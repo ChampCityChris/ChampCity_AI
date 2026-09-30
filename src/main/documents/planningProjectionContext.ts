@@ -6,6 +6,7 @@ import {
   type PlanningRepositorySnapshot,
 } from "./planningRepositorySnapshot";
 import { listPlanningDocumentsFromSnapshot } from "./planningDocumentService";
+import { assertLegacyCanonicalReadAllowed } from "./legacyCanonicalWriteFence";
 
 export interface PlanningProjectionContext {
   readonly workspaceRoot: string;
@@ -45,6 +46,7 @@ export function assertPlanningProjectionContextRoot(
   workspaceRoot: string,
 ): PlanningProjectionContext {
   const canonicalRoot = canonicalWorkspaceRoot(workspaceRoot);
+  assertLegacyCanonicalReadAllowed(canonicalRoot);
   if (canonicalRootKey(canonicalRoot) !== canonicalRootKey(context.workspaceRoot)) {
     throw new Error("Planning projection context belongs to a different workspace root.");
   }

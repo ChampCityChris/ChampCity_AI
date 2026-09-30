@@ -63,6 +63,7 @@ test("successful renderer dispositions consume the returned transaction with one
   ];
   for (const [action, mutation, args] of cases) await t.test(mutation, async () => {
     const ipcCalls = [];
+    const sideReads = action === "runIssueArchitectReview" ? ["getRoutedIssueLineage"] : [];
     const state = new Map();
     const development = {
       documents: [], projectPlanningModel: { generation: "final" },
@@ -79,7 +80,8 @@ test("successful renderer dispositions consume the returned transaction with one
       Error,
       window: { champcity: new Proxy({}, { get: (_target, method) => async (...input) => {
         ipcCalls.push({ method, input });
-        assert.equal(method, mutation, "success must not reconstruct state with another IPC");
+        assert.ok([mutation, ...sideReads].includes(method), "success must not reconstruct state with another IPC");
+        if (method === "getRoutedIssueLineage") return null;
         return result;
       } }) },
       selectedDocumentId: "document", selectedStatus: "Approved", selectedDocumentHasLocalError: false,
@@ -89,6 +91,7 @@ test("successful renderer dispositions consume the returned transaction with one
       presentedRevisionsForArchitectOutputModel: () => [],
       operatorValidationNotes: "reviewed", advisorySummary: "reviewed", repairDefectText: "",
       currentIssue: { issueId: "ISSUE_001" }, activeIssueFixCardStepId: "contract",
+      routedIssueLineage: null,
       getResolverFeedback: () => "Applied",
     };
     for (const setter of [
@@ -101,12 +104,13 @@ test("successful renderer dispositions consume the returned transaction with one
       "setIsIssueArchitectActionPending", "setIssueArchitectActionError", "setIssueArchitectActionFeedback",
       "setIssueArchitectProjection", "setIsIssuePlanningActionPending", "setIssuePlanningActionError",
       "setIssuePlanningActionFeedback", "setActiveIssueFixCardStepId", "setIssueFixCardProjection",
+      "setRoutedIssueReturnError",
     ]) scope[setter] = (...values) => state.set(setter, values);
     const names = ["applyDevelopmentPostMutationProjection", "applyIssuePostMutationProjection", action];
     const program = names.map((name) => functions.get(name).getText(source)).join("\n") + `\n${action};`;
     const execute = vm.runInNewContext(ts.transpileModule(program, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, scope);
     await execute(...args);
-    assert.equal(ipcCalls.length, 1);
+    assert.deepEqual(ipcCalls.map(({ method }) => method), [mutation, ...sideReads]);
     for (const key of ["setDocumentError", "setIssueArchitectActionError", "setIssuePlanningActionError"]) {
       if (state.has(key)) assert.deepEqual(state.get(key), [""]);
     }

@@ -2,6 +2,21 @@ const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("n
 const repositoryRoot=path.resolve(__dirname,"../..");
 function read(relativePath){return fs.readFileSync(path.join(repositoryRoot,relativePath),"utf8");}
 
+test("Source Control production modules do not import Agent Harness implementation modules", () => {
+  const ts = require("typescript");
+  const sourceRoot = path.join(repositoryRoot, "src/main/sourceControl");
+  for (const name of fs.readdirSync(sourceRoot).filter(entry => entry.endsWith(".ts"))) {
+    const absolute = path.join(sourceRoot, name);
+    const tree = ts.createSourceFile(absolute, fs.readFileSync(absolute, "utf8"), ts.ScriptTarget.Latest, true);
+    for (const statement of tree.statements) {
+      if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+      const target = path.resolve(sourceRoot, statement.moduleSpecifier.text);
+      assert.equal(target.startsWith(path.join(repositoryRoot, "src/main/agentHarness")), false,
+        `${name} imports Agent Harness implementation ${statement.moduleSpecifier.text}`);
+    }
+  }
+});
+
 
 test("Desktop and Service Host controllers do not import worker-owned runtime implementations", () => {
   const ts = require("typescript");
@@ -18,7 +33,7 @@ test("Desktop and Service Host controllers do not import worker-owned runtime im
     const forbiddenPaths = forbidden.map((name) => path.join(repositoryRoot, runtimeRoot, name));
     forbiddenPaths.push(
       path.join(repositoryRoot, "src/main/agentHarness/tools/toolRegistry"),
-      path.join(repositoryRoot, "src/main/agentHarness/repository/repositoryOperations"),
+      path.join(repositoryRoot, "src/main/repository/repositoryOperations"),
     );
     function visit(node) {
       let specifier;
@@ -85,6 +100,23 @@ test("compiled bootstrap routes maintenance, Service Host, and Desktop modes wit
 test("worker and host protocol validators accept registered-workspace controls and reject obsolete selected-project controls", () => {
   const worker = require("../../dist/main/agentHarness/runtime/agentHarnessProcessProtocol.js");
   const host = require("../../dist/main/agentHarness/runtime/agentHarnessServiceHostProtocol.js");
+  assert.equal(worker.agentHarnessProcessProtocolVersion, 1);
+  assert.equal(host.agentHarnessServiceHostControlProtocolVersion, 1);
+  assert.deepEqual(worker.agentHarnessControlOperations, [
+    "initialize", "status", "start", "stop", "restart", "heartbeat", "prepare-suspend",
+    "resume-reconcile", "prepare-controlled-restart", "save-configuration",
+    "import-legacy-oauth-clients", "list-registered-workspaces", "register-workspace",
+    "unregister-workspace", "register-repository-checkout",
+    "unregister-repository-checkout", "shutdown",
+  ]);
+  assert.deepEqual(host.agentHarnessServiceHostOperations, [
+    "handshake", "reconcile-descriptor", "agent-harness-status", "agent-harness-start",
+    "agent-harness-stop", "agent-harness-restart", "agent-harness-save-configuration",
+    "agent-harness-import-legacy-oauth-clients", "list-registered-workspaces",
+    "register-workspace", "unregister-workspace", "register-repository-checkout",
+    "unregister-repository-checkout", "service-host-shutdown",
+    "background-agent-user-exit", "service-host-controlled-restart",
+  ]);
   for (const [validate, protocolVersion] of [
     [worker.isAgentHarnessControlRequest, worker.agentHarnessProcessProtocolVersion],
     [host.isAgentHarnessServiceHostRequest, host.agentHarnessServiceHostControlProtocolVersion],
@@ -96,6 +128,7 @@ test("worker and host protocol validators accept registered-workspace controls a
       assert.equal(validate({ ...valid, requestId: "" }), false);
       assert.equal(validate({ ...valid, protocolVersion: -1 }), false);
     }
+    assert.equal(validate({ ...request, operation: "list-repository-checkouts", payload: { workspaceId: "fixture_workspace" } }), false);
     for (const operation of ["activate-workspace", "deactivate-workspace", "query-workspace-access", "confirm-workspace-access"]) {
       assert.equal(validate({ ...request, operation }), false);
     }

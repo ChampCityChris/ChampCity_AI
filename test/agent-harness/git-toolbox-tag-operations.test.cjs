@@ -7,7 +7,7 @@ const test = require("node:test");
 const ts = require("typescript");
 
 const repositoryRoot = path.resolve(__dirname, "../..");
-const { AgentHarnessError } = require("../../dist/main/agentHarness/core/errors.js");
+const { AgentHarnessError } = require("../../dist/main/core/applicationErrors.js");
 const { createSourceControlService } = require("../../dist/main/sourceControl/sourceControlService.js");
 const {
   createWorkIntakeBranchService, workIntakeBranchName,
@@ -35,6 +35,7 @@ const {
 } = require("../support/canonical-markdown-fixtures.cjs");
 const {
   createBoundWorkspace,
+  createGitToolboxWorkspace,
   configureGitIdentity,
   registryFor,
   callGit,
@@ -47,7 +48,7 @@ const {
 } = require("../support/git-mutation-fixtures.cjs");
 
 test("release tag actions create, verify, and push tags without overwriting local or remote tags", async () => {
-  const root = createBoundWorkspace("champcity-git-tags-", true);
+  const root = createGitToolboxWorkspace("champcity-git-tags-");
   commitAllFixtureState(root, "fixture baseline");
   const baseline = git(root, ["rev-parse", "HEAD"]);
   const remote = path.join(path.dirname(root), "tag-remote.git");
@@ -137,7 +138,7 @@ test("delete_tag recovers after remote success followed by local deletion failur
   const { root, remote, registry, baseline, tagName } = createTagDeletionFixture();
   git(root, ["tag", tagName]);
   await requireSuccess(callGit(registry, root, "push_tag", { tagName }));
-  const boundedGit = require(path.join(repositoryRoot, "dist/main/agentHarness/repository/boundedGit.js"));
+  const boundedGit = require(path.join(repositoryRoot, "dist/main/core/gitExecution.js"));
   const realRun = boundedGit.runBoundedGit;
   const calls = [];
   const mocked = t.mock.method(boundedGit, "runBoundedGit", async (options) => {
@@ -198,11 +199,11 @@ test("delete_tag rejects dirty state, invalid tag names, and unsafe configured d
 test("delete_tag retains OAuth, registered-workspace, Git-backed, and exact parameter gates", async () => {
   const { root, registry, tagName } = createTagDeletionFixture();
   const tool = registry.listTools("files.read files.write").find((entry) => entry.name === "git_toolbox");
-  const input = { workspaceId: "alpha", action: "delete_tag", params: { tagName } };
+  const input = { workspaceId: "alpha", action: "delete_tag", params: { repositoryCheckoutId: "fixture-checkout", tagName } };
   assert.equal(tool.inputZodSchema.safeParse(input).success, true);
-  assert.equal(tool.inputZodSchema.safeParse({ ...input, params: {} }).success, false);
+  assert.equal(tool.inputZodSchema.safeParse({ ...input, params: { repositoryCheckoutId: "fixture-checkout" } }).success, false);
   for (const key of ["force", "pattern", "branch", "args", "command", "cwd", "environment", "timeout"]) {
-    assert.equal(tool.inputZodSchema.safeParse({ ...input, params: { tagName, [key]: "forbidden" } }).success, false);
+    assert.equal(tool.inputZodSchema.safeParse({ ...input, params: { repositoryCheckoutId: "fixture-checkout", tagName, [key]: "forbidden" } }).success, false);
   }
   assert.equal(registry.listTools("files.read").find((entry) => entry.name === "git_toolbox").actions.includes("delete_tag"), false);
   assert.equal((await callGit(registry, root, "delete_tag", { tagName }, "files.read")).error.code, "OAUTH_SCOPE_DENIED");

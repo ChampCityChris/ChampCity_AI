@@ -5,6 +5,9 @@ export interface SourceControlPosition {
 }
 
 export type SourceControlOperation =
+  | "resolve-source-revision" | "create-work-source" | "bootstrap-project-source"
+  | "source-graph"
+  | "source-graph-revision-detail"
   | "inspect-reflog" | "replace-branch-ref" | "push-with-lease" | "delete-untracked-paths" | "discard-managed-worktree" | "isolated-skip"
   | "isolated-begin" | "isolated-inspect" | "isolated-continue" | "isolated-abort" | "isolated-advance"
   | "amend-commit" | "revert-commit" | "cherry-pick-commit"
@@ -15,8 +18,8 @@ export type SourceControlOperation =
   | "set-branch-upstream"
   | "unset-branch-upstream"
   | "delete-remote-branch"
-  | "status" | "branches" | "history" | "history-with-messages" | "diff" | "changed-files" | "readiness" | "commit-message"
-  | "prepare-branch" | "switch-branch" | "stage" | "commit" | "fetch" | "push"
+  | "status" | "branches" | "history" | "history-with-messages" | "diff" | "changed-files" | "inspect-path-at-head" | "readiness" | "commit-message"
+  | "prepare-branch" | "switch-branch" | "stage" | "commit" | "checkpoint-commit" | "fetch" | "push"
   | "fast-forward" | "delete-branch" | "integration-target" | "integration-create"
   | "integration-inspect" | "integration-merge" | "integration-advance" | "integration-abort"
   | "integration-repair-snapshot" | "integration-repair-diffs" | "integration-repair-commit";
@@ -52,4 +55,30 @@ export interface SourceControlChangedFile {
   originalPath?: string;
   indexStatus: string;
   worktreeStatus: string;
+}
+
+export type ExistingProjectGitAdoptionState =
+  | "source-neutral"
+  | "managed-ready"
+  | "conversion-required"
+  | "conversion-failed";
+
+/** Renderer-safe inspection result. Paths and working-file names remain main-process-only. */
+export interface ExistingProjectGitAdoptionPlan {
+  planId: string;
+  state: ExistingProjectGitAdoptionState;
+  repositoryId: string | null;
+  priorGitDetected: boolean;
+  topology: {
+    conventionalGit: boolean;
+    managedMetadata: boolean;
+    mainCheckout: boolean;
+    devCheckout: boolean;
+    recoveryStaging: boolean;
+  };
+  preservedRefCount: number;
+  preservedRemoteCount: number;
+  requiresConsent: boolean;
+  warnings: string[];
+  failureReason: string | null;
 }

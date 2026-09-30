@@ -10,6 +10,7 @@ import type {
 import {
   codexImplementerAvailabilityLabel,
 } from "../../shared/workspaceContracts";
+import { CodexBoundedMcpElicitationPanel, CodexBoundedUserInputPanel } from "./CodexBoundedInteractionPanels";
 
 export interface CodexExecutionContextSummary {
   contractLabel: string;
@@ -316,6 +317,7 @@ export function CodexExecutionActions({
   onCancel,
   onResolveEnvironment,
   onRun,
+  runLabel = "Run Codex Implementer",
 }: {
   canRunOverride?: boolean;
   execution: CodexImplementerExecutionModel | null;
@@ -323,6 +325,7 @@ export function CodexExecutionActions({
   onCancel: () => void;
   onResolveEnvironment?: () => void;
   onRun: (selection: CodexModelSelection) => void;
+  runLabel?: string;
 }): JSX.Element {
   const modelSelection = useCodexModelSelection(isActionRunning || execution?.state === "running");
   const state = execution?.state ?? "unavailable";
@@ -341,7 +344,7 @@ export function CodexExecutionActions({
           type="button"
         >
           <Play aria-hidden="true" size={16} />
-          Run Codex Implementer
+          {runLabel}
         </button>
         {onResolveEnvironment && execution?.developmentEnvironmentPreflight?.state === "resolution-required" ? (
           <button
@@ -394,9 +397,9 @@ export function CodexExecutionConsole({
   const modelSelection = useCodexModelSelection(isActionRunning || execution?.state === "running");
   const state = execution?.state ?? "unavailable";
   const availability = codexImplementerAvailabilityLabel(execution);
-  const executionLabel = execution?.executionKind === "environment-resolution"
-    ? "Environment Resolution"
-    : "Work Card Implementation";
+  const integrationRepair = execution?.executionKind === "integration-repair";
+  const executionLabel = integrationRepair ? "Integration Repair" : execution?.executionKind === "environment-resolution"
+    ? "Environment Resolution" : "Work Card Implementation";
   const reportUpdated = execution?.reportUpdated ? "Updated" : "Not updated";
 
   return (
@@ -412,14 +415,14 @@ export function CodexExecutionConsole({
         </div>
       </header>
       <dl>
-        <div>
+        {!integrationRepair ? <><div>
           <dt>{contextSummary?.contractLabel ?? "Work Card Contract"}</dt>
           <dd>{contextSummary ? `${contextSummary.contractPath} revision ${contextSummary.contractRevision}` : "Waiting"}</dd>
         </div>
         <div>
           <dt>Implementer Report</dt>
           <dd>{contextSummary ? `${contextSummary.reportPath} revision ${contextSummary.reportRevision}` : "Waiting"}</dd>
-        </div>
+        </div></> : null}
         <div>
           <dt>State</dt>
           <dd>{state}</dd>
@@ -428,10 +431,10 @@ export function CodexExecutionConsole({
           <dt>Elapsed</dt>
           <dd>{formatElapsed(execution?.elapsedMs)}</dd>
         </div>
-        <div>
+        {!integrationRepair ? <div>
           <dt>Report Update</dt>
           <dd>{reportUpdated}</dd>
-        </div>
+        </div> : null}
       </dl>
       {execution?.failureReason ? (
         <div className="codex-execution-message error" role="status">{execution.failureReason}</div>
@@ -580,54 +583,7 @@ function CodexUserInputPanel({
   pending: NonNullable<CodexImplementerExecutionModel["pendingUserInput"]>;
   onSubmit: (requestId: string, answers: Record<string, string[]>) => void;
 }): JSX.Element {
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const currentAnswers = Object.fromEntries(
-    pending.questions.map((question) => [question.id, [answers[question.id] ?? ""]]),
-  );
-  const canSubmit = pending.questions.every((question) => (answers[question.id] ?? "").trim().length > 0);
-
-  return (
-    <section className="codex-user-input-panel" aria-label="Codex input request">
-      <header>
-        <span>Codex Input</span>
-        <strong>{pending.questions.length} question(s)</strong>
-      </header>
-      {pending.questions.map((question) => (
-        <label key={question.id}>
-          <span>{question.header}</span>
-          <strong>{question.question}</strong>
-          {question.options.length ? (
-            <select
-              disabled={disabled}
-              onChange={(event) => setAnswers({ ...answers, [question.id]: event.target.value })}
-              value={answers[question.id] ?? ""}
-            >
-              <option value="">Select</option>
-              {question.options.map((option) => (
-                <option key={`${question.id}-${option.label}`} value={option.label}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <input
-              disabled={disabled}
-              onChange={(event) => setAnswers({ ...answers, [question.id]: event.target.value })}
-              value={answers[question.id] ?? ""}
-            />
-          )}
-        </label>
-      ))}
-      <button
-        className="apply-button codex-command"
-        disabled={disabled || !canSubmit}
-        onClick={() => onSubmit(pending.requestId, currentAnswers)}
-        type="button"
-      >
-        Submit
-      </button>
-    </section>
-  );
+  return <CodexBoundedUserInputPanel disabled={disabled} label="Codex" pending={pending} onSubmit={onSubmit} />;
 }
 
 function CodexMcpElicitationPanel({
@@ -643,103 +599,7 @@ function CodexMcpElicitationPanel({
     content: unknown | null,
   ) => void;
 }): JSX.Element {
-  const [action, setAction] = useState<"accept" | "decline" | "cancel">("accept");
-  const [contentText, setContentText] = useState("{}");
-  const [parseError, setParseError] = useState("");
-  const canSubmit = pending.responseSupported && !disabled;
-
-  function submit(): void {
-    setParseError("");
-    if (action !== "accept") {
-      onSubmit(pending.requestId, action, null);
-      return;
-    }
-    try {
-      onSubmit(pending.requestId, action, JSON.parse(contentText) as unknown);
-    } catch {
-      setParseError("Response content must be valid JSON.");
-    }
-  }
-
-  return (
-    <section className="codex-user-input-panel" aria-label="MCP elicitation input request">
-      <header>
-        <span>MCP Input</span>
-        <strong>{pending.serverName}</strong>
-      </header>
-      <dl>
-        <div>
-          <dt>Request</dt>
-          <dd>{pending.requestId}</dd>
-        </div>
-        <div>
-          <dt>Mode</dt>
-          <dd>{pending.mode}</dd>
-        </div>
-        <div>
-          <dt>Turn</dt>
-          <dd>{pending.turnId ?? "Uncorrelated"}</dd>
-        </div>
-      </dl>
-      <p>{pending.message}</p>
-      {pending.url ? <a href={pending.url}>{pending.url}</a> : null}
-      <small>{pending.requestedSchemaSummary}</small>
-      {pending.fields.length ? (
-        <ul className="codex-mcp-fields">
-          {pending.fields.map((field) => (
-            <li key={field.id}>
-              <strong>{field.title}</strong>
-              <span>{[field.id, field.type, field.required ? "required" : "optional"].join(" / ")}</span>
-              {field.description ? <small>{field.description}</small> : null}
-              {field.options.length ? (
-                <small>{field.options.map((option) => `${option.label}=${option.value}`).join(", ")}</small>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {!pending.responseSupported ? (
-        <div className="codex-execution-message error" role="status">
-          {pending.unsupportedReason ?? "MCP elicitation response is unavailable for this request."}
-        </div>
-      ) : (
-        <>
-          <label>
-            <span>Action</span>
-            <select
-              disabled={disabled}
-              onChange={(event) => setAction(event.target.value as "accept" | "decline" | "cancel")}
-              value={action}
-            >
-              <option value="accept">Accept</option>
-              <option value="decline">Decline</option>
-              <option value="cancel">Cancel</option>
-            </select>
-          </label>
-          {action === "accept" ? (
-            <label>
-              <span>Content JSON</span>
-              <textarea
-                disabled={disabled}
-                onChange={(event) => setContentText(event.target.value)}
-                rows={5}
-                value={contentText}
-              />
-            </label>
-          ) : null}
-          {parseError ? <div className="codex-execution-message error" role="status">{parseError}</div> : null}
-          <button
-            className="apply-button codex-command"
-            disabled={!canSubmit}
-            onClick={submit}
-            type="button"
-          >
-            Submit MCP Input
-          </button>
-        </>
-      )}
-    </section>
-  );
+  return <CodexBoundedMcpElicitationPanel disabled={disabled} pending={pending} onSubmit={onSubmit} />;
 }
 
 function RuntimeDiagnostics({

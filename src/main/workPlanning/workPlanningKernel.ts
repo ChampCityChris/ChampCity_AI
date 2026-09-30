@@ -5,7 +5,9 @@ import { metadataWithDisposition, parseCanonicalMarkdownDocument } from "../../s
 import type { SourceRevision } from "../../shared/documents/planningDocument";
 import type { WorkPlanningArtifact, WorkPlanningIdentity, WorkPlanningModel, WorkPlanningProfile, WorkPlanningReviewInput, WorkPlanningStage } from "../../shared/workPlanningContracts";
 import type { WorkRouteDecisionModel } from "../../shared/workRouteDecisionContracts";
-import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
+import { resolveRepositoryPath } from "../repository/pathPolicy";
+import { createSourceControlService } from "../sourceControl/sourceControlService";
+import { checkpointOperatorDisposition } from "../planExecution/operatorDispositionCheckpoint";
 import { buildDeterministicArchitectDraftSubmissionId } from "../architectOutputs/architectDraftPaths";
 import { createArchitectOutputRegistry } from "../architectOutputs/architectOutputRegistry";
 import { getActiveArchitectOutputRuntimeSubmission, getArchitectOutputRuntimeStatus, prepareArchitectOutputRuntimeSubmission } from "../architectOutputs/architectOutputRuntimeService";
@@ -189,10 +191,20 @@ function definitionFor(root: string, route: WorkRouteDecisionModel, stage: WorkP
 
 /** One kernel instance resolves profiles as data; it never chooses an execution engine. */
 export function createWorkPlanningKernel(profiles: readonly WorkPlanningProfile[] = workPlanningProfiles) {
+  async function pendingCheckpoint(root: string, intakeId: string, relativePath: string): Promise<boolean> {
+    const document = read(root, relativePath);
+    if (document?.metadata.workflowData.sourceCheckpointRequired !== true) return false;
+    const intake = readWorkIntake(root, intakeId);
+    const source = createSourceControlService({ repositoryId: intake.branchBinding.repositoryId, repositoryRoot: root });
+    const atHead = await source.isPathAtHead(relativePath);
+    return !atHead.ok || !atHead.result;
+  }
   async function resolve(root: string, intakeId: string, stage: WorkPlanningStage) {
     if (!["assessment", "plan"].includes(stage)) throw Error("Unknown planning stage.");
     const route = await getWorkRouteDecision(root, intakeId);
     if (!route.selection || route.state !== "selected") throw Error("Planning requires a current Operator-selected route.");
+    if (stage === "plan" && await pendingCheckpoint(root, intakeId, workPlanningArtifactPath(intakeId, route.selection.decisionId, "assessment")))
+      throw Error("Route Architect Assessment source checkpoint is pending.");
     const profile = resolveWorkPlanningProfile(route.selection.selectedRouteId, profiles);
     const current = contextFor(root, route, stage, profile);
     const definition = definitionFor(root, route, stage, profile);
@@ -204,7 +216,9 @@ export function createWorkPlanningKernel(profiles: readonly WorkPlanningProfile[
     if (active && active.submission.state !== "promoted" && !sameContext(current, active.preparedContext as PlanningContext)) active.submission = { ...active.submission, state: "superseded" };
     for (const slot of active?.submission.expectedDraftSlots ?? []) file(root, slot.draftRelativePath);
     const status = getArchitectOutputRuntimeStatus(root, definition.outputKind, definition.owningWorkspaceId, registry);
-    const artifact = readArtifact(root, current);
+    const currentArtifact = readArtifact(root, current);
+    const checkpointPending = currentArtifact ? await pendingCheckpoint(root, intakeId, current.targetPath) : false;
+    const artifact = currentArtifact && checkpointPending ? { ...currentArtifact, stale: true } : currentArtifact;
     return { intakeId, routeId: current.identity.routeId, stage, artifact, submission: status?.submission,
       preparedInstruction: status && ["waiting-for-drafts", "partial-draft-set"].includes(status.submission.state) ? status.preparedInstruction : undefined,
       canPrepare: canPrepare(root, current),
@@ -235,9 +249,16 @@ export function createWorkPlanningKernel(profiles: readonly WorkPlanningProfile[
       if (!artifact || artifact.stale || artifact.artifactRevision !== input.expectedRevision) throw Error("Presented planning revision or its source evidence is stale.");
       validateBody(artifact.bodyMarkdown, current);
       const document = read(root, current.targetPath)!;
-      writeCanonicalMarkdownDocument({ workspaceRoot: root, relativePath: current.targetPath, bodyMarkdown: document.bodyMarkdown,
-        metadata: metadataWithDisposition(document.metadata, input.disposition, input.notes.trim(), new Date().toISOString()) });
-      return get(root, intakeId, stage);
+      const decisionId = createHash("sha256").update(JSON.stringify({ intakeId, stage, path: current.targetPath,
+        revision: document.metadata.artifactRevision, disposition: input.disposition, notes: input.notes.trim() })).digest("hex");
+      if (document.metadata.documentDisposition.status !== input.disposition || document.metadata.documentDisposition.notes !== input.notes.trim() ||
+        document.metadata.workflowData.sourceCheckpointRequired !== true) {
+        const reviewed = metadataWithDisposition(document.metadata, input.disposition, input.notes.trim(), new Date().toISOString());
+        writeCanonicalMarkdownDocument({ workspaceRoot: root, relativePath: current.targetPath, bodyMarkdown: document.bodyMarkdown,
+          metadata: { ...reviewed, workflowData: { ...reviewed.workflowData, sourceCheckpointRequired: true } } });
+      }
+      const checkpoint = await checkpointOperatorDisposition(root, intakeId, decisionId, [current.targetPath]);
+      return { ...await get(root, intakeId, stage), checkpoint };
     },
   };
 }

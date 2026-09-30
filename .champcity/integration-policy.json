@@ -13,31 +13,5 @@
   ],
   "requiredIntegrationChecks": [
     "champcity-integration-gate"
-  ],
-  "repair": {
-    "allowedEditableRoots": [
-      "src",
-      "test",
-      "scripts",
-      "assets",
-      "packaging"
-    ],
-    "protectedPaths": [
-      "docs",
-      "planning",
-      "validation",
-      "package.json",
-      "package-lock.json"
-    ],
-    "sources": [
-      {
-        "role": "architecture",
-        "path": "docs/architecture/CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md"
-      },
-      {
-        "role": "contract",
-        "path": "docs/architecture/PROJECT_INTEGRATION_VALIDATION_POLICY.md"
-      }
-    ]
-  }
+  ]
 }

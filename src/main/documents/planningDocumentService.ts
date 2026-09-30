@@ -16,6 +16,7 @@ import {
 } from "../../shared/documents/canonicalMarkdown";
 import { evaluateFreshnessFromSummaries, type FreshnessEvaluation } from "../../shared/documents/sourceFreshness";
 import { classifyLifecycleArtifact } from "../../shared/documents/lifecycleArtifact";
+import { assertLegacyCanonicalReadAllowed } from "./legacyCanonicalWriteFence";
 import {
   writeCanonicalMarkdownDocument,
   writeCanonicalMarkdownDocuments,
@@ -57,6 +58,7 @@ export function __setPlanningDocumentServiceTestHooks(
 
 export function assertPlanningWorkspace(workspaceRoot: string): string {
   const resolvedRoot = path.resolve(workspaceRoot);
+  assertLegacyCanonicalReadAllowed(resolvedRoot);
   const planningRoot = path.join(resolvedRoot, "planning");
   const stats = fs.existsSync(planningRoot) ? fs.statSync(planningRoot) : null;
   if (!stats?.isDirectory()) {
@@ -80,6 +82,7 @@ export function listPlanningDocumentsFromSnapshot(
 export function listPlanningDocumentsFromContext(
   context: import("./planningProjectionContext").PlanningProjectionContext,
 ): PlanningDocumentSummary[] {
+  assertLegacyCanonicalReadAllowed(context.workspaceRoot);
   return [...context.documents];
 }
 

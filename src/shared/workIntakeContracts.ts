@@ -1,9 +1,11 @@
-import type { WorkIntakeBranchBinding, WorkIntakeBranchResult } from "./workIntakeBranchContracts";
+import type { WorkIntakeBranchBinding } from "./workIntakeBranchContracts";
 import type { SourceRevision } from "./documents/planningDocument";
+import type { SourceReadiness } from "./sourceLifecycleContracts";
+import type { SourceCheckpoint } from "./sourceLifecycleContracts";
 
 export interface WorkProjectIdentity {
   projectId: string;
-  repositoryId: string;
+  repositoryId: string | null;
   name: string;
 }
 
@@ -16,8 +18,6 @@ export interface WorkIntakeSubmission {
   knownConstraints: string;
   hasExistingSourceOrPlanning: boolean;
   repositoryReviewContext: string;
-  baseBranch: string;
-  baseCommit: string;
 }
 
 export interface WorkIntakeRecord {
@@ -35,15 +35,24 @@ export interface WorkIntakeRecord {
   sourceRevisions: SourceRevision[];
 }
 
-export interface WorkIntakeProjection {
-  project: WorkProjectIdentity | null;
-  suggestedProjectName: string;
-  branches: Array<{ name: string; commit: string }>;
-  currentBranch: string | null;
-  suggestedBase: { name: string; commit: string } | null;
-  intakes: WorkIntakeRecord[];
-  currentIntake: WorkIntakeRecord | null;
-  blockedReason: string | null;
+export interface CapturedWorkIntake {
+  intakeId: string;
+  projectId: string;
+  workRequest: string;
+  desiredOutcome: string;
+  knownConstraints: string;
+  repositoryReviewContext: string;
+  source: SourceReadiness;
+  sourceCheckpoints?: SourceCheckpoint[];
 }
 
-export type WorkIntakeSubmissionResult = WorkIntakeBranchResult<WorkIntakeRecord>;
+export interface WorkIntakeProjection {
+  authority: "structured";
+  project: WorkProjectIdentity;
+  suggestedProjectName: string;
+  blockedReason: string | null;
+  capturedIntakes: CapturedWorkIntake[];
+  currentCapturedIntake: CapturedWorkIntake | null;
+}
+
+export type WorkIntakeSubmissionResult = { ok: true; value: CapturedWorkIntake; receipts: [] };

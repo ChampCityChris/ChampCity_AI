@@ -1,15 +1,22 @@
 import { ArrowRight, FolderOpen, Plus } from "lucide-react";
+import type { ExistingProjectGitAdoptionPlan } from "../../shared/sourceControlContracts";
 
 export function LandingWorkspace({
   feedback,
   isChoosing,
   onOpenExistingProject,
   onStartNewProject,
+  migrationPlan,
+  onAcceptMigration,
+  onCancelMigration,
 }: {
   feedback: string;
   isChoosing: boolean;
   onOpenExistingProject: () => void;
   onStartNewProject: () => void;
+  migrationPlan?: ExistingProjectGitAdoptionPlan | null;
+  onAcceptMigration?: () => void;
+  onCancelMigration?: () => void;
 }): JSX.Element {
   return (
     <section className="landing-workspace" aria-labelledby="workspace-heading">
@@ -22,6 +29,28 @@ export function LandingWorkspace({
             directory and define a new project through Project Intake.
           </p>
         </header>
+
+        {migrationPlan ? (
+          <section className="landing-migration-warning" aria-labelledby="migration-warning-heading">
+            <p className="landing-eyebrow">Git conversion required</p>
+            <h2 id="migration-warning-heading">Convert this project for ChampCity source control?</h2>
+            <p>
+              ChampCity A/I needs to reorganize this project&apos;s Git repository into the source-control layout used by the
+              application. This conversion may change or damage the project&apos;s existing Git branch, worktree, and repository configuration.
+            </p>
+            <p>
+              ChampCity will preserve the current project files and will retain readable Git history where possible. After conversion,
+              ChampCity&apos;s managed Git layout becomes authoritative for this project.
+            </p>
+            <p>If you want to preserve or manually reorganize the current Git repository first, choose Cancel.</p>
+            <div className="landing-migration-actions">
+              <button className="primary-action" disabled={isChoosing} onClick={onAcceptMigration} type="button">
+                {isChoosing ? "Converting..." : "Accept and Convert"}
+              </button>
+              <button disabled={isChoosing} onClick={onCancelMigration} type="button">Cancel</button>
+            </div>
+          </section>
+        ) : null}
 
         <div className="landing-action-grid" aria-label="Project entry actions">
           <button

@@ -22,7 +22,7 @@ When documents overlap, use this precedence:
    - `CHAMPCITY_PRODUCT_CAPABILITY_MODEL.md`;
    - `CHAMPCITY_FOUNDATIONAL_ARCHITECTURE_PRINCIPLES.md`;
    - `CHAMPCITY_WEB_CLIENT_AND_SERVICE_HOST_ARCHITECTURE.md` for the controlling one-web-client / deployable-backend topology.
-4. **Topic-specific adopted architecture/contracts**, including `CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md` for executable validation planning/lane execution, `CHAMPCITY_TESTER_AND_TEST_LIFECYCLE_ARCHITECTURE.md` for Tester ownership and permanent-test lifecycle, Structured Project State, Client-Service, Repository/Source Layout, Runtime Recovery, Agent Runtime Interface, Deterministic Automation Boundaries, the Architectural Review Cycle, `CHAMPCITY_SOURCE_CONTROL_PROVIDER_ARCHITECTURE.md` for the provider-neutral source-control model, `CHAMPCITY_CONCURRENT_REPOSITORY_CHECKOUT_ARCHITECTURE.md` for concurrent writable source execution, and `CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md` for Work Intake routing, Plan topology, generic execution, and application-owned source-control lifecycle.
+4. **Topic-specific adopted architecture/contracts**, including `CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md` for executable validation planning/lane execution, `CHAMPCITY_TESTER_AND_TEST_LIFECYCLE_ARCHITECTURE.md` for Tester ownership and permanent-test lifecycle, Structured Project State, Client-Service, Repository/Source Layout, Runtime Recovery, Agent Runtime Interface, Deterministic Automation Boundaries, the Architectural Review Cycle, `CHAMPCITY_SOURCE_CONTROL_PROVIDER_ARCHITECTURE.md` for the provider-neutral source-control model, `CHAMPCITY_AGENT_FREE_SOURCE_CONTROL_LIFECYCLE_ARCHITECTURE.md` for Work Intake source preparation, application-owned checkpoints/integration, and Source Graph visualization, `CHAMPCITY_CONCURRENT_REPOSITORY_CHECKOUT_ARCHITECTURE.md` for later concurrent writable source execution, and `CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md` for Work Intake routing, Plan topology, and generic execution as amended by the agent-free source-control lifecycle decision.
 5. **Current migration/source mappings** such as `SOURCE_EXTRACTION_MAP.md`, the Desktop Source Mapping, and Vocabulary Migration Plan.
 6. **Historical/design-discussion documents**, which may explain rationale but may not override the adopted contracts above.
 
@@ -72,6 +72,7 @@ Legacy MCP `workspaceId` is a Repository-routing compatibility identity. It must
 | `CHAMPCITY_GOVERNANCE_WITHOUT_BUREAUCRACY_STANDARD.md` | **Adopted standard `CCAI-GOV-001`** | Minimum useful governance and autonomous execution rules | Governance |
 | `CHAMPCITY_UI_DESIGN_GOVERNANCE_STANDARD.md` | **Adopted standard `CCAI-UI-001`** | Shared UI/human-centered/responsive/accessibility rules | Governance |
 | `CHAMPCITY_STRUCTURED_PROJECT_STATE_DOMAIN_MODEL.md` | **Adopted V2 logical domain model** | Canonical Project State, revision/supersession, Decision/disposition, Validation/Evidence, completion semantics | Architecture |
+| `CHAMPCITY_STRUCTURED_PROJECT_STATE_SQLITE_PERSISTENCE_ARCHITECTURE.md` | **Adopted V2 implementation architecture — 2026-09-23** | SQLite ProjectStateStore, durability, transactions, migration/cutover, Memory-store separation | Architecture / Persistence |
 | `CHAMPCITY_CLIENT_SERVICE_CONTRACT.md` | **Adopted V2 semantic service contract** | Deployment-neutral client/service boundary | Architecture |
 | `CHAMPCITY_DETERMINISTIC_AUTOMATION_BOUNDARIES.md` | **Adopted V2 rulebook** | AI judgment vs deterministic ChampCity mechanics | Architecture / Governance |
 | `CHAMPCITY_TEST_EXECUTION_AND_VALIDATION_ARCHITECTURE.md` | **Implemented execution architecture; explicit full qualification pending** | Executable validation catalog/profiles, lane scheduling, affected-capability selection, integration gate, build reuse, validation telemetry | Architecture / Validation |
@@ -80,6 +81,7 @@ Legacy MCP `workspaceId` is a Repository-routing compatibility identity. It must
 | `CHAMPCITY_REPOSITORY_AND_SOURCE_LAYOUT_DECISION.md` | **Adopted architecture decision** | Existing `ChampCity_AI` product monorepo; app/package boundaries | Architecture |
 | `CHAMPCITY_ARCHITECTURAL_REVIEW_CYCLE.md` | **Adopted V2 pattern** | Three-turn Architect → Design Reviewer → Architect cycle | Architecture / Workflow |
 | `CHAMPCITY_WORK_INTAKE_ROUTING_AND_PLANNING_ARCHITECTURE.md` | **Adopted workflow/source-control architecture** | Universal Work Intake routing, route-specific planning profiles, direct/phased Plan topology, generic Plan execution, dedicated Intake branches, machine-owned Git, integration candidate, Integration Repair | Architecture / Workflow |
+| `CHAMPCITY_AGENT_FREE_SOURCE_CONTROL_LIFECYCLE_ARCHITECTURE.md` | **Adopted source-control lifecycle decision — 2026-09-23** | Agent-free Work Intake SourceLines, deterministic checkpoints/integration, Source Graph visualization, staged worktree adoption | Architecture / Source Control |
 | `CHAMPCITY_CONCURRENT_REPOSITORY_CHECKOUT_ARCHITECTURE.md` | **Adopted concurrent source-execution architecture** | RepositoryCheckout identity, managed worktree mechanics, concurrent Work Item execution, exact-revision review readiness, and safe checkout retirement | Architecture / Source Control |
 | `PROJECT_INTEGRATION_VALIDATION_POLICY.md` | **Implemented runtime-governing contract** | Target-owned integration policy, trusted runner definitions, controlled policy transition, and bounded validation evidence | Architecture / Runtime Contract |
 | `WORK_CARD_AND_REPAIR_CARD_CREATION_STANDARD.md` | **Current transition standard** | Bounded implementation/repair contracts through V1→V2 reporting transition | Governance |
@@ -110,12 +112,17 @@ The September 14 refresh reflects the frozen V1 working tree, including:
 The following are intentional architecture changes, not regressions to be “fixed back” to V1:
 
 - Structured Project State replaces repository Markdown as the live V2 workflow-state model.
+- SQLite is the first durable ProjectStateStore engine; persistence remains behind the provider-neutral ProjectStateStore port.
+- AI Memory uses a separate derived/rebuildable store even when it also uses SQLite; Memory never becomes canonical Project State.
 - The Architect's planning output receives one bounded independent Design Reviewer critique before final synthesis.
 - Post-implementation independent semantic conformance moves to the Validator role.
 - Routine Work/Fix/Repair validation does not require an Operator disposition when deterministic and required semantic criteria are satisfied.
 - Appropriate visual/human acceptance may be deferred and aggregated at Phase Validation.
 - ChampCity may mechanically advance/close bounded work within already directed scope when no genuine Operator Decision is required.
 - Git/source-control mechanics become deterministic RepositoryService responsibilities rather than a separate permission hierarchy or routine inference work.
+- Work Intake capture is not gated by unrelated primary-checkout cleanliness; source preparation is separate retryable application state.
+- Implementation and applicable Operator-disposition boundaries receive deterministic application-owned source revisions; agents do not operate routine Git.
+- Source topology is exposed through a read-only semantic Source Graph enriched with Project State.
 - Git becomes the first source-control provider beneath ChampCity-owned SourceLine/SourceRevision/RepositoryCheckout/Integration semantics rather than the workflow-defining API.
 - Codex becomes the first Agent Runtime adapter rather than an architecture-defining dependency.
 - Electron is retired from the V2 target architecture.

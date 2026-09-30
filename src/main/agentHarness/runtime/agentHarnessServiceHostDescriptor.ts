@@ -4,6 +4,12 @@ import path from "node:path";
 import { getAgentHarnessSettingsDirectory } from "./agentHarnessSettings";
 
 export const agentHarnessServiceHostDescriptorSchemaVersion = 1 as const;
+/**
+ * Additive operations may remain on protocol v1 because the Desktop build-generation
+ * fence replaces a live same-wire host before ordinary controls are sent. Any
+ * incompatible request/response wire change requires a protocol-version bump and
+ * an explicit compatibility or migration path.
+ */
 export const agentHarnessServiceHostControlProtocolVersion = 1 as const;
 
 export interface AgentHarnessServiceHostDescriptor {

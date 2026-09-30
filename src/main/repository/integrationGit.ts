@@ -1,0 +1,169 @@
+import fs from "node:fs";
+import path from "node:path";
+import { AgentHarnessError } from "../core/applicationErrors";
+import { runBoundedGit } from "../core/gitExecution";
+import { advanceGitBranchRef, inspectGitCheckout, inspectGitBranchState, inspectGitHistory } from "./gitMutations";
+
+const fail = (message: string) => new AgentHarnessError("GIT_EXECUTION_FAILED", message);
+const exact = (commit: string) => { if (!/^[a-f0-9]{40,64}$/.test(commit)) throw fail("Integration requires an exact commit."); return commit; };
+const exactRepositoryPath = (relativePath: string) => {
+  if (typeof relativePath !== "string" || !relativePath || relativePath.length > 4096
+    || relativePath.split("/").some((part) => !part || part === "." || part === ".." || /[\\:\r\n]/.test(part))) {
+    throw fail("Integration commit read requires an exact repository-relative path.");
+  }
+  return relativePath;
+};
+
+/** Read one bounded blob from an immutable commit without changing any checkout or ref. */
+export async function readIntegrationCommitFile(root: string, commit: string, relativePath: string, limit: number): Promise<Buffer> {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 1_000_000) throw fail("Integration commit read exceeds its byte bound.");
+  try {
+    const result = await runBoundedGit({
+      cwd: root,
+      args: ["cat-file", "blob", `${exact(commit)}:${exactRepositoryPath(relativePath)}`],
+      stdoutLimitBytes: limit,
+    });
+    return result.stdoutBuffer;
+  } catch {
+    throw fail("Required integration configuration is missing, unreadable, or exceeds its commit-file bound.");
+  }
+}
+export function integrationPaths(root: string, candidateId: string) {
+  if (!/^[a-f0-9]{64}$/.test(candidateId)) throw fail("Invalid integration candidate identity.");
+  // Candidate state is repository-owned, even when the selected operation root is a linked checkout.
+  const gitDirectory = path.join(root, ".git");
+  const metadata = fs.lstatSync(gitDirectory);
+  if (metadata.isSymbolicLink() || (!metadata.isDirectory() && !metadata.isFile())) throw fail("Integration requires a conventional or linked Git checkout.");
+  let commonDirectory: string;
+  if (metadata.isDirectory()) commonDirectory = fs.realpathSync(gitDirectory);
+  else {
+    const text = fs.readFileSync(gitDirectory, "utf8");
+    const match = /^gitdir: ([^\r\n]+)\r?\n?$/.exec(text);
+    if (!match) throw fail("Linked checkout metadata is invalid.");
+    const worktreeGitDirectory = path.resolve(root, match[1]);
+    const commonFile = path.resolve(worktreeGitDirectory, "commondir");
+    const commonText = fs.readFileSync(commonFile, "utf8").trim();
+    commonDirectory = fs.realpathSync(path.resolve(worktreeGitDirectory, commonText));
+  }
+  const base = path.join(commonDirectory, "champcity-integration", candidateId);
+  for (const entry of [path.dirname(base), base, path.join(base, "checkout")]) {
+    if (fs.existsSync(entry) && fs.lstatSync(entry).isSymbolicLink()) throw fail("Integration storage must not be redirected.");
+  }
+  return { base, checkout: path.join(base, "checkout"), record: path.join(base, "CANDIDATE.md"), branch: `champcity-integration/${candidateId}` };
+}
+export async function integrationCommonDirectory(root: string): Promise<string> {
+  const raw = (await runBoundedGit({ cwd: root, args: ["rev-parse", "--git-common-dir"] })).stdout.trim();
+  const resolved = fs.realpathSync(path.resolve(root, raw));
+  const probe = integrationPaths(root, "0".repeat(64));
+  const expected = fs.realpathSync(path.dirname(path.dirname(probe.base)));
+  if (resolved !== expected) throw fail("Selected checkout common repository identity changed.");
+  return resolved;
+}
+async function commitAt(root: string, ref: string) {
+  return (await inspectGitHistory(root, { ref, maxCount: 1 })).resolvedCommit;
+}
+async function ancestor(root: string, before: string, after: string) {
+  return (await inspectGitHistory(root, { ancestor: exact(before), descendant: exact(after), maxCount: 1 })).ancestry!.isAncestor;
+}
+export async function inspectIntegrationTarget(root: string, input: { baseCommit: string; incomingBranch: string; targetBranch: string; remote?: string }) {
+  const incoming = await inspectGitBranchState(root, input.incomingBranch);
+  const target = await inspectGitBranchState(root, input.targetBranch);
+  if (input.incomingBranch === input.targetBranch || !incoming.selectedBranch || !target.selectedBranch) throw fail("Integration requires distinct existing incoming and target branches.");
+  const localTargetCommit = target.selectedBranch.commit;
+  let targetCommit = localTargetCommit;
+  if (input.remote) {
+    if (!incoming.remotes.includes(input.remote) || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(input.remote)) throw fail("Integration requires one configured remote.");
+    const fetched = await commitAt(root, `refs/remotes/${input.remote}/${input.targetBranch}`);
+    if (await ancestor(root, localTargetCommit, fetched)) targetCommit = fetched;
+    else if (!await ancestor(root, fetched, localTargetCommit)) throw fail("Local and remote target diverged; reconcile target policy before integration.");
+  }
+  const incomingCommit = incoming.selectedBranch.commit;
+  if (!await ancestor(root, input.baseCommit, incomingCommit) || !await ancestor(root, input.baseCommit, targetCommit)) throw fail("Integration refs no longer descend from the Intake base.");
+  const bases = (await runBoundedGit({ cwd: root, args: ["merge-base", "--all", incomingCommit, targetCommit] })).stdout.trim().split(/\s+/);
+  if (bases.length !== 1) throw fail("Integration requires one unambiguous merge base.");
+  return { incomingCommit, localTargetCommit, targetCommit, mergeBase: exact(bases[0]) };
+}
+export async function registeredIntegrationCheckout(root: string, candidateId: string) {
+  const commonDirectory = await integrationCommonDirectory(root);
+  const paths = integrationPaths(root, candidateId);
+  const listing = (await runBoundedGit({ cwd: root, args: ["worktree", "list", "--porcelain", "-z"] })).stdout;
+  const records = listing.split("\0\0").map((entry) => entry.split("\0"));
+  const owned = records.find((entry) => entry.includes(`branch refs/heads/${paths.branch}`));
+  if (!owned || !owned.some((entry) => entry.startsWith("worktree ") && path.resolve(entry.slice(9)) === path.resolve(paths.checkout))) throw fail("Integration checkout ownership could not be verified.");
+  const actual = (await runBoundedGit({ cwd: paths.checkout, args: ["rev-parse", "--show-toplevel"] })).stdout.trim();
+  if (fs.realpathSync(actual) !== fs.realpathSync(paths.checkout)) throw fail("Integration checkout identity changed.");
+  const common = (await runBoundedGit({ cwd: paths.checkout, args: ["rev-parse", "--git-common-dir"] })).stdout.trim();
+  if (fs.realpathSync(path.resolve(paths.checkout, common)) !== commonDirectory) throw fail("Integration checkout no longer belongs to the selected repository.");
+  return paths;
+}
+export async function createIntegrationCheckout(root: string, input: { candidateId: string; targetCommit: string }) {
+  await integrationCommonDirectory(root);
+  const paths = integrationPaths(root, input.candidateId);
+  exact(input.targetCommit);
+  if (fs.existsSync(paths.checkout)) throw fail("Integration checkout already exists; resume or abort its recorded candidate.");
+  fs.mkdirSync(paths.base, { recursive: true });
+  await runBoundedGit({ cwd: root, args: ["worktree", "add", "-b", paths.branch, paths.checkout, input.targetCommit] });
+  await registeredIntegrationCheckout(root, input.candidateId);
+  return { branch: paths.branch, commit: input.targetCommit };
+}
+export async function inspectIntegrationCheckout(root: string, candidateId: string) {
+  const paths = await registeredIntegrationCheckout(root, candidateId);
+  return inspectGitCheckout(paths.checkout);
+}
+export async function mergeIntegrationCheckout(root: string, input: { candidateId: string; incomingCommit: string; targetCommit: string }) {
+  const paths = await registeredIntegrationCheckout(root, input.candidateId);
+  const before = await inspectIntegrationCheckout(root, input.candidateId);
+  if (!before.clean || before.commit !== exact(input.targetCommit)) throw fail("Candidate must be clean at its exact target before merge.");
+  const merged = await runBoundedGit({ cwd: paths.checkout, args: ["-c", "rerere.enabled=false", "merge", "--no-edit", "--no-stat", "--no-gpg-sign", exact(input.incomingCommit)], rejectNonZero: false });
+  const state = await inspectIntegrationCheckout(root, input.candidateId);
+  if (merged.exitCode !== 0 && !state.conflictingPaths.length) throw fail("Mechanical integration failed without resolvable conflict evidence; candidate retained.");
+  return state;
+}
+export async function advanceIntegrationTarget(root: string, input: { candidateId: string; candidateCommit: string; targetBranch: string; localTargetCommit: string; incomingBranch: string; incomingCommit: string }) {
+  const candidate = await inspectIntegrationCheckout(root, input.candidateId);
+  if (!candidate.clean || candidate.commit !== exact(input.candidateCommit)) throw fail("Validated candidate source changed before integration.");
+  const target = await inspectGitBranchState(root, input.targetBranch);
+  const incoming = await inspectGitBranchState(root, input.incomingBranch);
+  if (target.selectedBranch?.commit !== exact(input.localTargetCommit) || incoming.selectedBranch?.commit !== exact(input.incomingCommit)) throw fail("Integration refs changed; construct a fresh candidate.");
+  const worktrees = (await runBoundedGit({ cwd: root, args: ["worktree", "list", "--porcelain", "-z"] })).stdout.split("\0");
+  const targetCheckedOut = worktrees.includes(`branch refs/heads/${input.targetBranch}`);
+  if (targetCheckedOut) {
+    const currentBranch = (await runBoundedGit({ cwd: root, args: ["branch", "--show-current"] })).stdout.trim();
+    const currentHead = (await runBoundedGit({ cwd: root, args: ["rev-parse", "HEAD"] })).stdout.trim();
+    const status = await inspectGitCheckout(root);
+    if (currentBranch !== input.targetBranch || currentHead !== input.localTargetCommit || !status.clean)
+      throw fail("Target branch is checked out outside a clean exact selected integration checkout.");
+    if (!await ancestor(root, input.localTargetCommit, input.candidateCommit) || !await ancestor(root, input.incomingCommit, input.candidateCommit)) throw fail("Candidate does not preserve both accepted histories.");
+    await runBoundedGit({ cwd: root, args: ["reset", "--hard", exact(input.candidateCommit)] });
+    return { commit: await commitAt(root, `refs/heads/${input.targetBranch}`) };
+  }
+  if (!await ancestor(root, input.localTargetCommit, input.candidateCommit) || !await ancestor(root, input.incomingCommit, input.candidateCommit)) throw fail("Candidate does not preserve both accepted histories.");
+  await advanceGitBranchRef(root, { branchName: input.targetBranch, sourceRef: input.candidateCommit, expectedCurrentCommit: input.localTargetCommit });
+  return { commit: await commitAt(root, `refs/heads/${input.targetBranch}`) };
+}
+export async function abortIntegrationCheckout(root: string, candidateId: string) {
+  const paths = integrationPaths(root, candidateId);
+  if (fs.existsSync(paths.checkout)) {
+    await registeredIntegrationCheckout(root, candidateId);
+    // Explicit abort discards only this machine-owned temporary checkout, including unresolved merge state.
+    await runBoundedGit({ cwd: root, args: ["worktree", "remove", "--force", paths.checkout] });
+  }
+  const state = await inspectGitBranchState(root);
+  const branch = state.branches.find((entry) => entry.name === paths.branch);
+  if (branch) {
+    const worktrees = (await runBoundedGit({ cwd: root, args: ["worktree", "list", "--porcelain", "-z"] })).stdout.split("\0");
+    if (worktrees.includes(`branch refs/heads/${paths.branch}`)) throw fail("Candidate branch is still checked out; cleanup stopped.");
+    await runBoundedGit({ cwd: root, args: ["update-ref", "--no-deref", "-d", `refs/heads/${paths.branch}`, branch.commit] });
+  }
+  return { cleaned: true };
+}
+
+/** Exact target-to-candidate diff; --no-renames retains both endpoints as owned changes. */
+export async function readIntegrationChangedPaths(root: string, input: { candidateId: string; targetCommit: string; candidateCommit: string }): Promise<string[]> {
+  const paths = await registeredIntegrationCheckout(root, input.candidateId);
+  if (await commitAt(paths.checkout, "HEAD") !== exact(input.candidateCommit)) throw fail("Validation candidate revision changed.");
+  const result = await runBoundedGit({ cwd: root, args: ["diff", "--name-only", "--no-renames", "-z", exact(input.targetCommit), exact(input.candidateCommit), "--"], stdoutLimitBytes: 1_000_000 });
+  const changed = result.stdout.split("\0").filter(Boolean).map(exactRepositoryPath);
+  if (changed.length > 4096) throw fail("Validation diff exceeds its path bound.");
+  return [...new Set(changed)].sort();
+}

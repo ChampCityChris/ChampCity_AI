@@ -9,13 +9,132 @@ const loader = require("./renderer-source-loader.cjs");
 const { App } = loader.loadRendererSourceModule("src/renderer/app/App.tsx");
 const { FigmaSidebar } = loader.loadRendererSourceModule("src/renderer/app/figma/FigmaSidebar.tsx");
 const { LandingWorkspace } = loader.loadRendererSourceModule("src/renderer/app/LandingWorkspace.tsx");
+const { acceptExistingProjectAdoption, openInspectedExistingProject } = loader.loadRendererSourceModule("src/renderer/app/existingProjectEntryController.ts");
 const { NestedWorkflowRail } = loader.loadRendererSourceModule("src/renderer/app/NestedWorkflowRail.tsx");
 const { WorkflowHubWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowHubWorkspace.tsx");
-const {
-  workflowDefinitions,
-} = loader.loadRendererSourceModule("src/shared/workflowHubContracts.ts");
+const { WorkflowInstanceWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowInstanceWorkspace.tsx");
+const { WorkflowExecutionWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowExecutionWorkspace.tsx");
+const { FeaturePlanningWorkspace } = loader.loadRendererSourceModule("src/renderer/app/FeaturePlanningWorkspace.tsx");
+const { CodexBoundedUserInputPanel, CodexBoundedMcpElicitationPanel } = loader.loadRendererSourceModule("src/renderer/app/CodexBoundedInteractionPanels.tsx");
+
+test("human execution actions expose outcomes and cannot submit derived identity", () => {
+  const source = fs.readFileSync(path.join(__dirname, "../../src/renderer/app/WorkflowExecutionWorkspace.tsx"), "utf8");
+  assert.match(source, /value=\{humanVisualOutcome\}/);
+  assert.match(source, /outcome: humanVisualOutcome/);
+  assert.doesNotMatch(source, /implementationRecordId:\s*latest\.id/);
+  assert.doesNotMatch(source, /sourceRevisionId:\s*(?:validation|review)\.sourceRevisionId/);
+  assert.doesNotMatch(source, /testerResultId:\s*tester\./);
+  assert.match(source, /Create Phase Repair/);
+  assert.match(source, /createWorkflowPhaseRepair\(workflow\.workflowId, phase\.phaseId/);
+});
+const { IssueWorkflowPlanningWorkspace } = loader.loadRendererSourceModule("src/renderer/app/IssueWorkflowPlanningWorkspace.tsx");
+const { workflowPlanningSurface, shouldShowClosedWorkIntakeSummary } = loader.loadRendererSourceModule("src/renderer/app/workflowPlanningDispatch.ts");
+const { WorkflowPlanningMap } = loader.loadRendererSourceModule("src/renderer/app/WorkflowPlanningMap.tsx");
+const { WORKFLOW_TYPE_REGISTRY } = loader.loadRendererSourceModule("src/shared/projectState/workflowTypeRegistry.ts");
 
 const repoRoot = path.join(__dirname, "..", "..");
+
+test("exact planning dispatch follows supported type and persisted currentWorkspace", () => {
+  for (const currentWorkspace of ["feature-intake", "feature-assessment", "feature-planning"])
+    assert.equal(workflowPlanningSurface({ workflowType: "feature-capability", lifecycleState: "active", currentWorkspace }), "feature");
+  for (const currentWorkspace of ["issue-intake", "issue-rca", "issue-planning"])
+    assert.equal(workflowPlanningSurface({ workflowType: "issue-resolution", lifecycleState: "active", currentWorkspace }), "issue");
+  for (const currentWorkspace of ["work-item-map", "execution-complete", "integration-ready"])
+    assert.equal(workflowPlanningSurface({ workflowType: "feature-capability", lifecycleState: "active", currentWorkspace }), "execution");
+  assert.equal(workflowPlanningSurface({ workflowType: "issue-resolution", lifecycleState: "active", currentWorkspace: "work-item-map" }), "execution");
+  assert.equal(workflowPlanningSurface({ workflowType: "issue-resolution", lifecycleState: "active", currentWorkspace: "feature-planning" }), "execution");
+  assert.equal(workflowPlanningSurface({ workflowType: "refactor-migration", lifecycleState: "active", currentWorkspace: "feature-planning" }), "generic");
+  assert.equal(workflowPlanningSurface({ workflowType: "feature-capability", lifecycleState: "closed", currentWorkspace: "work-item-map" }), "generic");
+  assert.equal(shouldShowClosedWorkIntakeSummary({ workflowType: "work-intake-routing", lifecycleState: "closed", currentWorkspace: "work-intake" }), true);
+  assert.equal(shouldShowClosedWorkIntakeSummary({ workflowType: "work-intake-routing", lifecycleState: "active", currentWorkspace: "work-intake" }), false);
+});
+
+test("shared execution Workspace is the exact Feature and Issue post-plan surface with return navigation", () => {
+  for (const workflowType of ["feature-capability", "issue-resolution"]) {
+    const markup = renderToStaticMarkup(React.createElement(WorkflowExecutionWorkspace, { workflow: {
+      workflowId: `${workflowType}-exact-id`, workflowType, title: "Same-title concurrent Workflow", lifecycleState: "active",
+      currentWorkspace: "work-item-map", workflowState: "active", lineageId: `${workflowType}-lineage`, createdAt: "now", updatedAt: "now",
+    }, onReturn() {}, browserPanel: React.createElement("div", null, "Architect browser") }));
+    assert.match(markup, /Shared Execution Workspace/);
+    assert.match(markup, new RegExp(`${workflowType}-exact-id`));
+    assert.match(markup, /Back to Workflows/);
+    assert.match(markup, /Work Item Map and readiness/);
+    assert.match(markup, /Embedded Architect/);
+  }
+});
+
+test("shared execution Workspace binds pending Implementer and Tester interactions to exact execution identities", () => {
+  const fs = require("node:fs");
+  const source = fs.readFileSync(require("node:path").resolve(__dirname, "../../src/renderer/app/WorkflowExecutionWorkspace.tsx"), "utf8");
+  for (const label of ["Implementer approval request", "Tester approval request"])
+    assert.ok(source.includes(label), `visible Workspace section is present: ${label}`);
+  assert.match(source, /CodexBoundedUserInputPanel/);
+  assert.match(source, /CodexBoundedMcpElicitationPanel/);
+  assert.match(source, /respondToCodexApproval\(\{[^}]*workflowId: workflow\.workflowId, workItemId: item\.record\.id/s);
+  assert.match(source, /respondToCodexUserInput\(\{[^}]*workflowId: workflow\.workflowId, workItemId: item\.record\.id/s);
+  assert.match(source, /respondToCodexMcpElicitation\(\{[^}]*workflowId: workflow\.workflowId, workItemId: item\.record\.id/s);
+  assert.match(source, /cancelCodexImplementerExecution\(\{ workflowId: workflow\.workflowId, workItemId: item\.record\.id \}/);
+  assert.match(source, /respondToWorkflowWorkItemTesterApproval\(workflow\.workflowId, item\.record\.id, latest!\.id/);
+  assert.match(source, /respondToWorkflowWorkItemTesterInput\(workflow\.workflowId, item\.record\.id, latest!\.id/);
+  assert.match(source, /cancelWorkflowWorkItemTester\(workflow\.workflowId, item\.record\.id, latest\.id/);
+  assert.match(source, /Architect WorkItem execution planning/);
+  assert.match(source, /acceptWorkflowWorkItemExecutionPlan/);
+  assert.match(source, /Prepare Architect handoff/);
+  assert.match(source, /Import bounded Architect result/);
+  assert.match(source, /JSON\.parse\(architectDraft\)/);
+  assert.match(source, /setDecompositionJson\(typedDecomposition\)/);
+  assert.match(source, /Execution could not start\./);
+  assert.match(source, /item\.record\.body\.implementationBoundaries\?\.length/);
+  assert.doesNotMatch(source, /runtime\?\.busy/);
+  assert.match(source, /respondToCodexMcpElicitation\(\{[^}]*requestId, action, content, workflowId: workflow\.workflowId, workItemId: item\.record\.id/s);
+  assert.match(source, /getWorkflowWorkItemTesterStatus\(workflow\.workflowId, selected\.record\.id, last\.id\)/);
+  const pending = { requestId: "request-exact", threadId: "thread", turnId: "turn", itemId: "item", questions: [
+    { id: "choice-id", header: "Choice", question: "Pick one", options: [{ label: "A", description: "First" }] },
+    { id: "free-id", header: "Details", question: "Describe it", options: [] },
+  ] };
+  const inputMarkup = renderToStaticMarkup(React.createElement(CodexBoundedUserInputPanel, { pending, label: "Implementer", onSubmit() {} }));
+  assert.match(inputMarkup, /<select/);
+  assert.match(inputMarkup, /aria-label="Details"/);
+  assert.match(inputMarkup, /<input/);
+  const elicitation = { requestId: "mcp-exact", threadId: "thread", turnId: "turn", serverName: "fixture", mode: "form", message: "Provide values", responseSupported: true,
+    unsupportedReason: null, elicitationId: null, url: null, requestedSchemaSummary: "Two fields", fields: [
+      { id: "region", title: "Region", description: "Select", type: "string", required: true, options: [{ value: "east", label: "East" }] },
+      { id: "notes", title: "Notes", description: "Explain", type: "string", required: false, options: [] },
+    ] };
+  const mcpMarkup = renderToStaticMarkup(React.createElement(CodexBoundedMcpElicitationPanel, { pending: elicitation, onSubmit() {} }));
+  assert.match(mcpMarkup, /aria-label="Region"/);
+  assert.match(mcpMarkup, /aria-label="Notes"/);
+  assert.doesNotMatch(mcpMarkup, /Content JSON|textarea/);
+  const unsupported = renderToStaticMarkup(React.createElement(CodexBoundedMcpElicitationPanel, { pending: { ...elicitation, responseSupported: false, unsupportedReason: "Unsupported schema" }, onSubmit() {} }));
+  assert.match(unsupported, /Unsupported schema/);
+  assert.doesNotMatch(unsupported, /Send elicitation response|Decline elicitation|Cancel elicitation/);
+});
+
+test("accepted Work Item Map is readable and exposes no execution controls", () => {
+  const record = (id, body) => ({ id, body });
+  const markup = renderToStaticMarkup(React.createElement(WorkflowPlanningMap, { plan: {
+    phases: [{ phaseId: "phase-1", sequence: 1, workItemIds: ["work-1"], criterionIds: [], record: record("phase-1", { title: "Foundation", objective: "Establish base" }) }],
+    directWorkItems: [], workItemsByPhase: { "phase-1": [record("work-1", { title: "Add route", objective: "Expose route", workItemKind: "fix" })] },
+    dependencyIds: [{ from: "work-1", to: "work-2" }], repairIds: [], criteria: [], decisions: [],
+    solutions: [record("solution-1", { title: "Stable export", objective: "Export reliably", scopeIn: ["CSV"], scopeOut: ["PDF"] })],
+  } }));
+  assert.match(markup, /Phased/);
+  assert.match(markup, /Bounded Solution: Stable export/);
+  assert.match(markup, /Phase 1: Foundation/);
+  assert.match(markup, /Add route/);
+  assert.match(markup, /work-2/);
+  assert.match(markup, /read-only/i);
+  assert.doesNotMatch(markup, /<button|Implement|Checkpoint|Integrate/);
+});
+
+test("closed WIR stays on its completed exact-instance summary", () => {
+  const workflow = { workflowId: "wir-closed-12", lineageId: "lineage", workflowType: "work-intake-routing", title: "Completed routing", workflowState: "closed", lifecycleState: "closed", currentWorkspace: "work-intake", createdAt: "now", updatedAt: "now" };
+  const markup = renderToStaticMarkup(React.createElement(WorkflowInstanceWorkspace, { workflow, onReturn: () => undefined }));
+  assert.match(markup, /This Work Intake routing Workflow is complete/);
+  assert.match(markup, /Completed/);
+  assert.match(markup, /wir-closed-12/);
+  assert.doesNotMatch(markup, /ready for its workflow-specific intake/);
+});
 
 test("fresh composed renderer foregrounds landing without sidebar or workflow rails", () => {
   const markup = renderToStaticMarkup(React.createElement(App));
@@ -41,6 +160,66 @@ test("fresh application shell presents the project-neutral landing actions witho
   assert.match(markup, /Open Existing Project/);
   assert.match(markup, /Start New Project/);
   assert.doesNotMatch(markup, /Project navigation|Workflow navigation|Available workflows/);
+});
+
+test("landing conversion warning renders only the material consequence with Accept and Cancel actions", () => {
+  const markup = renderToStaticMarkup(React.createElement(LandingWorkspace, {
+    feedback: "",
+    isChoosing: false,
+    migrationPlan: {
+      planId: "a".repeat(64), state: "conversion-required", repositoryId: "project-source", priorGitDetected: true,
+      topology: { conventionalGit: true, managedMetadata: false, mainCheckout: false, devCheckout: false, recoveryStaging: false },
+      preservedRefCount: 7, preservedRemoteCount: 1, requiresConsent: true, warnings: [], failureReason: null,
+    },
+    onAcceptMigration: () => undefined,
+    onCancelMigration: () => undefined,
+    onOpenExistingProject: () => undefined,
+    onStartNewProject: () => undefined,
+  }));
+  assert.match(markup, /Git conversion required/);
+  assert.match(markup, /Convert this project for ChampCity source control\?/);
+  assert.match(markup, /may change or damage the project&#x27;s existing Git branch, worktree, and repository configuration/);
+  assert.match(markup, /preserve the current project files and will retain readable Git history where possible/);
+  assert.match(markup, /Accept and Convert/);
+  assert.match(markup, />Cancel</);
+  assert.doesNotMatch(markup, /feature\/current|staged|unstaged|untracked|repair|detached|conflict/);
+  assert.doesNotMatch(markup, /C:\\|\/Users\//);
+});
+
+test("Existing Project entry controller applies before one registration and gates consent", async () => {
+  const calls = [];
+  const project = { projectId: "project", projectName: "Project", repositoryId: "source", projectRoot: "opaque", mode: "existing", created: true };
+  const api = {
+    applyExistingProjectGitAdoption: async planId => { calls.push(["apply", planId]); },
+    registerCurrentProject: async mode => { calls.push(["register", mode]); return project; },
+  };
+  const automatic = { planId: "b".repeat(64), state: "managed-ready", requiresConsent: false };
+  assert.deepEqual(await openInspectedExistingProject(api, automatic), { kind: "ready", project });
+  assert.deepEqual(calls, [["apply", automatic.planId], ["register", "existing"]]);
+  calls.length = 0;
+  const consent = { ...automatic, state: "conversion-required", requiresConsent: true };
+  assert.deepEqual(await openInspectedExistingProject(api, consent), { kind: "consent-required", plan: consent });
+  assert.deepEqual(calls, []);
+  await acceptExistingProjectAdoption(api, consent);
+  assert.deepEqual(calls, [["apply", consent.planId], ["register", "existing"]]);
+});
+
+test("Feature workspace is keyed by exact Workflow identity and exposes only its planning front half", () => {
+  const workflow = { workflowId: "feature-exact-123", lineageId: "lineage", workflowType: "feature-capability", title: "Same title", workflowState: "active", lifecycleState: "active", currentWorkspace: "feature-intake", createdAt: "now", updatedAt: "now" };
+  const markup = renderToStaticMarkup(React.createElement(FeaturePlanningWorkspace, { workflow, onReturn: () => undefined, browserPanel: React.createElement("div", null, "Architect browser") }));
+  assert.match(markup, /feature-exact-123/);
+  assert.match(markup, /Feature Intake/);
+  assert.match(markup, /Architect browser/);
+  assert.doesNotMatch(markup, /Implement|Create Work Card|Checkpoint|Integrate|Close Workflow/);
+});
+
+test("Issue Workflow workspace uses exact Workflow identity and keeps execution actions out of the front half", () => {
+  const workflow = { workflowId: "issue-exact-987", lineageId: "lineage", workflowType: "issue-resolution", title: "Same incident", workflowState: "active", lifecycleState: "active", currentWorkspace: "issue-intake", createdAt: "now", updatedAt: "now" };
+  const markup = renderToStaticMarkup(React.createElement(IssueWorkflowPlanningWorkspace, { workflow, onReturn: () => undefined, browserPanel: React.createElement("div", null, "Architect browser") }));
+  assert.match(markup, /issue-exact-987/);
+  assert.match(markup, /Issue Intake/);
+  assert.match(markup, /Architect browser/);
+  assert.doesNotMatch(markup, /Create Fix Card|Implement|Checkpoint|Integrate|Close Issue/);
 });
 
 test("landing selection feedback remains bounded to the landing surface", () => {
@@ -78,28 +257,9 @@ test("Workflow Hub registry exposes only the functional peer workflows", () => {
     assert.equal(isWorkRouteId(unknown), false);
     assert.equal(getWorkRouteProfile(unknown), undefined);
   }
-  assert.deepEqual(
-    workflowDefinitions.map(({ workflowId, label, description, tags }) => ({
-      workflowId,
-      label,
-      description,
-      tags,
-    })),
-    [
-      {
-        workflowId: "development",
-        label: "Development",
-        description: "Plan, implement, review, and validate planned software development.",
-        tags: ["Plan", "Build", "Prove"],
-      },
-      {
-        workflowId: "issue-resolution",
-        label: "Issue Resolution",
-        description: "Investigate and resolve problems in the current project baseline.",
-        tags: ["Investigate", "Fix", "Verify"],
-      },
-    ],
-  );
+  assert.deepEqual(Object.values(WORKFLOW_TYPE_REGISTRY).filter(row => row.directStart).map(row => row.workflowType), [
+    "feature-capability", "refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype", "issue-resolution",
+  ]);
 });
 
 test("Hub with no selected project renders project-selection shell without Development lifecycle status", () => {
@@ -117,8 +277,13 @@ test("Hub with no selected project renders project-selection shell without Devel
     workspace: { ok: false, workspaceRoot: null, reason: "No project selected." },
   }));
   const hubMarkup = renderToStaticMarkup(React.createElement(WorkflowHubWorkspace, {
+    onOpenSourceControl: () => undefined,
     onOpenWorkflow: () => undefined,
+    onStartWorkflow: async () => undefined,
+    onStartWorkIntake: () => undefined,
     projectName: "No Project Selected",
+    sourceControlAvailable: false,
+    inventory: null, selectedWorkflowId: null, loading: false, error: "",
     workspace: { ok: false, workspaceRoot: null, reason: "No project selected." },
   }));
 
@@ -131,33 +296,115 @@ test("Hub with no selected project renders project-selection shell without Devel
   assert.doesNotMatch(hubMarkup, /Development|Current Required Workflow Step|Phase Loop|Work Card loop/);
 });
 
-test("Selected-project Hub prioritizes Work Intake and retains Development and Issue recovery", () => {
+test("Selected-project Hub groups independent Workflow instances and direct starts", () => {
+  const instance = (workflowId, workflowType, title, lifecycleState = "active") => ({
+    workflowId, workflowType, title, lineageId: `lineage-${workflowId}`, workflowState: lifecycleState === "closed" ? "closed" : "intake",
+    lifecycleState, currentWorkspace: "feature-intake", createdAt: "2026-01-01", updatedAt: "2026-01-01",
+  });
   const markup = renderToStaticMarkup(React.createElement(WorkflowHubWorkspace, {
+    onOpenSourceControl: () => undefined,
     onOpenWorkflow: () => undefined,
+    onStartWorkflow: async () => undefined,
+    onStartWorkIntake: () => undefined,
     projectName: "ChampCity_AI",
+    sourceControlAvailable: true,
+    inventory: { groups: [
+      { workflowType: "feature-capability", workflows: [instance("feature-1111", "feature-capability", "Improve onboarding"), instance("feature-2222", "feature-capability", "Add dashboard", "closed")] },
+      { workflowType: "issue-resolution", workflows: [instance("issue-1111", "issue-resolution", "Startup crash"), instance("issue-2222", "issue-resolution", "Broken export")] },
+      { workflowType: "work-intake-routing", workflows: [instance("wir-1111", "work-intake-routing", "Route request")] },
+    ] }, selectedWorkflowId: "feature-2222", loading: false, error: "",
     workspace: { ok: true, workspaceRoot: "<PROJECT_REPO>" },
   }));
 
   assert.match(markup, /<h1 id="workspace-heading">Workflows<\/h1>/);
-  assert.match(markup, /Start a new body of work on ChampCity_AI, or continue existing work\./);
-  assert.match(markup, /aria-label="Start work"/);
-  assert.match(markup, /Open Work Intake/);
-  assert.match(markup, /<details><summary>Continue legacy Development or Issue work<\/summary>/);
-  assert.match(markup, /aria-label="Existing workflow recovery"/);
-  assert.match(markup, /class="workflow-card"/);
-  assert.match(markup, /Development/);
-  assert.match(markup, /Plan, implement, review, and validate planned software development\./);
-  assert.match(markup, /Plan/);
-  assert.match(markup, /Build/);
-  assert.match(markup, /Prove/);
-  assert.match(markup, /Continue Development/);
-  assert.match(markup, /Issue Resolution/);
-  assert.match(markup, /Investigate and resolve problems in the current project baseline\./);
-  assert.match(markup, /Investigate/);
-  assert.match(markup, /Fix/);
-  assert.match(markup, /Verify/);
-  assert.match(markup, /Open Issue Resolution/);
-  assert.doesNotMatch(markup, /Feature|Graphic|Brainstorm/);
+  assert.match(markup, /Feature \/ Capability/);
+  assert.match(markup, /\+ Start Feature/);
+  assert.match(markup, /Improve onboarding/);
+  assert.match(markup, /Add dashboard/);
+  assert.match(markup, /Completed/);
+  assert.match(markup, /aria-label="Open Add dashboard \(feature-\)/);
+  assert.match(markup, /\+ Help Me Route New Work/);
+  assert.match(markup, /Broken export/);
+  assert.match(markup, /2 instances/);
+  assert.match(markup, /Source Control/);
+  assert.doesNotMatch(markup, /Continue legacy Development or Issue work|Existing workflow recovery|Continue Development|Open Issue Resolution/);
+  assert.doesNotMatch(markup, /Plan, implement, review, and validate planned software development\.|Investigate and resolve problems in the current project baseline\./);
+  assert.equal((markup.match(/class="workflow-type-group"/g) ?? []).length, 7);
+});
+
+test("Hub represents the one-time Project Creation instance without a direct-start action", () => {
+  const instance = { workflowId: "project-create-1", workflowType: "project-creation", title: "New product",
+    lineageId: "lineage-project-create-1", workflowState: "active", lifecycleState: "active", currentWorkspace: "project-intake",
+    createdAt: "2026-01-01", updatedAt: "2026-01-01" };
+  const markup = renderToStaticMarkup(React.createElement(WorkflowHubWorkspace, {
+    onOpenSourceControl: () => undefined, onOpenWorkflow: () => undefined, onStartWorkflow: async () => undefined,
+    onStartWorkIntake: () => undefined, projectName: "New product", sourceControlAvailable: true,
+    inventory: { groups: [{ workflowType: "project-creation", workflows: [instance] }] }, selectedWorkflowId: instance.workflowId,
+    loading: false, error: "", workspace: { ok: true, workspaceRoot: "<PROJECT_REPO>" },
+  }));
+  assert.match(markup, /Project Creation \/ Greenfield/);
+  assert.match(markup, /New product/);
+  assert.match(markup, /aria-label="Open New product \(project-/);
+  assert.doesNotMatch(markup, /\+ Start Project Creation/);
+});
+
+test("Hub actions preserve exact Workflow identity and route WIR rows to their exact intake", () => {
+  const source = fs.readFileSync(path.join(repoRoot, "src/renderer/app/App.tsx"), "utf8");
+  const ts = require("typescript");
+  const ast = ts.createSourceFile("App.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const declarations = new Map();
+  function visit(node) {
+    if (ts.isFunctionDeclaration(node) && node.name) declarations.set(node.name.text, node.getText(ast));
+    ts.forEachChild(node, visit);
+  }
+  visit(ast);
+  assert.match(declarations.get("startDirectWorkflow"), /startWorkflow\(request\)/);
+  assert.match(declarations.get("startDirectWorkflow"), /getWorkflow\(created\.workflow\.workflowId\)/);
+  assert.match(declarations.get("startDirectWorkflow"), /setSelectedWorkflowId\(opened\.workflow\.workflowId\)/);
+  assert.match(declarations.get("openCurrentWorkflow"), /getWorkflow\(workflowId\)/);
+  assert.match(declarations.get("openCurrentWorkflow"), /workflowType === "project-creation"/);
+  assert.match(declarations.get("activateWorkspaceSelection"), /projectCreationWorkflowId/);
+  assert.match(declarations.get("activateWorkspaceSelection"), /setSelectedWorkflowId\(opened\.workflow\.workflowId\)/);
+  assert.match(declarations.get("openCurrentWorkflow"), /openWorkIntakeForWorkflow\(result\.workflow\.workIntakeId, result\.workflow\.workflowId\)/);
+  assert.match(declarations.get("openWorkIntakeForWorkflow"), /item\.intakeId === intakeId/);
+  assert.match(declarations.get("openWorkIntakeForWorkflow"), /setShellView\("work-intake"\)/);
+  assert.match(source, /onStartWorkIntake=\{\(\) => void openWorkIntake\(\)\}/);
+  assert.match(source, /onOpenWorkflow=\{workflowId => void openCurrentWorkflow\(workflowId\)\}/);
+  assert.match(source, /setSelectedWorkflowId\(routing\.workflowId\)/);
+  assert.doesNotMatch(declarations.get("startDirectWorkflow"), /startWorkIntake|createWorkIntake|submitWorkIntake/);
+});
+
+test("non-source Current Project Hub omits Source Control", () => {
+  const markup = renderToStaticMarkup(React.createElement(WorkflowHubWorkspace, {
+    onOpenSourceControl: () => undefined, onOpenWorkflow: () => undefined, onStartWorkflow: async () => undefined,
+    onStartWorkIntake: () => undefined, inventory: { groups: [] }, selectedWorkflowId: null, loading: false, error: "",
+    projectName: "Notes Project", sourceControlAvailable: false,
+    workspace: { ok: true, workspaceRoot: "<PROJECT_REPO>" },
+  }));
+  assert.doesNotMatch(markup, /Source Control|View source graph/);
+  assert.match(markup, /\+ New Issue/);
+});
+
+test("Workflow IPC accepts exact bounded arguments and binds calls to the main-selected project", async () => {
+  const { registerWorkflowApplicationIpc } = require("../../dist/main/workflow/workflowApplicationIpc.js");
+  const handlers = new Map();
+  const calls = [];
+  const service = {
+    listCurrentProjectWorkflows: async root => { calls.push(["list", root]); return { groups: [] }; },
+    startDirectWorkflow: async (root, request) => { calls.push(["start", root, request]); return { workflow: { workflowId: "wf-1" } }; },
+    getCurrentProjectWorkflow: async (root, id) => { calls.push(["get", root, id]); return { workflow: { workflowId: id } }; },
+  };
+  registerWorkflowApplicationIpc({ handle: (channel, handler) => handlers.set(channel, handler) }, () => "<PROJECT_REPO>", service);
+  assert.deepEqual(await handlers.get("workflow:list")({},), { groups: [] });
+  await assert.rejects(handlers.get("workflow:list")({}, "renderer-root"), /does not accept renderer arguments/);
+  assert.deepEqual(await handlers.get("workflow:start")({}, { workflowType: "feature-capability", title: "A feature" }), { workflow: { workflowId: "wf-1" } });
+  await assert.rejects(handlers.get("workflow:start")({}, { workflowType: "feature-capability", title: "A", projectRoot: "elsewhere" }), /only Workflow type and title/);
+  assert.deepEqual(await handlers.get("workflow:get")({}, "exact-workflow-id"), { workflow: { workflowId: "exact-workflow-id" } });
+  await assert.rejects(handlers.get("workflow:get")({}, "   "), /Exact Workflow ID/);
+  assert.deepEqual(calls, [
+    ["list", "<PROJECT_REPO>"], ["start", "<PROJECT_REPO>", { workflowType: "feature-capability", title: "A feature" }],
+    ["get", "<PROJECT_REPO>", "exact-workflow-id"],
+  ]);
 });
 
 test("Hub sidebar omits Development lifecycle fields while Development sidebar owns them", () => {

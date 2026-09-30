@@ -1,16 +1,21 @@
-import { skipIsolatedOperationStep, beginIsolatedOperation, inspectIsolatedOperation, continueIsolatedOperation, abortIsolatedOperation, advanceIsolatedOperation, type IsolatedOperationKind } from "../repository/isolatedGitOperations";
-import { discardManagedWorktree, createManagedWorktree, listManagedWorktrees, inspectManagedWorktree, removeManagedWorktree, type ManagedWorkspaceStore } from "../repository/managedWorktrees";
-import { AgentHarnessError, toBoundedError } from "../core/errors";
-import { writeAttachedImage } from "../repository/attachedImages";
-import { replaceControlledMarkdownBody } from "../repository/controlledMarkdownDrafts";
-import { readIssueScreenshotEvidence } from "../repository/issueScreenshotEvidence";
-import { copyRepositoryFile, moveRepositoryFile } from "../repository/fileOperations";
-import { createVisualAssetPreview } from "../repository/visualAssetPreview";
+import { skipIsolatedOperationStep, beginIsolatedOperation, inspectIsolatedOperation, continueIsolatedOperation, abortIsolatedOperation, advanceIsolatedOperation, type IsolatedOperationKind } from "../../repository/isolatedGitOperations";
+import { discardManagedWorktree, createManagedWorktree, listManagedWorktrees, inspectManagedWorktree, removeManagedWorktree, type ManagedWorkspaceStore } from "../../repository/managedWorktrees";
+import { AgentHarnessError, toBoundedError } from "../../core/applicationErrors";
+import {
+  createProjectSourceOperationCoordinator,
+  type ProjectSourceOperationCoordinator,
+  type ProjectSourceOperationLease,
+} from "../../core/projectSourceOperationCoordinator";
+import { writeAttachedImage } from "../../repository/attachedImages";
+import { replaceControlledMarkdownBody } from "../../repository/controlledMarkdownDrafts";
+import { readIssueScreenshotEvidence } from "../../repository/issueScreenshotEvidence";
+import { copyRepositoryFile, moveRepositoryFile } from "../../repository/fileOperations";
+import { createVisualAssetPreview } from "../../repository/visualAssetPreview";
 import {
   compareVisualAssetImages,
   inspectVisualAssetImage,
   readVisualAssetImage,
-} from "../repository/visualAssetReview";
+} from "../../repository/visualAssetReview";
 import {
   gitDiff,
   gitStatus,
@@ -23,7 +28,7 @@ import {
   readRepositoryTextLines,
   searchRepositoryFiles,
   writeTextArtifact,
-} from "../repository/repositoryOperations";
+} from "../../repository/repositoryOperations";
 import {
   inspectGitReflog, replaceGitBranchRef, pushGitWithLease, deleteGitUntrackedPaths,
   inspectGitChangedFiles, inspectGitCommit, compareGitRefs, listGitTags, inspectGitRemotes, unstageGitChanges, restoreGitFiles,
@@ -50,11 +55,11 @@ import {
   stageGitChanges,
   switchGitBranch,
   verifyGitTag,
-} from "../repository/gitMutations";
+} from "../../repository/gitMutations";
 import {
   applyApprovedPatch,
   registerPatchProposal,
-} from "../repository/patches";
+} from "../../repository/patches";
 import { createReleaseToolbox, type ReleaseToolbox } from "../release/releaseToolbox";
 import { executeTestToolbox, type TestToolboxAction } from "../test/testToolbox";
 import { INTEGRATION_VALIDATION_LANES, INTEGRATION_VALIDATION_PROFILES } from "../../../shared/integrationPolicyContracts";
@@ -193,6 +198,7 @@ interface DispatchInput {
   params: Record<string, unknown>;
   userDataRoot: string;
   workspaceSummaries: AgentHarnessWorkspaceAccessProvider["listWorkspaceSummaries"];
+  repositoryCheckoutSummaries: AgentHarnessWorkspaceAccessProvider["listRepositoryCheckoutSummaries"];
   runtimeDiagnostics?: () => Record<string, unknown>;
 }
 
@@ -241,6 +247,7 @@ interface RegistryOptions {
   userDataRoot: string;
   runtimeDiagnostics?: () => Record<string, unknown>;
   releaseToolbox?: ReleaseToolbox;
+  sourceOperationCoordinator?: ProjectSourceOperationCoordinator;
 }
 
 const IMAGE_BEARING_DISPATCH_RESULT = Symbol("image-bearing-dispatch-result");
@@ -253,6 +260,8 @@ interface ImageBearingDispatchResult {
 
 export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentHarnessToolRegistry {
   const releaseToolbox = options.releaseToolbox ?? createReleaseToolbox();
+  const sourceOperationCoordinator = options.sourceOperationCoordinator ??
+    createProjectSourceOperationCoordinator({ userDataRoot: options.userDataRoot });
   const providers = createToolProviders(releaseToolbox);
   const providerByName = new Map(providers.map((provider) => [provider.name, provider]));
   return {
@@ -288,39 +297,47 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
         if (contract.kind === "test-execution" && (typeof args.workspaceId !== "string" || !args.workspaceId.trim() || args.workspaceId.length > 160)) {
           throw new AgentHarnessError("INVALID_INPUT", "workspaceId must be a bounded workspace identity.");
         }
-        const context = await options.workspaceAccess.resolveWorkspaceContext(args.workspaceId);
-        const params = validateParams(args.params, contract);
-        assertActionAccess(context, contract.kind);
-        const dispatchResult = await contract.dispatch({
-          context,
-          params,
-          signal: call.signal,
-          managedWorkspaces: options.managedWorkspaces,
-          userDataRoot: options.userDataRoot,
-          workspaceSummaries: options.workspaceAccess.listWorkspaceSummaries,
-          runtimeDiagnostics: options.runtimeDiagnostics,
-        });
-        if (isImageBearingDispatchResult(dispatchResult)) {
-          return {
-            ok: true,
-            toolName: provider.name,
-            action,
-            workspaceId: context.workspaceId,
-            payload: dispatchResult.payload,
-            imageContent: dispatchResult.imageContent,
-            attemptId,
-            timestamp,
-          };
+        let context = await options.workspaceAccess.resolveWorkspaceContext(args.workspaceId);
+        const projectRoot = context.root;
+        let sourceOperationLease: ProjectSourceOperationLease | undefined;
+        const checkoutBound = isCheckoutBoundAction(contract.kind);
+        const suppliedParams = args.params && typeof args.params === "object" && !Array.isArray(args.params)
+          ? args.params as Record<string, unknown> : {};
+        if (checkoutBound && (typeof suppliedParams.repositoryCheckoutId !== "string" || !suppliedParams.repositoryCheckoutId.trim())) {
+          throw new AgentHarnessError("REPOSITORY_CHECKOUT_REQUIRED", "This operation requires an exact registered repositoryCheckoutId.");
         }
-        return {
-          ok: true,
-          toolName: provider.name,
-          action,
-          workspaceId: context.workspaceId,
-          payload: dispatchResult,
-          attemptId,
-          timestamp,
-        };
+        const params = validateParams(args.params, contract);
+        let releaseCheckout: (() => void) | undefined;
+        try {
+          sourceOperationLease = await sourceOperationCoordinator.acquireShared(projectRoot, `${provider.name}:${action}`);
+          if (checkoutBound) {
+            const checkout = await options.workspaceAccess.resolveRepositoryCheckoutContext(args.workspaceId, params.repositoryCheckoutId);
+            context = { ...context, root: checkout.root, gitBacked: true, capabilities: { ...context.capabilities, gitInspection: true } };
+            releaseCheckout = checkout.release;
+          }
+          assertActionAccess(context, contract.kind);
+          const dispatchResult = await contract.dispatch({
+            context,
+            params,
+            signal: call.signal,
+            managedWorkspaces: options.managedWorkspaces,
+            userDataRoot: options.userDataRoot,
+            workspaceSummaries: options.workspaceAccess.listWorkspaceSummaries,
+            repositoryCheckoutSummaries: options.workspaceAccess.listRepositoryCheckoutSummaries,
+            runtimeDiagnostics: options.runtimeDiagnostics,
+          });
+          if (isImageBearingDispatchResult(dispatchResult)) {
+            return {
+              ok: true, toolName: provider.name, action, workspaceId: context.workspaceId,
+              payload: dispatchResult.payload, imageContent: dispatchResult.imageContent, attemptId, timestamp,
+            };
+          }
+          return { ok: true, toolName: provider.name, action, workspaceId: context.workspaceId,
+            payload: dispatchResult, attemptId, timestamp };
+        } finally {
+          releaseCheckout?.();
+          await sourceOperationLease?.release();
+        }
       } catch (error) {
         return {
           ok: false,
@@ -518,6 +535,7 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
       title: "git_toolbox",
       description: "ChampCity A/I Agent Harness git_toolbox.",
       actions: [
+        readAction("list_repository_checkouts", {}, ({ context, repositoryCheckoutSummaries }) => repositoryCheckoutSummaries(context.workspaceId)),
         gitInspectionAction("status", {}, ({ context }) => gitStatus(context.root, context.gitBacked)),
         gitInspectionAction("diff", {
           view: { type: "string", allowedValues: ["unstaged", "staged", "between_refs"] },
@@ -898,7 +916,7 @@ function zodParamSchema(spec: ParamSpec): z.ZodType<unknown> {
 }
 
 function testExecutionAction(name: TestToolboxAction, params: Record<string, ParamSpec>): ToolActionContract {
-  return { name, kind: "test-execution", requiredScope: "files.write", params,
+  return { name, kind: "test-execution", requiredScope: "files.write", params: withRepositoryCheckoutId(params),
     dispatch: ({ context, params: values, signal }) => executeTestToolbox(context, name, values, signal) };
 }
 
@@ -907,7 +925,12 @@ function readAction(name: string, params: Record<string, ParamSpec>, dispatch: T
 }
 
 function gitInspectionAction(name: string, params: Record<string, ParamSpec>, dispatch: ToolActionContract["dispatch"]): ToolActionContract {
-  return { name, kind: "git-inspection", requiredScope: "files.read", params, dispatch };
+  return { name, kind: "git-inspection", requiredScope: "files.read", params: withRepositoryCheckoutId(params), dispatch };
+}
+
+function withRepositoryCheckoutId(params: Record<string, ParamSpec>): Record<string, ParamSpec> {
+  if (Object.prototype.hasOwnProperty.call(params, "repositoryCheckoutId")) throw new Error("Git target is centrally defined.");
+  return { ...params, repositoryCheckoutId: { type: "string", required: true, minLength: 1, maxLength: 128 } };
 }
 
 function releaseInspectionAction(
@@ -915,7 +938,7 @@ function releaseInspectionAction(
   params: Record<string, ParamSpec>,
   dispatch: ToolActionContract["dispatch"],
 ): ToolActionContract {
-  return { name, kind: "release-inspection", requiredScope: "files.read", params, dispatch };
+  return { name, kind: "release-inspection", requiredScope: "files.read", params: withRepositoryCheckoutId(params), dispatch };
 }
 
 function releaseMutationAction(
@@ -923,7 +946,12 @@ function releaseMutationAction(
   params: Record<string, ParamSpec>,
   dispatch: ToolActionContract["dispatch"],
 ): ToolActionContract {
-  return { name, kind: "release-mutation", requiredScope: "files.write", params, dispatch };
+  return { name, kind: "release-mutation", requiredScope: "files.write", params: withRepositoryCheckoutId(params), dispatch };
+}
+
+function isCheckoutBoundAction(kind: HarnessActionKind): boolean {
+  return kind === "git-inspection" || kind === "git-mutation" || kind === "test-execution" ||
+    kind === "release-inspection" || kind === "release-mutation";
 }
 
 function writeAction(
@@ -943,7 +971,7 @@ function gitMutationAction(
     name,
     kind: "git-mutation",
     requiredScope: "files.write",
-    params,
+    params: withRepositoryCheckoutId(params),
     dispatch: async ({ context, params: values, managedWorkspaces }) => {
       switch (name) {
         case "replace_branch_ref":

@@ -7,6 +7,10 @@
 3. `docs/implementation-bundles/repository-checkout-orchestration/ASTRA_EXECUTION_MANIFEST.md`
 4. `docs/implementation-bundles/repository-checkout-orchestration/WORK_CARD_PLAN.md`
 
+## Blocking Hotfix
+
+- `RCO-HF01` — `Work_Cards/RCO-HF01_restore_client_agnostic_mcp_git_targeting.md` — restore workspace-first, client-agnostic MCP Git semantics. **Blocks further WRB04 implementation until accepted.**
+
 ## Execution Order
 
 1. `RCO01` — `Work_Cards/RCO01_establish_repositorycheckout_identity_and_deterministic_inventory.md`

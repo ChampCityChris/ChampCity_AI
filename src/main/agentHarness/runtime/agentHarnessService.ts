@@ -11,6 +11,7 @@ import type {
   AgentHarnessControlledRestartDisposition,
   AgentHarnessOperationalDiagnostics,
 } from "../../../shared/workspaceContracts";
+import type { RepositoryCheckout } from "../../../shared/sourceLifecycleContracts";
 import type { AgentHarnessWorkerHeartbeat } from "./agentHarnessProcessProtocol";
 import type { AgentHarnessToolDefinition } from "../tools/toolRegistry";
 import { createAgentHarnessToolRegistry, type AgentHarnessToolRegistry } from "../tools/toolRegistry";
@@ -24,6 +25,9 @@ import {
 import { startAgentHarnessHttpRuntime, type AgentHarnessHttpRuntimeHandle } from "./httpRuntime";
 import { captureAgentHarnessPublicToolContract } from "./mcpServer";
 import { importLegacyOAuthClientRegistry, readOAuthStoreDiagnostics } from "./oauthStore";
+import { reconcileWorkspaceRepositoryCheckouts } from "../modelAccess/repositoryCheckoutAccessProjectionService";
+import { createProjectSourceOperationCoordinator } from "../../core/projectSourceOperationCoordinator";
+import type { ProjectSourceOperationCoordinator } from "../../core/projectSourceOperationCoordinator";
 
 export type AgentHarnessRuntimeState = "stopped" | "starting" | "running" | "stopping" | "failed";
 
@@ -46,6 +50,7 @@ export class AgentHarnessService {
   private readonly workspaceRegistryReady: Promise<void>;
   private readonly pendingRegistryOperations = new Set<Promise<unknown>>();
   private readonly userDataRoot: string;
+  private readonly sourceOperationCoordinator: ProjectSourceOperationCoordinator;
   private configuration: AgentHarnessSettings;
   private handle: AgentHarnessHttpRuntimeHandle | null = null;
   private state: AgentHarnessRuntimeState = "stopped";
@@ -63,6 +68,7 @@ export class AgentHarnessService {
 
   constructor(options: AgentHarnessServiceOptions) {
     this.userDataRoot = options.userDataRoot;
+    this.sourceOperationCoordinator = createProjectSourceOperationCoordinator({ userDataRoot: options.userDataRoot });
     this.configuration = readAgentHarnessSettings(options.userDataRoot, serviceOptionsToSettingsInput(options));
     this.workerGeneration = options.workerGeneration;
     this.workerRestartCount = options.workerRestartCount;
@@ -70,10 +76,12 @@ export class AgentHarnessService {
     this.workspaceRegistry = new RegisteredWorkspaceRegistry({
       userDataRoot: options.userDataRoot,
     });
-    this.workspaceRegistryReady = this.workspaceRegistry.initialize();
+    this.workspaceRegistryReady = this.initializeWorkspaceRegistry();
     this.workspaceAccess = createRegisteredWorkspaceAccessProvider({
       resolveWorkspaceContext: (workspaceId) => this.workspaceRegistry.resolve(workspaceId),
       listWorkspaceSummaries: () => this.workspaceRegistry.snapshot().workspaces,
+      resolveRepositoryCheckoutContext: (workspaceId, id) => this.workspaceRegistry.resolveRepositoryCheckoutContext(workspaceId, id),
+      listRepositoryCheckoutSummaries: (workspaceId) => this.workspaceRegistry.listRepositoryCheckoutSummaries(workspaceId),
     });
     this.registry = createAgentHarnessToolRegistry({
       workspaceAccess: this.workspaceAccess,
@@ -97,6 +105,19 @@ export class AgentHarnessService {
     return this.status();
   }
 
+  private async initializeWorkspaceRegistry(): Promise<void> {
+    await this.workspaceRegistry.initialize();
+    if (this.workspaceRegistry.snapshot().state !== "ready") return;
+    for (const workspace of this.workspaceRegistry.registeredWorkspaceRoots()) {
+      await reconcileWorkspaceRepositoryCheckouts(
+        workspace.workspaceRoot,
+        workspace.workspaceId,
+        this.workspaceRegistry,
+        this.sourceOperationCoordinator,
+      );
+    }
+  }
+
   async listRegisteredWorkspaces(): Promise<AgentHarnessWorkspaceRegistrySnapshot> {
     await this.workspaceRegistryReady;
     return this.workspaceRegistry.snapshot();
@@ -109,6 +130,12 @@ export class AgentHarnessService {
     const operation = (async () => {
       await this.workspaceRegistryReady;
       const workspace = await this.workspaceRegistry.register(workspaceRoot);
+      await reconcileWorkspaceRepositoryCheckouts(
+        workspaceRoot,
+        workspace.workspaceId,
+        this.workspaceRegistry,
+        this.sourceOperationCoordinator,
+      );
       this.recordActivity(`Registered MCP workspace ${workspace.workspaceId}.`);
       return { workspace, registry: this.workspaceRegistry.snapshot() };
     })();
@@ -121,6 +148,21 @@ export class AgentHarnessService {
     const registry = this.workspaceRegistry.unregister(workspaceId);
     this.recordActivity(`Unregistered MCP workspace ${workspaceId}.`);
     return registry;
+  }
+
+  async registerRepositoryCheckout(workspaceId: string, checkout: RepositoryCheckout) {
+    await this.workspaceRegistryReady;
+    return this.workspaceRegistry.registerRepositoryCheckout(workspaceId, checkout);
+  }
+
+  async unregisterRepositoryCheckout(workspaceId: string, repositoryCheckoutId: string) {
+    await this.workspaceRegistryReady;
+    return this.workspaceRegistry.unregisterRepositoryCheckout(workspaceId, repositoryCheckoutId);
+  }
+
+  async listRepositoryCheckouts(workspaceId: string) {
+    await this.workspaceRegistryReady;
+    return this.workspaceRegistry.listRepositoryCheckoutSummaries(workspaceId);
   }
 
   async start(): Promise<AgentHarnessStatus> {

@@ -5,11 +5,11 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
-const { AgentHarnessError } = require("../../dist/main/agentHarness/core/errors.js");
+const { AgentHarnessError } = require("../../dist/main/core/applicationErrors.js");
 const {
   listRepositoryFiles,
   searchRepositoryFiles,
-} = require("../../dist/main/agentHarness/repository/repositoryOperations.js");
+} = require("../../dist/main/repository/repositoryOperations.js");
 const {
   createAgentHarnessToolRegistry,
 } = require("../../dist/main/agentHarness/tools/toolRegistry.js");

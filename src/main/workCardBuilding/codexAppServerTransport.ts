@@ -48,6 +48,7 @@ export interface CodexAppServerThreadOptions {
   workingDirectory: string;
   skipGitRepoCheck?: boolean;
   sandboxMode?: "danger-full-access" | "workspace-write";
+  readOnly?: boolean;
   approvalPolicy?: "on-request";
   approvalsReviewer?: "user";
   networkAccessEnabled?: boolean;
@@ -1103,6 +1104,9 @@ function normalizeMcpElicitationAction(action: CodexAppServerMcpElicitationActio
 }
 
 function sandboxPolicyFromThreadOptions(options: CodexAppServerThreadOptions): CodexAppServerSandboxPolicy {
+  if (options.readOnly) {
+    return { type: "readOnly", networkAccess: options.networkAccessEnabled ?? false };
+  }
   if (options.sandboxMode === "workspace-write") {
     return {
       type: "workspaceWrite",

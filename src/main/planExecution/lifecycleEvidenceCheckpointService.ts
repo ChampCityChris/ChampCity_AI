@@ -5,18 +5,20 @@ import { parseCanonicalMarkdownDocument, serializeCanonicalMarkdownDocument } fr
 import type { LifecycleEvidenceBoundary, LifecycleEvidenceCheckpointArtifact, LifecycleEvidenceCheckpointEvidence, LifecycleEvidenceCheckpointResult } from "../../shared/lifecycleEvidenceCheckpointContracts";
 import type { SourceControlReceipt, SourceControlResult } from "../../shared/sourceControlContracts";
 import type { WorkIntakeBranchBinding } from "../../shared/workIntakeBranchContracts";
-import { resolveRepositoryPath } from "../agentHarness/repository/pathPolicy";
+import { resolveRepositoryPath } from "../repository/pathPolicy";
 import { createSourceControlService } from "../sourceControl/sourceControlService";
 import { createWorkIntakeBranchService } from "../workIntake/workIntakeBranchService";
 import { readWorkIntake } from "../workIntake/workIntakeService";
 import { getWorkRouteDecision } from "../workIntake/workRouteDecisionService";
 import { workItemArtifactScopeFromIdentity } from "../workCardLoop/workItemArtifactScope";
+import { readApplicationCheckpointReceipt } from "./applicationCheckpointReceipt";
 import { lifecycleCheckpointIdFor, lifecycleCheckpointSubject } from "./lifecycleEvidenceCheckpointReceipt";
 
 export type LifecycleEvidenceCheckpointInput =
   | { binding: WorkIntakeBranchBinding; boundary: Extract<LifecycleEvidenceBoundary, { kind: "work-item" }>; artifacts: { contractPath: string; reportPath: string; validationPath: string; closePath: string }; synchronize?: boolean }
   | { binding: WorkIntakeBranchBinding; boundary: Extract<LifecycleEvidenceBoundary, { kind: "phase" | "plan" }>; artifacts: { closeoutPath: string }; synchronize?: boolean }
-  | { binding: WorkIntakeBranchBinding; boundary: Extract<LifecycleEvidenceBoundary, { kind: "research" }>; artifacts: { assessmentPath: string; routeDecisionPath: string }; synchronize?: boolean };
+  | { binding: WorkIntakeBranchBinding; boundary: Extract<LifecycleEvidenceBoundary, { kind: "research" }>; artifacts: { assessmentPath: string; routeDecisionPath: string }; synchronize?: boolean }
+  | { binding: WorkIntakeBranchBinding; boundary: Extract<LifecycleEvidenceBoundary, { kind: "operator-disposition" }>; artifacts: { paths: string[] }; synchronize?: boolean };
 
 interface CanonicalArtifact extends LifecycleEvidenceCheckpointArtifact { metadata: CanonicalDocumentMetadata }
 const locks = new Set<string>();
@@ -28,7 +30,7 @@ function unwrap<T>(result: SourceControlResult<T>, receipts: SourceControlReceip
   return result.result;
 }
 
-function artifact(root: string, relativePath: string): CanonicalArtifact {
+function artifact(root: string, relativePath: string, allowHistorical = false): CanonicalArtifact {
   if (typeof relativePath !== "string" || !relativePath.endsWith(".md") || relativePath === "." ||
     /(^|\/)(?:\.git|node_modules|dist|build|out|release|coverage|\.env(?:\..*)?)(\/|$)/i.test(relativePath)) throw Error("Lifecycle checkpoint path is not eligible canonical evidence.");
   const resolved = resolveRepositoryPath(root, relativePath);
@@ -38,8 +40,30 @@ function artifact(root: string, relativePath: string): CanonicalArtifact {
   const bytes = fs.readFileSync(resolved.resolvedPath);
   if (/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\b(?:gh[pousr]_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{24,})\b/.test(bytes.toString("utf8"))) throw Error("Lifecycle checkpoint evidence contains credential-like material; no files were committed.");
   const document = parseCanonicalMarkdownDocument(bytes.toString("utf8"));
-  if (document.metadata.participationRole === "historical") throw Error("Historical documents are not lifecycle checkpoint evidence.");
+  if (!allowHistorical && document.metadata.participationRole === "historical") throw Error("Historical documents are not lifecycle checkpoint evidence.");
   return { path: relativePath, sha256: sha(bytes), artifactType: document.metadata.artifactType, artifactRevision: document.metadata.artifactRevision, metadata: document.metadata };
+}
+
+function dispositionArtifact(root: string, relativePath: string, binding: WorkIntakeBranchBinding,
+  issueId?: string): CanonicalArtifact {
+  if (!relativePath.startsWith("issues/")) return artifact(root, relativePath, true);
+  const issuePrefix = issueId && /^ISSUE_\d+$/.test(issueId) ? `issues/${issueId}/` : "";
+  const issueLeaf = issuePrefix && relativePath.startsWith(issuePrefix) ? relativePath.slice(issuePrefix.length) : "";
+  const rootEvidence = /^(?:ISSUE_RECORD|ARCHITECT_INVESTIGATION|ARCHITECT_REVIEW|ISSUE_RESOLUTION_PLAN|FIX_CARD_PLAN|ISSUE_PLANNING_REVIEW|EXECUTION_PLAN)\.md$/.test(issueLeaf);
+  const ownedEvidence = /^(?:Fix_Cards|Repairs|Implementer_Reports|Architect_Reviews|Close_Records|Phase_Acceptance|Validation_Records|Issue_Planning_History|Architect_History)\/[A-Za-z0-9][A-Za-z0-9._-]{0,180}\.md$/.test(issueLeaf);
+  if (!issuePrefix || !(rootEvidence || ownedEvidence))
+    throw Error("Issue disposition path is outside the exact routed Issue evidence.");
+  const resolved = resolveRepositoryPath(root, relativePath);
+  if (resolved.relativePath !== relativePath) throw Error("Issue evidence path must be exact and repository-relative.");
+  const stat = fs.lstatSync(resolved.resolvedPath);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 4_000_000) throw Error("Issue evidence must be a bounded ordinary Markdown file.");
+  const bytes = fs.readFileSync(resolved.resolvedPath);
+  if (/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\b(?:gh[pousr]_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{24,})\b/.test(bytes.toString("utf8")))
+    throw Error("Issue evidence contains credential-like material; no files were committed.");
+  return { path: relativePath, sha256: sha(bytes), artifactType: "issue-evidence", artifactRevision: 1,
+    metadata: { schemaVersion: 1, artifactType: "issue-evidence", artifactRevision: 1, participationRole: "contextOnly",
+      identity: { intakeId: binding.intakeId, issueId }, sourceRevisions: [], workflowData: {},
+      documentDisposition: { status: "Pending", notes: "", reviewedAt: null } } };
 }
 
 function hasSource(document: CanonicalArtifact, relativePath: string): boolean {
@@ -134,6 +158,17 @@ async function researchArtifacts(root: string, input: Extract<LifecycleEvidenceC
 }
 
 async function validatedArtifacts(root: string, input: LifecycleEvidenceCheckpointInput): Promise<CanonicalArtifact[]> {
+  if (input.boundary.kind === "operator-disposition") {
+    const paths = (input as Extract<LifecycleEvidenceCheckpointInput, { boundary: { kind: "operator-disposition" } }>).artifacts.paths;
+    if (!Array.isArray(paths) || paths.length === 0 || paths.length > 100 || new Set(paths).size !== paths.length)
+      throw Error("Operator disposition requires bounded distinct changed artifacts.");
+    const issueId = (input.boundary as Extract<LifecycleEvidenceBoundary, { kind: "operator-disposition" }>).issueId;
+    const artifacts = paths.map(relativePath => dispositionArtifact(root, relativePath, input.binding, issueId));
+    if (artifacts.some(item => item.metadata.identity.intakeId !== input.binding.intakeId &&
+      !(item.path === "planning/work-intake/PROJECT.md" && item.artifactType === "work-project")))
+      throw Error("Operator disposition artifact belongs to another Work Intake.");
+    return artifacts;
+  }
   if (input.boundary.kind === "research") {
     if (input.boundary.assessmentRevision < 1 || !Number.isSafeInteger(input.boundary.assessmentRevision)) throw Error("Lifecycle checkpoint requires an exact positive Assessment revision.");
     return researchArtifacts(root, input as Extract<LifecycleEvidenceCheckpointInput, { boundary: { kind: "research" } }>);
@@ -158,32 +193,57 @@ export async function checkpointLifecycleEvidence(root: string, input: Lifecycle
     const branch = createWorkIntakeBranchService({ repositoryId: binding.repositoryId, repositoryRoot: root });
     const source = createSourceControlService({ repositoryId: binding.repositoryId, repositoryRoot: root });
     const current = await branch.verify(binding);
+    const selected = unwrap(await source.branches(binding.workBranch), receipts);
+    if (selected.currentBranch !== binding.workBranch || selected.head !== current.currentHead)
+      throw Error("Select the exact Work Intake source checkout before lifecycle checkpointing.");
     const candidates = (await validatedArtifacts(root, input)).sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
     const candidatePaths = candidates.map((entry) => entry.path);
     const before = unwrap(await source.changedFiles(), receipts);
-    if (before.length > 500 || before.some((entry) => entry.originalPath || entry.indexStatus !== " " && entry.indexStatus !== "?" || !candidatePaths.includes(entry.path))) {
-      throw Error("Unrelated, ambiguous, or unexpectedly staged repository changes block the lifecycle checkpoint.");
-    }
+    const isDraft = (relativePath: string) => input.boundary.kind === "operator-disposition" && !candidatePaths.includes(relativePath) &&
+      (relativePath.startsWith("planning/Architect_Drafts/") || /\/Decompositions\/[^/]+\.md$/.test(relativePath));
+    const preflightConflicts = before.filter((entry) => !isDraft(entry.path) &&
+      (entry.originalPath || entry.indexStatus !== " " && entry.indexStatus !== "?" || !candidatePaths.includes(entry.path)));
+    if (before.length > 500 || preflightConflicts.length) throw Error(`Unrelated, ambiguous, or unexpectedly staged repository changes block the lifecycle checkpoint: ${preflightConflicts.slice(0, 8).map(entry => entry.path).join(", ")}.`);
     staged = true;
     unwrap(await source.stage(candidatePaths, { includeIgnored: true }), receipts);
     const changes = unwrap(await source.changedFiles(), receipts);
-    const unexpected = changes.filter((entry) => entry.originalPath || !candidatePaths.includes(entry.path) || entry.worktreeStatus !== " " || entry.indexStatus === "?" || entry.indexStatus === " ");
+    const unexpected = changes.filter((entry) => !isDraft(entry.path) &&
+      (entry.originalPath || !candidatePaths.includes(entry.path) || entry.worktreeStatus !== " " || entry.indexStatus === "?" || entry.indexStatus === " "));
     if (unexpected.length) {
       const summary = unexpected.slice(0, 8).map((entry) => `${entry.indexStatus}${entry.worktreeStatus} ${entry.path}`).join(", ");
       throw Error(`The staged change set differs from the attributable canonical lifecycle evidence: ${summary}.`);
     }
-    if (!changes.length) return { status: "not-applicable", message: "Lifecycle evidence is already durable at the verified Work Intake head.", remote: "not-requested", receipts };
+    const stagedChanges = changes.filter(entry => !isDraft(entry.path));
+    let emptyLifecycle = false;
+    if (!stagedChanges.length) {
+      const head = unwrap(await source.inspectCommit({ ref: current.currentHead }), receipts);
+      const subject = head.message.split(/\r?\n/, 1)[0];
+      try {
+        const prior = readApplicationCheckpointReceipt(subject, head.message);
+        if (prior.kind === "lifecycle" && prior.evidence.intakeId === binding.intakeId &&
+          JSON.stringify(prior.evidence.boundary) === JSON.stringify(input.boundary))
+          return { status: "committed", message: "Lifecycle evidence already has the exact durable checkpoint.",
+            checkpointId: prior.checkpointId, commit: head.commit, remote: "not-requested", receipts };
+      } catch { /* Another commit may be current; no new source mutation is required. */ }
+      if (["research", "phase", "plan"].includes(input.boundary.kind)) emptyLifecycle = true;
+      else if (input.boundary.kind === "operator-disposition")
+        return { status: "blocked", message: "Operator disposition has no attributable source change or matching checkpoint at the verified head.", remote: "not-requested", receipts };
+      else return { status: "not-applicable", message: "Lifecycle evidence is already durable at the verified Work Intake head.", remote: "not-requested", receipts };
+    }
     const byPath = new Map(candidates.map((entry) => [entry.path, entry]));
-    const files = changes.map((entry) => {
+    const files = stagedChanges.map((entry) => {
       const expected = byPath.get(entry.path)!;
-      const currentArtifact = artifact(root, entry.path);
+      const currentArtifact = input.boundary.kind === "operator-disposition"
+        ? dispositionArtifact(root, entry.path, input.binding, input.boundary.issueId) : artifact(root, entry.path);
       if (currentArtifact.sha256 !== expected.sha256 || currentArtifact.artifactType !== expected.artifactType || currentArtifact.artifactRevision !== expected.artifactRevision) throw Error("Lifecycle evidence changed while staging the checkpoint.");
       return { path: expected.path, sha256: expected.sha256, artifactType: expected.artifactType, artifactRevision: expected.artifactRevision };
     }).sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
     const diff = unwrap(await source.diff(), receipts);
-    if (!diff.staged.trim() || diff.unstaged.trim()) throw Error("The exact staged lifecycle evidence is unavailable or changed.");
+    if ((emptyLifecycle ? !!diff.staged.trim() : !diff.staged.trim()) || diff.unstaged.trim())
+      throw Error("The exact staged lifecycle evidence is unavailable or changed.");
     const evidence: LifecycleEvidenceCheckpointEvidence = { intakeId: binding.intakeId, repositoryId: binding.repositoryId, workBranch: binding.workBranch,
-      beforeHead: current.currentHead, boundary: input.boundary, files };
+      beforeHead: current.currentHead, boundary: input.boundary, files,
+      ...(emptyLifecycle ? { emptyLifecycleCheckpoint: true } : {}) };
     checkpointId = lifecycleCheckpointIdFor(evidence);
     const receipt = serializeCanonicalMarkdownDocument({ schemaVersion: 1, artifactType: "lifecycle-evidence-checkpoint", artifactRevision: 1, participationRole: "contextOnly",
       identity: { intakeId: binding.intakeId, boundaryKind: input.boundary.kind, checkpointId },
@@ -194,7 +254,7 @@ export async function checkpointLifecycleEvidence(root: string, input: Lifecycle
     if (Buffer.byteLength(message, "utf8") > 30_000) throw Error("Lifecycle checkpoint receipt exceeds its bounded commit-message size.");
     const reverified = await branch.verify(binding);
     if (reverified.currentHead !== current.currentHead) throw Error("Work Intake head changed while preparing lifecycle evidence.");
-    const committed = await source.commit(message);
+    const committed = await source.checkpointCommit(message, current.currentHead, emptyLifecycle);
     receipts.push(committed.receipt);
     commit = committed.ok ? committed.result.commit : committed.completedResult?.commit;
     if (!committed.ok) throw Error(committed.error.message);

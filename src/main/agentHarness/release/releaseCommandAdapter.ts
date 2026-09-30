@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { AgentHarnessError } from "../core/errors";
+import { AgentHarnessError } from "../../core/applicationErrors";
 
 const DEFAULT_STDOUT_LIMIT_BYTES = 512 * 1_024;
 const DEFAULT_STDERR_LIMIT_BYTES = 256 * 1_024;

@@ -21,6 +21,7 @@ pnpm-debug.log*
 
 
 # Local ChampCity governance/history state and bulky handoff packages
+.champcity/
 /archive/
 /planning/
 /issues/
@@ -39,3 +40,4 @@ Thumbs.db
 # Temporary files
 tmp/
 temp/
+/output/playwright/

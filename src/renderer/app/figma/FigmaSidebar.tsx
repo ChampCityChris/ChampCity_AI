@@ -12,7 +12,7 @@ import type {
 } from "../../../shared/issueResolutionContracts";
 
 export type FigmaThemeMode = "dark" | "light";
-export type FigmaSidebarMode = "hub" | "development" | "issue-resolution";
+export type FigmaSidebarMode = "hub" | "development" | "issue-resolution" | "source-control";
 
 export function FigmaSidebar({
   currentModel,
@@ -76,8 +76,8 @@ export function FigmaSidebar({
       )}
 
       <section className="figma-sidebar-section project-selector" aria-label="Select Project">
-        <p className="figma-sidebar-label">{isHubMode || isIssueMode ? "Project" : "Select Project"}</p>
-        {isHubMode || isIssueMode ? (
+        <p className="figma-sidebar-label">{isHubMode || isIssueMode || mode === "source-control" ? "Project" : "Select Project"}</p>
+        {isHubMode || isIssueMode || mode === "source-control" ? (
           <strong className="figma-sidebar-primary">{projectName}</strong>
         ) : null}
         <div className="project-selector-actions">

@@ -89,6 +89,19 @@ test("Closed and Needs Attention projections never expose another Close Issue ac
   assert.doesNotMatch(needsAttention, />Close Issue<\/button>/);
 });
 
+test("closed routed Issue offers return to Work Intake Integration", () => {
+  const markup = renderToStaticMarkup(React.createElement(IssueCloseWorkspace, {
+    actionError: "", actionFeedback: "Issue closed.", actionPending: false, currentIssue: currentIssue(), isLoading: false,
+    onClose() {}, onRefresh() {}, routedIntakeId: "intake-1", onReturnToWorkIntake() {},
+    projection: issueCloseProjection({ status: "closed", eligible: false, canCloseIssue: false,
+      validationBasisSha256: undefined, closeRecord: { path: "issues/ISSUE_501/Close_Records/ISSUE_CLOSE_RECORD_ISSUE_501.md",
+        state: "readable", revision: 1 } }),
+  }));
+  assert.match(markup, /Return to Work Intake Integration/);
+  assert.match(markup, /preserves its Work Intake lineage/);
+  assert.doesNotMatch(markup, /returns to the Workflow Hub|>Close Issue<\/button>/);
+});
+
 test("parent Issue rail foregrounds repository-derived Issue Close without adding a nested close loop", () => {
   const markup = renderToStaticMarkup(React.createElement(IssueResolutionRail, {
     activeStageId: "issue-close",

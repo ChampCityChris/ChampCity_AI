@@ -6,7 +6,7 @@ function registerIntegrationScenarios(title, scenarios, options = {}) {
   require("../support/execution-metrics.cjs").measureExecution(t,title);
   const { createIntegrationCandidateService } = require("../../dist/main/planExecution/integrationCandidateService.js");
   const { workIntakeBranchName } = require("../../dist/main/workIntake/workIntakeBranchService.js");
-  const { integrationPaths } = require("../../dist/main/agentHarness/repository/integrationGit.js");
+  const { integrationPaths } = require("../../dist/main/repository/integrationGit.js");
   const { execFileSync } = require("node:child_process");
   const { createIntegrationPolicyProvider, loadIntegrationPolicyAtCommit } = require("../../dist/main/planExecution/integrationPolicyProvider.js");
   const { createIntegrationRepairPolicyProvider } = require("../../dist/main/planExecution/integrationRepairPolicyProvider.js");
@@ -264,6 +264,11 @@ ${scenario === "policy-timeout" ? "const child = require('node:child_process').s
       }
       assert.equal(attempt.repairId, "REPAIR01");
       assert.equal((await service.prepareRepair(candidate.candidateId)).repairId, attempt.repairId);
+      const restartedService = createIntegrationCandidateService(serviceHooks);
+      const recoveredCandidate = restartedService.read(candidate.candidateId);
+      assert.equal(recoveredCandidate.repairAttemptCount, 1);
+      assert.equal(recoveredCandidate.activeRepairId, attempt.repairId);
+      assert.equal(restartedService.readRepair(candidate.candidateId, attempt.repairId).status, "prepared");
       assert.match(attempt.prompt, /Do not run Git merge, add, commit, checkout-ours\/theirs, merge-continue, push/);
       assert.match(attempt.prompt, /Operator decision/); assert.match(attempt.prompt, /Keep both public contracts/);
       assert.match(attempt.prompt, /incoming accepted behavior/); assert.match(attempt.prompt, /target accepted behavior/);

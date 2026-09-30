@@ -11,6 +11,7 @@ import type {
   PlanningDocumentSummary,
 } from "../../shared/documents/planningDocument";
 import { isArchitectDraftRelativePath } from "../architectOutputs/architectDraftPaths";
+import { assertLegacyCanonicalReadAllowed } from "./legacyCanonicalWriteFence";
 
 interface InventoryEntry {
   absolutePath: string;
@@ -62,6 +63,7 @@ export function acquirePlanningRepositorySnapshot(
   workspaceRoot: string,
 ): PlanningRepositorySnapshot {
   const canonicalRoot = canonicalWorkspaceRoot(workspaceRoot);
+  assertLegacyCanonicalReadAllowed(canonicalRoot);
   testHooks.onSnapshotAcquisition?.(canonicalRoot);
   const cacheKey = canonicalRootKey(canonicalRoot);
   const inventory = discoverPlanningMarkdownInventory(canonicalRoot);
@@ -339,6 +341,7 @@ function metadataFromCanonical(canonical: CanonicalDocumentMetadata): PlanningDo
 }
 
 function requiredSnapshotState(snapshot: PlanningRepositorySnapshot): SnapshotState {
+  assertLegacyCanonicalReadAllowed(snapshot.workspaceRoot);
   const state = stateBySnapshot.get(snapshot);
   if (!state) {
     throw new Error("Planning repository snapshot is not owned by this process.");

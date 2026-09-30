@@ -53,19 +53,21 @@ import {
 } from "./documents/developmentPostMutationProjection";
 import { resolveFirstNonApprovedDocument } from "./documents/firstNonApprovedResolver";
 import { submitProjectIntakeForRepository } from "./projectIntake/projectIntakeService";
-import { getWorkIntakeProjection, readWorkIntake, submitWorkIntake } from "./workIntake/workIntakeService";
-import { runRoutedWorkflow } from "./planExecution/routedWorkflowService";
-import type { RoutedWorkflowAction, RoutedWorkflowInput } from "../shared/routedWorkflowContracts";
-import { copyWorkRoutingAssessment, getWorkRoutingAssessment, prepareWorkRoutingAssessment } from "./workIntake/workRoutingAssessmentService";
-import { decideWorkRoute, getWorkRouteDecision } from "./workIntake/workRouteDecisionService";
-import { runWorkIssueAction } from "./workPlanning/workIssueRoutingService";
-import { workItemDecompositionService } from "./workCardPlanning/workItemDecompositionService";
-import type { WorkItemDecompositionReview } from "../shared/workItemDecompositionContracts";
-import type { WorkIssueAction, WorkIssueActionInput } from "../shared/issueResolutionContracts";
-import type { WorkRouteDecisionInput } from "../shared/workRouteDecisionContracts";
-import { workPlanningKernel } from "./workPlanning/workPlanningKernel";
-import type { WorkPlanningReviewInput, WorkPlanningStage } from "../shared/workPlanningContracts";
-import type { WorkIntakeSubmission } from "../shared/workIntakeContracts";
+import { createSourceControlService } from "./sourceControl/sourceControlService";
+import { establishManagedProjectSource, resolveManagedDevRepositoryCheckout } from "./sourceControl/managedProjectSourceService";
+import { applyExistingProjectGitAdoption, inspectExistingProjectGitAdoption } from "./sourceControl/existingProjectGitAdoptionService";
+import { CURRENT_PROJECT_REPOSITORY_ID, registerCurrentProject, selectedCurrentProjectId } from "./projectState/currentProjectRegistrationService";
+import { MANAGED_PROJECT_SOURCE_PATHS } from "../shared/sourceLifecycleContracts";
+import { reconcileProjectModelAccess } from "./modelAccess/projectModelAccessCoordinator";
+import { createProjectSourceOperationCoordinator } from "./core/projectSourceOperationCoordinator";
+import { selectedSourceGraphRepositoryId } from "./sourceControl/sourceGraphService";
+import { registerWorkflowApplicationIpc } from "./workflow/workflowApplicationIpc";
+import { registerFeaturePlanningIpc } from "./featurePlanning/featurePlanningIpc";
+import { registerIssuePlanningIpc } from "./issuePlanning/issuePlanningIpc";
+import { registerStructuredWorkRoutingIpc } from "./workflow/structuredWorkRoutingIpc";
+import { createWorkflowApplicationService } from "./workflow/workflowApplicationService";
+import type { SourceGraphOptions } from "../shared/sourceLifecycleContracts";
+import { captureStructuredWorkIntake, getStructuredWorkIntakeProjection } from "./workIntake/structuredWorkIntakeService";
 import {
   attachArchitectBrowserSurface,
   confirmArchitectSignedIn,
@@ -110,6 +112,8 @@ import {
   resolveCurrentAdvisoryReviewPrompt,
 } from "./currentWorkflow/currentWorkflowService";
 import { codexImplementerExecutionService } from "./workCardBuilding/codexImplementerExecutionService";
+import { CodexTesterExecutionService } from "./workCardBuilding/codexTesterExecutionService";
+import { requireBoundMcpWorkspace } from "./integrations/mcpWorkspacePromptContract";
 import {
   migrateWorkspaceToCanonicalMarkdownV1,
   previewWorkspaceMigrationToCanonicalMarkdownV1,
@@ -210,6 +214,7 @@ let desktopExclusionConfirmed = false;
 let desktopRuntimeReady = false;
 let pendingSecondInstanceActivation = false;
 const sessionActiveWorkspace = new SessionActiveWorkspaceSelection();
+const projectSourceOperationCoordinator = createProjectSourceOperationCoordinator({ userDataRoot: getUserDataRoot() });
 const githubProviderService = new GithubProviderService({ runtime: createGithubRuntimeOperations(getUserDataRoot()) });
 registerGithubProviderIpc(ipcMain, githubProviderService, getRequiredWorkspaceRoot);
 const selectedWorkspaceEvidenceNotifier = new SelectedWorkspaceEvidenceNotifier((notification) => {
@@ -350,6 +355,94 @@ ipcMain.handle("workspace:clear", (): WorkspaceSelection => {
   sessionActiveWorkspace.deactivate(deactivateSelectedWorkspaceRuntime);
   return clearSelectedWorkspace(getUserDataRoot());
 });
+
+ipcMain.handle("project:inspectExistingGitAdoption", async () =>
+  inspectExistingProjectGitAdoption(getRequiredWorkspaceRoot(), CURRENT_PROJECT_REPOSITORY_ID));
+
+ipcMain.handle("project:applyExistingGitAdoption", async (_event, planId: string) => {
+  if (typeof planId !== "string" || !/^[a-f0-9]{64}$/.test(planId)) throw new Error("An exact Existing Project adoption plan is required.");
+  const root = getRequiredWorkspaceRoot();
+  const sourceLease = await projectSourceOperationCoordinator.acquireExclusive(root, "existing-project-git-adoption");
+  let result: Awaited<ReturnType<typeof applyExistingProjectGitAdoption>>;
+  try {
+    selectedWorkspaceEvidenceNotifier.pause();
+    result = await applyExistingProjectGitAdoption({ projectRoot: root, repositoryId: CURRENT_PROJECT_REPOSITORY_ID, planId, consent: true });
+  } finally {
+    try {
+      selectedWorkspaceEvidenceNotifier.resume();
+    } finally {
+      await sourceLease.release();
+    }
+  }
+  const modelAccess = await reconcileProjectModelAccess(
+    root,
+    result.source ? [result.source.mainCheckout, result.source.devCheckout] : [],
+    getAgentHarnessServiceHostClient,
+  );
+  return { sourcePlan: result.plan, sourceApplied: result.applied, modelAccess };
+});
+
+ipcMain.handle("project:registerCurrent", async (_event, mode: "existing" | "greenfield", projectName?: string) => {
+  if (mode !== "existing" && mode !== "greenfield") throw new Error("A current Project registration mode is required.");
+  const root = getRequiredWorkspaceRoot();
+  let registration;
+  let sourceCheckouts: import("../shared/sourceLifecycleContracts").RepositoryCheckout[] = [];
+  let projectCreation: Awaited<ReturnType<ReturnType<typeof createWorkflowApplicationService>["ensureProjectCreationWorkflow"]>> | null = null;
+  if (mode === "greenfield") {
+    const existingProjectId = selectedCurrentProjectId(root);
+    if (existingProjectId) {
+      const source = await establishManagedProjectSource({ projectRoot: root, repositoryId: CURRENT_PROJECT_REPOSITORY_ID });
+      sourceCheckouts = [source.mainCheckout, source.devCheckout];
+      registration = await registerCurrentProject(root, mode);
+      if (registration.project.body.description !== "Greenfield Project")
+        throw new Error("Start New Project cannot reopen an Existing Project; use Existing Project.");
+      projectCreation = await createWorkflowApplicationService().completeIncompleteGreenfieldInitialization(root);
+    } else {
+      assertGreenfieldProjectEntry(root);
+      const result = await createSourceControlService({ repositoryId: CURRENT_PROJECT_REPOSITORY_ID, repositoryRoot: root }).bootstrapProjectSource();
+      if (!result.ok) throw new Error(result.error.message);
+      sourceCheckouts = [result.result.mainCheckout, result.result.devCheckout];
+      registration = await registerCurrentProject(root, mode, { ...(projectName === undefined ? {} : { projectName }), sourceRepositoryId: CURRENT_PROJECT_REPOSITORY_ID });
+      projectCreation = await createWorkflowApplicationService().ensureProjectCreationWorkflow(root);
+    }
+  } else {
+    const adoption = await inspectExistingProjectGitAdoption(root, CURRENT_PROJECT_REPOSITORY_ID);
+    if (adoption.state !== "source-neutral" && adoption.state !== "managed-ready")
+      throw new Error("Inspect and apply Existing Project Git adoption before Current Project registration.");
+    const hasSourceCandidate = adoption.state === "managed-ready";
+    if (hasSourceCandidate) {
+      const source = await establishManagedProjectSource({ projectRoot: root, repositoryId: CURRENT_PROJECT_REPOSITORY_ID });
+      sourceCheckouts = [source.mainCheckout, source.devCheckout];
+    }
+    registration = await registerCurrentProject(root, mode, { ...(projectName === undefined ? {} : { projectName }),
+      ...(hasSourceCandidate ? { sourceRepositoryId: CURRENT_PROJECT_REPOSITORY_ID } : {}) });
+  }
+  const modelAccess = await reconcileProjectModelAccess(root, sourceCheckouts, getAgentHarnessServiceHostClient);
+  const repositoryId = registration.repositoryResource?.body.logicalName ?? null;
+  return { projectId: registration.project.id, projectName: registration.project.body.name, repositoryId,
+    projectRoot: root, mode, created: registration.created,
+    modelAccess,
+    ...(projectCreation ? { projectCreationWorkflowId: projectCreation.workflow.workflowId } : {}) };
+});
+
+ipcMain.handle("project:reconcileModelAccess", async () => {
+  const root = getRequiredWorkspaceRoot();
+  if (!selectedCurrentProjectId(root)) throw new Error("Select or open a Current Project before reconciling model access.");
+  const adoption = await inspectExistingProjectGitAdoption(root, CURRENT_PROJECT_REPOSITORY_ID);
+  if (adoption.state === "source-neutral") return reconcileProjectModelAccess(root, [], getAgentHarnessServiceHostClient);
+  if (adoption.state !== "managed-ready") throw new Error("Current Project source is not ready for model-access reconciliation.");
+  const source = await establishManagedProjectSource({ projectRoot: root, repositoryId: CURRENT_PROJECT_REPOSITORY_ID });
+  return reconcileProjectModelAccess(root, [source.mainCheckout, source.devCheckout], getAgentHarnessServiceHostClient);
+});
+
+function assertGreenfieldProjectEntry(root: string): void {
+  const metadata = path.join(root, MANAGED_PROJECT_SOURCE_PATHS.repositoryMetadataRelativePath);
+  if (fs.existsSync(metadata)) return;
+  const entries = fs.readdirSync(root);
+  if (entries.some(entry => entry !== ".champcity")) throw new Error("Start New Project requires an empty Project container.");
+  for (const name of ["Main", "Dev"]) if (fs.existsSync(path.join(root, name)))
+    throw new Error("Start New Project found conflicting managed source paths.");
+}
 
 ipcMain.handle("app:info", (): AppInfo => {
   return appInfo;
@@ -757,36 +850,42 @@ ipcMain.handle(
   },
 );
 
-ipcMain.handle("workIntake:projection", () => getWorkIntakeProjection(getRequiredWorkspaceRoot()));
-ipcMain.handle("routedWorkflow:action", async (_event, intakeId: string, action: RoutedWorkflowAction, input?: RoutedWorkflowInput) => {
-  const result = await runRoutedWorkflow(getRequiredWorkspaceRoot(), intakeId, action, input);
-  if (result.instruction) clipboard.writeText(result.instruction);
-  return result.model;
+registerWorkflowApplicationIpc({ handle: (channel, listener) => {
+  ipcMain.handle(channel, (event, ...args) => listener(event, ...args));
+} }, getRequiredWorkspaceRoot);
+registerFeaturePlanningIpc({ handle: (channel, listener) => {
+  ipcMain.handle(channel, (event, ...args) => listener(event, ...args));
+} }, getRequiredWorkspaceRoot, instruction => clipboard.writeText(instruction));
+registerIssuePlanningIpc({ handle: (channel, listener) => {
+  ipcMain.handle(channel, (event, ...args) => listener(event, ...args));
+} }, getRequiredWorkspaceRoot, instruction => clipboard.writeText(instruction));
+registerStructuredWorkRoutingIpc({ handle: (channel, listener) => {
+  ipcMain.handle(channel, (event, ...args) => listener(event, ...args));
+} }, getRequiredWorkspaceRoot, instruction => clipboard.writeText(instruction));
+
+ipcMain.handle("sourceGraph:get", async (_event, options?: SourceGraphOptions) => {
+  const root = getRequiredWorkspaceRoot();
+  const repositoryId = await selectedSourceGraphRepositoryId(root);
+  const repositoryRoot = await resolveManagedDevRepositoryCheckout(root);
+  return createSourceControlService({ repositoryId, projectContainerRoot: root, repositoryRoot }).getSourceGraph(options);
 });
-ipcMain.handle("workIntake:read", (_event, intakeId: string) => readWorkIntake(getRequiredWorkspaceRoot(), intakeId));
-ipcMain.handle("workIntake:submit", (_event, submission: WorkIntakeSubmission) => submitWorkIntake(getRequiredWorkspaceRoot(), submission));
-ipcMain.handle("workRouting:prepare", (_event, intakeId: string) => prepareWorkRoutingAssessment(getRequiredWorkspaceRoot(), intakeId));
-ipcMain.handle("workRoute:status", (_event, intakeId: string) => getWorkRouteDecision(getRequiredWorkspaceRoot(), intakeId));
-ipcMain.handle("workIssue:action", async (_event, intakeId: string, action: WorkIssueAction, input?: WorkIssueActionInput) => {
-  const result = await runWorkIssueAction(getRequiredWorkspaceRoot(), intakeId, action, input);
-  if (result.instruction) clipboard.writeText(result.instruction);
-  return result.model;
+ipcMain.handle("sourceGraph:revisionDetail", async (_event, revisionId: string) => {
+  const root = getRequiredWorkspaceRoot();
+  const repositoryId = await selectedSourceGraphRepositoryId(root);
+  const repositoryRoot = await resolveManagedDevRepositoryCheckout(root);
+  return createSourceControlService({ repositoryId, projectContainerRoot: root, repositoryRoot }).getSourceGraphRevisionDetail(revisionId);
 });
-ipcMain.handle("workRoute:decide", (_event, intakeId: string, input: WorkRouteDecisionInput) => decideWorkRoute(getRequiredWorkspaceRoot(), intakeId, input));
-ipcMain.handle("workPlanning:status", (_event, intakeId: string, stage: WorkPlanningStage) => workPlanningKernel.get(getRequiredWorkspaceRoot(), intakeId, stage));
-ipcMain.handle("workDecomposition:status", (_event, intakeId: string, workItemId: string) => workItemDecompositionService.get(getRequiredWorkspaceRoot(), intakeId, workItemId));
-ipcMain.handle("workDecomposition:prepare", (_event, intakeId: string, workItemId: string) => workItemDecompositionService.prepare(getRequiredWorkspaceRoot(), intakeId, workItemId));
-ipcMain.handle("workDecomposition:review", (_event, intakeId: string, workItemId: string, input: WorkItemDecompositionReview) => workItemDecompositionService.review(getRequiredWorkspaceRoot(), intakeId, workItemId, input));
-ipcMain.handle("workDecomposition:copy", async (_event, intakeId: string, workItemId: string) => { clipboard.writeText(await workItemDecompositionService.copy(getRequiredWorkspaceRoot(), intakeId, workItemId)); });
-ipcMain.handle("workPlanning:prepare", (_event, intakeId: string, stage: WorkPlanningStage) => workPlanningKernel.prepare(getRequiredWorkspaceRoot(), intakeId, stage));
-ipcMain.handle("workPlanning:review", (_event, intakeId: string, stage: WorkPlanningStage, input: WorkPlanningReviewInput) => workPlanningKernel.review(getRequiredWorkspaceRoot(), intakeId, stage, input));
-ipcMain.handle("workPlanning:copy", async (_event, intakeId: string, stage: WorkPlanningStage) => {
-  clipboard.writeText(await workPlanningKernel.copy(getRequiredWorkspaceRoot(), intakeId, stage));
+ipcMain.handle("workIntake:projection", async () => {
+  const root = getRequiredWorkspaceRoot();
+  const projectId = selectedCurrentProjectId(root);
+  if (!projectId) throw Error("Select or open a Project to use Work Intake.");
+  return getStructuredWorkIntakeProjection(root, projectId);
 });
-ipcMain.handle("workRouting:status", (_event, intakeId: string) => getWorkRoutingAssessment(getRequiredWorkspaceRoot(), intakeId));
-ipcMain.handle("workRouting:copy", async (_event, intakeId: string) => {
-  const instruction = await copyWorkRoutingAssessment(getRequiredWorkspaceRoot(), intakeId);
-  clipboard.writeText(instruction);
+ipcMain.handle("workIntake:submit", async (_event, submission: import("../shared/workIntakeContracts").WorkIntakeSubmission) => {
+  const root = getRequiredWorkspaceRoot();
+  const projectId = selectedCurrentProjectId(root);
+  if (!projectId) throw Error("Select or open a Project to use Work Intake.");
+  return { ok: true as const, value: await captureStructuredWorkIntake(root, projectId, submission), receipts: [] as [] };
 });
 
 ipcMain.handle(
@@ -948,11 +1047,40 @@ ipcMain.handle("codexImplementer:getStatus", (): Promise<CodexImplementerExecuti
   return codexImplementerExecutionService.getStatus(getRequiredWorkspaceRoot());
 });
 
+const codexTesterExecutionService = new CodexTesterExecutionService();
+
+ipcMain.handle("codexTester:getWorkflowWorkItemStatus", (_event, workflowId: string, workItemId: string, implementationRecordId: string) =>
+  codexTesterExecutionService.getStatus(getRequiredWorkspaceRoot(), { workflowId, workItemId, implementationRecordId }));
+ipcMain.handle("codexTester:startWorkflowWorkItem", (_event, workflowId: string, workItemId: string, implementationRecordId: string, selection: CodexModelSelection) =>
+  codexTesterExecutionService.start(getRequiredWorkspaceRoot(), { workflowId, workItemId, implementationRecordId }, selection));
+ipcMain.handle("codexTester:cancel", (_event, workflowId: string, workItemId: string, implementationRecordId: string) =>
+  codexTesterExecutionService.cancel(getRequiredWorkspaceRoot(), { workflowId, workItemId, implementationRecordId }));
+ipcMain.handle("codexTester:respondToApproval", (_event, workflowId: string, workItemId: string, implementationRecordId: string, requestId: string, decision: "approve" | "deny") =>
+  codexTesterExecutionService.respondToApproval(getRequiredWorkspaceRoot(), { workflowId, workItemId, implementationRecordId }, requestId, decision));
+ipcMain.handle("codexTester:respondToUserInput", (_event, workflowId: string, workItemId: string, implementationRecordId: string, requestId: string, answers: Record<string, string[]>) =>
+  codexTesterExecutionService.respondToUserInput(getRequiredWorkspaceRoot(), { workflowId, workItemId, implementationRecordId }, requestId, answers));
+
+ipcMain.handle("codexImplementer:getWorkflowWorkItemStatus", (_event, workflowId: string, workItemId: string): Promise<CodexImplementerExecutionModel> => {
+  return codexImplementerExecutionService.getStatus(getRequiredWorkspaceRoot(), { ownerKind: "workflow-work-item", workflowId, workItemId });
+});
+
 ipcMain.handle("codexRuntime:getStatus", () => codexRuntimeManager.getStatus());
 ipcMain.handle("codexRuntime:setSelection", (_event, selection: unknown) => codexRuntimeManager.setSelection(selection));
 
 ipcMain.handle("codexImplementer:start", (_event, selection: CodexModelSelection): Promise<CodexImplementerExecutionModel> => {
   return codexImplementerExecutionService.start(getRequiredWorkspaceRoot(), undefined, selection);
+});
+
+ipcMain.handle("codexImplementer:startWorkflowWorkItem", (_event, workflowId: string, workItemId: string, selection: CodexModelSelection): Promise<CodexImplementerExecutionModel> => {
+  codexImplementerExecutionService.configureSourceCheckoutProjection(async (projectRoot, _projectId) => {
+    const binding = requireBoundMcpWorkspace(projectRoot);
+    const agentHarness = getAgentHarnessServiceHostClient();
+    const registered = await agentHarness.registerWorkspace(projectRoot);
+    if (registered.workspace.workspaceId !== binding.workspaceId) throw new Error("Selected Project and Agent Harness workspace identities do not match.");
+    return { workspaceId: binding.workspaceId,
+      projection: { registerRepositoryCheckout: (workspaceId, checkout) => agentHarness.registerRepositoryCheckout(workspaceId, checkout) } };
+  });
+  return codexImplementerExecutionService.start(getRequiredWorkspaceRoot(), { ownerKind: "workflow-work-item", workflowId, workItemId }, selection);
 });
 
 ipcMain.handle("codexImplementer:startEnvironmentResolution", (): Promise<CodexImplementerExecutionModel> => {
@@ -966,6 +1094,7 @@ ipcMain.handle(
       getRequiredWorkspaceRoot(),
       response.requestId,
       response.answers,
+      response.workflowId && response.workItemId ? { ownerKind: "workflow-work-item", workflowId: response.workflowId, workItemId: response.workItemId } : undefined,
     );
   },
 );
@@ -977,6 +1106,7 @@ ipcMain.handle(
       getRequiredWorkspaceRoot(),
       response.requestId,
       response.decision,
+      response.workflowId && response.workItemId ? { ownerKind: "workflow-work-item", workflowId: response.workflowId, workItemId: response.workItemId } : undefined,
     );
   },
 );
@@ -991,12 +1121,13 @@ ipcMain.handle(
         action: response.action,
         content: response.content,
       },
+      response.workflowId && response.workItemId ? { ownerKind: "workflow-work-item", workflowId: response.workflowId, workItemId: response.workItemId } : undefined,
     );
   },
 );
 
-ipcMain.handle("codexImplementer:cancel", (): Promise<CodexImplementerExecutionModel> => {
-  return codexImplementerExecutionService.cancel(getRequiredWorkspaceRoot());
+ipcMain.handle("codexImplementer:cancel", (_event, identity?: { workflowId: string; workItemId: string }): Promise<CodexImplementerExecutionModel> => {
+  return codexImplementerExecutionService.cancel(getRequiredWorkspaceRoot(), identity ? { ownerKind: "workflow-work-item", ...identity } : undefined);
 });
 
 ipcMain.handle("currentWorkflow:generateHandoff", (): RuntimeActionResult => {
