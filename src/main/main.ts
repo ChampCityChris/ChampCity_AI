@@ -365,9 +365,14 @@ ipcMain.handle("project:applyExistingGitAdoption", async (_event, planId: string
   const sourceLease = await projectSourceOperationCoordinator.acquireExclusive(root, "existing-project-git-adoption");
   let result: Awaited<ReturnType<typeof applyExistingProjectGitAdoption>>;
   try {
+    selectedWorkspaceEvidenceNotifier.pause();
     result = await applyExistingProjectGitAdoption({ projectRoot: root, repositoryId: CURRENT_PROJECT_REPOSITORY_ID, planId, consent: true });
   } finally {
-    await sourceLease.release();
+    try {
+      selectedWorkspaceEvidenceNotifier.resume();
+    } finally {
+      await sourceLease.release();
+    }
   }
   const modelAccess = await reconcileProjectModelAccess(
     root,

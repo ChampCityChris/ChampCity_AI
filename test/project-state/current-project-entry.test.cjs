@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const { execFileSync, spawn } = require("node:child_process");
+const { EventEmitter } = require("node:events");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -26,6 +27,7 @@ const {
 const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
 const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
 const { createWorkflowApplicationService } = require("../../dist/main/workflow/workflowApplicationService.js");
+const { SelectedWorkspaceEvidenceNotifier } = require("../../dist/main/workspaceEvidence/selectedWorkspaceEvidenceNotifier.js");
 const { getStructuredWorkIntakeProjection } = require("../../dist/main/workIntake/structuredWorkIntakeService.js");
 const { getWorkIntakeProjection } = require("../../dist/main/workIntake/workIntakeService.js");
 const rendererLoader = require("../renderer/renderer-source-loader.cjs");
@@ -38,6 +40,7 @@ const sourceProjectionContext = {
   projectSourceOperationCoordinator: {
     acquireExclusive: async () => ({ release: async () => undefined }),
   },
+  selectedWorkspaceEvidenceNotifier: { pause() {}, resume() {} },
 };
 
 async function waitFor(predicate, message, timeoutMs = 2_000) {
@@ -99,6 +102,70 @@ test("Existing Project adoption IPC derives selected root and accepts only an ex
     ["project:applyExistingGitAdoption", 1],
     ["project:applyExistingGitAdoption", 1],
   ]);
+});
+
+test("Existing Project conversion pauses and resumes active evidence watchers without losing selection", {
+  skip: process.platform !== "win32",
+}, async context => {
+  const selected = root(context);
+  initializeConventionalGit(selected);
+  fs.mkdirSync(path.join(selected, "planning"));
+  fs.mkdirSync(path.join(selected, "issues"));
+  const watches = [];
+  const notifier = new SelectedWorkspaceEvidenceNotifier(() => undefined, {
+    watch(watchRoot, options, listener) {
+      const watcher = new EventEmitter();
+      Object.assign(watcher, { root: watchRoot, options, listener, closed: false });
+      watcher.close = () => { watcher.closed = true; };
+      watches.push(watcher);
+      return watcher;
+    },
+  });
+  assert.equal(notifier.selectWorkspace(selected), 1);
+  const originalWatches = [...watches];
+  assert.equal(originalWatches.length, 3);
+  let selectedRoot = selected;
+  let sourceRanWhilePaused = false;
+  let leaseReleased = false;
+  const { api } = mainPreloadHarness(["project:inspectExistingGitAdoption", "project:applyExistingGitAdoption"], {
+    getRequiredWorkspaceRoot: () => selectedRoot,
+    CURRENT_PROJECT_REPOSITORY_ID,
+    inspectExistingProjectGitAdoption,
+    applyExistingProjectGitAdoption: async input => {
+      assert.equal(originalWatches.every(watcher => watcher.closed), true);
+      assert.equal(notifier.currentGeneration(), 1);
+      sourceRanWhilePaused = true;
+      return applyExistingProjectGitAdoption(input);
+    },
+    selectedWorkspaceEvidenceNotifier: notifier,
+    projectSourceOperationCoordinator: {
+      acquireExclusive: async () => ({ release: async () => { leaseReleased = true; } }),
+    },
+    reconcileProjectModelAccess: async () => ({ state: "ready", error: null }),
+    getAgentHarnessServiceHostClient: () => { throw new Error("model access should not be consulted"); },
+  });
+
+  const plan = await api.inspectExistingProjectGitAdoption();
+  const converted = await api.applyExistingProjectGitAdoption(plan.planId);
+
+  assert.equal(converted.sourcePlan.state, "managed-ready");
+  assert.equal(sourceRanWhilePaused, true);
+  assert.equal(leaseReleased, true);
+  assert.equal(selectedRoot, selected);
+  assert.equal(notifier.currentGeneration(), 1);
+  assert.equal(originalWatches.every(watcher => watcher.closed), true);
+  const resumedWatches = watches.slice(originalWatches.length);
+  assert.equal(resumedWatches.length, 1);
+  assert.equal(path.resolve(resumedWatches[0].root), path.resolve(selected));
+  assert.equal(resumedWatches[0].closed, false);
+  assert.equal(fs.existsSync(path.join(selected, ".git")), false);
+  assert.equal(fs.existsSync(path.join(selected, ".champcity", "repository.git")), true);
+  const current = await registerCurrentProject(selected, "existing", {
+    projectName: "Watcher Conversion Project",
+    sourceRepositoryId: CURRENT_PROJECT_REPOSITORY_ID,
+  });
+  assert.equal(selectedCurrentProjectId(selected), current.project.id);
+  notifier.clear();
 });
 
 test("Current Project managed Dev resolver fails closed for missing and non-Git checkout paths", async context => {
@@ -619,7 +686,8 @@ test("machine-owned shared source lease blocks conversion before mutation and ne
     getRequiredWorkspaceRoot: () => selected,
     getAgentHarnessServiceHostClient: () => unavailable,
     CURRENT_PROJECT_REPOSITORY_ID, inspectExistingProjectGitAdoption, applyExistingProjectGitAdoption,
-    fs, path, reconcileProjectModelAccess, projectSourceOperationCoordinator: coordinator,
+    fs, path, reconcileProjectModelAccess, selectedWorkspaceEvidenceNotifier: sourceProjectionContext.selectedWorkspaceEvidenceNotifier,
+    projectSourceOperationCoordinator: coordinator,
   });
   const plan = await api.inspectExistingProjectGitAdoption();
   let conversionCompleted = false;

@@ -40,12 +40,13 @@ function conventionalFixture(context, options = {}) {
   return fixture;
 }
 
-async function applyPlan(root, repositoryId, plan) {
+async function applyPlan(root, repositoryId, plan, options = {}) {
   const result = await applyExistingProjectGitAdoption({
     projectRoot: root,
     repositoryId,
     planId: plan.planId,
     consent: true,
+    ...options,
   });
   return result;
 }
@@ -147,6 +148,37 @@ test("ChampCity-style dev repository with accumulated history normalizes and reo
   assert.equal(source.materialized, false);
   assert.deepEqual([source.mainCheckout.repositoryCheckoutId, source.devCheckout.repositoryCheckoutId].sort(),
     [result.source.mainCheckout.repositoryCheckoutId, result.source.devCheckout.repositoryCheckoutId].sort());
+});
+
+test("Windows root Git retirement uses a verified retained recovery copy before real forced removal", {
+  skip: process.platform !== "win32",
+}, async context => {
+  const { root } = conventionalFixture(context, { prefix: "forced root-git retirement " });
+  git(root, "tag", "v1.0.0");
+  const head = git(root, "rev-parse", "HEAD");
+  git(root, "update-ref", "refs/remotes/origin/main", head);
+  git(root, "config", "branch.main.remote", "origin");
+  git(root, "config", "branch.main.merge", "refs/heads/main");
+  const refs = git(root, "for-each-ref", "--sort=refname", "--format=%(refname)%09%(objectname)",
+    "refs/heads", "refs/remotes", "refs/tags");
+  const config = git(root, "config", "--local", "--list");
+  const inspected = await inspectExistingProjectGitAdoption(root, "verified-retirement");
+
+  await applyPlan(root, "verified-retirement", inspected);
+
+  assertManaged(root);
+  const journal = JSON.parse(fs.readFileSync(path.join(root, ...EXISTING_PROJECT_GIT_ADOPTION_JOURNAL.split("/")), "utf8"));
+  const recoveryRelative = journal.retainedRecoveryPaths.find(value => value.endsWith("legacy-git-entry"));
+  assert.ok(recoveryRelative);
+  const recovery = path.join(root, ...recoveryRelative.split("/"));
+  assert.equal(fs.statSync(recovery).isDirectory(), true);
+  assert.equal(git(root, "--git-dir", recovery, "rev-parse", "HEAD"), head);
+  assert.equal(git(root, "--git-dir", recovery, "for-each-ref", "--sort=refname", "--format=%(refname)%09%(objectname)",
+    "refs/heads", "refs/remotes", "refs/tags"), refs);
+  assert.equal(git(root, "--git-dir", recovery, "config", "--local", "--list"), config);
+  git(root, "--git-dir", recovery, "fsck", "--no-dangling");
+  const receipt = JSON.parse(fs.readFileSync(path.join(root, ".champcity", "migrations", "existing-project-git-adoption-v1.receipt.json"), "utf8"));
+  assert.equal(receipt.retainedRecoveryPaths.includes(recoveryRelative), true);
 });
 
 test("managed policy provisioning ignores container state and incomplete validation authority falls back safely", async context => {
@@ -420,6 +452,81 @@ test("exhausted metadata relocation preserves the primary failure, root Git, and
   assert.match(journal.failureReason, /synthetic locked metadata/);
   assert.equal(journal.originalRootGitAuthoritative, true);
   assert.equal(journal.retainedRecoveryPaths.some(value => value.endsWith("candidate-repository.git")), true);
+});
+
+test("partial forced root Git retirement restores exact conventional authority from verified recovery", {
+  skip: process.platform !== "win32",
+}, async context => {
+  const { root } = conventionalFixture(context, { prefix: "forced-partial-root-git-" });
+  const beforeHead = git(root, "rev-parse", "HEAD");
+  const beforeRefs = git(root, "for-each-ref", "--sort=refname", "--format=%(refname)%09%(objectname)",
+    "refs/heads", "refs/remotes", "refs/tags");
+  const beforeConfig = git(root, "config", "--local", "--list");
+  const inspected = await inspectExistingProjectGitAdoption(root, "partial-root-retirement");
+  let calls = 0;
+  const rootGitProcessRunner = async (command, args, options) => {
+    calls += 1;
+    assert.equal(command, "powershell.exe");
+    assert.deepEqual(args.slice(0, 5), ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command"]);
+    assert.match(args[5], /Remove-Item -LiteralPath \$Target -Recurse -Force -ErrorAction Stop/);
+    const target = Buffer.from(args[6], "base64").toString("utf8");
+    assert.equal(path.resolve(target), path.resolve(root, ".git"));
+    assert.deepEqual(options, { shell: false, windowsHide: true, timeoutMs: 4000 });
+    if (calls === 1) {
+      const migration = fs.readdirSync(path.join(root, ".champcity", "migrations"))
+        .find(name => name.startsWith("existing-project-normalization-"));
+      const recovery = path.join(root, ".champcity", "migrations", migration, "legacy-git-entry");
+      assert.equal(git(root, "--git-dir", recovery, "rev-parse", "HEAD"), beforeHead);
+      fs.rmSync(path.join(root, ".git", "refs", "heads", "dev"), { force: true });
+      return { exitCode: 1, stdout: "", stderr: "synthetic partial sharing violation", timedOut: false };
+    }
+    fs.rmSync(target, { recursive: true, force: true });
+    return { exitCode: 0, stdout: "", stderr: "", timedOut: false };
+  };
+
+  await assert.rejects(applyPlan(root, "partial-root-retirement", inspected, { rootGitProcessRunner }),
+    /root conventional Git cutover failed: root conventional Git retirement failed: PowerShell exit 1: synthetic partial sharing violation/);
+
+  assert.equal(calls, 2);
+  assert.equal(git(root, "rev-parse", "HEAD"), beforeHead);
+  assert.equal(git(root, "for-each-ref", "--sort=refname", "--format=%(refname)%09%(objectname)",
+    "refs/heads", "refs/remotes", "refs/tags"), beforeRefs);
+  assert.equal(git(root, "config", "--local", "--list"), beforeConfig);
+  assert.equal(fs.existsSync(path.join(root, "Main")), false);
+  assert.equal(fs.existsSync(path.join(root, "Dev")), false);
+  const journal = JSON.parse(fs.readFileSync(path.join(root, ...EXISTING_PROJECT_GIT_ADOPTION_JOURNAL.split("/")), "utf8"));
+  assert.equal(journal.stage, "failed");
+  assert.equal(journal.failurePhase, "root conventional Git cutover");
+  assert.equal(journal.originalRootGitAuthoritative, true);
+  assert.equal(journal.cleanupWarnings.length, 0);
+  assert.equal(journal.retainedRecoveryPaths.some(value => value.endsWith("legacy-git-entry")), true);
+});
+
+test("persistent forced-removal failure preserves the primary diagnostic and retryable root Git", {
+  skip: process.platform !== "win32",
+}, async context => {
+  const { root } = conventionalFixture(context, { prefix: "forced-persistent-root-git-" });
+  const beforeHead = git(root, "rev-parse", "HEAD");
+  const inspected = await inspectExistingProjectGitAdoption(root, "persistent-root-retirement");
+  let calls = 0;
+  const rootGitProcessRunner = async () => {
+    calls += 1;
+    return { exitCode: 5, stdout: "", stderr: "synthetic persistent Windows sharing lock", timedOut: false };
+  };
+
+  await assert.rejects(applyPlan(root, "persistent-root-retirement", inspected, { rootGitProcessRunner }),
+    /root conventional Git retirement failed: PowerShell exit 5: synthetic persistent Windows sharing lock/);
+
+  assert.equal(calls, 1);
+  assert.equal(git(root, "rev-parse", "HEAD"), beforeHead);
+  const retry = await inspectExistingProjectGitAdoption(root, "persistent-root-retirement");
+  assert.equal(retry.state, "conversion-required");
+  const journal = JSON.parse(fs.readFileSync(path.join(root, ...EXISTING_PROJECT_GIT_ADOPTION_JOURNAL.split("/")), "utf8"));
+  assert.equal(journal.failurePhase, "root conventional Git cutover");
+  assert.equal(journal.originalRootGitAuthoritative, true);
+  assert.match(journal.failureReason, /synthetic persistent Windows sharing lock/);
+  assert.equal(fs.existsSync(path.join(root, "Main")), false);
+  assert.equal(fs.existsSync(path.join(root, "Dev")), false);
 });
 
 test("source-preservation staging failure aborts before Git or source mutation", async context => {

@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { AgentHarnessError } from "../core/applicationErrors";
@@ -51,6 +52,27 @@ interface SnapshotEntries {
   links: Array<{ relativePath: string; target: string }>;
 }
 
+interface ConventionalGitAuthority {
+  headRevision: string | null;
+  refs: GitRefEvidence[];
+  refsDigest: string;
+  configDigest: string;
+  treeDigest: string;
+}
+
+export interface RootGitFilesystemProcessResult {
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  timedOut: boolean;
+}
+
+export type RootGitFilesystemProcessRunner = (
+  command: string,
+  args: string[],
+  options: { shell: false; windowsHide: true; timeoutMs: number },
+) => Promise<RootGitFilesystemProcessResult>;
+
 interface ConversionJournal {
   schemaVersion: 3;
   migrationId: string;
@@ -73,6 +95,47 @@ interface ConversionJournal {
 
 function digest(value: string): string {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function digestFileInto(hash: ReturnType<typeof createHash>, target: string): void {
+  const handle = fs.openSync(target, "r");
+  const buffer = Buffer.allocUnsafe(1024 * 1024);
+  try {
+    let bytesRead = 0;
+    do {
+      bytesRead = fs.readSync(handle, buffer, 0, buffer.length, null);
+      if (bytesRead > 0) hash.update(buffer.subarray(0, bytesRead));
+    } while (bytesRead > 0);
+  } finally {
+    fs.closeSync(handle);
+  }
+}
+
+function gitMetadataTreeDigest(root: string): string {
+  const hash = createHash("sha256");
+  const walk = (directory: string, relative = ""): void => {
+    for (const name of fs.readdirSync(directory).sort()) {
+      const absolute = path.join(directory, name);
+      const childRelative = relative ? `${relative}/${name}` : name;
+      const stat = fs.lstatSync(absolute);
+      if (stat.isSymbolicLink()) {
+        hash.update(`link\0${childRelative}\0${fs.readlinkSync(absolute)}\0`);
+      } else if (stat.isDirectory()) {
+        hash.update(`directory\0${childRelative}\0`);
+        walk(absolute, childRelative);
+      } else if (stat.isFile()) {
+        hash.update(`file\0${childRelative}\0${stat.size}\0`);
+        digestFileInto(hash, absolute);
+        hash.update("\0");
+      } else {
+        throw new Error(`unsupported Git metadata entry '${boundedRelativePath(childRelative)}'`);
+      }
+    }
+  };
+  const stat = fs.lstatSync(root);
+  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error("root Git metadata is not an ordinary directory");
+  walk(root);
+  return hash.digest("hex");
 }
 
 function fail(message: string): never {
@@ -641,6 +704,175 @@ async function boundedRename(source: string, destination: string): Promise<{ ok:
   return boundedMutation(() => fs.renameSync(source, destination));
 }
 
+const windowsRootGitRemovalScript = "& { param([Parameter(Mandatory=$true)][string]$TargetBase64); "
+  + "$ErrorActionPreference = 'Stop'; "
+  + "$Target = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($TargetBase64)); "
+  + "Remove-Item -LiteralPath $Target -Recurse -Force -ErrorAction Stop }";
+const rootGitFilesystemCommandTimeoutMs = 4_000;
+const rootGitFilesystemOutputLimit = 16_384;
+
+const runRootGitFilesystemProcess: RootGitFilesystemProcessRunner = (command, args, options) => new Promise((resolve) => {
+  let settled = false;
+  let timedOut = false;
+  let stdout = "";
+  let stderr = "";
+  let child;
+  try {
+    child = spawn(command, args, {
+      shell: options.shell,
+      windowsHide: options.windowsHide,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (error) {
+    resolve({ exitCode: null, stdout: "", stderr: error instanceof Error ? error.message : String(error), timedOut: false });
+    return;
+  }
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    child.kill();
+  }, options.timeoutMs);
+  timeout.unref();
+  child.stdout.on("data", (chunk: Buffer | string) => {
+    stdout = `${stdout}${String(chunk)}`.slice(-rootGitFilesystemOutputLimit);
+  });
+  child.stderr.on("data", (chunk: Buffer | string) => {
+    stderr = `${stderr}${String(chunk)}`.slice(-rootGitFilesystemOutputLimit);
+  });
+  child.once("error", (error) => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timeout);
+    resolve({ exitCode: null, stdout, stderr: error.message, timedOut });
+  });
+  child.once("close", (exitCode) => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timeout);
+    resolve({ exitCode, stdout, stderr, timedOut });
+  });
+});
+
+function boundedProcessDiagnostic(result: RootGitFilesystemProcessResult): string {
+  const detail = (result.stderr || result.stdout || `exit code ${result.exitCode ?? "unavailable"}`)
+    .replace(/[\r\n]+/g, " ").trim().slice(0, 300);
+  return result.timedOut ? `PowerShell exceeded the ${rootGitFilesystemCommandTimeoutMs} ms deadline${detail ? `: ${detail}` : ""}`
+    : `PowerShell exit ${result.exitCode ?? "unavailable"}: ${detail || "no diagnostic"}`;
+}
+
+async function forceRemoveRootGit(
+  target: string,
+  runner: RootGitFilesystemProcessRunner,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!existsEntry(target)) return { ok: true };
+  if (process.platform !== "win32") {
+    try {
+      fs.rmSync(target, { recursive: true, force: true });
+      return existsEntry(target) ? { ok: false, error: "root Git metadata remained after forced removal" } : { ok: true };
+    } catch (error) {
+      return { ok: false, error: (error instanceof Error ? error.message : String(error)).slice(0, 300) };
+    }
+  }
+  const result = await runner("powershell.exe", [
+    "-NoProfile",
+    "-NonInteractive",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-Command",
+    windowsRootGitRemovalScript,
+    Buffer.from(target, "utf8").toString("base64"),
+  ], { shell: false, windowsHide: true, timeoutMs: rootGitFilesystemCommandTimeoutMs });
+  if (result.exitCode !== 0 || result.timedOut) return { ok: false, error: boundedProcessDiagnostic(result) };
+  return existsEntry(target) ? { ok: false, error: "PowerShell reported success but root Git metadata remained" } : { ok: true };
+}
+
+async function localGitConfigDigest(cwd: string, gitDir: string): Promise<string> {
+  const result = await runBoundedGit({
+    cwd,
+    args: ["--git-dir", gitDir, "config", "--local", "--null", "--list"],
+    rejectNonZero: false,
+  });
+  return digest(result.exitCode === 0 ? result.stdout : "unreadable");
+}
+
+async function conventionalGitAuthority(root: string, gitDir: string): Promise<ConventionalGitAuthority> {
+  const [headRevision, refsRaw, configDigest] = await Promise.all([
+    git(root, ["rev-parse", "HEAD"], { optional: true, gitDir, workTree: root }),
+    git(root, ["for-each-ref", "--sort=refname", "--format=%(refname)%00%(objectname)",
+      "refs/heads", "refs/remotes", "refs/tags"], { optional: true, gitDir }),
+    localGitConfigDigest(root, gitDir),
+  ]);
+  const refs = (refsRaw ?? "").split(/\r?\n/).map(line => {
+    const separator = line.indexOf("\0");
+    return separator > 0 ? { ref: line.slice(0, separator), revision: line.slice(separator + 1) } : null;
+  }).filter((value): value is GitRefEvidence => Boolean(value && /^refs\/(?:heads|remotes|tags)\//.test(value.ref)
+    && /^[0-9a-f]{40,64}$/.test(value.revision)));
+  return {
+    headRevision: headRevision && /^[0-9a-f]{40,64}$/.test(headRevision) ? headRevision : null,
+    refs,
+    refsDigest: digest(refs.map(item => `${item.ref}\0${item.revision}`).sort().join("\n")),
+    configDigest,
+    treeDigest: gitMetadataTreeDigest(gitDir),
+  };
+}
+
+async function verifyConventionalGitAuthority(
+  root: string,
+  gitDir: string,
+  expected: ConventionalGitAuthority,
+): Promise<void> {
+  const actual = await conventionalGitAuthority(root, gitDir);
+  if (actual.headRevision !== expected.headRevision) throw new Error("HEAD revision does not match the pre-cutover repository");
+  if (actual.refsDigest !== expected.refsDigest) throw new Error("heads/remotes/tags inventory does not match the pre-cutover repository");
+  if (actual.configDigest !== expected.configDigest) throw new Error("local Git configuration does not match the pre-cutover repository");
+  if (actual.treeDigest !== expected.treeDigest) throw new Error("Git metadata tree does not match the pre-cutover repository");
+  const readableObjects = [...new Set([actual.headRevision, ...actual.refs.map(item => item.revision)].filter(Boolean))] as string[];
+  for (const revision of readableObjects) {
+    if (await git(root, ["cat-file", "-e", `${revision}^{object}`], { optional: true, gitDir }) === null) {
+      throw new Error(`Git object ${revision.slice(0, 12)} is unreadable in recovery metadata`);
+    }
+  }
+}
+
+async function prepareRootGitRecovery(root: string, rootGit: string, recovery: string): Promise<ConventionalGitAuthority> {
+  if (existsEntry(recovery)) throw new Error("verified root Git recovery destination already exists");
+  const expected = await conventionalGitAuthority(root, rootGit);
+  fs.cpSync(rootGit, recovery, {
+    recursive: true,
+    errorOnExist: true,
+    force: false,
+    preserveTimestamps: true,
+    verbatimSymlinks: true,
+  });
+  await verifyConventionalGitAuthority(root, recovery, expected);
+  return expected;
+}
+
+async function restoreRootGitFromRecovery(input: {
+  root: string;
+  rootGit: string;
+  recovery: string;
+  expected: ConventionalGitAuthority;
+  runner: RootGitFilesystemProcessRunner;
+}): Promise<void> {
+  if (existsEntry(input.rootGit)) {
+    try {
+      await verifyConventionalGitAuthority(input.root, input.rootGit, input.expected);
+      return;
+    } catch {
+      const removed = await forceRemoveRootGit(input.rootGit, input.runner);
+      if (!removed.ok) throw new Error(`partial root Git residue could not be removed: ${removed.error}`);
+    }
+  }
+  fs.cpSync(input.recovery, input.rootGit, {
+    recursive: true,
+    errorOnExist: true,
+    force: false,
+    preserveTimestamps: true,
+    verbatimSymlinks: true,
+  });
+  await verifyConventionalGitAuthority(input.root, input.rootGit, input.expected);
+}
+
 async function retainAttemptPath(source: string, destination: string): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!existsEntry(source)) return { ok: true };
   if (existsEntry(destination)) return { ok: false, error: "recovery destination already exists" };
@@ -648,7 +880,7 @@ async function retainAttemptPath(source: string, destination: string): Promise<{
 }
 
 async function normalizeExistingProject(input: {
-  root: string; repositoryId: string; planId: string;
+  root: string; repositoryId: string; planId: string; rootGitProcessRunner: RootGitFilesystemProcessRunner;
 }): Promise<ManagedProjectSourceResult> {
   const root = input.root;
   const appRoot = applicationRoot(root);
@@ -703,7 +935,8 @@ async function normalizeExistingProject(input: {
   const relocatedDev = path.join(migrationRoot, "preexisting-Dev");
   const relocatedMetadata = path.join(migrationRoot, "preexisting-repository.git");
   const rolledBackCandidate = path.join(migrationRoot, "rolled-back-candidate-repository.git");
-  let gitRelocated = false;
+  let rootGitRetirementAttempted = false;
+  let rootGitAuthority: ConventionalGitAuthority | null = null;
   let mainRelocated = false;
   let devRelocated = false;
   let metadataRelocated = false;
@@ -723,6 +956,17 @@ async function normalizeExistingProject(input: {
       baselineParentCount: baseline.parentCount };
     writeJsonAtomic(journalPath(root), journal);
 
+    const rootGit = path.join(root, ".git");
+    if (existsEntry(rootGit)) {
+      phase = "recovery-copy preparation";
+      rootGitAuthority = await prepareRootGitRecovery(root, rootGit, legacyGit);
+      journal = { ...journal, retainedRecoveryPaths: [
+        ...journal.retainedRecoveryPaths,
+        path.relative(root, legacyGit).replace(/\\/g, "/"),
+      ] };
+      writeJsonAtomic(journalPath(root), journal);
+    }
+
     phase = "managed metadata cutover";
     if (existsEntry(metadata)) {
       const moved = await boundedRename(metadata, relocatedMetadata);
@@ -736,10 +980,11 @@ async function normalizeExistingProject(input: {
     writeJsonAtomic(journalPath(root), journal);
 
     phase = "root conventional Git cutover";
-    if (existsEntry(path.join(root, ".git"))) {
-      const moved = await boundedRename(path.join(root, ".git"), legacyGit);
-      if (!moved.ok) throw new Error(`root conventional Git could not be relocated: ${moved.error}`);
-      gitRelocated = true;
+    if (rootGitAuthority) {
+      rootGitRetirementAttempted = true;
+      const retired = await forceRemoveRootGit(rootGit, input.rootGitProcessRunner);
+      if (!retired.ok) throw new Error(`root conventional Git retirement failed: ${retired.error}`);
+      if (existsEntry(rootGit)) throw new Error("root conventional Git retirement failed: root Git metadata remains");
     }
     journal = { ...journal, stage: "root-git-relocated", originalRootGitAuthoritative: false };
     writeJsonAtomic(journalPath(root), journal);
@@ -789,7 +1034,7 @@ async function normalizeExistingProject(input: {
   } catch (error) {
     const primaryReason = error instanceof Error ? error.message.slice(0, 500) : "Existing Project conversion failed.";
     const cleanupWarnings: string[] = [];
-    const retainedRecoveryPaths: string[] = [];
+    const retainedRecoveryPaths: string[] = [...journal.retainedRecoveryPaths];
     const warn = (label: string, detail: string) => cleanupWarnings.push(`${label}: ${detail}`.slice(0, 500));
     try { restoreRelocatedLocalState(relocatedLocalState); relocatedLocalState = []; }
     catch (restoreError) { warn("local-state restore", restoreError instanceof Error ? restoreError.message : String(restoreError)); }
@@ -801,10 +1046,13 @@ async function normalizeExistingProject(input: {
       if (result.ok) retainedRecoveryPaths.push(path.relative(root, retained).replace(/\\/g, "/"));
       else warn(`${recoveryName} retain`, result.error);
     }
-    if (gitRelocated && !existsEntry(path.join(root, ".git")) && existsEntry(legacyGit)) {
-      const restored = await boundedRename(legacyGit, path.join(root, ".git"));
-      if (!restored.ok) warn("root Git restore", restored.error);
-      else gitRelocated = false;
+    if (rootGitRetirementAttempted && rootGitAuthority && existsEntry(legacyGit)) {
+      try {
+        await restoreRootGitFromRecovery({ root, rootGit: path.join(root, ".git"), recovery: legacyGit,
+          expected: rootGitAuthority, runner: input.rootGitProcessRunner });
+      } catch (restoreError) {
+        warn("root Git restore", restoreError instanceof Error ? restoreError.message : String(restoreError));
+      }
     }
     if (finalMetadataInstalled && existsEntry(metadata)) {
       const retained = await retainAttemptPath(metadata, rolledBackCandidate);
@@ -827,8 +1075,19 @@ async function normalizeExistingProject(input: {
     try { copySourceContents(snapshot, root, true); }
     catch (restoreError) { warn("source restore", restoreError instanceof Error ? restoreError.message : String(restoreError)); }
 
+    let originalRootGitAuthoritative = existsEntry(path.join(root, ".git"));
+    if (rootGitRetirementAttempted && rootGitAuthority) {
+      try {
+        await verifyConventionalGitAuthority(root, path.join(root, ".git"), rootGitAuthority);
+        originalRootGitAuthoritative = true;
+      } catch (verificationError) {
+        originalRootGitAuthoritative = false;
+        warn("root Git authority verification", verificationError instanceof Error ? verificationError.message : String(verificationError));
+      }
+    }
+
     journal = { ...journal, stage: "failed", failureReason: primaryReason, failurePhase: phase,
-      originalRootGitAuthoritative: existsEntry(path.join(root, ".git")), cleanupWarnings, retainedRecoveryPaths };
+      originalRootGitAuthoritative, cleanupWarnings, retainedRecoveryPaths };
     try { writeJsonAtomic(journalPath(root), journal); }
     catch (journalError) { cleanupWarnings.push(`failed journal write: ${journalError instanceof Error ? journalError.message : String(journalError)}`.slice(0, 500)); }
     const summary = cleanupWarnings.length ? ` Cleanup warnings: ${cleanupWarnings.join(" | ")}` : "";
@@ -842,6 +1101,7 @@ export async function applyExistingProjectGitAdoption(input: {
   repositoryId: string;
   planId: string;
   consent: boolean;
+  rootGitProcessRunner?: RootGitFilesystemProcessRunner;
 }): Promise<ExistingProjectGitAdoptionApplyResult> {
   const root = canonicalRoot(input.projectRoot);
   const inspected = await inspectExistingProjectGitAdoption(root, input.repositoryId);
@@ -853,6 +1113,7 @@ export async function applyExistingProjectGitAdoption(input: {
     return { plan: inspected, source, applied: false };
   }
   if (!input.consent) fail("Existing Project conversion requires explicit consent.");
-  const source = await normalizeExistingProject({ root, repositoryId: input.repositoryId, planId: input.planId });
+  const source = await normalizeExistingProject({ root, repositoryId: input.repositoryId, planId: input.planId,
+    rootGitProcessRunner: input.rootGitProcessRunner ?? runRootGitFilesystemProcess });
   return { plan: await inspectExistingProjectGitAdoption(root, input.repositoryId), source, applied: true };
 }

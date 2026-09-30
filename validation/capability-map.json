@@ -1591,6 +1591,7 @@
         "src/main/sourceControl/sourceGraphService.ts",
         "src/main/workIntake/structuredWorkIntakeService.ts",
         "src/main/workflow/workflowApplicationService.ts",
+        "src/main/workspaceEvidence/selectedWorkspaceEvidenceNotifier.ts",
         "src/preload/index.ts",
         "src/renderer/app/App.tsx",
         "src/renderer/app/LandingWorkspace.tsx",
@@ -1622,7 +1623,7 @@
         },
         {
           "behaviorId": "existing-project-conversion-uses-a-cross-process-machine-source-fence",
-          "description": "Existing Project conversion acquires a bounded exclusive application source-operation lease that drains shared model operations, blocks later operations, recovers stale ownership, and leaves unrelated Projects independent."
+          "description": "Existing Project conversion acquires a bounded exclusive application source-operation lease that drains shared model operations, pauses selected-workspace evidence watchers without changing selection or generation, blocks later operations, recovers stale ownership, resumes watchers, and leaves unrelated Projects independent."
         },
         {
           "behaviorId": "greenfield-entry-registers-current-project-and-enters-project-intake-with-main-dev",
@@ -2647,7 +2648,7 @@
       "behaviors": [
         {
           "behaviorId": "conventional-project-adoption-preserves-source-and-registers-durable-main-dev-checkouts",
-          "description": "Existing Git inspection reduces topology to conversion-required, source preservation precedes mutation, readable refs become bounded baseline ancestry, ordinary Git irregularities fall back rather than block, and successful application returns exact canonical Main and Dev descriptors without model-access dependencies."
+          "description": "Existing Git inspection reduces topology to conversion-required, source preservation and verified root Git recovery precede forced Windows retirement, readable refs become bounded baseline ancestry, partial retirement restores exact conventional authority, ordinary Git irregularities fall back rather than block, and successful application returns exact canonical Main and Dev descriptors without model-access dependencies."
         },
         {
           "behaviorId": "greenfield-source-bootstrap-establishes-deterministic-managed-main-dev-and-ignore-baseline",
@@ -5173,6 +5174,10 @@
         {
           "behaviorId": "selected-workspace-notifier-coalesces-domains-and-isolates-switch-and-clear-generations",
           "description": "selected-workspace notifier coalesces domains and isolates switch and clear generations"
+        },
+        {
+          "behaviorId": "selected-workspace-notifier-pause-resume-preserves-selection-and-generation",
+          "description": "selected-workspace notifier pause and resume close stale watcher handles while preserving active selection and evidence generation"
         }
       ]
     },
@@ -13519,8 +13524,8 @@
     {
       "testPath": "test/project-state/current-project-entry.test.cjs",
       "currentTestCount": {
-        "value": 19,
-        "basis": "Nineteen focused entry scenarios include canonical renderer admission, constrained preload/main IPC, pre-conversion conventional model access, exact managed Main/Dev reconciliation and public discovery, machine-owned conversion fencing across processes, stale recovery, retry, source-neutral, managed reopen, Greenfield, and Workflow Hub identity routing."
+        "value": 20,
+        "basis": "Twenty focused entry scenarios include canonical renderer admission, constrained preload/main IPC, active evidence-watcher pause/resume during conversion, pre-conversion conventional model access, exact managed Main/Dev reconciliation and public discovery, machine-owned conversion fencing across processes, stale recovery, retry, source-neutral, managed reopen, Greenfield, and Workflow Hub identity routing."
       },
       "duration": {
         "kind": "measured",
@@ -13583,7 +13588,7 @@
         {
           "capabilityId": "current-project-entry-runtime",
           "behaviorId": "existing-project-conversion-uses-a-cross-process-machine-source-fence",
-          "proofLocator": "Shared operation A delays exclusive conversion, exclusive intent prevents later operation B, unrelated Project C remains usable, a detached child process participates through the same hashed namespace, and synthetic stale ownership is recovered",
+          "proofLocator": "Shared operation A delays exclusive conversion, exclusive intent prevents later operation B, unrelated Project C remains usable, a detached child process participates through the same hashed namespace, synthetic stale ownership is recovered, and active selected-workspace evidence watchers pause and resume without selection or generation loss",
           "proofRole": "primary"
         },
         {
@@ -18048,8 +18053,8 @@
     {
       "testPath": "test/source-control/managed-project-source.test.cjs",
       "currentTestCount": {
-        "value": 16,
-        "basis": "EPGA-R04-R03 focused normal-Windows proof removes model-access retirement/registration from Source Control, adds the import guard, and preserves source-only adoption, rollback, and policy scenarios."
+        "value": 19,
+        "basis": "EPGA-R04-R03-R05 focused normal-Windows proof preserves the Source Control import guard and source-only adoption while adding real forced root Git retirement, verified retained recovery, exact partial-delete restore, and persistent-lock retryability scenarios."
       },
       "duration": {
         "kind": "measured",
@@ -18094,7 +18099,7 @@
         {
           "capabilityId": "managed-project-source-topology",
           "behaviorId": "conventional-project-adoption-preserves-source-and-registers-durable-main-dev-checkouts",
-          "proofLocator": "inspection and apply preserve current source, fail checkout-retirement timeout before metadata cutover without redundant re-registration, build the candidate bare repository in migration staging, retry bounded Windows cutover mutations, preserve primary failures and prior authority during rollback, recover the current interrupted-normalization residue, force exact main/dev, and reopen idempotently",
+          "proofLocator": "inspection and apply preserve current source, build the candidate bare repository in migration staging, verify and retain a recovery copy before the real argument-safe PowerShell removal path, restore exact conventional authority after partial deletion, preserve persistent-lock diagnostics and retryability, recover interrupted-normalization residue, force exact main/dev, and reopen idempotently",
           "proofRole": "primary"
         },
         {
@@ -20902,8 +20907,8 @@
     {
       "testPath": "test/workspace-evidence/selected-workspace-evidence-notifier.test.cjs",
       "currentTestCount": {
-        "value": 2,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 3,
+        "basis": "EPGA-R04-R03-R05 focused proof adds pause/resume lifecycle coverage to the existing coalescing and real-filesystem notification owners."
       },
       "duration": {
         "kind": "measured",
@@ -20954,6 +20959,12 @@
           "capabilityId": "workspace-evidence-notification",
           "behaviorId": "selected-workspace-notifier-coalesces-domains-and-isolates-switch-and-clear-generations",
           "proofLocator": "selected-workspace notifier coalesces domains and isolates switch and clear generations",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workspace-evidence-notification",
+          "behaviorId": "selected-workspace-notifier-pause-resume-preserves-selection-and-generation",
+          "proofLocator": "pause closes active root/domain handles, paused events are ignored, resume creates fresh handles for the same selected root and generation, and clear still advances generation",
           "proofRole": "primary"
         }
       ]

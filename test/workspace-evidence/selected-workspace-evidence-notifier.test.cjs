@@ -72,6 +72,52 @@ test("selected-workspace notifier coalesces domains and isolates switch and clea
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
 
+test("selected-workspace notifier pause and resume preserve selection and evidence generation", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-evidence-pause-"));
+  fs.mkdirSync(path.join(tempRoot, "planning"));
+  fs.mkdirSync(path.join(tempRoot, "issues"));
+  const watches = [];
+  const scheduled = [];
+  const notifications = [];
+  const notifier = new SelectedWorkspaceEvidenceNotifier(
+    notification => notifications.push(notification),
+    {
+      watch(root, options, listener) {
+        const watcher = new EventEmitter();
+        Object.assign(watcher, { root, options, listener, closed: false });
+        watcher.close = () => { watcher.closed = true; };
+        watches.push(watcher);
+        return watcher;
+      },
+      schedule(callback) { scheduled.push(callback); return scheduled.length; },
+      cancelSchedule() {},
+    },
+  );
+
+  assert.equal(notifier.selectWorkspace(tempRoot), 1);
+  const originalWatches = [...watches];
+  assert.equal(originalWatches.length, 3);
+  notifier.pause();
+  assert.equal(notifier.currentGeneration(), 1);
+  assert.equal(originalWatches.every(watcher => watcher.closed), true);
+  originalWatches.find(watcher => watcher.root.endsWith("planning")).listener("change", "paused.md");
+  assert.equal(scheduled.length, 0);
+
+  notifier.resume();
+  assert.equal(notifier.currentGeneration(), 1);
+  const resumedWatches = watches.slice(originalWatches.length);
+  assert.equal(resumedWatches.length, 3);
+  assert.equal(resumedWatches.every(watcher => !watcher.closed), true);
+  resumedWatches.find(watcher => watcher.root.endsWith("issues")).listener("change", "resumed.md");
+  scheduled.shift()();
+  assert.deepEqual(notifications, [{ domains: ["issues"], sequence: 1, generation: 1 }]);
+
+  notifier.clear();
+  assert.equal(notifier.currentGeneration(), 2);
+  assert.equal(resumedWatches.every(watcher => watcher.closed), true);
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
 test("real filesystem planning write emits a bounded path-free hint", async () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-evidence-real-"));
   const planningRoot = path.join(tempRoot, "planning");
