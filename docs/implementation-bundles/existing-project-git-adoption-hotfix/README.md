@@ -1,13 +1,11 @@
 # Existing Project Git Adoption Hotfix
 
-**Current accepted architecture baseline:** `e345019bb6d1b4cdfdd30c06006a2a4ac8e958dd`  
-**Current status:** **REPAIR06 ACTIVE — REAL CHAMPCITY_AI QUALIFICATION BLOCKED**
+**Current accepted implementation:** `3f9fd6368dcf3e131852b0554066e1fe6f9ae2a4`  
+**Current status:** **REPAIR06 ACCEPTED — REAL CHAMPCITY_AI QUALIFICATION RETRY AUTHORIZED**
 
-## Controlling path
+## Controlling review
 
-1. `Repair04/Repair03/Repair03/Repair06/EPGA-R04-R03-R06_classify_local_state_and_remove_regenerable_conversion_gates.md`
-2. `Repair04/Repair03/Repair03/Repair06/README.md`
-3. `Repair04/Repair03/Repair03/README.md`
+`Repair04/Repair03/Repair03/Repair06/EPGA_R04_R03_R06_ARCHITECT_REVIEW_2026-09-30.md`
 
 ## Authority model
 
@@ -17,37 +15,23 @@ The machine source-operation fence coordinates topology transitions.
 
 Agent Harness/MCP/model access remains downstream and does not authorize Git conversion.
 
-## Latest qualification evidence
+## Accepted conversion transaction
 
-The real attempt `349232e8-fce9-4300-bbf2-8a19fca53d56` passed:
+The conversion now includes:
 
-- source preservation;
-- 13-ref import;
-- canonical baseline creation;
+- Git-derived canonical source inventory;
+- durable ignored/local-state preservation before destructive cutover;
+- regenerable ignored-state classification;
 - verified root Git recovery;
 - forced Windows root Git retirement;
-- managed metadata installation;
-- Main/Dev worktree creation.
-
-It then failed because ignored `node_modules` was treated as durable local state and relocated with a raw filesystem rename.
-
-Rollback restored conventional Git cleanly with no cleanup warnings.
-
-## Repair06 direction
-
-Git-ignored state is split into:
-
-```text
-durable local state
-regenerable state
-```
-
-Known dependency/cache/build/temp state is not required for conversion.
-
-Unknown ignored state remains durable and is preserved outside the baseline.
+- Main/Dev creation and verification;
+- durable-state materialization into Dev;
+- manifest-driven Project-root cleanup;
+- non-authoritative handling of locked generated/cache residue;
+- exact rollback of Git/source/durable state on authoritative failure.
 
 ## Next action
 
-Implement Repair06 and stop for Architect review.
+Run **Open Existing Project -> ChampCity_AI -> Accept and Convert**.
 
-Do not manually clean historical migration evidence and do not retry **Accept and Convert** before Repair06 acceptance.
+Do not manually clean historical failed migration evidence.

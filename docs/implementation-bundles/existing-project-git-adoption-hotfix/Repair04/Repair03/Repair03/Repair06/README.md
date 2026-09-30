@@ -1,28 +1,16 @@
 # Existing Project Git Adoption — Repair06
 
-**Baseline:** `e345019bb6d1b4cdfdd30c06006a2a4ac8e958dd`  
-**Status:** **ACTIVE — REAL QUALIFICATION BLOCKED**
+**Implementation checkpoint:** `3f9fd6368dcf3e131852b0554066e1fe6f9ae2a4`  
+**Status:** **ACCEPTED — REAL CHAMPCITY_AI QUALIFICATION RETRY AUTHORIZED**
 
-Controlling card:
+Controlling review:
 
-`EPGA-R04-R03-R06_classify_local_state_and_remove_regenerable_conversion_gates.md`
+`EPGA_R04_R03_R06_ARCHITECT_REVIEW_2026-09-30.md`
 
-The latest real ChampCity_AI conversion passed root Git retirement, managed metadata installation, Main/Dev creation, and source restoration, then failed because all Git-ignored state is currently treated as durable and relocated with `fs.renameSync()`.
+Repair06 is accepted.
 
-The exact real failure was:
+Existing Project conversion now distinguishes canonical source, durable ignored/local state, and regenerable ignored state.
 
-```text
-local-state preservation/relocation failed at 'node_modules'
-```
+Known dependency/build/cache/temp state such as `node_modules` no longer controls conversion success. Unknown ignored data remains durable and is preserved before destructive cutover, then materialized into Dev uncommitted.
 
-Repair06 fixes the category error:
-
-```text
-canonical source
-durable ignored/local state
-regenerable ignored state
-```
-
-Known dependencies/caches/build output no longer become conversion authority. Unknown ignored data remains durable and is preserved outside the baseline.
-
-Do not retry the real ChampCity_AI conversion until Repair06 is implemented and Architect-reviewed.
+The real **Accept and Convert** retry is authorized.
