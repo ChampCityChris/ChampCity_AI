@@ -6872,6 +6872,14 @@ function CurrentWorkspaceBanner({
   return (
     <section className="current-workspace-banner" aria-label="Current required workflow step" data-project-id={currentProject?.projectId}>
       {currentProject ? <div><span>Current Project</span><strong>{currentProject.projectName}</strong><small>{currentProject.projectId}</small></div> : null}
+      {currentProject?.environmentHydration?.state === "ready" ? (
+        <div className="banner-wide"><span>Development Environment</span><strong>Project migrated successfully; environment ready.</strong></div>
+      ) : null}
+      {currentProject?.environmentHydration?.state === "degraded" ? (
+        <div className="banner-wide blocker"><span>Development Environment</span>
+          <strong title={currentProject.environmentHydration.error ?? undefined}>Project migrated successfully; development environment needs attention. {currentProject.environmentHydration.error}</strong>
+        </div>
+      ) : null}
       {currentProject?.modelAccess.state === "degraded" ? (
         <div className="banner-wide blocker model-access-degraded">
           <span>Model Access Degraded</span>

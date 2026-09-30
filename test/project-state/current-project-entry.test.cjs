@@ -20,6 +20,7 @@ const {
   EXISTING_PROJECT_GIT_ADOPTION_RECEIPT,
 } = require("../../dist/main/sourceControl/existingProjectGitAdoptionService.js");
 const { reconcileProjectModelAccess } = require("../../dist/main/modelAccess/projectModelAccessCoordinator.js");
+const { hydrateRepositoryEnvironment } = require("../../dist/main/developmentEnvironment/repositoryEnvironmentHydrationService.js");
 const {
   createProjectSourceOperationCoordinator,
   projectSourceOperationLeaseDirectory,
@@ -37,6 +38,8 @@ const rendererSource = fs.readFileSync(path.resolve(__dirname, "../../src/render
 const entryControllerSource = fs.readFileSync(path.resolve(__dirname, "../../src/renderer/app/existingProjectEntryController.ts"), "utf8");
 const sourceProjectionContext = {
   reconcileProjectModelAccess,
+  hydrateRepositoryEnvironment,
+  path,
   projectSourceOperationCoordinator: {
     acquireExclusive: async () => ({ release: async () => undefined }),
   },
@@ -104,6 +107,60 @@ test("Existing Project adoption IPC derives selected root and accepts only an ex
   ]);
 });
 
+test("post-migration hydration runs after the source lease and degradation preserves adoption", async () => {
+  const selected = "synthetic-selected-project";
+  const planId = "b".repeat(64);
+  const order = [];
+  let applied = true;
+  const source = { mainCheckout: { projectRelativePath: "Main" }, devCheckout: { projectRelativePath: "Dev" } };
+  const { api } = mainPreloadHarness(["project:applyExistingGitAdoption"], {
+    getRequiredWorkspaceRoot: () => selected,
+    CURRENT_PROJECT_REPOSITORY_ID,
+    projectSourceOperationCoordinator: { acquireExclusive: async () => {
+      order.push("acquire");
+      return { release: async () => { order.push("release"); } };
+    } },
+    selectedWorkspaceEvidenceNotifier: { pause() {}, resume() {} },
+    applyExistingProjectGitAdoption: async () => { order.push("conversion"); return { plan: { planId }, source, applied }; },
+    hydrateRepositoryEnvironment: async root => {
+      assert.equal(root, path.join(selected, "Dev"));
+      order.push("hydrate");
+      return { state: "degraded", providers: [{ ecosystem: "npm", state: "degraded" }], error: "Dependency restore needs attention: npm." };
+    },
+    reconcileProjectModelAccess: async () => { order.push("model-access"); return { state: "ready", error: null }; },
+    getAgentHarnessServiceHostClient: () => ({}),
+    path,
+  });
+  const converted = await api.applyExistingProjectGitAdoption(planId);
+  assert.equal(converted.sourceApplied, true);
+  assert.equal(converted.environmentHydration.state, "degraded");
+  assert.deepEqual(order, ["acquire", "conversion", "release", "hydrate", "model-access"]);
+  applied = false;
+  order.length = 0;
+  const reopened = await api.applyExistingProjectGitAdoption(planId);
+  assert.equal(reopened.sourceApplied, false);
+  assert.equal(reopened.environmentHydration.state, "not-applicable");
+  assert.deepEqual(order, ["acquire", "conversion", "release", "model-access"]);
+});
+
+test("admission carries migration hydration status into the Project and skips it on reopen", async () => {
+  const plan = { planId: "c".repeat(64), state: "conversion-required" };
+  const hydration = { state: "degraded", providers: [{ ecosystem: "npm", state: "degraded" }], error: "Dependency restore needs attention: npm." };
+  let applied = true;
+  const api = {
+    applyExistingProjectGitAdoption: async () => ({ sourceApplied: applied, environmentHydration: hydration }),
+    registerCurrentProject: async () => ({ projectId: "current", modelAccess: { state: "ready", error: null } }),
+  };
+  const converted = await acceptExistingProjectAdoption(api, plan);
+  assert.deepEqual(converted.environmentHydration, hydration);
+  applied = false;
+  const reopened = await openInspectedExistingProject(api, { ...plan, state: "managed-ready" });
+  assert.equal(reopened.kind, "ready");
+  assert.equal(reopened.project.environmentHydration, undefined);
+  assert.match(rendererSource, /Project migrated successfully; development environment needs attention/);
+  assert.match(rendererSource, /Project migrated successfully; environment ready/);
+});
+
 test("Existing Project conversion pauses and resumes active evidence watchers without losing selection", {
   skip: process.platform !== "win32",
 }, async context => {
@@ -143,6 +200,7 @@ test("Existing Project conversion pauses and resumes active evidence watchers wi
     },
     reconcileProjectModelAccess: async () => ({ state: "ready", error: null }),
     getAgentHarnessServiceHostClient: () => { throw new Error("model access should not be consulted"); },
+    hydrateRepositoryEnvironment, path,
   });
 
   const plan = await api.inspectExistingProjectGitAdoption();
@@ -686,7 +744,8 @@ test("machine-owned shared source lease blocks conversion before mutation and ne
     getRequiredWorkspaceRoot: () => selected,
     getAgentHarnessServiceHostClient: () => unavailable,
     CURRENT_PROJECT_REPOSITORY_ID, inspectExistingProjectGitAdoption, applyExistingProjectGitAdoption,
-    fs, path, reconcileProjectModelAccess, selectedWorkspaceEvidenceNotifier: sourceProjectionContext.selectedWorkspaceEvidenceNotifier,
+    fs, path, reconcileProjectModelAccess, hydrateRepositoryEnvironment,
+    selectedWorkspaceEvidenceNotifier: sourceProjectionContext.selectedWorkspaceEvidenceNotifier,
     projectSourceOperationCoordinator: coordinator,
   });
   const plan = await api.inspectExistingProjectGitAdoption();

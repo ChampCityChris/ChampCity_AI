@@ -59,6 +59,7 @@ import { applyExistingProjectGitAdoption, inspectExistingProjectGitAdoption } fr
 import { CURRENT_PROJECT_REPOSITORY_ID, registerCurrentProject, selectedCurrentProjectId } from "./projectState/currentProjectRegistrationService";
 import { MANAGED_PROJECT_SOURCE_PATHS } from "../shared/sourceLifecycleContracts";
 import { reconcileProjectModelAccess } from "./modelAccess/projectModelAccessCoordinator";
+import { hydrateRepositoryEnvironment } from "./developmentEnvironment/repositoryEnvironmentHydrationService";
 import { createProjectSourceOperationCoordinator } from "./core/projectSourceOperationCoordinator";
 import { selectedSourceGraphRepositoryId } from "./sourceControl/sourceGraphService";
 import { registerWorkflowApplicationIpc } from "./workflow/workflowApplicationIpc";
@@ -374,12 +375,17 @@ ipcMain.handle("project:applyExistingGitAdoption", async (_event, planId: string
       await sourceLease.release();
     }
   }
+  // Environment restore starts only after the destructive source lease has released.
+  const environmentHydration = result.applied && result.source
+    ? await hydrateRepositoryEnvironment(path.join(root, result.source.devCheckout.projectRelativePath))
+        .catch(() => ({ state: "degraded" as const, providers: [], error: "Development environment restore failed." }))
+    : { state: "not-applicable" as const, providers: [], error: null };
   const modelAccess = await reconcileProjectModelAccess(
     root,
     result.source ? [result.source.mainCheckout, result.source.devCheckout] : [],
     getAgentHarnessServiceHostClient,
   );
-  return { sourcePlan: result.plan, sourceApplied: result.applied, modelAccess };
+  return { sourcePlan: result.plan, sourceApplied: result.applied, environmentHydration, modelAccess };
 });
 
 ipcMain.handle("project:registerCurrent", async (_event, mode: "existing" | "greenfield", projectName?: string) => {

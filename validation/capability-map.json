@@ -1634,6 +1634,10 @@
           "description": "Non-source Current Project Hub omits Source Control and Source Graph fails before managed Dev resolution."
         },
         {
+          "behaviorId": "post-migration-hydration-follows-source-lease-and-managed-reopen-skips-restore",
+          "description": "post-migration hydration follows source lease and managed reopen skips restore"
+        },
+        {
           "behaviorId": "project-ui-entry-requires-canonical-admission-and-current-project-identity",
           "description": "Landing and sidebar Open or Change Project actions share canonical Existing Project admission, Clear returns to selection, Workflow Hub requires Current Project identity, and Project Intake cannot rebind an arbitrary folder."
         }
@@ -1755,6 +1759,7 @@
       "capabilityId": "development-environment-provisioning",
       "description": "Development capability contracts, preflight, elevation, Windows provisioning, and environment refresh.",
       "sourcePatterns": [
+        "src/main/core/windowsNpmInvocation.ts",
         "src/main/developmentEnvironment/**",
         "src/shared/developmentEnvironment/**",
         "test/support/windows-test.cjs"
@@ -1904,6 +1909,10 @@
         {
           "behaviorId": "repository-ecosystem-provider-uses-exact-restore-tool-evidence-without-over-selecting-wrappers-o",
           "description": "repository ecosystem provider uses exact restore tool evidence without over-selecting wrappers or uv"
+        },
+        {
+          "behaviorId": "repository-environment-hydration-restores-top-level-providers-sequentially-and-degrades-failures",
+          "description": "repository environment hydration restores top-level providers sequentially and degrades failures"
         },
         {
           "behaviorId": "satisfied-managed-capability-causes-no-install-and-allows-ready-preflight",
@@ -10132,6 +10141,63 @@
       ]
     },
     {
+      "testPath": "test/development-environment/repository-environment-hydration.test.cjs",
+      "currentTestCount": {
+        "value": 6,
+        "basis": "Six focused hydration scenarios, including local npm ci and source boundary proof."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 516,
+        "basis": "Observed EPGA-R04-R03-R07 focused direct Node test run."
+      },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "windows",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "mixed",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "production-path"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "windows",
+        "externalCapabilities": [
+          "npm-cli"
+        ],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Each scenario uses an isolated temporary Dev checkout and a bounded host npm version probe.",
+        "ownedResources": [
+          "bounded-child-process",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "environment-bound",
+        "external-capability-bound"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "development-environment-provisioning",
+          "behaviorId": "repository-environment-hydration-restores-top-level-providers-sequentially-and-degrades-failures",
+          "proofLocator": "top-level package lock restores the existing npm provider with Dev as cwd",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
       "testPath": "test/development-environment/windows-development-environment-provisioner.test.cjs",
       "currentTestCount": {
         "value": 32,
@@ -13524,8 +13590,8 @@
     {
       "testPath": "test/project-state/current-project-entry.test.cjs",
       "currentTestCount": {
-        "value": 20,
-        "basis": "Twenty focused entry scenarios include canonical renderer admission, constrained preload/main IPC, active evidence-watcher pause/resume during conversion, pre-conversion conventional model access, exact managed Main/Dev reconciliation and public discovery, machine-owned conversion fencing across processes, stale recovery, retry, source-neutral, managed reopen, Greenfield, and Workflow Hub identity routing."
+        "value": 22,
+        "basis": "Twenty-two focused Existing Project and Current Project entry scenarios after EPGA-R04-R03-R07."
       },
       "duration": {
         "kind": "measured",
@@ -13601,6 +13667,12 @@
           "capabilityId": "current-project-entry-runtime",
           "behaviorId": "non-source-current-project-hub-omits-source-control-and-fails-closed-on-source-graph",
           "proofLocator": "Non-Git Existing Project IPC returns null repositoryId and only the registration marker; Source Graph rejects before managed Dev resolution",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "current-project-entry-runtime",
+          "behaviorId": "post-migration-hydration-follows-source-lease-and-managed-reopen-skips-restore",
+          "proofLocator": "post-migration hydration runs after the source lease and degradation preserves adoption",
           "proofRole": "primary"
         },
         {

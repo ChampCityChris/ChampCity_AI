@@ -29,13 +29,18 @@ export async function openInspectedExistingProject(api: ExistingProjectEntryApi,
     return { kind: "conversion-failed", reason: plan.failureReason ?? "Project source could not be safely converted." };
   }
   if (plan.state === "conversion-required") return { kind: "consent-required", plan };
-  if (plan.state !== "source-neutral") await api.applyExistingProjectGitAdoption(plan.planId);
-  return { kind: "ready", project: await api.registerCurrentProject("existing") };
+  const adoption = plan.state !== "source-neutral"
+    ? await api.applyExistingProjectGitAdoption(plan.planId) : null;
+  const project = await api.registerCurrentProject("existing");
+  return { kind: "ready", project: adoption?.sourceApplied
+    ? { ...project, environmentHydration: adoption.environmentHydration } : project };
 }
 
 /** Accept is one exact-plan application followed by one Current Project registration. */
 export async function acceptExistingProjectAdoption(api: ExistingProjectEntryApi,
   plan: ExistingProjectGitAdoptionPlan): Promise<CurrentProjectRuntimeContext> {
-  await api.applyExistingProjectGitAdoption(plan.planId);
-  return api.registerCurrentProject("existing");
+  const adoption = await api.applyExistingProjectGitAdoption(plan.planId);
+  const project = await api.registerCurrentProject("existing");
+  return adoption.sourceApplied
+    ? { ...project, environmentHydration: adoption.environmentHydration } : project;
 }

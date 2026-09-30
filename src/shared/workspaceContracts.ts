@@ -67,10 +67,20 @@ export interface ModelAccessProjectionStatus {
   error: string | null;
 }
 
+export interface RepositoryEnvironmentHydrationResult {
+  state: "ready" | "degraded" | "not-applicable";
+  providers: Array<{
+    ecosystem: string;
+    state: "ready" | "degraded";
+  }>;
+  error: string | null;
+}
+
 export interface ExistingProjectGitAdoptionOutcome {
   sourcePlan: import("./sourceControlContracts").ExistingProjectGitAdoptionPlan;
   sourceApplied: boolean;
   modelAccess: ModelAccessProjectionStatus;
+  environmentHydration: RepositoryEnvironmentHydrationResult;
 }
 
 export interface CurrentProjectRuntimeContext {
@@ -82,6 +92,7 @@ export interface CurrentProjectRuntimeContext {
   created: boolean;
   projectCreationWorkflowId?: string;
   modelAccess: ModelAccessProjectionStatus;
+  environmentHydration?: RepositoryEnvironmentHydrationResult;
 }
 
 export interface McpWorkspaceBinding {
