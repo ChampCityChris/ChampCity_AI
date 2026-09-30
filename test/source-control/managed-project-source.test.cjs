@@ -227,7 +227,7 @@ test("feature, detached, missing-main, and missing-dev repositories all take the
   }
 });
 
-test("bounded Git source staging excludes a large ignored tree and relocates its junction without traversal", async context => {
+test("bounded Git source staging excludes a large unknown ignored tree and preserves it durably without link traversal", async context => {
   const { root } = conventionalFixture(context, { prefix: "forced-working-state-" });
   fs.writeFileSync(path.join(root, ".gitignore"), "local.log\nignored-cache/\n");
   git(root, "add", ".gitignore");
@@ -256,6 +256,159 @@ test("bounded Git source staging excludes a large ignored tree and relocates its
   assert.equal(fs.lstatSync(path.join(root, "Dev", "ignored-cache", "external-link")).isSymbolicLink(), true);
   assert.equal(fs.readFileSync(path.join(external, "sentinel.txt"), "utf8"), "must remain external\n");
   assert.equal(git(path.join(root, "Dev"), "status", "--porcelain"), "");
+  const receipt = JSON.parse(fs.readFileSync(path.join(root, ".champcity", "migrations", "existing-project-git-adoption-v1.receipt.json"), "utf8"));
+  const localStateSnapshot = receipt.retainedRecoveryPaths.find(value => value.endsWith("local-state-snapshot"));
+  assert.ok(localStateSnapshot);
+  assert.equal(fs.readFileSync(path.join(root, ...localStateSnapshot.split("/"), "local.log"), "utf8"), "ignored local bytes\n");
+});
+
+test("Git-ignored local state is split into durable and regenerable classes without name-based source disposal", async context => {
+  const { root } = conventionalFixture(context, { prefix: "forced-three-class-state-" });
+  fs.mkdirSync(path.join(root, "build"));
+  fs.writeFileSync(path.join(root, "build", "important-source.txt"), "tracked generated-name source\n");
+  for (const name of ["node_modules", "release", "tmp", "planning", "work_cards", "operator-scratch"]) {
+    fs.mkdirSync(path.join(root, name), { recursive: true });
+    fs.writeFileSync(path.join(root, name, "state.txt"), `${name} bytes\n`);
+  }
+  fs.writeFileSync(path.join(root, ".env.local"), "SYNTHETIC_TEST_VALUE=preserve-without-logging\n");
+  fs.writeFileSync(path.join(root, ".gitignore"), [
+    "node_modules/", "release/", "tmp/", "planning/", "work_cards/", "operator-scratch/", ".env.local", "build/", "",
+  ].join("\n"));
+  git(root, "add", ".gitignore");
+  git(root, "add", "-f", "build/important-source.txt");
+  git(root, "commit", "-m", "classify ignored state");
+
+  const inspected = await inspectExistingProjectGitAdoption(root, "three-class-state");
+  await applyPlan(root, "three-class-state", inspected);
+  const baseline = assertManaged(root);
+  const baselinePaths = git(path.join(root, "Dev"), "ls-tree", "-r", "--name-only", baseline).split(/\r?\n/);
+  assert.equal(baselinePaths.includes("build/important-source.txt"), true);
+  for (const name of ["node_modules/state.txt", "release/state.txt", "tmp/state.txt", "planning/state.txt",
+    "work_cards/state.txt", "operator-scratch/state.txt", ".env.local"]) {
+    assert.equal(baselinePaths.includes(name), false, name);
+  }
+  for (const name of ["planning", "work_cards", "operator-scratch"]) {
+    assert.equal(fs.readFileSync(path.join(root, "Dev", name, "state.txt"), "utf8"), `${name} bytes\n`);
+  }
+  assert.equal(fs.readFileSync(path.join(root, "Dev", ".env.local"), "utf8"), "SYNTHETIC_TEST_VALUE=preserve-without-logging\n");
+  for (const name of ["node_modules", "release", "tmp"]) assert.equal(fs.existsSync(path.join(root, "Dev", name)), false, name);
+
+  const receipt = JSON.parse(fs.readFileSync(path.join(root, ".champcity", "migrations", "existing-project-git-adoption-v1.receipt.json"), "utf8"));
+  const localStateSnapshot = receipt.retainedRecoveryPaths.find(value => value.endsWith("local-state-snapshot"));
+  assert.ok(localStateSnapshot);
+  const recoveryRoot = path.join(root, ...localStateSnapshot.split("/"));
+  assert.equal(fs.existsSync(path.join(recoveryRoot, "planning", "state.txt")), true);
+  assert.equal(fs.existsSync(path.join(recoveryRoot, "node_modules")), false);
+
+  const untracked = conventionalFixture(context, { prefix: "forced-untracked-generated-name-" }).root;
+  fs.mkdirSync(path.join(untracked, "build"));
+  fs.writeFileSync(path.join(untracked, "build", "untracked-source.txt"), "untracked source\n");
+  const untrackedPlan = await inspectExistingProjectGitAdoption(untracked, "untracked-generated-name");
+  await applyPlan(untracked, "untracked-generated-name", untrackedPlan);
+  const untrackedBaseline = assertManaged(untracked);
+  assert.equal(git(path.join(untracked, "Dev"), "show", `${untrackedBaseline}:build/untracked-source.txt`), "untracked source");
+});
+
+test("locked ignored node_modules residue is non-authoritative and cannot block conversion", {
+  skip: process.platform !== "win32",
+}, async context => {
+  const { root } = conventionalFixture(context, { prefix: "forced-locked-node-modules-" });
+  fs.writeFileSync(path.join(root, ".gitignore"), "node_modules/\n");
+  git(root, "add", ".gitignore");
+  git(root, "commit", "-m", "ignore dependencies");
+  fs.mkdirSync(path.join(root, "node_modules", "package"), { recursive: true });
+  fs.writeFileSync(path.join(root, "node_modules", "package", "index.js"), "generated dependency\n");
+  const inspected = await inspectExistingProjectGitAdoption(root, "locked-node-modules");
+  const originalRemove = fs.rmSync;
+  let blockedRemovals = 0;
+  fs.rmSync = (target, ...args) => {
+    if (path.resolve(target) === path.resolve(root, "node_modules")) {
+      blockedRemovals += 1;
+      const error = new Error("synthetic locked dependency tree"); error.code = "EBUSY"; throw error;
+    }
+    return originalRemove(target, ...args);
+  };
+  try { await applyPlan(root, "locked-node-modules", inspected); }
+  finally { fs.rmSync = originalRemove; }
+
+  const baseline = assertManaged(root);
+  assert.equal(blockedRemovals, 5);
+  assert.equal(fs.existsSync(path.join(root, "node_modules")), true);
+  assert.equal(fs.existsSync(path.join(root, "Dev", "node_modules")), false);
+  assert.equal(git(path.join(root, "Dev"), "ls-tree", "-r", "--name-only", baseline).includes("node_modules/package/index.js"), false);
+  const receipt = JSON.parse(fs.readFileSync(path.join(root, ".champcity", "migrations", "existing-project-git-adoption-v1.receipt.json"), "utf8"));
+  assert.equal(receipt.stage, "completed");
+  assert.equal(receipt.originalRootGitAuthoritative, false);
+  assert.equal(receipt.cleanupWarnings.some(value => /regenerable cleanup residue 'node_modules'/.test(value)), true);
+});
+
+test("mixed source durable and locked regenerable descendants preserve only authoritative state", async context => {
+  const { root } = conventionalFixture(context, { prefix: "forced-mixed-state-" });
+  fs.mkdirSync(path.join(root, "src", "local-notes"), { recursive: true });
+  fs.mkdirSync(path.join(root, "src", ".cache"), { recursive: true });
+  fs.writeFileSync(path.join(root, "src", "app.ts"), "export const answer = 42;\n");
+  fs.writeFileSync(path.join(root, "src", "local-notes", "operator.txt"), "durable note\n");
+  fs.writeFileSync(path.join(root, "src", ".cache", "generated.bin"), "cache bytes\n");
+  fs.writeFileSync(path.join(root, ".gitignore"), "src/local-notes/\nsrc/.cache/\n");
+  git(root, "add", ".gitignore", "src/app.ts");
+  git(root, "commit", "-m", "mixed state fixture");
+  const inspected = await inspectExistingProjectGitAdoption(root, "mixed-state");
+  const originalRemove = fs.rmSync;
+  fs.rmSync = (target, ...args) => {
+    if (path.resolve(target) === path.resolve(root, "src", ".cache")) {
+      const error = new Error("synthetic locked nested cache"); error.code = "EACCES"; throw error;
+    }
+    return originalRemove(target, ...args);
+  };
+  try { await applyPlan(root, "mixed-state", inspected); }
+  finally { fs.rmSync = originalRemove; }
+
+  const baseline = assertManaged(root);
+  assert.equal(git(path.join(root, "Dev"), "show", `${baseline}:src/app.ts`), "export const answer = 42;");
+  assert.equal(fs.readFileSync(path.join(root, "Dev", "src", "local-notes", "operator.txt"), "utf8"), "durable note\n");
+  assert.equal(fs.existsSync(path.join(root, "Dev", "src", ".cache")), false);
+  assert.equal(fs.existsSync(path.join(root, "src", ".cache", "generated.bin")), true);
+  assert.equal(fs.existsSync(path.join(root, "src", "app.ts")), false);
+  assert.equal(fs.existsSync(path.join(root, "src", "local-notes")), false);
+  const receipt = JSON.parse(fs.readFileSync(path.join(root, ".champcity", "migrations", "existing-project-git-adoption-v1.receipt.json"), "utf8"));
+  assert.equal(receipt.cleanupWarnings.some(value => /src\/.cache/.test(value)), true);
+});
+
+test("post-materialization rollback restores conventional Git and retains durable bytes", async context => {
+  const { root } = conventionalFixture(context, { prefix: "forced-durable-rollback-" });
+  fs.writeFileSync(path.join(root, ".gitignore"), "operator-scratch/\nnode_modules/\n");
+  git(root, "add", ".gitignore");
+  git(root, "commit", "-m", "rollback state fixture");
+  fs.mkdirSync(path.join(root, "operator-scratch"));
+  fs.writeFileSync(path.join(root, "operator-scratch", "state.txt"), "durable rollback bytes\n");
+  fs.mkdirSync(path.join(root, "node_modules"));
+  fs.writeFileSync(path.join(root, "node_modules", "generated.txt"), "regenerable bytes\n");
+  const beforeHead = git(root, "rev-parse", "HEAD");
+  const inspected = await inspectExistingProjectGitAdoption(root, "durable-rollback");
+  const originalRemove = fs.rmSync;
+  fs.rmSync = (target, ...args) => {
+    if (path.resolve(target) === path.resolve(root, "README.md")) {
+      const error = new Error("synthetic authoritative cleanup failure"); error.code = "EACCES"; throw error;
+    }
+    return originalRemove(target, ...args);
+  };
+  try {
+    await assert.rejects(applyPlan(root, "durable-rollback", inspected), /Project-root source cleanup failed/);
+  } finally { fs.rmSync = originalRemove; }
+
+  assert.equal(git(root, "rev-parse", "HEAD"), beforeHead);
+  assert.equal(fs.readFileSync(path.join(root, "operator-scratch", "state.txt"), "utf8"), "durable rollback bytes\n");
+  const journal = JSON.parse(fs.readFileSync(path.join(root, ".champcity", "migrations", "existing-project-git-adoption-v1.json"), "utf8"));
+  assert.equal(journal.stage, "failed");
+  assert.equal(journal.originalRootGitAuthoritative, true);
+  const localStateSnapshot = journal.retainedRecoveryPaths.find(value => value.endsWith("local-state-snapshot"));
+  const failedDev = journal.retainedRecoveryPaths.find(value => value.endsWith("failed-managed-Dev"));
+  assert.ok(localStateSnapshot);
+  assert.ok(failedDev);
+  assert.equal(fs.readFileSync(path.join(root, ...localStateSnapshot.split("/"), "operator-scratch", "state.txt"), "utf8"),
+    "durable rollback bytes\n");
+  assert.equal(fs.readFileSync(path.join(root, ...failedDev.split("/"), "operator-scratch", "state.txt"), "utf8"),
+    "durable rollback bytes\n");
 });
 
 test("tracked symbolic-link source is preserved as an entry without following its external target", async context => {

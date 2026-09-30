@@ -38,13 +38,8 @@ interface GitEvidence {
 
 interface SourceInventory {
   sourcePaths: string[];
-  localStatePaths: string[];
-}
-
-interface RelocatedLocalState {
-  relativePath: string;
-  source: string;
-  destination: string;
+  durableLocalStatePaths: string[];
+  regenerableStatePaths: string[];
 }
 
 interface SnapshotEntries {
@@ -269,6 +264,31 @@ function includedSourcePath(value: string, sourceIsProjectRoot: boolean): boolea
   return !sourceIsProjectRoot || (first !== "Main" && first !== "Dev");
 }
 
+const regenerableStateBasenames = new Set([
+  "node_modules",
+  "dist",
+  "build",
+  "out",
+  "release",
+  "coverage",
+  "tmp",
+  "temp",
+  ".cache",
+  ".parcel-cache",
+  ".vite",
+  ".turbo",
+  ".next",
+  ".pytest_cache",
+  ".mypy_cache",
+  ".ruff_cache",
+  "__pycache__",
+]);
+
+function isRegenerableIgnoredRoot(relativePath: string): boolean {
+  const normalized = relativePath.replace(/\\/g, "/");
+  return regenerableStateBasenames.has(normalized.slice(normalized.lastIndexOf("/") + 1));
+}
+
 async function gitSourceInventory(source: string, sourceIsProjectRoot: boolean): Promise<SourceInventory | null> {
   let workTree: GitExecutionResult;
   try { workTree = await runBoundedGit({ cwd: source, args: ["rev-parse", "--is-inside-work-tree"], rejectNonZero: false }); }
@@ -287,7 +307,8 @@ async function gitSourceInventory(source: string, sourceIsProjectRoot: boolean):
     for (let index = 1; index < segments.length; index += 1) trackedAncestors.add(segments.slice(0, index).join("/"));
   }
   const sourcePaths = new Set<string>();
-  const localStatePaths: string[] = [];
+  const durableLocalStatePaths: string[] = [];
+  const regenerableStatePaths: string[] = [];
 
   const walk = async (relativeDirectory = ""): Promise<boolean> => {
     const directory = relativeDirectory ? path.join(source, ...relativeDirectory.split("/")) : source;
@@ -321,9 +342,12 @@ async function gitSourceInventory(source: string, sourceIsProjectRoot: boolean):
         continue;
       }
       if (ignored.has(relative)) {
-        localStatePaths.push(relative);
+        (isRegenerableIgnoredRoot(relative) ? regenerableStatePaths : durableLocalStatePaths).push(relative);
       } else if (stat.isDirectory() && !stat.isSymbolicLink()) {
         if (!(await walk(relative))) return false;
+        try {
+          if (fs.readdirSync(absolute).length === 0) sourcePaths.add(relative);
+        } catch { throw sourcePhaseError("canonical source manifest/materialization", relative); }
       } else {
         sourcePaths.add(relative);
       }
@@ -332,7 +356,11 @@ async function gitSourceInventory(source: string, sourceIsProjectRoot: boolean):
   };
   if (!(await walk())) return null;
   for (const trackedPath of trackedPaths) sourcePaths.add(trackedPath);
-  return { sourcePaths: [...sourcePaths].sort(), localStatePaths: collapseRelativeRoots(localStatePaths) };
+  return {
+    sourcePaths: [...sourcePaths].sort(),
+    durableLocalStatePaths: collapseRelativeRoots(durableLocalStatePaths),
+    regenerableStatePaths: collapseRelativeRoots(regenerableStatePaths),
+  };
 }
 
 function collapseRelativeRoots(values: string[]): string[] {
@@ -380,8 +408,10 @@ function boundedRelativePath(value: string): string {
   return normalized.length <= 240 ? normalized : `${normalized.slice(0, 237)}...`;
 }
 
-function sourcePhaseError(phase: "canonical source manifest/materialization" | "local-state preservation/relocation" |
-  "generated policy materialization", relativePath?: string): Error {
+type SourcePhase = "canonical source manifest/materialization" | "durable local-state preservation" |
+  "durable local-state materialization" | "generated policy materialization" | "canonical source cleanup";
+
+function sourcePhaseError(phase: SourcePhase, relativePath?: string): Error {
   const location = relativePath ? ` at '${boundedRelativePath(relativePath)}'` : "";
   return new Error(`${phase} failed${location}.`);
 }
@@ -459,7 +489,9 @@ export async function inspectExistingProjectGitAdoption(projectRoot: string, rep
     return plan({ state: "conversion-required", repositoryId, priorGitDetected: true, topology: shape,
       preservedRefCount: evidence.refs.length, preservedRemoteCount: evidence.remotes.length,
       requiresConsent: true, warnings: [...warningFacts], failureReason: null }, {
-        sourceFacts, localStatePaths: inventory?.localStatePaths ?? null,
+        sourceFacts,
+        durableLocalStatePaths: inventory?.durableLocalStatePaths ?? null,
+        regenerableStatePaths: inventory?.regenerableStatePaths ?? null,
         refs: evidence.refsDigest, remotes: evidence.remotesDigest, working: evidence.workingStateDigest, shape,
       });
   } catch (error) {
@@ -494,11 +526,17 @@ function verifyOrdinaryParents(source: string, relative: string): void {
   }
 }
 
-function copyEntryNonFollowing(source: string, destination: string, relative: string, recurse: boolean): void {
+function copyEntryNonFollowing(
+  source: string,
+  destination: string,
+  relative: string,
+  recurse: boolean,
+  phase: SourcePhase = "canonical source manifest/materialization",
+): void {
   let stat: fs.Stats;
   try { stat = fs.lstatSync(source); } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
-    throw sourcePhaseError("canonical source manifest/materialization", relative);
+    throw sourcePhaseError(phase, relative);
   }
   fs.mkdirSync(path.dirname(destination), { recursive: true });
   try {
@@ -518,17 +556,17 @@ function copyEntryNonFollowing(source: string, destination: string, relative: st
       if (!recurse) return;
       for (const name of fs.readdirSync(source)) {
         if (name === ".git") continue;
-        copyEntryNonFollowing(path.join(source, name), path.join(destination, name), `${relative}/${name}`, true);
+        copyEntryNonFollowing(path.join(source, name), path.join(destination, name), `${relative}/${name}`, true, phase);
       }
       return;
     }
-    if (!stat.isFile()) throw sourcePhaseError("canonical source manifest/materialization", relative);
+    if (!stat.isFile()) throw sourcePhaseError(phase, relative);
     fs.copyFileSync(source, destination);
     fs.chmodSync(destination, stat.mode);
     fs.utimesSync(destination, stat.atime, stat.mtime);
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith("canonical source manifest/materialization failed")) throw error;
-    throw sourcePhaseError("canonical source manifest/materialization", relative);
+    if (error instanceof Error && error.message.startsWith(`${phase} failed`)) throw error;
+    throw sourcePhaseError(phase, relative);
   }
 }
 
@@ -561,43 +599,139 @@ function copySnapshotToCheckout(snapshot: string, checkout: string): void {
   copySourceContents(snapshot, checkout, false);
 }
 
-function relocateLocalState(source: string, checkout: string, relativePaths: string[]): RelocatedLocalState[] {
-  const relocated: RelocatedLocalState[] = [];
+function materializeStateManifest(
+  source: string,
+  destination: string,
+  relativePaths: string[],
+  phase: "durable local-state preservation" | "durable local-state materialization",
+): void {
+  fs.mkdirSync(destination, { recursive: true });
   for (const relativePath of relativePaths) {
+    if (!safeRelativeSourcePath(relativePath)) throw sourcePhaseError(phase, relativePath);
     const sourcePath = path.join(source, ...relativePath.split("/"));
-    const destinationPath = path.join(checkout, ...relativePath.split("/"));
+    const destinationPath = path.join(destination, ...relativePath.split("/"));
     try {
       verifyOrdinaryParents(source, relativePath);
       fs.lstatSync(sourcePath);
       if (existsEntry(destinationPath)) throw new Error("destination-exists");
-      fs.mkdirSync(path.dirname(destinationPath), { recursive: true });
-      fs.renameSync(sourcePath, destinationPath);
-      relocated.push({ relativePath, source: sourcePath, destination: destinationPath });
+      copyEntryNonFollowing(sourcePath, destinationPath, relativePath, true, phase);
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
-      throw sourcePhaseError("local-state preservation/relocation", relativePath);
+      if (error instanceof Error && error.message.startsWith(`${phase} failed`)) throw error;
+      throw sourcePhaseError(phase, relativePath);
     }
   }
-  return relocated;
 }
 
-function restoreRelocatedLocalState(relocated: RelocatedLocalState[]): void {
-  for (const entry of [...relocated].reverse()) {
-    if (!existsEntry(entry.destination)) continue;
+function nonFollowingTreeDigest(target: string, phase: SourcePhase, relativePath: string): string {
+  const hash = createHash("sha256");
+  const walk = (absolute: string, relative: string): void => {
+    let stat: fs.Stats;
+    try { stat = fs.lstatSync(absolute); } catch { throw sourcePhaseError(phase, relativePath); }
+    if (stat.isSymbolicLink()) {
+      try { hash.update(`link\0${relative}\0${fs.readlinkSync(absolute)}\0`); }
+      catch { throw sourcePhaseError(phase, relativePath); }
+      return;
+    }
+    if (stat.isDirectory()) {
+      hash.update(`directory\0${relative}\0`);
+      let names: string[];
+      try { names = fs.readdirSync(absolute).sort(); } catch { throw sourcePhaseError(phase, relativePath); }
+      for (const name of names) walk(path.join(absolute, name), relative ? `${relative}/${name}` : name);
+      return;
+    }
+    if (!stat.isFile()) throw sourcePhaseError(phase, relativePath);
+    hash.update(`file\0${relative}\0${stat.size}\0`);
+    try { digestFileInto(hash, absolute); } catch { throw sourcePhaseError(phase, relativePath); }
+    hash.update("\0");
+  };
+  walk(target, "");
+  return hash.digest("hex");
+}
+
+function verifyStateManifest(
+  source: string,
+  destination: string,
+  relativePaths: string[],
+  phase: "durable local-state preservation" | "durable local-state materialization",
+): void {
+  for (const relativePath of relativePaths) {
+    if (!safeRelativeSourcePath(relativePath)) throw sourcePhaseError(phase, relativePath);
+    const sourcePath = path.join(source, ...relativePath.split("/"));
+    const destinationPath = path.join(destination, ...relativePath.split("/"));
     try {
-      if (existsEntry(entry.source)) throw new Error("source-exists");
-      fs.mkdirSync(path.dirname(entry.source), { recursive: true });
-      fs.renameSync(entry.destination, entry.source);
-    } catch {
-      throw sourcePhaseError("local-state preservation/relocation", entry.relativePath);
+      verifyOrdinaryParents(source, relativePath);
+      if (nonFollowingTreeDigest(sourcePath, phase, relativePath)
+        !== nonFollowingTreeDigest(destinationPath, phase, relativePath)) {
+        throw sourcePhaseError(phase, relativePath);
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith(`${phase} failed`)) throw error;
+      throw sourcePhaseError(phase, relativePath);
     }
   }
+}
+
+function restoreStateManifest(snapshot: string, destination: string, relativePaths: string[]): void {
+  const phase = "durable local-state materialization";
+  for (const relativePath of relativePaths) {
+    const snapshotPath = path.join(snapshot, ...relativePath.split("/"));
+    const destinationPath = path.join(destination, ...relativePath.split("/"));
+    if (existsEntry(destinationPath)) {
+      if (nonFollowingTreeDigest(snapshotPath, phase, relativePath)
+        === nonFollowingTreeDigest(destinationPath, phase, relativePath)) continue;
+      removeEntryNonFollowing(destinationPath);
+    }
+    copyEntryNonFollowing(snapshotPath, destinationPath, relativePath, true, phase);
+  }
+  verifyStateManifest(snapshot, destination, relativePaths, phase);
 }
 
 function removeEntryNonFollowing(target: string): void {
   const stat = fs.lstatSync(target);
   if (stat.isSymbolicLink()) fs.unlinkSync(target);
   else fs.rmSync(target, { recursive: stat.isDirectory(), force: true });
+}
+
+function pathDepth(relativePath: string): number {
+  return relativePath.replace(/\\/g, "/").split("/").length;
+}
+
+async function removeManifestEntries(
+  source: string,
+  relativePaths: string[],
+  category: "source" | "durable" | "regenerable",
+  cleanupWarnings: string[],
+): Promise<void> {
+  for (const relativePath of [...relativePaths].sort((left, right) => pathDepth(right) - pathDepth(left))) {
+    const target = path.join(source, ...relativePath.split("/"));
+    if (!existsEntry(target)) continue;
+    const removed = await boundedMutation(() => {
+      const stat = fs.lstatSync(target);
+      if (category === "source" && stat.isDirectory() && !stat.isSymbolicLink()) fs.rmdirSync(target);
+      else removeEntryNonFollowing(target);
+    });
+    if (removed.ok) continue;
+    if (category === "source") throw sourcePhaseError("canonical source cleanup", relativePath);
+    cleanupWarnings.push(`${category} cleanup residue '${boundedRelativePath(relativePath)}': ${removed.error}`.slice(0, 500));
+  }
+}
+
+async function pruneEmptyManifestParents(source: string, relativePaths: string[], cleanupWarnings: string[]): Promise<void> {
+  const parents = new Set<string>();
+  for (const relativePath of relativePaths) {
+    const segments = relativePath.replace(/\\/g, "/").split("/");
+    for (let index = 1; index < segments.length; index += 1) parents.add(segments.slice(0, index).join("/"));
+  }
+  for (const relativePath of [...parents].sort((left, right) => pathDepth(right) - pathDepth(left))) {
+    const target = path.join(source, ...relativePath.split("/"));
+    if (!existsEntry(target)) continue;
+    try {
+      const stat = fs.lstatSync(target);
+      if (!stat.isDirectory() || stat.isSymbolicLink() || fs.readdirSync(target).length > 0) continue;
+    } catch { continue; }
+    const removed = await boundedMutation(() => fs.rmdirSync(target));
+    if (!removed.ok) cleanupWarnings.push(`empty-directory cleanup residue '${boundedRelativePath(relativePath)}': ${removed.error}`.slice(0, 500));
+  }
 }
 
 async function importReadableGit(root: string, metadata: string, evidence: GitEvidence): Promise<number> {
@@ -892,14 +1026,19 @@ async function normalizeExistingProject(input: {
   const migrationId = randomUUID();
   const migrationRoot = path.join(migrationsRoot, `existing-project-normalization-${migrationId}`);
   const snapshot = path.join(migrationRoot, "source-snapshot");
+  const localStateSnapshot = path.join(migrationRoot, "local-state-snapshot");
   const candidateMetadata = path.join(migrationRoot, "candidate-repository.git");
   const candidate = sourceCandidate(root);
   fs.mkdirSync(migrationRoot);
   let inventory: SourceInventory | null = null;
+  let fallbackSourcePaths: string[] = [];
   try {
     inventory = await gitSourceInventory(candidate, candidate === root);
     if (inventory) materializeManifest(candidate, snapshot, inventory.sourcePaths);
-    else copySourceContents(candidate, snapshot, candidate === root);
+    else {
+      fallbackSourcePaths = fs.readdirSync(candidate).filter(name => includedSourcePath(name, candidate === root));
+      copySourceContents(candidate, snapshot, candidate === root);
+    }
     fs.rmSync(path.join(snapshot, ".champcity"), { recursive: true, force: true });
   } catch (error) {
     fs.rmSync(migrationRoot, { recursive: true, force: true });
@@ -916,13 +1055,26 @@ async function normalizeExistingProject(input: {
       ? error.message : sourcePhaseError("generated policy materialization", INTEGRATION_POLICY_PATH).message;
     fail(`Source preservation staging failed before Git normalization: ${detail}`);
   }
+  try {
+    materializeStateManifest(candidate, localStateSnapshot, inventory?.durableLocalStatePaths ?? [],
+      "durable local-state preservation");
+    verifyStateManifest(candidate, localStateSnapshot, inventory?.durableLocalStatePaths ?? [],
+      "durable local-state preservation");
+  } catch (error) {
+    fs.rmSync(migrationRoot, { recursive: true, force: true });
+    const detail = error instanceof Error && error.message.startsWith("durable local-state preservation failed")
+      ? error.message : sourcePhaseError("durable local-state preservation").message;
+    fail(`Durable local-state staging failed before Git normalization: ${detail}`);
+  }
   const evidence = existsEntry(path.join(root, ".git")) ? await readGitEvidence(root) : await readGitEvidence(candidate);
   let journal: ConversionJournal = {
     schemaVersion: 3, migrationId, repositoryId: input.repositoryId, planId: input.planId, stage: "source-preserved",
     migrationRelativePath: path.relative(root, migrationRoot).replace(/\\/g, "/"),
     sourceSnapshotRelativePath: path.relative(root, snapshot).replace(/\\/g, "/"),
     baselineRevision: null, importedRefCount: 0, baselineParentCount: 0, failureReason: null, failurePhase: null,
-    originalRootGitAuthoritative: existsEntry(path.join(root, ".git")), cleanupWarnings: [], retainedRecoveryPaths: [],
+    originalRootGitAuthoritative: existsEntry(path.join(root, ".git")), cleanupWarnings: [], retainedRecoveryPaths: [
+      path.relative(root, localStateSnapshot).replace(/\\/g, "/"),
+    ],
     completedAt: null,
   };
   writeJsonAtomic(journalPath(root), journal);
@@ -944,7 +1096,6 @@ async function normalizeExistingProject(input: {
   let finalMetadataInstalled = false;
   let mainCreated = false;
   let devCreated = false;
-  let relocatedLocalState: RelocatedLocalState[] = [];
   let phase = "candidate repository preparation";
   try {
     await git(root, ["init", "--bare", candidateMetadata]);
@@ -1014,18 +1165,26 @@ async function normalizeExistingProject(input: {
     }
     journal = { ...journal, stage: "worktrees-created" };
     writeJsonAtomic(journalPath(root), journal);
-    const localStateSource = candidate === dev && devRelocated ? relocatedDev
-      : candidate === main && mainRelocated ? relocatedMain : candidate;
-    relocatedLocalState = relocateLocalState(localStateSource, dev, inventory?.localStatePaths ?? []);
-    journal = { ...journal, stage: "verified" };
-    writeJsonAtomic(journalPath(root), journal);
-    for (const name of fs.readdirSync(root)) {
-      if ([".git", ".champcity", "Main", "Dev"].includes(name)) continue;
-      removeEntryNonFollowing(path.join(root, name));
+    phase = "durable local-state materialization";
+    materializeStateManifest(localStateSnapshot, dev, inventory?.durableLocalStatePaths ?? [],
+      "durable local-state materialization");
+    verifyStateManifest(localStateSnapshot, dev, inventory?.durableLocalStatePaths ?? [],
+      "durable local-state materialization");
+
+    phase = "Project-root source cleanup";
+    const cleanupWarnings: string[] = [];
+    if (candidate === root) {
+      const sourcePaths = inventory?.sourcePaths ?? fallbackSourcePaths;
+      const durablePaths = inventory?.durableLocalStatePaths ?? [];
+      const regenerablePaths = inventory?.regenerableStatePaths ?? [];
+      await removeManifestEntries(root, sourcePaths, "source", cleanupWarnings);
+      await removeManifestEntries(root, durablePaths, "durable", cleanupWarnings);
+      await removeManifestEntries(root, regenerablePaths, "regenerable", cleanupWarnings);
+      await pruneEmptyManifestParents(root, [...sourcePaths, ...durablePaths, ...regenerablePaths], cleanupWarnings);
     }
-    phase = "managed source verification";
-    journal = { ...journal, stage: "verified" };
+    journal = { ...journal, stage: "verified", cleanupWarnings: [...journal.cleanupWarnings, ...cleanupWarnings] };
     writeJsonAtomic(journalPath(root), journal);
+    phase = "managed source verification";
     const registered = await establishManagedProjectSource({ projectRoot: root, repositoryId: input.repositoryId });
     journal = { ...journal, stage: "completed", completedAt: new Date().toISOString() };
     writeJsonAtomic(journalPath(root), journal);
@@ -1036,8 +1195,6 @@ async function normalizeExistingProject(input: {
     const cleanupWarnings: string[] = [];
     const retainedRecoveryPaths: string[] = [...journal.retainedRecoveryPaths];
     const warn = (label: string, detail: string) => cleanupWarnings.push(`${label}: ${detail}`.slice(0, 500));
-    try { restoreRelocatedLocalState(relocatedLocalState); relocatedLocalState = []; }
-    catch (restoreError) { warn("local-state restore", restoreError instanceof Error ? restoreError.message : String(restoreError)); }
 
     for (const [created, checkout, recoveryName] of [[devCreated, dev, "failed-managed-Dev"], [mainCreated, main, "failed-managed-Main"]] as const) {
       if (!created || !existsEntry(checkout)) continue;
@@ -1074,6 +1231,8 @@ async function normalizeExistingProject(input: {
     }
     try { copySourceContents(snapshot, root, true); }
     catch (restoreError) { warn("source restore", restoreError instanceof Error ? restoreError.message : String(restoreError)); }
+    try { restoreStateManifest(localStateSnapshot, root, inventory?.durableLocalStatePaths ?? []); }
+    catch (restoreError) { warn("durable local-state restore", restoreError instanceof Error ? restoreError.message : String(restoreError)); }
 
     let originalRootGitAuthoritative = existsEntry(path.join(root, ".git"));
     if (rootGitRetirementAttempted && rootGitAuthority) {
@@ -1087,7 +1246,7 @@ async function normalizeExistingProject(input: {
     }
 
     journal = { ...journal, stage: "failed", failureReason: primaryReason, failurePhase: phase,
-      originalRootGitAuthoritative, cleanupWarnings, retainedRecoveryPaths };
+      originalRootGitAuthoritative, cleanupWarnings: [...journal.cleanupWarnings, ...cleanupWarnings], retainedRecoveryPaths };
     try { writeJsonAtomic(journalPath(root), journal); }
     catch (journalError) { cleanupWarnings.push(`failed journal write: ${journalError instanceof Error ? journalError.message : String(journalError)}`.slice(0, 500)); }
     const summary = cleanupWarnings.length ? ` Cleanup warnings: ${cleanupWarnings.join(" | ")}` : "";
