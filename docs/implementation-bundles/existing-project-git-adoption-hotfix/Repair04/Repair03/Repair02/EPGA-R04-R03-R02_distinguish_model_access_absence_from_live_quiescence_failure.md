@@ -1,3 +1,15 @@
+# SUPERSEDED — DO NOT IMPLEMENT
+
+This Repair02 was superseded by Operator/Architect correction on 2026-09-29.
+
+The controlling card is:
+
+`../Repair03/EPGA-R04-R03-R03_replace_agent_harness_quiescence_with_machine_source_fence_and_close_project_entry_bypass.md`
+
+Reason: Source Control must not classify Agent Harness availability at all to authorize deterministic Git conversion. Concurrency is now owned by a neutral machine-level source-operation coordinator, and the confirmed sidebar project-entry bypass is repaired in the same controlling card.
+
+---
+
 # EPGA-R04-R03-R02 — Distinguish Model-Access Absence from Live Quiescence Failure
 
 **Parent:** Existing Project Git Adoption Hotfix / Repair04 / Repair03  

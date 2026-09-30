@@ -6,34 +6,40 @@
 **Repair04 / Repair01 checkpoint:** `f59d5d779f8192d14f47c1175d3a33b871b0c2e4`  
 **Repair04 / Repair02 checkpoint:** `e10bc59e5813cd7be769d1c92b9e71a51200d11b`  
 **Repair04 / Repair03 checkpoint:** `2a83d482fbbf2924cd1562aa17106b77d437a529`  
-**Current status:** **REPAIR04 / REPAIR03 / REPAIR01 ACTIVE**
+**Repair04 / Repair03 / Repair01 checkpoint:** `aee844a82ad977243570ed63e70f3fbb8a9f4376`  
+**Current status:** **REPAIR04 / REPAIR03 / REPAIR03 ACTIVE**
 
 ## Controlling path
 
-1. `Repair04/Repair03/EPGA_R04_R03_ARCHITECT_REVIEW_2026-09-29.md`
-2. `Repair04/Repair03/Repair01/EPGA-R04-R03-R01_make_model_access_projection_non_authoritative_in_product_git_paths.md`
+1. `Repair04/Repair03/Repair03/README.md`
+2. `Repair04/Repair03/Repair03/EPGA-R04-R03-R03_replace_agent_harness_quiescence_with_machine_source_fence_and_close_project_entry_bypass.md`
 3. `Repair04/Repair03/README.md`
 
 ## Product boundary
 
 ChampCity A/I is the harness.
 
-Source Control owns Git deterministically and must remain executable without Agent Harness/MCP/model availability.
+Source Control owns Git and source-topology transitions deterministically.
 
-Agent Harness/MCP exposes selected application capabilities to models. RepositoryCheckout projection is downstream access state, not Git authority.
+Agent Harness/MCP/model access is a consumer of application-owned source state and must obey a neutral machine-level source-operation fence. Source Control does not consult Agent Harness to authorize Git.
 
-## Current blocker
+Generic workspace selection is not Project admission. Existing Projects must enter through the canonical inspect/consent/register path.
 
-Repair03 fixed the Source Control service layer but the actual desktop composition still:
+## Current repair
 
-- requires Agent Harness registration/revocation before Existing Project conversion;
-- requires Agent Harness registration before Greenfield bootstrap;
-- rejects the conversion IPC after successful Git conversion if Main/Dev projection fails.
+Repair03 replaces the previously proposed Agent Harness error-classification repair.
 
-Repair01 completes the product-level boundary so model-access outage cannot masquerade as source-control failure.
+It also closes the confirmed project-entry bypass:
+
+```text
+Clear Project
+-> sidebar Open Project
+-> raw workspace activation
+-> migration inspection bypassed
+```
 
 ## Next action
 
-Implement Repair04 / Repair03 / Repair01, then stop for Architect review.
+Implement Repair04 / Repair03 / Repair03, then stop for Architect review.
 
 Do not run the real **Accept and Convert** qualification before acceptance.
