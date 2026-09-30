@@ -35,7 +35,7 @@ All commands ran from the verified Dev repository root. The first `npm run build
 | `node --test test/validation/capability-map.test.cjs` | Normal Windows catalog integrity | Pass: 5/5. |
 | `node --test test/source-control/source-lifecycle-package.test.cjs test/source-control/managed-project-source.test.cjs` | Normal Windows focused Source Control | 23/24 pass. The Source Control import boundary passed. The unrelated `WIR is source-not-applicable and routed target Workflows own their source records` case failed with `Work Intake form is invalid` in `captureStructuredWorkIntake`; that service and test were not changed by this repair. |
 | `npm run test:repair -- --changes tmp/epga-r04-r03-r07-changes.json --preview` | Normal Windows plan preview | Pass: plan generated without executing the broad selected suite. |
-| `git diff --check` | Git static | Pending final staged check. |
+| `git diff --cached --check` | Git static | Pass: no whitespace errors in staged repair files. |
 
 The full regression suite, packaging, Electron launch, and a live end-user migration were outside this repair's focused validation scope. The failing Work Intake case remains an unrelated qualification issue for the next owner to investigate.
 
@@ -43,4 +43,4 @@ The full regression suite, packaging, Electron launch, and a live end-user migra
 
 Source Control imports no hydration service; hydration imports no Agent Harness or MCP implementation. The service does not run WinGet or the system-tool provisioner. Restore output is not copied into admission results, and only ecosystem names appear in bounded failure messages. The synthetic npm proof used a temporary local fixture and no registry or credentials.
 
-Task-attributable files will be staged by exact path, inspected for secrets, concrete local paths, and generated artifacts, then committed with the card's checkpoint message. Commit hash pending; do not amend this report solely to add it. No Operator manual validation is required to establish the focused deterministic behavior, but live migration experience and the unrelated Work Intake test remain unverified here.
+Task-attributable files were staged by exact path. The staged addition scan found no secret-like token, concrete local user path, or generated artifact; `src/main/agentHarness/release/` is runtime source despite its directory name. While staging, a concurrent WRB02 checkpoint commit `2b42b3f` incorporated this repair's code, tests, map change, and the initial version of this report along with that task's files. This report correction is the only remaining staged repair change and is to be committed with the card's requested checkpoint message. Do not amend another task's commit to change its contents. No Operator manual validation is required to establish the focused deterministic behavior, but live migration experience and the unrelated Work Intake test remain unverified here.
