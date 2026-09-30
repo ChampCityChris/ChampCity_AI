@@ -2,9 +2,9 @@
 
 **Repair03 checkpoint:** `b1d4942e2c149417157fea76a9809a76d684cc80`  
 **Repair04 checkpoint:** `b8cc37753da54e0b5e79ce758442ab4389a55618`  
-**Repair04 acceptance:** `ec0d21787d9adb8b9fdc90cf319a88570fed97ad`  
 **Repair05 checkpoint:** `831d0a116d97d402433964c8128105571e002947`  
-**Status:** **REPAIR05 ACCEPTED — REAL RETRY AUTHORIZED**
+**Repair05 acceptance:** `e345019bb6d1b4cdfdd30c06006a2a4ac8e958dd`  
+**Status:** **REPAIR06 ACTIVE — REAL QUALIFICATION BLOCKED**
 
 ## Accepted architecture
 
@@ -13,16 +13,22 @@
 - Agent Harness/MCP/model-access operations consume that fence as clients.
 - Existing Project admission is canonical.
 - Model-access topology reconciliation is downstream and exact.
-- Windows root `.git` retirement no longer depends on renaming the live metadata directory.
+- Windows root `.git` retirement uses verified recovery plus forced PowerShell removal.
 
-## Repair05 acceptance
+## Latest real qualification result
 
-`Repair05/EPGA_R04_R03_R05_ARCHITECT_REVIEW_2026-09-30.md`
+Repair05 succeeded in moving the real conversion past root Git cutover.
 
-Repair05 uses a verified legacy Git recovery copy followed by direct forced PowerShell retirement and exact restore on failure.
+The latest attempt then failed during local-state handling because Git-ignored `node_modules` was treated as durable local state and relocated into Dev.
 
-## Next action
+That policy is now rejected.
 
-Retry the real ChampCity_AI Existing Project conversion through the normal application UI.
+## Active repair
 
-Do not manually clean historical failed migration evidence before retry.
+`Repair06/EPGA-R04-R03-R06_classify_local_state_and_remove_regenerable_conversion_gates.md`
+
+Repair06 introduces source / durable-local / regenerable classification and makes known reproducible filesystem state non-authoritative to conversion.
+
+## Stop rule
+
+Do not retry the real ChampCity_AI Existing Project conversion until Repair06 is implemented and Architect-reviewed.

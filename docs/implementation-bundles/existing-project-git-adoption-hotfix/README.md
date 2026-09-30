@@ -1,48 +1,53 @@
 # Existing Project Git Adoption Hotfix
 
-**Forced-normalization checkpoint:** `6200d383d61ff890d86492cb5ed6e3e17b3856d9`  
-**Repair02 acceptance checkpoint:** `2a897f96f60ef8d16606ade4c2b1dfb45fddde5a`  
-**Repair03 source-preservation checkpoint:** `07d2e543e6c64ec4214fef7027bf853cefdfb1ab`  
-**Repair04 / Repair01 checkpoint:** `f59d5d779f8192d14f47c1175d3a33b871b0c2e4`  
-**Repair04 / Repair02 checkpoint:** `e10bc59e5813cd7be769d1c92b9e71a51200d11b`  
-**Repair04 / Repair03 checkpoint:** `2a83d482fbbf2924cd1562aa17106b77d437a529`  
-**Repair04 / Repair03 / Repair01 checkpoint:** `aee844a82ad977243570ed63e70f3fbb8a9f4376`  
-**Repair04 / Repair03 / Repair03 checkpoint:** `b1d4942e2c149417157fea76a9809a76d684cc80`  
-**Repair04 / Repair03 / Repair03 / Repair04 checkpoint:** `b8cc37753da54e0b5e79ce758442ab4389a55618`  
-**Repair04 acceptance checkpoint:** `ec0d21787d9adb8b9fdc90cf319a88570fed97ad`  
-**Repair05 checkpoint:** `831d0a116d97d402433964c8128105571e002947`  
-**Current status:** **REPAIR05 ACCEPTED — REAL CHAMPCITY_AI QUALIFICATION RETRY AUTHORIZED**
+**Current accepted architecture baseline:** `e345019bb6d1b4cdfdd30c06006a2a4ac8e958dd`  
+**Current status:** **REPAIR06 ACTIVE — REAL CHAMPCITY_AI QUALIFICATION BLOCKED**
 
-## Current controlling path
+## Controlling path
 
-1. `Repair04/Repair03/Repair03/Repair05/EPGA_R04_R03_R05_ARCHITECT_REVIEW_2026-09-30.md`
-2. `Repair04/Repair03/Repair03/Repair05/README.md`
+1. `Repair04/Repair03/Repair03/Repair06/EPGA-R04-R03-R06_classify_local_state_and_remove_regenerable_conversion_gates.md`
+2. `Repair04/Repair03/Repair03/Repair06/README.md`
 3. `Repair04/Repair03/Repair03/README.md`
 
 ## Authority model
 
 ChampCity A/I Source Control owns Git deterministically.
 
-The application-owned machine source-operation fence coordinates source-topology transitions.
+The machine source-operation fence coordinates topology transitions.
 
-Agent Harness/MCP/model access is downstream and does not authorize Git conversion.
+Agent Harness/MCP/model access remains downstream and does not authorize Git conversion.
 
-## Repair05 disposition
+## Latest qualification evidence
 
-The real Windows cutover defect is repaired:
+The real attempt `349232e8-fce9-4300-bbf2-8a19fca53d56` passed:
 
-- root `.git` is copied and verified before retirement;
-- ChampCity-owned workspace watchers are paused;
-- Windows retirement uses direct forced PowerShell removal;
-- partial removal restores exact conventional Git authority from recovery;
-- source/history/Main/Dev transaction behavior remains intact.
+- source preservation;
+- 13-ref import;
+- canonical baseline creation;
+- verified root Git recovery;
+- forced Windows root Git retirement;
+- managed metadata installation;
+- Main/Dev worktree creation.
 
-## Qualification state
+It then failed because ignored `node_modules` was treated as durable local state and relocated with a raw filesystem rename.
 
-Final Architect review status was clean.
+Rollback restored conventional Git cleanly with no cleanup warnings.
+
+## Repair06 direction
+
+Git-ignored state is split into:
+
+```text
+durable local state
+regenerable state
+```
+
+Known dependency/cache/build/temp state is not required for conversion.
+
+Unknown ignored state remains durable and is preserved outside the baseline.
 
 ## Next action
 
-Run **Open Existing Project -> ChampCity_AI -> Accept and Convert**.
+Implement Repair06 and stop for Architect review.
 
-Do not manually clean historical failed migration evidence before retry.
+Do not manually clean historical migration evidence and do not retry **Accept and Convert** before Repair06 acceptance.
