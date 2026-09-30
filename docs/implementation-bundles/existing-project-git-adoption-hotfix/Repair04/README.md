@@ -1,59 +1,31 @@
 # Existing Project Git Adoption — Repair04
 
-**Starting baseline:** `07d2e543e6c64ec4214fef7027bf853cefdfb1ab`  
 **Repair04 implementation:** `643ea5ed24552b34b9cafa3592b4965703fdb28c`  
 **Repair01 checkpoint:** `f59d5d779f8192d14f47c1175d3a33b871b0c2e4`  
 **Repair02 checkpoint:** `e10bc59e5813cd7be769d1c92b9e71a51200d11b`  
-**Status:** **REPAIR03 ACTIVE — QUALIFICATION BLOCKED**
+**Repair03 checkpoint:** `2a83d482fbbf2924cd1562aa17106b77d437a529`  
+**Status:** **REPAIR03 / REPAIR01 ACTIVE — QUALIFICATION BLOCKED**
 
-## Current architecture correction
+## Current authority model
 
-Repair04 correctly established that:
+- Workspace is a Git-neutral model-access directory.
+- Source Control owns repository topology and deterministic Git mechanics.
+- RepositoryCheckout is an application-owned semantic descriptor.
+- Agent Harness/MCP model access is a downstream projection of application source state.
+- Public MCP Git tools are for external models and are not ChampCity's internal Git execution mechanism.
 
-- a Workspace is a Git-neutral model-access directory;
-- non-Git workspaces are first-class;
-- RepositoryCheckout is the semantic identity used when a model deliberately accesses Git;
-- the application owns repository topology.
+## Repair03 review
 
-However, subsequent implementation coupled Source Control to Agent Harness checkout-registration state.
+Repair03 correctly removed Agent Harness registration/listing from Source Control services and removed the private checkout-list transport.
 
-That coupling is now rejected.
+Architect review found one remaining composition defect: the actual desktop handlers still require Agent Harness registration/revocation before Existing Project conversion and Greenfield bootstrap, and projection failure after a successful conversion is surfaced as a rejected conversion call.
 
-Source Control must own and execute Git independently. Agent Harness/MCP checkout exposure is a downstream model-access projection.
+## Active repair
 
-## Controlling Repair03 documents
-
-- `Repair03/EPGA_R04_R03_ARCHITECT_CORRECTION_2026-09-29.md`
-- `Repair03/EPGA-R04-R03_decouple_source_control_from_agent_harness_model_access.md`
-
-## Repair02 disposition
-
-Repair02 checkpoint `e10bc59...` is not being wholesale reverted.
-
-Its independently valid Agent Harness lifecycle hardening may remain.
-
-Repair03 removes the invalid Source Control dependency that Repair02 reinforced and removes the private checkout-list control if it no longer has a legitimate consumer.
-
-## Current invariant
-
-```text
-Source Control owns Git
-    ->
-application/model-access projection mirrors allowed checkout access
-    ->
-MCP exposes selected capabilities to external models
-```
-
-Never:
-
-```text
-Agent Harness/MCP state
-    ->
-determines Source Control authority or Git topology
-```
+`Repair03/Repair01/EPGA-R04-R03-R01_make_model_access_projection_non_authoritative_in_product_git_paths.md`
 
 ## Qualification state
 
-Do not retry the real ChampCity_AI conversion until Repair03 is implemented and Architect-reviewed.
+Do not retry the real ChampCity_AI conversion yet.
 
-Preserve the existing schema-3 failed migration evidence.
+Preserve the existing schema-3 failed migration evidence until Repair03 / Repair01 is accepted.
