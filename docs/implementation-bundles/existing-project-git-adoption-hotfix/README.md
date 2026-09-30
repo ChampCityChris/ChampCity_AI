@@ -9,33 +9,33 @@
 **Repair04 / Repair03 / Repair01 checkpoint:** `aee844a82ad977243570ed63e70f3fbb8a9f4376`  
 **Repair04 / Repair03 / Repair03 checkpoint:** `b1d4942e2c149417157fea76a9809a76d684cc80`  
 **Repair04 / Repair03 / Repair03 / Repair04 checkpoint:** `b8cc37753da54e0b5e79ce758442ab4389a55618`  
-**Current status:** **ACCEPTED — REAL CHAMPCITY_AI QUALIFICATION RETRY AUTHORIZED**
+**Repair04 acceptance checkpoint:** `ec0d21787d9adb8b9fdc90cf319a88570fed97ad`  
+**Current status:** **REPAIR05 ACTIVE — REAL CHAMPCITY_AI QUALIFICATION BLOCKED**
 
-## Controlling path
+## Current controlling path
 
-1. `Repair04/Repair03/Repair03/Repair04/EPGA_R04_R03_R04_ARCHITECT_REVIEW_2026-09-30.md`
-2. `Repair04/Repair03/Repair03/README.md`
+1. `Repair04/Repair03/Repair03/Repair05/EPGA-R04-R03-R05_force_windows_root_git_retirement_from_verified_recovery_copy.md`
+2. `Repair04/Repair03/Repair03/Repair05/README.md`
+3. `Repair04/Repair03/Repair03/README.md`
 
-## Final authority model for this hotfix
+## Authority model remains accepted
 
 ChampCity A/I Source Control owns Git deterministically.
 
-The application-owned machine source-operation fence coordinates source-topology transitions across Desktop and detached Agent Harness processes.
+The application-owned machine source-operation fence coordinates source-topology transitions.
 
-Agent Harness/MCP/model access obeys that fence and projects application-owned RepositoryCheckout identities downstream. It never authorizes Git conversion.
+Agent Harness/MCP/model access is downstream and does not authorize Git conversion.
 
-Generic workspace selection is not Project admission.
+## Current blocker
 
-## Qualification state
+The real qualification reached physical Windows root Git cutover and failed on the old `fs.renameSync(<Project>/.git, <migration>/legacy-git-entry)` strategy with `EPERM`.
 
-The implementation and focused Architect review are accepted through checkpoint:
+The journal confirms source preservation, ref import, baseline creation, managed metadata preparation, and rollback all worked.
 
-`b8cc37753da54e0b5e79ce758442ab4389a55618`
-
-The preserved real ChampCity_AI failed-migration evidence must remain untouched until qualification.
+Repair05 replaces the root `.git` rename with a verified recovery copy plus forced PowerShell removal and exact restore-on-failure.
 
 ## Next action
 
-Use **Open Existing Project** in the application, select the real ChampCity_AI folder, review the migration warning, and choose **Accept and Convert**.
+Implement Repair05 and stop for Architect review.
 
-If the retry fails, preserve the exact error and migration state for Architect RCA. Do not manually clean Git or migration evidence.
+Do not manually clean the current failed migration evidence and do not retry **Accept and Convert** before Repair05 acceptance.
