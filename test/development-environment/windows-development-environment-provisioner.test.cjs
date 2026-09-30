@@ -53,6 +53,39 @@ test("satisfied managed capability causes no install and allows ready preflight"
   assert.equal(runner.calls.some((call) => call.command === "winget"), false);
 });
 
+test("unregistered managed executable probes before provider resolution and becomes ready", async () => {
+  const runner = fakeRunner({ "ffprobe --version": success("ffprobe version 9.0.2") });
+  const result = await new WindowsDevelopmentEnvironmentProvisioner({
+    runner, platform: "win32", refreshEnvironment: fakeRefresh(),
+  }).preflight([{ capabilityId: "ffprobe", provisioning: "managed", versionConstraint: ">=9" }], process.cwd());
+
+  assert.equal(result.state, "ready");
+  assert.equal(result.requirements[0].beforeState, "satisfied");
+  assert.equal(result.requirements[0].actionTaken, "none");
+  assert.equal(result.requirements[0].detectedVersion, "9.0.2");
+  assert.equal(result.requirements[0].commandSummaries[0].command, "ffprobe --version");
+  assert.deepEqual(runner.calls.map(callString), ["ffprobe --version"]);
+  assert.equal(result.requirements[0].providerAttempts.some((attempt) => attempt.provider === "winget-search"), false);
+});
+
+for (const [label, response, expectedState] of [
+  ["missing", failure(null, "", "ENOENT"), "missing"],
+  ["incompatible", success("ffprobe version 6.0.0"), "incompatible"],
+]) {
+  test(`${label} unregistered executable probes before provider fallback`, async () => {
+    const runner = fakeRunner({ "ffprobe --version": response });
+    const result = await new WindowsDevelopmentEnvironmentProvisioner({
+      runner, platform: "win32", refreshEnvironment: fakeRefresh(),
+    }).preflight([{ capabilityId: "ffprobe", provisioning: "managed", versionConstraint: ">=9" }], process.cwd());
+
+    assert.equal(result.requirements[0].beforeState, expectedState);
+    assert.equal(runner.calls[0].command, "ffprobe");
+    assert.deepEqual(runner.calls[0].args, ["--version"]);
+    assert.equal(runner.calls.some((call) => callString(call).startsWith("winget search")), true);
+    assert.equal(result.requirements[0].providerAttempts.some((attempt) => attempt.provider === "winget-search"), true);
+  });
+}
+
 test("missing simple managed capability uses exact WinGet install, refreshes environment, and re-verifies", async () => {
   const runner = sequentialRunner({
     "git --version": [
@@ -629,7 +662,7 @@ test("ordinary non-Microsoft WinGet community package resolves without registry 
 
   assert.equal(result.state, "ready");
   assert.equal(result.requirements[0].actionTaken, "install");
-  assert.equal(runner.calls.some((call) => callString(call) === "yq --version"), false);
+  assert.equal(runner.calls[0] && callString(runner.calls[0]), "yq --version");
   assert.equal(runner.calls.some((call) => callString(call) === "winget list --id MikeFarah.yq -e --source winget --accept-source-agreements"), true);
   assert.equal(result.requirements[0].providerAttempts.some((attempt) =>
     attempt.candidates?.some((candidate) => candidate.packageId === "MikeFarah.yq")

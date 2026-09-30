@@ -11,6 +11,7 @@ import {
   codexImplementerAvailabilityLabel,
 } from "../../shared/workspaceContracts";
 import { CodexBoundedMcpElicitationPanel, CodexBoundedUserInputPanel } from "./CodexBoundedInteractionPanels";
+import { codexTerminalFeedback } from "./codexTerminalFeedback";
 
 export interface CodexExecutionContextSummary {
   contractLabel: string;
@@ -64,6 +65,7 @@ export function WorkCardBuildingReviewWorkspace({
         reportRevision: projection.report?.artifactRevision ?? "Pending",
       }
     : undefined;
+  const terminalFeedback = codexTerminalFeedback(codexExecution);
 
   return (
     <section className="work-card-building-workspace" aria-label="Work Card Implement and Codex Execution">
@@ -130,7 +132,7 @@ export function WorkCardBuildingReviewWorkspace({
             onRun={onRunCodex}
           />
         ) : null}
-        {feedback ? <div className="document-feedback" role="status">{feedback}</div> : null}
+        {feedback ? <div className={`document-feedback${feedback === terminalFeedback?.message ? ` ${terminalFeedback.tone}` : ""}`} role="status">{feedback}</div> : null}
         {documentError ? <div className="document-error" role="status">{documentError}</div> : null}
       </section>
 
@@ -141,7 +143,7 @@ export function WorkCardBuildingReviewWorkspace({
         onRespondToCodexApproval={onRespondToCodexApproval}
         onRespondToCodexMcpElicitation={onRespondToCodexMcpElicitation}
         onRespondToCodexUserInput={onRespondToCodexUserInput}
-        postRunMessage={terminalPostRunMessage(codexExecution, projection)}
+        postRunFeedback={terminalFeedback}
       />
     </section>
   );
@@ -298,9 +300,14 @@ export function LastRunSummary({
   execution: CodexImplementerExecutionModel | null;
 }): JSX.Element {
   const lastRunState = execution?.lastRunState ?? null;
-  const retryState = execution?.canRunAgain
-    ? "Ready to run again"
-    : execution?.retryBlocker ?? "Waiting for Codex preflight.";
+  const preflight = execution?.developmentEnvironmentPreflight;
+  const retryState = execution?.executionKind === "environment-resolution" && lastRunState
+    ? preflight?.state === "ready" || preflight?.state === "not-required"
+      ? "Ready to run Work Card implementation"
+      : preflight?.summary ?? execution.retryBlocker ?? "Development environment preparation is incomplete."
+    : execution?.canRunAgain
+      ? "Ready to run again"
+      : execution?.retryBlocker ?? "Waiting for Codex preflight.";
   return (
     <section className="codex-last-run-summary" aria-label="Last Codex run summary">
       <span>Last Run</span>
@@ -380,6 +387,7 @@ export function CodexExecutionConsole({
   onRespondToCodexMcpElicitation,
   onRespondToCodexApproval,
   onRespondToCodexUserInput,
+  postRunFeedback,
   postRunMessage,
 }: {
   contextSummary?: CodexExecutionContextSummary;
@@ -392,6 +400,7 @@ export function CodexExecutionConsole({
   ) => void;
   onRespondToCodexApproval: (requestId: string, decision: "approve" | "deny") => void;
   onRespondToCodexUserInput: (requestId: string, answers: Record<string, string[]>) => void;
+  postRunFeedback?: ReturnType<typeof codexTerminalFeedback>;
   postRunMessage?: string | null;
 }): JSX.Element {
   const modelSelection = useCodexModelSelection(isActionRunning || execution?.state === "running");
@@ -431,12 +440,12 @@ export function CodexExecutionConsole({
           <dt>Elapsed</dt>
           <dd>{formatElapsed(execution?.elapsedMs)}</dd>
         </div>
-        {!integrationRepair ? <div>
+        {!integrationRepair && execution?.executionKind !== "environment-resolution" ? <div>
           <dt>Report Update</dt>
           <dd>{reportUpdated}</dd>
         </div> : null}
       </dl>
-      {execution?.failureReason ? (
+      {execution?.failureReason && !postRunFeedback ? (
         <div className="codex-execution-message error" role="status">{execution.failureReason}</div>
       ) : null}
       {execution?.checkpoint ? <div className="codex-execution-message" role="status">
@@ -445,6 +454,9 @@ export function CodexExecutionConsole({
       </div> : null}
       {execution?.retryBlocker && !execution.canRunAgain ? (
         <div className="codex-execution-message error" role="status">{execution.retryBlocker}</div>
+      ) : null}
+      {postRunFeedback ? (
+        <div className={`codex-execution-message ${postRunFeedback.tone}`} role="status">{postRunFeedback.message}</div>
       ) : null}
       {postRunMessage ? (
         <div className="codex-execution-message" role="status">{postRunMessage}</div>
@@ -665,29 +677,6 @@ function capabilityLabel(
       ? ` ${capability.summary}`
       : "";
   return `${label}: ${capability.state}${count}${detail}`;
-}
-
-function terminalPostRunMessage(
-  execution: CodexImplementerExecutionModel | null,
-  projection: CurrentWorkspaceModel["workCardBuildingReview"] | undefined,
-): string | null {
-  const state = execution?.state ?? "unavailable";
-  if (state !== "completed" && state !== "failed" && state !== "cancelled") {
-    return null;
-  }
-  if (execution?.executionKind === "environment-resolution") {
-    const preflight = execution.developmentEnvironmentPreflight;
-    if (!preflight) {
-      return "Environment Resolution completed. Work Card implementation has not run yet.";
-    }
-    if (preflight.state === "ready" || preflight.state === "not-required") {
-      return `Environment Resolution completed. Work Card implementation has not run yet. Post-resolution preflight is ${preflight.state}. Work Card implementation is now eligible to start.`;
-    }
-    return `Environment Resolution completed. Work Card implementation has not run yet. Environment preparation remains incomplete: ${preflight.summary}`;
-  }
-  return projection?.reportReadiness === "ready-for-review"
-    ? "Review the existing Implementer Report in Review & Validation."
-    : "Complete the reserved Implementer Report before Review & Validation.";
 }
 
 function TailBlock({

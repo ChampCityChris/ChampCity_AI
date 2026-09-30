@@ -517,11 +517,44 @@ test("Codex Implementer service runs bounded environment resolution and reruns p
   assert.equal(completed.canResolveEnvironment, false);
   assert.equal(completed.canRunAgain, true);
   assert.equal(completed.developmentEnvironmentPreflight.state, "ready");
+  assert.equal(completed.state, "completed");
+  assert.equal(completed.reportUpdated, false);
+  assert.equal(completed.failureReason, null);
   assert.equal(completed.finalResponseTail.at(-1), "Environment Resolution completed.");
   assert.deepEqual(eventOrder, ["preflight-1", "parent-refresh", "preflight-2"]);
   assert.equal(completed.eventTail.some((event) => event.includes("environment-resolution.parent-environment-refresh.succeeded")), true);
   assert.equal(completed.eventTail.some((event) => event.includes("environment-resolution.preflight.ready")), true);
   assert.equal(preflightCalls, 2);
+});
+
+test("Environment Resolution keeps implementation blocked when deterministic rerun still requires resolution", async () => {
+  const root = seedBuildReviewWorkspace();
+  let preflightCalls = 0;
+  let refreshCalls = 0;
+  const service = createService(
+    async () => ({
+      startThread() {
+        return { id: null, async runStreamed() { return { events: environmentResolutionEvents() }; } };
+      },
+    }),
+    () => Date.now(),
+    defaultExecutionPolicy,
+    { async runPreflight() { preflightCalls += 1; return resolutionRequiredPreflight(); } },
+    async () => { refreshCalls += 1; return { refreshed: true, summary: "parent environment refreshed", env: {} }; },
+  );
+
+  await service.start(root);
+  await service.startEnvironmentResolution(root);
+  const completed = await waitForState(service, root, "completed");
+
+  assert.equal(preflightCalls, 2);
+  assert.equal(refreshCalls, 1);
+  assert.equal(completed.executionKind, "environment-resolution");
+  assert.equal(completed.developmentEnvironmentPreflight.state, "resolution-required");
+  assert.equal(completed.canRunAgain, false);
+  assert.equal(completed.canResolveEnvironment, true);
+  assert.equal(completed.reportUpdated, false);
+  assert.equal(completed.failureReason, null);
 });
 
 test("Codex Implementer service surfaces parent environment refresh failure before post-resolution preflight", async () => {

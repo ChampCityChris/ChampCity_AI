@@ -99,6 +99,7 @@ import {
 } from "./architectOutputWorkspaceRefresh";
 import { WorkCardIntakeWorkspace } from "./WorkCardIntakeWorkspace";
 import { WorkCardBuildingReviewWorkspace } from "./WorkCardBuildingReviewWorkspace";
+import { codexTerminalFeedback } from "./codexTerminalFeedback";
 import { WorkCardReportReviewWorkspace, type OperatorValidationDecision } from "./WorkCardReportReviewWorkspace";
 import {
   WorkCardCloseWorkspace,
@@ -1994,11 +1995,7 @@ export function App(): JSX.Element {
     }
     const nextResolverResult = await window.champcity.resolveCurrentDocument();
     setResolverResult(nextResolverResult);
-    const terminalMessage = status.failureReason ??
-      (status.reportUpdated
-        ? "Codex execution finished. Review the existing Implementer Report."
-        : "Codex completed, but the Implementer Report was not updated.");
-    setFeedback(terminalMessage);
+    setFeedback(codexTerminalFeedback(status)?.message ?? "");
   }
 
   async function startCodexImplementerExecution(selection: CodexModelSelection): Promise<void> {

@@ -297,9 +297,7 @@ export class WindowsDevelopmentEnvironmentProvisioner {
     }
 
     const genericEntry = existingEntry ?? genericProbeEntry(requirement);
-    const before = existingEntry
-      ? await this.probe(genericEntry, requirement, workspaceRoot)
-      : unresolvedProviderIdentityProbe(requirement);
+    const before = await this.probe(genericEntry, requirement, workspaceRoot);
     const commandSummaries = [summaryFromCommand(before.command)];
     const providerAttempts: DevelopmentEnvironmentProviderAttempt[] = [{
       provider: "specialized-adapter",
@@ -1144,21 +1142,6 @@ function genericProbeEntry(
       versionPattern: /(\d+(?:\.\d+){0,3}[^\s]*)/,
     },
     supportedVersionConstraints: ["exact", "minimum"],
-  };
-}
-
-function unresolvedProviderIdentityProbe(
-  requirement: DevelopmentEnvironmentRequirement,
-): ProbeResult {
-  return {
-    state: "unknown",
-    command: {
-      command: "provider-inventory",
-      args: ["pending-provider-identity", requirement.capabilityId],
-      exitCode: null,
-      stdout: "No specialized semantic probe exists before provider package identity resolution.",
-      stderr: "",
-    },
   };
 }
 

@@ -3094,6 +3094,12 @@ h1 {
   border-color: #78363b;
 }
 
+.codex-execution-message.warning {
+  color: #f6d79a;
+  background: #3b2f19;
+  border-color: #80612c;
+}
+
 .codex-user-input-panel,
 .codex-runtime-diagnostics {
   display: grid;
@@ -3598,6 +3604,18 @@ h1 {
   color: #b5f0cc;
   background: #143323;
   border: 1px solid #275a3d;
+}
+
+.document-feedback.warning {
+  color: #f6d79a;
+  background: #3b2f19;
+  border-color: #80612c;
+}
+
+.document-feedback.error {
+  color: #ffc4c0;
+  background: #401f23;
+  border-color: #78363b;
 }
 
 .preview-body {

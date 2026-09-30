@@ -72,8 +72,52 @@ test("shared controls load Sol High, preserve arbitrary catalog effort order, an
     assert.deepEqual(f.manager.getStatus().selection,starts[0]);
     const lease=f.manager.acquire(starts[0]); poll();await Promise.resolve();
     tree=render();assert.equal(field(tree,"Model").props.disabled,true);assert.equal(field(tree,"Reasoning").props.disabled,true);assert.equal(run(tree).props.disabled,true);
-    lease.release();
+    lease.release(); poll(); await Promise.resolve();
+    tree = render({ execution: { state: "completed", executionKind: "environment-resolution", canRunAgain: true, canResolveEnvironment: false, developmentEnvironmentPreflight: { state: "ready" } }, onResolveEnvironment() {} });
+    assert.equal(run(tree).props.disabled, false);
+    assert.equal(find(tree, node => node.type === "button" && React.Children.toArray(node.props.children).includes("Resolve Environment")), null);
+    tree = render({ execution: { state: "completed", executionKind: "environment-resolution", canRunAgain: false, canResolveEnvironment: true, developmentEnvironmentPreflight: { state: "resolution-required" } }, onResolveEnvironment() {} });
+    assert.equal(run(tree).props.disabled, true);
+    assert.equal(find(tree, node => node.type === "button" && React.Children.toArray(node.props.children).includes("Resolve Environment")).props.disabled, false);
   } finally {global.window=oldWindow;}
+});
+
+test("Environment Resolution terminal feedback and Last Run summary match deterministic readiness", () => {
+  const React = require("react");
+  const { renderToStaticMarkup } = require("react-dom/server");
+  const { loadRendererSourceModule } = require("./renderer-source-loader.cjs");
+  const { codexTerminalFeedback } = loadRendererSourceModule("src/renderer/app/codexTerminalFeedback.ts");
+  const { CodexExecutionConsole, LastRunSummary, WorkCardBuildingReviewWorkspace } = loadRendererSourceModule("src/renderer/app/WorkCardBuildingReviewWorkspace.tsx");
+  const base = { state: "completed", lastRunState: "completed", executionKind: "environment-resolution", reportUpdated: false, eventTail: [], stderrTail: [], finalResponseTail: [], approvalTail: [], runtimeDenialTail: [] };
+  const renderConsole = (execution) => renderToStaticMarkup(React.createElement(CodexExecutionConsole, {
+    execution, isActionRunning: false, onRespondToCodexMcpElicitation() {}, onRespondToCodexApproval() {}, onRespondToCodexUserInput() {}, postRunFeedback: codexTerminalFeedback(execution),
+  }));
+
+  const ready = { ...base, canRunAgain: true, developmentEnvironmentPreflight: { state: "ready", summary: "Ready", requirements: [] } };
+  const readyMarkup = renderConsole(ready);
+  assert.match(readyMarkup, /codex-execution-message success[^>]*>Environment Resolution completed\. Development environment is ready/);
+  assert.doesNotMatch(readyMarkup, /Report was not updated|Report Update/);
+  assert.match(renderToStaticMarkup(React.createElement(LastRunSummary, { execution: ready })), /Last Run<\/span><strong>completed<\/strong><small>Ready to run Work Card implementation/);
+
+  const unresolved = { ...base, canRunAgain: false, canResolveEnvironment: true, developmentEnvironmentPreflight: { state: "resolution-required", summary: "Exact package identity required", requirements: [] } };
+  const unresolvedMarkup = renderConsole(unresolved);
+  assert.match(unresolvedMarkup, /codex-execution-message warning[^>]*>Environment Resolution completed, but development environment preparation is still incomplete: Exact package identity required/);
+  assert.doesNotMatch(unresolvedMarkup, /Report was not updated|codex-execution-message success/);
+  assert.match(renderToStaticMarkup(React.createElement(LastRunSummary, { execution: unresolved })), /Exact package identity required/);
+  const workspaceMarkup = renderToStaticMarkup(React.createElement(WorkCardBuildingReviewWorkspace, {
+    codexExecution: unresolved, documentError: "", feedback: codexTerminalFeedback(unresolved).message,
+    isCodexActionRunning: false,
+    model: { workCardBuildingReview: { workCardId: "WC01", formalWorkCardPath: "planning/WC01.md", formalWorkCardRevision: 1, implementerReportPath: "planning/IMPLEMENTER_REPORT_WC01.md", reportMissing: false, report: { disposition: "Pending", artifactRevision: 1 } } },
+    onCancelCodex() {}, onCreateReport() {}, onRespondToCodexApproval() {}, onRespondToCodexMcpElicitation() {}, onRespondToCodexUserInput() {}, onResolveEnvironment() {}, onRunCodex() {},
+  }));
+  assert.match(workspaceMarkup, /document-feedback warning/);
+
+  const failed = { ...unresolved, state: "failed", lastRunState: "failed", failureReason: "Provider repair failed" };
+  assert.match(renderConsole(failed), /codex-execution-message error[^>]*>Provider repair failed/);
+  assert.doesNotMatch(renderConsole(failed), /Report was not updated|codex-execution-message warning/);
+
+  const implementation = { ...base, executionKind: "work-card-implementation", developmentEnvironmentPreflight: ready.developmentEnvironmentPreflight, failureReason: "Codex completed, but the Implementer Report was not updated." };
+  assert.match(renderConsole(implementation), /codex-execution-message warning[^>]*>Codex completed, but the Implementer Report was not updated/);
 });
 
 test("Build workspace renders implementation context and Codex controls without document-review actions", () => {
