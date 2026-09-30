@@ -4,6 +4,7 @@ import { runBoundedGit } from "../../core/gitExecution";
 import type { RepositoryCheckout } from "../../../shared/sourceLifecycleContracts";
 import type { AgentHarnessRegisteredRepositoryCheckoutSummary } from "../../../shared/workspaceContracts";
 import { conventionalRepositoryCheckout } from "../../sourceControl/repositoryCheckoutDescriptors";
+import type { ProjectSourceOperationCoordinator } from "../../core/projectSourceOperationCoordinator";
 
 export interface RepositoryCheckoutAccessProjectionPort {
   registerRepositoryCheckout(workspaceId: string, checkout: RepositoryCheckout): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary>;
@@ -49,11 +50,27 @@ async function isExactConventionalGitRoot(workspaceRoot: string): Promise<boolea
 
 /** Reconciles conventional Git access after generic workspace registration without initializing source. */
 export async function reconcileWorkspaceRepositoryCheckouts(workspaceRoot: string, workspaceId: string,
-  projection: RepositoryCheckoutAccessProjectionPort): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary[]> {
-  if (!projection.listRepositoryCheckoutSummaries) throw new Error("Agent Harness RepositoryCheckout discovery is unavailable.");
-  const registered = await projection.listRepositoryCheckoutSummaries(workspaceId);
-  if (!(await isExactConventionalGitRoot(workspaceRoot))) return registered;
-  if (registered.some(checkout => checkout.role === "conventional")) return registered;
-  await publishRepositoryCheckoutAccess(workspaceId, [conventionalRepositoryCheckout(workspaceId)], projection);
-  return projection.listRepositoryCheckoutSummaries(workspaceId);
+  projection: RepositoryCheckoutAccessProjectionPort,
+  sourceOperationCoordinator: ProjectSourceOperationCoordinator): Promise<AgentHarnessRegisteredRepositoryCheckoutSummary[]> {
+  const lease = await sourceOperationCoordinator.acquireShared(
+    workspaceRoot,
+    "agent-harness-workspace-checkout-reconciliation",
+  );
+  try {
+    if (!projection.listRepositoryCheckoutSummaries) throw new Error("Agent Harness RepositoryCheckout discovery is unavailable.");
+    const registered = await projection.listRepositoryCheckoutSummaries(workspaceId);
+    const conventional = conventionalRepositoryCheckout(workspaceId);
+    if (!(await isExactConventionalGitRoot(workspaceRoot))) {
+      if (registered.some(checkout => checkout.repositoryCheckoutId === conventional.repositoryCheckoutId)) {
+        await revokeRepositoryCheckoutAccess(workspaceId, [conventional], projection);
+        return projection.listRepositoryCheckoutSummaries(workspaceId);
+      }
+      return registered;
+    }
+    if (registered.some(checkout => checkout.repositoryCheckoutId === conventional.repositoryCheckoutId)) return registered;
+    await publishRepositoryCheckoutAccess(workspaceId, [conventional], projection);
+    return projection.listRepositoryCheckoutSummaries(workspaceId);
+  } finally {
+    await lease.release();
+  }
 }

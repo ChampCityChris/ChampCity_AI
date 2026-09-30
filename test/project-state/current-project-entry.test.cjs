@@ -417,6 +417,10 @@ test("real controller path warns, converts, registers, enters the Hub contract, 
   const harness = new AgentHarnessService({ userDataRoot: userData });
   harness.registerWorkspace = rootPath => harness.registerWorkspaceRoot(rootPath);
   context.after(() => harness.stop().catch(() => undefined));
+  const preConversionRegistration = await harness.registerWorkspace(selected);
+  const preConversionWorkspaceId = preConversionRegistration.workspace.workspaceId;
+  const conventionalCheckouts = await harness.listRepositoryCheckouts(preConversionWorkspaceId);
+  assert.deepEqual(conventionalCheckouts.map(checkout => checkout.role), ["conventional"]);
   const entryOrder = [];
   const registerWorkspace = harness.registerWorkspace.bind(harness);
   harness.registerWorkspace = async rootPath => { entryOrder.push("workspace"); return registerWorkspace(rootPath); };
@@ -474,6 +478,12 @@ test("real controller path warns, converts, registers, enters the Hub contract, 
   const managedCheckouts = await harness.listRepositoryCheckouts(workspaceId);
   assert.deepEqual(managedCheckouts.map(checkout => checkout.role).sort(), ["dev", "main"]);
   assert.equal(managedCheckouts.some(checkout => checkout.role === "conventional"), false);
+  const discovery = await harness.registry.callTool({ name: "git_toolbox", arguments: {
+    workspaceId, action: "list_repository_checkouts" }, scope: "files.read" });
+  assert.equal(discovery.ok, true);
+  assert.deepEqual(discovery.payload.map(checkout => checkout.role).sort(), ["dev", "main"]);
+  assert.deepEqual(discovery.payload.map(checkout => checkout.repositoryCheckoutId).sort(),
+    managedCheckouts.map(checkout => checkout.repositoryCheckoutId).sort());
   const mcpRead = await harness.registry.callTool({ name: "repo_toolbox", arguments: { workspaceId, action: "read_file",
     params: { relativePath: "Dev/WORKFLOW.md" } }, scope: "files.read" });
   assert.equal(mcpRead.ok, true);
@@ -711,11 +721,19 @@ test("post-conversion projection outage stays degraded and later reconciliation 
   context.after(() => fs.rmSync(userData, { recursive: true, force: true }));
   const harness = new AgentHarnessService({ userDataRoot: userData });
   harness.registerWorkspace = rootPath => harness.registerWorkspaceRoot(rootPath);
+  const preConversion = await harness.registerWorkspace(selected);
+  assert.deepEqual((await harness.listRepositoryCheckouts(preConversion.workspace.workspaceId))
+    .map(checkout => checkout.role), ["conventional"]);
   const realRegisterCheckout = harness.registerRepositoryCheckout.bind(harness);
+  const realUnregisterCheckout = harness.workspaceRegistry.unregisterRepositoryCheckout.bind(harness.workspaceRegistry);
   let projectionAvailable = false;
   harness.registerRepositoryCheckout = async (workspaceId, checkout) => {
     if (checkout.role !== "conventional" && !projectionAvailable) throw new Error("synthetic managed projection outage");
     return realRegisterCheckout(workspaceId, checkout);
+  };
+  harness.workspaceRegistry.unregisterRepositoryCheckout = async (...args) => {
+    if (!projectionAvailable) throw new Error("synthetic conventional projection retirement outage");
+    return realUnregisterCheckout(...args);
   };
   context.after(() => harness.stop().catch(() => undefined));
   let conversionCalls = 0;
@@ -742,6 +760,8 @@ test("post-conversion projection outage stays degraded and later reconciliation 
   projectionAvailable = true;
   assert.deepEqual(await api.reconcileCurrentProjectModelAccess(), { state: "ready", error: null });
   assert.equal(conversionCalls, 1);
+  assert.deepEqual((await harness.listRepositoryCheckouts(preConversion.workspace.workspaceId))
+    .map(checkout => checkout.role).sort(), ["dev", "main"]);
 });
 
 test("all Project entry actions use canonical admission while Clear and Intake cannot bypass Current Project identity", () => {

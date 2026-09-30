@@ -5181,6 +5181,7 @@
       "description": "Registered workspace identity, repository binding, enumeration, and exact-root access.",
       "sourcePatterns": [
         "src/main/agentHarness/modelAccess/repositoryCheckoutAccessProjectionService.ts",
+        "src/main/agentHarness/runtime/agentHarnessService.ts",
         "src/main/agentHarness/workspace/**",
         "src/main/documents/repositoryBinding.ts"
       ],
@@ -5220,7 +5221,7 @@
         },
         {
           "behaviorId": "production-registration-and-startup-reconcile-conventional-checkout-authority",
-          "description": "production workspace registration and service startup idempotently provision deterministic conventional checkout authority while non-Git workspaces remain checkout-free"
+          "description": "production workspace registration and service startup reconcile deterministic conventional checkout authority under the shared source fence, retiring it when the Project root is no longer conventional Git"
         },
         {
           "behaviorId": "registered-non-git-workspace-preserves-exact-read-search-markdown-write-and-non-git-status-seman",
@@ -7416,8 +7417,8 @@
     {
       "testPath": "test/agent-harness/registered-workspace-registry.test.cjs",
       "currentTestCount": {
-        "value": 15,
-        "basis": "EPGA-R04-R03 focused normal-Windows owner run adds downstream publish, public discovery, idempotence, revocation, and model-access outage isolation while preserving registry behavior."
+        "value": 17,
+        "basis": "EPGA-R04-R03-R04 extends the focused registry owner with exact-topology conventional retirement/restoration and shared-fence conversion-race proof while preserving downstream publish, public discovery, idempotence, revocation, and outage isolation."
       },
       "duration": {
         "kind": "measured",
@@ -7486,7 +7487,7 @@
         {
           "capabilityId": "workspace-registry",
           "behaviorId": "production-registration-and-startup-reconcile-conventional-checkout-authority",
-          "proofLocator": "generic registration stays Git-neutral while production activation provisions one deterministic conventional checkout; service initialization reconciles persisted conventional workspaces idempotently",
+          "proofLocator": "generic registration stays Git-neutral while production activation provisions one deterministic conventional checkout; exact-topology reconciliation retires and restores that identity idempotently; registration reconciliation waits behind the exclusive source fence; service initialization reconciles persisted conventional workspaces idempotently",
           "proofRole": "primary"
         },
         {
@@ -13519,7 +13520,7 @@
       "testPath": "test/project-state/current-project-entry.test.cjs",
       "currentTestCount": {
         "value": 19,
-        "basis": "Nineteen focused entry scenarios include canonical renderer admission, constrained preload/main IPC, machine-owned conversion fencing across processes, stale recovery, warning/accept conversion before registration, retry, source-neutral, managed reopen, Greenfield, and Workflow Hub identity routing."
+        "basis": "Nineteen focused entry scenarios include canonical renderer admission, constrained preload/main IPC, pre-conversion conventional model access, exact managed Main/Dev reconciliation and public discovery, machine-owned conversion fencing across processes, stale recovery, retry, source-neutral, managed reopen, Greenfield, and Workflow Hub identity routing."
       },
       "duration": {
         "kind": "measured",
@@ -13576,7 +13577,7 @@
         {
           "capabilityId": "current-project-entry-runtime",
           "behaviorId": "existing-entry-opens-historical-project-as-current-sps-identity",
-          "proofLocator": "The real renderer entry controller over constrained preload/main inspection returns one consent result, exact-plan forced conversion preserves current source and establishes canonical Main/Dev before one Current Project registration, and managed reopen returns ready without another warning or Workflow reconstruction",
+          "proofLocator": "The real renderer entry controller starts from a conventionally projected workspace, exact-plan forced conversion preserves current source, retires obsolete conventional access, exposes only stable Main/Dev through public discovery, and managed reopen returns ready without another warning or Workflow reconstruction",
           "proofRole": "primary"
         },
         {

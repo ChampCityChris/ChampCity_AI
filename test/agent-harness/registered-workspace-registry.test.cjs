@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { execFileSync } = require("node:child_process");
+const { execFileSync, spawn } = require("node:child_process");
 
 const {
   AgentHarnessService,
@@ -22,6 +22,18 @@ const {
   publishRepositoryCheckoutAccess,
   revokeRepositoryCheckoutAccess,
 } = require("../../dist/main/agentHarness/modelAccess/repositoryCheckoutAccessProjectionService.js");
+const {
+  createProjectSourceOperationCoordinator,
+} = require("../../dist/main/core/projectSourceOperationCoordinator.js");
+
+async function waitFor(predicate, message, timeoutMs = 2_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await predicate()) return;
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  assert.fail(message);
+}
 
 test("registered workspace registry durably stores two exact projects and re-registration is idempotent", async () => {
   const fixture = createFixture();
@@ -236,6 +248,89 @@ test("generic registration stays Git-neutral while production activation provisi
   assert.equal(stale.ok, false);
   assert.equal(stale.error.code, "GIT_CAPABILITY_UNAVAILABLE");
   assert.equal(stale.error.message.includes(project), false);
+});
+
+test("workspace reconciliation retires stale conventional access and restores it when exact root Git returns", async context => {
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-registry-topology-reconcile-"));
+  context.after(() => fs.rmSync(container, { recursive: true, force: true }));
+  const project = path.join(container, "Topology Project");
+  const userDataRoot = path.join(container, "user-data");
+  fs.mkdirSync(path.join(project, ".champcity"), { recursive: true });
+  fs.writeFileSync(path.join(project, ".champcity", "mcp-workspace-binding.json"),
+    JSON.stringify({ mcpWorkspaceId: "topology_project", gitBacked: true }));
+  execFileSync("git", ["init", "-b", "main"], { cwd: project, stdio: "ignore" });
+  const service = new AgentHarnessService({ userDataRoot });
+
+  await service.registerWorkspaceRoot(project);
+  const conventional = (await service.listRepositoryCheckouts("topology_project"))[0];
+  assert.equal(conventional.role, "conventional");
+  const relocatedGit = path.join(project, ".git-relocated");
+  fs.renameSync(path.join(project, ".git"), relocatedGit);
+
+  await service.registerWorkspaceRoot(project);
+  await service.registerWorkspaceRoot(project);
+  assert.deepEqual(await service.listRepositoryCheckouts("topology_project"), []);
+  fs.renameSync(relocatedGit, path.join(project, ".git"));
+
+  await service.registerWorkspaceRoot(project);
+  const restored = await service.listRepositoryCheckouts("topology_project");
+  assert.deepEqual(restored.map(checkout => checkout.role), ["conventional"]);
+  assert.equal(restored[0].repositoryCheckoutId, conventional.repositoryCheckoutId);
+});
+
+test("cross-process workspace reconciliation waits behind the exclusive source fence and inspects restored topology after failure", async context => {
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-registry-source-fence-"));
+  context.after(() => fs.rmSync(container, { recursive: true, force: true }));
+  const project = path.join(container, "Fenced Project");
+  const userDataRoot = path.join(container, "user-data");
+  fs.mkdirSync(path.join(project, ".champcity"), { recursive: true });
+  fs.writeFileSync(path.join(project, ".champcity", "mcp-workspace-binding.json"),
+    JSON.stringify({ mcpWorkspaceId: "fenced_project", gitBacked: true }));
+  execFileSync("git", ["init", "-b", "main"], { cwd: project, stdio: "ignore" });
+  const coordinator = createProjectSourceOperationCoordinator({
+    userDataRoot,
+    acquisitionTimeoutMs: 2_000,
+    staleLeaseMs: 500,
+  });
+  const modulePath = path.resolve(__dirname, "../../dist/main/agentHarness/runtime/agentHarnessService.js");
+  const childScript = `
+    const { AgentHarnessService } = require(${JSON.stringify(modulePath)});
+    const service = new AgentHarnessService({ userDataRoot: process.argv[1] });
+    service.registerWorkspaceRoot(process.argv[2]).then(async () => {
+      const initial = await service.listRepositoryCheckouts("fenced_project");
+      process.stdout.write("initial:" + JSON.stringify(initial) + "\\n");
+      process.stdin.once("data", async () => {
+        await service.registerWorkspaceRoot(process.argv[2]);
+        const reconciled = await service.listRepositoryCheckouts("fenced_project");
+        process.stdout.write("reconciled:" + JSON.stringify(reconciled) + "\\n");
+        process.exit(0);
+      });
+    }).catch(error => { process.stderr.write(String(error)); process.exit(1); });
+  `;
+  const child = spawn(process.execPath, ["-e", childScript, userDataRoot, project], { stdio: ["pipe", "pipe", "pipe"] });
+  context.after(() => { if (child.exitCode === null) child.kill(); });
+  let stdout = "";
+  let stderr = "";
+  child.stdout.on("data", chunk => { stdout += chunk.toString(); });
+  child.stderr.on("data", chunk => { stderr += chunk.toString(); });
+  await waitFor(() => stdout.includes("initial:"), `child Agent Harness registration failed: ${stderr}`);
+  const initial = JSON.parse(stdout.split(/\r?\n/).find(line => line.startsWith("initial:")).slice("initial:".length));
+  const conventionalId = initial[0].repositoryCheckoutId;
+  const exclusive = await coordinator.acquireExclusive(project, "synthetic-desktop-conversion");
+  const relocatedGit = path.join(project, ".git-conversion-in-progress");
+  fs.renameSync(path.join(project, ".git"), relocatedGit);
+  child.stdin.write("reconcile\n");
+  await new Promise(resolve => setTimeout(resolve, 40));
+  assert.equal(stdout.includes("reconciled:"), false);
+
+  fs.renameSync(relocatedGit, path.join(project, ".git"));
+  await exclusive.release();
+  await waitFor(() => stdout.includes("reconciled:"), `child reconciliation did not resume: ${stderr}`);
+  const afterFailure = JSON.parse(stdout.split(/\r?\n/).find(line => line.startsWith("reconciled:")).slice("reconciled:".length));
+  assert.deepEqual(afterFailure.map(checkout => checkout.role), ["conventional"]);
+  assert.equal(afterFailure[0].repositoryCheckoutId, conventionalId);
+  await waitFor(() => child.exitCode !== null, `child Agent Harness did not exit: ${stderr}`);
+  assert.equal(child.exitCode, 0, stderr);
 });
 
 test("application projection publishes, discovers, revokes, and fails independently of managed Git", async context => {

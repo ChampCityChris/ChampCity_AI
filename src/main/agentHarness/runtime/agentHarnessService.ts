@@ -26,6 +26,8 @@ import { startAgentHarnessHttpRuntime, type AgentHarnessHttpRuntimeHandle } from
 import { captureAgentHarnessPublicToolContract } from "./mcpServer";
 import { importLegacyOAuthClientRegistry, readOAuthStoreDiagnostics } from "./oauthStore";
 import { reconcileWorkspaceRepositoryCheckouts } from "../modelAccess/repositoryCheckoutAccessProjectionService";
+import { createProjectSourceOperationCoordinator } from "../../core/projectSourceOperationCoordinator";
+import type { ProjectSourceOperationCoordinator } from "../../core/projectSourceOperationCoordinator";
 
 export type AgentHarnessRuntimeState = "stopped" | "starting" | "running" | "stopping" | "failed";
 
@@ -48,6 +50,7 @@ export class AgentHarnessService {
   private readonly workspaceRegistryReady: Promise<void>;
   private readonly pendingRegistryOperations = new Set<Promise<unknown>>();
   private readonly userDataRoot: string;
+  private readonly sourceOperationCoordinator: ProjectSourceOperationCoordinator;
   private configuration: AgentHarnessSettings;
   private handle: AgentHarnessHttpRuntimeHandle | null = null;
   private state: AgentHarnessRuntimeState = "stopped";
@@ -65,6 +68,7 @@ export class AgentHarnessService {
 
   constructor(options: AgentHarnessServiceOptions) {
     this.userDataRoot = options.userDataRoot;
+    this.sourceOperationCoordinator = createProjectSourceOperationCoordinator({ userDataRoot: options.userDataRoot });
     this.configuration = readAgentHarnessSettings(options.userDataRoot, serviceOptionsToSettingsInput(options));
     this.workerGeneration = options.workerGeneration;
     this.workerRestartCount = options.workerRestartCount;
@@ -109,6 +113,7 @@ export class AgentHarnessService {
         workspace.workspaceRoot,
         workspace.workspaceId,
         this.workspaceRegistry,
+        this.sourceOperationCoordinator,
       );
     }
   }
@@ -125,7 +130,12 @@ export class AgentHarnessService {
     const operation = (async () => {
       await this.workspaceRegistryReady;
       const workspace = await this.workspaceRegistry.register(workspaceRoot);
-      await reconcileWorkspaceRepositoryCheckouts(workspaceRoot, workspace.workspaceId, this.workspaceRegistry);
+      await reconcileWorkspaceRepositoryCheckouts(
+        workspaceRoot,
+        workspace.workspaceId,
+        this.workspaceRegistry,
+        this.sourceOperationCoordinator,
+      );
       this.recordActivity(`Registered MCP workspace ${workspace.workspaceId}.`);
       return { workspace, registry: this.workspaceRegistry.snapshot() };
     })();
