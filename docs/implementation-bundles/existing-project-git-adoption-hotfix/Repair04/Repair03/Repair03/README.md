@@ -4,7 +4,7 @@
 **Repair04 checkpoint:** `b8cc37753da54e0b5e79ce758442ab4389a55618`  
 **Repair04 acceptance:** `ec0d21787d9adb8b9fdc90cf319a88570fed97ad`  
 **Repair05 checkpoint:** `831d0a116d97d402433964c8128105571e002947`  
-**Status:** **REPAIR05 ACCEPTED — REAL RETRY PENDING WORKTREE HYGIENE**
+**Status:** **REPAIR05 ACCEPTED — REAL RETRY AUTHORIZED**
 
 ## Accepted architecture
 
@@ -21,17 +21,8 @@
 
 Repair05 uses a verified legacy Git recovery copy followed by direct forced PowerShell retirement and exact restore on failure.
 
-## Qualification-state note
-
-The current live ChampCity_AI working tree contains untracked nested managed Project content under:
-
-```text
-Signal_Forge/Main/
-Signal_Forge/Dev/
-```
-
-This is not part of Repair05. Existing Project conversion will preserve current ordinary/untracked source, so Operator disposition is required before the real retry.
-
 ## Next action
 
-Determine whether `Signal_Forge` is intentional. Once it is intentionally retained, moved, or removed, retry the real ChampCity_AI Existing Project conversion through the normal application UI.
+Retry the real ChampCity_AI Existing Project conversion through the normal application UI.
+
+Do not manually clean historical failed migration evidence before retry.

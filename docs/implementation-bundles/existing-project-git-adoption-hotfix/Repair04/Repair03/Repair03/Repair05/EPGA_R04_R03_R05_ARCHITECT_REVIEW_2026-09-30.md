@@ -2,7 +2,7 @@
 
 **Implementation checkpoint:** `831d0a116d97d402433964c8128105571e002947`  
 **Parent:** `16428cfcd7cc95908f15d897fb1b7e12c3c3ab49`  
-**Disposition:** **ACCEPTED — CODE QUALIFICATION PASSED; REAL RETRY PENDING WORKTREE HYGIENE**
+**Disposition:** **ACCEPTED — REAL CHAMPCITY_AI QUALIFICATION RETRY AUTHORIZED**
 
 ## Review result
 
@@ -119,33 +119,10 @@ No Repair05 change introduces:
 
 Previously accepted source fence, project admission, and model-access projection architecture remain intact.
 
-## Separate worktree-hygiene finding
+## Qualification state
 
-The implementation checkpoint itself is clean, but the current live ChampCity_AI working tree now contains untracked:
+At final Architect review closeout, the live ChampCity_AI Git status is clean.
 
-```text
-Signal_Forge/Dev/
-Signal_Forge/Main/
-```
+Repair05 is accepted and the real ChampCity_AI **Open Existing Project -> Accept and Convert** qualification retry is authorized.
 
-Inspection shows `Signal_Forge` is itself a managed ChampCity Project nested under the ChampCity_AI repository root, with its own:
-
-```text
-Signal_Forge/.champcity/repository.git
-Signal_Forge/Main
-Signal_Forge/Dev
-```
-
-These paths are not part of Repair05 and were not modified or deleted during Architect review.
-
-This is **not a Repair05 code blocker**, but it is a real qualification-state concern: Existing Project conversion intentionally preserves current ordinary/untracked Project source. If `Signal_Forge` is accidental residue, retrying conversion now can preserve portions of it into the ChampCity_AI managed source baseline.
-
-Operator should determine whether the nested `Signal_Forge` Project is intentional before the real retry. Do not delete it automatically.
-
-## Qualification disposition
-
-Repair05 code is accepted.
-
-The real ChampCity_AI **Accept and Convert** retry is authorized once the current `Signal_Forge` worktree residue is intentionally retained, moved, or removed by the Operator.
-
-No further Repair05 implementation card is required from this review.
+Do not manually clean historical failed migration evidence before retry.

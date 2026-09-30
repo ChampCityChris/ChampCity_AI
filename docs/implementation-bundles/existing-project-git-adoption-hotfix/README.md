@@ -11,7 +11,7 @@
 **Repair04 / Repair03 / Repair03 / Repair04 checkpoint:** `b8cc37753da54e0b5e79ce758442ab4389a55618`  
 **Repair04 acceptance checkpoint:** `ec0d21787d9adb8b9fdc90cf319a88570fed97ad`  
 **Repair05 checkpoint:** `831d0a116d97d402433964c8128105571e002947`  
-**Current status:** **REPAIR05 ACCEPTED — REAL RETRY PENDING OPERATOR WORKTREE DISPOSITION**
+**Current status:** **REPAIR05 ACCEPTED — REAL CHAMPCITY_AI QUALIFICATION RETRY AUTHORIZED**
 
 ## Current controlling path
 
@@ -37,21 +37,12 @@ The real Windows cutover defect is repaired:
 - partial removal restores exact conventional Git authority from recovery;
 - source/history/Main/Dev transaction behavior remains intact.
 
-## Qualification-state note
+## Qualification state
 
-Current Git status contains untracked nested managed Project content under:
-
-```text
-Signal_Forge/Main/
-Signal_Forge/Dev/
-```
-
-This state was not modified during Architect review.
-
-Because Existing Project conversion preserves current ordinary/untracked source, Operator should decide whether `Signal_Forge` belongs inside ChampCity_AI before retrying conversion.
+Final Architect review status was clean.
 
 ## Next action
 
-After Operator disposition of `Signal_Forge`, run **Open Existing Project -> ChampCity_AI -> Accept and Convert**.
+Run **Open Existing Project -> ChampCity_AI -> Accept and Convert**.
 
-Do not manually clean historical failed migration evidence.
+Do not manually clean historical failed migration evidence before retry.
