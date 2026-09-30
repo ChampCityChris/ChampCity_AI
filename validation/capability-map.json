@@ -1868,7 +1868,7 @@
         },
         {
           "behaviorId": "ordinary-non-microsoft-winget-community-package-resolves-without-registry-package-identity",
-          "description": "ordinary non-Microsoft WinGet community package resolves without registry package identity"
+          "description": "unknown constrained package resolves but cannot fabricate executable version verification"
         },
         {
           "behaviorId": "package-original-and-elevated-results-are-classified-from-the-command-that-ran",
@@ -10336,7 +10336,7 @@
         {
           "capabilityId": "development-environment-provisioning",
           "behaviorId": "ordinary-non-microsoft-winget-community-package-resolves-without-registry-package-identity",
-          "proofLocator": "ordinary non-Microsoft WinGet community package resolves without registry package identity",
+          "proofLocator": "unknown constrained package resolves but cannot fabricate executable version verification",
           "proofRole": "primary"
         },
         {

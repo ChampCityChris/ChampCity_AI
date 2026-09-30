@@ -53,8 +53,8 @@ test("satisfied managed capability causes no install and allows ready preflight"
   assert.equal(runner.calls.some((call) => call.command === "winget"), false);
 });
 
-test("unregistered managed executable probes before provider resolution and becomes ready", async () => {
-  const runner = fakeRunner({ "ffprobe --version": success("ffprobe version 9.0.2") });
+test("registered media executable probes before provider resolution and becomes ready", async () => {
+  const runner = fakeRunner({ "ffprobe -version": success("ffprobe version 9.0.2") });
   const result = await new WindowsDevelopmentEnvironmentProvisioner({
     runner, platform: "win32", refreshEnvironment: fakeRefresh(),
   }).preflight([{ capabilityId: "ffprobe", provisioning: "managed", versionConstraint: ">=9" }], process.cwd());
@@ -63,8 +63,8 @@ test("unregistered managed executable probes before provider resolution and beco
   assert.equal(result.requirements[0].beforeState, "satisfied");
   assert.equal(result.requirements[0].actionTaken, "none");
   assert.equal(result.requirements[0].detectedVersion, "9.0.2");
-  assert.equal(result.requirements[0].commandSummaries[0].command, "ffprobe --version");
-  assert.deepEqual(runner.calls.map(callString), ["ffprobe --version"]);
+  assert.equal(result.requirements[0].commandSummaries[0].command, "ffprobe -version");
+  assert.deepEqual(runner.calls.map(callString), ["ffprobe -version"]);
   assert.equal(result.requirements[0].providerAttempts.some((attempt) => attempt.provider === "winget-search"), false);
 });
 
@@ -72,19 +72,87 @@ for (const [label, response, expectedState] of [
   ["missing", failure(null, "", "ENOENT"), "missing"],
   ["incompatible", success("ffprobe version 6.0.0"), "incompatible"],
 ]) {
-  test(`${label} unregistered executable probes before provider fallback`, async () => {
-    const runner = fakeRunner({ "ffprobe --version": response });
+  test(`${label} registered media executable probes before provider fallback`, async () => {
+    const runner = fakeRunner({ "ffprobe -version": response });
     const result = await new WindowsDevelopmentEnvironmentProvisioner({
       runner, platform: "win32", refreshEnvironment: fakeRefresh(),
     }).preflight([{ capabilityId: "ffprobe", provisioning: "managed", versionConstraint: ">=9" }], process.cwd());
 
     assert.equal(result.requirements[0].beforeState, expectedState);
     assert.equal(runner.calls[0].command, "ffprobe");
-    assert.deepEqual(runner.calls[0].args, ["--version"]);
+    assert.deepEqual(runner.calls[0].args, ["-version"]);
     assert.equal(runner.calls.some((call) => callString(call).startsWith("winget search")), true);
     assert.equal(result.requirements[0].providerAttempts.some((attempt) => attempt.provider === "winget-search"), true);
   });
 }
+
+for (const capabilityId of ["ffmpeg", "ffprobe"]) {
+  test(`${capabilityId} registered adapter bypasses provider resolution`, async () => {
+    const entry = developmentEnvironmentCapabilityRegistry.get(capabilityId);
+    assert.deepEqual(entry.probe.args, ["-version"]);
+    assert.equal(entry.probe.command, capabilityId);
+    const runner = fakeRunner({ [`${capabilityId} -version`]: success(`${capabilityId} version 9.0.2-build`) });
+    const result = await new WindowsDevelopmentEnvironmentProvisioner({ runner, platform: "win32" })
+      .preflight([{ capabilityId, provisioning: "managed", versionConstraint: ">=9" }], process.cwd());
+    assert.equal(result.state, "ready");
+    assert.equal(result.requirements[0].detectedVersion, "9.0.2-build");
+    assert.deepEqual(runner.calls.map(callString), [`${capabilityId} -version`]);
+  });
+
+  test(`${capabilityId} missing real probe invokes provider resolution`, async () => {
+    const runner = fakeRunner({ [`${capabilityId} -version`]: failure(null, "", "ENOENT") });
+    const result = await new WindowsDevelopmentEnvironmentProvisioner({ runner, platform: "win32" })
+      .preflight([{ capabilityId, provisioning: "managed" }], process.cwd());
+    assert.equal(result.requirements[0].beforeState, "missing");
+    assert.equal(result.state, "resolution-required");
+    assert.equal(runner.calls.some(call => call.command === "winget" && call.args[0] === "search"), true);
+    assert.equal(runner.calls.some(call => callString(call) === `${capabilityId} --version`), false);
+  });
+}
+
+for (const verified of [true, false]) {
+  test(`ffprobe post-provision executable verification ${verified ? "succeeds" : "rejects installed inventory"}`, async () => {
+    const runner = sequentialRunner({
+      "ffprobe -version": [success("ffprobe version 6.0.0"), verified ? success("ffprobe version 9.0.2") : failure(null, "", "ENOENT")],
+      "winget search --query ffprobe --source winget --accept-source-agreements": [success("Name  Id  Version  Source\nFFmpeg  Example.FFmpeg  9.0.2  winget")],
+      "winget install --id Example.FFmpeg -e --source winget --accept-source-agreements --accept-package-agreements --disable-interactivity --silent": [success("installed")],
+      "winget list --id Example.FFmpeg -e --source winget --accept-source-agreements": [success("Name  Id  Version  Source\nFFmpeg  Example.FFmpeg  9.0.2  winget")],
+    });
+    let refreshed = false;
+    const result = await new WindowsDevelopmentEnvironmentProvisioner({
+      runner, platform: "win32", refreshEnvironment: async () => { refreshed = true; return { refreshed: true, summary: "refreshed", env: {} }; },
+    }).preflight([{ capabilityId: "ffprobe", versionConstraint: ">=9", provisioning: "managed" }], process.cwd());
+    assert.equal(refreshed, true);
+    assert.equal(result.requirements[0].beforeState, "incompatible");
+    assert.equal(result.state, verified ? "ready" : "resolution-required");
+    assert.equal(result.requirements[0].afterState, verified ? "satisfied" : "missing");
+    assert.equal(runner.calls.filter(call => callString(call) === "ffprobe -version").length, 2);
+    assert.equal(runner.calls.some(call => call.command === "winget" && call.args[0] === "list"), false);
+    if (!verified) assert.equal(result.requirements[0].blockerKind, "verification-failure");
+  });
+}
+
+test("unknown presence-only capability uses bounded PATH lookup without version syntax", async () => {
+  const runner = fakeRunner({ "where.exe custom-tool": success("custom-tool.exe") });
+  const result = await new WindowsDevelopmentEnvironmentProvisioner({ runner, platform: "win32" })
+    .preflight([{ capabilityId: "custom-tool", provisioning: "managed" }], process.cwd());
+  assert.equal(result.state, "ready");
+  assert.equal(result.requirements[0].detectedVersion, undefined);
+  assert.deepEqual(runner.calls.map(callString), ["where.exe custom-tool"]);
+});
+
+test("Signal Forge declared requirement set reaches ready using registered executable probes", async () => {
+  const runner = fakeRunner({
+    "node --version": success("v22.0.0"), "npm --version": success("11.0.0"),
+    "ffmpeg -version": success("ffmpeg version 9.0.2"), "ffprobe -version": success("ffprobe version 9.0.2"),
+  });
+  const result = await new WindowsDevelopmentEnvironmentProvisioner({ runner, platform: "win32" })
+    .preflight([{ capabilityId: "node", versionConstraint: ">=22.0.0", provisioning: "managed" },
+      ...["npm", "ffmpeg", "ffprobe"].map(capabilityId => ({ capabilityId, provisioning: "managed" }))], process.cwd());
+  assert.equal(result.state, "ready");
+  assert.equal(result.requirements.every(requirement => requirement.afterState === "satisfied"), true);
+  assert.deepEqual(runner.calls.map(callString), ["node --version", "npm --version", "ffmpeg -version", "ffprobe -version"]);
+});
 
 test("missing simple managed capability uses exact WinGet install, refreshes environment, and re-verifies", async () => {
   const runner = sequentialRunner({
@@ -645,8 +713,9 @@ test("FO76 host-readiness shape reaches provider and composite resolution withou
   assert.equal(result.requirements[2].afterState, "satisfied");
 });
 
-test("ordinary non-Microsoft WinGet community package resolves without registry package identity", async () => {
+test("unknown constrained package resolves but cannot fabricate executable version verification", async () => {
   const runner = sequentialRunner({
+    "where.exe yq": [success("yq.exe"), success("yq.exe")],
     "winget install --id MikeFarah.yq -e --source winget --accept-source-agreements --accept-package-agreements --disable-interactivity --silent": [
       success("installed"),
     ],
@@ -660,10 +729,13 @@ test("ordinary non-Microsoft WinGet community package resolves without registry 
     refreshEnvironment: fakeRefresh(),
   }).preflight([{ capabilityId: "yq", versionConstraint: ">=4.0", provisioning: "managed" }], process.cwd());
 
-  assert.equal(result.state, "ready");
+  assert.equal(result.state, "resolution-required");
   assert.equal(result.requirements[0].actionTaken, "install");
-  assert.equal(runner.calls[0] && callString(runner.calls[0]), "yq --version");
-  assert.equal(runner.calls.some((call) => callString(call) === "winget list --id MikeFarah.yq -e --source winget --accept-source-agreements"), true);
+  assert.equal(runner.calls[0] && callString(runner.calls[0]), "where.exe yq");
+  assert.equal(result.requirements[0].detectedVersion, undefined);
+  assert.equal(result.requirements[0].blockerKind, "verification-failure");
+  assert.match(result.requirements[0].blocker, /No registered semantic version probe/);
+  assert.equal(runner.calls.some((call) => callString(call).includes("yq --version")), false);
   assert.equal(result.requirements[0].providerAttempts.some((attempt) =>
     attempt.candidates?.some((candidate) => candidate.packageId === "MikeFarah.yq")
   ), true);
@@ -1227,7 +1299,7 @@ function defaultProviderResponse(call) {
       ? success(`Name  Id  Version  Source\n${candidate.name}  ${candidate.id}  ${candidate.version}  ${source}`)
       : success("No package found");
   }
-  if (call.args.length === 1 && call.args[0] === "--version") {
+  if (call.command === "where.exe" || (call.args.length === 1 && ["--version", "-version"].includes(call.args[0]))) {
     return failure(null, "", "ENOENT");
   }
   return null;

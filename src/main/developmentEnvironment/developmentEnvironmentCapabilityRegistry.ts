@@ -94,6 +94,10 @@ function simple(
 function registryEntries(): Array<[string, DevelopmentEnvironmentCapabilityRegistryEntry]> {
   return [
     simple("git", "git", ["--version"], /git version\s+([^\s]+)/i),
+    simple("ffmpeg", "ffmpeg", ["-version"], /ffmpeg\s+version\s+([^\s]+)/i),
+    simple("ffprobe", "ffprobe", ["-version"], /ffprobe\s+version\s+([^\s]+)/i),
+    simple("node", "node", ["--version"], /v?([0-9][^\s]*)/i),
+    simple("npm", "npm", ["--version"], /([0-9][^\s]*)/i),
     simple("cmake", "cmake", ["--version"], /cmake version\s+([^\s]+)/i),
     simple("ninja", "ninja", ["--version"], /(?:ninja version\s+)?([0-9][^\s]*)/i),
     simple("nodejs-lts", "node", ["--version"], /v?([0-9][^\s]*)/i),

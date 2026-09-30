@@ -271,7 +271,7 @@ export class WindowsDevelopmentEnvironmentProvisioner {
     commandSummaries.push(summaryFromCommand(after.command));
     const blocker = after.state === "satisfied"
       ? undefined
-      : `Capability ${requirement.capabilityId} remained ${after.state} after provisioning.`;
+      : `Executable verification failed: capability ${requirement.capabilityId} remained ${after.state} after provisioning.`;
     return requirementResult(
       requirement,
       before,
@@ -296,7 +296,7 @@ export class WindowsDevelopmentEnvironmentProvisioner {
       return externalBlockedRequirement(requirement);
     }
 
-    const genericEntry = existingEntry ?? genericProbeEntry(requirement);
+    const genericEntry = existingEntry ?? presenceProbeEntry(requirement);
     const before = await this.probe(genericEntry, requirement, workspaceRoot);
     const commandSummaries = [summaryFromCommand(before.command)];
     const providerAttempts: DevelopmentEnvironmentProviderAttempt[] = [{
@@ -391,33 +391,28 @@ export class WindowsDevelopmentEnvironmentProvisioner {
       stdout: refresh.summary,
       stderr: "",
     });
-    const after = existingEntry
-      ? await this.probe(genericEntry, requirement, workspaceRoot)
-      : await this.verifyProviderPackageInventory(
-        resolution.candidate.packageId,
-        resolution.candidate.source,
-        requirement,
-        workspaceRoot,
-      );
+    const after = await this.probe(genericEntry, requirement, workspaceRoot);
     commandSummaries.push(summaryFromCommand(after.command));
     if (!existingEntry) {
       providerAttempts.push({
-        provider: "winget-search",
+        provider: "specialized-adapter",
         stage: "verification",
         outcome: after.state === "satisfied" ? "resolved" : "failed",
-        summary: `Verified resolved package ${resolution.candidate.packageId} from ${resolution.candidate.source} using Windows Package Manager inventory.`,
+        summary: requirement.versionConstraint
+          ? `Executable version verification unavailable for ${requirement.capabilityId}: no registered semantic probe.`
+          : `Executable presence verification for ${requirement.capabilityId}.`,
         candidates: [{
           packageId: resolution.candidate.packageId,
           packageName: resolution.candidate.packageName,
           source: resolution.candidate.source,
           publisher: resolution.candidate.publisher,
-          version: after.detectedVersion ?? resolution.candidate.version,
+          version: resolution.candidate.version,
         }],
       });
     }
     const blocker = after.state === "satisfied"
       ? undefined
-      : `Capability ${requirement.capabilityId} remained ${after.state} after provider-backed provisioning.`;
+      : `Executable verification failed: capability ${requirement.capabilityId} remained ${after.state} after provider-backed provisioning.${!existingEntry && requirement.versionConstraint ? " No registered semantic version probe exists." : ""}`;
     return requirementResult(
       requirement,
       before,
@@ -445,7 +440,9 @@ export class WindowsDevelopmentEnvironmentProvisioner {
       }
       const output = `${command.stdout}\n${command.stderr}`;
       const detectedVersion = entry.probe.versionPattern?.exec(output)?.[1];
-      const state = versionSatisfiesConstraint(detectedVersion, requirement.versionConstraint)
+      const state = !entry.probe.versionPattern && requirement.versionConstraint
+        ? "unknown"
+        : versionSatisfiesConstraint(detectedVersion, requirement.versionConstraint)
         ? "satisfied"
         : "incompatible";
       return { state, detectedVersion, command };
@@ -463,31 +460,6 @@ export class WindowsDevelopmentEnvironmentProvisioner {
     }
     const detectedVersion = /Visual Studio\s+([0-9][^\s]*)/i.exec(`${command.stdout}\n${command.stderr}`)?.[1];
     return { state: "satisfied", detectedVersion, detectedProfile: "desktop-cpp", command };
-  }
-
-  private async verifyProviderPackageInventory(
-    packageId: string,
-    source: string,
-    requirement: DevelopmentEnvironmentRequirement,
-    workspaceRoot: string,
-  ): Promise<ProbeResult> {
-    const command = await this.runner.run("winget", [
-      "list",
-      "--id",
-      packageId,
-      "-e",
-      "--source",
-      source,
-      "--accept-source-agreements",
-    ], { cwd: workspaceRoot });
-    if (command.exitCode !== 0) {
-      return { state: command.exitCode === null ? "missing" : "unknown", command };
-    }
-    const detectedVersion = providerInventoryVersion(`${command.stdout}\n${command.stderr}`, packageId);
-    const state = versionSatisfiesConstraint(detectedVersion, requirement.versionConstraint)
-      ? "satisfied"
-      : "incompatible";
-    return { state, detectedVersion, command };
   }
 
   private async ensureWinget(workspaceRoot: string): Promise<{
@@ -1130,18 +1102,17 @@ function summaryFromCommand(result: CommandRunResult): DevelopmentEnvironmentCom
   };
 }
 
-function genericProbeEntry(
+function presenceProbeEntry(
   requirement: DevelopmentEnvironmentRequirement,
 ): DevelopmentEnvironmentCapabilityRegistryEntry {
   return {
     kind: "simple",
     capabilityId: requirement.capabilityId,
     probe: {
-      command: executableFromCapabilityId(requirement.capabilityId),
-      args: ["--version"],
-      versionPattern: /(\d+(?:\.\d+){0,3}[^\s]*)/,
+      command: "where.exe",
+      args: [executableFromCapabilityId(requirement.capabilityId)],
     },
-    supportedVersionConstraints: ["exact", "minimum"],
+    supportedVersionConstraints: ["none"],
   };
 }
 
@@ -1205,59 +1176,6 @@ function executableFromCapabilityId(capabilityId: string): string {
     .trim()
     .split(/[\/\s]+/)[0]
     .replace(/[^a-zA-Z0-9._-]/g, "-");
-}
-
-function providerInventoryVersion(text: string, packageId: string): string | undefined {
-  const jsonVersion = providerInventoryVersionFromJson(text, packageId);
-  if (jsonVersion) {
-    return jsonVersion;
-  }
-  const normalizedPackageId = packageId.toLowerCase();
-  for (const line of text.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean)) {
-    if (!line.toLowerCase().includes(normalizedPackageId)) {
-      continue;
-    }
-    const columns = line.split(/\s{2,}/).map((column) => column.trim()).filter(Boolean);
-    const idIndex = columns.findIndex((column) => column.toLowerCase() === normalizedPackageId);
-    const version = idIndex >= 0 ? columns[idIndex + 1] : undefined;
-    if (version) {
-      return version;
-    }
-  }
-  return undefined;
-}
-
-function providerInventoryVersionFromJson(text: string, packageId: string): string | undefined {
-  try {
-    return findProviderInventoryVersion(JSON.parse(text) as unknown, packageId.toLowerCase());
-  } catch {
-    return undefined;
-  }
-}
-
-function findProviderInventoryVersion(value: unknown, packageId: string): string | undefined {
-  if (!value || typeof value !== "object") {
-    return undefined;
-  }
-  if (Array.isArray(value)) {
-    for (const entry of value) {
-      const found = findProviderInventoryVersion(entry, packageId);
-      if (found) return found;
-    }
-    return undefined;
-  }
-  const record = value as Record<string, unknown>;
-  const id = typeof (record.id ?? record.packageId) === "string"
-    ? String(record.id ?? record.packageId).toLowerCase()
-    : "";
-  if (id === packageId && typeof record.version === "string") {
-    return record.version;
-  }
-  for (const entry of Object.values(record)) {
-    const found = findProviderInventoryVersion(entry, packageId);
-    if (found) return found;
-  }
-  return undefined;
 }
 
 function wingetVersionIsReady(result: CommandRunResult): boolean {
