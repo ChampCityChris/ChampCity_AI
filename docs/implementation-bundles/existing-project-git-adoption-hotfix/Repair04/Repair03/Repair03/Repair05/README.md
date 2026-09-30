@@ -1,29 +1,27 @@
 # Existing Project Git Adoption — Repair05
 
-**Baseline:** `ec0d21787d9adb8b9fdc90cf319a88570fed97ad`  
-**Status:** **ACTIVE — REAL QUALIFICATION BLOCKED**
+**Implementation checkpoint:** `831d0a116d97d402433964c8128105571e002947`  
+**Status:** **ACCEPTED — REAL RETRY PENDING WORKTREE HYGIENE**
 
-Controlling card:
+Controlling Architect review:
 
-`EPGA-R04-R03-R05_force_windows_root_git_retirement_from_verified_recovery_copy.md`
+`EPGA_R04_R03_R05_ARCHITECT_REVIEW_2026-09-30.md`
 
-The real ChampCity_AI qualification reached deterministic root Git cutover and failed because Windows rejected renaming the live root `.git` directory with `EPERM`.
+Repair05 is accepted.
 
-Repair05 removes that rename dependency.
-
-The corrected Windows transaction is:
+The Windows root Git cutover now uses:
 
 ```text
-verified recovery copy of root .git
+verified recovery copy
 -> pause ChampCity-owned workspace watchers
--> forced PowerShell removal of root .git
+-> forced PowerShell Remove-Item of root .git
 -> verify removal
--> complete Main/Dev managed topology
--> resume watchers
+-> complete managed Main/Dev
+-> exact recovery restore on failure
 ```
 
-Partial forced-removal failure restores conventional Git from the verified recovery copy.
+No Agent Harness/MCP/model authority is involved in the cutover.
 
-No Agent Harness, MCP, or model decision is part of this cutover.
+Before the real ChampCity_AI retry, Operator disposition is required for the currently untracked nested `Signal_Forge/Main` and `Signal_Forge/Dev` Project content. It was not deleted or modified during review.
 
-Do not retry the real ChampCity_AI conversion until Repair05 is implemented and Architect-reviewed.
+Once that content is intentionally retained, moved, or removed, the real **Accept and Convert** retry is authorized.

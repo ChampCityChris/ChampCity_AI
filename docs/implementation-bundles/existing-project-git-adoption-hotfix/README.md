@@ -10,15 +10,16 @@
 **Repair04 / Repair03 / Repair03 checkpoint:** `b1d4942e2c149417157fea76a9809a76d684cc80`  
 **Repair04 / Repair03 / Repair03 / Repair04 checkpoint:** `b8cc37753da54e0b5e79ce758442ab4389a55618`  
 **Repair04 acceptance checkpoint:** `ec0d21787d9adb8b9fdc90cf319a88570fed97ad`  
-**Current status:** **REPAIR05 ACTIVE — REAL CHAMPCITY_AI QUALIFICATION BLOCKED**
+**Repair05 checkpoint:** `831d0a116d97d402433964c8128105571e002947`  
+**Current status:** **REPAIR05 ACCEPTED — REAL RETRY PENDING OPERATOR WORKTREE DISPOSITION**
 
 ## Current controlling path
 
-1. `Repair04/Repair03/Repair03/Repair05/EPGA-R04-R03-R05_force_windows_root_git_retirement_from_verified_recovery_copy.md`
+1. `Repair04/Repair03/Repair03/Repair05/EPGA_R04_R03_R05_ARCHITECT_REVIEW_2026-09-30.md`
 2. `Repair04/Repair03/Repair03/Repair05/README.md`
 3. `Repair04/Repair03/Repair03/README.md`
 
-## Authority model remains accepted
+## Authority model
 
 ChampCity A/I Source Control owns Git deterministically.
 
@@ -26,16 +27,31 @@ The application-owned machine source-operation fence coordinates source-topology
 
 Agent Harness/MCP/model access is downstream and does not authorize Git conversion.
 
-## Current blocker
+## Repair05 disposition
 
-The real qualification reached physical Windows root Git cutover and failed on the old `fs.renameSync(<Project>/.git, <migration>/legacy-git-entry)` strategy with `EPERM`.
+The real Windows cutover defect is repaired:
 
-The journal confirms source preservation, ref import, baseline creation, managed metadata preparation, and rollback all worked.
+- root `.git` is copied and verified before retirement;
+- ChampCity-owned workspace watchers are paused;
+- Windows retirement uses direct forced PowerShell removal;
+- partial removal restores exact conventional Git authority from recovery;
+- source/history/Main/Dev transaction behavior remains intact.
 
-Repair05 replaces the root `.git` rename with a verified recovery copy plus forced PowerShell removal and exact restore-on-failure.
+## Qualification-state note
+
+Current Git status contains untracked nested managed Project content under:
+
+```text
+Signal_Forge/Main/
+Signal_Forge/Dev/
+```
+
+This state was not modified during Architect review.
+
+Because Existing Project conversion preserves current ordinary/untracked source, Operator should decide whether `Signal_Forge` belongs inside ChampCity_AI before retrying conversion.
 
 ## Next action
 
-Implement Repair05 and stop for Architect review.
+After Operator disposition of `Signal_Forge`, run **Open Existing Project -> ChampCity_AI -> Accept and Convert**.
 
-Do not manually clean the current failed migration evidence and do not retry **Accept and Convert** before Repair05 acceptance.
+Do not manually clean historical failed migration evidence.
