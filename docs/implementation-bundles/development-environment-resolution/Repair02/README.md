@@ -1,30 +1,27 @@
 # Development Environment Resolution / Repair02
 
-**Status:** ACTIVE
+**Implementation checkpoint:** `aadbe64d681e839cc5cae2132fb320713b7253d5`  
+**Status:** **ACCEPTED — SIGNAL FORGE RUNTIME RETEST AUTHORIZED**
 
 Controlling card:
 
 `DER-R02_register_ffmpeg_probes_and_remove_universal_version_assumption.md`
 
-Signal Forge exposed a second deterministic preflight defect after DER-R01:
+Architect review:
 
-```text
-ffmpeg / ffprobe
--> no registry adapter
--> generic <capability> --version
--> invalid probe semantics
--> provider fallback / ambiguity
-```
+`ARCHITECT_REVIEW_2026-09-30.md`
 
-Repair02 registers the real reusable probe contracts:
+Accepted behavior:
 
 ```text
 ffmpeg  -> ffmpeg -version
 ffprobe -> ffprobe -version
 ```
 
-and removes the assumption that every unknown executable supports `--version`.
+Registered executable capabilities probe before provider resolution and are re-probed after provisioning.
 
-Package inventory remains provisioning evidence; registered executable capabilities must pass their real executable probe before being marked satisfied.
+Unknown capabilities no longer universally invent `--version`; presence-only requirements use bounded PATH lookup, while unknown version-constrained requirements fail closed unless a semantic adapter can verify the version.
 
-Stop after implementation for Architect review.
+Package inventory is provisioning evidence, not executable-verification authority.
+
+Next step: retest the original Signal Forge Work Card environment preflight on the live Windows host.
