@@ -1,34 +1,40 @@
 # Existing Project Git Adoption — Repair04 / Repair03 / Repair03
 
-**Implementation checkpoint:** `b1d4942e2c149417157fea76a9809a76d684cc80`  
-**Status:** **BLOCKED — REPAIR04 ACTIVE**
+**Repair03 checkpoint:** `b1d4942e2c149417157fea76a9809a76d684cc80`  
+**Repair04 checkpoint:** `b8cc37753da54e0b5e79ce758442ab4389a55618`  
+**Status:** **ACCEPTED — REAL CHAMPCITY_AI QUALIFICATION RETRY AUTHORIZED**
 
-## Architect review
+## Controlling acceptance
 
-`EPGA_R04_R03_R03_ARCHITECT_REVIEW_2026-09-30.md`
+`Repair04/EPGA_R04_R03_R04_ARCHITECT_REVIEW_2026-09-30.md`
 
-Repair03 correctly established:
+## Accepted architecture
 
-- neutral machine-owned cross-process source fencing;
-- exclusive Existing Project conversion ownership;
-- public model-tool shared fencing;
-- canonical Existing Project admission;
-- sidebar Open/Change routing through migration inspection;
-- Clear Project returning to landing;
-- Current Project-only Project Intake repository binding.
+- Source Control owns Git and source-topology transitions.
+- A neutral cross-process machine source-operation fence coordinates deterministic source transitions.
+- Agent Harness/MCP/model-access operations consume that fence as clients.
+- Agent Harness does not authorize Source Control.
+- Existing Project admission is canonical across landing/sidebar Open/Change routes.
+- Clear Project returns to landing.
+- Project Intake cannot silently switch the Current Project repository.
 
-## Remaining blocker
+## Model-access topology
 
-The real folder-selection path registers a conventional RepositoryCheckout with Agent Harness before conversion.
+Before conversion, a conventional Git Project may expose one deterministic conventional RepositoryCheckout.
 
-After successful conversion, downstream model-access reconciliation publishes Main/Dev but does not retire the now-obsolete conventional projection. Agent Harness workspace/source reconciliation also performs Git topology inspection without taking the neutral shared source fence.
+After successful managed conversion:
 
-This can leave model access reporting ready while public discovery still contains a stale conventional checkout.
+```text
+main -> Main
+dev  -> Dev
+```
 
-## Active repair
+The conventional root projection is retired idempotently.
 
-`Repair04/EPGA-R04-R03-R04_reconcile_model_access_to_exact_source_topology.md`
+Agent Harness workspace/source reconciliation now obeys the neutral shared source fence, and public MCP checkout discovery reflects the same current projection.
 
-## Stop rule
+## Next action
 
-Do not retry the real ChampCity_AI Existing Project conversion until Repair04 is implemented and Architect-reviewed.
+Run the real ChampCity_AI Existing Project qualification retry through the normal application UI.
+
+Do not manually clean preserved migration evidence before the retry.
