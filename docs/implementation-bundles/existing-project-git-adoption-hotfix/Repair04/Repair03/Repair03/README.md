@@ -1,20 +1,34 @@
 # Existing Project Git Adoption — Repair04 / Repair03 / Repair03
 
-**Status:** ACTIVE  
-**Baseline:** `aee844a82ad977243570ed63e70f3fbb8a9f4376`  
-**Architect release baseline:** `1ac38a5dbb4341ba444b1e71ace84788b43a43f9`
+**Implementation checkpoint:** `b1d4942e2c149417157fea76a9809a76d684cc80`  
+**Status:** **BLOCKED — REPAIR04 ACTIVE**
 
-Controlling card:
+## Architect review
 
-`EPGA-R04-R03-R03_replace_agent_harness_quiescence_with_machine_source_fence_and_close_project_entry_bypass.md`
+`EPGA_R04_R03_R03_ARCHITECT_REVIEW_2026-09-30.md`
 
-This card supersedes Repair03 / Repair02.
+Repair03 correctly established:
 
-Core corrections:
+- neutral machine-owned cross-process source fencing;
+- exclusive Existing Project conversion ownership;
+- public model-tool shared fencing;
+- canonical Existing Project admission;
+- sidebar Open/Change routing through migration inspection;
+- Clear Project returning to landing;
+- Current Project-only Project Intake repository binding.
 
-1. deterministic Git conversion is fenced by a neutral machine-owned cross-process source-operation coordinator, not Agent Harness quiescence;
-2. Agent Harness/MCP tool calls obey that application fence as clients;
-3. Clear/Open/Change Project can no longer bypass Existing Project admission and Git-migration messaging;
-4. Project Intake repository selection cannot silently rebind the active Project through a raw workspace chooser.
+## Remaining blocker
 
-Do not retry the real ChampCity_AI conversion until this card is implemented and Architect-reviewed.
+The real folder-selection path registers a conventional RepositoryCheckout with Agent Harness before conversion.
+
+After successful conversion, downstream model-access reconciliation publishes Main/Dev but does not retire the now-obsolete conventional projection. Agent Harness workspace/source reconciliation also performs Git topology inspection without taking the neutral shared source fence.
+
+This can leave model access reporting ready while public discovery still contains a stale conventional checkout.
+
+## Active repair
+
+`Repair04/EPGA-R04-R03-R04_reconcile_model_access_to_exact_source_topology.md`
+
+## Stop rule
+
+Do not retry the real ChampCity_AI Existing Project conversion until Repair04 is implemented and Architect-reviewed.
