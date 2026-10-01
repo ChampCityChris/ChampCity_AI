@@ -144,6 +144,51 @@ test("legacy accepted Feature and Issue SQL sets adopt idempotently while confli
   } finally {env.store.close();}
 });
 
+for (const [type, workspace] of [["refactor-migration", "refactor-assessment"], ["integration-composition", "integration-assessment"], ["infrastructure-platform", "infrastructure-assessment"], ["research-prototype", "research-assessment"]]) {
+  test(`${type} explicitly prepares its bounded SQL Architect assessment and leaves Planning Not Ready`, async context => {
+    const env = await setup(context);
+    const architect = require("../../dist/main/architectOutputs/structuredArchitectWorkspaceService.js").createStructuredArchitectWorkspaceService();
+    const intake = require("../../dist/main/workflow/workflowIntakeService.js").createWorkflowIntakeService();
+    const {WORKFLOW_INTAKE_DEFINITIONS} = require("../../dist/shared/workflowIntakeContracts.js");
+    const {ASSESSMENT_SECTIONS} = require("../../dist/shared/architectWorkspaceContracts.js");
+    try {
+      const {workflow} = await createWorkflowApplicationService().startDirectWorkflow(env.root, {workflowType: type, title: "Assessment fixture"});
+      await assert.rejects(architect.prepare(env.root, workflow.workflowId), /Approve current/);
+      const values = Object.fromEntries(WORKFLOW_INTAKE_DEFINITIONS[type].fields.filter(field => field.required).map(field => [field.key, `${field.key} fixture`]));
+      const savedIntake = await intake.saveWorkflowIntake(env.root, workflow.workflowId, {workflowType: type, values});
+      await approveIntake(env.root, workflow.workflowId);
+      assert.equal((await env.store.getEntity(env.projectId, workflow.workflowId)).body.currentWorkspace, workflow.currentWorkspace);
+      const prepared = await architect.prepare(env.root, workflow.workflowId);
+      assert.equal((await env.store.getEntity(env.projectId, workflow.workflowId)).body.currentWorkspace, workspace);
+      assert.ok(prepared.handoff.includes(env.projectId)); assert.ok(prepared.handoff.includes(type)); assert.ok(prepared.handoff.includes(`${savedIntake.intakeId}@1`));
+      if (type === "research-prototype") {
+        await env.state.recordEvidence(env.projectId, savedIntake.intakeId, {evidenceType: "experiment-supplied", description: "Actual supplied experiment observation", mediaType: "text/plain", payloadRef: "project-evidence:experiment.txt", digest: "a".repeat(64), size: 1});
+        assert.equal((await architect.get(env.root, workflow.workflowId)).supportRecords.length, 1);
+      }
+      const output = Object.fromEntries(Object.keys(ASSESSMENT_SECTIONS[type]).map(key => [key, `${key} substantive direction`]));
+      const input = {intakeId: savedIntake.intakeId, intakeVersion: 1, output};
+      await assert.rejects(architect.save(env.root, workflow.workflowId, {...input, output: {...output, extra: "unbounded"}}), /bounded/);
+      const candidate = await architect.save(env.root, workflow.workflowId, input);
+      const ids = new Set(candidate.review.sources.map(source => source.entityId));
+      const members = (await env.store.listEntities(env.projectId)).filter(record => ids.has(record.id));
+      assert.ok(members.some(record => record.entityType === "BoundedSolution")); assert.ok(members.some(record => record.entityType === "Criterion"));
+      if (type === "research-prototype") assert.ok(members.some(record => record.entityType === "Evidence" && record.body.evidenceType === "experiment-supplied"));
+      for (const [key, title] of Object.entries(ASSESSMENT_SECTIONS[type])) {assert.ok(members.some(record => record.entityType === "Finding" && record.body.title === title)); assert.ok(candidate.review.markdown.includes(output[key]));}
+      assert.equal(candidate.review.disposition.state, "none");
+      const projection = path.join(env.root, candidate.review.relativePath); fs.writeFileSync(projection, "Manual approval fiction");
+      assert.equal((await architect.get(env.root, workflow.workflowId)).review.disposition.state, "none");
+      assert.ok(!fs.readFileSync(projection, "utf8").includes("Manual approval fiction"));
+      await assert.rejects(architect.review(env.root, workflow.workflowId, candidate.review.cycleId, {expectedRecordVersion: 0, outcome: "approved"}));
+      const approved = await architect.review(env.root, workflow.workflowId, candidate.review.cycleId, {expectedRecordVersion: 1, outcome: "approved"});
+      assert.equal(approved.railStatus, "Completed"); assert.equal(approved.nextStageReady, false);
+      fs.unlinkSync(projection); assert.equal((await architect.get(env.root, workflow.workflowId)).review.disposition.state, "approved");
+      const revised = await architect.save(env.root, workflow.workflowId, {...input, expectedCycleVersion: 1, output: {...output, risks: "Revised material risks"}});
+      assert.equal(revised.review.recordVersion, 2); assert.equal(revised.review.disposition.state, "none"); assert.equal(revised.nextStageReady, false);
+      await assert.rejects(architect.review(env.root, workflow.workflowId, revised.review.cycleId, {expectedRecordVersion: 1, outcome: "approved"}));
+    } finally {env.store.close();}
+  });
+}
+
 test("Greenfield Architect persists typed SQL candidates, rematerializes review and bridges Planning without canonical Interview authority", async context => {
   const {GREENFIELD_ARCHITECT_SECTIONS} = require("../../dist/shared/architectWorkspaceContracts.js");
   const architect = require("../../dist/main/architectOutputs/structuredArchitectWorkspaceService.js").createStructuredArchitectWorkspaceService();
@@ -1105,3 +1150,4 @@ test("Greenfield SQL Intake preserves its generated path and prepares Interview 
     assert.equal(prompt.metadata.sourceRevisions[0].revision,saved.recordVersion);
   } finally {env.store.close();}
 });
+

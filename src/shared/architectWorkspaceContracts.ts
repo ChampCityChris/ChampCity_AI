@@ -8,13 +8,36 @@ export const FEATURE_ARCHITECT_SECTIONS = {
   behaviorContractsToPreserve: "Behavior and Contracts to Preserve", affectedArchitectureIntegrationPoints: "Affected Architecture and Integration Points",
   compatibilityRollout: "Compatibility and Rollout", regressionBoundary: "Regression Boundary", excludedFutureWork: "Excluded Future Work",
 } as const;
-export type ArchitectCandidateOutput = GreenfieldArchitectOutput | FeatureAssessmentCandidate | {rootCauses: IssueRootCauseCandidateInput[]};
+export const ASSESSMENT_SECTIONS = {
+  "refactor-migration": {currentStateFindings: "Verified Current State", targetRecommendation: "Target State Recommendation", scopeIn: "Scope In", scopeOut: "Scope Out", preservationObligations: "Preservation Obligations", retirementRecommendations: "Retirement Recommendations", transitionConstraints: "Transition Constraints", migrationSequenceDependencies: "Migration Sequence and Dependencies", compatibilityRollback: "Compatibility and Rollback", risks: "Risks", assumptions: "Assumptions", unresolvedOperatorDecisions: "Unresolved Operator Decisions"},
+  "integration-composition": {participatingSystems: "Participating Systems", interfaceDataControlFlow: "Interface, Data and Control Flow", reuseRecommendations: "Reuse Recommendations", integrationSolution: "Integration Boundary and Solution", accessSecurityConstraints: "Access and Security Constraints", compatibilityLifecycle: "Compatibility and Lifecycle", failureRecovery: "Failure and Recovery", dependencies: "Dependencies", risks: "Risks", assumptions: "Assumptions", unresolvedOperatorDecisions: "Unresolved Operator Decisions"},
+  "infrastructure-platform": {environmentPlatformFindings: "Current Environment and Platform", targetPlatformRecommendation: "Target Platform Recommendation", ownershipAccess: "Ownership and Access", rolloutCutover: "Rollout and Cutover", stateDataRecovery: "State and Data Recovery", networkObservability: "Network and Observability", preservationCompatibility: "Preservation and Compatibility", dependencies: "Dependencies", risks: "Risks", assumptions: "Assumptions", unresolvedOperatorDecisions: "Unresolved Operator Decisions"},
+  "research-prototype": {questionHypothesis: "Question and Hypothesis", alternativesUnknowns: "Alternatives and Unknowns", experimentBoundary: "Experiment Boundary", evidenceRequired: "Evidence Required", recommendedApproach: "Recommended Experiment Approach", successFailureCriteria: "Success and Failure Criteria", timeboxClosure: "Timebox and Closure", outputDispositionRecommendation: "Output Disposition Recommendation", risks: "Risks", assumptions: "Assumptions", unresolvedOperatorDecisions: "Unresolved Operator Decisions"},
+} as const;
+export type AssessmentWorkflowType = keyof typeof ASSESSMENT_SECTIONS;
+export type AssessmentOutput<T extends AssessmentWorkflowType> = {[K in keyof typeof ASSESSMENT_SECTIONS[T]]: string};
+export type MigrationAssessmentOutput = AssessmentOutput<"refactor-migration">;
+export type IntegrationAssessmentOutput = AssessmentOutput<"integration-composition">;
+export type InfrastructureAssessmentOutput = AssessmentOutput<"infrastructure-platform">;
+export type ResearchAssessmentOutput = AssessmentOutput<"research-prototype">;
+export const ASSESSMENT_DESIGNS = {
+  "refactor-migration": {solution: "targetRecommendation", criteria: ["preservationObligations", "compatibilityRollback"], scope: "scopeIn", excluded: "scopeOut", constraints: "transitionConstraints"},
+  "integration-composition": {solution: "integrationSolution", criteria: ["compatibilityLifecycle", "failureRecovery"], scope: "integrationSolution", excluded: "unresolvedOperatorDecisions", constraints: "accessSecurityConstraints"},
+  "infrastructure-platform": {solution: "targetPlatformRecommendation", criteria: ["stateDataRecovery", "networkObservability", "preservationCompatibility"], scope: "targetPlatformRecommendation", excluded: "unresolvedOperatorDecisions", constraints: "ownershipAccess"},
+  "research-prototype": {solution: "recommendedApproach", criteria: ["evidenceRequired", "successFailureCriteria", "timeboxClosure"], scope: "experimentBoundary", excluded: "unresolvedOperatorDecisions", constraints: "timeboxClosure"},
+} as const;
+export type ArchitectCandidateOutput = GreenfieldArchitectOutput | MigrationAssessmentOutput | IntegrationAssessmentOutput | InfrastructureAssessmentOutput | ResearchAssessmentOutput | FeatureAssessmentCandidate | {rootCauses: IssueRootCauseCandidateInput[]};
 export interface ArchitectCandidateSaveInput {intakeId: string; intakeVersion: number; expectedCycleVersion?: number; output: ArchitectCandidateOutput}
 export function validateArchitectCandidateOutput(type: WorkflowType, output: unknown): void {
   if (type === "project-creation") return validateGreenfieldArchitectOutput(output);
   if (!output || typeof output !== "object" || Array.isArray(output)) throw Error("Typed Architect output is required.");
   if (type === "feature-capability") {
     if (Object.keys(output).sort().join("|") !== Object.keys(FEATURE_ARCHITECT_SECTIONS).sort().join("|") || Object.values(output).some(value => typeof value !== "string" || !value.trim() || new TextEncoder().encode(value).length > 4096 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value))) throw Error("All seven bounded Feature assessment dimensions are required.");
+    return;
+  }
+  if (Object.hasOwn(ASSESSMENT_SECTIONS, type)) {
+    const sections = ASSESSMENT_SECTIONS[type as AssessmentWorkflowType];
+    if (Object.keys(output).sort().join("|") !== Object.keys(sections).sort().join("|") || Object.values(output).some(value => typeof value !== "string" || !value.trim() || new TextEncoder().encode(value).length > 4000 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value))) throw Error("Exact bounded workflow-specific assessment dimensions are required.");
     return;
   }
   if (type === "issue-resolution") {

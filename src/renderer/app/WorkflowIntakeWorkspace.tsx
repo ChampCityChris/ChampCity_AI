@@ -23,7 +23,7 @@ export function WorkflowIntakeWorkspace({ workflow, onReturn, onPrepared }: {
     if (!state.approved || busy) return;
     setPreparing(true); setPrepareError("");
     try {
-      if (workflowType === "feature-capability" || workflowType === "issue-resolution") await window.champcity.prepareStructuredArchitectWorkspace(workflow.workflowId);
+      if (workflowType !== "project-creation") await window.champcity.prepareStructuredArchitectWorkspace(workflow.workflowId);
       onPrepared();
     } catch (e) { setPrepareError(String(e).slice(0, 1000)); } finally { setPreparing(false); }
   };
@@ -39,7 +39,7 @@ export function WorkflowIntakeWorkspace({ workflow, onReturn, onPrepared }: {
           disabled={!loaded || busy || preparing} onChange={e => { setValues({ ...values, [field.key]: e.target.value }); state.markDirty(); }} />
       </label>)}
       <button type="submit" className="apply-button" disabled={!loaded || busy || preparing}>Save Intake</button>
-      {(workflowType === "feature-capability" || workflowType === "issue-resolution") &&
-        <button type="button" disabled={!state.approved || busy || preparing} onClick={() => void prepare()}>{workflowType === "feature-capability" ? "Prepare Feature Assessment" : "Prepare Issue RCA"}</button>}
+      {workflowType !== "project-creation" &&
+        <button type="button" disabled={!state.approved || busy || preparing} onClick={() => void prepare()}>{workflowType === "feature-capability" ? "Prepare Feature Assessment" : workflowType === "issue-resolution" ? "Prepare Issue RCA" : "Prepare Architect Assessment"}</button>}
     </form><WorkflowIntakeDisposition state={state} /></>} />;
 }

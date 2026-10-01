@@ -1,5 +1,5 @@
 import { ARCHITECT_WORKSPACE_BY_WORKFLOW, ARCHITECT_STAGE_BY_WORKFLOW, architectSemanticDigest, renderArchitectReviewProjection, type ArchitectReviewSaveInput, type ArchitectReviewDecisionInput } from "./architectReviewContracts";
-import { GREENFIELD_ARCHITECT_SECTIONS, FEATURE_ARCHITECT_SECTIONS, validateArchitectCandidateOutput, type ArchitectCandidateSaveInput, type GreenfieldArchitectOutput } from "../architectWorkspaceContracts";
+import { GREENFIELD_ARCHITECT_SECTIONS, FEATURE_ARCHITECT_SECTIONS, ASSESSMENT_SECTIONS, ASSESSMENT_DESIGNS, type AssessmentWorkflowType, validateArchitectCandidateOutput, type ArchitectCandidateSaveInput, type GreenfieldArchitectOutput } from "../architectWorkspaceContracts";
 import { workflowIntakeDisposition, exactVersionReviewDisposition } from "./workflowIntakeDisposition";
 import type { DispositionState, EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef, ProjectId, ProjectStateEntity, ProjectStateRecord, TestLifecycleAssessmentStatus, ValidationMode, WorkflowState, WorkIntakeState, WorkRoute } from "./domainContracts";
 import { getWorkflowTypeDefinition, workflowTypeForWorkRoute, type ExistingProjectWorkRoute, type WorkflowType } from "./workflowTypeRegistry";
@@ -869,6 +869,22 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
           for (const id of candidate.findingIds) {await linkSemantic(unit, projectId, root, findings.get(id)!, "explains"); if (!members.some(member => member.id === id)) members.push(findings.get(id)!);}
           if (!candidate.findingIds.length) await linkSemantic(unit, projectId, root, intake, "derived_from");
           for (const id of candidate.evidenceIds) {await linkSemantic(unit, projectId, evidence.get(id)!, root, "supports"); if (!members.some(member => member.id === id)) members.push(evidence.get(id)!);}
+        }
+      } else if (Object.hasOwn(ASSESSMENT_SECTIONS, input.workflowType)) {
+        const type = input.workflowType as AssessmentWorkflowType, out = input.output as Record<string, string>, design = ASSESSMENT_DESIGNS[type];
+        const solution = await add("BoundedSolution", {title: ASSESSMENT_SECTIONS[type][design.solution as keyof typeof ASSESSMENT_SECTIONS[typeof type]] ?? "Architect recommendation", objective: out[design.solution], scopeIn: [out[design.scope]], scopeOut: type === "refactor-migration" ? [out.scopeOut] : [], constraints: [out[design.constraints]], assumptions: [out.assumptions], risks: [out.risks], solutionState: "proposed"});
+        await linkSemantic(unit, projectId, solution, workflow, "workflow_member");
+        const supportEdges = await unit.listRelationships(projectId, "supports");
+        const supplied = (await unit.listEntities(projectId, "Evidence")).filter((record): record is ProjectStateRecord<"Evidence"> => record.entityType === "Evidence" && record.lifecycleState === "active" && record.body.evidenceType !== "architect-intake-source" && supportEdges.some(edge => !edge.endedAt && edge.fromEntityId === record.id && (edge.toEntityId === workflow.id || edge.toEntityId === intake.id)));
+        if (supplied.length > 32) fail("Assessment supports at most 32 exact supplied Evidence records.");
+        for (const evidence of supplied) {await linkSemantic(unit, projectId, evidence, solution, "supports"); members.push(evidence);}
+        for (const [key, title] of Object.entries(ASSESSMENT_SECTIONS[type])) {
+          const finding = await add("Finding", {title, statement: out[key], category: `architect:${stageKind}:${key}`, impact: "Proposed assessment direction", observedAt: new Date().toISOString(), findingState: "proposed"});
+          await linkSemantic(unit, projectId, finding, workflow, "workflow_member");
+          if ((design.criteria as readonly string[]).includes(key)) {
+            const criterion = await add("Criterion", {statement: out[key], criticality: "required", verificationIntent: `Architect assessment obligation: ${title}`, validationPolicy: "semantic_ai", criterionState: "proposed"});
+            await linkSemantic(unit, projectId, solution, criterion, "defines_criterion");
+          }
         }
       }
       const source = await add("Evidence", {evidenceType: "architect-intake-source", description: "Exact approved Intake used for Architect output", capturedAt: new Date().toISOString(), capturedBy: trustedPrincipal,
