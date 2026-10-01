@@ -15,13 +15,13 @@ import type {
 
 const api: ChampCityApi = {
   getIssueWorkflowPlanning: workflowId => ipcRenderer.invoke("issuePlanning:get", workflowId) as ReturnType<ChampCityApi["getIssueWorkflowPlanning"]>,
-  saveIssueWorkflowIntake: (workflowId, intake) => ipcRenderer.invoke("issuePlanning:saveIntake", workflowId, intake) as ReturnType<ChampCityApi["saveIssueWorkflowIntake"]>,
   addIssueWorkflowEvidence: (workflowId, files) => ipcRenderer.invoke("issuePlanning:addEvidence", workflowId, files) as ReturnType<ChampCityApi["addIssueWorkflowEvidence"]>,
   prepareIssueWorkflowPlanning: (workflowId, stage) => ipcRenderer.invoke("issuePlanning:prepare", workflowId, stage) as ReturnType<ChampCityApi["prepareIssueWorkflowPlanning"]>,
   actOnIssueWorkflowPlanning: (workflowId, action) => ipcRenderer.invoke("issuePlanning:act", workflowId, action) as ReturnType<ChampCityApi["actOnIssueWorkflowPlanning"]>,
   copyIssueWorkflowPlanningHandoff: workflowId => ipcRenderer.invoke("issuePlanning:copy", workflowId) as ReturnType<ChampCityApi["copyIssueWorkflowPlanningHandoff"]>,
+  getWorkflowIntake: workflowId => ipcRenderer.invoke("workflow:getIntake", workflowId) as ReturnType<ChampCityApi["getWorkflowIntake"]>,
+  saveWorkflowIntake: (workflowId, payload) => ipcRenderer.invoke("workflow:saveIntake", workflowId, payload) as ReturnType<ChampCityApi["saveWorkflowIntake"]>,
   getFeaturePlanning: workflowId => ipcRenderer.invoke("featurePlanning:get", workflowId) as ReturnType<ChampCityApi["getFeaturePlanning"]>,
-  saveFeatureIntake: (workflowId, intake) => ipcRenderer.invoke("featurePlanning:saveIntake", workflowId, intake) as ReturnType<ChampCityApi["saveFeatureIntake"]>,
   prepareFeaturePlanning: (workflowId, stage) => ipcRenderer.invoke("featurePlanning:prepare", workflowId, stage) as ReturnType<ChampCityApi["prepareFeaturePlanning"]>,
   actOnFeaturePlanning: (workflowId, action) => ipcRenderer.invoke("featurePlanning:act", workflowId, action) as ReturnType<ChampCityApi["actOnFeaturePlanning"]>,
   copyFeaturePlanningHandoff: workflowId => ipcRenderer.invoke("featurePlanning:copy", workflowId) as ReturnType<ChampCityApi["copyFeaturePlanningHandoff"]>,

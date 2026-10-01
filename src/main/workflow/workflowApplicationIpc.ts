@@ -1,3 +1,5 @@
+import { createWorkflowIntakeService } from "./workflowIntakeService";
+import { validateWorkflowIntakePayload } from "../../shared/workflowIntakeContracts";
 import type { DirectWorkflowStartRequest } from "../../shared/workflowApplicationContracts";
 import { createWorkflowApplicationService } from "./workflowApplicationService";
 import { createWorkflowExecutionApplicationService } from "./workflowExecutionApplicationService";
@@ -10,6 +12,18 @@ export interface WorkflowApplicationIpcRegistry {
 export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcRegistry,
   getCurrentProjectRoot: () => string,
   service = createWorkflowApplicationService()): void {
+  const intake = createWorkflowIntakeService();
+  const intakeId = (args: unknown[], count: number) => {
+    if (args.length !== count || typeof args[0] !== "string" || !args[0].trim() || args[0].length > 128)
+      throw Error("Exact bounded Workflow intake arguments are required.");
+    return args[0];
+  };
+  registry.handle("workflow:getIntake", (_event, ...args) => intake.getWorkflowIntake(getCurrentProjectRoot(), intakeId(args, 1)));
+  registry.handle("workflow:saveIntake", (_event, ...args) => {
+    const id = intakeId(args, 2);
+    validateWorkflowIntakePayload(args[1]);
+    return intake.saveWorkflowIntake(getCurrentProjectRoot(), id, args[1]);
+  });
   const execution = createWorkflowExecutionApplicationService();
   registry.handle("workflow:list", async (_event, ...args) => {
     if (args.length) throw Error("Workflow inventory does not accept renderer arguments.");

@@ -1,3 +1,4 @@
+import { validateWorkflowIntakePayload } from "../../shared/workflowIntakeContracts";
 import fs from "node:fs";
 import path from "node:path";
 import type { FeatureIntakeInput } from "../../shared/featurePlanningContracts";
@@ -64,7 +65,7 @@ export function createFeaturePlanningService(dependencies: { openStore?: (databa
     });
   }
   async function saveIntake(root: string, workflowId: string, intake: FeatureIntakeInput) {
-    if (!intake || fields.some(([key]) => typeof intake[key] !== "string" || !(intake[key] as string).trim() || (intake[key] as string).length > 8000)) throw Error("Complete each bounded Feature Intake field (maximum 8,000 characters each).");
+    validateWorkflowIntakePayload({ workflowType: "feature-capability", values: intake });
     return withState(root, workflowId, async (store, projectId) => {
       const workflow = await store.getEntity(projectId, workflowId);
       if (workflow?.entityType === "Workflow" && workflow.body.currentWorkspace === "work-item-map") throw Error("Accepted Feature Work Item Map is read-only.");

@@ -181,7 +181,8 @@ test("substantive intake definitions preserve exact ordered keys, requirements, 
     for (const field of definition.fields) {
       assert.ok(Object.isFrozen(field));
       assert.ok(field.label.length > 0);
-      assert.equal(field.maxLength, 8000);
+      assert.equal(field.maxLength, 4096);
+      assert.equal(field.maxUtf8Bytes, 4096);
       assert.throws(() => { field.required = !field.required; }, TypeError);
     }
     assert.throws(() => definition.fields.reverse(), TypeError);

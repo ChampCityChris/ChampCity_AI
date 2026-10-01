@@ -36,9 +36,9 @@ const { WORKFLOW_TYPE_REGISTRY } = loader.loadRendererSourceModule("src/shared/p
 const repoRoot = path.join(__dirname, "..", "..");
 
 test("exact planning dispatch follows supported type and persisted currentWorkspace", () => {
-  for (const currentWorkspace of ["feature-intake", "feature-assessment", "feature-planning"])
+  for (const currentWorkspace of ["feature-assessment", "feature-planning"])
     assert.equal(workflowPlanningSurface({ workflowType: "feature-capability", lifecycleState: "active", currentWorkspace }), "feature");
-  for (const currentWorkspace of ["issue-intake", "issue-rca", "issue-planning"])
+  for (const currentWorkspace of ["issue-rca", "issue-planning"])
     assert.equal(workflowPlanningSurface({ workflowType: "issue-resolution", lifecycleState: "active", currentWorkspace }), "issue");
   for (const currentWorkspace of ["work-item-map", "execution-complete", "integration-ready"])
     assert.equal(workflowPlanningSurface({ workflowType: "feature-capability", lifecycleState: "active", currentWorkspace }), "execution");
@@ -209,7 +209,7 @@ test("Feature workspace is keyed by exact Workflow identity and exposes only its
   const workflow = { workflowId: "feature-exact-123", lineageId: "lineage", workflowType: "feature-capability", title: "Same title", workflowState: "active", lifecycleState: "active", currentWorkspace: "feature-intake", createdAt: "now", updatedAt: "now" };
   const markup = renderToStaticMarkup(React.createElement(FeaturePlanningWorkspace, { workflow, onReturn: () => undefined, browserPanel: React.createElement("div", null, "Architect browser") }));
   assert.match(markup, /feature-exact-123/);
-  assert.match(markup, /Feature Intake/);
+  assert.match(markup, /Architect Feature Assessment/);
   assert.match(markup, /Architect browser/);
   assert.doesNotMatch(markup, /Implement|Create Work Card|Checkpoint|Integrate|Close Workflow/);
 });
@@ -218,7 +218,7 @@ test("Issue Workflow workspace uses exact Workflow identity and keeps execution 
   const workflow = { workflowId: "issue-exact-987", lineageId: "lineage", workflowType: "issue-resolution", title: "Same incident", workflowState: "active", lifecycleState: "active", currentWorkspace: "issue-intake", createdAt: "now", updatedAt: "now" };
   const markup = renderToStaticMarkup(React.createElement(IssueWorkflowPlanningWorkspace, { workflow, onReturn: () => undefined, browserPanel: React.createElement("div", null, "Architect browser") }));
   assert.match(markup, /issue-exact-987/);
-  assert.match(markup, /Issue Intake/);
+  assert.match(markup, /Architect Root Cause Analysis/);
   assert.match(markup, /Architect browser/);
   assert.doesNotMatch(markup, /Create Fix Card|Implement|Checkpoint|Integrate|Close Issue/);
 });
@@ -611,4 +611,28 @@ test("MCP handoff preflight preserves drafts while stale or unavailable and perm
   assert.deepEqual([copies, prepares, issueActions], [1, 1, 1]);
   assert.equal(projected.restartRequired, false);
   assert.deepEqual(draft, { id: "existing-controlled-draft", body: "preserved" });
+});
+
+
+test("all six intake entry workspaces share ordered fields and Architect companion", () => {
+  const { WorkflowIntakeWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowIntakeWorkspace.tsx");
+  const { WORKFLOW_INTAKE_DEFINITIONS } = loader.loadRendererSourceModule("src/shared/workflowIntakeContracts.ts");
+  const { shouldAttachArchitectSurface } = loader.loadRendererSourceModule("src/renderer/app/architectSurfaceEligibility.ts");
+  for (const [workflowType, definition] of Object.entries(WORKFLOW_INTAKE_DEFINITIONS)) {
+    const workflow = { workflowId: "private-exact-id", workflowType, lifecycleState: "active", currentWorkspace: WORKFLOW_TYPE_REGISTRY[workflowType].entryWorkspace };
+    assert.equal(workflowPlanningSurface(workflow), "intake");
+    assert.notEqual(workflowPlanningSurface({ ...workflow, currentWorkspace: "unrelated-intake" }), "intake");
+    assert.equal(workflowPlanningSurface({ ...workflow, lifecycleState: "closed" }), "generic");
+    const markup = renderToStaticMarkup(React.createElement(WorkflowIntakeWorkspace, { workflow, onReturn() {}, onPrepared() {}, browserPanel: React.createElement("div", null, "Embedded Architect companion") }));
+    assert.match(markup, /intake-workspace-shell/);
+    assert.match(markup, /Back to Workflows/); assert.match(markup, /Save Intake/); assert.match(markup, /Embedded Architect companion/);
+    assert.doesNotMatch(markup, /private-exact-id|SourceBaseline/);
+    let previous = -1;
+    for (const field of definition.fields) {
+      const escaped = field.label.replaceAll("&", "&amp;");
+      const index = markup.indexOf(escaped); assert.ok(index > previous); previous = index;
+      assert.ok(markup.includes(`<span>${escaped}${field.required ? " *" : ""}</span>`));
+    }
+    assert.equal(shouldAttachArchitectSurface({ paneVisible: true, substantiveWorkflowForeground: true }), true);
+  }
 });

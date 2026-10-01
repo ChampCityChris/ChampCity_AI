@@ -1,3 +1,4 @@
+import { WorkflowIntakeWorkspace } from "./WorkflowIntakeWorkspace";
 import { ProjectIntakeWorkspace } from "./ProjectIntakeWorkspace";
 import type { CodexModelSelection } from "../../shared/codexRuntimeContracts";
 import type { ExistingProjectGitAdoptionPlan } from "../../shared/sourceControlContracts";
@@ -490,7 +491,7 @@ export function App(): JSX.Element {
       developmentBrowserAvailable: architectBrowserWorkspaceAvailable, workCardRepair: isWorkCardRepair,
       issueForeground: isIssueResolutionForeground, issueStageId: activeIssueStageId, issueFixCardStepId: activeIssueFixCardStepId,
       workIntakeForeground: isWorkIntakeForeground, workIntakeStageId: selectedWorkIntakeId && selectedWorkflowId ? "routing" : "intake",
-      featureForeground: isWorkflowInstanceForeground && workflowPlanningSurface(workflowInstance) !== "generic" });
+      substantiveWorkflowForeground: isWorkflowInstanceForeground && workflowPlanningSurface(workflowInstance) !== "generic" });
   const isSettingsWorkspace = shellView === "settings";
   const currentIssue = useMemo(
     () => issueInventory?.issues.find((issue) => issue.issueId === selectedIssueId) ?? null,
@@ -4224,7 +4225,8 @@ export function App(): JSX.Element {
             <SourceControlWorkspace key={workspace.ok ? workspace.workspaceRoot : "none"}
               projectName={projectDisplayName(workspace)} onReturn={returnToWorkflowHub} />
           ) : isWorkflowInstanceForeground ? (
-            workflowInstance && workflowPlanningSurface(workflowInstance) === "execution" ? <WorkflowExecutionWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
+            workflowInstance && workflowPlanningSurface(workflowInstance) === "intake" ? <WorkflowIntakeWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} onPrepared={() => void openCurrentWorkflow(workflowInstance.workflowId)} />
+              : workflowInstance && workflowPlanningSurface(workflowInstance) === "execution" ? <WorkflowExecutionWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
               : workflowInstance && workflowPlanningSurface(workflowInstance) === "feature" ? <FeaturePlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
               : workflowInstance && workflowPlanningSurface(workflowInstance) === "issue" ? <IssueWorkflowPlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
               : workflowInstance ? <WorkflowInstanceWorkspace workflow={workflowInstance} onReturn={returnToWorkflowType} />

@@ -1453,14 +1453,14 @@ export interface WorkspaceMigrationResult {
 }
 
 export interface ChampCityApi {
+  getWorkflowIntake(workflowId: string): Promise<import("./workflowIntakeContracts").WorkflowIntakeProjection>;
+  saveWorkflowIntake(workflowId: string, payload: import("./workflowIntakeContracts").WorkflowIntakePayload): Promise<import("./workflowIntakeContracts").WorkflowIntakeProjection>;
   getIssueWorkflowPlanning(workflowId: string): Promise<import("./issuePlanningContracts").IssuePlanningProjection>;
-  saveIssueWorkflowIntake(workflowId: string, intake: import("./issuePlanningContracts").IssueIntakeInput): Promise<import("./issuePlanningContracts").IssuePlanningProjection>;
   addIssueWorkflowEvidence(workflowId: string, files: import("./issuePlanningContracts").IssueEvidenceInput[]): Promise<import("./issuePlanningContracts").IssuePlanningProjection>;
   prepareIssueWorkflowPlanning(workflowId: string, stage: "rca" | "plan"): Promise<import("./issuePlanningContracts").IssuePlanningProjection>;
   actOnIssueWorkflowPlanning(workflowId: string, action: import("./issuePlanningContracts").IssuePlanningAction): Promise<import("./issuePlanningContracts").IssuePlanningProjection>;
   copyIssueWorkflowPlanningHandoff(workflowId: string): Promise<{ copied: boolean }>;
   getFeaturePlanning(workflowId: string): Promise<import("./featurePlanningContracts").FeaturePlanningProjection>;
-  saveFeatureIntake(workflowId: string, intake: import("./featurePlanningContracts").FeatureIntakeInput): Promise<import("./featurePlanningContracts").FeaturePlanningProjection>;
   prepareFeaturePlanning(workflowId: string, stage: "assessment" | "plan"): Promise<import("./featurePlanningContracts").FeaturePlanningProjection>;
   actOnFeaturePlanning(workflowId: string, action: import("./featurePlanningContracts").FeaturePlanningAction): Promise<import("./featurePlanningContracts").FeaturePlanningProjection>;
   copyFeaturePlanningHandoff(workflowId: string): Promise<{ copied: boolean }>;

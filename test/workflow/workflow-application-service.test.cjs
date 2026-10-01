@@ -612,3 +612,72 @@ test("source-backed Issue Workflow planning exposes its exact lazy SourceBaselin
     assert.equal((await env.store.listEntities(env.projectId, "SourceBinding"))[0].body.preparationState, "unprepared");
   } finally { env.store.close(); }
 });
+
+test("generic intake facade persists exact fields, revises optional omissions and rejects invalid authority", async context => {
+  const { createWorkflowIntakeService } = require("../../dist/main/workflow/workflowIntakeService.js");
+  const { WORKFLOW_INTAKE_DEFINITIONS } = require("../../dist/shared/workflowIntakeContracts.js");
+  const { WORKFLOW_TYPE_REGISTRY } = require("../../dist/shared/projectState/workflowTypeRegistry.js");
+  const env = await setup(context), app = createWorkflowApplicationService(), intake = createWorkflowIntakeService();
+  try {
+    for (const [workflowType, definition] of Object.entries(WORKFLOW_INTAKE_DEFINITIONS)) {
+      const id = (await app.startDirectWorkflow(env.root, { workflowType, title: "Intake fixture" })).workflow.workflowId;
+      const otherId = (await app.startDirectWorkflow(env.root, { workflowType, title: "Intake fixture" })).workflow.workflowId;
+      assert.equal((await intake.getWorkflowIntake(env.root, id)).values, null);
+      const values = Object.fromEntries(definition.fields.map(field => [field.key, `  ${field.key} content  `]));
+      await intake.saveWorkflowIntake(env.root, id, { workflowType, values });
+      assert.deepEqual((await intake.getWorkflowIntake(env.root, id)).values, Object.fromEntries(Object.entries(values).map(([k,v]) => [k,v.trim()])));
+      assert.equal((await intake.getWorkflowIntake(env.root, otherId)).values, null);
+      const first = definition.fields[0].key;
+      for (const bad of [
+        { workflowType: workflowType === "issue-resolution" ? "feature-capability" : "issue-resolution", values },
+        { workflowType, values: { ...values, extra: "no" } },
+        { workflowType, values: { ...values, [first]: " " } },
+        { workflowType, values: { ...values, [first]: "a".repeat(4097) } },
+        { workflowType, values: { ...values, [first]: "😀".repeat(1025) } },
+      ]) await assert.rejects(intake.saveWorkflowIntake(env.root, id, bad));
+      const missing = { ...values }; delete missing[first];
+      await assert.rejects(intake.saveWorkflowIntake(env.root, id, { workflowType, values: missing }));
+      if (workflowType === "feature-capability") assert.equal((await createFeaturePlanningService().get(env.root, id)).intake[first], values[first].trim());
+      else if (workflowType === "issue-resolution") assert.equal((await createIssuePlanningService().get(env.root, id)).intake[first], values[first].trim());
+      else {
+        const before = (await env.store.listEntities(env.projectId, "Finding")).filter(r => r.body.category.startsWith(`workflow-intake:${workflowType}:`));
+        const optional = definition.fields.find(field => !field.required).key;
+        await intake.saveWorkflowIntake(env.root, id, { workflowType, values: { ...values, [optional]: "" } });
+        assert.equal((await intake.getWorkflowIntake(env.root, id)).values[optional], undefined);
+        const after = (await env.store.listEntities(env.projectId, "Finding")).filter(r => r.body.category.startsWith(`workflow-intake:${workflowType}:`));
+        assert.deepEqual(after.map(r => r.id).sort(), before.map(r => r.id).sort());
+        const omitted = after.find(r => r.body.category.endsWith(`:${optional}`));
+        assert.equal(omitted.body.findingState, "omitted"); assert.equal(omitted.body.statement, "Optional intake field omitted by Operator.");
+        await intake.saveWorkflowIntake(env.root, id, { workflowType, values });
+        assert.equal((await intake.getWorkflowIntake(env.root, id)).values[optional], values[optional].trim());
+        const requiredOnly = Object.fromEntries(definition.fields.filter(f => f.required).map(f => [f.key, "required"]));
+        await intake.saveWorkflowIntake(env.root, otherId, { workflowType, values: requiredOnly });
+        assert.deepEqual((await intake.getWorkflowIntake(env.root, otherId)).values, requiredOnly);
+      }
+      const record = await env.store.getEntity(env.projectId, id);
+      assert.equal(record.body.currentWorkspace, WORKFLOW_TYPE_REGISTRY[workflowType].entryWorkspace);
+      await env.state.reviseRecord(env.projectId, id, { currentWorkspace: "unrelated-intake" }, record.recordVersion);
+      await assert.rejects(intake.saveWorkflowIntake(env.root, id, { workflowType, values }), /entry workspace/);
+    }
+    await assert.rejects(intake.getWorkflowIntake(env.root, "missing"));
+  } finally { env.store.close(); }
+});
+
+test("generic intake IPC and preload bound arguments while preserving later planning APIs", async context => {
+  const { registerWorkflowApplicationIpc } = require("../../dist/main/workflow/workflowApplicationIpc.js");
+  const env = await setup(context), handlers = new Map();
+  registerWorkflowApplicationIpc({ handle: (channel, fn) => handlers.set(channel, fn) }, () => env.root);
+  try {
+    const id = (await createWorkflowApplicationService().startDirectWorkflow(env.root, { workflowType: "research-prototype", title: "Research" })).workflow.workflowId;
+    const get = handlers.get("workflow:getIntake"), save = handlers.get("workflow:saveIntake");
+    assert.equal((await get({}, id)).values, null);
+    const { WORKFLOW_INTAKE_DEFINITIONS } = require("../../dist/shared/workflowIntakeContracts.js");
+    const payload = { workflowType: "research-prototype", values: Object.fromEntries(WORKFLOW_INTAKE_DEFINITIONS["research-prototype"].fields.filter(f => f.required).map(f => [f.key, "evidence"])) };
+    assert.ok((await save({}, id, payload)).values);
+    for (const args of [[], [id, "extra"], [null], ["x".repeat(129)]]) await assert.rejects(async () => get({}, ...args));
+    for (const args of [[], [id], [id, payload, "extra"], [id, { ...payload, extra: true }], [id, { ...payload, values: [] }]]) await assert.rejects(async () => save({}, ...args));
+    const preload = fs.readFileSync(path.join(__dirname, "../../src/preload/index.ts"), "utf8");
+    assert.doesNotMatch(preload, /saveFeatureIntake|saveIssueWorkflowIntake/);
+    for (const method of ["getWorkflowIntake", "saveWorkflowIntake", "getFeaturePlanning", "prepareFeaturePlanning", "actOnFeaturePlanning", "getIssueWorkflowPlanning", "prepareIssueWorkflowPlanning", "actOnIssueWorkflowPlanning"]) assert.ok(preload.includes(method));
+  } finally { env.store.close(); }
+});

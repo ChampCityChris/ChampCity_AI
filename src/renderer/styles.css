@@ -9421,3 +9421,6 @@ body {
 .intake-workspace-shell-companion > .figma-document-card {
   flex: 1;
 }
+
+.intake-help-text { color: var(--muted-foreground); font-size: 0.85rem; line-height: 1.4; }
+.intake-workspace-shell-companion > .figma-browser-panel { flex: 1; min-height: 0; }

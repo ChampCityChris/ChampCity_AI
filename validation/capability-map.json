@@ -4866,6 +4866,7 @@
         "src/main/workflow/workflowExecutionApplicationService.ts",
         "src/renderer/app/FeaturePlanningWorkspace.tsx",
         "src/renderer/app/IssueWorkflowPlanningWorkspace.tsx",
+        "src/renderer/app/WorkflowIntakeWorkspace.tsx",
         "src/renderer/app/planningDraftAction.ts",
         "src/shared/featurePlanningContracts.ts",
         "src/shared/issuePlanningContracts.ts",

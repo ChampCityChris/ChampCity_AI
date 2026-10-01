@@ -1,3 +1,4 @@
+import { validateWorkflowIntakePayload } from "../../shared/workflowIntakeContracts";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -54,7 +55,7 @@ export function createIssuePlanningService(dependencies: { openStore?: (database
     });
   }
   async function saveIntake(root: string, workflowId: string, input: IssueIntakeInput) {
-    if (!input || intakeFields.some(([key]) => typeof input[key] !== "string" || !(input[key] as string).trim() || (input[key] as string).length > 8000)) throw Error("Complete each Issue Intake field (maximum 8,000 characters each).");
+    validateWorkflowIntakePayload({ workflowType: "issue-resolution", values: input });
     return withIssue(root, workflowId, async (store, projectId, workflow) => {
       const state = createProjectStateService(store, operator); const links = await store.listRelationships(projectId); const records = (await store.listEntities(projectId, "Finding")).filter((r): r is ProjectStateRecord<"Finding"> => r.entityType === "Finding" && r.body.category.startsWith("issue-") && links.some(edge => edge.relationshipType === "workflow_member" && edge.fromEntityId === r.id && edge.toEntityId === workflowId && !edge.endedAt));
       if (workflow.body.currentWorkspace !== "issue-intake") throw Error("Issue Intake is locked after Architect RCA preparation begins.");
