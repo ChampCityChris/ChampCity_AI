@@ -53,6 +53,62 @@ async function architectFixture(env, workflowType, title = "Architect fixture") 
   return {workflow, architect, input: {intakeId: prepared.intakeId, intakeVersion: prepared.intakeVersion}, prepared};
 }
 
+function assertArchitectHandoff(model, type) {
+  const {GREENFIELD_ARCHITECT_SECTIONS, FEATURE_ARCHITECT_SECTIONS, ASSESSMENT_SECTIONS, validateArchitectCandidateOutput} = require("../../dist/shared/architectWorkspaceContracts.js");
+  const handoff = model.handoff;
+  const blocks = handoff.split("\n\n");
+  const templateIndex = blocks.findIndex(block => block.startsWith("Workflow-specific JSON template"));
+  assert.ok(templateIndex >= 0);
+  const output = JSON.parse(blocks[templateIndex + 1]);
+  assert.ok(handoff.includes("100000"));
+  assert.ok(handoff.includes("UTF-8"));
+  assert.ok(handoff.includes("never Operator Decisions"));
+  if (type === "issue-resolution") {
+    assert.deepEqual(Object.keys(output), ["rootCauses"]);
+    assert.match(handoff, /1-12 typed RootCause/);
+    assert.match(handoff, /title .*200 bytes/);
+    assert.match(handoff, /each at most 4096 bytes/);
+    assert.match(handoff, /Optional confidence.*between 0 and 1/);
+    assert.match(handoff, /0-32 unique string IDs.*128 characters/);
+    assert.match(handoff, /at least one valid supplied Finding or Evidence before persistence succeeds/);
+    assert.match(handoff, /exact IDs supplied/);
+    assert.ok(!handoff.includes("Feature dimensions"));
+    const evidence = model.supportRecords.find(record => record.entityType === "Evidence");
+    assert.ok(evidence, "Actual handoff supplies a valid Evidence ID");
+    output.rootCauses[0].evidenceIds = [evidence.id];
+  } else {
+    const sections = type === "project-creation" ? GREENFIELD_ARCHITECT_SECTIONS : type === "feature-capability" ? FEATURE_ARCHITECT_SECTIONS : ASSESSMENT_SECTIONS[type];
+    assert.deepEqual(Object.keys(output), Object.keys(sections));
+    for (const key of Object.keys(sections)) assert.ok(handoff.includes(key));
+    if (type === "project-creation") {
+      assert.match(handoff, /exactly the fifteen/);
+      assert.match(handoff, /array of 1-32.*4000 bytes/);
+      assert.match(handoff, /Maximum 200 total items/);
+      assert.match(handoff, /sum of UTF-8 bytes of JSON-serialized section arrays/);
+      assert.match(handoff, /projectPlanningDirection joined with newline.*4096 bytes/);
+      assert.ok(Object.values(output).every(Array.isArray));
+      assert.ok(!handoff.includes("scalar string"));
+    } else {
+      assert.match(handoff, /one nonempty scalar string, not an array/);
+      assert.ok(handoff.includes(`at most ${type === "feature-capability" ? 4096 : 4000} bytes`));
+      assert.ok(Object.values(output).every(value => typeof value === "string"));
+      if (type === "feature-capability") assert.match(handoff, /All seven dimensions are required/);
+      else assert.ok(!handoff.includes("seven dimensions"));
+      assert.ok(!handoff.includes("array of 1-32"));
+    }
+    assert.ok(!handoff.includes("typed RootCause"));
+  }
+  if (type !== "project-creation") {
+    assert.ok(!handoff.includes("Project Planning Direction must"));
+    assert.ok(!handoff.includes("GREENFIELD_ARCHITECT_SECTIONS"));
+    assert.ok(!handoff.includes("Project ground zero"));
+  }
+  assert.doesNotThrow(() => validateArchitectCandidateOutput(type, output));
+  const other = type === "feature-capability" ? Object.fromEntries(Object.keys(GREENFIELD_ARCHITECT_SECTIONS).map(key => [key, ["Direction"]])) : acceptedAssessment;
+  assert.throws(() => validateArchitectCandidateOutput(type, other));
+  return output;
+}
+
 async function reviewFeatureCandidate(root, id, outcome, rationale, output = acceptedAssessment) {
   const architect = require("../../dist/main/architectOutputs/structuredArchitectWorkspaceService.js").createStructuredArchitectWorkspaceService();
   const current = await architect.prepare(root, id);
@@ -78,6 +134,7 @@ test("Feature and Issue Architect SQL candidates precede disposition and exact c
   const env = await setup(context);
   try {
     const feature = await architectFixture(env, "feature-capability"), featurePlanner = createFeaturePlanningService();
+    assertArchitectHandoff(feature.prepared, "feature-capability");
     const candidate = await feature.architect.save(env.root, feature.workflow.workflowId, {...feature.input, output: acceptedAssessment});
     assert.equal(candidate.review.disposition.state, "none");
     assert.equal((await env.store.listEntities(env.projectId, "Finding")).filter(record => record.body.category === "feature-assessment").length, 7);
@@ -96,11 +153,12 @@ test("Feature and Issue Architect SQL candidates precede disposition and exact c
     const issue = await architectFixture(env, "issue-resolution"), issues = createIssuePlanningService();
     const evidence = await issues.addEvidence(env.root, issue.workflow.workflowId, [{name: "failure.txt", mediaType: "text/plain", base64: Buffer.from("Observed failure log").toString("base64"), description: "Failure evidence"}]);
     const evidenceId = evidence.evidence[0].id;
+    const handoffOutput = assertArchitectHandoff(await issue.architect.get(env.root, issue.workflow.workflowId), "issue-resolution");
     const output = {rootCauses: [{title: "State shape", statement: "Missing field causes the observed crash", rationale: "Supported by the supplied log", confidence: 0.8, findingIds: [], evidenceIds: [evidenceId]}]};
     const countBefore = (await env.store.listEntities(env.projectId, "RootCause")).length;
     await assert.rejects(issue.architect.save(env.root, issue.workflow.workflowId, {...issue.input, output: {rootCauses: [...output.rootCauses, {...output.rootCauses[0], evidenceIds: [candidate.review.sources[0].entityId]}]}}), /exact Issue/);
     assert.equal((await env.store.listEntities(env.projectId, "RootCause")).length, countBefore, "Candidate transaction rolls back every partial record");
-    const rca = await issue.architect.save(env.root, issue.workflow.workflowId, {...issue.input, output});
+    const rca = await issue.architect.save(env.root, issue.workflow.workflowId, {...issue.input, output: handoffOutput});
     assert.equal(rca.review.disposition.state, "none");
     const root = (await env.store.listEntities(env.projectId, "RootCause")).find(record => rca.review.sources.some(source => source.entityId === record.id));
     assert.equal(root.body.rootCauseState, "proposed");
@@ -160,6 +218,7 @@ for (const [type, workspace] of [["refactor-migration", "refactor-assessment"], 
       assert.equal((await env.store.getEntity(env.projectId, workflow.workflowId)).body.currentWorkspace, workflow.currentWorkspace);
       const prepared = await architect.prepare(env.root, workflow.workflowId);
       assert.equal((await env.store.getEntity(env.projectId, workflow.workflowId)).body.currentWorkspace, workspace);
+      assertArchitectHandoff(prepared, type);
       assert.ok(prepared.handoff.includes(env.projectId)); assert.ok(prepared.handoff.includes(type)); assert.ok(prepared.handoff.includes(`${savedIntake.intakeId}@1`));
       if (type === "research-prototype") {
         await env.state.recordEvidence(env.projectId, savedIntake.intakeId, {evidenceType: "experiment-supplied", description: "Actual supplied experiment observation", mediaType: "text/plain", payloadRef: "project-evidence:experiment.txt", digest: "a".repeat(64), size: 1});
@@ -206,6 +265,7 @@ test("Greenfield Architect persists typed SQL candidates, rematerializes review 
     const historical = path.join(env.root, "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_old.md");
     fs.mkdirSync(path.dirname(historical), {recursive: true}); fs.writeFileSync(historical, "Historical prose: must not import as architecture.");
     const prepared = await architect.prepare(env.root, workflow.id);
+    assertArchitectHandoff(prepared, "project-creation");
     assert.equal(prepared.ready, true); assert.ok(prepared.handoff.includes(`${intake.intakeId}@1`));
     assert.equal(resolveFirstNonApprovedDocument(env.root).activeWorkspaceId, "architect-interview");
     assert.notEqual(resolveProjectPlanningContext(env.root).status, "ready");

@@ -28,27 +28,28 @@ export const ASSESSMENT_DESIGNS = {
 } as const;
 export type ArchitectCandidateOutput = GreenfieldArchitectOutput | MigrationAssessmentOutput | IntegrationAssessmentOutput | InfrastructureAssessmentOutput | ResearchAssessmentOutput | FeatureAssessmentCandidate | {rootCauses: IssueRootCauseCandidateInput[]};
 export interface ArchitectCandidateSaveInput {intakeId: string; intakeVersion: number; expectedCycleVersion?: number; output: ArchitectCandidateOutput}
+const ARCHITECT_LIMITS = {transportBytes: 100_000, textBytes: 4000, featureBytes: 4096, directionBytes: 4096, sectionItems: 32, totalItems: 200, rootCauses: 12, titleBytes: 200, referenceItems: 32, referenceLength: 128} as const;
 export function validateArchitectCandidateOutput(type: WorkflowType, output: unknown): void {
   if (type === "project-creation") return validateGreenfieldArchitectOutput(output);
   if (!output || typeof output !== "object" || Array.isArray(output)) throw Error("Typed Architect output is required.");
-  if (new TextEncoder().encode(JSON.stringify(output)).length > 100_000) throw Error("Architect transport exceeds 100 KB.");
+  if (new TextEncoder().encode(JSON.stringify(output)).length > ARCHITECT_LIMITS.transportBytes) throw Error("Architect transport exceeds 100 KB.");
   if (type === "feature-capability") {
-    if (Object.keys(output).sort().join("|") !== Object.keys(FEATURE_ARCHITECT_SECTIONS).sort().join("|") || Object.values(output).some(value => typeof value !== "string" || !value.trim() || new TextEncoder().encode(value).length > 4096 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value))) throw Error("All seven bounded Feature assessment dimensions are required.");
+    if (Object.keys(output).sort().join("|") !== Object.keys(FEATURE_ARCHITECT_SECTIONS).sort().join("|") || Object.values(output).some(value => typeof value !== "string" || !value.trim() || new TextEncoder().encode(value).length > ARCHITECT_LIMITS.featureBytes || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value))) throw Error("All seven bounded Feature assessment dimensions are required.");
     return;
   }
   if (Object.hasOwn(ASSESSMENT_SECTIONS, type)) {
     const sections = ASSESSMENT_SECTIONS[type as AssessmentWorkflowType];
-    if (Object.keys(output).sort().join("|") !== Object.keys(sections).sort().join("|") || Object.values(output).some(value => typeof value !== "string" || !value.trim() || new TextEncoder().encode(value).length > 4000 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value))) throw Error("Exact bounded workflow-specific assessment dimensions are required.");
+    if (Object.keys(output).sort().join("|") !== Object.keys(sections).sort().join("|") || Object.values(output).some(value => typeof value !== "string" || !value.trim() || new TextEncoder().encode(value).length > ARCHITECT_LIMITS.textBytes || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value))) throw Error("Exact bounded workflow-specific assessment dimensions are required.");
     return;
   }
   if (type === "issue-resolution") {
     const roots = (output as {rootCauses?: unknown}).rootCauses;
-    if (Object.keys(output).join("|") !== "rootCauses" || !Array.isArray(roots) || !roots.length || roots.length > 12) throw Error("RCA requires 1–12 typed RootCause candidates.");
+    if (Object.keys(output).join("|") !== "rootCauses" || !Array.isArray(roots) || !roots.length || roots.length > ARCHITECT_LIMITS.rootCauses) throw Error("RCA requires 1–12 typed RootCause candidates.");
     for (const root of roots) {
       if (!root || typeof root !== "object" || Array.isArray(root) || Object.keys(root).some(key => !["title", "statement", "rationale", "confidence", "findingIds", "evidenceIds"].includes(key)) ||
-        ["title", "statement", "rationale"].some(key => typeof root[key] !== "string" || !root[key].trim() || new TextEncoder().encode(root[key]).length > (key === "title" ? 200 : 4096) || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(root[key])) ||
+        ["title", "statement", "rationale"].some(key => typeof root[key] !== "string" || !root[key].trim() || new TextEncoder().encode(root[key]).length > (key === "title" ? ARCHITECT_LIMITS.titleBytes : ARCHITECT_LIMITS.featureBytes) || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(root[key])) ||
         root.confidence !== undefined && (typeof root.confidence !== "number" || !Number.isFinite(root.confidence) || root.confidence < 0 || root.confidence > 1) ||
-        ["findingIds", "evidenceIds"].some(key => !Array.isArray(root[key]) || root[key].length > 32 || new Set(root[key]).size !== root[key].length || root[key].some((id: unknown) => typeof id !== "string" || id.length > 128))) throw Error("Bounded typed RCA fields and exact references are required.");
+        ["findingIds", "evidenceIds"].some(key => !Array.isArray(root[key]) || root[key].length > ARCHITECT_LIMITS.referenceItems || new Set(root[key]).size !== root[key].length || root[key].some((id: unknown) => typeof id !== "string" || id.length > ARCHITECT_LIMITS.referenceLength))) throw Error("Bounded typed RCA fields and exact references are required.");
     }
     return;
   }
@@ -70,13 +71,41 @@ export function validateGreenfieldArchitectOutput(value: unknown): asserts value
   let size = 0;
   let count = 0;
   for (const entries of Object.values(value)) {
-    if (!Array.isArray(entries) || !entries.length || entries.length > 32 || entries.some(entry => typeof entry !== "string" || !entry.trim() || new TextEncoder().encode(entry).length > 4000 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(entry)))
+    if (!Array.isArray(entries) || !entries.length || entries.length > ARCHITECT_LIMITS.sectionItems || entries.some(entry => typeof entry !== "string" || !entry.trim() || new TextEncoder().encode(entry).length > ARCHITECT_LIMITS.textBytes || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(entry)))
       throw Error("Each Architect section requires 1–32 bounded text items.");
     size += new TextEncoder().encode(JSON.stringify(entries)).length;
     count += entries.length;
   }
-  if (size > 100_000 || count > 200) throw Error("Architect output exceeds the bounded transport limit.");
-  if (new TextEncoder().encode((value as GreenfieldArchitectOutput).projectPlanningDirection.join("\n")).length > 4096) throw Error("Project Planning direction must fit the bounded solution objective.");
+  if (size > ARCHITECT_LIMITS.transportBytes || count > ARCHITECT_LIMITS.totalItems) throw Error("Architect output exceeds the bounded transport limit.");
+  if (new TextEncoder().encode((value as GreenfieldArchitectOutput).projectPlanningDirection.join("\n")).length > ARCHITECT_LIMITS.directionBytes) throw Error("Project Planning direction must fit the bounded solution objective.");
+}
+/** Contract prose and example share the validator's section definitions and bounds. */
+export function architectCandidateHandoffContract(type: WorkflowType): string[] {
+  const limits = ARCHITECT_LIMITS;
+  const textRule = "Nonempty text must contain no control characters U+0000-U+0008, U+000B, U+000C or U+000E-U+001F. Byte limits use UTF-8.";
+  const recommendationRule = "Proposed Architect decisions and recommendations are never Operator Decisions. Use the approved Intake. Do not choose a route.";
+  if (type === "project-creation") return [
+    `Return only one JSON object with exactly the fifteen GREENFIELD_ARCHITECT_SECTIONS keys: ${Object.keys(GREENFIELD_ARCHITECT_SECTIONS).join(", ")}. Every value is an array of 1-${limits.sectionItems} nonempty strings, each at most ${limits.textBytes} bytes.`,
+    `Maximum ${limits.totalItems} total items; the sum of UTF-8 bytes of JSON-serialized section arrays must not exceed ${limits.transportBytes} bytes. projectPlanningDirection joined with newline must not exceed ${limits.directionBytes} bytes.`,
+    textRule, recommendationRule,
+    "Project ground zero is the selected repository plus the local development machine. Distinguish verified installed, verified missing and unverified capabilities, repository bootstrap mechanisms and explicitly externally managed capabilities. Missing required capabilities are Project work unless approved evidence establishes external ownership.",
+    "Project Planning Direction must cover the full adopted Project scope, governing architecture, product capabilities, dependencies and acceptance obligations. Identify unresolved Operator decisions explicitly.",
+    "Workflow-specific JSON template (authoritative field names):", JSON.stringify(Object.fromEntries(Object.keys(GREENFIELD_ARCHITECT_SECTIONS).map(key => [key, ["Replace with substantive direction or an explicit unresolved item."]])))
+  ];
+  if (type === "issue-resolution") return [
+    `Return only one JSON object with exactly the top-level key rootCauses, an array of 1-${limits.rootCauses} typed RootCause candidates; no unrelated top-level keys. Total JSON transport must not exceed ${limits.transportBytes} UTF-8 bytes.`,
+    `Each candidate has required title (nonempty string, at most ${limits.titleBytes} bytes), statement and rationale (nonempty strings, each at most ${limits.featureBytes} bytes), findingIds and evidenceIds. Optional confidence is a finite number between 0 and 1 inclusive. No other candidate keys are allowed.`,
+    `findingIds and evidenceIds are each arrays of 0-${limits.referenceItems} unique string IDs, each at most ${limits.referenceLength} characters. Each candidate must cite at least one valid supplied Finding or Evidence before persistence succeeds. Use exact IDs supplied in the handoff SQL context for this Issue Workflow; Evidence may support the SQL Intake directly without a Finding.`,
+    textRule, recommendationRule,
+    "Workflow-specific JSON template (authoritative field names; replace reference arrays with supplied IDs):", JSON.stringify({rootCauses: [{title: "Cause title", statement: "Evidenced defect", rationale: "Explanation", confidence: 0.8, findingIds: [], evidenceIds: []}]})
+  ];
+  const sections = type === "feature-capability" ? FEATURE_ARCHITECT_SECTIONS : Object.hasOwn(ASSESSMENT_SECTIONS, type) ? ASSESSMENT_SECTIONS[type as AssessmentWorkflowType] : undefined;
+  if (!sections) throw Error("Architect output contract is unavailable for this Workflow type.");
+  return [
+    `Return only one JSON object with exactly ${type === "feature-capability" ? "the seven FEATURE_ARCHITECT_SECTIONS" : "this workflow's ASSESSMENT_SECTIONS"} keys: ${Object.keys(sections).join(", ")}. Every value is one nonempty scalar string, not an array, at most ${type === "feature-capability" ? limits.featureBytes : limits.textBytes} bytes. All ${type === "feature-capability" ? "seven dimensions" : "workflow-specific dimensions"} are required. Total JSON transport must not exceed ${limits.transportBytes} UTF-8 bytes.`,
+    textRule, recommendationRule,
+    "Workflow-specific JSON template (authoritative field names):", JSON.stringify(Object.fromEntries(Object.keys(sections).map(key => [key, "Replace with substantive assessment or explicitly unresolved direction."])))
+  ];
 }
 export interface StructuredArchitectWorkspaceModel {
   workflowId: string;
