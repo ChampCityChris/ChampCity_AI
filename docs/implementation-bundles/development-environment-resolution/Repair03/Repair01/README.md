@@ -1,20 +1,24 @@
 # DER-R03 / Repair01
 
-**Status:** ACTIVE — BLOCKING FOLLOW-UP
-
-Controlling review:
-
-`../DER_R03_ARCHITECT_REVIEW_2026-09-30.md`
+**Implementation checkpoint:** `8390ff07449bca200ef9bca6311db0b57ff54189`  
+**Status:** **ACCEPTED — SIGNAL FORGE OPERATOR RETEST AUTHORIZED**
 
 Controlling card:
 
 `DER-R03-R01_complete_preflight_authority_and_persist_node_path.md`
 
-This repair closes the two remaining DER-R03 blockers:
+Architect review:
 
-1. first deterministic environment preflight must occur before any Codex runtime/model acquisition and must be available independently through the Development Environment UI;
-2. a valid Node/npm pair visible only through the current process PATH must be persisted to User PATH when absent from persistent Machine/User PATH.
+`ARCHITECT_REVIEW_2026-09-30.md`
 
-It also rewrites the parent DER-R03 Implementer Report as valid UTF-8.
+Accepted corrections:
 
-Do not Operator-retest Signal Forge until Repair01 is implemented and Architect-reviewed.
+- deterministic environment preflight occurs before Codex runtime acquisition;
+- null/uncomputed preflight is not implementation-ready;
+- fresh Work Cards expose application-owned Prepare Environment independent of Codex;
+- process-only Node/npm visibility is reconciled into persistent User PATH when Machine/User PATH omit the validated root;
+- persistent PATH writes are verified and idempotent;
+- Node/npm remains one toolchain with no standalone npm package resolution;
+- parent and Repair01 reports are valid UTF-8.
+
+Next step: Operator retest of the Signal Forge environment/start-implementation path.

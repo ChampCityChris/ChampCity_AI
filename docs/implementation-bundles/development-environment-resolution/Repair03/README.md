@@ -1,28 +1,41 @@
 # Development Environment Resolution / Repair03
 
-**Implementation checkpoint:** `453a950946eaec108b805418323e17ca0cb0432e`  
-**Status:** **BLOCKED — FOLLOW-UP REPAIR REQUIRED**
+**DER-R03 implementation:** `453a950946eaec108b805418323e17ca0cb0432e`  
+**DER-R03-R01 implementation:** `8390ff07449bca200ef9bca6311db0b57ff54189`  
+**Status:** **ACCEPTED — SIGNAL FORGE OPERATOR RETEST AUTHORIZED**
 
 Controlling RCA:
 
 `DER_R03_ARCHITECT_RCA_2026-09-30.md`
 
-Controlling repair card:
+Original repair:
 
 `DER-R03_application_led_environment_setup_and_node_npm_path_repair.md`
 
-Architect review:
+Blocking Architect review:
 
 `DER_R03_ARCHITECT_REVIEW_2026-09-30.md`
 
-## Accepted direction
+Accepted follow-up:
 
-DER-R03 successfully removes model-driven Environment Resolution and establishes application-owned Node/npm, PATH, FFmpeg, and ffprobe repair/verification.
+`Repair01/DER-R03-R01_complete_preflight_authority_and_persist_node_path.md`
 
-## Remaining blockers
+Repair01 Architect review:
 
-1. First deterministic preflight still occurs only after `CodexRuntimeManager.acquire()`; a fresh Work Card with unavailable Codex has no cached preflight and no environment-retry control.
-2. Node/npm persistent PATH repair is skipped if the pair is visible only through the current process PATH even though Machine/User PATH do not contain the validated root.
-3. The committed DER-R03 Implementer Report is not valid UTF-8 and cannot be read by repository text tooling.
+`Repair01/ARCHITECT_REVIEW_2026-09-30.md`
 
-Do not Operator-retest Signal Forge until a bounded Repair03/Repair01 is implemented and reviewed.
+Accepted authority boundary:
+
+```text
+ChampCity application
+-> deterministic environment preflight / PATH repair / provisioning
+-> environment ready
+-> only then Codex runtime/model acquisition
+-> implementation
+```
+
+Normal environment setup no longer runs through Codex App Server.
+
+Node/npm uses one validated toolchain. Persistent Machine/User PATH is authoritative for future visibility; process-only Node exposure is reconciled to User PATH before reinstall is considered.
+
+Next step: Operator retest Signal Forge.
