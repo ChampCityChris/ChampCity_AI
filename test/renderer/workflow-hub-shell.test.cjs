@@ -636,3 +636,68 @@ test("all six intake entry workspaces share ordered fields and Architect compani
     assert.equal(shouldAttachArchitectSurface({ paneVisible: true, substantiveWorkflowForeground: true }), true);
   }
 });
+const { WorkflowStageRail } = loader.loadRendererSourceModule("src/renderer/app/WorkflowStageRail.tsx");
+const { deriveWorkflowStageRailModel } = loader.loadRendererSourceModule("src/renderer/app/workflowStageRailModel.ts");
+
+test("six exact substantive Intake rails share seven stages and disable future navigation", () => {
+  const substantive = Object.values(WORKFLOW_TYPE_REGISTRY).filter(d => d.directStart);
+  assert.equal(substantive.length, 6);
+  for (const definition of substantive) {
+    const stages = deriveWorkflowStageRailModel({ workflowType: definition.workflowType, currentWorkspace: definition.entryWorkspace });
+    assert.deepEqual(stages.map(s => s.id), ["intake", "assessment", "planning", "topology", "execution", "validation", "close"]);
+    assert.deepEqual(stages.map(s => s.statusLabel), ["Open", ...Array(6).fill("Not Ready")]);
+    assert.equal(stages[0].state, "exact");
+    assert.equal(stages[0].enabled, true);
+    assert.equal(stages[0].isRequired, true);
+    assert.equal(stages[1].label, definition.workflowType === "issue-resolution" ? "Root Cause Analysis" : "Architect Assessment");
+    assert.equal(stages[2].label, definition.workflowType === "issue-resolution" ? "Correction Planning" : "Planning");
+    for (const stage of stages.slice(1)) {
+      assert.equal(stage.state, "available");
+      assert.equal(stage.enabled, false);
+      assert.equal(stage.onClick, undefined);
+      assert.equal(stage.isRequired, false);
+    }
+    const markup = renderToStaticMarkup(React.createElement(WorkflowStageRail, { stages, ariaLabel: "Workflow pipeline" }));
+    assert.equal((markup.match(/class="figma-pipeline-stage"/g) || []).length, 7);
+    assert.equal((markup.match(/figma-stage-connector /g) || []).length, 12);
+    assert.equal((markup.match(/disabled=""/g) || []).length, 6);
+    assert.equal((markup.match(/aria-current="page"/g) || []).length, 1);
+    assert.match(markup, /01 Intake: Open\. Current required step\. Open workflow step\./);
+    assert.match(markup, /figma-pipeline-step active required in-progress/);
+    assert.match(markup, /07 Close: Not Ready\. Workflow step unavailable\./);
+    assert.equal(deriveWorkflowStageRailModel({ workflowType: definition.workflowType, currentWorkspace: "feature-intake-extra" }), null);
+    for (const other of substantive.filter(d => d !== definition))
+      assert.equal(deriveWorkflowStageRailModel({ workflowType: definition.workflowType, currentWorkspace: other.entryWorkspace }), null);
+  }
+  for (const workflowType of ["project-creation", "work-intake-routing", "unknown"])
+    assert.equal(deriveWorkflowStageRailModel({ workflowType, currentWorkspace: "feature-intake" }), null);
+  assert.equal(deriveWorkflowStageRailModel(null), null);
+});
+
+test("Greenfield delegates pipeline presentation and preserves loops and navigation", () => {
+  const calls = [];
+  const tree = NestedWorkflowRail({ activeWorkspaceId: "work-card-planning", onWorkspaceChange: id => calls.push(id) });
+  assert.equal(tree.type.name, "WorkflowStageRail");
+  assert.deepEqual(tree.props.stages.map(s => s.label), ["Project Intake", "Architect Interview", "Project Planning", "Phase Map", "Phases", "Project Validation", "Project Close"]);
+  assert.equal(tree.props.stages[4].state, "parent");
+  tree.props.stages[0].onClick();
+  assert.deepEqual(calls, ["project-intake-capture"]);
+  const markup = renderToStaticMarkup(tree);
+  assert.match(markup, /aria-label="Phase loop"/);
+  assert.match(markup, /aria-label="Work Card loop"/);
+  const source = fs.readFileSync(path.join(repoRoot, "src/renderer/app/App.tsx"), "utf8");
+  const ts = require("typescript");
+  const ast = ts.createSourceFile("App.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let exclusive = false;
+  function visit(node) {
+    if (ts.isConditionalExpression(node) && node.condition.getText(ast) === "isDevelopmentForeground" && node.whenTrue.getText(ast).includes("<NestedWorkflowRail")) {
+      exclusive = ts.isConditionalExpression(node.whenFalse) && node.whenFalse.whenTrue.getText(ast).includes("<WorkflowStageRail");
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(ast);
+  assert.equal(exclusive, true);
+  const intake = fs.readFileSync(path.join(repoRoot, "src/renderer/app/WorkflowIntakeWorkspace.tsx"), "utf8");
+  assert.match(intake, /<IntakeWorkspaceShell/);
+  assert.doesNotMatch(intake, /WorkflowStageRail|figma-pipeline/);
+});

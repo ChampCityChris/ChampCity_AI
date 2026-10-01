@@ -66,6 +66,8 @@ import {
   shouldShowArchitectBrowserRetry,
   type ArchitectHostMeasurement,
 } from "../../shared/architectInterview/architectBrowserAttachmentCoordinator";
+import { WorkflowStageRail } from "./WorkflowStageRail";
+import { deriveWorkflowStageRailModel } from "./workflowStageRailModel";
 import { NestedWorkflowRail } from "./NestedWorkflowRail";
 import { IssueResolutionRail } from "./IssueResolutionRail";
 import { IssueResolutionWorkspace } from "./IssueResolutionWorkspace";
@@ -484,6 +486,8 @@ export function App(): JSX.Element {
   const isWorkflowHubForeground = shellView === "workflow-hub";
   const isWorkflowTypeForeground = shellView === "workflow-type";
   const isWorkflowInstanceForeground = shellView === "workflow-instance";
+  const substantiveIntakeStages = isWorkflowInstanceForeground
+    ? deriveWorkflowStageRailModel(workflowInstance) : null;
   const isWorkIntakeForeground = shellView === "work-intake";
   const isSourceControlForeground = shellView === "source-control";
   const shouldAttachEmbeddedArchitectSurface =
@@ -4121,6 +4125,8 @@ export function App(): JSX.Element {
           requiredWorkspaceId={currentModel?.activeWorkspaceId ?? null}
           workspaceCounts={workspaceCounts}
         />
+      ) : substantiveIntakeStages ? (
+        <WorkflowStageRail stages={substantiveIntakeStages} ariaLabel="Workflow pipeline" />
       ) : null}
       {isIssueResolutionForeground ? (
         <IssueResolutionRail

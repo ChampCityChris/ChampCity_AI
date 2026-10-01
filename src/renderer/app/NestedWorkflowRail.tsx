@@ -1,3 +1,4 @@
+import { WorkflowStageRail, type WorkflowStage } from "./WorkflowStageRail";
 import type {
   ArchitectInterviewRailStatus,
   ExecutionContextProjection,
@@ -7,14 +8,11 @@ import type {
 import type { ProjectIntakeRailStatus } from "../../shared/projectIntake/projectIntakeCorpus";
 import {
   deriveProjectRailPresentation,
-  type ProjectRailPresentation,
 } from "../../shared/workspaces/projectRailPresentation";
 import {
   ContextLoopBar,
-  StageIcon,
   type ContextLoopItem,
   type ContextLoopSelectionState,
-  type ContextLoopStageTone,
 } from "./ContextLoopBar";
 
 interface NestedWorkflowRailProps {
@@ -29,7 +27,6 @@ interface NestedWorkflowRailProps {
 }
 
 type SelectionState = ContextLoopSelectionState;
-type StageTone = ContextLoopStageTone;
 
 interface ProjectRailItem {
   id: string;
@@ -209,42 +206,32 @@ export function NestedWorkflowRail({
   const activePhaseStepId = currentPhaseStepId(executionContext, requiredLoopWorkspaceId);
   const activeWorkCardStepId = currentWorkCardStepId(executionContext, requiredLoopWorkspaceId);
 
+  const stages: WorkflowStage[] = projectRailItems.map((item) => {
+    const state = getProjectRailItemState(item, activeWorkspaceId);
+    const presentation = deriveProjectRailPresentation({
+      activeWorkspaceId,
+      architectInterviewStatus:
+        item.id === "architect-interview" ? architectInterviewStatus : undefined,
+      descendantWorkspaceIds:
+        item.id === "phases" ? [...phaseOrWorkCardWorkspaceIds] : [],
+      destinationWorkspaceId: item.destination,
+      requiredWorkspaceId,
+      statusLabel: projectRailStatusForItem({
+        activeWorkspaceId,
+        executionContext,
+        item,
+        projectIntakeStatus,
+        projectRailStatuses,
+        requiredWorkspaceId,
+      }),
+    });
+
+    return { id: item.id, label: item.label, state, ...presentation,
+      onClick: () => onWorkspaceChange(item.destination) };
+  });
+
   return (
-    <section aria-label="Workflow navigation" className="workflow-navigation-header">
-      <div className="figma-pipeline-nav" aria-label="Project pipeline">
-        {projectRailItems.map((item, index) => {
-          const state = getProjectRailItemState(item, activeWorkspaceId);
-          const presentation = deriveProjectRailPresentation({
-            activeWorkspaceId,
-            architectInterviewStatus:
-              item.id === "architect-interview" ? architectInterviewStatus : undefined,
-            descendantWorkspaceIds:
-              item.id === "phases" ? [...phaseOrWorkCardWorkspaceIds] : [],
-            destinationWorkspaceId: item.destination,
-            requiredWorkspaceId,
-            statusLabel: projectRailStatusForItem({
-              activeWorkspaceId,
-              executionContext,
-              item,
-              projectIntakeStatus,
-              projectRailStatuses,
-              requiredWorkspaceId,
-            }),
-          });
-
-          return (
-            <PipelineStep
-              index={index}
-              key={item.id}
-              label={item.label}
-              onClick={() => onWorkspaceChange(item.destination)}
-              presentation={presentation}
-              state={state}
-            />
-          );
-        })}
-      </div>
-
+    <WorkflowStageRail stages={stages} ariaLabel="Project pipeline">
       {showPhaseLoop ? (
         <ContextLoopBar
           activeDestinationId={activeWorkspaceId}
@@ -269,7 +256,7 @@ export function NestedWorkflowRail({
           workCard
         />
       ) : null}
-    </section>
+    </WorkflowStageRail>
   );
 }
 
@@ -340,54 +327,6 @@ function getProjectRailItemState(
   return item.destination === activeWorkspaceId ? "exact" : "available";
 }
 
-function PipelineStep({
-  index,
-  label,
-  onClick,
-  presentation,
-  state,
-}: {
-  index: number;
-  label: string;
-  onClick: () => void;
-  presentation: ProjectRailPresentation;
-  state: SelectionState;
-}): JSX.Element {
-  const tone = pipelineStatusTone(presentation.statusLabel, presentation.isRequired);
-  const selected = state === "exact" || state === "parent";
-  const connectorComplete = tone === "completed";
-  return (
-    <div className="figma-pipeline-stage">
-      {index > 0 ? (
-        <span className={`figma-stage-connector ${connectorComplete ? "completed" : ""}`} aria-hidden="true" />
-      ) : null}
-      <button
-        aria-current={state === "exact" ? "page" : undefined}
-        aria-label={`${String(index + 1).padStart(2, "0")} ${label}: ${presentation.statusLabel}.${presentation.isRequired ? " Current required step." : ""} Open workflow step.`}
-        className={[
-          "figma-pipeline-step",
-          selected ? "active" : "",
-          state === "parent" ? "parent" : "",
-          presentation.isRequired ? "required" : "",
-          tone,
-        ].filter(Boolean).join(" ")}
-        data-status={tone}
-        onClick={onClick}
-        type="button"
-      >
-        <StageIcon active={selected} tone={tone} />
-        <span className="figma-stage-copy">
-          <strong>{label}</strong>
-          <span className={`figma-pipeline-status ${tone}`}>{presentation.statusLabel}</span>
-        </span>
-      </button>
-      {index < projectRailItems.length - 1 ? (
-        <span className={`figma-stage-connector ${connectorComplete ? "completed" : ""}`} aria-hidden="true" />
-      ) : null}
-    </div>
-  );
-}
-
 function currentPhaseStepId(
   executionContext: ExecutionContextProjection | undefined,
   activeWorkspaceId: WorkspaceId,
@@ -440,24 +379,4 @@ function workCardContext(executionContext: ExecutionContextProjection | undefine
     id: workCard.workCardId ?? "Current Work Card",
     position: `${workCard.loopStep ?? "Current step"} in phase`,
   };
-}
-
-function pipelineStatusTone(statusLabel: string, isRequired: boolean): StageTone {
-  const normalized = statusLabel.toLowerCase();
-  if (normalized.includes("complete") || normalized.includes("approved")) {
-    return "completed";
-  }
-  if (normalized.includes("attention") || normalized.includes("not ready") || normalized.includes("error")) {
-    return "not-ready";
-  }
-  if (
-    isRequired ||
-    normalized.includes("progress") ||
-    normalized.includes("waiting") ||
-    normalized.includes("awaiting") ||
-    normalized.includes("ready")
-  ) {
-    return "in-progress";
-  }
-  return "pending";
 }
