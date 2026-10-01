@@ -279,6 +279,16 @@ test("updated Figma side panel renders real project and execution context with p
 });
 
 const { IntakeWorkspaceShell } = loader.loadRendererSourceModule("src/renderer/app/IntakeWorkspaceShell.tsx");
+const { StructuredGreenfieldArchitectWorkspace } = loader.loadRendererSourceModule("src/renderer/app/StructuredGreenfieldArchitectWorkspace.tsx");
+test("structured Greenfield Architect renders shared left review and right ChatGPT companion with review disabled before SQL load", () => {
+  const markup = renderToStaticMarkup(React.createElement(StructuredGreenfieldArchitectWorkspace, {workflowId: "exact-workflow", browserVisible: true,
+    browserCompanion: React.createElement("aside", {"data-testid": "chat-companion"}, "ChatGPT"), onRailStatus() {}}));
+  assert.match(markup, /figma-doc-chat-workspace/);
+  assert.ok(markup.indexOf("figma-doc-review-column") < markup.indexOf("chat-companion"));
+  assert.match(markup, /Architect structured JSON/);
+  assert.match(markup, /disabled="">Approve/);
+  assert.match(markup, /Prepare \/ Refresh/);
+});
 const { ProjectIntakeWorkspace } = loader.loadRendererSourceModule("src/renderer/app/ProjectIntakeWorkspace.tsx");
 
 test("intake shell owns heading, optional actions and distinct generic regions", () => {

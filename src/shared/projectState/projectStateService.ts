@@ -1,4 +1,5 @@
 import { ARCHITECT_STAGE_BY_WORKFLOW, architectSemanticDigest, renderArchitectReviewProjection, type ArchitectReviewSaveInput, type ArchitectReviewDecisionInput } from "./architectReviewContracts";
+import { GREENFIELD_ARCHITECT_SECTIONS, validateGreenfieldArchitectOutput, type GreenfieldArchitectOutput } from "../architectWorkspaceContracts";
 import { workflowIntakeDisposition, exactVersionReviewDisposition } from "./workflowIntakeDisposition";
 import type { DispositionState, EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef, ProjectId, ProjectStateEntity, ProjectStateRecord, TestLifecycleAssessmentStatus, ValidationMode, WorkflowState, WorkIntakeState, WorkRoute } from "./domainContracts";
 import { getWorkflowTypeDefinition, workflowTypeForWorkRoute, type ExistingProjectWorkRoute, type WorkflowType } from "./workflowTypeRegistry";
@@ -762,7 +763,10 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
 
   async function saveArchitectReviewCycle(projectId: ProjectId, input: ArchitectReviewSaveInput, context?: MutationContext) {
     exactInput(input, ["workflowId", "stageKind", "memberIds", "expectedRecordVersion"]);
-    return store.transaction(projectId, async unit => {
+    return store.transaction(projectId, unit => saveArchitectReviewCycleInUnit(unit, projectId, input, context));
+  }
+
+  async function saveArchitectReviewCycleInUnit(unit: ProjectStateUnitOfWork, projectId: ProjectId, input: ArchitectReviewSaveInput, context?: MutationContext) {
       const {workflow, cycle} = await currentArchitectCycle(unit, projectId, input.workflowId, input.stageKind);
       if (input.expectedRecordVersion !== undefined && cycle?.recordVersion !== input.expectedRecordVersion) fail("Expected Architect cycle revision is stale.");
       const members = await architectMembers(unit, projectId, workflow.id, input.memberIds);
@@ -782,11 +786,49 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       }
       for (const member of members) if (!oldEdges.some(edge => edge.fromEntityId === member.id)) await linkSemantic(unit, projectId, member, next, "review_member", context);
       return next;
-    });
   }
 
   async function getCurrentArchitectReviewCycle(projectId: ProjectId, workflowId: EntityId, stageKind: import("./domainContracts").ArchitectStageKind) {
     return store.transaction(projectId, async unit => (await currentArchitectCycle(unit, projectId, workflowId, stageKind)).cycle);
+  }
+
+  /** Candidate records, source provenance and cycle membership commit atomically. */
+  async function saveGreenfieldArchitectOutput(projectId: ProjectId, input: { workflowId: EntityId; intakeId: EntityId; intakeVersion: number; expectedCycleVersion?: number; output: GreenfieldArchitectOutput }) {
+    exactInput(input, ["workflowId", "intakeId", "intakeVersion", "expectedCycleVersion", "output"]);
+    validateGreenfieldArchitectOutput(input.output);
+    return store.transaction(projectId, async unit => {
+      const {workflow, cycle} = await currentArchitectCycle(unit, projectId, input.workflowId, "project-interview");
+      if (cycle?.recordVersion !== input.expectedCycleVersion) fail("Expected Architect cycle revision is stale.");
+      const intake = await requiredRecord(unit, projectId, input.intakeId);
+      if (intake.entityType !== "WorkflowIntake" || intake.lifecycleState !== "active" || intake.body.workflowId !== workflow.id ||
+        intake.recordVersion !== input.intakeVersion || workflowIntakeDisposition(intake, await unit.listEntities(projectId), await unit.listRelationships(projectId), await unit.listOutbox(projectId)).state !== "approved") fail("Exact approved Intake is required.");
+      const members: ProjectStateEntity[] = [];
+      async function add<T extends EntityType>(entityType: T, body: EntityBodyMap[T]) {
+        const record = createProjectStateEntity({entityType, projectId, body, principal: trustedPrincipal});
+        await unit.saveEntity(record as ProjectStateEntity, null);
+        await recordMutation(unit, {projectId, entityId: record.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create,
+          occurredAt: record.createdAt, changedFields: Object.keys(body), defaultReason: "Persist proposed Architect semantic output"});
+        members.push(record as ProjectStateEntity);
+        return record;
+      }
+      const out = input.output;
+      const solution = await add("BoundedSolution", {title: "Project architecture and planning direction", objective: out.projectPlanningDirection.join("\n"),
+        scopeIn: out.scope, scopeOut: out.nonScope, constraints: out.constraints, assumptions: out.assumptions, risks: out.risksAndDependencies, solutionState: "proposed"});
+      for (const [key, title] of Object.entries(GREENFIELD_ARCHITECT_SECTIONS)) {
+        if (["scope", "nonScope", "constraints", "assumptions", "risksAndDependencies", "projectPlanningDirection", "acceptanceDirection"].includes(key)) continue;
+        for (const statement of out[key as keyof GreenfieldArchitectOutput]) {
+          const finding = await add("Finding", {title, statement, category: `architect:project-interview:${key}`, impact: "Proposed Architect direction", observedAt: new Date().toISOString(), findingState: "proposed"});
+        }
+      }
+      for (const statement of out.acceptanceDirection) {
+        const criterion = await add("Criterion", {statement, criticality: "required", verificationIntent: "Project acceptance direction; refine during Planning", validationPolicy: "semantic_ai", criterionState: "proposed"});
+        await linkSemantic(unit, projectId, solution, criterion, "defines_criterion");
+      }
+      const source = await add("Evidence", {evidenceType: "architect-intake-source", description: "Exact approved Intake used for Architect output", capturedAt: new Date().toISOString(), capturedBy: trustedPrincipal,
+        mediaType: "application/vnd.champcity.project-state", payloadRef: `project-state:${intake.id}@${intake.recordVersion}`, digest: await architectSemanticDigest([intake])});
+      await linkSemantic(unit, projectId, source, intake, "supports");
+      return saveArchitectReviewCycleInUnit(unit, projectId, {workflowId: workflow.id, stageKind: "project-interview", memberIds: members.map(member => member.id), expectedRecordVersion: cycle?.recordVersion});
+    });
   }
 
   async function architectCycleSnapshot(unit: ProjectStateUnitOfWork, projectId: ProjectId, cycleId: EntityId) {
@@ -796,7 +838,16 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (cycle?.id !== record.id) fail("Architect cycle is not current.");
     const ids = (await unit.listRelationships(projectId, "review_member")).filter(edge => edge.toEntityId === cycle.id && !edge.endedAt).map(edge => edge.fromEntityId);
     const members = await architectMembers(unit, projectId, cycle.body.workflowId, ids);
-    return {cycle, members, current: await architectSemanticDigest(members) === cycle.body.semanticDigest};
+    let current = await architectSemanticDigest(members) === cycle.body.semanticDigest;
+    const sources = members.filter((member): member is ProjectStateRecord<"Evidence"> => member.entityType === "Evidence" && member.body.evidenceType === "architect-intake-source");
+    for (const source of sources) {
+      const links = (await unit.listRelationships(projectId, "supports")).filter(edge => !edge.endedAt && edge.fromEntityId === source.id);
+      const intake = links.length === 1 ? await unit.getEntity(projectId, links[0].toEntityId) : null;
+      current &&= !!intake && intake.entityType === "WorkflowIntake" && intake.lifecycleState === "active" &&
+        intake.body.workflowId === cycle.body.workflowId && source.body.payloadRef === `project-state:${intake.id}@${intake.recordVersion}` &&
+        workflowIntakeDisposition(intake, await unit.listEntities(projectId), await unit.listRelationships(projectId), await unit.listOutbox(projectId)).state === "approved";
+    }
+    return {cycle, members, current};
   }
 
   async function getArchitectReviewDisposition(projectId: ProjectId, cycleId: EntityId): Promise<EffectiveDisposition> {
@@ -3468,7 +3519,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return pending.sort((a, b) => a.targetId.localeCompare(b.targetId) || a.criterionId.localeCompare(b.criterionId));
   }
 
-  return { getArchitectReviewProjection, saveArchitectReviewCycle, getCurrentArchitectReviewCycle, getArchitectReviewDisposition, recordArchitectReview, saveWorkflowIntake, recordWorkflowIntakeDecision, getWorkflowIntakeDisposition, createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
+  return { saveGreenfieldArchitectOutput, getArchitectReviewProjection, saveArchitectReviewCycle, getCurrentArchitectReviewCycle, getArchitectReviewDisposition, recordArchitectReview, saveWorkflowIntake, recordWorkflowIntakeDecision, getWorkflowIntakeDisposition, createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
     createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, completeTesterResultCheckpoint, createIntegrationRecord, advanceIntegrationRecord, completeWorkflowExecution, closeIntegratedWorkflow,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, createTesterResult, createWorkflowRepair, createPhaseRepair, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, recordCriterionOperatorDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,

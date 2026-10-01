@@ -311,7 +311,7 @@ function projectPlanningHandoffMetadata(
         requiredProfileSections: projectPlanningRequiredProfileSections(),
         requiredRoadmapSections: projectPlanningRequiredRoadmapSections(),
       },
-      inheritRepositoryBindingFromSourceRevisions(workspaceRoot, context.sourceRevisions),
+      context.repositoryBinding ?? inheritRepositoryBindingFromSourceRevisions(workspaceRoot, context.sourceRevisions),
     ),
     documentDisposition: { status: "Approved", notes: "", reviewedAt: null },
   };
@@ -334,9 +334,11 @@ function buildProjectPlanningHandoffBody(context: ReturnType<typeof requireReady
     "- Do not invent a second architecture or reinterpret established architecture into incompatible subsystem ownership merely to fill the planning template.",
     "- Plan architecture or migration requirements and product or Operator capability requirements as simultaneous axes; neither axis may silently erase the other.",
     "",
-    `Project Intake Markdown: ${context.projectIntake.markdownPath}`,
-    `Architect Interview Prompt Markdown: ${context.prompt.markdownPath}`,
-    `Approved Architect Interview Markdown: ${context.interview.markdownPath}`,
+    ...(context.intakeSemanticMarkdown ? ["Approved SQL Intake:", context.intakeSemanticMarkdown] : [`Project Intake Markdown: ${context.projectIntake.markdownPath}`]),
+    ...(context.architectSemanticMarkdown ? ["Approved SQL Architect semantics (generated in memory):", context.architectSemanticMarkdown] : [
+      `Architect Interview Prompt Markdown: ${context.prompt.markdownPath}`,
+      `Approved Architect Interview Markdown: ${context.interview.markdownPath}`,
+    ]),
     `Project Profile Markdown: ${context.profileMarkdownPath}`,
     `Project Roadmap Markdown: ${context.roadmapMarkdownPath}`,
     "",

@@ -133,6 +133,7 @@ import {
   phaseValidationPresentation,
 } from "./phaseValidationRendererOrchestration";
 import { GreenfieldArchitectWorkspace, readArchitectReviewDocument } from "./GreenfieldArchitectWorkspace";
+import { StructuredGreenfieldArchitectWorkspace } from "./StructuredGreenfieldArchitectWorkspace";
 import { FigmaDocumentCard, FigmaMarkdownBody } from "./FigmaDocumentCard";
 import { FigmaDocumentDispositionPanel } from "./FigmaDocumentDispositionPanel";
 import { FigmaAppStrip } from "./figma/FigmaAppStrip";
@@ -442,7 +443,7 @@ export function App(): JSX.Element {
   const isVisibleArchitectOutputWorkspace =
     isArchitectEnabledWorkspace(activeWorkspaceId) && !isWorkCardPlanningPreparation && !isWorkCardRepair;
   const shouldRefreshArchitectOutputWorkspace =
-    isVisibleArchitectOutputWorkspace || isWorkCardRepair;
+    isVisibleArchitectOutputWorkspace && activeWorkspaceId !== "architect-interview" || isWorkCardRepair;
   const architectBrowserWorkspaceAvailable =
     isVisibleArchitectOutputWorkspace || isWorkCardReportReview;
   const isDevelopmentForeground =
@@ -1107,22 +1108,23 @@ export function App(): JSX.Element {
   );
   const workspaceCounts = useMemo(() => getWorkspaceDocumentCounts(documents), [documents]);
   const [projectIntakeRailStatus, setProjectIntakeRailStatus] = useState<"Open" | "Awaiting Approval" | "Completed">("Open");
-  const documentDerivedArchitectInterviewRailStatus = useMemo(
-    () => deriveArchitectInterviewRailStatusFromDocuments(documents),
-    [documents],
-  );
-  const architectInterviewRailStatus = architectOutputModel?.workspaceId === "architect-interview"
-    ? architectInterviewRailStatusFromGenericModel(architectOutputModel)
-    : documentDerivedArchitectInterviewRailStatus;
+  const [architectInterviewRailStatus, setArchitectInterviewRailStatus] = useState<import("../../shared/architectWorkspaceContracts").StructuredArchitectWorkspaceModel["railStatus"]>("Not Ready");
+  const greenfieldWorkflows = workflowInventory?.groups.find(group => group.workflowType === "project-creation")?.workflows.filter(item => item.workflowState === "active") ?? [];
+  const greenfieldArchitectWorkflowId = workflowInstance?.workflowType === "project-creation" ? workflowInstance.workflowId : greenfieldWorkflows.length === 1 ? greenfieldWorkflows[0].workflowId : null;
+  useEffect(() => {
+    let active = true;
+    if (greenfieldArchitectWorkflowId) void window.champcity.getStructuredArchitectWorkspace(greenfieldArchitectWorkflowId).then(model => {if (active) setArchitectInterviewRailStatus(model.railStatus);}).catch(() => {if (active) setArchitectInterviewRailStatus("Not Ready");});
+    else setArchitectInterviewRailStatus("Not Ready");
+    return () => {active = false;};
+  }, [greenfieldArchitectWorkflowId, documents]);
   const projectRailStatuses = useMemo(() => {
     const statuses = deriveProjectLifecycleRailStatuses(documents, {
       projectIntakeStatus: projectIntakeRailStatus,
-      architectInterviewStatus: architectInterviewRailStatus,
+      architectInterviewStatus: architectInterviewRailStatus === "Not Ready" ? "Open" : architectInterviewRailStatus,
       projectPlanningStatus: projectPlanningModel?.railStatus ?? "Not Ready",
     });
     if (architectOutputModel) {
       switch (architectOutputModel.workspaceId) {
-        case "architect-interview":
         case "project-phase-map":
         case "phase-interview":
           statuses[architectOutputModel.workspaceId] = architectOutputModel.railStatus;
@@ -3996,7 +3998,7 @@ export function App(): JSX.Element {
         retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
         statusLabel={architectBrowserPresentation(architectStatus).label}
       />
-      <FigmaBrowserActionsPanel
+      {activeWorkspaceId !== "architect-interview" ? <FigmaBrowserActionsPanel
         actionFeedback={architectActionFeedback}
         attachmentError={architectAttachmentError}
         browserStatus={architectStatus}
@@ -4027,7 +4029,7 @@ export function App(): JSX.Element {
         onRetryBrowser={() => void retryArchitectBrowser()}
         pollingError={architectOutputPollingError}
         prepareHandoffLabel={architectOutputPrepareHandoffLabel}
-      />
+      /> : null}
     </div>
   ) : null;
   const routedArchitectBrowserPanel = isArchitectPaneVisible ? <FigmaBrowserPanel hostRef={architectHostRef}
@@ -4041,7 +4043,7 @@ export function App(): JSX.Element {
       {isDevelopmentForeground ? (
         <NestedWorkflowRail
           activeWorkspaceId={activeWorkspaceId}
-          architectInterviewStatus={architectInterviewRailStatus}
+          architectInterviewStatus={architectInterviewRailStatus === "Not Ready" ? "Open" : architectInterviewRailStatus}
           executionContext={currentModel?.executionContext}
           onWorkspaceChange={(workspaceId) => {
             if (workspaceId === "phase-validation") {
@@ -4584,7 +4586,10 @@ export function App(): JSX.Element {
             </section>
           ) : null}
 
-          {isVisibleArchitectOutputWorkspace && !isPhaseMapFigmaWorkspace ? (
+          {isVisibleArchitectOutputWorkspace && activeWorkspaceId === "architect-interview" ? <StructuredGreenfieldArchitectWorkspace
+            workflowId={greenfieldArchitectWorkflowId} browserVisible={isArchitectPaneVisible} browserCompanion={architectBrowserColumn} onRailStatus={setArchitectInterviewRailStatus} /> : null}
+
+          {isVisibleArchitectOutputWorkspace && !isPhaseMapFigmaWorkspace && activeWorkspaceId !== "architect-interview" ? (
             <GreenfieldArchitectWorkspace
               browserVisible={isArchitectPaneVisible}
               label={`${activeWorkspace.label} Figma document workspace`}

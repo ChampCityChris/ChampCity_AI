@@ -39,6 +39,7 @@ export function prepareArchitectOutputRuntimeSubmission<
   registry: ArchitectOutputRegistry = productionRegistry(),
 ): ArchitectDraftSubmission<TSlotId, TSelection> {
   const resolvedWorkspaceRoot = path.resolve(workspaceRoot);
+  if (owningWorkspaceId === "architect-interview" && registry === productionRegistry()) throw Error("Architect Interview uses structured Workflow output ingestion.");
   const definition = resolveDefinition<TSlotId, TSelection, TDomainContext>(
     outputKind,
     owningWorkspaceId,
@@ -81,6 +82,7 @@ export function getArchitectOutputRuntimeStatus<
   registry: ArchitectOutputRegistry = productionRegistry(),
 ): ActiveArchitectOutputRuntimeSubmission<TSlotId, TSelection> | undefined {
   const resolvedWorkspaceRoot = path.resolve(workspaceRoot);
+  if (owningWorkspaceId === "architect-interview" && registry === productionRegistry()) return undefined;
   const runtimeKey = workspaceRuntimeKey(resolvedWorkspaceRoot, owningWorkspaceId);
   const active = activeSubmissionByRuntimeKey.get(runtimeKey);
   if (!active) return undefined;

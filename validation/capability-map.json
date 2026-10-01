@@ -2993,6 +2993,7 @@
         "src/main/integrations/architectMcpHandoffService.ts",
         "src/main/project*/**",
         "src/renderer/app/*Project*",
+        "src/shared/architectWorkspaceContracts.ts",
         "test/support/canonical-markdown-fixtures.cjs",
         "test/support/legacy-project-intake-fixture.cjs"
       ],

@@ -1,4 +1,5 @@
 import { createWorkflowIntakeService } from "./workflowIntakeService";
+import { createStructuredArchitectWorkspaceService } from "../architectOutputs/structuredArchitectWorkspaceService";
 import { validateWorkflowIntakePayload } from "../../shared/workflowIntakeContracts";
 import type { DirectWorkflowStartRequest } from "../../shared/workflowApplicationContracts";
 import { createWorkflowApplicationService } from "./workflowApplicationService";
@@ -13,12 +14,21 @@ export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcR
   getCurrentProjectRoot: () => string,
   service = createWorkflowApplicationService()): void {
   const intake = createWorkflowIntakeService();
+  const architect = createStructuredArchitectWorkspaceService();
   const intakeId = (args: unknown[], count: number) => {
     if (args.length !== count || typeof args[0] !== "string" || !args[0].trim() || args[0].length > 128)
       throw Error("Exact bounded Workflow intake arguments are required.");
     return args[0];
   };
   registry.handle("workflow:getIntake", (_event, ...args) => intake.ensureWorkflowIntake(getCurrentProjectRoot(), intakeId(args, 1)));
+  registry.handle("workflow:architectGet", (_event, ...args) => architect.get(getCurrentProjectRoot(), intakeId(args, 1)));
+  registry.handle("workflow:architectPrepare", (_event, ...args) => architect.prepare(getCurrentProjectRoot(), intakeId(args, 1)));
+  registry.handle("workflow:architectSave", (_event, ...args) => architect.save(getCurrentProjectRoot(), intakeId(args, 2), args[1] as Parameters<typeof architect.save>[2]));
+  registry.handle("workflow:architectReview", (_event, ...args) => {
+    const id = intakeId(args, 3);
+    if (typeof args[1] !== "string" || !args[1].trim() || args[1].length > 128) throw Error("Exact bounded cycle ID required.");
+    return architect.review(getCurrentProjectRoot(), id, args[1], args[2] as Parameters<typeof architect.review>[3]);
+  });
   registry.handle("workflow:saveIntake", (_event, ...args) => {
     const id = intakeId(args, args.length === 2 ? 2 : 3);
     validateWorkflowIntakePayload(args[1]);

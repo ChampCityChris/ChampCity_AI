@@ -173,7 +173,7 @@ function publishSnapshot(
   }
 
   const orderedRecords = Object.freeze(
-    [...recordsByPath.values()].filter(record => !record.content?.startsWith(GENERATED_INTAKE_MARKER)).sort((left, right) =>
+    [...recordsByPath.values()].filter(record => !record.content?.startsWith(GENERATED_INTAKE_MARKER) && !record.content?.startsWith("<!-- GENERATED FROM CHAMPCITY STRUCTURED PROJECT STATE: ARCHITECT REVIEW -->")).sort((left, right) =>
       comparePaths(left.summary.markdownPath, right.summary.markdownPath),
     ),
   );
@@ -214,7 +214,7 @@ function discoverPlanningMarkdownInventory(workspaceRoot: string): InventoryEntr
     for (const child of fs.readdirSync(directory, { withFileTypes: true })) {
       const absolutePath = path.join(directory, child.name);
       const relativePath = normalizeRelativePath(path.relative(workspaceRoot, absolutePath));
-      if (isArchitectDraftRelativePath(relativePath) || isGeneratedIntakePath(relativePath) || relativePath === generatedGreenfieldPath) continue;
+      if (isArchitectDraftRelativePath(relativePath) || isGeneratedIntakePath(relativePath) || relativePath === generatedGreenfieldPath || /^planning\/architect-reviews\/ARCHITECT_REVIEW_[a-zA-Z0-9_-]+\.md$/.test(relativePath)) continue;
 
       const extension = path.extname(child.name).toLowerCase();
       let stats: fs.Stats;

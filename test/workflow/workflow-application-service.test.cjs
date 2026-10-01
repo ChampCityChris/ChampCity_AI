@@ -41,6 +41,58 @@ async function approveIntake(root, id) {
 
 function groups(inventory) { return new Map(inventory.groups.map(group => [group.workflowType, group.workflows])); }
 
+test("Greenfield Architect persists typed SQL candidates, rematerializes review and bridges Planning without canonical Interview authority", async context => {
+  const {GREENFIELD_ARCHITECT_SECTIONS} = require("../../dist/shared/architectWorkspaceContracts.js");
+  const architect = require("../../dist/main/architectOutputs/structuredArchitectWorkspaceService.js").createStructuredArchitectWorkspaceService();
+  const intakeService = require("../../dist/main/workflow/workflowIntakeService.js").createWorkflowIntakeService();
+  const {WORKFLOW_INTAKE_DEFINITIONS} = require("../../dist/shared/workflowIntakeContracts.js");
+  const {resolveProjectPlanningContext} = require("../../dist/main/projectPlanning/projectPlanningContext.js");
+  const {resolveFirstNonApprovedDocument} = require("../../dist/main/documents/firstNonApprovedResolver.js");
+  const env = await setup(context);
+  try {
+    const workflow = (await env.state.createProjectCreationWorkflow(env.projectId, {title: "Greenfield SQL"})).workflow;
+    const values = Object.fromEntries(WORKFLOW_INTAKE_DEFINITIONS["project-creation"].fields.filter(field => field.required).map(field => [field.key, field.key === "hasExistingSourceOrPlanning" ? false : field.key === "projectRepository" ? env.root : field.key === "projectType" ? "Desktop application" : `${field.key} fixture`]));
+    const intake = await intakeService.saveProjectCreationIntake(env.root, workflow.id, values);
+    await intakeService.reviewWorkflowIntake(env.root, workflow.id, {expectedIntakeRecordVersion: intake.recordVersion, outcome: "approved"});
+    fs.unlinkSync(path.join(env.root, intake.reviewDocument.markdownPath));
+    const historical = path.join(env.root, "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_old.md");
+    fs.mkdirSync(path.dirname(historical), {recursive: true}); fs.writeFileSync(historical, "Historical prose: must not import as architecture.");
+    const prepared = await architect.prepare(env.root, workflow.id);
+    assert.equal(prepared.ready, true); assert.ok(prepared.handoff.includes(`${intake.intakeId}@1`));
+    assert.equal(resolveFirstNonApprovedDocument(env.root).activeWorkspaceId, "architect-interview");
+    assert.notEqual(resolveProjectPlanningContext(env.root).status, "ready");
+    const output = Object.fromEntries(Object.keys(GREENFIELD_ARCHITECT_SECTIONS).map(key => [key, [`${key} direction`]]));
+    await assert.rejects(architect.save(env.root, workflow.id, {intakeId: intake.intakeId, intakeVersion: 1, output: {...output, extra: "not bounded"}}));
+    const candidate = await architect.save(env.root, workflow.id, {intakeId: intake.intakeId, intakeVersion: 1, output});
+    assert.equal(candidate.review.disposition.state, "none");
+    const cycle = await env.store.getEntity(env.projectId, candidate.review.cycleId);
+    const ids = (await env.store.listRelationships(env.projectId, "review_member")).filter(edge => !edge.endedAt && edge.toEntityId === cycle.id).map(edge => edge.fromEntityId);
+    assert.equal(ids.length, candidate.review.sources.length); assert.ok((await env.store.listEntities(env.projectId, "BoundedSolution")).some(record => ids.includes(record.id)));
+    assert.ok(!((await env.store.listEntities(env.projectId, "Decision")).some(record => record.body.decisionType === "architect-review")));
+    let previous = -1; for (const title of Object.values(GREENFIELD_ARCHITECT_SECTIONS)) {const index = candidate.review.markdown.indexOf(`## ${title}`); assert.ok(index > previous, title); previous = index;}
+    const projection = path.join(env.root, candidate.review.relativePath);
+    fs.writeFileSync(projection, "Manually changed approval and scope");
+    assert.equal((await architect.get(env.root, workflow.id)).review.markdown, candidate.review.markdown);
+    assert.equal(fs.readFileSync(projection, "utf8"), candidate.review.markdown);
+    fs.unlinkSync(projection); await architect.get(env.root, workflow.id); assert.ok(fs.existsSync(projection));
+    await assert.rejects(architect.review(env.root, workflow.id, cycle.id, {expectedRecordVersion: 99, outcome: "approved"}));
+    const approved = await architect.review(env.root, workflow.id, cycle.id, {expectedRecordVersion: 1, outcome: "approved"});
+    assert.equal(approved.railStatus, "Completed"); fs.unlinkSync(projection);
+    const planning = resolveProjectPlanningContext(env.root);
+    assert.equal(planning.status, "ready"); assert.ok(planning.architectSemanticMarkdown.includes("projectPlanningDirection direction"));
+    require("../../dist/main/projectPlanning/projectPlanningService.js").generateProjectPlanningHandoff(env.root);
+    assert.ok(fs.readFileSync(path.join(env.root, planning.handoffMarkdownPath), "utf8").includes("projectPlanningDirection direction"));
+    assert.equal(planning.interview.logicalDocumentId, cycle.id); assert.equal(fs.readFileSync(historical, "utf8"), "Historical prose: must not import as architecture.");
+    const revised = await architect.save(env.root, workflow.id, {intakeId: intake.intakeId, intakeVersion: 1, expectedCycleVersion: 1, output: {...output, scope: ["Revised scope"]}});
+    assert.equal(revised.review.recordVersion, 2); assert.equal(revised.review.disposition.state, "none"); assert.notEqual(resolveProjectPlanningContext(env.root).status, "ready");
+    await architect.review(env.root, workflow.id, cycle.id, {expectedRecordVersion: 2, outcome: "approved"});
+    await intakeService.saveProjectCreationIntake(env.root, workflow.id, {...values, projectPurpose: "Material Intake revision"}, 1);
+    assert.equal((await architect.get(env.root, workflow.id)).review, undefined);
+    await assert.rejects(architect.review(env.root, workflow.id, cycle.id, {expectedRecordVersion: 2, outcome: "approved"}), /stale/);
+    assert.equal(fs.existsSync(path.join(env.root, "planning/project/Project_Architect_Interview_Prompts")), false);
+  } finally {env.store.close();}
+});
+
 test("registered Feature and Issue IPC handlers persist intake using preload argument shapes", async context => {
   const env = await setup(context); const app = createWorkflowApplicationService(); const feature = createFeaturePlanningService(); const issue = createIssuePlanningService();
   const handlers = new Map(); const registry = { handle: (channel, listener) => handlers.set(channel, listener) };

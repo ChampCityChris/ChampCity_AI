@@ -22,7 +22,12 @@ export function ProjectIntakeWorkspace(props: ProjectIntakeWorkspaceProps): JSX.
   const prepare = async () => {
     if (!state.approved || state.busy) return;
     setPreparing(true); setPrepareError("");
-    try { await window.champcity.regenerateArchitectInterviewPrompt(); props.onPrepared(); }
+    try {
+      if (!props.workflowId) throw Error("Exact Project Creation Workflow is required.");
+      const architect = await window.champcity.prepareStructuredArchitectWorkspace(props.workflowId);
+      if (!architect.ready) throw Error(architect.reason ?? "Approve current Intake before Architect Interview.");
+      props.onPrepared();
+    }
     catch (error) { setPrepareError(String(error).slice(0, 1000)); }
     finally { setPreparing(false); }
   };

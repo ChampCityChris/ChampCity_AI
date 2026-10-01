@@ -76,7 +76,7 @@ export const projectPlanningArchitectOutputDefinition: ArchitectOutputDefinition
               ...metadataWithSubstantiveRevision(existing.metadata, sourceRevisions),
               workflowData: mergeRepositoryBindingIntoWorkflowData(
                 existing.metadata.workflowData,
-                inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisions),
+                context.repositoryBinding ?? inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisions),
               ),
             }
           : freshBundleMetadata(workspaceRoot, context, "project-profile", sourceRevisions);
@@ -104,7 +104,7 @@ export const projectPlanningArchitectOutputDefinition: ArchitectOutputDefinition
               ...metadataWithSubstantiveRevision(existing.metadata, sourceRevisions),
               workflowData: mergeRepositoryBindingIntoWorkflowData(
                 existing.metadata.workflowData,
-                inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisions),
+                context.repositoryBinding ?? inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisions),
               ),
             }
           : freshBundleMetadata(workspaceRoot, context, "project-roadmap", sourceRevisions);
@@ -258,7 +258,7 @@ function freshBundleMetadata(
     sourceRevisions,
     workflowData: mergeRepositoryBindingIntoWorkflowData(
       {},
-      inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisions),
+      context.repositoryBinding ?? inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisions),
     ),
     documentDisposition: { status: "Pending", notes: "", reviewedAt: null },
   };
@@ -322,14 +322,14 @@ function buildProjectPlanningPreparedInstruction(
   const roadmapDraftPath = draftPathForSlot(submission, "project-roadmap");
   const promptWorkflowData = mergeRepositoryBindingIntoWorkflowData(
     {},
-    inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisionsFor(context)),
+    context.repositoryBinding ?? inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisionsFor(context)),
   );
   return [
     ...buildMcpWorkspaceBindingPromptBlock(workspaceRoot, promptWorkflowData),
     "",
     "Read these exact current inputs:",
     `- Project Intake Markdown: ${context.projectIntake.markdownPath}`,
-    `- Architect Interview Prompt Markdown (provenance/contract evidence): ${context.prompt.markdownPath}`,
+    ...(context.architectSemanticMarkdown ? ["Approved SQL Architect semantics:", context.architectSemanticMarkdown, "Approved SQL Intake:", context.intakeSemanticMarkdown ?? ""] : [`- Architect Interview Prompt Markdown (provenance/contract evidence): ${context.prompt.markdownPath}`]),
     `- Approved Architect Interview Markdown: ${context.interview.markdownPath}`,
     `- Approved Project Planning handoff Markdown: ${sourceHandoff.path} revision ${sourceHandoff.revision}`,
     "- Stable Project Planning submission contract: project-planning-output-submission-v2",

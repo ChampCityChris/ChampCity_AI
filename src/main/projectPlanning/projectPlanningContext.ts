@@ -1,4 +1,7 @@
 import { readProjectCreationIntakeProjection } from "../workflow/workflowIntakeReadProjection";
+import { readApprovedGreenfieldArchitectProjection } from "../architectOutputs/structuredArchitectReadProjection";
+import { buildRepositoryBindingFromProjectIntake, type RepositoryBinding } from "../documents/repositoryBinding";
+import { readExplicitMcpWorkspaceBinding } from "../integrations/mcpWorkspacePromptContract";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
 import type { PlanningDocumentSummary, SourceRevision } from "../../shared/documents/planningDocument";
 import { evaluateFreshnessFromSummaries } from "../../shared/documents/sourceFreshness";
@@ -49,6 +52,9 @@ export interface ProjectPlanningReadyContext {
   invalidRoadmap?: ProjectPlanningArtifactIdentity;
   invalidRoadmapReason?: string;
   evidencePaths: string[];
+  architectSemanticMarkdown?: string;
+  intakeSemanticMarkdown?: string;
+  repositoryBinding?: RepositoryBinding;
 }
 
 export type ProjectPlanningContext =
@@ -84,7 +90,9 @@ export function resolveProjectPlanningContext(
       return localError("Project Intake is not readable as canonical Markdown.", evidence(intake));
     }
 
-    const promptCandidates = activeDocuments(documents).filter((document) =>
+    const sqlInterview = structured ? readApprovedGreenfieldArchitectProjection(workspaceRoot) : null;
+    if (structured && !sqlInterview) return notReady("Approve fresh structured Architect Interview output through its current review cycle before Project Planning. Historical Interview Markdown is evidence only.", evidence(intake));
+    const promptCandidates = sqlInterview ? [intake] : activeDocuments(documents).filter((document) =>
       document.metadata.artifactType === "project-architect-interview-prompt" &&
       document.metadata.participationRole === "nonReviewHandoff" &&
       document.effectiveDisposition === "Approved" &&
@@ -98,11 +106,11 @@ export function resolveProjectPlanningContext(
     }
 
     const prompt = promptCandidates[0];
-    if (!isReadable(prompt)) {
+    if (!sqlInterview && !isReadable(prompt)) {
       return localError("Associated Architect Interview Prompt is not readable.", evidence(prompt));
     }
     const interviewTarget = prompt.metadata.architectOutputTargets?.markdown ?? defaultInterviewTarget(prompt);
-    const interviewCandidates = activeDocuments(documents).filter((document) => document.markdownPath === interviewTarget);
+    const interviewCandidates = sqlInterview ? [sqlInterview] : activeDocuments(documents).filter((document) => document.markdownPath === interviewTarget);
     if (interviewCandidates.length === 0) {
       return notReady("Approved current Architect Interview output is required before Project Planning.", evidence(prompt));
     }
@@ -111,12 +119,13 @@ export function resolveProjectPlanningContext(
     }
 
     const interview = interviewCandidates[0];
-    const invalidInterview = validateApprovedInterview(documents, interview, intake, prompt);
+    const invalidInterview = sqlInterview ? null : validateApprovedInterview(documents, interview, intake, prompt);
     if (invalidInterview) {
       return localError(invalidInterview, evidence(interview));
     }
 
-    const projectSlug = projectSlugFromIdentity(intake, prompt, interview);
+    const projectSlug = sqlInterview ? String((structured?.values as unknown as Record<string, unknown>)?.projectName ?? "project").toLowerCase().replace(/[^a-z0-9]+/g, "_") : projectSlugFromIdentity(intake, prompt, interview);
+    if (sqlInterview) documents.push(sqlInterview);
     const handoffMarkdownPath = `planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_${projectSlug}.md`;
     const defaultProfileMarkdownPath = "planning/project/PROJECT_PROFILE.md";
     const defaultRoadmapMarkdownPath = `planning/project/Project_Roadmap/PROJECT_ROADMAP_${projectSlug}.md`;
@@ -154,15 +163,19 @@ export function resolveProjectPlanningContext(
       );
     }
 
+    const explicitBinding = sqlInterview ? readExplicitMcpWorkspaceBinding(workspaceRoot) : null;
     return {
       status: "ready",
+      architectSemanticMarkdown: sqlInterview?.bodyMarkdown,
+      intakeSemanticMarkdown: sqlInterview ? structured?.reviewDocument?.bodyMarkdown : undefined,
+      repositoryBinding: sqlInterview ? buildRepositoryBindingFromProjectIntake({projectRepository: workspaceRoot, mcpWorkspaceBinding: explicitBinding ? {mcpWorkspaceId: explicitBinding.workspaceId, label: explicitBinding.label, repositoryName: explicitBinding.repositoryName, branch: explicitBinding.branch, gitBacked: explicitBinding.gitBacked} : null}) : undefined,
       projectSlug,
       projectIntake: identityFor(intake),
       prompt: identityFor(prompt),
       interview: identityFor(interview),
       sourceRevisions: [
         revisionFor(intake),
-        revisionFor(prompt),
+        ...(!sqlInterview ? [revisionFor(prompt)] : []),
         revisionFor(interview),
       ],
       reconciliationMode: preflight.reconciliationMode,

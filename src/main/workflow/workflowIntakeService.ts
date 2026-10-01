@@ -41,7 +41,7 @@ export function createWorkflowIntakeService(dependencies: { openStore?: (databas
   async function saveWorkflowIntake(root: string, id: string, payload: WorkflowIntakePayload, expectedIntakeRecordVersion?: number) {
     validateWorkflowIntakePayload(payload);
     return withWorkflow(root, id, async (store, projectId, workflow) => {
-      if (workflow.body.workflowType !== payload.workflowType || workflow.body.currentWorkspace !== WORKFLOW_TYPE_REGISTRY[payload.workflowType].entryWorkspace) throw Error("Intake requires the exact Workflow type and entry workspace.");
+      if (workflow.body.workflowType !== payload.workflowType || payload.workflowType !== "project-creation" && workflow.body.currentWorkspace !== WORKFLOW_TYPE_REGISTRY[payload.workflowType].entryWorkspace) throw Error("Intake requires the exact Workflow type and entry workspace.");
       const current = await ensureIntake(root, store, projectId, workflow);
       const record = await createProjectStateService(store, intakeOperator).saveWorkflowIntake(projectId, {workflowId: id, workflowType: payload.workflowType, values: Object.fromEntries(Object.entries(payload.workflowType === "project-creation" ? {...payload.values, projectRepository: fs.realpathSync(root)} : payload.values).filter(([, value]) => typeof value !== "string" || value.trim()).map(([key, value]) => [key, typeof value === "string" ? value.trim() : value])), expectedIntakeRecordVersion: expectedIntakeRecordVersion ?? current?.recordVersion});
       return projection(root, store, projectId, workflow, record);

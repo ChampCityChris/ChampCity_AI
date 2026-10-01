@@ -1,4 +1,5 @@
 import { readProjectCreationIntakeProjection } from "../workflow/workflowIntakeReadProjection";
+import { readApprovedGreenfieldArchitectProjection } from "../architectOutputs/structuredArchitectReadProjection";
 import type { FirstNonApprovedResult } from "../../shared/documents/documentOrder";
 import { resolveFirstNonApproved } from "../../shared/documents/documentOrder";
 import { listPlanningDocumentsFromSnapshot } from "./planningDocumentService";
@@ -20,7 +21,15 @@ export function resolveFirstNonApprovedDocumentFromSnapshot(
   snapshot: PlanningRepositorySnapshot,
 ): FirstNonApprovedResult {
   const structured = readProjectCreationIntakeProjection(snapshot.workspaceRoot);
-  return resolveFirstNonApproved(listPlanningDocumentsFromSnapshot(snapshot), structured ? structured.reviewDocument ?? null : undefined);
+  const documents = listPlanningDocumentsFromSnapshot(snapshot);
+  if (structured?.reviewDocument?.effectiveDisposition === "Approved") {
+    const architect = readApprovedGreenfieldArchitectProjection(snapshot.workspaceRoot);
+    if (!architect) return {status: "waiting-for-architect-interview", activeWorkspaceId: "architect-interview", message: "Waiting for Project Architect Interview output", totalDocumentCount: documents.length,
+      reason: "Approved SQL Intake requires a fresh structured Architect review cycle.", sourceEvidence: [structured.reviewDocument.markdownPath], promptLogicalDocumentId: structured.intakeId!, expectedOutputPaths: {markdown: "planning/architect-reviews/"}};
+    // The SQL cycle already establishes Interview eligibility; historical prompt/interview files cannot gate it.
+    return resolveFirstNonApproved(documents.filter(document => !["project-intake", "project-architect-interview", "project-architect-interview-prompt"].includes(document.metadata.artifactType ?? "")), undefined, true);
+  }
+  return resolveFirstNonApproved(documents, structured ? structured.reviewDocument ?? null : undefined);
 }
 
 export function resolveFirstNonApprovedDocumentFromContext(

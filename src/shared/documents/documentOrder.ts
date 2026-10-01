@@ -134,6 +134,7 @@ export function comparePlanningDocuments(
 export function resolveFirstNonApproved(
   documents: PlanningDocumentSummary[],
   structuredIntake?: PlanningDocumentSummary | null,
+  structuredArchitectApproved = false,
 ): FirstNonApprovedResult {
   const review = structuredIntake ?? null;
   const ordered = orderPlanningDocuments(review ? [...documents.filter(document => document.markdownPath !== review.markdownPath), review] : documents);
@@ -150,7 +151,7 @@ export function resolveFirstNonApproved(
       reason: `Resolve multiple canonical Project Intake documents before continuing: ${projectIntakeCorpus.evidencePaths.join("; ")}.`,
     };
   }
-  if (projectIntakeCorpus.state === "open") {
+  if (!structuredArchitectApproved && projectIntakeCorpus.state === "open") {
     return {
       status: "pre-intake",
       activeWorkspaceId: "project-intake-capture",
@@ -168,7 +169,7 @@ export function resolveFirstNonApproved(
       evidencePaths: [review.markdownPath], freshnessState: "fresh", staleSources: [], markdownPath: review.markdownPath,
       displayTitle: review.displayFilename, effectiveDisposition: review.effectiveDisposition, orderPosition: 1, totalDocumentCount: ordered.length}};
   }
-  const projectIntakeContinuation = resolveProjectIntakeContinuation(ordered, review ?? undefined);
+  const projectIntakeContinuation = structuredArchitectApproved ? null : resolveProjectIntakeContinuation(ordered, review ?? undefined);
   if (projectIntakeContinuation) {
     return projectIntakeContinuation;
   }

@@ -427,8 +427,8 @@ export function readIntakeAdapterSnapshot(databasePath: string, projectId: Proje
     database.exec("BEGIN");
     const records = all(database, `SELECT v.* FROM state_entities e JOIN state_entity_versions v
       ON v.project_id=e.project_id AND v.entity_id=e.entity_id AND v.record_version=e.current_record_version
-      WHERE e.project_id=? AND e.entity_type IN ('Workflow', 'WorkflowIntake', 'Decision')`, projectId).map(row => hydrateVersion(row));
-    const relationships = all(database, "SELECT * FROM relationships WHERE project_id=? AND relationship_type IN ('intake_for', 'governs')", projectId).map(hydrateRelationship);
+      WHERE e.project_id=? AND e.entity_type IN ('Workflow', 'WorkflowIntake', 'Decision', 'ArchitectReviewCycle', 'BoundedSolution', 'Finding', 'RootCause', 'Criterion', 'Evidence')`, projectId).map(row => hydrateVersion(row));
+    const relationships = all(database, "SELECT * FROM relationships WHERE project_id=?", projectId).map(hydrateRelationship);
     const outbox = all(database, "SELECT * FROM outbox_events WHERE project_id=? ORDER BY sequence", projectId).map(hydrateOutbox);
     const originalIntakes = all(database, "SELECT * FROM state_entity_versions WHERE project_id=? AND entity_type='WorkflowIntake' AND record_version=1", projectId).map(row => hydrateVersion(row) as ProjectStateRecord<"WorkflowIntake">);
     database.exec("COMMIT");
