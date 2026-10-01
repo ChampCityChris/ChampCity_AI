@@ -181,7 +181,7 @@ export async function regenerateArchitectInterviewPrompt(workspaceRoot: string):
 
   const workspace = path.resolve(workspaceRoot);
   const targetPath = path.join(workspace, context.promptTargetPath);
-  if (fs.existsSync(targetPath)) {
+  if (fs.existsSync(targetPath) && context.previousPromptRevision === undefined) {
     throw new Error("Project Architect Interview Prompt target already exists and was not recognized as the current Approved prompt. Resolve the conflict before regenerating.");
   }
 
@@ -198,6 +198,7 @@ export async function regenerateArchitectInterviewPrompt(workspaceRoot: string):
     projectIntakeRevision: context.projectIntake.artifactRevision,
     projectIntakeWorkflowData: {...structured.values, repositoryBinding: structured.repositoryBinding},
     intakeAuthority: {intakeId: structured.intakeId!, recordVersion: structured.recordVersion!},
+    ...(context.previousPromptRevision !== undefined ? {promptRevision: context.previousPromptRevision + 1} : {}),
     architectInterviewTargetMarkdownPath: context.interviewTargets.markdownPath,
   });
 

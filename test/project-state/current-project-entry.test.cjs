@@ -901,7 +901,7 @@ test("all Project entry actions use canonical admission while Clear and Intake c
   const clear = rendererSource.slice(rendererSource.indexOf("async function clearWorkspace()"),
     rendererSource.indexOf("async function chooseProjectRepository()"));
   const intakeRepository = rendererSource.slice(rendererSource.indexOf("async function chooseProjectRepository()"),
-    rendererSource.indexOf("async function submitProjectIntake()"));
+    rendererSource.indexOf("function currentEvidenceRefreshTarget()"));
   assert.match(start, /registerCurrentProject\("greenfield"\)/);
   assert.match(start, /activateWorkspaceSelection\(selection, "project-intake-capture", project\)/);
   assert.doesNotMatch(start, /openWorkIntake/);

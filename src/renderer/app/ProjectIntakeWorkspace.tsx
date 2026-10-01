@@ -1,45 +1,50 @@
-import type { ComponentProps } from "react";
+import { useEffect, useState } from "react";
+import { useWorkflowIntake } from "./useWorkflowIntake";
+import { WorkflowIntakeReviewCard, WorkflowIntakeDisposition } from "./WorkflowIntakeReview";
 import { FolderOpen } from "lucide-react";
 import { projectTypeOptions, type ProjectIntakeSubmission } from "../../shared/workspaceContracts";
-import type { ProjectIntakePostSubmitConfirmation } from "../../shared/projectIntake/postSubmitReviewState";
 import { IntakeWorkspaceShell } from "./IntakeWorkspaceShell";
-import { FigmaDocumentCard } from "./FigmaDocumentCard";
-import { FigmaDocumentDispositionPanel } from "./FigmaDocumentDispositionPanel";
 
-type ProjectIntakeWorkspaceProps = ComponentProps<typeof ProjectIntakeCapture> &
-  ComponentProps<typeof FigmaDocumentCard> &
-  Pick<ComponentProps<typeof FigmaDocumentDispositionPanel>, "isApplying" | "notes" | "onApply" | "onNotesChange" | "onStatusChange" | "status"> & {
-    selectedDocumentHasLocalError: boolean;
-  };
+type ProjectIntakeWorkspaceProps = {
+  workflowId?: string;
+  onPrepared: () => void;
+  onRailStatus: (status: "Open" | "Awaiting Approval" | "Completed") => void;
+  repositoryIdentity: string;
+  isChoosingProjectRepository: boolean;
+  onChooseProjectRepository: () => void;
+  onChange: (value: ProjectIntakeSubmission) => void;
+  value: ProjectIntakeSubmission;
+};
 
 export function ProjectIntakeWorkspace(props: ProjectIntakeWorkspaceProps): JSX.Element {
-  const document = props.selectedDocument;
-  return (
-    <IntakeWorkspaceShell
-      heading="Project Intake Questionnaire"
-      intake={<>
-        <ProjectIntakeCapture {...props} />
-        {document ? <FigmaDocumentDispositionPanel
-          canApply={Boolean(props.status) && !props.selectedDocumentHasLocalError}
-          isApplying={props.isApplying || props.selectedDocumentHasLocalError}
-          currentDocument={document.displayFilename}
-          effectiveDisposition={document.effectiveDisposition}
-          workflowStep="Review & Validation"
-          notes={props.notes}
-          onApply={props.onApply}
-          onNotesChange={props.onNotesChange}
-          onStatusChange={props.onStatusChange}
-          status={props.status}
-        /> : null}
-      </>}
-      companion={<FigmaDocumentCard
-        documentError={props.documentError}
-        feedback={props.feedback}
-        onCopy={props.onCopy}
-        selectedDocument={document}
-      />}
-    />
-  );
+  const state = useWorkflowIntake(props.workflowId);
+  const [preparing, setPreparing] = useState(false), [prepareError, setPrepareError] = useState("");
+  const prepare = async () => {
+    if (!state.approved || state.busy) return;
+    setPreparing(true); setPrepareError("");
+    try { await window.champcity.regenerateArchitectInterviewPrompt(); props.onPrepared(); }
+    catch (error) { setPrepareError(String(error).slice(0, 1000)); }
+    finally { setPreparing(false); }
+  };
+  useEffect(() => { props.onRailStatus(!state.model?.values ? "Open" : state.approved ? "Completed" : "Awaiting Approval"); }, [state.model, state.dirty, state.loaded]);
+  useEffect(() => {
+    if (state.model?.workflowType === "project-creation" && state.model.values)
+      props.onChange(state.model.values);
+  }, [state.model]);
+  return <IntakeWorkspaceShell heading="Project Intake Questionnaire"
+    intake={<>
+      {state.error && <p role="alert">{state.error}</p>}
+      <fieldset disabled={!state.loaded || state.busy || preparing} style={{display: "contents"}}>
+        <ProjectIntakeCapture {...props} isSubmittingIntake={state.busy}
+          onChange={value => { props.onChange(value); state.markDirty(); }}
+          onSubmit={() => void state.save({workflowType: "project-creation", values: {...props.value, projectRepository: props.repositoryIdentity}})}
+          />
+      </fieldset>
+      <WorkflowIntakeDisposition state={state} />
+      {prepareError && <p role="alert">{prepareError}</p>}
+      <button type="button" disabled={!state.approved || state.busy || preparing} onClick={() => void prepare()}>Prepare Architect Interview</button>
+    </>}
+    companion={<WorkflowIntakeReviewCard state={state} />} />;
 }
 
 function ProjectIntakeCapture({
@@ -48,7 +53,6 @@ function ProjectIntakeCapture({
   onChange,
   onChooseProjectRepository,
   onSubmit,
-  postSubmitConfirmation,
   value,
 }: {
   isChoosingProjectRepository: boolean;
@@ -56,7 +60,6 @@ function ProjectIntakeCapture({
   onChange: (value: ProjectIntakeSubmission) => void;
   onChooseProjectRepository: () => void;
   onSubmit: () => void;
-  postSubmitConfirmation: ProjectIntakePostSubmitConfirmation | null;
   value: ProjectIntakeSubmission;
 }): JSX.Element {
   const update = <Key extends keyof ProjectIntakeSubmission>(
@@ -157,21 +160,7 @@ function ProjectIntakeCapture({
       >
         {isSubmittingIntake ? "Saving..." : "Submit Project Intake"}
       </button>
-      {postSubmitConfirmation ? (
-        <section className="intake-confirmation" aria-label="Project Intake submission confirmation">
-          <strong>Project Intake and Architect Interview Prompt Markdown were created successfully in the active repository.</strong>
-          <dl>
-            <div>
-              <dt>Project Intake Markdown</dt>
-              <dd>{postSubmitConfirmation.projectIntakeMarkdownPath}</dd>
-            </div>
-            <div>
-              <dt>Architect Interview Prompt Markdown</dt>
-              <dd>{postSubmitConfirmation.architectPromptMarkdownPath}</dd>
-            </div>
-          </dl>
-        </section>
-      ) : null}
+
     </section>
   );
 }

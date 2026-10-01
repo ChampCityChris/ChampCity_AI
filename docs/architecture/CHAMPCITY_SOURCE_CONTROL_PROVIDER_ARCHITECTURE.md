@@ -547,3 +547,12 @@ This architecture does not require:
 - allowing AI workers to become source-control authorities.
 
 The goal is to own the **ChampCity source-control experience**, while treating Git or any future VCS as replaceable infrastructure beneath it.
+
+
+## Intake authority and derived source artifacts (RWS04C)
+
+WorkflowIntake and its exact-version Operator review Decisions are SQL-authoritative for all seven substantive Intake families. Repository Intake Markdown is a contained, atomically replaced derived projection, written only after SQL commits; a projection error is reported without reversing SQL. These projections are excluded from legacy canonical discovery and are never imported as state after activation. Greenfield keeps its familiar Intake path, while existing-project Workflows use `planning/workflows/<workflowId>/Intake/WORKFLOW_INTAKE_<workflowType>.md`.
+
+`Intake form -> SQL WorkflowIntake -> generated Markdown projection -> Operator review -> SQL Decision`
+
+Intake migration does not select `project_state_authority=structured`; that final project-wide legacy-writer cutoff remains deferred. Source-control topology, execution and validation workflows are unchanged by this Intake cutover.

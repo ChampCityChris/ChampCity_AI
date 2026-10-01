@@ -2,6 +2,7 @@ import type { IssueFixCardLoopStepId, IssueResolutionStageId } from "../../share
 
 export function shouldAttachArchitectSurface(input: {
   paneVisible: boolean;
+  intakeForeground?: boolean;
   developmentForeground: boolean;
   developmentBrowserAvailable: boolean;
   workCardRepair: boolean;
@@ -12,6 +13,7 @@ export function shouldAttachArchitectSurface(input: {
   workIntakeStageId: "intake" | "routing";
   substantiveWorkflowForeground?: boolean;
 }): boolean {
+  if (input.intakeForeground) return false;
   if (!input.paneVisible) return false;
   if (input.developmentForeground && (input.developmentBrowserAvailable || input.workCardRepair)) return true;
   if (input.issueForeground && (input.issueStageId === "architect-planning" || input.issueStageId === "issue-planning" ||

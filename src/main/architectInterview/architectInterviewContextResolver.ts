@@ -1,3 +1,5 @@
+import { readProjectCreationIntakeProjection } from "../workflow/workflowIntakeReadProjection";
+import { evaluateFreshnessFromSummaries } from "../../shared/documents/sourceFreshness";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
 import type { PlanningDocumentSummary } from "../../shared/documents/planningDocument";
 import {
@@ -63,6 +65,7 @@ export type CanonicalArchitectInterviewContext =
       projectIntake: CanonicalArtifactIdentity;
       projectSlug: string;
       promptTargetPath: string;
+      previousPromptRevision?: number;
       interviewTargets: {
         markdownPath: string;
       };
@@ -81,23 +84,26 @@ export function resolveCanonicalArchitectInterviewContext(
 ): CanonicalArchitectInterviewContext {
   try {
     const documents = listPlanningDocuments(planningContext ?? workspaceRoot);
+    structuredIntake ??= readProjectCreationIntakeProjection(workspaceRoot) ?? undefined;
     const intakeCorpus = analyzeProjectIntakeCorpus(documents);
-    if (intakeCorpus.state === "open") {
+    if (structuredIntake && !structuredIntake.values) return unavailable("Open Project Intake to migrate or save structured Intake before Architect preparation.", []);
+    if (!structuredIntake && intakeCorpus.state === "open") {
       return unavailable("No active canonical Project Intake Markdown document is available.", []);
     }
-    if (intakeCorpus.state === "conflict") {
+    if (!structuredIntake && intakeCorpus.state === "conflict") {
       return conflict("Multiple active canonical Project Intake Markdown documents are available.", intakeCorpus.evidencePaths);
     }
 
-    const intakeDocument = intakeCorpus.documents[0];
+    const intakeDocument = structuredIntake?.reviewDocument ?? intakeCorpus.documents[0];
+    if (!intakeDocument) return unavailable("Structured Project Intake review projection is unavailable.", []);
     if (structuredIntake ? structuredIntake.disposition?.state !== "approved" : intakeDocument.effectiveDisposition !== "Approved") {
       return unavailable("The active Project Intake must be Approved before Architect Interview handoff.", evidence(intakeDocument));
     }
     if (intakeDocument.readError) {
       return localError("The active Project Intake is not readable as canonical Markdown.", evidence(intakeDocument));
     }
-    const intakeIdentity = identityFor(intakeDocument);
     const projectSlug = projectSlugForIntake(intakeDocument);
+    const intakeIdentity = {...identityFor(intakeDocument), ...(structuredIntake ? {canonicalIdentity: {"Project.ArtifactKey": projectSlug, projectSlug}} : {})};
     const deterministicPromptPath = projectArchitectInterviewPromptPath(projectSlug);
     const deterministicInterviewTargetPath = projectArchitectInterviewTargetPath(projectSlug);
 
@@ -106,7 +112,12 @@ export function resolveCanonicalArchitectInterviewContext(
     );
     if (promptCandidates.length === 0) {
       const targetDocument = documents.find((document) => document.markdownPath === deterministicPromptPath);
-      if (targetDocument) {
+      const replaceablePrompt = structuredIntake && targetDocument && targetDocument.metadata.canonical &&
+        targetDocument.metadata.artifactType === "project-architect-interview-prompt" &&
+        targetDocument.metadata.participationRole === "nonReviewHandoff" && targetDocument.effectiveDisposition === "Approved" &&
+        !targetDocument.readError && (targetDocument.metadata.canonical.identity["Project.ArtifactKey"] ?? targetDocument.metadata.canonical.identity.projectSlug) === projectSlug &&
+        targetDocument.metadata.sourceRevisions?.some(source => source.path === intakeDocument.markdownPath);
+      if (targetDocument && !replaceablePrompt) {
         return conflict(
           "Project Architect Interview Prompt target exists but is not the current Approved associated prompt. Resolve the conflicting prompt file before regenerating.",
           [...evidence(intakeDocument), ...evidence(targetDocument)],
@@ -118,6 +129,7 @@ export function resolveCanonicalArchitectInterviewContext(
         projectIntake: intakeIdentity,
         projectSlug,
         promptTargetPath: deterministicPromptPath,
+        ...(replaceablePrompt ? {previousPromptRevision: targetDocument!.metadata.artifactRevision} : {}),
         interviewTargets: { markdownPath: deterministicInterviewTargetPath },
         evidencePaths: evidence(intakeDocument),
       };
@@ -165,6 +177,7 @@ export function resolveCanonicalArchitectInterviewContext(
       promptIdentity,
       expectedIdentity,
       planningContext,
+      structuredIntake?.reviewDocument,
     );
 
     return {
@@ -209,6 +222,7 @@ function validateInterviewDocument(
   prompt: CanonicalArtifactIdentity,
   expectedIdentity: Record<string, unknown>,
   planningContext?: PlanningProjectionContext,
+  structuredDocument?: PlanningDocumentSummary,
 ): {
   identity?: CanonicalArtifactIdentity & { operatorReviewNotes?: string };
   invalidIdentity?: CanonicalArtifactIdentity;
@@ -270,7 +284,8 @@ function validateInterviewDocument(
       evidencePaths,
     };
   }
-  const freshness = evaluateDocumentFreshness(planningContext ?? workspaceRoot, document.logicalDocumentId);
+  const freshness = structuredDocument ? evaluateFreshnessFromSummaries(document, [...listPlanningDocuments(planningContext ?? workspaceRoot), structuredDocument]) :
+    evaluateDocumentFreshness(planningContext ?? workspaceRoot, document.logicalDocumentId);
   if (freshness.state !== "fresh") {
     return {
       invalidIdentity,

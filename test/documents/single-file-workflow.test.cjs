@@ -6,7 +6,7 @@ const test = require("node:test");
 
 const {
   submitProjectIntake,
-} = require("../../dist/main/projectIntake/projectIntakeService.js");
+} = require("../support/legacy-project-intake-fixture.cjs");
 const {
   listPlanningDocuments,
   setDocumentDisposition,

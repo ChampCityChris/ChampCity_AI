@@ -53,7 +53,7 @@ import {
   createFinalDevelopmentPlanningContext,
 } from "./documents/developmentPostMutationProjection";
 import { resolveFirstNonApprovedDocument } from "./documents/firstNonApprovedResolver";
-import { submitProjectIntakeForRepository } from "./projectIntake/projectIntakeService";
+
 import { createSourceControlService } from "./sourceControl/sourceControlService";
 import { establishManagedProjectSource, resolveManagedDevRepositoryCheckout } from "./sourceControl/managedProjectSourceService";
 import { applyExistingProjectGitAdoption, inspectExistingProjectGitAdoption } from "./sourceControl/existingProjectGitAdoptionService";
@@ -894,13 +894,6 @@ ipcMain.handle("workIntake:submit", async (_event, submission: import("../shared
   if (!projectId) throw Error("Select or open a Project to use Work Intake.");
   return { ok: true as const, value: await captureStructuredWorkIntake(root, projectId, submission), receipts: [] as [] };
 });
-
-ipcMain.handle(
-  "projectIntake:submit",
-  (_event, submission: ProjectIntakeSubmission): ProjectIntakeSubmissionResult => {
-    return submitProjectIntakeForRepository(getRequiredWorkspaceRoot(), submission);
-  },
-);
 
 ipcMain.handle("architectBrowser:foundationStatus", (): ArchitectBrowserFoundationStatus => {
   return getArchitectBrowserFoundationStatus();

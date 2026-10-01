@@ -1,3 +1,4 @@
+import { readProjectCreationIntakeProjection } from "../workflow/workflowIntakeReadProjection";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
 import type { PlanningDocumentSummary, SourceRevision } from "../../shared/documents/planningDocument";
 import { evaluateFreshnessFromSummaries } from "../../shared/documents/sourceFreshness";
@@ -63,20 +64,23 @@ export function resolveProjectPlanningContext(
   planningContext?: PlanningProjectionContext,
 ): ProjectPlanningContext {
   try {
-    const documents = listPlanningDocuments(planningContext ?? workspaceRoot);
+    const legacyDocuments = listPlanningDocuments(planningContext ?? workspaceRoot);
+    const structured = readProjectCreationIntakeProjection(workspaceRoot);
+    const sqlIntake = structured?.reviewDocument;
+    const documents = sqlIntake ? [...legacyDocuments.filter(document => document.markdownPath !== sqlIntake.markdownPath), sqlIntake] : legacyDocuments;
     const intakeCorpus = analyzeProjectIntakeCorpus(documents);
-    if (intakeCorpus.state === "open") {
+    if (structured ? !sqlIntake : intakeCorpus.state === "open") {
       return notReady("Approved current Project Intake is required before Project Planning.", []);
     }
-    if (intakeCorpus.state === "conflict") {
+    if (!structured && intakeCorpus.state === "conflict") {
       return conflict("Multiple active canonical Project Intake documents are available.", intakeCorpus.evidencePaths);
     }
 
-    const intake = intakeCorpus.documents[0];
+    const intake = sqlIntake ?? intakeCorpus.documents[0];
     if (intake.effectiveDisposition !== "Approved") {
       return notReady("Project Intake must be Approved before Project Planning.", evidence(intake));
     }
-    if (!isReadable(intake)) {
+    if (!sqlIntake && !isReadable(intake)) {
       return localError("Project Intake is not readable as canonical Markdown.", evidence(intake));
     }
 

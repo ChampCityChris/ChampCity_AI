@@ -59,7 +59,7 @@ const {
 } = require("../support/canonical-markdown-fixtures.cjs");
 const {
   submitProjectIntake,
-} = require("../../dist/main/projectIntake/projectIntakeService.js");
+} = require("../support/legacy-project-intake-fixture.cjs");
 const {
   buildArchitectHandoffManifest,
 } = require("../../dist/main/integrations/architectMcpHandoffService.js");
@@ -476,7 +476,7 @@ test("Architect Interview regenerates a deleted prompt from Approved Project Int
   assert.equal(regenerated.state, "waiting-for-output");
   assert.equal(regenerated.promptDocument.markdownPath, result.architectPromptMarkdownPath);
   assert.equal(regenerated.interviewTargets.markdownPath, result.architectInterviewTargetMarkdownPath);
-  assert.equal(fs.readFileSync(path.join(root, result.projectIntakeMarkdownPath), "utf8"), intakeBefore);
+  assert.match(fs.readFileSync(path.join(root, result.projectIntakeMarkdownPath), "utf8"), /GENERATED FROM CHAMPCITY STRUCTURED PROJECT STATE/);
 
   const prompt = parseCanonicalMarkdownDocument(
     fs.readFileSync(path.join(root, result.architectPromptMarkdownPath), "utf8"),

@@ -307,29 +307,27 @@ const intakeWorkspaceProps = {
   onApply() {}, onNotesChange() {}, onStatusChange() {}, onCopy() {}, documentError: "", feedback: "",
 };
 
-test("Greenfield intake preserves fields, confirmation and shared document review through the shell", () => {
-  const markup = renderToStaticMarkup(React.createElement(ProjectIntakeWorkspace, intakeWorkspaceProps));
-  for (const text of ["Project Intake Questionnaire", "Project Name", "Project Purpose", "Desired Outcome", "Project Type", "Constraints / Non-Negotiables", "Project Repository", "Choose", "What should the Architect know", "Submit Project Intake", "submission confirmation", "planning/intake.md", "planning/prompt.md", "Current document", "Document disposition", "Apply Review", "Review &amp; Validation"]) {
-    assert.ok(markup.includes(text), text);
-  }
+test("Greenfield Intake preserves its visible form and shows no document before structured save", () => {
+  const markup = renderToStaticMarkup(React.createElement(ProjectIntakeWorkspace, {...intakeWorkspaceProps, onPrepared() {}, onRailStatus() {}}));
+  for (const text of ["Project Intake Questionnaire", "Project Name", "Project Purpose", "Desired Outcome", "Project Type", "Constraints / Non-Negotiables", "Project Repository", "Choose", "What should the Architect know", "Submit Project Intake", "Current document", "No document yet", "Prepare Architect Interview"]) assert.ok(markup.includes(text), text);
   assert.match(markup, /intake-workspace-shell/);
-  assert.equal((markup.match(/Document Disposition/g) || []).length, 1);
-  const plain = renderToStaticMarkup(React.createElement(ProjectIntakeWorkspace, {
-    ...intakeWorkspaceProps, selectedDocument: null, postSubmitConfirmation: null,
-    value: { ...intakeWorkspaceProps.value, hasExistingSourceOrPlanning: false },
-  }));
-  assert.doesNotMatch(plain, /What should the Architect know|submission confirmation|Apply Review/);
+  assert.doesNotMatch(markup, /submission confirmation|Document Disposition|Apply Review|ChatGPT/);
+  const plain = renderToStaticMarkup(React.createElement(ProjectIntakeWorkspace, {...intakeWorkspaceProps, onPrepared() {}, onRailStatus() {}, value: {...intakeWorkspaceProps.value, hasExistingSourceOrPlanning: false}}));
+  assert.doesNotMatch(plain, /What should the Architect know|Apply Review/);
 });
 
-test("Project Intake review and pending actions retain their disabling semantics", () => {
-  for (const state of [{ selectedDocumentHasLocalError: true }, { isApplying: true }]) {
-    const markup = renderToStaticMarkup(React.createElement(ProjectIntakeWorkspace, { ...intakeWorkspaceProps, ...state }));
-    const review = markup.slice(markup.indexOf('aria-label="Document disposition"'));
-    assert.match(review, /<select disabled=""/);
-    assert.match(review, /<input disabled=""/);
-    assert.match(review, /<button class="apply-button" disabled=""/);
-  }
-  const pending = renderToStaticMarkup(React.createElement(ProjectIntakeWorkspace, { ...intakeWorkspaceProps, isChoosingProjectRepository: true, isSubmittingIntake: true }));
-  assert.match(pending, /disabled=""[^>]*>.*Choosing.../);
-  assert.match(pending, /<button class="apply-button" disabled=""[^>]*>Saving.../);
+test("structured Intake disposition controls disable unsaved review and pending review requests", () => {
+  const {WorkflowIntakeDisposition} = loader.loadRendererSourceModule("src/renderer/app/WorkflowIntakeReview.tsx");
+  const model = {reviewDocument: intakeWorkspaceProps.selectedDocument};
+  const state = {model, status: "Approved", loaded: true, dirty: false, busy: false, notes: "Notes", setNotes() {}, setStatus() {}, review() {}};
+  const markup = renderToStaticMarkup(React.createElement(WorkflowIntakeDisposition, {state}));
+  assert.match(markup, /Document Disposition|Apply Review/);
+  assert.doesNotMatch(markup, /<button class="apply-button" disabled=""/);
+  const dirty = renderToStaticMarkup(React.createElement(WorkflowIntakeDisposition, {state: {...state, dirty: true}}));
+  assert.match(dirty, /<button class="apply-button" disabled=""/);
+  assert.match(dirty, /Save changes before reviewing/);
+  const busy = renderToStaticMarkup(React.createElement(WorkflowIntakeDisposition, {state: {...state, busy: true}}));
+  assert.match(busy, /<select disabled=""/); assert.match(busy, /<input disabled=""/);
+  assert.match(busy, /<button class="apply-button" disabled=""/);
+  assert.equal(renderToStaticMarkup(React.createElement(WorkflowIntakeDisposition, {state: {...state, model: null}})), "");
 });

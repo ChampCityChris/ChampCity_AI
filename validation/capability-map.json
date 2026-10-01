@@ -2993,7 +2993,8 @@
         "src/main/integrations/architectMcpHandoffService.ts",
         "src/main/project*/**",
         "src/renderer/app/*Project*",
-        "test/support/canonical-markdown-fixtures.cjs"
+        "test/support/canonical-markdown-fixtures.cjs",
+        "test/support/legacy-project-intake-fixture.cjs"
       ],
       "dependsOn": [
         "architect-output-lifecycle",

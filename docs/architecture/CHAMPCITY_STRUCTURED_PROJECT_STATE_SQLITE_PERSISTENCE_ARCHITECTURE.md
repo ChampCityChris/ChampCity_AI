@@ -310,3 +310,18 @@ This gives Memory fast local retrieval while preserving the rule that deleting/r
 `WorkflowIntake` and its record-version-scoped Operator review Decisions are canonical SQL state. Generated Markdown is a human-readable projection, and changes to that projection do not change or delete Intake state. Existing entity tables store open-text `entity_type` and validated `body_json`; registering WorkflowIntake and `intake_for` requires no SQLite table or schema migration. Existing-schema reopen proof verifies unchanged schema definitions, migration receipts, and authority rows after storing the new entity.
 
 `project_state_authority=structured` is the final project-wide legacy-writer cutoff. It does not require every domain to remain legacy until final cutover: incremental workspace-family migration may adopt structured entities earlier. RWS04A leaves that fence and all production Intake callers unchanged.
+
+
+## RWS04C Intake activation
+
+All seven substantive Workflow Intake families use exact WorkflowIntake SQL records and exact-record-version Operator Decisions. First access invokes the bounded RWS04B migration; ambiguous legacy sources remain unchanged with a precise blocker.
+
+`Intake form -> SQL WorkflowIntake -> generated Markdown projection -> Operator review -> SQL Decision`
+
+`Intake right pane = Markdown review projection`
+
+`Architect workspaces right pane = embedded ChatGPT where applicable`
+
+Save/review commits SQL before derived Markdown materialization. Materialization errors are reported separately and never reverse SQL. Generated Intake Markdown is rebuildable review output and excluded from legacy canonical discovery; manual file edits never update SQL. Greenfield preserves the familiar Intake path and form, and Architect preparation consumes approved structured Intake. Unsaved edits or a revised Intake disable continuation until the current revision is approved. The shared top stage rail and generic Intake shell remain unchanged.
+
+Intake authority is independent of `project_state_authority`. The final project-wide structured marker remains deferred until every still-authoritative legacy family migrates; the global legacy writer fence is unchanged.

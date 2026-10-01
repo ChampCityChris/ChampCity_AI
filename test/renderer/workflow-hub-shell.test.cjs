@@ -614,7 +614,7 @@ test("MCP handoff preflight preserves drafts while stale or unavailable and perm
 });
 
 
-test("all six intake entry workspaces share ordered fields and Architect companion", () => {
+test("all six intake entry workspaces share ordered fields and generated Markdown review", () => {
   const { WorkflowIntakeWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowIntakeWorkspace.tsx");
   const { WORKFLOW_INTAKE_DEFINITIONS } = loader.loadRendererSourceModule("src/shared/workflowIntakeContracts.ts");
   const { shouldAttachArchitectSurface } = loader.loadRendererSourceModule("src/renderer/app/architectSurfaceEligibility.ts");
@@ -625,7 +625,7 @@ test("all six intake entry workspaces share ordered fields and Architect compani
     assert.equal(workflowPlanningSurface({ ...workflow, lifecycleState: "closed" }), "generic");
     const markup = renderToStaticMarkup(React.createElement(WorkflowIntakeWorkspace, { workflow, onReturn() {}, onPrepared() {}, browserPanel: React.createElement("div", null, "Embedded Architect companion") }));
     assert.match(markup, /intake-workspace-shell/);
-    assert.match(markup, /Back to Workflows/); assert.match(markup, /Save Intake/); assert.match(markup, /Embedded Architect companion/);
+    assert.match(markup, /Back to Workflows/); assert.match(markup, /Save Intake/); assert.doesNotMatch(markup, /Embedded Architect companion/); assert.match(markup, /No document yet/);
     assert.doesNotMatch(markup, /private-exact-id|SourceBaseline/);
     let previous = -1;
     for (const field of definition.fields) {
@@ -633,7 +633,7 @@ test("all six intake entry workspaces share ordered fields and Architect compani
       const index = markup.indexOf(escaped); assert.ok(index > previous); previous = index;
       assert.ok(markup.includes(`<span>${escaped}${field.required ? " *" : ""}</span>`));
     }
-    assert.equal(shouldAttachArchitectSurface({ paneVisible: true, substantiveWorkflowForeground: true }), true);
+    assert.equal(shouldAttachArchitectSurface({ paneVisible: true, substantiveWorkflowForeground: true, intakeForeground: true }), false);
   }
 });
 const { WorkflowStageRail } = loader.loadRendererSourceModule("src/renderer/app/WorkflowStageRail.tsx");
@@ -700,4 +700,44 @@ test("Greenfield delegates pipeline presentation and preserves loops and navigat
   const intake = fs.readFileSync(path.join(repoRoot, "src/renderer/app/WorkflowIntakeWorkspace.tsx"), "utf8");
   assert.match(intake, /<IntakeWorkspaceShell/);
   assert.doesNotMatch(intake, /WorkflowStageRail|figma-pipeline/);
+});
+
+
+test("structured Intake renderer actions show SQL review, exact approval and unsaved/revised continuation gates", async () => {
+  const {loadProductionFunctions} = require("../support/production-execution.cjs");
+  const {WorkflowIntakeReviewCard, WorkflowIntakeDisposition} = loader.loadRendererSourceModule("src/renderer/app/WorkflowIntakeReview.tsx");
+  for (const workflowType of ["project-creation", "refactor-migration", "feature-capability"]) {
+    const slots = [], effects = [], calls = []; let cursor = 0;
+    const slot = initial => {const index = cursor++; return slots[index] ??= {value: initial};};
+    let sqlModel = {workflowType, values: {request: "Committed SQL content"}, intakeId: "intake", recordVersion: 1, disposition: {state: "approved"},
+      reviewDocument: {logicalDocumentId: "intake", markdownPath: `planning/workflows/exact/Intake/WORKFLOW_INTAKE_${workflowType}.md`, displayFilename: "Generated Intake.md", metadata: {artifactType: "generated-workflow-intake"}, initializationNeeded: false, effectiveDisposition: "Approved", bodyMarkdown: "# Committed SQL content"}};
+    const api = {
+      async getWorkflowIntake(id) {calls.push(["get",id]); return sqlModel;},
+      async saveWorkflowIntake(id,payload,version) {calls.push(["save",id,payload,version]); assert.equal(version,sqlModel.recordVersion);
+        sqlModel = {...sqlModel, values: payload.values, recordVersion: version+1, disposition: {state: "none"}, reviewDocument: {...sqlModel.reviewDocument, effectiveDisposition: "Pending", bodyMarkdown: "# Revised SQL content"}}; return sqlModel;},
+      async reviewWorkflowIntake(id,input) {calls.push(["review",id,input]); assert.equal(input.expectedIntakeRecordVersion,sqlModel.recordVersion);
+        sqlModel = {...sqlModel, disposition: {state: input.outcome}, reviewDocument: {...sqlModel.reviewDocument, effectiveDisposition: "Approved"}}; return sqlModel;},
+    };
+    const {useWorkflowIntake} = loadProductionFunctions("src/renderer/app/useWorkflowIntake.ts", ["useWorkflowIntake"], {
+      exports: {}, window: {champcity: api},
+      useState(initial) {const entry=slot(initial); return [entry.value,next=>{entry.value=typeof next === "function" ? next(entry.value) : next;}];},
+      useRef(initial) {return slot({current:initial}).value;},
+      useEffect(effect,deps) {const entry=slot(null); if (!entry.value || entry.value.some((value,index)=>value!==deps[index])) {entry.value=deps; effects.push(effect);}},
+    });
+    const render = () => {cursor=0; const state=useWorkflowIntake("exact"); for (const effect of effects.splice(0)) effect(); return state;};
+    let state=render();
+    assert.match(renderToStaticMarkup(React.createElement(WorkflowIntakeReviewCard,{state})), /No document yet/);
+    await Promise.resolve(); state=render(); assert.equal(state.approved,true);
+    const approved=renderToStaticMarkup(React.createElement(WorkflowIntakeReviewCard,{state}));
+    assert.match(approved,/Committed SQL content|Approved|Generated Intake/);
+    assert.equal((renderToStaticMarkup(React.createElement(WorkflowIntakeDisposition,{state})).match(/Document Disposition/g)||[]).length,1);
+    state.markDirty(); state=render(); assert.equal(state.approved,false);
+    assert.match(renderToStaticMarkup(React.createElement(WorkflowIntakeDisposition,{state})), /disabled=""/);
+    await state.save({workflowType,values:{request:"Revised"}}); state=render();
+    assert.equal(state.dirty,false); assert.equal(state.approved,false); assert.equal(state.model.recordVersion,2);
+    assert.match(renderToStaticMarkup(React.createElement(WorkflowIntakeReviewCard,{state})), /Revised SQL content|Pending/);
+    state.setStatus("Approved"); state.setNotes("Exact review"); state=render(); await state.review(); state=render();
+    assert.equal(state.approved,true); assert.equal(calls.at(-1)[2].expectedIntakeRecordVersion,2);
+    state.markDirty(); state=render(); assert.equal(state.approved,false);
+  }
 });

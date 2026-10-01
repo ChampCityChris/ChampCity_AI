@@ -1,3 +1,4 @@
+import { readProjectCreationIntakeProjection } from "../workflow/workflowIntakeReadProjection";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -328,7 +329,9 @@ export function evaluateDocumentFreshnessFromSnapshot(
   if (!document) {
     throw new Error("Unknown logical document ID.");
   }
-  return evaluateFreshnessFromSummaries(document, documents);
+  const sqlIntake = document.metadata.sourceRevisions?.some(source => /^planning\/project\/(?:Project_Intake|project-intake)\//i.test(source.path))
+    ? readProjectCreationIntakeProjection(snapshot.workspaceRoot)?.reviewDocument : undefined;
+  return evaluateFreshnessFromSummaries(document, sqlIntake ? [...documents.filter(item => item.markdownPath !== sqlIntake.markdownPath), sqlIntake] : documents);
 }
 
 export function previewDispositionInitialization(workspaceRoot: string): InitializationPreview {

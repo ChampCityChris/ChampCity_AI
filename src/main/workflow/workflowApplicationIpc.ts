@@ -20,9 +20,18 @@ export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcR
   };
   registry.handle("workflow:getIntake", (_event, ...args) => intake.ensureWorkflowIntake(getCurrentProjectRoot(), intakeId(args, 1)));
   registry.handle("workflow:saveIntake", (_event, ...args) => {
-    const id = intakeId(args, 2);
+    const id = intakeId(args, args.length === 2 ? 2 : 3);
     validateWorkflowIntakePayload(args[1]);
-    return intake.saveWorkflowIntake(getCurrentProjectRoot(), id, args[1]);
+    if (args[2] !== undefined && (!Number.isSafeInteger(args[2]) || (args[2] as number) < 1)) throw Error("Exact Intake record version is required.");
+    return intake.saveWorkflowIntake(getCurrentProjectRoot(), id, args[1], args[2] as number | undefined);
+  });
+  registry.handle("workflow:reviewIntake", (_event, ...args) => {
+    const id = intakeId(args, 2), input = args[1] as Record<string, unknown>;
+    if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).some(key => !["expectedIntakeRecordVersion", "outcome", "notes"].includes(key)) ||
+      !Number.isSafeInteger(input.expectedIntakeRecordVersion) || (input.expectedIntakeRecordVersion as number) < 1 ||
+      !["approved", "revision_requested", "rejected"].includes(input.outcome as string) ||
+      input.notes !== undefined && (typeof input.notes !== "string" || new TextEncoder().encode(input.notes).length > 4096)) throw Error("Bounded exact Intake review is required.");
+    return intake.reviewWorkflowIntake(getCurrentProjectRoot(), id, input as unknown as import("../../shared/projectState/projectStateService").WorkflowIntakeDecisionInput);
   });
   const execution = createWorkflowExecutionApplicationService();
   registry.handle("workflow:list", async (_event, ...args) => {

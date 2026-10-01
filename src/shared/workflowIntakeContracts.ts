@@ -183,7 +183,7 @@ export type WorkflowIntakePayload = {
   [T in ExistingProjectIntakeWorkflowType]: { workflowType: T; values: WorkflowIntakeInputMap[T] }
 }[ExistingProjectIntakeWorkflowType];
 export type WorkflowIntakeProjection = {
-  [T in ExistingProjectIntakeWorkflowType]: { workflowType: T; values: WorkflowIntakeInputMap[T] | null; intakeId?: string; recordVersion?: number; disposition?: import("./projectState/projectStateService").EffectiveDisposition; updatedAt?: string }
+  [T in ExistingProjectIntakeWorkflowType]: { workflowType: T; values: WorkflowIntakeInputMap[T] | null; intakeId?: string; recordVersion?: number; disposition?: import("./projectState/projectStateService").EffectiveDisposition; updatedAt?: string; reviewDocument?: import("./documents/planningDocument").PlanningDocumentDetail; materializationError?: string }
 }[ExistingProjectIntakeWorkflowType];
 
 export function isIntakeWorkflowType(value: unknown): value is ExistingProjectIntakeWorkflowType {

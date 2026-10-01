@@ -19,7 +19,7 @@ const {
 } = require("../../dist/main/documents/planningDocumentService.js");
 const {
   submitProjectIntake,
-} = require("../../dist/main/projectIntake/projectIntakeService.js");
+} = require("../support/legacy-project-intake-fixture.cjs");
 const {
   parseCanonicalMarkdownDocument,
 } = require("../../dist/shared/documents/canonicalMarkdown.js");

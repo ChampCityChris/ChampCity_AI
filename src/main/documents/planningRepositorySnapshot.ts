@@ -1,3 +1,5 @@
+import { readProjectCreationIntakeProjection } from "../workflow/workflowIntakeReadProjection";
+import { GENERATED_INTAKE_MARKER, isGeneratedIntakePath } from "../../shared/documents/generatedIntakeProjection";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -171,7 +173,7 @@ function publishSnapshot(
   }
 
   const orderedRecords = Object.freeze(
-    [...recordsByPath.values()].sort((left, right) =>
+    [...recordsByPath.values()].filter(record => !record.content?.startsWith(GENERATED_INTAKE_MARKER)).sort((left, right) =>
       comparePaths(left.summary.markdownPath, right.summary.markdownPath),
     ),
   );
@@ -201,6 +203,7 @@ function publishSnapshot(
 function discoverPlanningMarkdownInventory(workspaceRoot: string): InventoryEntry[] {
   testHooks.onInventoryScan?.(workspaceRoot);
   const entries: InventoryEntry[] = [];
+  const generatedGreenfieldPath = readProjectCreationIntakeProjection(workspaceRoot)?.reviewDocument?.markdownPath;
   const planningRoot = path.join(workspaceRoot, "planning");
   if (!fs.existsSync(planningRoot)) return entries;
   if (!fs.statSync(planningRoot).isDirectory()) {
@@ -211,7 +214,7 @@ function discoverPlanningMarkdownInventory(workspaceRoot: string): InventoryEntr
     for (const child of fs.readdirSync(directory, { withFileTypes: true })) {
       const absolutePath = path.join(directory, child.name);
       const relativePath = normalizeRelativePath(path.relative(workspaceRoot, absolutePath));
-      if (isArchitectDraftRelativePath(relativePath)) continue;
+      if (isArchitectDraftRelativePath(relativePath) || isGeneratedIntakePath(relativePath) || relativePath === generatedGreenfieldPath) continue;
 
       const extension = path.extname(child.name).toLowerCase();
       let stats: fs.Stats;

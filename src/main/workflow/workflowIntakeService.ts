@@ -1,3 +1,4 @@
+import { intakeReviewDocument, writeIntakeProjection } from "./workflowIntakeProjectionWriter";
 import fs from "node:fs";
 import path from "node:path";
 import { isIntakeWorkflowType, validateWorkflowIntakePayload, type WorkflowIntakePayload, type WorkflowIntakeProjection } from "../../shared/workflowIntakeContracts";
@@ -23,26 +24,34 @@ export function createWorkflowIntakeService(dependencies: { openStore?: (databas
       return await work(store, projectId, workflow);
     } finally { store.close(); }
   }
-  async function projection(store: ProjectStateStore, projectId: string, workflow: ProjectStateRecord<"Workflow">, record: ProjectStateRecord<"WorkflowIntake"> | null): Promise<WorkflowIntakeProjection> {
-    return {workflowType: workflow.body.workflowType, values: record?.body.values ?? null, ...(record ? {intakeId: record.id, recordVersion: record.recordVersion, updatedAt: record.updatedAt, disposition: await createProjectStateService(store, intakeOperator).getWorkflowIntakeDisposition(projectId, record.id)} : {})} as WorkflowIntakeProjection;
+  async function projection(root: string, store: ProjectStateStore, projectId: string, workflow: ProjectStateRecord<"Workflow">, record: ProjectStateRecord<"WorkflowIntake"> | null): Promise<WorkflowIntakeProjection> {
+    if (!record) return {workflowType: workflow.body.workflowType, values: null} as WorkflowIntakeProjection;
+    const disposition = await createProjectStateService(store, intakeOperator).getWorkflowIntakeDisposition(projectId, record.id);
+    const original = await store.getEntityVersion(projectId, record.id, 1);
+    const reviewDocument = intakeReviewDocument(workflow, record, disposition, original?.entityType === "WorkflowIntake" ? original : record);
+    let materializationError: string | undefined;
+    try { writeIntakeProjection(root, reviewDocument); }
+    catch (error) { materializationError = `SQL Intake is committed; generated Markdown could not be materialized: ${error instanceof Error ? error.message : String(error)}`; }
+    return {workflowType: workflow.body.workflowType, values: record.body.values, intakeId: record.id,
+      recordVersion: record.recordVersion, updatedAt: record.updatedAt, disposition, reviewDocument, materializationError} as unknown as WorkflowIntakeProjection;
   }
-  const getWorkflowIntake = (root: string, id: string) => withWorkflow(root, id, async (store, projectId, workflow) => projection(store, projectId, workflow, await currentIntake(store, projectId, workflow)));
-  const ensureWorkflowIntake = (root: string, id: string) => withWorkflow(root, id, async (store, projectId, workflow) => projection(store, projectId, workflow, await ensureIntake(root, store, projectId, workflow)));
+  const getWorkflowIntake = (root: string, id: string) => withWorkflow(root, id, async (store, projectId, workflow) => projection(root, store, projectId, workflow, await currentIntake(store, projectId, workflow)));
+  const ensureWorkflowIntake = (root: string, id: string) => withWorkflow(root, id, async (store, projectId, workflow) => projection(root, store, projectId, workflow, await ensureIntake(root, store, projectId, workflow)));
   const previewWorkflowIntakeMigration = (root: string, id: string) => withWorkflow(root, id, (store, projectId, workflow) => previewIntakeMigration(root, store, projectId, workflow));
   async function saveWorkflowIntake(root: string, id: string, payload: WorkflowIntakePayload, expectedIntakeRecordVersion?: number) {
     validateWorkflowIntakePayload(payload);
     return withWorkflow(root, id, async (store, projectId, workflow) => {
       if (workflow.body.workflowType !== payload.workflowType || workflow.body.currentWorkspace !== WORKFLOW_TYPE_REGISTRY[payload.workflowType].entryWorkspace) throw Error("Intake requires the exact Workflow type and entry workspace.");
       const current = await ensureIntake(root, store, projectId, workflow);
-      const record = await createProjectStateService(store, intakeOperator).saveWorkflowIntake(projectId, {workflowId: id, workflowType: payload.workflowType, values: Object.fromEntries(Object.entries(payload.values).filter(([, value]) => typeof value !== "string" || value.trim()).map(([key, value]) => [key, typeof value === "string" ? value.trim() : value])), expectedIntakeRecordVersion: expectedIntakeRecordVersion ?? current?.recordVersion});
-      return projection(store, projectId, workflow, record);
+      const record = await createProjectStateService(store, intakeOperator).saveWorkflowIntake(projectId, {workflowId: id, workflowType: payload.workflowType, values: Object.fromEntries(Object.entries(payload.workflowType === "project-creation" ? {...payload.values, projectRepository: fs.realpathSync(root)} : payload.values).filter(([, value]) => typeof value !== "string" || value.trim()).map(([key, value]) => [key, typeof value === "string" ? value.trim() : value])), expectedIntakeRecordVersion: expectedIntakeRecordVersion ?? current?.recordVersion});
+      return projection(root, store, projectId, workflow, record);
     });
   }
   async function reviewWorkflowIntake(root: string, id: string, input: WorkflowIntakeDecisionInput) {
     return withWorkflow(root, id, async (store, projectId, workflow) => {
       const record = await ensureIntake(root, store, projectId, workflow); if (!record) throw Error("Save Intake before review.");
       await createProjectStateService(store, intakeOperator).recordWorkflowIntakeDecision(projectId, record.id, input);
-      return projection(store, projectId, workflow, record);
+      return projection(root, store, projectId, workflow, record);
     });
   }
   async function saveProjectCreationIntake(root: string, id: string, submission: ProjectIntakeSubmission, expectedIntakeRecordVersion?: number) {

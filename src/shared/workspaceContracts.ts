@@ -1454,7 +1454,8 @@ export interface WorkspaceMigrationResult {
 
 export interface ChampCityApi {
   getWorkflowIntake(workflowId: string): Promise<import("./workflowIntakeContracts").WorkflowIntakeProjection>;
-  saveWorkflowIntake(workflowId: string, payload: import("./workflowIntakeContracts").WorkflowIntakePayload): Promise<import("./workflowIntakeContracts").WorkflowIntakeProjection>;
+  reviewWorkflowIntake(workflowId: string, input: Pick<import("./projectState/projectStateService").WorkflowIntakeDecisionInput, "expectedIntakeRecordVersion" | "outcome" | "notes">): Promise<import("./workflowIntakeContracts").WorkflowIntakeProjection>;
+  saveWorkflowIntake(workflowId: string, payload: import("./workflowIntakeContracts").WorkflowIntakePayload, expectedIntakeRecordVersion?: number): Promise<import("./workflowIntakeContracts").WorkflowIntakeProjection>;
   getIssueWorkflowPlanning(workflowId: string): Promise<import("./issuePlanningContracts").IssuePlanningProjection>;
   addIssueWorkflowEvidence(workflowId: string, files: import("./issuePlanningContracts").IssueEvidenceInput[]): Promise<import("./issuePlanningContracts").IssuePlanningProjection>;
   prepareIssueWorkflowPlanning(workflowId: string, stage: "rca" | "plan"): Promise<import("./issuePlanningContracts").IssuePlanningProjection>;
@@ -1627,9 +1628,6 @@ export interface ChampCityApi {
     fixCardId: string,
     currentImplementationId?: string,
   ) => Promise<import("./developmentEnvironmentContracts").DevelopmentEnvironmentPreflightResult>;
-  submitProjectIntake: (
-    submission: ProjectIntakeSubmission,
-  ) => Promise<ProjectIntakeSubmissionResult>;
   getArchitectBrowserFoundationStatus: () => Promise<ArchitectBrowserFoundationStatus>;
   onArchitectBrowserFoundationStatus: (
     listener: (status: ArchitectBrowserFoundationStatus) => void,

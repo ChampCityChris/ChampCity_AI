@@ -33,6 +33,12 @@ async function setup(context, options = {}) {
   return { root, projectId: registration.project.id, store, state: createProjectStateService(store, operator) };
 }
 
+async function approveIntake(root, id) {
+  const service = require("../../dist/main/workflow/workflowIntakeService.js").createWorkflowIntakeService();
+  const intake = await service.ensureWorkflowIntake(root, id);
+  await service.reviewWorkflowIntake(root, id, {expectedIntakeRecordVersion: intake.recordVersion, outcome: "approved"});
+}
+
 function groups(inventory) { return new Map(inventory.groups.map(group => [group.workflowType, group.workflows])); }
 
 test("registered Feature and Issue IPC handlers persist intake using preload argument shapes", async context => {
@@ -250,6 +256,7 @@ test("structured WIR promotes one Architect assessment and atomically opens an e
     assert.equal(routesTo[0].toEntityId, completed.targetWorkflowId);
     const targetPlanner = createFeaturePlanningService();
     await targetPlanner.saveIntake(env.root, completed.targetWorkflowId, { requestedCapability: "Routed capability", baseline: "Current behavior", scopeIn: "Bounded addition", scopeOut: "Unrelated changes", constraints: "Preserve contracts", preservation: "Existing behavior", affectedSurfaces: "Feature surface", evidence: "Synthetic route evidence", compatibilityRollout: "No migration" });
+    await approveIntake(env.root, completed.targetWorkflowId);
     await targetPlanner.prepare(env.root, completed.targetWorkflowId, "assessment");
     await targetPlanner.act(env.root, completed.targetWorkflowId, { type: "save-draft", content: "Assess the routed capability." });
     await targetPlanner.act(env.root, completed.targetWorkflowId, { type: "decide", stage: "assessment", outcome: "accept", rationale: "Accept routed assessment.", assessment: acceptedAssessment });
@@ -424,7 +431,10 @@ test("Feature planning persists exact Workflow intake, keeps revision noncanonic
     assert.equal((await createFeaturePlanningService().get(env.root, direct.workflow.workflowId)).stage, "intake");
     assert.equal((await feature.get(env.root, second.workflow.workflowId)).intake, null);
     assert.equal((await env.store.listEntities(env.projectId, "WorkIntake")).length, 0);
+    await assert.rejects(feature.prepare(env.root, direct.workflow.workflowId, "assessment"), /Approve the current Feature Intake/);
+    await approveIntake(env.root, direct.workflow.workflowId);
     await assert.rejects(feature.prepare(env.root, direct.workflow.workflowId, "plan"), /Accept the current Feature assessment/);
+    await approveIntake(env.root, direct.workflow.workflowId);
     await feature.prepare(env.root, direct.workflow.workflowId, "assessment");
     assert.equal((await workflows.getCurrentProjectWorkflow(env.root, direct.workflow.workflowId)).workflow.currentWorkspace, "feature-assessment");
     assert.equal((await createFeaturePlanningService().get(env.root, direct.workflow.workflowId)).stage, "assessment");
@@ -433,6 +443,7 @@ test("Feature planning persists exact Workflow intake, keeps revision noncanonic
     assert.equal((await env.store.listEntities(env.projectId, "WorkItem")).length, 0);
     assert.equal((await workflows.getCurrentProjectWorkflow(env.root, direct.workflow.workflowId)).workflow.currentWorkspace, "feature-assessment");
     assert.equal((await feature.get(env.root, direct.workflow.workflowId)).assessmentState, "revision-requested");
+    await approveIntake(env.root, direct.workflow.workflowId);
     await feature.prepare(env.root, direct.workflow.workflowId, "assessment");
     await feature.act(env.root, direct.workflow.workflowId, { type: "save-draft", content: "Assessment current." });
     await feature.act(env.root, direct.workflow.workflowId, { type: "decide", stage: "assessment", outcome: "accept", rationale: "Assessment approved.", assessment: acceptedAssessment });
@@ -470,7 +481,8 @@ test("concurrent same-title direct Features accept and reopen isolated canonical
     const second = await workflows.startDirectWorkflow(env.root, { workflowType: "feature-capability", title: "Concurrent capability" });
     const accept = async (workflow, label) => {
       await planner.saveIntake(env.root, workflow.workflowId, { requestedCapability: `${label} request`, baseline: `${label} baseline`, scopeIn: `${label} scope`, scopeOut: "Unrelated", constraints: "Preserve interface", preservation: "Existing behavior", affectedSurfaces: `${label} surface`, evidence: `${label} evidence`, compatibilityRollout: "No migration" });
-      await planner.prepare(env.root, workflow.workflowId, "assessment");
+      await approveIntake(env.root, workflow.workflowId);
+    await planner.prepare(env.root, workflow.workflowId, "assessment");
       await planner.act(env.root, workflow.workflowId, { type: "save-draft", content: `${label} assessment` });
       await planner.act(env.root, workflow.workflowId, { type: "decide", stage: "assessment", outcome: "accept", rationale: `${label} assessment accepted`, assessment: { ...acceptedAssessment, requestedCapabilityDelta: `${label} outcome` } });
       const graph = { workflowId: workflow.workflowId, topology: "direct", solution: { title: `${label} solution`, objective: `${label} outcome`, scopeIn: [`${label} scope`], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [{ statement: `${label} criterion`, criticality: "required", verificationIntent: `Verify ${label}`, validationPolicy: "semantic_ai" }], workItems: [{ key: `${label}-work`, kind: "feature", title: `${label} work`, objective: `${label} result`, dependencyKeys: [], criteria: [] }] };
@@ -519,6 +531,7 @@ test("Issue Workflow persists evidence and accepted RCA, keeps revision canonica
     const secondEvidence = await issues.addEvidence(env.root, second.workflow.workflowId, [{ name: "second.txt", mediaType: "text/plain", base64: Buffer.from("second issue evidence").toString("base64"), description: "Second issue log" }]);
     assert.notEqual(secondEvidence.intakeAuthority.intakeId, (await issues.get(env.root, first.workflow.workflowId)).intakeAuthority.intakeId);
     assert.equal(secondEvidence.evidence.length, 1);
+    await approveIntake(env.root, second.workflow.workflowId);
     await issues.prepare(env.root, second.workflow.workflowId, "rca");
     await issues.act(env.root, second.workflow.workflowId, { type: "save-draft", content: "Second issue RCA under revision." });
     await issues.act(env.root, second.workflow.workflowId, { type: "decide-rca", outcome: "revision", rationale: "Clarify the independent reproduction." });
@@ -529,6 +542,7 @@ test("Issue Workflow persists evidence and accepted RCA, keeps revision canonica
     assert.notEqual(evidence.evidence[0].id, secondEvidence.evidence[0].id);
     assert.match(evidence.evidence[0].body.payloadRef, /^project-evidence:/);
     assert.equal(evidence.evidence[0].body.digest, require("node:crypto").createHash("sha256").update("reproduction evidence").digest("hex"));
+    await approveIntake(env.root, first.workflow.workflowId);
     await issues.prepare(env.root, first.workflow.workflowId, "rca");
     assert.equal((await workflows.getCurrentProjectWorkflow(env.root, first.workflow.workflowId)).workflow.currentWorkspace, "issue-rca");
     assert.equal((await createIssuePlanningService().get(env.root, first.workflow.workflowId)).stage, "rca");
@@ -563,6 +577,7 @@ test("Issue Workflow persists evidence and accepted RCA, keeps revision canonica
     assert.doesNotMatch(firstRcaDecision.body.rationale, /canonical-root-causes/i);
     assert.ok(links.some(edge => edge.relationshipType === "explains" && edge.fromEntityId === afterRca.rootCauses[0].id && edge.toEntityId === finding.id));
     assert.ok(links.some(edge => edge.relationshipType === "supports" && edge.fromEntityId === evidence.evidence[0].id && edge.toEntityId === afterRca.rootCauses[0].id));
+    await approveIntake(env.root, first.workflow.workflowId);
     await issues.prepare(env.root, first.workflow.workflowId, "rca");
     await issues.act(env.root, first.workflow.workflowId, { type: "save-draft", content: "Updated RCA review draft." });
     await issues.act(env.root, first.workflow.workflowId, { type: "decide-rca", outcome: "revision", rationale: "Clarify the regression trigger." });
@@ -587,6 +602,7 @@ test("Issue Workflow persists evidence and accepted RCA, keeps revision canonica
     assert.equal((await issues.get(env.root, first.workflow.workflowId)).rcaState, "not-reviewed");
     await assert.rejects(issues.act(env.root, first.workflow.workflowId, { type: "decide-plan", outcome: "accept" }), /current plan workspace and an accepted current RCA/);
     assert.equal((await env.store.listEntities(env.projectId, "WorkItem")).length, 0);
+    await approveIntake(env.root, first.workflow.workflowId);
     await issues.prepare(env.root, first.workflow.workflowId, "rca");
     await issues.act(env.root, first.workflow.workflowId, { type: "save-draft", content: "Re-review with the newly added evidence." });
     const refreshedRca = await issues.act(env.root, first.workflow.workflowId, { type: "decide-rca", outcome: "accept", rationale: "Accept RCA with current evidence.", rootCauses: [{ title: "Search-dependent export mapping", statement: "Export crashes when search state is populated.", rationale: "The reproduction and newly added evidence confirm the missing state mapping.", findingIds: [finding.id], evidenceIds: [reproductionEvidence.id, latestEvidence.id] }] });
@@ -732,13 +748,15 @@ test("structured Intake imports all seven legacy families once, preserves eviden
         await intake.saveProjectCreationIntake(env.root, workflow.id, {...values, projectRepository: "ignored", projectPurpose: "Revised structured purpose"}, 1);
         assert.equal((await intake.getWorkflowIntake(env.root, workflow.id)).values.projectRepository, fs.realpathSync(env.root));
         assert.equal((await intake.getWorkflowIntake(env.root, workflow.id)).disposition.state, "none");
-        assert.equal(fs.readFileSync(path.join(env.root, record.provenance.sourceRef), "utf8"), originalMarkdown);
+        assert.match(fs.readFileSync(path.join(env.root, record.provenance.sourceRef), "utf8"), /GENERATED FROM CHAMPCITY STRUCTURED PROJECT STATE/);
         await assert.rejects(intake.reviewWorkflowIntake(env.root, workflow.id, {expectedIntakeRecordVersion: 1, outcome: "approved"}), /stale/);
         await intake.reviewWorkflowIntake(env.root, workflow.id, {expectedIntakeRecordVersion: 2, outcome: "approved"});
       } else if (workflowType === "feature-capability") {
+        await approveIntake(env.root, workflow.id);
         const prepared = await createFeaturePlanningService().prepare(env.root, workflow.id, "assessment");
         assert.match(prepared.draft.instruction, new RegExp(`WorkflowIntake ${imported.intakeId}@1`));
       } else if (workflowType === "issue-resolution") {
+        await approveIntake(env.root, workflow.id);
         const prepared = await createIssuePlanningService().prepare(env.root, workflow.id, "rca");
         assert.match(prepared.draft.instruction, new RegExp(`WorkflowIntake ${imported.intakeId}@1`));
       } else {
@@ -805,7 +823,7 @@ test("newly registered Projects lazily import existing Greenfield dispositions w
       assert.deepEqual(await service.applyWorkflowIntakeMigration(root, workflow.id), imported);
       assert.deepEqual(await store.getEntity(registration.project.id, workflow.id), beforeWorkflow);
       assert.deepEqual(schema(), beforeSchema);
-      assert.equal(fs.readFileSync(path.join(root, relativePath), "utf8"), legacy);
+      assert.match(fs.readFileSync(path.join(root, relativePath), "utf8"), /GENERATED FROM CHAMPCITY STRUCTURED PROJECT STATE/);
       if (status !== "Pending") {
         const decision = await store.getEntity(registration.project.id, imported.disposition.decisionId);
         assert.equal(decision.body.rationale, "Historical review notes");
@@ -826,10 +844,109 @@ test("new Issue RCA can cite structured Intake Evidence without creating Intake 
     const id = (await app.startDirectWorkflow(env.root, {workflowType: "issue-resolution", title: "Structured RCA"})).workflow.workflowId;
     await issue.saveIntake(env.root, id, {title: "Failure", observed: "Observed failure", expected: "Success", reproduction: "Run fixture", environment: "Test", impact: "Blocked", constraints: "Preserve behavior"});
     const model = await issue.addEvidence(env.root, id, [{name: "proof.txt", mediaType: "text/plain", base64: Buffer.from("Failure proof").toString("base64"), description: "Failure proof"}]);
+    await approveIntake(env.root, id);
     await issue.prepare(env.root, id, "rca");
     await issue.act(env.root, id, {type: "save-draft", content: "Root cause based on structured Intake and supplied Evidence"});
     const result = await issue.act(env.root, id, {type: "decide-rca", outcome: "accept", rationale: "Exact Intake and Evidence support this cause", rootCauses: [{title: "Cause", statement: "Cause explains failure", rationale: "Evidence reproduces the failure", findingIds: [], evidenceIds: [model.evidence[0].id]}]});
     assert.equal(result.rootCauses.length, 1);
     assert.equal((await env.store.listEntities(env.projectId, "Finding")).filter(r => r.body.category === "issue-intake").length, 0);
+  } finally {env.store.close();}
+});
+
+
+test("SQL Intake projection rebuild, manual edits, exact review, failure isolation and authority fences", async context => {
+  const {createWorkflowIntakeService} = require("../../dist/main/workflow/workflowIntakeService.js");
+  const {registerWorkflowApplicationIpc} = require("../../dist/main/workflow/workflowApplicationIpc.js");
+  const {WORKFLOW_INTAKE_DEFINITIONS} = require("../../dist/shared/workflowIntakeContracts.js");
+  const {listPlanningDocuments} = require("../../dist/main/documents/planningDocumentService.js");
+  const {writeCanonicalMarkdownDocument} = require("../../dist/main/documents/canonicalMarkdownDocumentWriter.js");
+  const env = await setup(context), service = createWorkflowIntakeService(), handlers = new Map();
+  registerWorkflowApplicationIpc({handle: (channel, handler) => handlers.set(channel, handler)}, () => env.root);
+  try {
+    const workflow = (await createWorkflowApplicationService().startDirectWorkflow(env.root, {workflowType: "refactor-migration", title: "Projection fixture"})).workflow;
+    const id = workflow.workflowId;
+    assert.equal((await handlers.get("workflow:getIntake")({}, id)).values, null);
+    const payload = {workflowType: workflow.workflowType, values: Object.fromEntries(WORKFLOW_INTAKE_DEFINITIONS[workflow.workflowType].fields.filter(f => f.required).map(f => [f.key, `${f.key} fixture`]))};
+    const saved = await handlers.get("workflow:saveIntake")({}, id, payload, undefined);
+    assert.equal(saved.recordVersion, 1); assert.equal(saved.reviewDocument.effectiveDisposition, "Pending");
+    const file = path.join(env.root, saved.reviewDocument.markdownPath);
+    const content = fs.readFileSync(file, "utf8");
+    assert.match(content, /GENERATED FROM CHAMPCITY STRUCTURED PROJECT STATE/);
+    assert.equal(listPlanningDocuments(env.root).some(d => d.markdownPath === saved.reviewDocument.markdownPath), false);
+    writeCanonicalMarkdownDocument({workspaceRoot: env.root, relativePath: "planning/unrelated-notes.md", metadata: {schemaVersion: 1, artifactType: "context-notes", artifactRevision: 1, participationRole: "contextOnly", identity: {}, sourceRevisions: [], workflowData: {}, documentDisposition: {status: "Pending", notes: "", reviewedAt: null}}, bodyMarkdown: `# Notes\n\nQuoted marker: ${require("../../dist/shared/documents/generatedIntakeProjection.js").GENERATED_INTAKE_MARKER}`});
+    assert.equal(listPlanningDocuments(env.root).some(d => d.markdownPath === "planning/unrelated-notes.md"), true, "Unrelated Markdown quoting the marker remains discoverable");
+    const {writeIntakeProjection} = require("../../dist/main/workflow/workflowIntakeProjectionWriter.js");
+    assert.throws(() => writeIntakeProjection(env.root, {...saved.reviewDocument, markdownPath: "../escaped.md"}), /path/i);
+    const directory = path.dirname(file), backup = directory + "-held";
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-intake-outside-"));
+    context.after(() => fs.rmSync(outside, {recursive: true, force: true}));
+    fs.renameSync(directory, backup);
+    try {
+      fs.symlinkSync(outside, directory, process.platform === "win32" ? "junction" : "dir");
+      assert.throws(() => writeIntakeProjection(env.root, saved.reviewDocument), /contained real directories/);
+      assert.deepEqual(fs.readdirSync(outside), []);
+    } finally {
+      if (fs.existsSync(directory)) fs.unlinkSync(directory);
+      fs.renameSync(backup, directory);
+    }
+    fs.unlinkSync(file);
+    assert.deepEqual(await handlers.get("workflow:getIntake")({}, id), saved);
+    assert.equal(fs.readFileSync(file, "utf8"), content);
+    fs.writeFileSync(file, "Manual text is never an Intake mutation.");
+    assert.deepEqual((await env.store.getEntity(env.projectId, saved.intakeId)).body.values, payload.values);
+    assert.deepEqual(await service.ensureWorkflowIntake(env.root, id), saved);
+    const approved = await handlers.get("workflow:reviewIntake")({}, id, {expectedIntakeRecordVersion: 1, outcome: "approved", notes: "Reviewed"});
+    assert.equal(approved.reviewDocument.effectiveDisposition, "Approved");
+    assert.match(fs.readFileSync(file, "utf8"), /"disposition":"Approved"/);
+    await assert.rejects(Promise.resolve().then(() => handlers.get("workflow:reviewIntake")({}, id, {expectedIntakeRecordVersion: 1, outcome: "approved", legacyReviewedAt: "2000-01-01"})), /Bounded/);
+    const revised = await handlers.get("workflow:saveIntake")({}, id, {...payload, values: {...payload.values, transformationObjective: "New objective"}}, 1);
+    assert.equal(revised.recordVersion, 2); assert.equal(revised.reviewDocument.effectiveDisposition, "Pending");
+    await assert.rejects(handlers.get("workflow:reviewIntake")({}, id, {expectedIntakeRecordVersion: 1, outcome: "approved"}), /stale/);
+    fs.unlinkSync(file); fs.mkdirSync(file);
+    const failed = await service.saveWorkflowIntake(env.root, id, payload, 2);
+    assert.match(failed.materializationError, /SQL Intake is committed/);
+    assert.equal((await env.store.getEntity(env.projectId, saved.intakeId)).recordVersion, 3);
+    fs.rmdirSync(file);
+    const {DatabaseSync} = require("node:sqlite");
+    const db = new DatabaseSync(database(env.root));
+    try { db.prepare("INSERT INTO project_state_authority (project_id,generation,authority,updated_at) VALUES (?,1,'structured',?) ON CONFLICT(project_id) DO UPDATE SET authority='structured'").run(env.projectId, new Date().toISOString()); } finally {db.close();}
+    const structured = await service.ensureWorkflowIntake(env.root, id);
+    assert.equal(structured.materializationError, undefined); assert.equal(fs.readFileSync(file, "utf8"), structured.reviewDocument.bodyMarkdown);
+    assert.throws(() => writeCanonicalMarkdownDocument({workspaceRoot: env.root, relativePath: "planning/unrelated.md", metadata: {}, bodyMarkdown: "Legacy authority"}), /structured|legacy|authority/i);
+  } finally {env.store.close();}
+});
+
+
+test("Greenfield SQL Intake preserves its generated path and prepares Interview from current approval", async context => {
+  const env = await setup(context);
+  const {createWorkflowIntakeService} = require("../../dist/main/workflow/workflowIntakeService.js");
+  const {regenerateArchitectInterviewPrompt} = require("../../dist/main/architectInterview/architectInterviewService.js");
+  const {resolveFirstNonApprovedDocument} = require("../../dist/main/documents/firstNonApprovedResolver.js");
+  const {resolveProjectPlanningContext} = require("../../dist/main/projectPlanning/projectPlanningContext.js");
+  try {
+    const workflow = (await env.state.createProjectCreationWorkflow(env.projectId,{title:"Greenfield fixture"})).workflow;
+    const service = createWorkflowIntakeService();
+    const payload = {workflowType:"project-creation",values:{projectName:"My Greenfield",projectPurpose:"Create",desiredOutcome:"Deliver",projectType:"Desktop application",projectRepository:"untrusted renderer repository",hasExistingSourceOrPlanning:false}};
+    let saved = await service.saveWorkflowIntake(env.root,workflow.id,payload);
+    assert.equal(saved.values.projectRepository,fs.realpathSync(env.root));
+    assert.equal(saved.reviewDocument.markdownPath,"planning/project/Project_Intake/PROJECT_INTAKE_my_greenfield.md");
+    await assert.rejects(regenerateArchitectInterviewPrompt(env.root),/approved/i);
+    await service.reviewWorkflowIntake(env.root,workflow.id,{expectedIntakeRecordVersion:saved.recordVersion,outcome:"approved"});
+    const prepared = await regenerateArchitectInterviewPrompt(env.root);
+    assert.equal(prepared.canPrepareHandoff,true);
+    assert.equal(resolveFirstNonApprovedDocument(env.root).activeWorkspaceId,"architect-interview");
+    const generated = path.join(env.root,saved.reviewDocument.markdownPath);
+    fs.writeFileSync(generated,"A manual file edit cannot remove SQL approval.");
+    assert.equal(resolveFirstNonApprovedDocument(env.root).activeWorkspaceId,"architect-interview");
+    assert.match(resolveProjectPlanningContext(env.root).reason,/Architect Interview output/);
+    saved = await service.saveWorkflowIntake(env.root,workflow.id,{...payload,values:{...payload.values,projectName:"Renamed project"}},saved.recordVersion);
+    assert.equal(saved.reviewDocument.markdownPath,"planning/project/Project_Intake/PROJECT_INTAKE_my_greenfield.md");
+    assert.equal(saved.reviewDocument.effectiveDisposition,"Pending");
+    assert.equal(resolveFirstNonApprovedDocument(env.root).document.owningWorkspaceId,"project-intake-capture");
+    await service.reviewWorkflowIntake(env.root,workflow.id,{expectedIntakeRecordVersion:saved.recordVersion,outcome:"approved"});
+    assert.equal((await regenerateArchitectInterviewPrompt(env.root)).canPrepareHandoff,true);
+    const prompt = require("../../dist/shared/documents/canonicalMarkdown.js").parseCanonicalMarkdownDocument(fs.readFileSync(path.join(env.root,prepared.promptDocument.markdownPath),"utf8"));
+    assert.equal(prompt.metadata.artifactRevision,2);
+    assert.equal(prompt.metadata.sourceRevisions[0].revision,saved.recordVersion);
   } finally {env.store.close();}
 });

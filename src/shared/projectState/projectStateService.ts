@@ -1,3 +1,4 @@
+import { workflowIntakeDisposition } from "./workflowIntakeDisposition";
 import type { DispositionState, EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef, ProjectId, ProjectStateEntity, ProjectStateRecord, TestLifecycleAssessmentStatus, ValidationMode, WorkflowState, WorkIntakeState, WorkRoute } from "./domainContracts";
 import { getWorkflowTypeDefinition, workflowTypeForWorkRoute, type ExistingProjectWorkRoute, type WorkflowType } from "./workflowTypeRegistry";
 import { assertSupersession } from "./domainInvariants";
@@ -744,17 +745,8 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   async function getWorkflowIntakeDisposition(projectId: ProjectId, intakeId: EntityId): Promise<EffectiveDisposition> {
     return store.transaction(projectId, async unit => {
       const intake = await requireCurrentWorkflowIntake(unit, projectId, intakeId);
-      const ids = new Set((await unit.listRelationships(projectId, "governs")).filter(edge => edge.toEntityId === intake.id && !edge.endedAt).map(edge => edge.fromEntityId));
-      const sequence = new Map((await unit.listOutbox(projectId)).filter(event => event.entityId && event.payload.operation === "create").map(event => [event.entityId!, event.sequence]));
-      const now = new Date().toISOString();
-      const decisions = (await unit.listEntities(projectId, "Decision")).filter((record): record is ProjectStateRecord<"Decision"> => record.entityType === "Decision")
-        .filter(record => ids.has(record.id) && record.lifecycleState === "active" && record.body.decisionType === "workflow-intake-review" &&
-          record.body.decisionScope === `workflow-intake:${intake.id}@${intake.recordVersion}` && record.body.decidedBy.principalType === "human" &&
-          record.body.decisionRole === "Operator" && ["approved", "revision_requested", "rejected"].includes(record.body.outcome) && record.body.effectiveAt <= now)
-        .sort((a, b) => a.body.effectiveAt.localeCompare(b.body.effectiveAt) || (sequence.get(a.id) ?? 0) - (sequence.get(b.id) ?? 0) || a.id.localeCompare(b.id));
-      const decision = decisions.at(-1);
-      return decision ? { state: decision.body.outcome as DispositionState, decisionId: decision.id, effectiveAt: decision.body.effectiveAt }
-        : { state: "none", decisionId: null, effectiveAt: null };
+      return workflowIntakeDisposition(intake, await unit.listEntities(projectId, "Decision"),
+        await unit.listRelationships(projectId, "governs"), await unit.listOutbox(projectId));
     });
   }
 

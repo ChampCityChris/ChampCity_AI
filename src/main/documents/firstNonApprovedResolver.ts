@@ -1,3 +1,4 @@
+import { readProjectCreationIntakeProjection } from "../workflow/workflowIntakeReadProjection";
 import type { FirstNonApprovedResult } from "../../shared/documents/documentOrder";
 import { resolveFirstNonApproved } from "../../shared/documents/documentOrder";
 import { listPlanningDocumentsFromSnapshot } from "./planningDocumentService";
@@ -18,7 +19,8 @@ export function resolveFirstNonApprovedDocument(
 export function resolveFirstNonApprovedDocumentFromSnapshot(
   snapshot: PlanningRepositorySnapshot,
 ): FirstNonApprovedResult {
-  return resolveFirstNonApproved(listPlanningDocumentsFromSnapshot(snapshot));
+  const structured = readProjectCreationIntakeProjection(snapshot.workspaceRoot);
+  return resolveFirstNonApproved(listPlanningDocumentsFromSnapshot(snapshot), structured ? structured.reviewDocument ?? null : undefined);
 }
 
 export function resolveFirstNonApprovedDocumentFromContext(

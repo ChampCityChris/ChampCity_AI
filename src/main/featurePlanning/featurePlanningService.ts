@@ -69,6 +69,7 @@ export function createFeaturePlanningService(dependencies: { openStore?: (databa
     let projection = await get(root, workflowId);
     if (projection.workflow.currentWorkspace === "work-item-map") throw Error("Accepted Feature Work Item Map is read-only.");
     if (!projection.intake) throw Error("Save Feature Intake before preparing Architect work.");
+    if (projection.intakeAuthority.disposition?.state !== "approved") throw Error("Approve the current Feature Intake revision before preparing Architect work.");
     if (stage === "plan" && (projection.assessmentState !== "accepted" || !projection.acceptedAssessment.length)) throw Error("Accept the current Feature assessment before preparing the plan.");
     const workspace = stage === "assessment" ? "feature-assessment" : "feature-planning";
     await withState(root, workflowId, async (store, projectId, workflow) => { if (workflow.body.currentWorkspace !== workspace) await createProjectStateService(store, operator).reviseRecord(projectId, workflowId, { currentWorkspace: workspace }, workflow.recordVersion); });

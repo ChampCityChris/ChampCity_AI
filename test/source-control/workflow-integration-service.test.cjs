@@ -41,6 +41,9 @@ async function qualifyExactWorkflowIntegration(context, workflowType) {
     const issuePlanning = createIssuePlanningService();
     await issuePlanning.saveIntake(root, created.workflow.id, { title: "Incomplete response", observed: "A response omits the accepted item.",
       expected: "The accepted item is present.", reproduction: "Request the item and inspect the response.", environment: "Synthetic test", impact: "The requested result is incomplete.", constraints: "Preserve the current response contract." });
+    const intakeService = require("../../dist/main/workflow/workflowIntakeService.js").createWorkflowIntakeService();
+    const intakeForReview = await intakeService.ensureWorkflowIntake(root, created.workflow.id);
+    await intakeService.reviewWorkflowIntake(root, created.workflow.id, {expectedIntakeRecordVersion: intakeForReview.recordVersion, outcome: "approved"});
     await issuePlanning.prepare(root, created.workflow.id, "rca");
     store = createSQLiteProjectStateStore(path.join(metadata, "project-state.sqlite")); state = createProjectStateService(store, operator);
     const finding = (await store.listEntities(projectId, "WorkflowIntake")).find(record => record.entityType === "WorkflowIntake" && record.body.workflowId === created.workflow.id);

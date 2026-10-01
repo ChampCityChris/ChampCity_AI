@@ -7,7 +7,7 @@ const { mainPreloadHarness } = require("../support/production-execution.cjs");
 
 const {
   submitProjectIntake,
-} = require("../../dist/main/projectIntake/projectIntakeService.js");
+} = require("../support/legacy-project-intake-fixture.cjs");
 const {
   parseCanonicalMarkdownDocument,
 } = require("../../dist/shared/documents/canonicalMarkdown.js");

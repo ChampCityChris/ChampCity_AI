@@ -20,7 +20,8 @@ const api: ChampCityApi = {
   actOnIssueWorkflowPlanning: (workflowId, action) => ipcRenderer.invoke("issuePlanning:act", workflowId, action) as ReturnType<ChampCityApi["actOnIssueWorkflowPlanning"]>,
   copyIssueWorkflowPlanningHandoff: workflowId => ipcRenderer.invoke("issuePlanning:copy", workflowId) as ReturnType<ChampCityApi["copyIssueWorkflowPlanningHandoff"]>,
   getWorkflowIntake: workflowId => ipcRenderer.invoke("workflow:getIntake", workflowId) as ReturnType<ChampCityApi["getWorkflowIntake"]>,
-  saveWorkflowIntake: (workflowId, payload) => ipcRenderer.invoke("workflow:saveIntake", workflowId, payload) as ReturnType<ChampCityApi["saveWorkflowIntake"]>,
+  reviewWorkflowIntake: (workflowId, input) => ipcRenderer.invoke("workflow:reviewIntake", workflowId, input) as ReturnType<ChampCityApi["reviewWorkflowIntake"]>,
+  saveWorkflowIntake: (workflowId, payload, expectedIntakeRecordVersion) => ipcRenderer.invoke("workflow:saveIntake", workflowId, payload, expectedIntakeRecordVersion) as ReturnType<ChampCityApi["saveWorkflowIntake"]>,
   getFeaturePlanning: workflowId => ipcRenderer.invoke("featurePlanning:get", workflowId) as ReturnType<ChampCityApi["getFeaturePlanning"]>,
   prepareFeaturePlanning: (workflowId, stage) => ipcRenderer.invoke("featurePlanning:prepare", workflowId, stage) as ReturnType<ChampCityApi["prepareFeaturePlanning"]>,
   actOnFeaturePlanning: (workflowId, action) => ipcRenderer.invoke("featurePlanning:act", workflowId, action) as ReturnType<ChampCityApi["actOnFeaturePlanning"]>,
@@ -304,11 +305,6 @@ const api: ChampCityApi = {
       fixCardId,
       currentImplementationId,
     ) as ReturnType<ChampCityApi["repairIssueDevelopmentEnvironment"]>,
-  submitProjectIntake: (submission) =>
-    ipcRenderer.invoke(
-      "projectIntake:submit",
-      submission,
-    ) as ReturnType<ChampCityApi["submitProjectIntake"]>,
   getArchitectBrowserFoundationStatus: () =>
     ipcRenderer.invoke(
       "architectBrowser:foundationStatus",

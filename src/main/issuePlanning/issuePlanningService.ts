@@ -82,7 +82,7 @@ export function createIssuePlanningService(dependencies: { openStore?: (database
     });
   }
   async function prepare(root: string, workflowId: string, stage: "rca" | "plan") {
-    let model = await get(root, workflowId); if (model.workflow.currentWorkspace === "work-item-map") throw Error("Accepted Issue Work Item Map is read-only."); if (!model.intake) throw Error("Save Issue Intake before preparing Architect work."); if (stage === "plan" && model.rcaState !== "accepted") throw Error("Accept the current Issue RCA before preparing correction planning.");
+    let model = await get(root, workflowId); if (model.workflow.currentWorkspace === "work-item-map") throw Error("Accepted Issue Work Item Map is read-only."); if (!model.intake) throw Error("Save Issue Intake before preparing Architect work."); if (model.intakeAuthority.disposition?.state !== "approved") throw Error("Approve the current Issue Intake revision before preparing Architect work."); if (stage === "plan" && model.rcaState !== "accepted") throw Error("Accept the current Issue RCA before preparing correction planning.");
     const workspace = stage === "rca" ? "issue-rca" : "issue-planning";
     await withIssue(root, workflowId, async (store, projectId, workflow) => { if (workflow.body.currentWorkspace !== workspace) await createProjectStateService(store, operator).reviseRecord(projectId, workflowId, { currentWorkspace: workspace }, workflow.recordVersion); });
     model = await get(root, workflowId);

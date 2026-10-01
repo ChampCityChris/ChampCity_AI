@@ -133,9 +133,13 @@ export function comparePlanningDocuments(
 
 export function resolveFirstNonApproved(
   documents: PlanningDocumentSummary[],
+  structuredIntake?: PlanningDocumentSummary | null,
 ): FirstNonApprovedResult {
-  const ordered = orderPlanningDocuments(documents);
-  const projectIntakeCorpus = analyzeProjectIntakeCorpus(ordered);
+  const review = structuredIntake ?? null;
+  const ordered = orderPlanningDocuments(review ? [...documents.filter(document => document.markdownPath !== review.markdownPath), review] : documents);
+  const projectIntakeCorpus = structuredIntake !== undefined
+    ? {state: review ? "single" : "open", documents: review ? [review] : [], evidencePaths: review ? [review.markdownPath] : []}
+    : analyzeProjectIntakeCorpus(ordered);
   if (projectIntakeCorpus.state === "conflict") {
     return {
       status: "project-intake-conflict",
@@ -156,7 +160,15 @@ export function resolveFirstNonApproved(
     };
   }
 
-  const projectIntakeContinuation = resolveProjectIntakeContinuation(ordered);
+  if (review && review.effectiveDisposition !== "Approved") {
+    const workspace = workspaceDefinitions.find(definition => definition.id === "project-intake-capture")!;
+    return {status: "current", document: {logicalDocumentId: review.logicalDocumentId, owningWorkspaceId: workspace.id,
+      owningWorkspace: workspace.label, lifecycleLocation: workspace.location, participationRole: "gatingReview",
+      artifactType: "generated-workflow-intake", reason: "Approve the current structured Intake revision before continuing.",
+      evidencePaths: [review.markdownPath], freshnessState: "fresh", staleSources: [], markdownPath: review.markdownPath,
+      displayTitle: review.displayFilename, effectiveDisposition: review.effectiveDisposition, orderPosition: 1, totalDocumentCount: ordered.length}};
+  }
+  const projectIntakeContinuation = resolveProjectIntakeContinuation(ordered, review ?? undefined);
   if (projectIntakeContinuation) {
     return projectIntakeContinuation;
   }
@@ -202,11 +214,12 @@ export function resolveFirstNonApproved(
 
 function resolveProjectIntakeContinuation(
   documents: WorkspaceDocument[],
+  structuredIntake?: PlanningDocumentSummary,
 ): Extract<
   FirstNonApprovedResult,
   { status: "project-intake-incomplete" | "waiting-for-architect-interview" }
 > | null {
-  const intake = documents.find((document) => {
+  const intake = structuredIntake ?? documents.find((document) => {
     const classification = classifyLifecycleArtifact(document);
     return (
       classification.artifactType === "project-intake" &&

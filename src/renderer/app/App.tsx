@@ -53,12 +53,6 @@ import {
   isArchitectInterviewDualPaneWorkspace,
 } from "../../shared/workspaces/projectRailPresentation";
 import {
-  applySuccessfulProjectIntakeSubmission,
-  clearProjectIntakePostSubmitReviewState,
-  type ProjectIntakePostSubmitConfirmation,
-} from "../../shared/projectIntake/postSubmitReviewState";
-import { deriveProjectIntakeRailStatus } from "../../shared/projectIntake/projectIntakeCorpus";
-import {
   deriveArchitectInterviewRailStatusFromDocuments,
   deriveProjectLifecycleRailStatuses,
 } from "../../shared/workspaces/projectLifecycleRailStatus";
@@ -312,8 +306,6 @@ export function App(): JSX.Element {
   const [feedback, setFeedback] = useState<string>("");
   const [documentError, setDocumentError] = useState<string>("");
   const [resolverResult, setResolverResult] = useState<FirstNonApprovedResult | null>(null);
-  const [projectIntakeConfirmation, setProjectIntakeConfirmation] =
-    useState<ProjectIntakePostSubmitConfirmation | null>(null);
   const [isChoosing, setIsChoosing] = useState(false);
   const [pendingExistingProjectPlan, setPendingExistingProjectPlan] = useState<ExistingProjectGitAdoptionPlan | null>(null);
   const [pendingExistingProjectSelection, setPendingExistingProjectSelection] = useState<SelectedWorkspace | null>(null);
@@ -321,7 +313,6 @@ export function App(): JSX.Element {
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [isRepairPromptPreparing, setIsRepairPromptPreparing] = useState(false);
-  const [isSubmittingIntake, setIsSubmittingIntake] = useState(false);
   const [projectIntake, setProjectIntake] =
     useState<ProjectIntakeSubmission>(emptyProjectIntake);
   const [architectStatus, setArchitectStatus] =
@@ -335,7 +326,6 @@ export function App(): JSX.Element {
   const [architectOutputReviewStatus, setArchitectOutputReviewStatus] =
     useState<DocumentDispositionStatus | "">("");
   const [architectOutputReviewNotes, setArchitectOutputReviewNotes] = useState("");
-  const [projectIntakeReviewNotes, setProjectIntakeReviewNotes] = useState("");
   const [operatorValidationNotes, setOperatorValidationNotes] = useState("");
   const [advisorySummary, setAdvisorySummary] = useState("");
   const [repairDefectText, setRepairDefectText] = useState("");
@@ -472,11 +462,11 @@ export function App(): JSX.Element {
   const isWorkIntakeForeground = shellView === "work-intake";
   const isSourceControlForeground = shellView === "source-control";
   const shouldAttachEmbeddedArchitectSurface =
-    shouldAttachArchitectSurface({ paneVisible: isArchitectPaneVisible, developmentForeground: isDevelopmentForeground,
+    shouldAttachArchitectSurface({ intakeForeground: activeWorkspaceId === "project-intake-capture" || (isWorkflowInstanceForeground && workflowPlanningSurface(workflowInstance) === "intake"), paneVisible: isArchitectPaneVisible, developmentForeground: isDevelopmentForeground,
       developmentBrowserAvailable: architectBrowserWorkspaceAvailable, workCardRepair: isWorkCardRepair,
       issueForeground: isIssueResolutionForeground, issueStageId: activeIssueStageId, issueFixCardStepId: activeIssueFixCardStepId,
       workIntakeForeground: isWorkIntakeForeground, workIntakeStageId: selectedWorkIntakeId && selectedWorkflowId ? "routing" : "intake",
-      substantiveWorkflowForeground: isWorkflowInstanceForeground && workflowPlanningSurface(workflowInstance) !== "generic" });
+      substantiveWorkflowForeground: isWorkflowInstanceForeground && !["generic", "intake"].includes(workflowPlanningSurface(workflowInstance)) });
   const isSettingsWorkspace = shellView === "settings";
   const currentIssue = useMemo(
     () => issueInventory?.issues.find((issue) => issue.issueId === selectedIssueId) ?? null,
@@ -1115,10 +1105,7 @@ export function App(): JSX.Element {
     [activeWorkspaceId, documents],
   );
   const workspaceCounts = useMemo(() => getWorkspaceDocumentCounts(documents), [documents]);
-  const projectIntakeRailStatus = useMemo(
-    () => deriveProjectIntakeRailStatus(documents),
-    [documents],
-  );
+  const [projectIntakeRailStatus, setProjectIntakeRailStatus] = useState<"Open" | "Awaiting Approval" | "Completed">("Open");
   const documentDerivedArchitectInterviewRailStatus = useMemo(
     () => deriveArchitectInterviewRailStatusFromDocuments(documents),
     [documents],
@@ -1220,50 +1207,6 @@ export function App(): JSX.Element {
       setDocumentError(error instanceof Error ? error.message : "Project Repository could not be bound.");
     } finally {
       setIsChoosingProjectRepository(false);
-    }
-  }
-
-  async function submitProjectIntake(): Promise<void> {
-    setIsSubmittingIntake(true);
-    setDocumentError("");
-    setFeedback("");
-    try {
-      const result = await window.champcity.submitProjectIntake(projectIntake);
-      setProjectIntake((current) => ({ ...current, projectRepository: result.projectRoot }));
-      const nextDocuments = await window.champcity.listDocuments();
-      applyDocumentInventory(nextDocuments);
-      await refreshProjectPlanningWorkspaceModel();
-      const nextResolverResult = await window.champcity.resolveCurrentDocument();
-      const nextPostSubmitState = applySuccessfulProjectIntakeSubmission(
-        {
-          confirmation: projectIntakeConfirmation,
-          viewedWorkspaceId: activeWorkspaceId,
-          selectedDocumentId,
-          resolverResult,
-        },
-        result,
-        nextDocuments,
-        nextResolverResult,
-      );
-      setProjectIntakeConfirmation(nextPostSubmitState.confirmation);
-      setResolverResult(nextPostSubmitState.resolverResult);
-      transitionToWorkflowStep(nextPostSubmitState.viewedWorkspaceId, {
-        documents: nextDocuments,
-        preferredDocumentId: nextPostSubmitState.selectedDocumentId,
-      });
-      setFeedback(getResolverFeedback(nextResolverResult));
-      await refreshCurrentModel();
-      if (isArchitectEnabledWorkspace(activeWorkspaceId)) {
-        await refreshArchitectOutputWorkspace({
-          force: true,
-          refreshRepositoryProjection: false,
-        });
-      }
-      focusProjectIntakeReviewSurface();
-    } catch (error) {
-      setDocumentError(error instanceof Error ? error.message : "Project Intake could not be saved.");
-    } finally {
-      setIsSubmittingIntake(false);
     }
   }
 
@@ -2592,12 +2535,6 @@ export function App(): JSX.Element {
     setWorkflowHubError("");
     setWorkIntakeProjection(null);
     setSelectedWorkIntakeId(null);
-    const clearedPostSubmitState = clearProjectIntakePostSubmitReviewState({
-      confirmation: projectIntakeConfirmation,
-      viewedWorkspaceId: activeWorkspaceId,
-      selectedDocumentId,
-      resolverResult,
-    });
     setDocuments([]);
     setSelectedDocumentId(null);
     setSelectedDocument(null);
@@ -2605,7 +2542,8 @@ export function App(): JSX.Element {
     setFeedback("");
     setDocumentError("");
     setResolverResult(null);
-    setProjectIntakeConfirmation(clearedPostSubmitState.confirmation);
+    setProjectIntake({...emptyProjectIntake});
+    setProjectIntakeRailStatus("Open");
     setCurrentModel(null);
     setPhaseValidationAction(null);
     setProjectPlanningModel(null);
@@ -4222,7 +4160,7 @@ export function App(): JSX.Element {
             <SourceControlWorkspace key={workspace.ok ? workspace.workspaceRoot : "none"}
               projectName={projectDisplayName(workspace)} onReturn={returnToWorkflowHub} />
           ) : isWorkflowInstanceForeground ? (
-            workflowInstance && workflowPlanningSurface(workflowInstance) === "intake" ? <WorkflowIntakeWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} onPrepared={() => void openCurrentWorkflow(workflowInstance.workflowId)} />
+            workflowInstance && workflowPlanningSurface(workflowInstance) === "intake" ? <WorkflowIntakeWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} onPrepared={() => void openCurrentWorkflow(workflowInstance.workflowId)} />
               : workflowInstance && workflowPlanningSurface(workflowInstance) === "execution" ? <WorkflowExecutionWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
               : workflowInstance && workflowPlanningSurface(workflowInstance) === "feature" ? <FeaturePlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
               : workflowInstance && workflowPlanningSurface(workflowInstance) === "issue" ? <IssueWorkflowPlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
@@ -4565,24 +4503,15 @@ export function App(): JSX.Element {
 
           {activeWorkspaceId === "project-intake-capture" ? (
             <ProjectIntakeWorkspace
+              key={workflowInstance?.workflowId}
+              onRailStatus={setProjectIntakeRailStatus}
+              workflowId={workflowInstance?.workflowType === "project-creation" ? workflowInstance.workflowId : undefined}
+              onPrepared={() => { setActiveWorkspaceId("architect-interview"); void refreshArchitectOutputWorkspace({force: true}); }}
+              repositoryIdentity={workspace.ok ? workspace.workspaceRoot : ""}
               isChoosingProjectRepository={isChoosingProjectRepository}
-              isSubmittingIntake={isSubmittingIntake}
-              onChange={setProjectIntake}
               onChooseProjectRepository={chooseProjectRepository}
-              onSubmit={submitProjectIntake}
-              postSubmitConfirmation={projectIntakeConfirmation}
+              onChange={setProjectIntake}
               value={projectIntake}
-              selectedDocument={selectedDocument}
-              selectedDocumentHasLocalError={selectedDocumentHasLocalError}
-              isApplying={isApplying}
-              notes={projectIntakeReviewNotes}
-              onApply={applyDisposition}
-              onNotesChange={setProjectIntakeReviewNotes}
-              onStatusChange={setSelectedStatus}
-              status={selectedStatus}
-              documentError={documentError}
-              feedback={feedback}
-              onCopy={copySelectedDocumentBody}
             />
           ) : null}
 
