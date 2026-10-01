@@ -15,6 +15,7 @@ const bodies = {
   WorkIntake: { request: "Request", desiredOutcome: "Outcome", constraints: [], evidenceContext: [], intakeState: "captured", requestedIntegrationTarget: "dev" },
   RouteAssessment: { workIntakeId: linkedId, recommendation: "feature-change", traits: [], rationale: "Reason", evidenceIds: [] },
   Workflow: { workflowType: "feature-capability", title: "Feature / Capability", currentWorkspace: "work", workflowState: "active" },
+  ArchitectReviewCycle: {workflowId: linkedId, workflowType: "feature-capability", stageKind: "feature-assessment", semanticDigest: "a".repeat(64)},
   WorkflowIntake: { workflowId: linkedId, workflowType: "feature-capability", values: { request: "Build", existing: false } },
   SourceBaseline: { workflowId: linkedId, repositoryId: "repo", integrationTargetSourceLineId: "dev", baseRevisionId: "revision" },
   Phase: { title: "Phase", objective: "Objective", phaseState: "active", sequence: 1 },

@@ -53,6 +53,7 @@ export interface EntityBodyMap {
   WorkIntake: { request: string; desiredOutcome: string; constraints: string[]; evidenceContext: string[]; intakeState: WorkIntakeState; requestedIntegrationTarget: string; hasExistingSourceOrPlanning?: boolean };
   RouteAssessment: { workIntakeId: EntityId; recommendation: WorkRoute; traits: string[]; rationale: string; alternate?: WorkRoute; evidenceIds: EvidenceId[] };
   Workflow: { workflowType: WorkflowType; title: string; currentWorkspace: string; workflowState: WorkflowState };
+  ArchitectReviewCycle: { workflowId: EntityId; workflowType: WorkflowType; stageKind: ArchitectStageKind; semanticDigest: string };
   WorkflowIntake: { workflowId: EntityId; workflowType: WorkflowType; values: Record<string, string | boolean> };
   SourceBaseline: { workflowId: EntityId; repositoryId: string; integrationTargetSourceLineId: string; baseRevisionId: string };
   Phase: { title: string; objective: string; phaseState: PhaseState; sequence: number };
@@ -79,3 +80,6 @@ export type ProjectStateEntity = { [T in EntityType]: ProjectStateRecord<T> }[En
 /** Supersession creates a new id with the same lineage; derivation retains separate lineages. */
 export interface SupersessionRef { predecessorId: EntityId; successorId: EntityId; lineageId: LineageId }
 export interface DerivationRef { sourceId: EntityId; derivedId: EntityId }
+
+export const ARCHITECT_STAGE_KINDS = ["project-interview", "feature-assessment", "issue-rca", "migration-assessment", "integration-assessment", "infrastructure-assessment", "research-assessment"] as const;
+export type ArchitectStageKind = typeof ARCHITECT_STAGE_KINDS[number];

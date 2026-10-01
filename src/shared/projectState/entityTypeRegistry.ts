@@ -1,4 +1,5 @@
-import { PROJECT_STATE_SCHEMA_VERSION, type EntityBodyMap, type EntityType, type PrincipalRef, type ProjectId, type ProjectStateEntity, type ProjectStateRecord, type Provenance, type RecordEnvelope } from "./domainContracts";
+import { ARCHITECT_STAGE_BY_WORKFLOW } from "./architectReviewContracts";
+import { ARCHITECT_STAGE_KINDS, PROJECT_STATE_SCHEMA_VERSION, type EntityBodyMap, type EntityType, type PrincipalRef, type ProjectId, type ProjectStateEntity, type ProjectStateRecord, type Provenance, type RecordEnvelope } from "./domainContracts";
 import { WORKFLOW_TYPE_IDS } from "./workflowTypeRegistry";
 
 type FieldKind = "text" | "source-ref" | "id" | "instant" | "number" | "boolean" | "version" | "text-list" | "id-list" | "principal" | "digest" | "scalar-map";
@@ -14,6 +15,7 @@ const idList = "id-list" as const;
 /** One reviewed type registry owns field vocabulary and immutable-record policy. */
 export const ENTITY_TYPE_REGISTRY: Readonly<Record<EntityType, EntityDefinition>> = Object.freeze({
   Project: { schemaVersion: 1, required: { name: text, description: text }, immutableAfterCreation: false },
+  ArchitectReviewCycle: { schemaVersion: 1, required: { workflowId: id, workflowType: WORKFLOW_TYPE_IDS, stageKind: ARCHITECT_STAGE_KINDS, semanticDigest: "digest" }, immutableAfterCreation: false },
   WorkflowIntake: { schemaVersion: 1, required: { workflowId: id, workflowType: WORKFLOW_TYPE_IDS, values: "scalar-map" }, immutableAfterCreation: false },
   ProjectResource: { schemaVersion: 1, required: { resourceType: text, provider: text, logicalName: text, locator: text, role: text }, optional: { sourceRevisionId: "source-ref" }, immutableAfterCreation: false },
   WorkIntake: { schemaVersion: 1, required: { request: text, desiredOutcome: text, constraints: textList, evidenceContext: textList, intakeState: ["captured", "assessing", "routed", "active", "closed", "cancelled"], requestedIntegrationTarget: text }, optional: { hasExistingSourceOrPlanning: "boolean" }, immutableAfterCreation: false },
@@ -130,6 +132,10 @@ export function validateProjectStateEntity(value: unknown): ProjectStateEntity {
     // An Operator may record a simple acceptance without entering free-text reasoning.
     if (type === "Decision" && key === "rationale" && body[key] === "") continue;
     if (body[key] !== undefined) checkField(body[key], rule, `record.body.${key}`);
+  }
+  if (type === "ArchitectReviewCycle") {
+    const cycle = body as unknown as EntityBodyMap["ArchitectReviewCycle"];
+    if (ARCHITECT_STAGE_BY_WORKFLOW[cycle.workflowType] !== cycle.stageKind) fail("Architect cycle requires the matching substantive Workflow stage.");
   }
   if (type === "TesterResult") {
     const tester = body as unknown as EntityBodyMap["TesterResult"];

@@ -1186,3 +1186,10 @@ That is the boundary that allows us to choose persistence technology later rathe
 Typed saves retain Intake identity and increment its record version once without advancing the Workflow. Human Operator review creates an immutable `Decision` of type `workflow-intake-review`, governing the Intake with scope `workflow-intake:<intakeId>@<recordVersion>`. Only reviews of the current exact revision provide current disposition; revising Intake leaves prior Decisions historical and returns disposition to `none`.
 
 Generated Markdown is a human-readable projection. Editing or deleting it cannot mutate or destroy canonical Intake state. `project_state_authority=structured` remains the final project-wide legacy-writer cutoff; incremental workspace-family adoption can use structured entities before that fence is selected. This foundation does not switch production Intake callers or change the authority fence.
+
+
+## Architect semantic review cycles
+
+Architect semantic records -> ArchitectReviewCycle version anchor -> generated review Markdown -> Operator Decision.
+
+The cycle groups canonical Findings, RootCauses, BoundedSolutions, Criteria and Evidence for one exact substantive Workflow and stage. It contains only Workflow identity/type, stage kind and the digest of exact member IDs/versions; it never replaces or duplicates semantic bodies. Decisions govern `architect-review:<cycleId>@<recordVersion>` and require the human Operator. A changed member advances the anchor and invalidates prior disposition. Work Intake Routing is excluded; Project Creation is supported. Generated Markdown is derived and is not an input authority. Existing open-text SQLite entity/relationship tables require no table migration. The project-wide legacy-writer authority cutoff remains unchanged.

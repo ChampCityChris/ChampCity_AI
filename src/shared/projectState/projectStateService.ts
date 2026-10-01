@@ -1,4 +1,5 @@
-import { workflowIntakeDisposition } from "./workflowIntakeDisposition";
+import { ARCHITECT_STAGE_BY_WORKFLOW, architectSemanticDigest, renderArchitectReviewProjection, type ArchitectReviewSaveInput, type ArchitectReviewDecisionInput } from "./architectReviewContracts";
+import { workflowIntakeDisposition, exactVersionReviewDisposition } from "./workflowIntakeDisposition";
 import type { DispositionState, EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef, ProjectId, ProjectStateEntity, ProjectStateRecord, TestLifecycleAssessmentStatus, ValidationMode, WorkflowState, WorkIntakeState, WorkRoute } from "./domainContracts";
 import { getWorkflowTypeDefinition, workflowTypeForWorkRoute, type ExistingProjectWorkRoute, type WorkflowType } from "./workflowTypeRegistry";
 import { assertSupersession } from "./domainInvariants";
@@ -254,7 +255,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   async function createRecord<T extends EntityType>(projectId: ProjectId | null, entityType: T, content: EntityBodyMap[T], context?: MutationContext) {
-    if (entityType === "WorkflowIntake") fail("WorkflowIntake requires the typed save command.");
+    if ((entityType === "WorkflowIntake" || entityType === "ArchitectReviewCycle")) fail("WorkflowIntake requires the typed save command.");
     if (restrictedGenericTypes.has(entityType)) fail("Decision, Validation, Evidence and TesterResult require typed commands.");
     if (entityType === "ImplementationRecord" || entityType === "Workflow") fail("ImplementationRecord and Workflow require typed commands.");
     if (entityType === "WorkIntake" || entityType === "RouteAssessment") fail("Work Intake and Route Assessment require typed commands.");
@@ -460,7 +461,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) fail("An exact expected revision is required.");
     return store.transaction(projectId, async unit => {
       const current = await requiredRecord(unit, projectId, entityId);
-      if (current.entityType === "WorkflowIntake") fail("WorkflowIntake requires the typed save command.");
+      if (["WorkflowIntake", "ArchitectReviewCycle"].includes(current.entityType)) fail("WorkflowIntake requires the typed save command.");
       if (restrictedGenericTypes.has(current.entityType)) fail("Immutable semantic records require typed correction or supersession.");
       if (current.entityType === "WorkIntake") fail("Work Intake revision requires a typed command.");
       if (current.entityType === "RegressionObligation" || (current.entityType === "ProjectResource" && current.body.resourceType === "permanent-test-reference")) fail("Tester semantic revision requires a typed command.");
@@ -473,6 +474,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       await recordMutation(unit, { projectId, entityId, fromVersion: expectedRevision, toVersion: next.recordVersion,
         operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: next.updatedAt,
         changedFields: Object.keys(patch), defaultReason: `Revise ${current.entityType}`, context });
+      await advanceArchitectCyclesForMember(unit, projectId, entityId, context);
       return next;
     });
   }
@@ -482,7 +484,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) fail("An exact expected revision is required.");
     return store.transaction(projectId, async unit => {
       const previous = await requiredRecord(unit, projectId, entityId);
-      if (previous.entityType === "WorkflowIntake") fail("WorkflowIntake retains its identity through the typed save command.");
+      if (["WorkflowIntake", "ArchitectReviewCycle"].includes(previous.entityType)) fail("WorkflowIntake retains its identity through the typed save command.");
       if (previous.entityType === "Project" || previous.recordVersion !== expectedRevision) fail("Supersession target is unavailable or stale.");
       if (previous.lifecycleState !== "active" && previous.lifecycleState !== "closed") fail("Only a current active or closed record can be superseded.");
       if (restrictedGenericTypes.has(previous.entityType)) fail("Issued Decision, Validation, Evidence and TesterResult require a typed correction policy.");
@@ -519,12 +521,13 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         const source = await requiredRecord(unit, projectId, successor.body.sourceWorkItemId);
         await linkSemantic(unit, projectId, successor, source, "derived_from", context);
       }
+      await advanceArchitectCyclesForMember(unit, projectId, previous.id, context);
       return { predecessor: terminal, successor, relationship: edge };
     });
   }
 
   async function createRelationship(projectId: ProjectId, fromEntityId: EntityId, relationshipType: RelationshipType, toEntityId: EntityId, context?: MutationContext) {
-    if (relationshipType === "intake_for") fail("Intake ownership requires the typed save command.");
+    if (["intake_for", "architect_review_for", "review_member"].includes(relationshipType)) fail("Intake ownership requires the typed save command.");
     if (relationshipType === "routes_to") fail("Workflow route provenance requires the typed linkWorkflowRouteTarget command.");
     if (relationshipType === "governs") fail("Decision governance requires a typed Decision command.");
     if (relationshipType === "implements_work_item") fail("Implementation attempts require a typed command.");
@@ -566,6 +569,11 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         if (currentOwners.length !== 1 || currentOwners[0].id !== repairOwner!.id) fail("Repair owner is not the unique current Workflow in its lineage.");
       }
       if (relationshipType === "workflow_member") {
+        for (const reviewEdge of (await unit.listRelationships(projectId, "review_member")).filter(edge => edge.fromEntityId === fromEntityId)) {
+          const cycle = await requiredRecord(unit, projectId, reviewEdge.toEntityId);
+          if (cycle.entityType !== "ArchitectReviewCycle" || cycle.body.workflowId !== toEntityId) fail("Architect semantic membership cannot cross Workflows.");
+        }
+
         if (active.some(edge => edge.fromEntityId === fromEntityId)) fail("Planning record already belongs to a Workflow.");
         if ((await unit.listRelationships(projectId, "workflow_member")).some(edge => edge.fromEntityId === fromEntityId)) fail("Planning record Workflow ownership history cannot be reassigned.");
         if (from.entityType === "BoundedSolution") {
@@ -649,6 +657,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     await store.transaction(projectId, async unit => {
       const edge = (await unit.listRelationships(projectId)).find(candidate => candidate.id === relationshipId);
       if (!edge) fail("Relationship does not exist in this Project.");
+      if (["architect_review_for", "review_member"].includes(edge.relationshipType)) fail("Architect membership requires the typed cycle command.");
       const from = await requiredRecord(unit, projectId, edge.fromEntityId);
       const endedAt = new Date().toISOString();
       await unit.endRelationship(relationshipId, endedAt);
@@ -688,6 +697,142 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     const edges = (await unit.listRelationships(projectId, "intake_for")).filter(edge => edge.fromEntityId === intake.id && !edge.endedAt);
     if (edges.length !== 1 || edges[0].toEntityId !== workflow.id) fail("WorkflowIntake must have exactly one exact Workflow owner.");
     return intake;
+  }
+
+  async function advanceArchitectCyclesForMember(unit: ProjectStateUnitOfWork, projectId: ProjectId, memberId: EntityId, context?: MutationContext) {
+    const edges = (await unit.listRelationships(projectId, "review_member")).filter(edge => !edge.endedAt);
+    for (const cycleId of new Set(edges.filter(edge => edge.fromEntityId === memberId).map(edge => edge.toEntityId))) {
+      const cycle = await requiredRecord(unit, projectId, cycleId);
+      if (cycle.entityType !== "ArchitectReviewCycle" || cycle.lifecycleState !== "active") continue;
+      const members = await Promise.all(edges.filter(edge => edge.toEntityId === cycleId).map(edge => requiredRecord(unit, projectId, edge.fromEntityId)));
+      const semanticDigest = await architectSemanticDigest(members);
+      if (semanticDigest === cycle.body.semanticDigest) continue;
+      const next = validateProjectStateEntity({...cycle, recordVersion: cycle.recordVersion + 1, body: {...cycle.body, semanticDigest}, updatedAt: new Date().toISOString(), updatedBy: trustedPrincipal}) as ProjectStateRecord<"ArchitectReviewCycle">;
+      await unit.saveEntity(next, cycle.recordVersion);
+      await recordMutation(unit, {projectId, entityId: cycle.id, fromVersion: cycle.recordVersion, toVersion: next.recordVersion, operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: next.updatedAt, changedFields: ["semanticDigest"], defaultReason: "Invalidate changed Architect semantic review", context});
+    }
+  }
+
+  async function architectMembers(unit: ProjectStateUnitOfWork, projectId: ProjectId, workflowId: EntityId, ids: EntityId[]) {
+    if (!Array.isArray(ids) || !ids.length || ids.length > 256 || new Set(ids).size !== ids.length) fail("Architect members require an exact bounded nonempty set.");
+    const edges = await unit.listRelationships(projectId);
+    const members = [] as ProjectStateEntity[];
+    for (const id of ids) {
+      const member = await requiredRecord(unit, projectId, id);
+      if (member.lifecycleState !== "active" || !["Finding", "RootCause", "BoundedSolution", "Criterion", "Evidence"].includes(member.entityType)) fail("Architect member must be an active semantic record.");
+      const visited = new Set<EntityId>();
+      const pending: EntityId[] = [id];
+      while (pending.length) {
+        const linkedId = pending.pop()!;
+        if (visited.has(linkedId)) continue;
+        visited.add(linkedId);
+        const linked = await requiredRecord(unit, projectId, linkedId);
+        if (linked.entityType === "Workflow" && linked.id !== workflowId) fail("Architect member belongs to a different Workflow.");
+        if (linked.entityType === "WorkflowIntake" && linked.body.workflowId !== workflowId) fail("Architect Evidence belongs to a different Workflow Intake.");
+        if (linked.entityType === "ArchitectReviewCycle" && linked.body.workflowId !== workflowId) fail("Architect member has conflicting Workflow ownership.");
+        for (const edge of edges) {
+          if (edge.fromEntityId === linkedId && (["workflow_member", "review_member", "part_of"].includes(edge.relationshipType) ||
+            !edge.endedAt && (linked.entityType === "Evidence" && edge.relationshipType === "supports" || linked.entityType === "RootCause" && edge.relationshipType === "explains"))) pending.push(edge.toEntityId);
+          if (!edge.endedAt && linked.entityType === "Criterion" && edge.toEntityId === linkedId && edge.relationshipType === "defines_criterion") pending.push(edge.fromEntityId);
+        }
+      }
+      const owners = edges.filter(edge => edge.fromEntityId === id && edge.relationshipType === "workflow_member");
+      if (owners.some(edge => edge.toEntityId !== workflowId)) fail("Architect membership cannot cross Workflows.");
+      for (const edge of edges.filter(edge => edge.fromEntityId === id && edge.relationshipType === "review_member")) {
+        const cycle = await requiredRecord(unit, projectId, edge.toEntityId);
+        if (cycle.entityType !== "ArchitectReviewCycle" || cycle.body.workflowId !== workflowId) fail("Architect member has conflicting Workflow ownership.");
+      }
+      members.push(member);
+    }
+    return members;
+  }
+
+  async function currentArchitectCycle(unit: ProjectStateUnitOfWork, projectId: ProjectId, workflowId: EntityId, stageKind: import("./domainContracts").ArchitectStageKind) {
+    const workflow = await requiredRecord(unit, projectId, workflowId);
+    if (workflow.entityType !== "Workflow" || workflow.lifecycleState !== "active" || workflow.body.workflowState !== "active" || ARCHITECT_STAGE_BY_WORKFLOW[workflow.body.workflowType] !== stageKind) fail("Architect review requires the exact substantive Workflow and stage.");
+    const cycles = (await unit.listEntities(projectId, "ArchitectReviewCycle")).filter((record): record is ProjectStateRecord<"ArchitectReviewCycle"> => record.entityType === "ArchitectReviewCycle" && record.lifecycleState === "active" && record.body.workflowId === workflowId && record.body.stageKind === stageKind);
+    if (cycles.length > 1) fail("Ambiguous active Architect review cycles.");
+    const cycle = cycles[0];
+    if (cycle) {
+      const owners = (await unit.listRelationships(projectId, "architect_review_for")).filter(edge => edge.fromEntityId === cycle.id && !edge.endedAt);
+      if (owners.length !== 1 || owners[0].toEntityId !== workflowId || cycle.body.workflowType !== workflow.body.workflowType) fail("Architect review ownership mismatch.");
+    }
+    return {workflow, cycle: cycle ?? null};
+  }
+
+  async function saveArchitectReviewCycle(projectId: ProjectId, input: ArchitectReviewSaveInput, context?: MutationContext) {
+    exactInput(input, ["workflowId", "stageKind", "memberIds", "expectedRecordVersion"]);
+    return store.transaction(projectId, async unit => {
+      const {workflow, cycle} = await currentArchitectCycle(unit, projectId, input.workflowId, input.stageKind);
+      if (input.expectedRecordVersion !== undefined && cycle?.recordVersion !== input.expectedRecordVersion) fail("Expected Architect cycle revision is stale.");
+      const members = await architectMembers(unit, projectId, workflow.id, input.memberIds);
+      const semanticDigest = await architectSemanticDigest(members);
+      if (cycle?.body.semanticDigest === semanticDigest) return cycle;
+      const body: EntityBodyMap["ArchitectReviewCycle"] = {workflowId: workflow.id, workflowType: workflow.body.workflowType, stageKind: input.stageKind, semanticDigest};
+      const next = cycle ? validateProjectStateEntity({...cycle, body, recordVersion: cycle.recordVersion + 1, updatedAt: new Date().toISOString(), updatedBy: trustedPrincipal}) as ProjectStateRecord<"ArchitectReviewCycle">
+        : createProjectStateEntity({entityType: "ArchitectReviewCycle", projectId, body, principal: trustedPrincipal});
+      await unit.saveEntity(next, cycle?.recordVersion ?? null);
+      await recordMutation(unit, {projectId, entityId: next.id, fromVersion: cycle?.recordVersion ?? null, toVersion: next.recordVersion, operation: cycle ? "revise" : "create",
+        eventType: cycle ? PROJECT_STATE_EVENT_TYPES.revise : PROJECT_STATE_EVENT_TYPES.create, occurredAt: next.updatedAt, changedFields: ["semanticDigest"], defaultReason: "Bind exact Architect semantic review", context});
+      if (!cycle) await linkSemantic(unit, projectId, next, workflow, "architect_review_for", context);
+      const oldEdges = (await unit.listRelationships(projectId, "review_member")).filter(edge => edge.toEntityId === next.id && !edge.endedAt);
+      for (const edge of oldEdges) if (!input.memberIds.includes(edge.fromEntityId)) {
+        await unit.endRelationship(edge.id, next.updatedAt);
+        await recordMutation(unit, {projectId, entityId: edge.fromEntityId, fromVersion: null, toVersion: (await requiredRecord(unit, projectId, edge.fromEntityId)).recordVersion, operation: "relationship-end", eventType: PROJECT_STATE_EVENT_TYPES.relationshipEnd, occurredAt: next.updatedAt, changedFields: ["relationship:review_member"], defaultReason: "Revise Architect membership", context, relationshipId: edge.id});
+      }
+      for (const member of members) if (!oldEdges.some(edge => edge.fromEntityId === member.id)) await linkSemantic(unit, projectId, member, next, "review_member", context);
+      return next;
+    });
+  }
+
+  async function getCurrentArchitectReviewCycle(projectId: ProjectId, workflowId: EntityId, stageKind: import("./domainContracts").ArchitectStageKind) {
+    return store.transaction(projectId, async unit => (await currentArchitectCycle(unit, projectId, workflowId, stageKind)).cycle);
+  }
+
+  async function architectCycleSnapshot(unit: ProjectStateUnitOfWork, projectId: ProjectId, cycleId: EntityId) {
+    const record = await requiredRecord(unit, projectId, cycleId);
+    if (record.entityType !== "ArchitectReviewCycle") fail("Architect cycle identity required.");
+    const {cycle} = await currentArchitectCycle(unit, projectId, record.body.workflowId, record.body.stageKind);
+    if (cycle?.id !== record.id) fail("Architect cycle is not current.");
+    const ids = (await unit.listRelationships(projectId, "review_member")).filter(edge => edge.toEntityId === cycle.id && !edge.endedAt).map(edge => edge.fromEntityId);
+    const members = await architectMembers(unit, projectId, cycle.body.workflowId, ids);
+    return {cycle, members, current: await architectSemanticDigest(members) === cycle.body.semanticDigest};
+  }
+
+  async function getArchitectReviewDisposition(projectId: ProjectId, cycleId: EntityId): Promise<EffectiveDisposition> {
+    return store.transaction(projectId, async unit => {
+      const {cycle, current} = await architectCycleSnapshot(unit, projectId, cycleId);
+      if (!current) return {state: "none", decisionId: null, effectiveAt: null};
+      return exactVersionReviewDisposition(cycle, await unit.listEntities(projectId, "Decision"),
+        await unit.listRelationships(projectId, "governs"), await unit.listOutbox(projectId), "architect-review", "architect-review");
+    });
+  }
+
+  async function getArchitectReviewProjection(projectId: ProjectId, cycleId: EntityId) {
+    return store.transaction(projectId, async unit => {
+      const {cycle, members, current} = await architectCycleSnapshot(unit, projectId, cycleId);
+      if (!current) fail("Architect semantic set changed; revise the current cycle before projection.");
+      const disposition = exactVersionReviewDisposition(cycle, await unit.listEntities(projectId, "Decision"), await unit.listRelationships(projectId, "governs"), await unit.listOutbox(projectId), "architect-review", "architect-review");
+      return renderArchitectReviewProjection(cycle, members, disposition);
+    });
+  }
+
+  async function recordArchitectReview(projectId: ProjectId, cycleId: EntityId, input: ArchitectReviewDecisionInput, context?: MutationContext) {
+    exactInput(input, ["expectedRecordVersion", "outcome", "notes"]);
+    if (trustedPrincipal.principalType !== "human" || trustedPrincipal.role !== "Operator") fail("Architect review requires human Operator.");
+    if (!Number.isSafeInteger(input.expectedRecordVersion) || input.expectedRecordVersion < 1 || !["approved", "revision_requested", "rejected"].includes(input.outcome)) fail("Exact Architect revision and outcome required.");
+    if (input.notes !== undefined && (typeof input.notes !== "string" || new TextEncoder().encode(input.notes).length > 4096)) fail("Architect review notes must be bounded.");
+    if (input.outcome === "revision_requested" && !input.notes?.trim()) fail("Revision Requested requires notes.");
+    return store.transaction(projectId, async unit => {
+      const {cycle, current} = await architectCycleSnapshot(unit, projectId, cycleId);
+      if (!current || cycle.recordVersion !== input.expectedRecordVersion) fail("Architect cycle revision is stale.");
+      const now = new Date().toISOString();
+      const decision = createProjectStateEntity({entityType: "Decision", projectId, principal: trustedPrincipal, body: decisionBody({decisionType: "architect-review", outcome: input.outcome, decisionScope: `architect-review:${cycle.id}@${cycle.recordVersion}`, rationale: input.notes?.trim() ?? ""}, trustedPrincipal, now)});
+      await unit.saveEntity(decision, null);
+      await recordMutation(unit, {projectId, entityId: decision.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: now, changedFields: Object.keys(decision.body), defaultReason: "Review exact Architect cycle", context});
+      await linkSemantic(unit, projectId, decision, cycle, "governs", context);
+      return decision;
+    });
   }
 
   async function saveWorkflowIntake(projectId: ProjectId, input: WorkflowIntakeSaveInput, context?: MutationContext): Promise<ProjectStateRecord<"WorkflowIntake">> {
@@ -751,7 +896,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   async function recordDecision(projectId: ProjectId, targetId: EntityId, input: DecisionInput, context?: MutationContext) {
-    if (input.decisionType === "workflow-intake-review" || (await requiredRecord(store, projectId, targetId)).entityType === "WorkflowIntake") fail("WorkflowIntake review requires the typed decision command.");
+    if (["workflow-intake-review", "architect-review"].includes(input.decisionType) || ["WorkflowIntake", "ArchitectReviewCycle"].includes((await requiredRecord(store, projectId, targetId)).entityType)) fail("WorkflowIntake review requires the typed decision command.");
     const now = new Date().toISOString();
     return recordLinked(projectId, targetId, "Decision", decisionBody(input, trustedPrincipal, now), "governs", context);
   }
@@ -3323,7 +3468,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return pending.sort((a, b) => a.targetId.localeCompare(b.targetId) || a.criterionId.localeCompare(b.criterionId));
   }
 
-  return { saveWorkflowIntake, recordWorkflowIntakeDecision, getWorkflowIntakeDisposition, createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
+  return { getArchitectReviewProjection, saveArchitectReviewCycle, getCurrentArchitectReviewCycle, getArchitectReviewDisposition, recordArchitectReview, saveWorkflowIntake, recordWorkflowIntakeDecision, getWorkflowIntakeDisposition, createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
     createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, completeTesterResultCheckpoint, createIntegrationRecord, advanceIntegrationRecord, completeWorkflowExecution, closeIntegratedWorkflow,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, createTesterResult, createWorkflowRepair, createPhaseRepair, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, recordCriterionOperatorDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,
