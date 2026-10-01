@@ -592,6 +592,12 @@ test("App Server transport reports benign stderr without runtime denial telemetr
 
   assert.equal(stderrEvent.type, "runtime.stderr");
   assert.equal(stderrEvent.message, "benign app-server warning");
+  fake.child.stderr.write("Authorization: Bear");
+  fake.child.stderr.write("er synthetic-sensitive-value\n");
+  const authEvent = (await iterator.next()).value;
+  assert.equal(authEvent.type, "runtime.stderr");
+  assert.doesNotMatch(authEvent.message, /synthetic-sensitive-value/);
+  assert.match(authEvent.message, /redacted/);
 
   fake.notify("turn/completed", { threadId: "thread-1" });
   assert.deepEqual((await iterator.next()).value, { type: "turn.completed" });

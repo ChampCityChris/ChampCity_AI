@@ -2,6 +2,7 @@ import { normalizeModelCatalog, type CodexModelCatalogEntry } from "../../shared
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createRequire } from "node:module";
 import readline from "node:readline";
+import { redactCodexDiagnostic, type ObservedCodexConnection } from "./codexConnectionPolicy";
 import {
   codexAppServerMethods,
   type CodexAppServerCommandApprovalResponse,
@@ -73,6 +74,7 @@ export interface CodexAppServerThreadAdapter {
 }
 
 export interface CodexAppServerAdapter {
+  listManagedConnections?(threadId?: string): Promise<ObservedCodexConnection[]>;
   listModels?(): Promise<CodexModelCatalogEntry[]>;
   startThread(options?: CodexAppServerThreadOptions): CodexAppServerThreadAdapter;
   getRuntimeState?(): CodexAppServerRuntimeState;
@@ -248,6 +250,11 @@ export async function loadCodexAppServerAdapter(
 }
 
 export class JsonlCodexAppServerTransport implements CodexAppServerAdapter {
+  private managedBoundary: { names: string[]; required: string[] } | null = null;
+  private stderrBuffer = "";
+  setManagedConnectionBoundary(names: string[], required: string[]): void {
+    this.managedBoundary = { names: [...names], required: [...required] };
+  }
   private child: ChildProcessWithoutNullStreams | null = null;
   private lineReader: readline.Interface | null = null;
   private childExit: Promise<void> | null = null;
@@ -270,7 +277,17 @@ export class JsonlCodexAppServerTransport implements CodexAppServerAdapter {
     this.child = child;
     this.lineReader = readline.createInterface({ input: child.stdout });
     this.lineReader.on("line", (line) => this.handleLine(line));
-    child.stderr.on("data", (chunk) => this.broadcastErrorTail(String(chunk)));
+    child.stderr.on("data", (chunk) => {
+      this.stderrBuffer += String(chunk);
+      let newline: number;
+      while ((newline = this.stderrBuffer.indexOf("\n")) >= 0) {
+        const line = this.stderrBuffer.slice(0, newline);
+        this.stderrBuffer = this.stderrBuffer.slice(newline + 1);
+        this.broadcastErrorTail(line);
+      }
+      // Never emit a partial credential field; discard oversized unterminated evidence.
+      if (this.stderrBuffer.length > 8192) this.stderrBuffer = "";
+    });
     this.childExit = new Promise((resolve) => {
       child.once("exit", (code, signal) => {
         this.failAllPending(
@@ -302,7 +319,17 @@ export class JsonlCodexAppServerTransport implements CodexAppServerAdapter {
   }
 
   async startAppThread(thread: JsonlCodexAppServerThread): Promise<string> {
+    let config: Record<string, unknown> | undefined;
+    if (this.managedBoundary) {
+      // Read the selected project's effective config before workers start; project-local additions
+      // must obey the same approval boundary as user-level entries.
+      const result = asRecord(await this.request(codexAppServerMethods.configRead, { cwd: thread.options.workingDirectory, includeLayers: false }));
+      const servers = asRecord(asRecord(result.config).mcp_servers);
+      const names = [...new Set([...this.managedBoundary.names, ...Object.keys(servers)])];
+      config = { mcp_servers: Object.fromEntries(names.map(name => [name, { enabled: this.managedBoundary!.required.includes(name) }])) };
+    }
     const params: CodexAppServerThreadStartParams = {
+      config,
       model: thread.options.model,
       cwd: thread.options.workingDirectory,
       approvalPolicy: thread.options.approvalPolicy ?? "on-request",
@@ -333,6 +360,14 @@ export class JsonlCodexAppServerTransport implements CodexAppServerAdapter {
       sandbox: summarizeSandbox(result.sandbox),
     };
     await this.refreshCapabilitySummary(threadId, thread.options.workingDirectory);
+    if (this.managedBoundary) {
+      const observed = await this.listManagedConnections(threadId);
+      if (observed.some(entry => entry.initialized && !this.managedBoundary!.required.includes(entry.name))) throw new Error("Unapproved Codex connection detected. Implementation was blocked.");
+      for (const name of this.managedBoundary.required) {
+        const entry = observed.find(connection => connection.name === name);
+        if (!entry?.initialized || entry.authStatus === "notLoggedIn") throw new Error(`Codex connection "${name}" ${entry?.authStatus === "notLoggedIn" ? "requires authentication" : "is not ready"}. Open Settings > Codex Connections.`);
+      }
+    }
     return threadId;
   }
 
@@ -489,6 +524,25 @@ export class JsonlCodexAppServerTransport implements CodexAppServerAdapter {
     return entries;
   }
 
+  async listManagedConnections(threadId?: string): Promise<ObservedCodexConnection[]> {
+    const entries: ObservedCodexConnection[] = [];
+    const seen = new Set<string>();
+    let cursor: string | null = null;
+    do {
+      const page = asRecord(await this.request(codexAppServerMethods.mcpServerStatusList, { limit: 100, cursor, threadId }));
+      if (!Array.isArray(page.data)) throw new Error("Invalid Codex connection status response.");
+      for (const value of page.data) {
+        const entry = asRecord(value);
+        if (typeof entry.name !== "string" || typeof entry.authStatus !== "string") throw new Error("Invalid Codex connection status.");
+        entries.push({ name: entry.name, authStatus: entry.authStatus, initialized: Boolean(entry.serverInfo) || Object.keys(asRecord(entry.tools)).length > 0 });
+      }
+      cursor = typeof page.nextCursor === "string" ? page.nextCursor : null;
+      if (cursor && (seen.has(cursor) || seen.size >= 100)) throw new Error("Invalid Codex connection pagination.");
+      if (cursor) seen.add(cursor);
+    } while (cursor);
+    return entries;
+  }
+
   getRuntimeState(): CodexAppServerRuntimeState {
     return JSON.parse(JSON.stringify(this.runtimeState)) as CodexAppServerRuntimeState;
   }
@@ -521,7 +575,7 @@ export class JsonlCodexAppServerTransport implements CodexAppServerAdapter {
       return {
         state: "unavailable",
         count: null,
-        summary: error instanceof Error ? error.message : String(error),
+        summary: redactCodexDiagnostic(error instanceof Error ? error.message : String(error)),
         details: [],
       };
     }
@@ -778,7 +832,7 @@ export class JsonlCodexAppServerTransport implements CodexAppServerAdapter {
   }
 
   private broadcastErrorTail(text: string): void {
-    const trimmed = text.replace(/\s+/g, " ").trim();
+    const trimmed = redactCodexDiagnostic(text).replace(/\s+/g, " ").trim();
     if (!trimmed) {
       return;
     }
@@ -1843,7 +1897,7 @@ function isSensitiveConfigKey(key: string): boolean {
 }
 
 function sanitizeDetail(value: string): string {
-  const normalized = value.replace(/\s+/g, " ").trim();
+  const normalized = redactCodexDiagnostic(value).replace(/\s+/g, " ").trim();
   return normalized.length > 80 ? `${normalized.slice(0, 80)}...` : normalized;
 }
 

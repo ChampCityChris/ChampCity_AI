@@ -47,6 +47,7 @@ export interface CodexAppServerInitializeResponse {
 }
 
 export interface CodexAppServerThreadStartParams {
+  config?: Record<string, unknown>;
   model?: string;
   cwd?: string | null;
   approvalPolicy?: "on-request" | null;

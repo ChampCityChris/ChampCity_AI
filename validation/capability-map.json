@@ -95,6 +95,10 @@
           "description": "ChatGPT-style stream churn remains bounded without admission rejection growth"
         },
         {
+          "behaviorId": "codex-connections-is-a-separate-bounded-outbound-settings-panel",
+          "description": "Codex Connections is a separate bounded outbound Settings panel"
+        },
+        {
           "behaviorId": "concurrent-broad-work-does-not-block-exact-path-requests-and-live-audit-metadata-is-bounded",
           "description": "concurrent broad work does not block exact-path requests and live audit metadata is bounded"
         },
@@ -1245,12 +1249,17 @@
       "sourcePatterns": [
         ".gitignore",
         "README.md",
+        "docs/implementation-bundles/codex-runtime-connection-governance/**",
         "docs/implementation-bundles/workflow-runtime-rebaseline/WRB04/**",
         "src/main/main.ts",
         "src/main/workCardBuilding/**",
         "src/main/workCardBuilding/workflowExecutionLease.ts",
         "src/preload/index.ts",
+        "src/renderer/app/CodexConnectionsPanel.tsx",
+        "src/renderer/app/CodexModelSelectionControls.tsx",
         "src/renderer/app/WorkCardBuildingReviewWorkspace.tsx",
+        "src/shared/codexConnectionContracts.ts",
+        "src/shared/codexRuntimeContracts.ts",
         "src/shared/workItemCheckpointContracts.ts",
         "src/shared/workspaceContracts.ts",
         "test/support/codex-ipc-harness.cjs",
@@ -1328,6 +1337,14 @@
         {
           "behaviorId": "approving-a-revised-pending-formal-work-card-registers-a-fresh-report-sourced-to-current-revisio",
           "description": "approving a revised Pending Formal Work Card registers a fresh report sourced to current revision"
+        },
+        {
+          "behaviorId": "auth-diagnostic-redaction-covers-headers-tokens-cookies-and-url-queries",
+          "description": "auth diagnostic redaction covers headers tokens cookies and URL queries"
+        },
+        {
+          "behaviorId": "bundled-pinned-runtime-honors-production-disable-overrides-and-leaves-synthetic-standalone-config-unchanged",
+          "description": "bundled pinned runtime honors production disable overrides and leaves synthetic standalone config unchanged"
         },
         {
           "behaviorId": "codex-implementer-explicit-start-owns-one-app-server-adapter-across-status-reads-and-terminal-cl",
@@ -1422,6 +1439,10 @@
           "description": "conflicting existing report blocks registration without mutating either file"
         },
         {
+          "behaviorId": "connection-policy-only-toggles-approved-names-and-rejects-secrets-or-config-injection",
+          "description": "connection policy only toggles approved names and rejects secrets or config injection"
+        },
+        {
           "behaviorId": "current-runtime-is-retained-repeated-initialization-and-status-reads-have-no-update-process-side",
           "description": "current runtime is retained; repeated initialization and status reads have no update/process side effects"
         },
@@ -1494,6 +1515,10 @@
           "description": "Issue Repair Codex completion and retry preserve root Fix Card and exact Repair identities"
         },
         {
+          "behaviorId": "managed-launch-excludes-signal-forge-ambient-invalid-token-workers-before-any-turn",
+          "description": "managed launch excludes Signal Forge ambient invalid-token workers before any turn"
+        },
+        {
           "behaviorId": "missing-report-projection-identifies-exact-target-and-recovery-is-idempotent",
           "description": "missing report projection identifies exact target and recovery is idempotent"
         },
@@ -1514,6 +1539,10 @@
           "description": "one initializer request adopts one bounded result from a distinct worker PID"
         },
         {
+          "behaviorId": "optional-invalid-auth-is-bounded-and-excluded-from-the-implementation-process",
+          "description": "optional invalid auth is bounded and excluded from the implementation process"
+        },
+        {
           "behaviorId": "production-operations-resolve-userdata-runtime-and-spawn-that-executable-without-repository-pack",
           "description": "production operations resolve userData runtime and spawn that executable without repository package source"
         },
@@ -1524,6 +1553,10 @@
         {
           "behaviorId": "repair-implementation-report-target-is-repair-specific-and-contract-labeled",
           "description": "repair implementation report target is repair-specific and contract-labeled"
+        },
+        {
+          "behaviorId": "required-invalid-auth-blocks-before-an-implementation-thread-or-turn-and-gives-settings-recovery",
+          "description": "required invalid auth blocks before an implementation thread or turn and gives Settings recovery"
         },
         {
           "behaviorId": "settings-survive-restart-in-supplied-userdata-only",
@@ -15261,8 +15294,8 @@
     {
       "testPath": "test/renderer/agent-harness-settings-workspace.test.cjs",
       "currentTestCount": {
-        "value": 8,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 17,
+        "basis": "CRC-R01 focused Settings test count."
       },
       "duration": {
         "kind": "measured",
@@ -15302,6 +15335,12 @@
         "current-proof-appropriate"
       ],
       "behaviorCoverage": [
+        {
+          "capabilityId": "agent-harness-mcp-runtime",
+          "behaviorId": "codex-connections-is-a-separate-bounded-outbound-settings-panel",
+          "proofLocator": "Codex Connections is a separate bounded outbound Settings panel",
+          "proofRole": "primary"
+        },
         {
           "capabilityId": "agent-harness-mcp-runtime",
           "behaviorId": "left-rail-renders-app-level-settings-while-theme-remains-outside-settings",
@@ -19255,6 +19294,89 @@
           "capabilityId": "semantic-source-checkpoints",
           "behaviorId": "tester-checkpoint-commits-exact-bounded-test-support-and-catalog-path-set",
           "proofLocator": "Exact Tester lifecycle test attributes and commits the same complete changed-path set across test, fixture, and validation catalog paths.",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/work-card-building/codex-managed-connections.test.cjs",
+      "currentTestCount": {
+        "value": 6,
+        "basis": "CRC-R01 declared focused production-path cases."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 2000,
+        "basis": "Bounded local pinned-runtime inventory and App Server probe; no model turns or network fixtures."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Mutates process environment and child-process seams inside its isolated test process.",
+        "ownedResources": [
+          "shared-global-state-exclusive",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "codex-implementation-runtime",
+          "behaviorId": "auth-diagnostic-redaction-covers-headers-tokens-cookies-and-url-queries",
+          "proofLocator": "auth diagnostic redaction covers headers tokens cookies and URL queries",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "codex-implementation-runtime",
+          "behaviorId": "bundled-pinned-runtime-honors-production-disable-overrides-and-leaves-synthetic-standalone-config-unchanged",
+          "proofLocator": "bundled pinned runtime honors production disable overrides and leaves synthetic standalone config unchanged",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "codex-implementation-runtime",
+          "behaviorId": "connection-policy-only-toggles-approved-names-and-rejects-secrets-or-config-injection",
+          "proofLocator": "connection policy only toggles approved names and rejects secrets or config injection",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "codex-implementation-runtime",
+          "behaviorId": "managed-launch-excludes-signal-forge-ambient-invalid-token-workers-before-any-turn",
+          "proofLocator": "managed launch excludes Signal Forge ambient invalid-token workers before any turn",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "codex-implementation-runtime",
+          "behaviorId": "optional-invalid-auth-is-bounded-and-excluded-from-the-implementation-process",
+          "proofLocator": "optional invalid auth is bounded and excluded from the implementation process",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "codex-implementation-runtime",
+          "behaviorId": "required-invalid-auth-blocks-before-an-implementation-thread-or-turn-and-gives-settings-recovery",
+          "proofLocator": "required invalid auth blocks before an implementation thread or turn and gives Settings recovery",
           "proofRole": "primary"
         }
       ]

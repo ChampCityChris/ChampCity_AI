@@ -414,6 +414,8 @@ const api: ChampCityApi = {
   retryWorkflowImplementationCheckpoint: (workflowId, workItemId, implementationRecordId) => ipcRenderer.invoke("workflow:retryImplementationCheckpoint", workflowId, workItemId, implementationRecordId) as ReturnType<ChampCityApi["retryWorkflowImplementationCheckpoint"]>,
   retryWorkflowTesterCheckpoint: (workflowId, workItemId, implementationRecordId, testerResultId) => ipcRenderer.invoke("workflow:retryTesterCheckpoint", workflowId, workItemId, implementationRecordId, testerResultId) as ReturnType<ChampCityApi["retryWorkflowTesterCheckpoint"]>,
   getCodexManagedRuntimeStatus: () => ipcRenderer.invoke("codexRuntime:getStatus"),
+  refreshCodexConnections: () => ipcRenderer.invoke("codexRuntime:refreshConnections"),
+  setCodexConnectionEnabled: (name, enabled) => ipcRenderer.invoke("codexRuntime:setConnectionEnabled", name, enabled),
   setCodexModelSelection: (selection) => ipcRenderer.invoke("codexRuntime:setSelection", selection),
   startCodexImplementerExecution: (selection) =>
     ipcRenderer.invoke(

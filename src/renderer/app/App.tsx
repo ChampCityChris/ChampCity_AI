@@ -1,4 +1,5 @@
 import { WorkflowIntakeWorkspace } from "./WorkflowIntakeWorkspace";
+import { CodexConnectionsPanel } from "./CodexConnectionsPanel";
 import { ProjectIntakeWorkspace } from "./ProjectIntakeWorkspace";
 import type { CodexModelSelection } from "../../shared/codexRuntimeContracts";
 import type { ExistingProjectGitAdoptionPlan } from "../../shared/sourceControlContracts";
@@ -5446,6 +5447,7 @@ export function AgentHarnessSettingsWorkspace({
         </div>
       </header>
 
+      <CodexConnectionsPanel />
       <div className="agent-harness-control-strip" aria-label="Agent Harness controls">
         <div className={`agent-harness-state ${status?.state ?? "unavailable"}`}>
           <span>MCP Runtime</span>

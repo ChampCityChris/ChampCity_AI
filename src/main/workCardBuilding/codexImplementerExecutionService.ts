@@ -1,4 +1,5 @@
 import { resolveWorkCardApplicationContext } from "../developmentEnvironment/workCardApplicationContext";
+import { redactCodexDiagnostic } from "./codexConnectionPolicy";
 import { codexRuntimeManager, type CodexRuntimeManager } from "./codexRuntimeManager";
 import type { CodexModelSelection } from "../../shared/codexRuntimeContracts";
 import crypto from "node:crypto";
@@ -1738,7 +1739,7 @@ function exactExecutionOwnerKey(workspaceRoot: string, workflowId: string, workI
 }
 
 function appendTail(tail: string[], value: string): void {
-  const normalized = value.replace(/\s+/g, " ").trim();
+  const normalized = redactCodexDiagnostic(value).replace(/\s+/g, " ").trim();
   tail.push(normalized.length > maxTailTextLength
     ? `${normalized.slice(0, maxTailTextLength)}...`
     : normalized);
@@ -1798,7 +1799,8 @@ function summarizeItem(item: CodexAppServerThreadItem): string {
 }
 
 function messageForCodexFailure(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = redactCodexDiagnostic(error instanceof Error ? error.message : String(error));
+  if (message.startsWith("Codex connection ") && message.includes("Settings > Codex Connections")) return message;
   if (/auth|authenticated|authentication|login|sign in|api key/i.test(message)) {
     return CODEX_AUTH_UNAVAILABLE_MESSAGE;
   }

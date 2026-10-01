@@ -1,12 +1,16 @@
 import type { CodexManagedRuntimeStatus, CodexModelSelection } from "../../shared/codexRuntimeContracts";
 import { selectionBlocker } from "../../shared/codexRuntimeContracts";
 import type { CodexAppServerAdapter } from "./codexAppServerTransport";
+import type { ManagedCodexConnectionsStatus } from "../../shared/codexConnectionContracts";
 import type {
   CodexRuntimeInitializationResult,
   ManagedCodexRuntime,
 } from "./codexRuntimeInitialization";
 
 export interface CodexRuntimeExecutionOperations {
+  getConnectionsStatus?(): ManagedCodexConnectionsStatus;
+  refreshConnections?(runtime: ManagedCodexRuntime): Promise<ManagedCodexConnectionsStatus>;
+  setConnectionEnabled?(name: unknown, enabled: unknown): Promise<void>;
   writeSelection(selection: CodexModelSelection): Promise<void>;
   launch(runtime: ManagedCodexRuntime): Promise<CodexAppServerAdapter>;
   shutdown?(): Promise<void>;
@@ -46,7 +50,26 @@ export class CodexRuntimeManager {
   }
 
   getStatus(): CodexManagedRuntimeStatus {
-    return structuredClone({ ...this.state, busy: this.locked || this.concurrentExactRuns > 0 || this.saving });
+    const connections = this.operations?.getConnectionsStatus?.();
+    return structuredClone({ ...this.state, ...(connections ? { connections } : {}), busy: this.locked || this.concurrentExactRuns > 0 || this.saving });
+  }
+
+  async refreshConnections(): Promise<ManagedCodexConnectionsStatus> {
+    if (!this.runtime || !this.operations?.refreshConnections) throw new Error("Managed Codex runtime is unavailable.");
+    if (this.locked || this.concurrentExactRuns || this.saving) throw new Error("Codex connections cannot change during an active run.");
+    this.saving = true;
+    try { return await this.operations.refreshConnections(this.runtime); }
+    finally { this.saving = false; }
+  }
+
+  async setConnectionEnabled(name: unknown, enabled: unknown): Promise<ManagedCodexConnectionsStatus> {
+    if (this.locked || this.concurrentExactRuns || this.saving) throw new Error("Codex connections cannot change during an active run.");
+    if (!this.runtime || !this.operations?.setConnectionEnabled || !this.operations.refreshConnections) throw new Error("Managed Codex connections are unavailable.");
+    this.saving = true;
+    try {
+      await this.operations.setConnectionEnabled(name, enabled);
+      return await this.operations.refreshConnections(this.runtime);
+    } finally { this.saving = false; }
   }
 
   private adoptInitializationResult(result: CodexRuntimeInitializationResult): void {

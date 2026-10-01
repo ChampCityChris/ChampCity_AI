@@ -14,6 +14,7 @@ export interface CodexModelCatalogEntry {
 }
 
 export interface CodexManagedRuntimeStatus {
+  connections?: import("./codexConnectionContracts").ManagedCodexConnectionsStatus;
   version: string | null;
   updateState: "initializing" | "checking" | "current" | "updated" | "degraded" | "unavailable";
   catalog: CodexModelCatalogEntry[];

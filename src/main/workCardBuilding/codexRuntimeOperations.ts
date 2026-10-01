@@ -10,6 +10,7 @@ import type {
   ManagedCodexRuntime,
 } from "./codexRuntimeInitialization";
 import type { CodexModelSelection } from "../../shared/codexRuntimeContracts";
+import { CodexConnectionPolicy, managedConnectionOverrides } from "./codexConnectionPolicy";
 
 const registry = "https://registry.npmjs.org";
 
@@ -19,6 +20,7 @@ export interface CodexRuntimeOperations
 // Immutable version directories plus an atomic pointer; repository dependencies are bootstrap input only.
 export function createCodexRuntimeOperations(userData: string): CodexRuntimeOperations {
   const root = path.join(userData, "codex-runtime");
+  const connections = new CodexConnectionPolicy(userData);
   const shutdown = new AbortController();
   const transports = new Set<JsonlCodexAppServerTransport>();
   const execute = (file: string, args: string[], options: { windowsHide: boolean; timeout: number; maxBuffer?: number }) =>
@@ -42,9 +44,10 @@ export function createCodexRuntimeOperations(userData: string): CodexRuntimeOper
     await fs.mkdir(directory, { recursive: true });
     return directory;
   };
-  const launch = async (runtime: ManagedCodexRuntime) => {
+  const launchTransport = async (runtime: ManagedCodexRuntime, overrides: string[]) => {
     shutdown.signal.throwIfAborted();
-    const transport = new JsonlCodexAppServerTransport(() => spawn(runtime.executable, ["app-server", "--listen", "stdio://"], {
+    await fs.mkdir(root, { recursive: true });
+    const transport = new JsonlCodexAppServerTransport(() => spawn(runtime.executable, [...overrides, "app-server", "--listen", "stdio://"], {
       cwd: root, windowsHide: true, stdio: ["pipe", "pipe", "pipe"],
       env: { ...process.env, PATH: `${path.join(runtime.directory, "vendor", triple, "codex-path")}${path.delimiter}${process.env.PATH ?? ""}` },
     }));
@@ -54,7 +57,45 @@ export function createCodexRuntimeOperations(userData: string): CodexRuntimeOper
     try { await bounded(transport.initialize(), 30_000); return transport; }
     catch (error) { await transport.dispose(); throw error; }
   };
+  const inventory = async (runtime: ManagedCodexRuntime): Promise<string[]> => {
+    // `mcp list` reads configuration without starting MCP workers. Never retain its raw credential-bearing payload.
+    const result = await execute(runtime.executable, ["mcp", "list", "--json"], { windowsHide: true, timeout: 15_000, maxBuffer: 1024 * 1024 })
+      .catch(() => { throw new Error("Could not read Codex connection inventory."); });
+    let value;
+    try { value = JSON.parse(result.stdout); } catch { throw new Error("Could not read Codex connection inventory."); }
+    if (!Array.isArray(value) || value.some(entry => typeof entry?.name !== "string")) throw new Error("Invalid Codex connection inventory.");
+    return value.map(entry => entry.name);
+  };
+  const preflight = async (runtime: ManagedCodexRuntime) => {
+    const approved = await connections.read();
+    const names = await inventory(runtime);
+    const candidates = approved.filter(entry => entry.enabled).map(entry => entry.name);
+    let transport: JsonlCodexAppServerTransport | undefined;
+    try {
+      transport = await launchTransport(runtime, managedConnectionOverrides(names, candidates));
+      const observed = await bounded(transport.listManagedConnections(), 30_000);
+      if (observed.some(entry => entry.initialized && !candidates.includes(entry.name))) throw new Error("Unapproved Codex connection detected.");
+      connections.project(approved, observed);
+    } catch (error) {
+      if (error instanceof Error && error.message === "Unapproved Codex connection detected.") throw error;
+      connections.project(approved, [], true);
+    } finally { await transport?.dispose(); }
+    return { names, status: connections.getStatus() };
+  };
+  const launch = async (runtime: ManagedCodexRuntime) => {
+    const { names, status } = await preflight(runtime);
+    if (status.blocker) throw new Error(status.blocker);
+    // Optional outbound connections remain excluded from implementation. This V1 recovery boundary
+    // cannot guarantee that an authenticated optional worker will remain healthy after preflight.
+    const required = status.connections.filter(entry => entry.enabled && entry.requirement === "required" && entry.status === "ready").map(entry => entry.name);
+    const transport = await launchTransport(runtime, managedConnectionOverrides(names, required));
+    transport.setManagedConnectionBoundary(names, required);
+    return transport;
+  };
   return {
+    getConnectionsStatus: () => connections.getStatus(),
+    refreshConnections: async (runtime) => (await preflight(runtime)).status,
+    setConnectionEnabled: (name, enabled) => connections.setEnabled(name, enabled),
     async loadCurrent() {
       let current;
       try { current = JSON.parse(await fs.readFile(path.join(root, "current.json"), "utf8")); }
@@ -102,7 +143,9 @@ export function createCodexRuntimeOperations(userData: string): CodexRuntimeOper
       await fs.mkdir(schemaDirectory, { recursive: true });
       await execute(runtime.executable, ["app-server", "generate-json-schema", "--out", schemaDirectory], { windowsHide: true, timeout: 30_000 });
       await verifyRequiredSchema(schemaDirectory);
-      const transport = await launch(runtime);
+      // Model/runtime readiness is independent of required outbound connection readiness.
+      // Startup must still expose a healthy runtime when a required connector needs attention.
+      const transport = await launchTransport(runtime, managedConnectionOverrides(await inventory(runtime), []));
       try { return await bounded(transport.listModels(), 30_000); }
       finally { await transport.dispose(); }
     },
@@ -130,6 +173,9 @@ export function createCodexRuntimeExecutionOperations(
   return {
     writeSelection: operations.writeSelection,
     launch: operations.launch,
+    getConnectionsStatus: operations.getConnectionsStatus,
+    refreshConnections: operations.refreshConnections,
+    setConnectionEnabled: operations.setConnectionEnabled,
     shutdown: operations.shutdown,
   };
 }
@@ -171,7 +217,7 @@ async function verifyRequiredSchema(directory: string): Promise<void> {
   }
   await read(directory);
   const text = JSON.stringify(schemas);
-  for (const method of ["initialize", "model/list", "thread/start", "turn/start", "turn/interrupt", "item/commandExecution/requestApproval", "item/fileChange/requestApproval", "item/permissions/requestApproval", "item/tool/requestUserInput", "mcpServer/elicitation/request"]) {
+  for (const method of ["initialize", "model/list", "thread/start", "turn/start", "turn/interrupt", "mcpServerStatus/list", "item/commandExecution/requestApproval", "item/fileChange/requestApproval", "item/permissions/requestApproval", "item/tool/requestUserInput", "mcpServer/elicitation/request"]) {
     if (!text.includes(`"${method}"`)) throw new Error(`Codex schema is missing ${method}.`);
   }
   function hasFields(value: any, title: string, fields: string[]): boolean {

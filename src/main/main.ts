@@ -1072,6 +1072,8 @@ ipcMain.handle("codexImplementer:getWorkflowWorkItemStatus", (_event, workflowId
 });
 
 ipcMain.handle("codexRuntime:getStatus", () => codexRuntimeManager.getStatus());
+ipcMain.handle("codexRuntime:refreshConnections", () => codexRuntimeManager.refreshConnections());
+ipcMain.handle("codexRuntime:setConnectionEnabled", (_event, name, enabled) => codexRuntimeManager.setConnectionEnabled(name, enabled));
 ipcMain.handle("codexRuntime:setSelection", (_event, selection: unknown) => codexRuntimeManager.setSelection(selection));
 
 ipcMain.handle("codexImplementer:start", (_event, selection: CodexModelSelection): Promise<CodexImplementerExecutionModel> => {

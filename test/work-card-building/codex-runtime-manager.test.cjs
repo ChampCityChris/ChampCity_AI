@@ -128,27 +128,29 @@ test("production operations resolve userData runtime and spawn that executable w
   const {PassThrough}=require("node:stream");
   const root=await fs.mkdtemp(path.join(os.tmpdir(),"champcity-runtime-launch-"));
   const originalSpawn=childProcess.spawn;
+  const originalExecFile=childProcess.execFile;
   const calls=[];
   const directory="11111111-1111-1111-1111-111111111111";
   let adapter;
   try {
     await fs.mkdir(path.join(root,"codex-runtime"));
     await fs.writeFile(path.join(root,"codex-runtime","current.json"),JSON.stringify({directory,version:"0.153.4"}));
+    childProcess.execFile=(_command,args,_options,done)=>{assert.deepEqual(args,["mcp","list","--json"]);done(null,"[]","");};
     childProcess.spawn=(command,args,options)=>{
       calls.push({command,args,options});
       const child=new EventEmitter();child.stdout=new PassThrough();child.stderr=new PassThrough();child.stdin=new PassThrough();
       child.kill=()=>{child.killed=true;queueMicrotask(()=>child.emit("exit",0));return true;};
-      child.stdin.on("data",data=>{const request=JSON.parse(data.toString());if(request.method==="initialize")child.stdout.write(JSON.stringify({id:request.id,result:{userAgent:"fixture",codexHome:"<CODEX_HOME>"}})+"\n");});
+      child.stdin.on("data",data=>{const request=JSON.parse(data.toString());if(request.method==="initialize")child.stdout.write(JSON.stringify({id:request.id,result:{userAgent:"fixture",codexHome:"<CODEX_HOME>"}})+"\n");if(request.method==="mcpServerStatus/list")child.stdout.write(JSON.stringify({id:request.id,result:{data:[],nextCursor:null}})+"\n");});
       return child;
     };
     const ops=createCodexRuntimeOperations(root);
     const runtime=await ops.loadCurrent();
     adapter=await ops.launch(runtime);
-    assert.equal(calls.length,1);
+    assert.equal(calls.length,2);
     assert.equal(calls[0].command,runtime.executable);
     assert.equal(path.relative(path.join(root,"codex-runtime","versions",directory),runtime.executable).startsWith(".."),false);
     assert.doesNotMatch(calls[0].command,/node_modules/);
-    assert.deepEqual(calls[0].args,["app-server","--listen","stdio://"]);
+    assert.deepEqual(calls[0].args,["-c","mcp_servers={}","app-server","--listen","stdio://"]);
     assert.equal(calls[0].options.windowsHide,true);
-  } finally {await adapter?.dispose();childProcess.spawn=originalSpawn;await fs.rm(root,{recursive:true,force:true});}
+  } finally {await adapter?.dispose();childProcess.spawn=originalSpawn;childProcess.execFile=originalExecFile;await fs.rm(root,{recursive:true,force:true});}
 });

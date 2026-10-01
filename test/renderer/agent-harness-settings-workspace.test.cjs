@@ -471,6 +471,8 @@ test("Settings preload methods invoke constrained channels and preserve bounded 
     },
   });
   const entries = [
+    ["refreshCodexConnections", "codexRuntime:refreshConnections", []],
+    ["setCodexConnectionEnabled", "codexRuntime:setConnectionEnabled", ["approved", false]],
     ["saveAgentHarnessSettings", "agentHarness:saveSettings", [{ enabled: true }]],
     ["getAgentHarnessServiceHostLifecycleStatus", "agentHarness:serviceHostLifecycleStatus", []],
     ["startBackgroundAgent", "agentHarness:startBackgroundAgent", []],
@@ -488,4 +490,18 @@ test("Settings preload methods invoke constrained channels and preserve bounded 
   }
   assert.equal(calls.length, entries.length);
   for (const name of ["fs", "writeFile", "showOpenDialog", "readFile", "ipcRenderer"]) assert.equal(Object.hasOwn(api, name), false);
+});
+
+test("Codex Connections is a separate bounded outbound Settings panel", () => {
+  const { CodexConnectionsView } = require(path.join(root, "src", "renderer", "app", "CodexConnectionsPanel.tsx"));
+  const html = renderToStaticMarkup(React.createElement(CodexConnectionsView, {
+    status: { connections: [{ name: "approved", enabled: true, requirement: "optional", status: "authentication-required", diagnostic: "Authentication required." }], blocker: null, requiredReady: true, optionalWarnings: 1 },
+    busy: false, error: "", onRefresh() {}, onToggle() {},
+  }));
+  assert.match(html, /Codex Connections/);
+  assert.match(html, /Refresh Status/);
+  assert.match(html, /Disable/);
+  assert.match(html, /authentication-required/);
+  assert.match(html, /credentials are managed separately/);
+  assert.doesNotMatch(html, /textarea|bearer_token|refresh_token|client_secret/);
 });
