@@ -304,3 +304,9 @@ MemoryService
 Project State emits committed semantic events. Memory consumes those events idempotently.
 
 This gives Memory fast local retrieval while preserving the rule that deleting/rebuilding Memory cannot change what ChampCity knows canonically about the Project.
+
+## Workflow Intake compatibility (RWS04A)
+
+`WorkflowIntake` and its record-version-scoped Operator review Decisions are canonical SQL state. Generated Markdown is a human-readable projection, and changes to that projection do not change or delete Intake state. Existing entity tables store open-text `entity_type` and validated `body_json`; registering WorkflowIntake and `intake_for` requires no SQLite table or schema migration. Existing-schema reopen proof verifies unchanged schema definitions, migration receipts, and authority rows after storing the new entity.
+
+`project_state_authority=structured` is the final project-wide legacy-writer cutoff. It does not require every domain to remain legacy until final cutover: incremental workspace-family migration may adopt structured entities earlier. RWS04A leaves that fence and all production Intake callers unchanged.

@@ -83,3 +83,50 @@ function register(name, factory) {
 
 register("in-memory Project State", () => createInMemoryProjectStateStore());
 register("SQLite Project State", sqliteFixture);
+
+for (const [name, factory] of [["memory", () => createInMemoryProjectStateStore()], ["SQLite", sqliteFixture]]) {
+  test(`${name}: Workflow Intake saves and reviews exact revisions without advancing Workflow`, async context => {
+    const store = factory(context);
+    const service = createProjectStateService(store, operator);
+    const { createProjectStateEntity } = require("../../dist/shared/projectState/entityTypeRegistry.js");
+    const { createRelationship } = require("../../dist/shared/projectState/relationshipRegistry.js");
+    const project = await service.createRecord(null, "Project", { name: "Intake", description: "Synthetic" });
+    const workflow = createProjectStateEntity({ entityType: "Workflow", projectId: project.id, principal: operator, body: { workflowType: "project-creation", title: "Greenfield", currentWorkspace: "intake", workflowState: "active" } });
+    await store.transaction(project.id, unit => unit.saveEntity(workflow, null));
+    const input = { workflowId: workflow.id, workflowType: workflow.body.workflowType, values: { request: "Build", confirmed: true } };
+    const intake = await service.saveWorkflowIntake(project.id, input);
+    assert.deepEqual((await store.getEntity(project.id, intake.id)).body, intake.body);
+    assert.equal((await service.getWorkflowIntakeDisposition(project.id, intake.id)).state, "none");
+    await assert.rejects(service.saveWorkflowIntake(project.id, { ...input, workflowType: "feature-capability" }), /mismatch/);
+    await assert.rejects(service.saveWorkflowIntake(project.id, { ...input, workflowId: project.id }), /Workflow/);
+    await assert.rejects(service.recordWorkflowIntakeDecision(project.id, intake.id, { expectedIntakeRecordVersion: 1, outcome: "revision_requested" }), /notes/);
+    await assert.rejects(createProjectStateService(store, model).recordWorkflowIntakeDecision(project.id, intake.id, { expectedIntakeRecordVersion: 1, outcome: "approved" }), /human Operator/);
+    for (const outcome of ["approved", "revision_requested", "rejected"]) {
+      const decision = await service.recordWorkflowIntakeDecision(project.id, intake.id, { expectedIntakeRecordVersion: 1, outcome, notes: "Review notes" });
+      assert.equal(decision.body.decisionScope, `workflow-intake:${intake.id}@1`);
+      assert.equal((await service.getWorkflowIntakeDisposition(project.id, intake.id)).decisionId, decision.id);
+      assert.ok((await store.listRelationships(project.id, "governs")).some(edge => edge.fromEntityId === decision.id && edge.toEntityId === intake.id));
+      await assert.rejects(service.reviseRecord(project.id, decision.id, { outcome: "approved" }, 1), /Immutable/);
+    }
+    const revised = await service.saveWorkflowIntake(project.id, { ...input, values: { request: "Revise" }, expectedIntakeRecordVersion: 1 });
+    assert.equal(revised.id, intake.id);
+    assert.equal(revised.recordVersion, 2);
+    assert.equal((await store.listEntities(project.id, "WorkflowIntake")).length, 1);
+    assert.equal((await store.listRelationships(project.id, "intake_for")).length, 1);
+    assert.equal((await service.getWorkflowIntakeDisposition(project.id, intake.id)).state, "none");
+    assert.deepEqual(await store.getEntity(project.id, workflow.id), workflow);
+    await assert.rejects(service.recordWorkflowIntakeDecision(project.id, intake.id, { expectedIntakeRecordVersion: 1, outcome: "approved" }), /stale/);
+    await assert.rejects(service.saveWorkflowIntake(project.id, { ...input, expectedIntakeRecordVersion: 1 }), /stale/);
+    await assert.rejects(service.createRecord(project.id, "WorkflowIntake", intake.body), /typed/);
+    await assert.rejects(service.reviseRecord(project.id, intake.id, { values: {} }, 2), /typed/);
+    await assert.rejects(service.recordDecision(project.id, intake.id, { decisionType: "review", outcome: "approved", decisionScope: "intake" }), /typed/);
+    const routing = createProjectStateEntity({ entityType: "Workflow", projectId: project.id, principal: operator, body: { ...workflow.body, workflowType: "work-intake-routing" } });
+    await store.transaction(project.id, unit => unit.saveEntity(routing, null));
+    await assert.rejects(service.saveWorkflowIntake(project.id, { ...input, workflowId: routing.id, workflowType: "work-intake-routing" }), /Workflow/);
+    const duplicate = createProjectStateEntity({ entityType: "WorkflowIntake", projectId: project.id, principal: operator, body: intake.body });
+    const edge = createRelationship({ projectId: project.id, fromEntityId: duplicate.id, toEntityId: workflow.id, relationshipType: "intake_for", createdBy: operator }, id => id === duplicate.id ? duplicate : workflow);
+    await store.transaction(project.id, async unit => { await unit.saveEntity(duplicate, null); await unit.saveRelationship(edge); });
+    await assert.rejects(service.saveWorkflowIntake(project.id, input), /ambiguous/);
+    assert.equal((await store.getEntity(project.id, intake.id)).recordVersion, 2);
+  });
+}

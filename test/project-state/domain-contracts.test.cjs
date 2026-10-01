@@ -15,6 +15,7 @@ const bodies = {
   WorkIntake: { request: "Request", desiredOutcome: "Outcome", constraints: [], evidenceContext: [], intakeState: "captured", requestedIntegrationTarget: "dev" },
   RouteAssessment: { workIntakeId: linkedId, recommendation: "feature-change", traits: [], rationale: "Reason", evidenceIds: [] },
   Workflow: { workflowType: "feature-capability", title: "Feature / Capability", currentWorkspace: "work", workflowState: "active" },
+  WorkflowIntake: { workflowId: linkedId, workflowType: "feature-capability", values: { request: "Build", existing: false } },
   SourceBaseline: { workflowId: linkedId, repositoryId: "repo", integrationTargetSourceLineId: "dev", baseRevisionId: "revision" },
   Phase: { title: "Phase", objective: "Objective", phaseState: "active", sequence: 1 },
   Finding: { ...common, category: "defect", impact: "Impact", observedAt: now, findingState: "open" },
@@ -23,7 +24,7 @@ const bodies = {
   Criterion: { statement: "Observable", criticality: "required", verificationIntent: "Prove the result", validationPolicy: "deterministic", criterionState: "active" },
   WorkItem: { workItemKind: "feature", title: "Work", objective: "Objective", workState: "ready" },
   ImplementationRecord: { workItemId: linkedId, summary: "Done", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" },
-  TesterResult: { workflowId: linkedId, workItemId: linkedId, implementationRecordId: linkedId, implementerRevisionId: "revision",
+  TesterResult: { workflowId: linkedId, workItemId: linkedId, implementationRecordId: linkedId, sourceMode: "source-backed", implementerRevisionId: "revision",
     recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [], determinationEvidence: ["Catalog proof reviewed"],
     unknowns: [], rationale: "Existing proof covers the affected behavior", checkpointState: "not-required", candidateRevisionId: "revision" },
   Validation: { validationType: "test", method: "automated", validationMode: "deterministic", outcome: "pass", targetEntityId: linkedId, targetRecordVersion: 1, performedBy: principal, performedAt: now, summary: "Passed" },
@@ -187,4 +188,18 @@ test("revision and supersession invariants retain identity, lineage and immutabl
   const evidence = createProjectStateEntity({ entityType: "Evidence", projectId, body: bodies.Evidence, principal });
   assert.throws(() => assertRevision(evidence, { ...evidence, recordVersion: 2 }, { evidenceReliedUpon: true }), /Immutable/);
   assert.throws(() => assertNoHardDelete(), /hard-deleted/);
+});
+
+test("WorkflowIntake scalar maps and exact ownership are bounded", () => {
+  const workflow = createProjectStateEntity({ entityType: "Workflow", projectId: linkedId, body: { ...bodies.Workflow, workflowType: "project-creation" }, principal });
+  const intake = createProjectStateEntity({ entityType: "WorkflowIntake", projectId: linkedId, body: { workflowId: workflow.id, workflowType: "project-creation", values: { request: "Build", confirmed: true } }, principal });
+  const link = (record, target = workflow) => createRelationship({ projectId: linkedId, fromEntityId: record.id, toEntityId: target.id, relationshipType: "intake_for", createdBy: principal }, id => id === record.id ? record : target);
+  assert.throws(() => assertRelationshipEnd(link(intake)), /immutable/i);
+  for (const values of [[], null, { nested: {} }, { nested: [] }, { n: 1 }, { x: null }, { x: "" }, { x: "é".repeat(2049) }, Object.fromEntries(Array.from({ length: 33 }, (_, i) => [String(i), true])), { "": true }, { ["k".repeat(129)]: true }, { "bad\nkey": true }, Object.create(null)]) {
+    assert.throws(() => validateProjectStateEntity({ ...intake, body: { ...intake.body, values } }));
+  }
+  assert.throws(() => validateProjectStateEntity({ ...intake, body: { ...intake.body, values: Object.fromEntries(Array.from({ length: 32 }, (_, i) => [String(i), "x".repeat(4096)])) } }), /byte bound/);
+  assert.throws(() => link({ ...intake, body: { ...intake.body, workflowId: randomUUID() } }), /matching/);
+  assert.throws(() => link({ ...intake, body: { ...intake.body, workflowType: "feature-capability" } }), /matching/);
+  for (const target of [{ ...workflow, body: { ...workflow.body, workflowType: "work-intake-routing" } }, { ...workflow, lifecycleState: "closed" }, { ...workflow, body: { ...workflow.body, workflowState: "closed" } }, { ...workflow, projectId: randomUUID() }]) assert.throws(() => link(intake, target));
 });

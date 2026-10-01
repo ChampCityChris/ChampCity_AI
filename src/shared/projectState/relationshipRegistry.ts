@@ -18,7 +18,7 @@ interface RelationshipDefinition {
   immutableProvenance: boolean;
 }
 
-const all: readonly EntityType[] = ["Project", "ProjectResource", "WorkIntake", "RouteAssessment", "Workflow", "SourceBaseline", "Phase", "Finding", "RootCause", "BoundedSolution", "Criterion", "WorkItem", "ImplementationRecord", "TesterResult", "Validation", "Evidence", "Decision", "RegressionObligation", "SourceBinding", "SourceCheckpoint", "IntegrationRecord"];
+const all: readonly EntityType[] = ["Project", "ProjectResource", "WorkIntake", "RouteAssessment", "WorkflowIntake", "Workflow", "SourceBaseline", "Phase", "Finding", "RootCause", "BoundedSolution", "Criterion", "WorkItem", "ImplementationRecord", "TesterResult", "Validation", "Evidence", "Decision", "RegressionObligation", "SourceBinding", "SourceCheckpoint", "IntegrationRecord"];
 const nonProject = all.filter(type => type !== "Project");
 const rule = (from: readonly EntityType[], to: readonly EntityType[], immutableProvenance = false): RelationshipDefinition => ({ from, to, immutableProvenance });
 
@@ -38,6 +38,7 @@ export const RELATIONSHIP_REGISTRY = Object.freeze({
   evaluates: rule(["Validation"], ["Criterion", "WorkItem", "BoundedSolution", "RegressionObligation", "ProjectResource", "IntegrationRecord"], true),
   explains: rule(["RootCause"], ["Finding"], true),
   governs: rule(["Decision"], all, true),
+  intake_for: rule(["WorkflowIntake"], ["Workflow"], true),
   implements: rule(["WorkItem"], ["BoundedSolution"]),
   implements_work_item: rule(["ImplementationRecord"], ["WorkItem"], true),
   initiates: rule(["WorkIntake"], ["Workflow"], true),
@@ -78,6 +79,9 @@ export function validateRelationship(
   if (!from || !to) fail("Relationship endpoint does not exist.");
   if (from.projectId !== relationship.projectId || to.projectId !== relationship.projectId) fail("Relationship endpoints must belong to one Project.");
   if (!definition.from.includes(from.entityType) || !definition.to.includes(to.entityType)) fail("Relationship direction or endpoint type is invalid.");
+  if (relationship.relationshipType === "intake_for" && (from.entityType !== "WorkflowIntake" || to.entityType !== "Workflow" ||
+    to.lifecycleState !== "active" || to.body.workflowState !== "active" || to.body.workflowType === "work-intake-routing" ||
+    from.body.workflowId !== to.id || from.body.workflowType !== to.body.workflowType)) fail("intake_for requires a matching current active Workflow owner.");
   if (relationship.relationshipType === "part_of" && from.entityType === "Phase" && to.entityType !== "Workflow") fail("Phase membership must target a Workflow.");
   if (relationship.relationshipType === "part_of" && to.entityType === "Workflow" && (to.body.workflowType === "work-intake-routing" || to.body.workflowType === "project-creation" || to.lifecycleState !== "active" || to.body.workflowState !== "active")) fail("Planning membership requires a current implementation Workflow.");
   if (relationship.relationshipType === "workflow_member" && (to.entityType !== "Workflow" || to.body.workflowType === "work-intake-routing" || to.body.workflowType === "project-creation" || to.lifecycleState !== "active" || to.body.workflowState !== "active")) fail("Planning membership requires a current substantive implementation Workflow.");

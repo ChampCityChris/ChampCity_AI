@@ -40,6 +40,8 @@ export interface SubstantiveWorkflowCreationInput {
   sourceSeed?: { repositoryId: string; integrationTargetSourceLineId: string; baseRevisionId: string };
 }
 export interface DecisionInput { decisionType: string; outcome: string; decisionScope: string; rationale?: string; effectiveAt?: string }
+export interface WorkflowIntakeSaveInput { workflowId: EntityId; workflowType: WorkflowType; values: EntityBodyMap["WorkflowIntake"]["values"]; expectedIntakeRecordVersion?: number }
+export interface WorkflowIntakeDecisionInput { expectedIntakeRecordVersion: number; outcome: "approved" | "revision_requested" | "rejected"; rationale?: string; notes?: string }
 export interface IssueRootCauseCandidateInput { title: string; statement: string; rationale: string; confidence?: number; findingIds: EntityId[]; evidenceIds: EntityId[] }
 export interface IssueRcaAcceptanceInput { workflowId: EntityId; rationale: string; rootCauses: IssueRootCauseCandidateInput[] }
 export interface FeatureAssessmentCandidate {
@@ -251,6 +253,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   async function createRecord<T extends EntityType>(projectId: ProjectId | null, entityType: T, content: EntityBodyMap[T], context?: MutationContext) {
+    if (entityType === "WorkflowIntake") fail("WorkflowIntake requires the typed save command.");
     if (restrictedGenericTypes.has(entityType)) fail("Decision, Validation, Evidence and TesterResult require typed commands.");
     if (entityType === "ImplementationRecord" || entityType === "Workflow") fail("ImplementationRecord and Workflow require typed commands.");
     if (entityType === "WorkIntake" || entityType === "RouteAssessment") fail("Work Intake and Route Assessment require typed commands.");
@@ -456,6 +459,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) fail("An exact expected revision is required.");
     return store.transaction(projectId, async unit => {
       const current = await requiredRecord(unit, projectId, entityId);
+      if (current.entityType === "WorkflowIntake") fail("WorkflowIntake requires the typed save command.");
       if (restrictedGenericTypes.has(current.entityType)) fail("Immutable semantic records require typed correction or supersession.");
       if (current.entityType === "WorkIntake") fail("Work Intake revision requires a typed command.");
       if (current.entityType === "RegressionObligation" || (current.entityType === "ProjectResource" && current.body.resourceType === "permanent-test-reference")) fail("Tester semantic revision requires a typed command.");
@@ -477,6 +481,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) fail("An exact expected revision is required.");
     return store.transaction(projectId, async unit => {
       const previous = await requiredRecord(unit, projectId, entityId);
+      if (previous.entityType === "WorkflowIntake") fail("WorkflowIntake retains its identity through the typed save command.");
       if (previous.entityType === "Project" || previous.recordVersion !== expectedRevision) fail("Supersession target is unavailable or stale.");
       if (previous.lifecycleState !== "active" && previous.lifecycleState !== "closed") fail("Only a current active or closed record can be superseded.");
       if (restrictedGenericTypes.has(previous.entityType)) fail("Issued Decision, Validation, Evidence and TesterResult require a typed correction policy.");
@@ -518,6 +523,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   async function createRelationship(projectId: ProjectId, fromEntityId: EntityId, relationshipType: RelationshipType, toEntityId: EntityId, context?: MutationContext) {
+    if (relationshipType === "intake_for") fail("Intake ownership requires the typed save command.");
     if (relationshipType === "routes_to") fail("Workflow route provenance requires the typed linkWorkflowRouteTarget command.");
     if (relationshipType === "governs") fail("Decision governance requires a typed Decision command.");
     if (relationshipType === "implements_work_item") fail("Implementation attempts require a typed command.");
@@ -670,7 +676,88 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     });
   }
 
+  async function requireCurrentWorkflowIntake(unit: ProjectStateUnitOfWork, projectId: ProjectId, intakeId: EntityId) {
+    const intake = await requiredRecord(unit, projectId, intakeId);
+    if (intake.entityType !== "WorkflowIntake" || intake.lifecycleState !== "active") fail("Current active WorkflowIntake is required.");
+    const current = (await unit.listEntities(projectId, "WorkflowIntake")).filter(record => record.lineageId === intake.lineageId && record.lifecycleState === "active");
+    if (current.length !== 1 || current[0].id !== intake.id) fail("WorkflowIntake lineage has no unique current owner.");
+    const workflow = await requiredRecord(unit, projectId, intake.body.workflowId);
+    await requireCurrentSourceWorkflow(unit, projectId, workflow);
+    if (workflow.entityType !== "Workflow" || workflow.body.workflowState !== "active" || workflow.body.workflowType !== intake.body.workflowType) fail("WorkflowIntake owner is unavailable or mismatched.");
+    const edges = (await unit.listRelationships(projectId, "intake_for")).filter(edge => edge.fromEntityId === intake.id && !edge.endedAt);
+    if (edges.length !== 1 || edges[0].toEntityId !== workflow.id) fail("WorkflowIntake must have exactly one exact Workflow owner.");
+    return intake;
+  }
+
+  async function saveWorkflowIntake(projectId: ProjectId, input: WorkflowIntakeSaveInput, context?: MutationContext): Promise<ProjectStateRecord<"WorkflowIntake">> {
+    exactInput(input, ["workflowId", "workflowType", "values", "expectedIntakeRecordVersion"]);
+    if (input.expectedIntakeRecordVersion !== undefined && (!Number.isSafeInteger(input.expectedIntakeRecordVersion) || input.expectedIntakeRecordVersion < 1)) fail("An exact Intake record version is required.");
+    return store.transaction(projectId, async unit => {
+      const workflow = await requiredRecord(unit, projectId, input.workflowId);
+      await requireCurrentSourceWorkflow(unit, projectId, workflow);
+      if (workflow.entityType !== "Workflow" || workflow.body.workflowState !== "active" || workflow.body.workflowType !== input.workflowType) fail("Workflow Intake type mismatch or inactive Workflow.");
+      const edges = (await unit.listRelationships(projectId, "intake_for")).filter(edge => edge.toEntityId === workflow.id && !edge.endedAt);
+      const active: ProjectStateRecord<"WorkflowIntake">[] = [];
+      for (const edge of edges) {
+        const record = await requiredRecord(unit, projectId, edge.fromEntityId);
+        if (record.lifecycleState === "active") active.push(await requireCurrentWorkflowIntake(unit, projectId, record.id));
+      }
+      if (active.length > 1) fail("Workflow has ambiguous active Intake records.");
+      const previous = active[0];
+      if (input.expectedIntakeRecordVersion !== undefined && previous?.recordVersion !== input.expectedIntakeRecordVersion) fail("Expected Intake record version is stale.");
+      const body = { workflowId: workflow.id, workflowType: input.workflowType, values: structuredClone(input.values) };
+      const next = previous ? validateProjectStateEntity({ ...previous, body, recordVersion: previous.recordVersion + 1,
+        updatedAt: new Date().toISOString(), updatedBy: trustedPrincipal }) as ProjectStateRecord<"WorkflowIntake">
+        : createProjectStateEntity({ entityType: "WorkflowIntake", projectId, body, principal: trustedPrincipal });
+      await unit.saveEntity(next, previous?.recordVersion ?? null);
+      await recordMutation(unit, { projectId, entityId: next.id, fromVersion: previous?.recordVersion ?? null, toVersion: next.recordVersion,
+        operation: previous ? "revise" : "create", eventType: previous ? PROJECT_STATE_EVENT_TYPES.revise : PROJECT_STATE_EVENT_TYPES.create,
+        occurredAt: next.updatedAt, changedFields: previous ? ["values"] : Object.keys(body), defaultReason: "Save Workflow Intake", context });
+      if (!previous) await linkSemantic(unit, projectId, next, workflow, "intake_for", context);
+      return next;
+    });
+  }
+
+  async function recordWorkflowIntakeDecision(projectId: ProjectId, intakeId: EntityId, input: WorkflowIntakeDecisionInput, context?: MutationContext) {
+    exactInput(input, ["expectedIntakeRecordVersion", "outcome", "rationale", "notes"]);
+    if (trustedPrincipal.principalType !== "human" || trustedPrincipal.role !== "Operator") fail("Workflow Intake review requires the human Operator principal.");
+    if (!Number.isSafeInteger(input.expectedIntakeRecordVersion) || input.expectedIntakeRecordVersion < 1 || !["approved", "revision_requested", "rejected"].includes(input.outcome)) fail("An exact Intake review is required.");
+    for (const value of [input.rationale, input.notes]) if (value !== undefined && (typeof value !== "string" || new TextEncoder().encode(value).length > 4096)) fail("Intake review notes must be bounded text.");
+    if (input.outcome === "revision_requested" && !input.notes?.trim()) fail("Revision Requested requires non-empty notes.");
+    return store.transaction(projectId, async unit => {
+      const intake = await requireCurrentWorkflowIntake(unit, projectId, intakeId);
+      if (intake.recordVersion !== input.expectedIntakeRecordVersion) fail("Expected Intake record version is stale.");
+      const now = new Date().toISOString();
+      const record = createProjectStateEntity({ entityType: "Decision", projectId, principal: trustedPrincipal,
+        body: decisionBody({ decisionType: "workflow-intake-review", outcome: input.outcome,
+          decisionScope: `workflow-intake:${intake.id}@${intake.recordVersion}`, rationale: [input.rationale, input.notes].filter(Boolean).join("\n\n") }, trustedPrincipal, now) });
+      await unit.saveEntity(record, null);
+      await recordMutation(unit, { projectId, entityId: record.id, fromVersion: null, toVersion: 1, operation: "create",
+        eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: now, changedFields: Object.keys(record.body), defaultReason: "Review Workflow Intake", context });
+      await linkSemantic(unit, projectId, record, intake, "governs", context);
+      return record;
+    });
+  }
+
+  async function getWorkflowIntakeDisposition(projectId: ProjectId, intakeId: EntityId): Promise<EffectiveDisposition> {
+    return store.transaction(projectId, async unit => {
+      const intake = await requireCurrentWorkflowIntake(unit, projectId, intakeId);
+      const ids = new Set((await unit.listRelationships(projectId, "governs")).filter(edge => edge.toEntityId === intake.id && !edge.endedAt).map(edge => edge.fromEntityId));
+      const sequence = new Map((await unit.listOutbox(projectId)).filter(event => event.entityId && event.payload.operation === "create").map(event => [event.entityId!, event.sequence]));
+      const now = new Date().toISOString();
+      const decisions = (await unit.listEntities(projectId, "Decision")).filter((record): record is ProjectStateRecord<"Decision"> => record.entityType === "Decision")
+        .filter(record => ids.has(record.id) && record.lifecycleState === "active" && record.body.decisionType === "workflow-intake-review" &&
+          record.body.decisionScope === `workflow-intake:${intake.id}@${intake.recordVersion}` && record.body.decidedBy.principalType === "human" &&
+          record.body.decisionRole === "Operator" && ["approved", "revision_requested", "rejected"].includes(record.body.outcome) && record.body.effectiveAt <= now)
+        .sort((a, b) => a.body.effectiveAt.localeCompare(b.body.effectiveAt) || (sequence.get(a.id) ?? 0) - (sequence.get(b.id) ?? 0) || a.id.localeCompare(b.id));
+      const decision = decisions.at(-1);
+      return decision ? { state: decision.body.outcome as DispositionState, decisionId: decision.id, effectiveAt: decision.body.effectiveAt }
+        : { state: "none", decisionId: null, effectiveAt: null };
+    });
+  }
+
   async function recordDecision(projectId: ProjectId, targetId: EntityId, input: DecisionInput, context?: MutationContext) {
+    if (input.decisionType === "workflow-intake-review" || (await requiredRecord(store, projectId, targetId)).entityType === "WorkflowIntake") fail("WorkflowIntake review requires the typed decision command.");
     const now = new Date().toISOString();
     return recordLinked(projectId, targetId, "Decision", decisionBody(input, trustedPrincipal, now), "governs", context);
   }
@@ -868,6 +955,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (expectedRevision !== 1) fail("An exact issued Decision revision is required.");
     return store.transaction(projectId, async unit => {
       const prior = await requiredRecord(unit, projectId, decisionId);
+      if (prior.entityType === "Decision" && (prior.body.decisionType === "workflow-intake-review" || input.decisionType === "workflow-intake-review")) fail("WorkflowIntake review requires the typed decision command; issued reviews remain immutable.");
       if (prior.entityType !== "Decision" || prior.recordVersion !== expectedRevision || prior.lifecycleState !== "active") fail("Decision correction target is unavailable or stale.");
       const family = (await unit.listEntities(projectId, "Decision")).filter(candidate => candidate.lineageId === prior.lineageId && candidate.lifecycleState !== "superseded");
       if (family.length !== 1 || family[0].id !== prior.id) fail("Decision is not the current member of its correction lineage.");
@@ -3234,7 +3322,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return pending.sort((a, b) => a.targetId.localeCompare(b.targetId) || a.criterionId.localeCompare(b.criterionId));
   }
 
-  return { createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
+  return { saveWorkflowIntake, recordWorkflowIntakeDecision, getWorkflowIntakeDisposition, createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
     createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, completeTesterResultCheckpoint, createIntegrationRecord, advanceIntegrationRecord, completeWorkflowExecution, closeIntegratedWorkflow,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, createTesterResult, createWorkflowRepair, createPhaseRepair, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, recordCriterionOperatorDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,

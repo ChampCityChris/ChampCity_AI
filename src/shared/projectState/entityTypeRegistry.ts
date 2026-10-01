@@ -1,7 +1,7 @@
 import { PROJECT_STATE_SCHEMA_VERSION, type EntityBodyMap, type EntityType, type PrincipalRef, type ProjectId, type ProjectStateEntity, type ProjectStateRecord, type Provenance, type RecordEnvelope } from "./domainContracts";
 import { WORKFLOW_TYPE_IDS } from "./workflowTypeRegistry";
 
-type FieldKind = "text" | "source-ref" | "id" | "instant" | "number" | "boolean" | "version" | "text-list" | "id-list" | "principal" | "digest";
+type FieldKind = "text" | "source-ref" | "id" | "instant" | "number" | "boolean" | "version" | "text-list" | "id-list" | "principal" | "digest" | "scalar-map";
 type FieldRule = FieldKind | readonly string[];
 interface EntityDefinition { schemaVersion: typeof PROJECT_STATE_SCHEMA_VERSION; required: Readonly<Record<string, FieldRule>>; optional?: Readonly<Record<string, FieldRule>>; immutableAfterCreation: boolean }
 
@@ -14,6 +14,7 @@ const idList = "id-list" as const;
 /** One reviewed type registry owns field vocabulary and immutable-record policy. */
 export const ENTITY_TYPE_REGISTRY: Readonly<Record<EntityType, EntityDefinition>> = Object.freeze({
   Project: { schemaVersion: 1, required: { name: text, description: text }, immutableAfterCreation: false },
+  WorkflowIntake: { schemaVersion: 1, required: { workflowId: id, workflowType: WORKFLOW_TYPE_IDS, values: "scalar-map" }, immutableAfterCreation: false },
   ProjectResource: { schemaVersion: 1, required: { resourceType: text, provider: text, logicalName: text, locator: text, role: text }, optional: { sourceRevisionId: "source-ref" }, immutableAfterCreation: false },
   WorkIntake: { schemaVersion: 1, required: { request: text, desiredOutcome: text, constraints: textList, evidenceContext: textList, intakeState: ["captured", "assessing", "routed", "active", "closed", "cancelled"], requestedIntegrationTarget: text }, optional: { hasExistingSourceOrPlanning: "boolean" }, immutableAfterCreation: false },
   RouteAssessment: { schemaVersion: 1, required: { workIntakeId: id, recommendation: ["greenfield", "feature-change", "refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype", "issue-resolution"], traits: textList, rationale: text, evidenceIds: idList }, optional: { alternate: ["greenfield", "feature-change", "refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype", "issue-resolution"] }, immutableAfterCreation: true },
@@ -75,6 +76,15 @@ function principal(value: unknown, label: string) {
 function checkField(value: unknown, rule: FieldRule, label: string) {
   if (Array.isArray(rule)) { if (!rule.includes(value as string)) fail(`${label} is unsupported.`); return; }
   switch (rule) {
+    case "scalar-map": {
+      const map = object(value, label);
+      if (Reflect.ownKeys(map).length > 32 || Object.getOwnPropertySymbols(map).length) fail(`${label} exceeds its map bound.`);
+      for (const [key, item] of Object.entries(map)) {
+        if (key.length < 1 || key.length > 128 || /[\u0000-\u001f\u007f-\u009f]/.test(key)) fail(`${label} has an invalid map key.`);
+        if (typeof item !== "boolean") boundedText(item, `${label}.${key}`);
+      }
+      return;
+    }
     case "text": boundedText(value, label); return;
     case "id": canonicalId(value, label); return;
     case "instant": canonicalInstant(value, label); return;

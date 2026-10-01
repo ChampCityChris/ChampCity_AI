@@ -1178,3 +1178,11 @@ ServerProjectStateStore
 without changing the Project State domain itself or the web client.
 
 That is the boundary that allows us to choose persistence technology later rather than letting today's database choice define the product architecture.
+
+## Workflow Intake domain foundation (RWS04A)
+
+`WorkflowIntake` is canonical SQL-backed Structured Project State, with an exact Workflow owner through immutable `intake_for` provenance. Its body contains `workflowId`, matching `workflowType`, and a bounded scalar map of strings or booleans. The registry owns structure and bounds; `workflowIntakeContracts.ts` continues to own workflow-specific required and optional keys. Project Creation is supported; Work Intake Routing is excluded.
+
+Typed saves retain Intake identity and increment its record version once without advancing the Workflow. Human Operator review creates an immutable `Decision` of type `workflow-intake-review`, governing the Intake with scope `workflow-intake:<intakeId>@<recordVersion>`. Only reviews of the current exact revision provide current disposition; revising Intake leaves prior Decisions historical and returns disposition to `none`.
+
+Generated Markdown is a human-readable projection. Editing or deleting it cannot mutate or destroy canonical Intake state. `project_state_authority=structured` remains the final project-wide legacy-writer cutoff; incremental workspace-family adoption can use structured entities before that fence is selected. This foundation does not switch production Intake callers or change the authority fence.

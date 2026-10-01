@@ -76,3 +76,30 @@ test("SQLite store rejects an untracked schema through a typed boundary", contex
   database.close();
   assert.throws(() => createSQLiteProjectStateStore(file), error => error.code === "INVALID_STATE");
 });
+
+test("existing SQLite schema stores WorkflowIntake with no schema or authority migration", async context => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-intake-schema-test-"));
+  context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const file = path.join(root, "project-state.sqlite");
+  const principal = { principalId: "operator", principalType: "human", role: "Operator" };
+  const project = createProjectStateEntity({ entityType: "Project", body: { name: "Existing", description: "Existing schema fixture" }, principal });
+  const original = createSQLiteProjectStateStore(file);
+  await original.transaction(project.id, unit => unit.saveEntity(project, null));
+  original.close();
+  const inspect = () => {
+    const db = new DatabaseSync(file);
+    try { return { schema: db.prepare("SELECT name, sql FROM sqlite_master ORDER BY name").all(), migrations: db.prepare("SELECT * FROM schema_migrations ORDER BY version").all(), authority: db.prepare("SELECT * FROM project_state_authority").all() }; }
+    finally { db.close(); }
+  };
+  const before = inspect();
+  const reopened = createSQLiteProjectStateStore(file);
+  const intake = createProjectStateEntity({ entityType: "WorkflowIntake", projectId: project.id, principal, body: { workflowId: randomUUID(), workflowType: "project-creation", values: { request: "Build" } } });
+  try {
+    await reopened.transaction(project.id, unit => unit.saveEntity(intake, null));
+    assert.deepEqual(await reopened.getEntity(project.id, intake.id), intake);
+  } finally { reopened.close(); }
+  assert.deepEqual(inspect(), before);
+  const final = createSQLiteProjectStateStore(file);
+  try { assert.deepEqual(await final.getEntity(project.id, intake.id), intake); }
+  finally { final.close(); }
+});

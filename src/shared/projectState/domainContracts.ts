@@ -53,6 +53,7 @@ export interface EntityBodyMap {
   WorkIntake: { request: string; desiredOutcome: string; constraints: string[]; evidenceContext: string[]; intakeState: WorkIntakeState; requestedIntegrationTarget: string; hasExistingSourceOrPlanning?: boolean };
   RouteAssessment: { workIntakeId: EntityId; recommendation: WorkRoute; traits: string[]; rationale: string; alternate?: WorkRoute; evidenceIds: EvidenceId[] };
   Workflow: { workflowType: WorkflowType; title: string; currentWorkspace: string; workflowState: WorkflowState };
+  WorkflowIntake: { workflowId: EntityId; workflowType: WorkflowType; values: Record<string, string | boolean> };
   SourceBaseline: { workflowId: EntityId; repositoryId: string; integrationTargetSourceLineId: string; baseRevisionId: string };
   Phase: { title: string; objective: string; phaseState: PhaseState; sequence: number };
   Finding: { title: string; statement: string; category: string; impact: string; observedAt: string; findingState: string; confidence?: number };
