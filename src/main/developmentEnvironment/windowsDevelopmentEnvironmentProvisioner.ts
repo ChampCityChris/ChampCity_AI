@@ -1,5 +1,5 @@
 import { resolveWindowsNpmInvocation, trustedWindowsNodeRoots, type WindowsNpmInvocation } from "../core/windowsNpmInvocation";
-import { repairWindowsNodeUserPath } from "./windowsEnvironmentRefresh";
+import { repairWindowsNodeUserPath, persistentWindowsPathContains } from "./windowsEnvironmentRefresh";
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -135,18 +135,19 @@ export class WindowsDevelopmentEnvironmentProvisioner {
       requirements.map(requirement => blockedRequirement(requirement, "Windows environment refresh failed before capability probing.", "verification-failure", true))); }
     let nodePathBlocker: string | null = null;
     if (requirements.some(requirement => isNodeToolchain(requirement.capabilityId) && requirement.provisioning === "managed")) {
-      try { this.resolveNodePair(false); }
+      let pair: WindowsNpmInvocation | null = null;
+      try { pair = this.resolveNodePair(false); }
       catch {
-        let discovered: WindowsNpmInvocation | null = null;
-        try { discovered = this.resolveNodePair(true); } catch { /* Absence permits Node toolchain provisioning. */ }
-        if (discovered) {
-          const root = path.dirname(discovered.executable);
+        try { pair = this.resolveNodePair(true); } catch { /* Absence permits Node toolchain provisioning. */ }
+      }
+      if (pair) {
+        const root = path.dirname(pair.executable);
+        if (!persistentWindowsPathContains(initialRefresh, root)) {
           try {
             await this.repairNodePath(root);
             const refreshed = await this.refreshEnvironment();
-            const pathValue = refreshed.env.PATH ?? refreshed.env.Path ?? "";
-            if (!pathValue.split(";").some(entry => path.normalize(entry.trim().replace(/^"|"$/g, "")).toLowerCase() === path.normalize(root).toLowerCase())) {
-              throw new Error("Refreshed PATH does not contain the validated Node installation root.");
+            if (!persistentWindowsPathContains(refreshed, root)) {
+              throw new Error("Persistent Machine/User PATH does not contain the validated Node installation root.");
             }
             this.resolveNodePair(false);
           } catch {

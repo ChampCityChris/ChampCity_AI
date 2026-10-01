@@ -1,7 +1,7 @@
 # DER-R03 Implementer Report
 
-Card: DER-R03 — application-led environment setup and Node/npm PATH repair.
-Status: IMPLEMENTED — checkpoint pending; stop for Architect review.
+Card: DER-R03 â€” application-led environment setup and Node/npm PATH repair.
+Status: HISTORICAL IMPLEMENTATION - superseded by DER-R03-R01 sequencing and persistent PATH correction; IMPLEMENTED â€” checkpoint pending; stop for Architect review.
 Date: 2026-09-30 (Operator timezone).
 
 ## Repository and authority
@@ -20,13 +20,13 @@ Node, npm, and nodejs-lts declare one `node-npm` toolchain with Node as provisio
 
 Recovery order is refresh, resolve from refreshed PATH, bounded trusted installation discovery, User PATH repair, refresh and resolve again, then semantic verification. Discovery adds only ProgramFiles/nodejs, LocalAppData/Programs/nodejs, and explicitly configured version-manager roots; it does not recursively scan or consume repository executable configuration. Environment probing excludes the application host directory. A discovered pair with failed PATH repair/verification blocks without reinstalling.
 
-The fixed application-owned PowerShell writer preserves User PATH, compares roots case-insensitively, and appends only the exact validated installation root. Root data is passed in the child environment, never interpolated into executable script text. It needs no elevation or Machine PATH write. Post-write refresh must contain that root and resolve a valid pair.
+The fixed application-owned PowerShell writer preserves User PATH, compares roots case-insensitively, and appends only the exact validated installation root. Root data is passed in the child environment, never interpolated into executable script text. It needs no elevation or Machine PATH write. DER-R03-R01 strengthens post-write verification: persistent Machine/User PATH must contain the exact normalized root before paired semantic probes. Process-only exposure is also reconciled without reinstalling.
 
 If no valid pair exists, the existing trusted WinGet installation machinery installs the fixed `OpenJS.NodeJS.LTS` identity. One provisioning attempt is shared within a preflight. The Node requirement's constraint is selected across the complete requirement set, including when npm occurs first; npm-only contracts provision the same Node owner. Unsupported Node/npm constraints fail deterministically. npm cannot enter generic package resolution, independent installation, `winget search npm`, or an MCP provisioning path. Post-provision refresh and paired execution verification are required before readiness.
 
 FFmpeg/FFprobe retain `-version` semantics and installed-tool provider bypass. Their existing post-provision verification remains intact.
 
-The Development Environment panel owns `Retry Environment Setup`. Its availability derives from current preflight retryability and action progress, independently of Codex availability/model selection. Implementation remains disabled for nonready cached preflight. Historical environment run type no longer governs status, repair controls, labels, or feedback.
+The Development Environment panel owns `Retry Environment Setup`. Its availability derives from current preflight retryability and action progress, independently of Codex availability/model selection. DER-R03-R01 adds fresh Not checked / Prepare Environment controls and requires ready/not-required preflight before runtime acquisition; null preflight no longer enables implementation. Historical environment run type no longer governs status, repair controls, labels, or feedback.
 
 ## Permanent proof
 
@@ -105,6 +105,6 @@ No permanent test files, dependencies, lockfiles, project requirement edits, hyd
 
 Task-local staged diff inspection completed. The staged manifest contains exactly 23 attributable files. The bounded credential-pattern, concrete-home-path, and generated-artifact scans passed; staged `git diff --check` passed. Checkpoint hash is pending in this report to avoid amending solely to insert the hash. Required message: `DER-R03 make environment setup application-led and repair Node/npm PATH`.
 
-No remaining implementation blocker is known. Residual limits: the real workstation did not need registry repair or installation; those failure paths have deterministic injected-state proof. The live qualification proves machine readiness and executable semantics, while renderer tests prove controls; no claim of visual/experiential Operator acceptance is made.
+Architect review identified first-preflight sequencing and process-only PATH persistence gaps in this original implementation. DER-R03-R01 addresses those gaps; its separate report records current validation and any remaining limitations. Residual limits: the real workstation did not need registry repair or installation; those failure paths have deterministic injected-state proof. The live qualification proves machine readiness and executable semantics, while renderer tests prove controls; no claim of visual/experiential Operator acceptance is made.
 
 After checkpoint: **STOP for Architect review**. No push, merge, or additional card execution.

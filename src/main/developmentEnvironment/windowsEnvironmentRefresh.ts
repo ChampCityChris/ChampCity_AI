@@ -4,6 +4,8 @@ export interface WindowsEnvironmentRefreshResult {
   refreshed: boolean;
   summary: string;
   env: NodeJS.ProcessEnv;
+  machinePath: string;
+  userPath: string;
 }
 
 type EnvironmentScope = "Machine" | "User";
@@ -20,6 +22,8 @@ export async function refreshWindowsProcessEnvironment(
       refreshed: false,
       summary: "Environment refresh is not required on non-Windows hosts.",
       env: { ...process.env },
+      machinePath: "",
+      userPath: "",
     };
   }
 
@@ -35,6 +39,8 @@ export async function refreshWindowsProcessEnvironment(
     refreshed: true,
     summary: "Refreshed process environment from Windows user and machine environment state.",
     env: { ...process.env },
+    machinePath: valueForCaseInsensitiveKey(machine, "path") ?? "",
+    userPath: valueForCaseInsensitiveKey(user, "path") ?? "",
   };
 }
 
@@ -152,9 +158,17 @@ function runProcess(
 }
 
 /** Preserve User PATH bytes and append only one validated installation root. */
+export function windowsPathContains(value: string | undefined, root: string): boolean {
+  const key = (entry: string) => entry.trim().replace(/^"|"$/g, "").replace(/\//g, "\\").replace(/\\+$/, "").toLowerCase();
+  return (value ?? "").split(";").some(entry => key(entry) === key(root));
+}
+
+export function persistentWindowsPathContains(result: WindowsEnvironmentRefreshResult, root: string): boolean {
+  return windowsPathContains(result.machinePath, root) || windowsPathContains(result.userPath, root);
+}
+
 export function appendWindowsUserPath(current: string, root: string): string {
-  const key = (value: string) => value.trim().replace(/^"|"$/g, "").replace(/[\\/]+$/, "").toLowerCase();
-  return current.split(";").some(entry => key(entry) === key(root))
+  return windowsPathContains(current, root)
     ? current : `${current}${current && !current.endsWith(";") ? ";" : ""}${root}`;
 }
 
@@ -164,8 +178,8 @@ export async function repairWindowsNodeUserPath(root: string): Promise<void> {
     "$ErrorActionPreference = 'Stop'",
     "$root = $env:CHAMPCITY_NODE_INSTALL_ROOT",
     "$current = [Environment]::GetEnvironmentVariable('Path', 'User')",
-    "$key = $root.Trim().TrimEnd('\\').ToLowerInvariant()",
-    "$found = @($current -split ';' | Where-Object { $_.Trim().Trim([char]34).TrimEnd('\\').ToLowerInvariant() -eq $key }).Count -gt 0",
+    "$key = $root.Trim().Trim([char]34).Replace('/', '\\').TrimEnd('\\').ToLowerInvariant()",
+    "$found = @($current -split ';' | Where-Object { $_.Trim().Trim([char]34).Replace('/', '\\').TrimEnd('\\').ToLowerInvariant() -eq $key }).Count -gt 0",
     "if (-not $found) { $separator = if ($current -and -not $current.EndsWith(';')) { ';' } else { '' }; [Environment]::SetEnvironmentVariable('Path', ($current + $separator + $root), 'User') }",
   ].join("; ");
   const result = await runProcess("powershell.exe", ["-NoProfile", "-Command", script], { ...process.env, CHAMPCITY_NODE_INSTALL_ROOT: root });

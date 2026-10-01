@@ -323,11 +323,29 @@ export class CodexImplementerExecutionService {
       if (!(context instanceof Error) && !sameExecutionContext(active, context)) return busyModelForDifferentContext(context, active);
       return { ...await this.getStatus(workspaceRoot, selector), failureReason: "Codex execution is already running for this workspace.", canRunAgain: false, retryBlocker: "Codex execution is already running for this workspace." };
     }
+    let preparedContext: ExecutionContext | undefined;
+    if (!exact) {
+      const context = await this.resolvePreflightContext(workspaceRoot, selector);
+      if (context instanceof Error) return unavailableFromPreflight(context);
+      const preflight = await this.obtainEnvironmentPreflight(context);
+      context.developmentEnvironmentPreflight = preflight;
+      if (preflight.state !== "ready" && preflight.state !== "not-required") {
+        return unavailableModelFromPreflightResult(context, preflight);
+      }
+      const current = await this.resolvePreflightContext(workspaceRoot, selector);
+      if (current instanceof Error || preflightKey(current) !== preflightKey(context)) {
+        return unavailableFromPreflight(current instanceof Error ? current : new Error("Work Card context changed during environment preflight."));
+      }
+      preparedContext = context;
+    }
     let lease;
     try { lease = exact ? this.runtimeManager.acquireConcurrentExact(selection) : this.runtimeManager.acquire(selection); }
-    catch (error) { return unavailableFromPreflight(error instanceof Error ? error : new Error(String(error))); }
+    catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return preparedContext ? unavailableModelFromContext(preparedContext, message) : unavailableFromPreflight(new Error(message));
+    }
     try {
-      const result = await this.startSelected(workspaceRoot, selector, lease.selection);
+      const result = await this.startSelected(workspaceRoot, selector, lease.selection, preparedContext);
       const session = (exact ? this.exactSessionsByOwner : this.sessionsByWorkspaceRoot).get(sessionKey);
       if (session?.state === "running" && session.executionPromise) {
         void session.executionPromise.then(lease.release, lease.release);
@@ -336,31 +354,9 @@ export class CodexImplementerExecutionService {
     } catch (error) { lease.release(); throw error; }
   }
 
-  private async startSelected(workspaceRoot: string, selector: CodexExecutionSelector | undefined, selection: CodexModelSelection): Promise<CodexImplementerExecutionModel> {
-    if (selector?.ownerKind === "workflow-work-item") return this.startWorkflowWorkItemSelected(workspaceRoot, selector, selection);
-    const key = workspaceKey(workspaceRoot);
-    const active = this.sessionsByWorkspaceRoot.get(key);
-    const context = await this.resolvePreflightContext(workspaceRoot, selector);
-    if (context instanceof Error) {
-      if (active) {
-        return modelFromSession(active, this.now(), {
-          canRunAgain: false,
-          retryBlocker: context.message,
-        });
-      }
-      return unavailableFromPreflight(context);
-    }
-    if (active?.state === "running") {
-      if (sameExecutionContext(active, context)) {
-        active.failureReason = "Codex execution is already running for this workspace.";
-        return modelFromSession(active, this.now(), {
-          canRunAgain: false,
-          retryBlocker: "Codex execution is already running for this workspace.",
-        });
-      }
-      return busyModelForDifferentContext(context, active);
-    }
-
+  private async obtainEnvironmentPreflight(context: ExecutionContext): Promise<DevelopmentEnvironmentPreflightResult> {
+    const cached = this.preflightByWorkspaceRoot.get(preflightKey(context));
+    if (cached) return cached;
     const preflightCacheKey = preflightKey(context);
     const checkingPreflight: DevelopmentEnvironmentPreflightResult = {
       state: "checking",
@@ -399,21 +395,37 @@ export class CodexImplementerExecutionService {
         ].join("\n"),
       };
       this.preflightByWorkspaceRoot.set(preflightCacheKey, blockedPreflight);
-      return unavailableModelFromContext(
-        { ...context, developmentEnvironmentPreflight: blockedPreflight },
-        blockedPreflight.summary,
-      );
+      return blockedPreflight;
     }
-    if (
-      developmentEnvironmentPreflight.state !== "ready" &&
-      developmentEnvironmentPreflight.state !== "not-required"
-    ) {
-      return unavailableModelFromPreflightResult(
-        { ...context, developmentEnvironmentPreflight },
-        developmentEnvironmentPreflight,
-      );
+    return developmentEnvironmentPreflight;
+  }
+
+  private async startSelected(workspaceRoot: string, selector: CodexExecutionSelector | undefined, selection: CodexModelSelection, preparedContext?: ExecutionContext): Promise<CodexImplementerExecutionModel> {
+    if (selector?.ownerKind === "workflow-work-item") return this.startWorkflowWorkItemSelected(workspaceRoot, selector, selection);
+    const key = workspaceKey(workspaceRoot);
+    const active = this.sessionsByWorkspaceRoot.get(key);
+    const context = preparedContext ?? await this.resolvePreflightContext(workspaceRoot, selector);
+    if (context instanceof Error) {
+      if (active) {
+        return modelFromSession(active, this.now(), {
+          canRunAgain: false,
+          retryBlocker: context.message,
+        });
+      }
+      return unavailableFromPreflight(context);
+    }
+    if (active?.state === "running") {
+      if (sameExecutionContext(active, context)) {
+        active.failureReason = "Codex execution is already running for this workspace.";
+        return modelFromSession(active, this.now(), {
+          canRunAgain: false,
+          retryBlocker: "Codex execution is already running for this workspace.",
+        });
+      }
+      return busyModelForDifferentContext(context, active);
     }
 
+    const developmentEnvironmentPreflight = context.developmentEnvironmentPreflight!;
     if (context.ownerKind === "routed-development") {
       const current = await this.resolvePreflightContext(workspaceRoot, selector);
       if (current instanceof Error || !sameExecutionContext(context, current)) return unavailableFromPreflight(current instanceof Error ? current : Error("Routed implementation context changed during preflight."));
@@ -1301,7 +1313,8 @@ function readyModel(context: ExecutionContext): CodexImplementerExecutionModel {
   return {
     ...baseModel(context.projectRoot),
     state: "ready",
-    canRunAgain: true,
+    canRunAgain: exactWorkflowWorkItem || context.developmentEnvironmentPreflight?.state === "ready" || context.developmentEnvironmentPreflight?.state === "not-required",
+    canResolveEnvironment: !exactWorkflowWorkItem && !context.developmentEnvironmentPreflight,
     phaseId: context.phaseId,
     workflowId: exactWorkflowWorkItem ? context.workflowId ?? null : null,
     workItemId: exactWorkflowWorkItem ? context.workItemId ?? null : null,
@@ -1426,9 +1439,9 @@ function modelFromSession(
   const elapsedEnd = session.completedAt ?? now;
   const lastRunState = isTerminalState(session.state) ? session.state : null;
   const preflight = session.developmentEnvironmentPreflight;
-  const environmentReady = !preflight ||
-    preflight.state === "ready" ||
-    preflight.state === "not-required";
+  const environmentReady = exactWorkflowWorkItem ||
+    preflight?.state === "ready" ||
+    preflight?.state === "not-required";
   const canResolveEnvironment = preflight?.state === "resolution-required" &&
     session.state !== "running";
   return {

@@ -158,7 +158,15 @@ export function DevelopmentEnvironmentStatus({
 }): JSX.Element | null {
   const preflight = execution?.developmentEnvironmentPreflight;
   if (!preflight) {
-    return null;
+    return (
+      <section className="development-environment-status" aria-label="Development environment preflight status">
+        <div><span>Development Environment</span><strong>Not checked</strong></div>
+        {onRepair ? <button className="apply-button secondary" disabled={isActionRunning} onClick={onRepair} type="button">
+          <Wrench aria-hidden="true" size={16} /> Prepare Environment
+        </button> : null}
+        <strong className="development-environment-implementation-note">Development environment preparation must complete first.</strong>
+      </section>
+    );
   }
   const label = developmentEnvironmentStatusLabel(preflight);
   return (
@@ -338,7 +346,9 @@ export function CodexExecutionActions({
 }): JSX.Element {
   const modelSelection = useCodexModelSelection(isActionRunning || execution?.state === "running");
   const state = execution?.state ?? "unavailable";
-  const canRun = Boolean(execution?.canRunAgain) && canRunOverride && !isActionRunning;
+  const preflight = execution?.developmentEnvironmentPreflight;
+  const environmentReady = preflight?.state === "ready" || preflight?.state === "not-required";
+  const canRun = Boolean(execution?.canRunAgain) && environmentReady && canRunOverride && !isActionRunning;
   const isRunning = state === "running";
 
   return (

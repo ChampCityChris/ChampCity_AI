@@ -40,7 +40,7 @@ test("shared controls load Sol High, preserve arbitrary catalog effort order, an
     cursor=0;
     React.useState=(initial)=> {const i=cursor++; if (!(i in values)) values[i]=initial;return [values[i],value=>{values[i]=value;}];};
     React.useEffect=(fn)=>{if(first)effects.push(fn);};
-    try {return CodexExecutionActions({execution:{state:"ready",canRunAgain:true},isActionRunning:false,onCancel:()=>{},onRun:value=>starts.push(value),...extra});}
+    try {return CodexExecutionActions({execution:{state:"ready",canRunAgain:true,developmentEnvironmentPreflight:{state:"ready"}},isActionRunning:false,onCancel:()=>{},onRun:value=>starts.push(value),...extra});}
     finally {React.useState=originalState;React.useEffect=originalEffect;first=false;}
   }
   function find(node, predicate) {
@@ -73,6 +73,8 @@ test("shared controls load Sol High, preserve arbitrary catalog effort order, an
     const lease=f.manager.acquire(starts[0]); poll();await Promise.resolve();
     tree=render();assert.equal(field(tree,"Model").props.disabled,true);assert.equal(field(tree,"Reasoning").props.disabled,true);assert.equal(run(tree).props.disabled,true);
     lease.release(); poll(); await Promise.resolve();
+    tree = render({execution:{state:"ready",canRunAgain:true,developmentEnvironmentPreflight:null}});
+    assert.equal(run(tree).props.disabled,true);
     tree = render({ execution: { state: "completed", executionKind: "environment-resolution", canRunAgain: true, canResolveEnvironment: false, developmentEnvironmentPreflight: { state: "ready" } }, onResolveEnvironment() {} });
     assert.equal(run(tree).props.disabled, false);
     assert.equal(find(tree, node => node.type === "button" && React.Children.toArray(node.props.children).includes("Resolve Environment")), null);
@@ -135,4 +137,31 @@ test("environment status renders typed permission and restart requirements", () 
     assert.ok(markup.includes(expected), expected);
     assert.match(markup, /Work Card implementation has not started/);
   }
+});
+
+
+test("fresh environment action works while Codex is unavailable and disappears after neutral readiness", async () => {
+  const React=require("react");
+  const {renderToStaticMarkup}=require("react-dom/server");
+  const {DevelopmentEnvironmentStatus,CodexExecutionActions}=require("./renderer-source-loader.cjs").loadRendererSourceModule("src/renderer/app/WorkCardBuildingReviewWorkspace.tsx");
+  const execution={state:"unavailable",canRunAgain:false,developmentEnvironmentPreflight:null};
+  let repairs=0;
+  const repair=async()=>{repairs++;execution.developmentEnvironmentPreflight={state:"ready",summary:"Environment ready",retryAllowed:false,requirements:[]};};
+  const tree=DevelopmentEnvironmentStatus({execution,onRepair:repair});
+  const button=React.Children.toArray(tree.props.children).find(child=>child.type === "button");
+  assert.equal(button.props.disabled,false);
+  const fresh=renderToStaticMarkup(tree);
+  assert.match(fresh,/Development Environment/);assert.match(fresh,/Not checked/);assert.match(fresh,/Prepare Environment/);
+  assert.doesNotMatch(fresh,/Model|Reasoning|Codex Availability/);
+  const oldWindow=global.window;
+  global.window={champcity:{getCodexManagedRuntimeStatus:async()=>({state:"unavailable"})}};
+  try {
+    assert.match(renderToStaticMarkup(React.createElement(CodexExecutionActions,{execution,onRun(){},onCancel(){},isActionRunning:false})),/disabled/);
+    await button.props.onClick();assert.equal(repairs,1);
+    const ready=renderToStaticMarkup(DevelopmentEnvironmentStatus({execution,onRepair:repair}));
+    assert.match(ready,/Development environment ready/);assert.doesNotMatch(ready,/Prepare Environment|Retry Environment Setup/);
+    // Environment readiness alone cannot enable unavailable model/runtime controls.
+    execution.canRunAgain=true;
+    assert.match(renderToStaticMarkup(React.createElement(CodexExecutionActions,{execution,onRun(){},onCancel(){},isActionRunning:false})),/disabled/);
+  } finally {global.window=oldWindow;}
 });

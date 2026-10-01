@@ -202,7 +202,9 @@ test("Codex Implementer idle status polling is side-effect free and does not pro
     const status = await service.getStatus(root);
 
     assert.equal(status.state, "ready");
-    assert.equal(status.canRunAgain, true);
+    assert.equal(status.canRunAgain, false);
+    assert.equal(status.canResolveEnvironment, true);
+    assert.equal(status.developmentEnvironmentPreflight, null);
     assert.equal(status.implementerReportPath, reportPath());
   }
 
@@ -582,7 +584,7 @@ test("Issue Fix Card shares neutral repair with exact contract context", async (
   assert.equal(calls, 0);
 });
 
-test("Codex Implementer service allows retryable blocked preflight to rerun without using cached evidence as ready", async () => {
+test("Codex Implementer service requires neutral repair of cached retryable preflight before implementation", async () => {
   const root = seedBuildReviewWorkspace();
   let appServerFactoryCalled = 0;
   let startThreadCalled = 0;
@@ -633,6 +635,9 @@ test("Codex Implementer service allows retryable blocked preflight to rerun with
 
   const blocked = await service.start(root);
   const cachedStatus = await service.getStatus(root);
+  const stillBlocked = await service.start(root);
+  assert.equal(stillBlocked.canRunAgain, false);
+  await service.projectDevelopmentEnvironment(root, notRequiredPreflight());
   const rerun = await service.start(root);
 
   assert.equal(blocked.state, "unavailable");
@@ -642,7 +647,7 @@ test("Codex Implementer service allows retryable blocked preflight to rerun with
   assert.equal(cachedStatus.canRunAgain, false);
   assert.equal(cachedStatus.developmentEnvironmentPreflight.state, "blocked");
   assert.equal(rerun.state, "running");
-  assert.equal(preflightCalls, 2);
+  assert.equal(preflightCalls, 1);
   assert.equal(appServerFactoryCalled, 1);
   assert.equal(startThreadCalled, 1);
 });
@@ -2582,3 +2587,32 @@ test("exact source-backed and source-neutral WorkItems use the bounded Tester li
   assert.equal(checkoutRegistrations, 4);
   assert.equal(appServerCalls, 3);
 });
+
+for (const state of ["resolution-required", "blocked", "ready", "not-required"]) {
+  test(`fresh Work Card checks environment before unavailable Codex runtime: ${state}`, async (t) => {
+    const root = seedBuildReviewWorkspace();
+    t.after(() => fs.rmSync(path.dirname(root), {recursive:true,force:true}));
+    const order = []; let acquisitions = 0; let appServers = 0;
+    const preflight = {...notRequiredPreflight(), state, retryAllowed:state === "resolution-required"};
+    const service = new CodexImplementerExecutionService(
+      async () => { appServers++; throw Error("App Server must not launch"); },
+      () => Date.now(), defaultExecutionPolicy,
+      {async runPreflight(){order.push("preflight");return preflight;}},
+      {acquire(){acquisitions++;order.push("acquire");throw Error("Codex unavailable");},
+       acquireConcurrentExact(){throw Error("Unexpected exact acquisition");}},
+    );
+    const fresh = await service.getStatus(root);
+    assert.equal(fresh.canRunAgain,false);
+    assert.equal(fresh.canResolveEnvironment,true);
+    const result = await service.start(root);
+    assert.equal(result.canRunAgain,false);
+    assert.equal(result.developmentEnvironmentPreflight.state,state);
+    const ready = state === "ready" || state === "not-required";
+    assert.deepEqual(order,ready ? ["preflight","acquire"] : ["preflight"]);
+    assert.equal(acquisitions,ready ? 1 : 0);
+    assert.equal(appServers,0);
+    if (!ready) assert.equal(result.canResolveEnvironment,preflight.retryAllowed);
+    // Cached nonready evidence must continue to block direct Run.
+    if (!ready) {await service.start(root);assert.equal(acquisitions,0);assert.equal(order.length,1);}
+  });
+}

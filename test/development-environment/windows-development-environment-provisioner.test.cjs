@@ -147,7 +147,7 @@ test("Signal Forge semantic Node/npm probes use a validated pair and bounded pub
   const runner = fakeRunner({"node --version":success("v22.0.0"),"node validated-npm-cli.js --version":success("11.0.0"),
     "ffmpeg -version":success("ffmpeg version 9.0.2"),"ffprobe -version":success("ffprobe version 9.0.2")});
   const result = await new WindowsDevelopmentEnvironmentProvisioner({runner,platform:"win32",
-    refreshEnvironment:async()=>{refreshed=true;return {refreshed:true,summary:"refreshed",env:{}};},
+    refreshEnvironment:async()=>{refreshed=true;return {refreshed:true,summary:"refreshed",env:{},machinePath:".",userPath:""};},
     resolveNodePair(){assert.equal(refreshed,true);return pair;},repairNodePath(){throw Error("No PATH write expected");}})
     .preflight([{capabilityId:"node",versionConstraint:">=22.0.0",provisioning:"managed"},
       ...["npm","ffmpeg","ffprobe"].map(capabilityId=>({capabilityId,provisioning:"managed"}))],process.cwd());
@@ -1207,7 +1207,7 @@ test("registry supports required initial capability IDs", () => {
 });
 
 function fakeRefresh() {
-  return async () => ({ refreshed: true, summary: "refreshed", env: {} });
+  return async () => ({ refreshed: true, summary: "refreshed", env: {}, machinePath: ".", userPath: "" });
 }
 
 function fakeRunner(responses = {}) {
@@ -1348,7 +1348,7 @@ for (const scenario of ["stale process PATH", "persistent PATH missing", "toolch
       return {command,args,...success("v1.11.0")};
     }};
     const result = await new WindowsDevelopmentEnvironmentProvisioner({runner,platform:"win32",
-      refreshEnvironment:async()=>{events.push("refresh"); if(scenario === "stale process PATH") inPath=true;return {refreshed:true,summary:"refreshed",env:{PATH:inPath?root:""}};},
+      refreshEnvironment:async()=>{events.push("refresh"); if(scenario === "stale process PATH") inPath=true;return {refreshed:true,summary:"refreshed",env:{PATH:inPath?root:""},machinePath:scenario === "stale process PATH" ? root : "",userPath};},
       resolveNodePair(discover){events.push(discover?"discover":"resolve");if(!installed || (!discover && !inPath))throw Error("missing");return pair;},
       repairNodePath:async()=>{events.push("path-write");userPath=appendWindowsUserPath(userPath,root);userPath=appendWindowsUserPath(userPath,root.toUpperCase());inPath=true;}
     }).preflight([{capabilityId:"npm",provisioning:"managed"},{capabilityId:"node",versionConstraint:scenario === "toolchain absent" ? "24.0.0" : ">=22",provisioning:"managed"}],process.cwd());
@@ -1367,4 +1367,42 @@ test("discovered Node pair with a failed User PATH write blocks without reinstal
     refreshEnvironment:fakeRefresh(),resolveNodePair(discover){if(!discover)throw Error("missing PATH");return {executable:"C:\\nodejs\\node.exe",cliPath:"C:\\nodejs\\node_modules\\npm\\bin\\npm-cli.js"};},
     repairNodePath:async()=>{throw Error("write denied");}}).preflight([{capabilityId:"npm",provisioning:"managed"}],process.cwd());
   assert.equal(installs,0); assert.match(result.requirements[0].blocker,/User PATH repair/);
+});
+
+for (const owner of ["process-only", "Machine", "User"]) {
+  test(`validated Node/npm already on process PATH reconciles persistent ${owner} ownership idempotently`, async () => {
+    const root = "C:\\Program Files\\nodejs";
+    const pair = {executable:path.join(root,"node.exe"),cliPath:path.join(root,"node_modules","npm","bin","npm-cli.js")};
+    const events = []; let userPath = owner === "User" ? '"c:/PROGRAM FILES/nodejs/"' : "C:\\Unrelated";
+    const machinePath = owner === "Machine" ? root.toUpperCase()+"\\" : "";
+    const provisioner = new WindowsDevelopmentEnvironmentProvisioner({platform:"win32",
+      runner:{async run(command,args){
+        assert.equal(command,pair.executable,"No provider/installer may be called");
+        events.push(args[0] === pair.cliPath ? "npm-probe" : "node-probe");
+        return {command,args,...success(args[0] === pair.cliPath ? "11.0.0" : "v24.0.0")};
+      }},
+      refreshEnvironment:async()=>{events.push("refresh");return {refreshed:true,summary:"refreshed",env:{PATH:root},machinePath,userPath};},
+      resolveNodePair(discover){assert.equal(discover,false);events.push("resolve");return pair;},
+      repairNodePath:async(value)=>{assert.equal(value,root);events.push("path-write");userPath += ";"+root;},
+    });
+    const requirements=[{capabilityId:"node",versionConstraint:">=22.0.0",provisioning:"managed"},{capabilityId:"npm",provisioning:"managed"}];
+    assert.equal((await provisioner.preflight(requirements,process.cwd())).state,"ready");
+    if (owner === "process-only") assert.deepEqual(events.slice(0,5),["refresh","resolve","path-write","refresh","resolve"]);
+    assert.equal((await provisioner.preflight(requirements,process.cwd())).state,"ready");
+    assert.equal(events.filter(e=>e === "path-write").length,owner === "process-only" ? 1 : 0);
+    assert.ok(events.includes("node-probe"));assert.ok(events.includes("npm-probe"));
+  });
+}
+
+test("successful User PATH writer with failed persistent readback blocks without reinstall", async () => {
+  let writes=0,commands=0;
+  const result=await new WindowsDevelopmentEnvironmentProvisioner({platform:"win32",
+    runner:{async run(){commands++;throw Error("Must not install or probe");}},
+    refreshEnvironment:async()=>({refreshed:true,summary:"refreshed",env:{PATH:"C:\\nodejs"},machinePath:"",userPath:""}),
+    resolveNodePair:()=>({executable:"C:\\nodejs\\node.exe",cliPath:"C:\\nodejs\\node_modules\\npm\\bin\\npm-cli.js"}),
+    repairNodePath:async()=>{writes++;},
+  }).preflight([{capabilityId:"npm",provisioning:"managed"}],process.cwd());
+  assert.equal(writes,1);assert.equal(commands,0);
+  assert.equal(result.state,"resolution-required");assert.equal(result.retryAllowed,true);
+  assert.equal(result.requirements[0].blockerKind,"verification-failure");
 });
