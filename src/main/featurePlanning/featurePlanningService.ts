@@ -1,3 +1,4 @@
+import { createStructuredArchitectWorkspaceService } from "../architectOutputs/structuredArchitectWorkspaceService";
 import { createWorkflowIntakeService } from "../workflow/workflowIntakeService";
 import { WORKFLOW_INTAKE_DEFINITIONS, validateWorkflowIntakePayload } from "../../shared/workflowIntakeContracts";
 import fs from "node:fs";
@@ -37,18 +38,11 @@ export function createFeaturePlanningService(dependencies: { openStore?: (databa
       const findings = (await store.listEntities(projectId, "Finding")).filter((item): item is import("../../shared/projectState/domainContracts").ProjectStateRecord<"Finding"> => item.entityType === "Finding" && item.body.category === "feature-intake" && owned.has(item.id));
       const acceptedArchitecture = selectProjectArchitectureContext(projectId, await store.listEntities(projectId), relationships);
       const project = await store.getProject(projectId);
-      const featureDecisions = (await store.listEntities(projectId, "Decision"))
-        .filter((item): item is import("../../shared/projectState/domainContracts").ProjectStateRecord<"Decision"> => item.entityType === "Decision" && item.body.decisionType === "feature-assessment-review" &&
-          relationships.some(edge => edge.relationshipType === "governs" && edge.fromEntityId === item.id && edge.toEntityId === workflowId && !edge.endedAt))
-        .sort((a, b) => a.body.decidedAt.localeCompare(b.body.decidedAt));
-      const latestAssessment = featureDecisions.at(-1);
-      const acceptedDecision = [...featureDecisions].reverse().find(item => item.body.outcome === "accepted");
-      const acceptedAssessment = acceptedDecision ? (await store.listEntities(projectId, "Finding")).filter(item => item.entityType === "Finding" && item.body.category === "feature-assessment" &&
-        relationships.some(edge => edge.relationshipType === "workflow_member" && edge.fromEntityId === item.id && edge.toEntityId === workflowId && !edge.endedAt) &&
-        relationships.some(edge => edge.relationshipType === "governs" && edge.fromEntityId === acceptedDecision.id && edge.toEntityId === item.id && !edge.endedAt)) : [];
-      const latestIntakeUpdate = structuredIntake.updatedAt ?? "";
-      const assessmentState = !latestAssessment || latestAssessment.body.decidedAt < latestIntakeUpdate ? "not-reviewed" :
-        latestAssessment.body.outcome === "accepted" ? "accepted" : latestAssessment.body.outcome === "revision_requested" ? "revision-requested" : "rejected";
+      const architect = await createStructuredArchitectWorkspaceService().get(root, workflowId);
+      const memberIds = new Set(architect.review?.sources.map(source => source.entityId) ?? []);
+      const approved = architect.review?.disposition.state === "approved";
+      const acceptedAssessment = approved ? (await store.listEntities(projectId, "Finding")).filter((item): item is import("../../shared/projectState/domainContracts").ProjectStateRecord<"Finding"> => item.entityType === "Finding" && memberIds.has(item.id) && item.body.category === "feature-assessment") : [];
+      const assessmentState = approved ? "accepted" : architect.review?.disposition.state === "revision_requested" ? "revision-requested" : architect.review?.disposition.state === "rejected" ? "rejected" : "not-reviewed";
       const intake = structuredIntake.values as FeatureIntakeInput | null;
       const plan = workflow.body.currentWorkspace === "work-item-map" ? await state.getWorkflowExecutionPlan(projectId, workflowId) : null;
       const context = await workflowApp.getWorkflowPlanningContext(root, workflowId);
@@ -83,6 +77,7 @@ export function createFeaturePlanningService(dependencies: { openStore?: (databa
   }
   async function act(root: string, workflowId: string, action: { type: string; content?: string; stage?: "assessment" | "plan"; outcome?: "accept" | "revision" | "reject"; rationale?: string; assessment?: FeatureAssessmentCandidate; graph?: WorkflowPlanningGraph }) {
     const key = draftKey(root, workflowId); const model = await get(root, workflowId);
+    if (action.type === "decide" && action.stage === "assessment" || action.type === "save-draft" && drafts.get(key)?.stage === "assessment") throw Error("Use the structured Architect candidate and exact-cycle review commands for Feature Assessment.");
     if (action.type === "prepare") return prepare(root, workflowId, action.stage as "assessment" | "plan");
     if (action.type === "save-draft") { const draft = drafts.get(key); if (!draft) throw Error("Prepare the current Architect cycle first.");
       const expectedWorkspace = draft.stage === "assessment" ? "feature-assessment" : "feature-planning";

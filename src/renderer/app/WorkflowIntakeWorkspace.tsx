@@ -23,8 +23,7 @@ export function WorkflowIntakeWorkspace({ workflow, onReturn, onPrepared }: {
     if (!state.approved || busy) return;
     setPreparing(true); setPrepareError("");
     try {
-      if (workflowType === "feature-capability") await window.champcity.prepareFeaturePlanning(workflow.workflowId, "assessment");
-      else if (workflowType === "issue-resolution") await window.champcity.prepareIssueWorkflowPlanning(workflow.workflowId, "rca");
+      if (workflowType === "feature-capability" || workflowType === "issue-resolution") await window.champcity.prepareStructuredArchitectWorkspace(workflow.workflowId);
       onPrepared();
     } catch (e) { setPrepareError(String(e).slice(0, 1000)); } finally { setPreparing(false); }
   };

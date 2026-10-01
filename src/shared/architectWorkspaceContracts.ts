@@ -1,5 +1,35 @@
 import type { ArchitectReviewProjection } from "./projectState/architectReviewContracts";
 import type { PlanningDocumentDetail } from "./documents/planningDocument";
+import type { WorkflowType } from "./projectState/workflowTypeRegistry";
+import type { FeatureAssessmentCandidate, IssueRootCauseCandidateInput } from "./projectState/projectStateService";
+
+export const FEATURE_ARCHITECT_SECTIONS = {
+  currentProductBaseline: "Current Product Baseline", requestedCapabilityDelta: "Requested Capability Delta",
+  behaviorContractsToPreserve: "Behavior and Contracts to Preserve", affectedArchitectureIntegrationPoints: "Affected Architecture and Integration Points",
+  compatibilityRollout: "Compatibility and Rollout", regressionBoundary: "Regression Boundary", excludedFutureWork: "Excluded Future Work",
+} as const;
+export type ArchitectCandidateOutput = GreenfieldArchitectOutput | FeatureAssessmentCandidate | {rootCauses: IssueRootCauseCandidateInput[]};
+export interface ArchitectCandidateSaveInput {intakeId: string; intakeVersion: number; expectedCycleVersion?: number; output: ArchitectCandidateOutput}
+export function validateArchitectCandidateOutput(type: WorkflowType, output: unknown): void {
+  if (type === "project-creation") return validateGreenfieldArchitectOutput(output);
+  if (!output || typeof output !== "object" || Array.isArray(output)) throw Error("Typed Architect output is required.");
+  if (type === "feature-capability") {
+    if (Object.keys(output).sort().join("|") !== Object.keys(FEATURE_ARCHITECT_SECTIONS).sort().join("|") || Object.values(output).some(value => typeof value !== "string" || !value.trim() || new TextEncoder().encode(value).length > 4096 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value))) throw Error("All seven bounded Feature assessment dimensions are required.");
+    return;
+  }
+  if (type === "issue-resolution") {
+    const roots = (output as {rootCauses?: unknown}).rootCauses;
+    if (Object.keys(output).join("|") !== "rootCauses" || !Array.isArray(roots) || !roots.length || roots.length > 12) throw Error("RCA requires 1–12 typed RootCause candidates.");
+    for (const root of roots) {
+      if (!root || typeof root !== "object" || Array.isArray(root) || Object.keys(root).some(key => !["title", "statement", "rationale", "confidence", "findingIds", "evidenceIds"].includes(key)) ||
+        ["title", "statement", "rationale"].some(key => typeof root[key] !== "string" || !root[key].trim() || new TextEncoder().encode(root[key]).length > (key === "title" ? 200 : 4096)) ||
+        root.confidence !== undefined && (typeof root.confidence !== "number" || !Number.isFinite(root.confidence) || root.confidence < 0 || root.confidence > 1) ||
+        ["findingIds", "evidenceIds"].some(key => !Array.isArray(root[key]) || root[key].length > 32 || new Set(root[key]).size !== root[key].length || root[key].some((id: unknown) => typeof id !== "string" || id.length > 128))) throw Error("Bounded typed RCA fields and exact references are required.");
+    }
+    return;
+  }
+  throw Error("Architect output contract is unavailable for this Workflow type.");
+}
 
 export const GREENFIELD_ARCHITECT_SECTIONS = {
   projectUnderstanding: "Project Understanding", usersAndPrimaryWorkflows: "Users and Primary Workflows",
@@ -26,6 +56,12 @@ export function validateGreenfieldArchitectOutput(value: unknown): asserts value
 }
 export interface StructuredArchitectWorkspaceModel {
   workflowId: string;
+  workflowType?: WorkflowType;
+  title?: string;
+  stageLabel?: string;
+  stageKind?: import("./projectState/domainContracts").ArchitectStageKind;
+  nextStageReady?: boolean;
+  supportRecords?: import("./projectState/domainContracts").ProjectStateEntity[];
   ready: boolean;
   reason?: string;
   intakeId?: string;

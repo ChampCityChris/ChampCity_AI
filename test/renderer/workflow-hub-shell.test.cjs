@@ -206,19 +206,22 @@ test("Existing Project entry controller applies before one registration and gate
 });
 
 test("Feature workspace is keyed by exact Workflow identity and exposes only its planning front half", () => {
-  const workflow = { workflowId: "feature-exact-123", lineageId: "lineage", workflowType: "feature-capability", title: "Same title", workflowState: "active", lifecycleState: "active", currentWorkspace: "feature-intake", createdAt: "now", updatedAt: "now" };
+  const workflow = { workflowId: "feature-exact-123", lineageId: "lineage", workflowType: "feature-capability", title: "Same title", workflowState: "active", lifecycleState: "active", currentWorkspace: "feature-assessment", createdAt: "now", updatedAt: "now" };
   const markup = renderToStaticMarkup(React.createElement(FeaturePlanningWorkspace, { workflow, onReturn: () => undefined, browserPanel: React.createElement("div", null, "Architect browser") }));
   assert.match(markup, /feature-exact-123/);
   assert.match(markup, /Architect Feature Assessment/);
   assert.match(markup, /Architect browser/);
+  assert.match(markup, /figma-doc-chat-workspace/);
   assert.doesNotMatch(markup, /Implement|Create Work Card|Checkpoint|Integrate|Close Workflow/);
 });
 
 test("Issue Workflow workspace uses exact Workflow identity and keeps execution actions out of the front half", () => {
-  const workflow = { workflowId: "issue-exact-987", lineageId: "lineage", workflowType: "issue-resolution", title: "Same incident", workflowState: "active", lifecycleState: "active", currentWorkspace: "issue-intake", createdAt: "now", updatedAt: "now" };
+  const workflow = { workflowId: "issue-exact-987", lineageId: "lineage", workflowType: "issue-resolution", title: "Same incident", workflowState: "active", lifecycleState: "active", currentWorkspace: "issue-rca", createdAt: "now", updatedAt: "now" };
   const markup = renderToStaticMarkup(React.createElement(IssueWorkflowPlanningWorkspace, { workflow, onReturn: () => undefined, browserPanel: React.createElement("div", null, "Architect browser") }));
   assert.match(markup, /issue-exact-987/);
-  assert.match(markup, /Architect Root Cause Analysis/);
+  assert.match(markup, /Root Cause Analysis/);
+  assert.match(markup, /figma-doc-chat-workspace/);
+  assert.match(markup, /Save Evidence to Project/);
   assert.match(markup, /Architect browser/);
   assert.doesNotMatch(markup, /Create Fix Card|Implement|Checkpoint|Integrate|Close Issue/);
 });

@@ -1457,7 +1457,7 @@ export interface ChampCityApi {
   getWorkflowIntake(workflowId: string): Promise<import("./workflowIntakeContracts").WorkflowIntakeProjection>;
   getStructuredArchitectWorkspace(workflowId: string): Promise<import("./architectWorkspaceContracts").StructuredArchitectWorkspaceModel>;
   prepareStructuredArchitectWorkspace(workflowId: string): Promise<import("./architectWorkspaceContracts").StructuredArchitectWorkspaceModel>;
-  saveStructuredArchitectOutput(workflowId: string, input: {intakeId: string; intakeVersion: number; expectedCycleVersion?: number; output: import("./architectWorkspaceContracts").GreenfieldArchitectOutput}): Promise<import("./architectWorkspaceContracts").StructuredArchitectWorkspaceModel>;
+  saveStructuredArchitectOutput(workflowId: string, input: import("./architectWorkspaceContracts").ArchitectCandidateSaveInput): Promise<import("./architectWorkspaceContracts").StructuredArchitectWorkspaceModel>;
   reviewStructuredArchitectOutput(workflowId: string, cycleId: string, input: import("./projectState/architectReviewContracts").ArchitectReviewDecisionInput): Promise<import("./architectWorkspaceContracts").StructuredArchitectWorkspaceModel>;
   reviewWorkflowIntake(workflowId: string, input: Pick<import("./projectState/projectStateService").WorkflowIntakeDecisionInput, "expectedIntakeRecordVersion" | "outcome" | "notes">): Promise<import("./workflowIntakeContracts").WorkflowIntakeProjection>;
   saveWorkflowIntake(workflowId: string, payload: import("./workflowIntakeContracts").WorkflowIntakePayload, expectedIntakeRecordVersion?: number): Promise<import("./workflowIntakeContracts").WorkflowIntakeProjection>;

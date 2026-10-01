@@ -1,5 +1,5 @@
-import { ARCHITECT_STAGE_BY_WORKFLOW, architectSemanticDigest, renderArchitectReviewProjection, type ArchitectReviewSaveInput, type ArchitectReviewDecisionInput } from "./architectReviewContracts";
-import { GREENFIELD_ARCHITECT_SECTIONS, validateGreenfieldArchitectOutput, type GreenfieldArchitectOutput } from "../architectWorkspaceContracts";
+import { ARCHITECT_WORKSPACE_BY_WORKFLOW, ARCHITECT_STAGE_BY_WORKFLOW, architectSemanticDigest, renderArchitectReviewProjection, type ArchitectReviewSaveInput, type ArchitectReviewDecisionInput } from "./architectReviewContracts";
+import { GREENFIELD_ARCHITECT_SECTIONS, FEATURE_ARCHITECT_SECTIONS, validateArchitectCandidateOutput, type ArchitectCandidateSaveInput, type GreenfieldArchitectOutput } from "../architectWorkspaceContracts";
 import { workflowIntakeDisposition, exactVersionReviewDisposition } from "./workflowIntakeDisposition";
 import type { DispositionState, EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef, ProjectId, ProjectStateEntity, ProjectStateRecord, TestLifecycleAssessmentStatus, ValidationMode, WorkflowState, WorkIntakeState, WorkRoute } from "./domainContracts";
 import { getWorkflowTypeDefinition, workflowTypeForWorkRoute, type ExistingProjectWorkRoute, type WorkflowType } from "./workflowTypeRegistry";
@@ -792,13 +792,38 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return store.transaction(projectId, async unit => (await currentArchitectCycle(unit, projectId, workflowId, stageKind)).cycle);
   }
 
-  /** Candidate records, source provenance and cycle membership commit atomically. */
-  async function saveGreenfieldArchitectOutput(projectId: ProjectId, input: { workflowId: EntityId; intakeId: EntityId; intakeVersion: number; expectedCycleVersion?: number; output: GreenfieldArchitectOutput }) {
-    exactInput(input, ["workflowId", "intakeId", "intakeVersion", "expectedCycleVersion", "output"]);
-    validateGreenfieldArchitectOutput(input.output);
+  async function prepareArchitectWorkspace(projectId: ProjectId, input: {workflowId: EntityId; intakeId: EntityId; intakeVersion: number}) {
+    exactInput(input, ["workflowId", "intakeId", "intakeVersion"]);
     return store.transaction(projectId, async unit => {
-      const {workflow, cycle} = await currentArchitectCycle(unit, projectId, input.workflowId, "project-interview");
+      const workflow = await requiredRecord(unit, projectId, input.workflowId);
+      if (workflow.entityType !== "Workflow" || workflow.lifecycleState !== "active" || workflow.body.workflowState !== "active" || workflow.body.currentWorkspace === "work-item-map") fail("Exact active front-half Workflow is required.");
+      const workspace = ARCHITECT_WORKSPACE_BY_WORKFLOW[workflow.body.workflowType];
+      if (!workspace) fail("Architect workspace is unavailable.");
+      const intake = await requireCurrentWorkflowIntake(unit, projectId, input.intakeId);
+      if (intake.body.workflowId !== workflow.id || intake.recordVersion !== input.intakeVersion || workflowIntakeDisposition(intake, await unit.listEntities(projectId), await unit.listRelationships(projectId), await unit.listOutbox(projectId)).state !== "approved") fail("Exact approved current Intake is required before transition.");
+      if (workflow.body.currentWorkspace === workspace) return workflow;
+      const next = validateProjectStateEntity({...workflow, recordVersion: workflow.recordVersion + 1, updatedAt: new Date().toISOString(), updatedBy: trustedPrincipal, body: {...workflow.body, currentWorkspace: workspace}}) as ProjectStateRecord<"Workflow">;
+      await unit.saveEntity(next, workflow.recordVersion);
+      await recordMutation(unit, {projectId, entityId: workflow.id, fromVersion: workflow.recordVersion, toVersion: next.recordVersion, operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: next.updatedAt, changedFields: ["currentWorkspace"], defaultReason: "Prepare Architect from exact approved SQL Intake"});
+      return next;
+    });
+  }
+
+  /** Candidate records, source provenance and cycle membership commit atomically. */
+  async function saveArchitectCandidate(projectId: ProjectId, input: ArchitectCandidateSaveInput & {workflowId: EntityId; workflowType: WorkflowType}) {
+    exactInput(input, ["workflowId", "workflowType", "intakeId", "intakeVersion", "expectedCycleVersion", "output"]);
+    validateArchitectCandidateOutput(input.workflowType, input.output);
+    return store.transaction(projectId, async unit => {
+      const stageKind = ARCHITECT_STAGE_BY_WORKFLOW[input.workflowType];
+      if (!stageKind) fail("Unsupported Architect stage.");
+      const {workflow, cycle} = await currentArchitectCycle(unit, projectId, input.workflowId, stageKind);
+      if (workflow.body.workflowType !== input.workflowType) fail("Exact Architect Workflow type required.");
       if (cycle?.recordVersion !== input.expectedCycleVersion) fail("Expected Architect cycle revision is stale.");
+      if (!cycle && ["feature-capability", "issue-resolution"].includes(workflow.body.workflowType)) {
+        const legacyCategory = workflow.body.workflowType === "feature-capability" ? "Finding" : "RootCause";
+        const owned = (await unit.listRelationships(projectId, "workflow_member")).filter(edge => !edge.endedAt && edge.toEntityId === workflow.id);
+        if ((await unit.listEntities(projectId, legacyCategory)).some(record => record.lifecycleState === "active" && owned.some(edge => edge.fromEntityId === record.id) && (record.entityType !== "Finding" || record.body.category === "feature-assessment"))) fail("Reopen for legacy Architect SQL adoption or conflict reconciliation before saving a fresh candidate.");
+      }
       const intake = await requiredRecord(unit, projectId, input.intakeId);
       if (intake.entityType !== "WorkflowIntake" || intake.lifecycleState !== "active" || intake.body.workflowId !== workflow.id ||
         intake.recordVersion !== input.intakeVersion || workflowIntakeDisposition(intake, await unit.listEntities(projectId), await unit.listRelationships(projectId), await unit.listOutbox(projectId)).state !== "approved") fail("Exact approved Intake is required.");
@@ -811,7 +836,8 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         members.push(record as ProjectStateEntity);
         return record;
       }
-      const out = input.output;
+      if (input.workflowType === "project-creation") {
+      const out = input.output as GreenfieldArchitectOutput;
       const solution = await add("BoundedSolution", {title: "Project architecture and planning direction", objective: out.projectPlanningDirection.join("\n"),
         scopeIn: out.scope, scopeOut: out.nonScope, constraints: out.constraints, assumptions: out.assumptions, risks: out.risksAndDependencies, solutionState: "proposed"});
       for (const [key, title] of Object.entries(GREENFIELD_ARCHITECT_SECTIONS)) {
@@ -824,10 +850,78 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         const criterion = await add("Criterion", {statement, criticality: "required", verificationIntent: "Project acceptance direction; refine during Planning", validationPolicy: "semantic_ai", criterionState: "proposed"});
         await linkSemantic(unit, projectId, solution, criterion, "defines_criterion");
       }
+      } else if (input.workflowType === "feature-capability") {
+        const output = input.output as FeatureAssessmentCandidate;
+        for (const [key, title] of Object.entries(FEATURE_ARCHITECT_SECTIONS)) {
+          const record = await add("Finding", {title, statement: output[key as keyof FeatureAssessmentCandidate], category: "feature-assessment", impact: "Proposed Feature assessment", observedAt: new Date().toISOString(), findingState: "proposed"});
+          await linkSemantic(unit, projectId, record, workflow, "workflow_member");
+        }
+      } else if (input.workflowType === "issue-resolution") {
+        const output = input.output as {rootCauses: IssueRootCauseCandidateInput[]};
+        const edges = await unit.listRelationships(projectId);
+        const all = await unit.listEntities(projectId);
+        const findings = new Map(all.filter((record): record is ProjectStateRecord<"Finding"> => record.entityType === "Finding" && record.lifecycleState === "active" && record.body.findingState === "current" && edges.some(edge => !edge.endedAt && edge.relationshipType === "workflow_member" && edge.fromEntityId === record.id && edge.toEntityId === workflow.id)).map(record => [record.id, record]));
+        const evidence = new Map(all.filter((record): record is ProjectStateRecord<"Evidence"> => record.entityType === "Evidence" && record.lifecycleState === "active" && edges.some(edge => !edge.endedAt && edge.relationshipType === "supports" && edge.fromEntityId === record.id && (edge.toEntityId === workflow.id || edge.toEntityId === intake.id || findings.has(edge.toEntityId)))).map(record => [record.id, record]));
+        for (const candidate of output.rootCauses) {
+          if (candidate.findingIds.some(id => !findings.has(id)) || candidate.evidenceIds.some(id => !evidence.has(id)) || !candidate.findingIds.length && !candidate.evidenceIds.length) fail("RCA must cite exact Issue Findings or Intake-supported Evidence.");
+          const root = await add("RootCause", {title: candidate.title, statement: candidate.statement, rationale: candidate.rationale, ...(candidate.confidence === undefined ? {} : {confidence: candidate.confidence}), rootCauseState: "proposed"});
+          await linkSemantic(unit, projectId, root, workflow, "workflow_member");
+          for (const id of candidate.findingIds) {await linkSemantic(unit, projectId, root, findings.get(id)!, "explains"); if (!members.some(member => member.id === id)) members.push(findings.get(id)!);}
+          if (!candidate.findingIds.length) await linkSemantic(unit, projectId, root, intake, "derived_from");
+          for (const id of candidate.evidenceIds) {await linkSemantic(unit, projectId, evidence.get(id)!, root, "supports"); if (!members.some(member => member.id === id)) members.push(evidence.get(id)!);}
+        }
+      }
       const source = await add("Evidence", {evidenceType: "architect-intake-source", description: "Exact approved Intake used for Architect output", capturedAt: new Date().toISOString(), capturedBy: trustedPrincipal,
         mediaType: "application/vnd.champcity.project-state", payloadRef: `project-state:${intake.id}@${intake.recordVersion}`, digest: await architectSemanticDigest([intake])});
       await linkSemantic(unit, projectId, source, intake, "supports");
-      return saveArchitectReviewCycleInUnit(unit, projectId, {workflowId: workflow.id, stageKind: "project-interview", memberIds: members.map(member => member.id), expectedRecordVersion: cycle?.recordVersion});
+      return saveArchitectReviewCycleInUnit(unit, projectId, {workflowId: workflow.id, stageKind, memberIds: members.map(member => member.id), expectedRecordVersion: cycle?.recordVersion});
+    });
+  }
+
+  const saveGreenfieldArchitectOutput = (projectId: ProjectId, input: ArchitectCandidateSaveInput & {workflowId: EntityId; output: GreenfieldArchitectOutput}) => saveArchitectCandidate(projectId, {...input, workflowType: "project-creation"});
+
+  /** Adopt exactly one issued legacy SQL set; ambiguous history is never guessed. */
+  async function adoptLegacyArchitectReview(projectId: ProjectId, workflowId: EntityId, stageKind: import("./domainContracts").ArchitectStageKind) {
+    if (trustedPrincipal.principalType !== "human" || trustedPrincipal.role !== "Operator") fail("Legacy Architect approval adoption requires the Operator principal.");
+    return store.transaction(projectId, async unit => {
+      const {workflow, cycle} = await currentArchitectCycle(unit, projectId, workflowId, stageKind);
+      if (cycle || !["feature-capability", "issue-resolution"].includes(workflow.body.workflowType)) return cycle;
+      const edges = await unit.listRelationships(projectId), all = await unit.listEntities(projectId);
+      const legacyType = workflow.body.workflowType === "feature-capability" ? "feature-assessment-review" : "issue-rca-review";
+      const reviews = all.filter((record): record is ProjectStateRecord<"Decision"> => record.entityType === "Decision" && record.lifecycleState === "active" && record.body.decisionType === legacyType && edges.some(edge => !edge.endedAt && edge.relationshipType === "governs" && edge.fromEntityId === record.id && edge.toEntityId === workflowId));
+      if (!reviews.length) {
+        const legacyType = workflow.body.workflowType === "feature-capability" ? "Finding" : "RootCause";
+        if (all.some(record => record.entityType === legacyType && record.lifecycleState === "active" && (record.entityType !== "Finding" || record.body.category === "feature-assessment") && edges.some(edge => !edge.endedAt && edge.relationshipType === "workflow_member" && edge.fromEntityId === record.id && edge.toEntityId === workflowId))) fail("Legacy Architect SQL candidates lack an unambiguous issued approval.");
+        return null;
+      }
+      if (reviews.length !== 1 || reviews[0].body.outcome !== "accepted" || reviews[0].body.decidedBy.principalType !== "human" || reviews[0].body.decisionRole !== "Operator") fail("Legacy Architect SQL review is ambiguous or conflicting; Operator reconciliation is required.");
+      const legacy = reviews[0];
+      const intakes = all.filter((record): record is ProjectStateRecord<"WorkflowIntake"> => record.entityType === "WorkflowIntake" && record.lifecycleState === "active" && record.body.workflowId === workflowId);
+      if (intakes.length !== 1 || workflowIntakeDisposition(intakes[0], all, edges, await unit.listOutbox(projectId)).state !== "approved") return null;
+      const intake = intakes[0];
+      if (intake.recordVersion > 1 && legacy.body.effectiveAt < intake.updatedAt) fail("Legacy Architect SQL review is stale against revised Intake.");
+      const category = workflow.body.workflowType === "feature-capability" ? "Finding" : "RootCause";
+      const candidates = all.filter(record => record.entityType === category && record.lifecycleState === "active" &&
+        (record.entityType !== "Finding" || record.body.category === "feature-assessment") && edges.some(edge => !edge.endedAt && edge.relationshipType === "workflow_member" && edge.fromEntityId === record.id && edge.toEntityId === workflowId));
+      if (!candidates.length || candidates.some(record => !edges.some(edge => !edge.endedAt && edge.relationshipType === "governs" && edge.fromEntityId === legacy.id && edge.toEntityId === record.id)) ||
+        workflow.body.workflowType === "feature-capability" && (candidates.length !== 7 || new Set(candidates.map(record => record.entityType === "Finding" ? record.body.title : "")).size !== 7 || candidates.some(record => record.entityType === "Finding" && !Object.values(FEATURE_ARCHITECT_SECTIONS).includes(record.body.title as typeof FEATURE_ARCHITECT_SECTIONS[keyof typeof FEATURE_ARCHITECT_SECTIONS])))) fail("Legacy Architect semantic sets are ambiguous or incomplete.");
+      const ids = new Set(candidates.map(record => record.id));
+      if (workflow.body.workflowType === "issue-resolution") for (const edge of edges.filter(edge => !edge.endedAt)) {
+        if (edge.relationshipType === "explains" && ids.has(edge.fromEntityId)) ids.add(edge.toEntityId);
+        if (edge.relationshipType === "supports" && ids.has(edge.toEntityId)) ids.add(edge.fromEntityId);
+      }
+      const source = createProjectStateEntity({entityType: "Evidence", projectId, principal: trustedPrincipal, body: {evidenceType: "architect-intake-source", description: "Exact Intake provenance for adopted SQL Architect review", capturedAt: new Date().toISOString(), capturedBy: trustedPrincipal, mediaType: "application/vnd.champcity.project-state", payloadRef: `project-state:${intake.id}@${intake.recordVersion}`, digest: await architectSemanticDigest([intake])}});
+      await unit.saveEntity(source, null);
+      await recordMutation(unit, {projectId, entityId: source.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: source.createdAt, changedFields: Object.keys(source.body), defaultReason: "Adopt Architect Intake provenance"});
+      await linkSemantic(unit, projectId, source, intake, "supports"); ids.add(source.id);
+      const adopted = await saveArchitectReviewCycleInUnit(unit, projectId, {workflowId, stageKind, memberIds: [...ids]});
+      const now = new Date().toISOString();
+      const decision = createProjectStateEntity({entityType: "Decision", projectId, principal: trustedPrincipal, provenance: {origin: "legacy-import", sourceRef: `project-state:${legacy.id}`}, body: decisionBody({decisionType: "architect-review", outcome: "approved", decisionScope: `architect-review:${adopted.id}@${adopted.recordVersion}`, rationale: legacy.body.rationale}, trustedPrincipal, now)});
+      await unit.saveEntity(decision, null);
+      await recordMutation(unit, {projectId, entityId: decision.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: now, changedFields: Object.keys(decision.body), defaultReason: "Adopt unambiguous issued Architect SQL approval"});
+      await linkSemantic(unit, projectId, decision, adopted, "governs");
+      await linkSemantic(unit, projectId, decision, legacy, "derived_from");
+      return adopted;
     });
   }
 
@@ -3519,7 +3613,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return pending.sort((a, b) => a.targetId.localeCompare(b.targetId) || a.criterionId.localeCompare(b.criterionId));
   }
 
-  return { saveGreenfieldArchitectOutput, getArchitectReviewProjection, saveArchitectReviewCycle, getCurrentArchitectReviewCycle, getArchitectReviewDisposition, recordArchitectReview, saveWorkflowIntake, recordWorkflowIntakeDecision, getWorkflowIntakeDisposition, createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
+  return { prepareArchitectWorkspace, adoptLegacyArchitectReview, saveArchitectCandidate, saveGreenfieldArchitectOutput, getArchitectReviewProjection, saveArchitectReviewCycle, getCurrentArchitectReviewCycle, getArchitectReviewDisposition, recordArchitectReview, saveWorkflowIntake, recordWorkflowIntakeDecision, getWorkflowIntakeDisposition, createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
     createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, completeTesterResultCheckpoint, createIntegrationRecord, advanceIntegrationRecord, completeWorkflowExecution, closeIntegratedWorkflow,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, createTesterResult, createWorkflowRepair, createPhaseRepair, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, recordCriterionOperatorDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,

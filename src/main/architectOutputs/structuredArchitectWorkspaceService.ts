@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createProjectStateService } from "../../shared/projectState/projectStateService";
-import { GREENFIELD_ARCHITECT_SECTIONS, type GreenfieldArchitectOutput, type StructuredArchitectWorkspaceModel } from "../../shared/architectWorkspaceContracts";
-import type { ArchitectReviewDecisionInput } from "../../shared/projectState/architectReviewContracts";
+import { GREENFIELD_ARCHITECT_SECTIONS, FEATURE_ARCHITECT_SECTIONS, type ArchitectCandidateSaveInput, type StructuredArchitectWorkspaceModel } from "../../shared/architectWorkspaceContracts";
+import { ARCHITECT_STAGE_BY_WORKFLOW, type ArchitectReviewDecisionInput } from "../../shared/projectState/architectReviewContracts";
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
 import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
 import { currentIntake, intakeOperator } from "../workflow/workflowIntakeMigration";
@@ -10,6 +10,7 @@ import { selectProjectArchitectureContext } from "../../shared/projectState/proj
 import { architectReviewDocument, writeArchitectReviewProjection } from "./architectReviewProjectionWriter";
 
 export function createStructuredArchitectWorkspaceService() {
+  const stages = {"project-creation": "architect-interview", "feature-capability": "feature-assessment", "issue-resolution": "issue-rca"} as const;
   async function withWorkflow<T>(root: string, id: string, work: (store: ReturnType<typeof createSQLiteProjectStateStore>, projectId: string, workflow: import("../../shared/projectState/domainContracts").ProjectStateRecord<"Workflow">) => Promise<T>) {
     if (typeof id !== "string" || !id.trim() || id.length > 128) throw Error("Exact bounded Architect Workflow ID is required.");
     const canonical = fs.realpathSync(root), projectId = selectedCurrentProjectId(canonical);
@@ -17,37 +18,48 @@ export function createStructuredArchitectWorkspaceService() {
     const store = createSQLiteProjectStateStore(path.join(canonical, ".champcity", "project-state.sqlite"));
     try {
       const workflow = await store.getEntity(projectId, id);
-      if (!workflow || workflow.entityType !== "Workflow" || workflow.lifecycleState !== "active" || workflow.body.workflowState !== "active" || workflow.body.workflowType !== "project-creation") throw Error("Exact active Project Creation Workflow is required.");
+      if (!workflow || workflow.entityType !== "Workflow" || workflow.lifecycleState !== "active" || workflow.body.workflowState !== "active" || !Object.hasOwn(stages, workflow.body.workflowType)) throw Error("Exact active Architect Workflow is required.");
       return await work(store, projectId, workflow);
     } finally { store.close(); }
   }
   const get = (root: string, workflowId: string) => withWorkflow(root, workflowId, async (store, projectId, workflow): Promise<StructuredArchitectWorkspaceModel> => {
     const state = createProjectStateService(store, intakeOperator), intake = await currentIntake(store, projectId, workflow);
-    if (!intake || (await state.getWorkflowIntakeDisposition(projectId, intake.id)).state !== "approved") return {workflowId, ready: false, railStatus: "Not Ready", reason: "Approve current SQL Intake before Architect Interview."};
-    const model: StructuredArchitectWorkspaceModel = {workflowId, ready: true, railStatus: "Open", intakeId: intake.id, intakeVersion: intake.recordVersion,
-      handoff: ["Architect Interview — typed structured output", `Workflow ${workflowId}; approved Intake ${intake.id}@${intake.recordVersion}`,
+    const workflowType = workflow.body.workflowType, stageKind = ARCHITECT_STAGE_BY_WORKFLOW[workflowType]!;
+    const stageLabel = workflowType === "project-creation" ? "Architect Interview" : workflowType === "issue-resolution" ? "Root Cause Analysis" : "Architect Feature Assessment";
+    const identity = {workflowId, workflowType, stageKind, stageLabel, title: workflow.body.title};
+    if (!intake || (await state.getWorkflowIntakeDisposition(projectId, intake.id)).state !== "approved") return {...identity, ready: false, railStatus: "Not Ready", nextStageReady: false, reason: "Approve current SQL Intake before Architect work."};
+    const all = await store.listEntities(projectId), edges = await store.listRelationships(projectId);
+    const findings = all.filter(record => record.entityType === "Finding" && record.lifecycleState === "active" && edges.some(edge => !edge.endedAt && edge.relationshipType === "workflow_member" && edge.fromEntityId === record.id && edge.toEntityId === workflowId));
+    const supportRecords = workflowType === "issue-resolution" ? [...findings, ...all.filter(record => record.entityType === "Evidence" && record.lifecycleState === "active" && edges.some(edge => !edge.endedAt && edge.relationshipType === "supports" && edge.fromEntityId === record.id && (edge.toEntityId === workflowId || edge.toEntityId === intake.id || findings.some(finding => finding.id === edge.toEntityId))))] : [];
+    const template = workflowType === "project-creation" ? Object.fromEntries(Object.keys(GREENFIELD_ARCHITECT_SECTIONS).map(key => [key, ["Replace with substantive direction or an explicit unresolved item."]])) :
+      workflowType === "feature-capability" ? Object.fromEntries(Object.keys(FEATURE_ARCHITECT_SECTIONS).map(key => [key, "Replace with substantive assessment."])) : {rootCauses: [{title: "Cause title", statement: "Evidenced defect", rationale: "Explanation", confidence: 0.8, findingIds: [], evidenceIds: []}]};
+    const model: StructuredArchitectWorkspaceModel = {...identity, ready: true, railStatus: "Open", nextStageReady: false, supportRecords, intakeId: intake.id, intakeVersion: intake.recordVersion,
+      handoff: [`${stageLabel} — typed structured output`, `Workflow ${workflowId}; approved Intake ${intake.id}@${intake.recordVersion}`,
         "Use the approved Intake below. Return only a JSON object whose exact keys each contain 1–32 nonempty text items (maximum 200 total items and 100 KB). Proposed decisions are recommendations, never Operator Decisions.",
-        JSON.stringify(Object.fromEntries(Object.keys(GREENFIELD_ARCHITECT_SECTIONS).map(key => [key, ["Replace with substantive direction or an explicit unresolved item."]]))),
+        "Return the exact workflow-specific JSON shape below. For RCA cite exact supplied Finding/Evidence IDs; Evidence may support the SQL Intake directly without a Finding. Preserve all seven Feature dimensions. Do not choose a route.", JSON.stringify(template),
+        "Supplied SQL context and Evidence:", JSON.stringify(supportRecords),
         "Inspect materially relevant repository evidence before questions or recommendations. Distinguish verified implementation, approved architecture, historical evidence, and unresolved assumptions. Preserve governing architecture unless the Operator explicitly revises it. Cover both architecture boundaries and consuming product capabilities.",
         "Project ground zero is the selected repository plus the local development machine. Distinguish verified installed, verified missing and unverified capabilities, repository bootstrap mechanisms and explicitly externally managed capabilities. Missing required capabilities are Project work unless approved evidence establishes external ownership.",
         "Approved SQL Intake:", JSON.stringify(intake.body.values, null, 2),
         "Approved Project architecture:", JSON.stringify(selectProjectArchitectureContext(projectId, await store.listEntities(projectId), await store.listRelationships(projectId))),
         "Exact SourceBaseline evidence:", JSON.stringify((await store.listEntities(projectId, "SourceBaseline")).filter(record => record.entityType === "SourceBaseline" && record.body.workflowId === workflowId && record.lifecycleState === "active"))].join("\n\n")};
-    const cycle = await state.getCurrentArchitectReviewCycle(projectId, workflowId, "project-interview");
+    const cycle = await state.getCurrentArchitectReviewCycle(projectId, workflowId, stageKind) ?? await state.adoptLegacyArchitectReview(projectId, workflowId, stageKind);
     if (cycle) {
       model.cycleVersion = cycle.recordVersion;
       try {
         const review = await state.getArchitectReviewProjection(projectId, cycle.id);
         model.review = review; model.reviewDocument = architectReviewDocument(review);
         model.railStatus = review.disposition.state === "approved" ? "Completed" : "Awaiting Approval";
+        model.nextStageReady = review.disposition.state === "approved";
         try { writeArchitectReviewProjection(root, review); } catch (error) { model.materializationError = `SQL is authoritative; projection write failed: ${error instanceof Error ? error.message : String(error)}`; }
       } catch (error) { model.reason = `Fresh Architect output required: ${error instanceof Error ? error.message : String(error)}`; }
     }
     return model;
   });
-  const save = async (root: string, workflowId: string, input: {intakeId: string; intakeVersion: number; expectedCycleVersion?: number; output: GreenfieldArchitectOutput}) => {
-    await withWorkflow(root, workflowId, async (store, projectId) => {
-      await createProjectStateService(store, intakeOperator).saveGreenfieldArchitectOutput(projectId, {...input, workflowId});
+  const save = async (root: string, workflowId: string, input: ArchitectCandidateSaveInput) => {
+    await withWorkflow(root, workflowId, async (store, projectId, workflow) => {
+      if (workflow.body.currentWorkspace === "work-item-map") throw Error("Accepted planning topology is read-only.");
+      await createProjectStateService(store, intakeOperator).saveArchitectCandidate(projectId, {...input, workflowId, workflowType: workflow.body.workflowType});
     });
     return get(root, workflowId);
   };
@@ -55,13 +67,14 @@ export function createStructuredArchitectWorkspaceService() {
     const model = await get(root, workflowId);
     if (!model.ready) throw Error(model.reason ?? "Approve current Intake before Architect preparation.");
     await withWorkflow(root, workflowId, async (store, projectId, workflow) => {
-      if (workflow.body.currentWorkspace !== "architect-interview") await createProjectStateService(store, intakeOperator).reviseRecord(projectId, workflowId, {currentWorkspace: "architect-interview"}, workflow.recordVersion);
+      if (workflow.body.currentWorkspace === "work-item-map") throw Error("Accepted planning topology is read-only.");
+      await createProjectStateService(store, intakeOperator).prepareArchitectWorkspace(projectId, {workflowId, intakeId: model.intakeId!, intakeVersion: model.intakeVersion!});
     });
     return get(root, workflowId);
   };
   const review = async (root: string, workflowId: string, cycleId: string, input: ArchitectReviewDecisionInput) => {
-    await withWorkflow(root, workflowId, async (store, projectId) => {
-      const state = createProjectStateService(store, intakeOperator), cycle = await state.getCurrentArchitectReviewCycle(projectId, workflowId, "project-interview");
+    await withWorkflow(root, workflowId, async (store, projectId, workflow) => {
+      const state = createProjectStateService(store, intakeOperator), cycle = await state.getCurrentArchitectReviewCycle(projectId, workflowId, ARCHITECT_STAGE_BY_WORKFLOW[workflow.body.workflowType]!);
       if (cycle?.id !== cycleId) throw Error("Exact current Workflow review cycle is required.");
       await state.recordArchitectReview(projectId, cycleId, input);
     });

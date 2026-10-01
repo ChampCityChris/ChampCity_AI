@@ -1,3 +1,4 @@
+import { createStructuredArchitectWorkspaceService } from "../architectOutputs/structuredArchitectWorkspaceService";
 import { createWorkflowIntakeService } from "../workflow/workflowIntakeService";
 import { validateWorkflowIntakePayload } from "../../shared/workflowIntakeContracts";
 import crypto from "node:crypto";
@@ -36,13 +37,11 @@ export function createIssuePlanningService(dependencies: { openStore?: (database
       const evidenceIds = new Set(relations.filter(edge => edge.relationshipType === "supports" && [workflowId, structuredIntake.intakeId ?? "", ...findings.map(f => f.id), ...allRoots.map(r => r.id)].includes(edge.toEntityId) && !edge.endedAt).map(edge => edge.fromEntityId));
       const evidence = (await store.listEntities(projectId, "Evidence")).filter((r): r is ProjectStateRecord<"Evidence"> => r.entityType === "Evidence" && evidenceIds.has(r.id));
       const acceptedArchitecture = selectProjectArchitectureContext(projectId, await store.listEntities(projectId), relations);
-      const decisionSequences = new Map((await store.listOutbox(projectId)).filter(event => event.payload.operation === "create" && event.entityId).map(event => [event.entityId!, event.sequence]));
-      const decisions = (await store.listEntities(projectId, "Decision")).filter((r): r is ProjectStateRecord<"Decision"> => r.entityType === "Decision" && r.lifecycleState === "active" && r.body.decisionType === "issue-rca-review" && relations.some(edge => edge.relationshipType === "governs" && edge.fromEntityId === r.id && edge.toEntityId === workflowId && !edge.endedAt)).sort((a,b)=>a.body.decidedAt.localeCompare(b.body.decidedAt) || (decisionSequences.get(a.id) ?? 0) - (decisionSequences.get(b.id) ?? 0));
-      const acceptedRca = decisions.filter(r => r.body.outcome === "accepted").at(-1);
-      const acceptedRootIds = new Set(relations.filter(edge => edge.relationshipType === "governs" && edge.fromEntityId === acceptedRca?.id && !edge.endedAt).map(edge => edge.toEntityId));
-      const roots = allRoots.filter(root => acceptedRootIds.has(root.id));
-      const lastDecision = decisions.at(-1); const latestContextUpdate = [structuredIntake.updatedAt ?? "", ...evidence.map(item => item.body.capturedAt)].reduce((latest, stamp) => stamp > latest ? stamp : latest, "");
-      const rcaState = !lastDecision || lastDecision.body.decidedAt < latestContextUpdate ? "not-reviewed" : lastDecision.body.outcome === "accepted" ? "accepted" : lastDecision.body.outcome === "revision_requested" ? "revision-requested" : "rejected";
+      const architect = await createStructuredArchitectWorkspaceService().get(root, workflowId);
+      const memberIds = new Set(architect.review?.sources.map(source => source.entityId) ?? []);
+      const approved = architect.review?.disposition.state === "approved";
+      const roots = approved ? allRoots.filter(root => memberIds.has(root.id)) : [];
+      const rcaState = approved ? "accepted" : architect.review?.disposition.state === "revision_requested" ? "revision-requested" : architect.review?.disposition.state === "rejected" ? "rejected" : "not-reviewed";
       const intake = structuredIntake.values as IssueIntakeInput | null;
       const plan = workflow.body.currentWorkspace === "work-item-map" ? await createProjectStateService(store, operator).getWorkflowExecutionPlan(projectId, workflowId) : null;
       const context = await workflowApp.getWorkflowPlanningContext(root, workflowId); const draft = drafts.get(keyFor(root, workflowId)) ?? null;
@@ -70,8 +69,18 @@ export function createIssuePlanningService(dependencies: { openStore?: (database
         if (!file || typeof file.name !== "string" || file.name.length > 240 || typeof file.base64 !== "string" || file.base64.length > 14_000_000 || typeof file.description !== "string" || file.description.length > 2000 || typeof file.mediaType !== "string" || file.mediaType.length > 120) throw Error("Issue evidence file metadata exceeds its bounds.");
         const bytes = Buffer.from(file.base64, "base64"); if (!bytes.length || bytes.length > 10_000_000 || bytes.toString("base64") !== file.base64) throw Error("Issue evidence file is empty, malformed, or larger than 10 MB.");
         const extension = path.extname(file.name).toLowerCase().replace(/[^.a-z0-9]/g, "").slice(0, 12); const name = `${crypto.randomUUID()}${extension}`; const absolute = path.join(resolved, name); fs.writeFileSync(absolute, bytes, { flag: "wx" });
-        try { const evidence = await state.recordEvidence(projectId, workflowId, { evidenceType: "issue-supplied", description: file.description.trim() || path.basename(file.name), mediaType: file.mediaType, payloadRef: `project-evidence:${path.posix.join(".champcity", "evidence", name)}`, digest: crypto.createHash("sha256").update(bytes).digest("hex"), size: bytes.length }); await state.createRelationship(projectId, evidence.id, "supports", intake.intakeId!); }
-        catch (error) { fs.rmSync(absolute, { force: true }); throw error; }
+        let persisted = false;
+        try {
+          const evidence = await state.recordEvidence(projectId, workflowId, { evidenceType: "issue-supplied", description: file.description.trim() || path.basename(file.name), mediaType: file.mediaType, payloadRef: `project-evidence:${path.posix.join(".champcity", "evidence", name)}`, digest: crypto.createHash("sha256").update(bytes).digest("hex"), size: bytes.length });
+          persisted = true;
+          await state.createRelationship(projectId, evidence.id, "supports", intake.intakeId!);
+          const cycle = await state.getCurrentArchitectReviewCycle(projectId, workflowId, "issue-rca");
+          if (cycle) {
+            const memberIds = (await store.listRelationships(projectId, "review_member")).filter(edge => !edge.endedAt && edge.toEntityId === cycle.id).map(edge => edge.fromEntityId);
+            await state.saveArchitectReviewCycle(projectId, {workflowId, stageKind: "issue-rca", memberIds: [...memberIds, evidence.id], expectedRecordVersion: cycle.recordVersion});
+          }
+        }
+        catch (error) { if (!persisted) fs.rmSync(absolute, { force: true }); throw error; }
       }
       const latestWorkflow = await store.getEntity(projectId, workflowId);
       if (latestWorkflow?.entityType === "Workflow" && latestWorkflow.body.currentWorkspace === "issue-planning") {
@@ -91,6 +100,7 @@ export function createIssuePlanningService(dependencies: { openStore?: (database
   }
   async function act(root: string, workflowId: string, action: { type: string; content?: string; outcome?: "accept" | "revision" | "reject"; rationale?: string; rootCauses?: RootCauseCandidate[]; graph?: WorkflowPlanningGraph }) {
     const key = keyFor(root, workflowId); const model = await get(root, workflowId);
+    if (action.type === "decide-rca" || action.type === "save-draft" && drafts.get(key)?.stage === "rca") throw Error("Use the structured Architect candidate and exact-cycle review commands for Issue RCA.");
     if (action.type === "save-draft") { const draft = drafts.get(key); if (!draft) throw Error("Prepare the current Architect cycle first.");
       const expectedWorkspace = draft.stage === "rca" ? "issue-rca" : "issue-planning";
       if (model.workflow.currentWorkspace !== expectedWorkspace || (draft.stage === "plan" && model.rcaState !== "accepted")) throw Error("The Issue Architect draft is stale for the current Workflow workspace and RCA state.");

@@ -9,6 +9,9 @@ export const ARCHITECT_STAGE_BY_WORKFLOW: Partial<Record<WorkflowType, Architect
   "infrastructure-platform": "infrastructure-assessment", "research-prototype": "research-assessment",
 };
 export interface ArchitectReviewSaveInput { workflowId: EntityId; stageKind: ArchitectStageKind; memberIds: EntityId[]; expectedRecordVersion?: number }
+export const ARCHITECT_WORKSPACE_BY_WORKFLOW: Partial<Record<WorkflowType, string>> = {
+  "project-creation": "architect-interview", "feature-capability": "feature-assessment", "issue-resolution": "issue-rca",
+};
 export interface ArchitectReviewDecisionInput { expectedRecordVersion: number; outcome: "approved" | "revision_requested" | "rejected"; notes?: string }
 export interface ArchitectReviewProjection {
   workflowId: EntityId; workflowType: WorkflowType; cycleId: EntityId; recordVersion: number; stageKind: ArchitectStageKind;
