@@ -70,3 +70,122 @@ test("registry IDs and definitions cannot be mutated by consumers", () => {
   assert.throws(() => { WORKFLOW_TYPE_REGISTRY["project-creation"].repeatable = true; }, TypeError);
   assert.throws(() => { WORKFLOW_TYPE_REGISTRY["feature-capability"] = undefined; }, TypeError);
 });
+
+const { WORKFLOW_INTAKE_DEFINITIONS } = require("../../dist/shared/workflowIntakeContracts.js");
+
+test("substantive intake definitions preserve exact ordered keys, requirements, limits and immutability", () => {
+  const expectedKeys = {
+  "feature-capability": [
+    "requestedCapability",
+    "baseline",
+    "scopeIn",
+    "scopeOut",
+    "constraints",
+    "preservation",
+    "affectedSurfaces",
+    "evidence",
+    "compatibilityRollout"
+  ],
+  "issue-resolution": [
+    "title",
+    "observed",
+    "expected",
+    "reproduction",
+    "environment",
+    "impact",
+    "constraints"
+  ],
+  "refactor-migration": [
+    "transformationObjective",
+    "scopeIn",
+    "scopeOut",
+    "targetState",
+    "preservation",
+    "retirement",
+    "transitionConstraints",
+    "knownEvidence"
+  ],
+  "integration-composition": [
+    "integrationOutcome",
+    "systemsInScope",
+    "reuseExpectations",
+    "interfacesAndFlows",
+    "accessConstraints",
+    "compatibilityLifecycle",
+    "failureRecovery",
+    "scopeOut",
+    "knownEvidence"
+  ],
+  "infrastructure-platform": [
+    "operationalOutcome",
+    "environmentScope",
+    "targetState",
+    "ownershipAccess",
+    "rolloutConstraints",
+    "stateRecovery",
+    "networkObservability",
+    "preservationCompatibility",
+    "scopeOut",
+    "knownEvidence"
+  ],
+  "research-prototype": [
+    "questionHypothesis",
+    "decisionEnabled",
+    "alternativesUnknowns",
+    "experimentBoundary",
+    "requiredEvidence",
+    "successFailureCriteria",
+    "timeboxClosure",
+    "outputDisposition"
+  ]
+};
+  const optionalKeys = {
+  "feature-capability": [],
+  "issue-resolution": [],
+  "refactor-migration": [
+    "targetState",
+    "retirement",
+    "knownEvidence"
+  ],
+  "integration-composition": [
+    "reuseExpectations",
+    "accessConstraints",
+    "compatibilityLifecycle",
+    "knownEvidence"
+  ],
+  "infrastructure-platform": [
+    "targetState",
+    "ownershipAccess",
+    "networkObservability",
+    "knownEvidence"
+  ],
+  "research-prototype": [
+    "alternativesUnknowns",
+    "outputDisposition"
+  ]
+};
+  assert.deepEqual(Object.keys(WORKFLOW_INTAKE_DEFINITIONS).sort(),
+    Object.values(WORKFLOW_TYPE_REGISTRY).filter(row => row.directStart).map(row => row.workflowType).sort());
+  assert.equal(Object.hasOwn(WORKFLOW_INTAKE_DEFINITIONS, "project-creation"), false);
+  assert.equal(Object.hasOwn(WORKFLOW_INTAKE_DEFINITIONS, "work-intake-routing"), false);
+  assert.ok(Object.isFrozen(WORKFLOW_INTAKE_DEFINITIONS));
+  for (const [workflowType, definition] of Object.entries(WORKFLOW_INTAKE_DEFINITIONS)) {
+    assert.equal(definition.workflowType, workflowType);
+    assert.ok(Object.isFrozen(definition));
+    assert.ok(Object.isFrozen(definition.fields));
+    assert.ok(definition.fields.length > 0);
+    const keys = definition.fields.map(field => field.key);
+    assert.deepEqual(keys, expectedKeys[workflowType]);
+    assert.equal(new Set(keys).size, keys.length);
+    assert.deepEqual(definition.fields.filter(field => !field.required).map(field => field.key), optionalKeys[workflowType]);
+    for (const field of definition.fields) {
+      assert.ok(Object.isFrozen(field));
+      assert.ok(field.label.length > 0);
+      assert.equal(field.maxLength, 8000);
+      assert.throws(() => { field.required = !field.required; }, TypeError);
+    }
+    assert.throws(() => definition.fields.reverse(), TypeError);
+  }
+  assert.match(WORKFLOW_INTAKE_DEFINITIONS["integration-composition"].fields.find(field => field.key === "accessConstraints").helpText,
+    /never capture credentials, tokens, passwords, or secrets/);
+});
