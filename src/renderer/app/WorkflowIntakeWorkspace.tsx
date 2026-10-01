@@ -15,7 +15,7 @@ export function WorkflowIntakeWorkspace({ workflow, onReturn, browserPanel, onPr
     setLoaded(false); setSaved(false); setValues({}); setError(""); setFeedback("");
     void window.champcity.getWorkflowIntake(workflow.workflowId).then(model => {
       if (!active) return;
-      setValues(model.values ? { ...model.values } : {}); setSaved(!!model.values); setLoaded(true);
+      setValues(model.workflowType !== "project-creation" && model.values ? { ...model.values } : {}); setSaved(!!model.values); setLoaded(true);
     }).catch(e => { if (active) setError(String(e).slice(0, 1000)); });
     return () => { active = false; };
   }, [workflow.workflowId]);
@@ -25,7 +25,7 @@ export function WorkflowIntakeWorkspace({ workflow, onReturn, browserPanel, onPr
     setBusy(true); setError(""); setFeedback("");
     try {
       const model = await window.champcity.saveWorkflowIntake(workflow.workflowId, { workflowType, values } as unknown as WorkflowIntakePayload);
-      setValues(model.values ? { ...model.values } : {}); setSaved(true); setFeedback("Intake saved in Project State.");
+      setValues(model.workflowType !== "project-creation" && model.values ? { ...model.values } : {}); setSaved(true); setFeedback("Intake saved in Project State.");
     } catch (e) { setError(String(e).slice(0, 1000)); } finally { setBusy(false); }
   };
   const prepare = async () => {

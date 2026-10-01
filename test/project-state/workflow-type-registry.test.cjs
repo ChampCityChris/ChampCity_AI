@@ -75,6 +75,7 @@ const { WORKFLOW_INTAKE_DEFINITIONS } = require("../../dist/shared/workflowIntak
 
 test("substantive intake definitions preserve exact ordered keys, requirements, limits and immutability", () => {
   const expectedKeys = {
+  "project-creation": ["projectName", "projectPurpose", "desiredOutcome", "projectType", "projectRepository", "hasExistingSourceOrPlanning", "knownConstraints", "repositoryReviewContext"],
   "feature-capability": [
     "requestedCapability",
     "baseline",
@@ -140,6 +141,7 @@ test("substantive intake definitions preserve exact ordered keys, requirements, 
   ]
 };
   const optionalKeys = {
+  "project-creation": ["knownConstraints", "repositoryReviewContext"],
   "feature-capability": [],
   "issue-resolution": [],
   "refactor-migration": [
@@ -165,8 +167,8 @@ test("substantive intake definitions preserve exact ordered keys, requirements, 
   ]
 };
   assert.deepEqual(Object.keys(WORKFLOW_INTAKE_DEFINITIONS).sort(),
-    Object.values(WORKFLOW_TYPE_REGISTRY).filter(row => row.directStart).map(row => row.workflowType).sort());
-  assert.equal(Object.hasOwn(WORKFLOW_INTAKE_DEFINITIONS, "project-creation"), false);
+    Object.values(WORKFLOW_TYPE_REGISTRY).filter(row => row.directStart || row.workflowType === "project-creation").map(row => row.workflowType).sort());
+  assert.equal(Object.hasOwn(WORKFLOW_INTAKE_DEFINITIONS, "project-creation"), true);
   assert.equal(Object.hasOwn(WORKFLOW_INTAKE_DEFINITIONS, "work-intake-routing"), false);
   assert.ok(Object.isFrozen(WORKFLOW_INTAKE_DEFINITIONS));
   for (const [workflowType, definition] of Object.entries(WORKFLOW_INTAKE_DEFINITIONS)) {

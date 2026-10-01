@@ -2990,8 +2990,10 @@
       "description": "Project intake, Architect interview, planning, repository reconciliation, close, and project presentation.",
       "sourcePatterns": [
         "src/main/architectInterview/**",
+        "src/main/integrations/architectMcpHandoffService.ts",
         "src/main/project*/**",
-        "src/renderer/app/*Project*"
+        "src/renderer/app/*Project*",
+        "test/support/canonical-markdown-fixtures.cjs"
       ],
       "dependsOn": [
         "architect-output-lifecycle",

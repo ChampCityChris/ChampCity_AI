@@ -89,6 +89,7 @@ function seedApprovedProjectIntake(root, slug = "demo") {
   const intake = writeDoc(root, `planning/project/Project_Intake/PROJECT_INTAKE_${slug}.md`, "project-intake", "Approved", {
     identity: { "Project.ArtifactKey": slug },
     workflowData: {
+      projectName: "Demo", projectPurpose: "Fixture project", desiredOutcome: "Complete fixture", projectType: "Desktop application", hasExistingSourceOrPlanning: false,
       projectRepository: path.resolve(root),
       repositoryBinding: repositoryBinding(root),
     },
@@ -209,6 +210,7 @@ function seedApprovedFormalWorkCard(root, phaseId = "phase-01", workCardId = "WC
 }
 
 module.exports = {
+  registerProjectCreationFixture,
   approve,
   listPlanningDocuments,
   seedApprovedFormalWorkCard,
@@ -221,3 +223,15 @@ module.exports = {
   tempWorkspaceWithoutBinding,
   writeDoc,
 };
+
+async function registerProjectCreationFixture(root) {
+  const {registerCurrentProject} = require("../../dist/main/projectState/currentProjectRegistrationService.js");
+  const {createSQLiteProjectStateStore} = require("../../dist/main/projectState/sqliteProjectStateStore.js");
+  const {createProjectStateService} = require("../../dist/shared/projectState/projectStateService.js");
+  const registration = await registerCurrentProject(root, "greenfield", {projectName: "Interview fixture"});
+  const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  try {
+    const owners = (await store.listEntities(registration.project.id, "Workflow")).filter(r => r.entityType === "Workflow" && r.body.workflowType === "project-creation");
+    if (!owners.length) await createProjectStateService(store, {principalId: "test-operator", principalType: "human", role: "Operator"}).createProjectCreationWorkflow(registration.project.id, {title: "Interview fixture"});
+  } finally {store.close();}
+}

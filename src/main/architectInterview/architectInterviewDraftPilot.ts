@@ -13,7 +13,7 @@ import {
   type ActiveArchitectOutputRuntimeSubmission,
 } from "../architectOutputs/architectOutputRuntimeService";
 import { buildDeterministicArchitectDraftSubmissionId } from "../architectOutputs/architectDraftPaths";
-import { resolveCanonicalArchitectInterviewContext, type CanonicalArchitectInterviewReadyContext } from "./architectInterviewContextResolver";
+import { resolveCanonicalArchitectInterviewContext, resolveStructuredArchitectInterviewIntake, type CanonicalArchitectInterviewReadyContext } from "./architectInterviewContextResolver";
 import {
   buildWriteMarkdownArtifactJsonBlock,
   buildMcpWorkspaceBindingPromptBlock,
@@ -36,8 +36,11 @@ interface ActiveInterviewChatHandoff {
     revision: number;
   };
   preparedInstruction: string;
+  structuredIntake: import("../../shared/workflowIntakeContracts").WorkflowIntakeProjection;
 }
 
+const finalizationBaseInstructions = new WeakMap<ActiveArchitectOutputRuntimeSubmission, string>();
+const preparationIntakes = new Map<string, import("../../shared/workflowIntakeContracts").WorkflowIntakeProjection>();
 const activeInterviewChatHandoffByWorkspace = new Map<string, ActiveInterviewChatHandoff>();
 
 const projectArchitectInterviewTitle = "Project Architect Interview";
@@ -140,20 +143,33 @@ export const projectArchitectInterviewOutputDefinition: ArchitectOutputDefinitio
   },
 };
 
-export function prepareArchitectInterviewDraftSubmission(workspaceRoot: string): ArchitectDraftSubmission {
-  return prepareArchitectOutputRuntimeSubmission(workspaceRoot, outputKind, owningWorkspaceId);
+export async function prepareArchitectInterviewDraftSubmission(workspaceRoot: string): Promise<ArchitectDraftSubmission> {
+  const intake = await resolveStructuredArchitectInterviewIntake(workspaceRoot);
+  let submission: ArchitectDraftSubmission;
+  preparationIntakes.set(path.resolve(workspaceRoot), intake);
+  try { submission = prepareArchitectOutputRuntimeSubmission(workspaceRoot, outputKind, owningWorkspaceId); }
+  finally { preparationIntakes.delete(path.resolve(workspaceRoot)); }
+  const active = getActiveArchitectOutputRuntimeSubmission(workspaceRoot, owningWorkspaceId);
+  if (active) {
+    const instruction = finalizationBaseInstructions.get(active) ?? active.preparedInstruction;
+    finalizationBaseInstructions.set(active, instruction);
+    active.preparedInstruction = `Authoritative WorkflowIntake ${intake.intakeId}@${intake.recordVersion} for exact Workflow ${intake.workflowId}: ${JSON.stringify(intake.values)}\n\nLegacy Intake Markdown and Intake content in prior prompts are historical evidence.\n\n${instruction}`;
+  }
+  return submission;
 }
 
-export function prepareArchitectInterviewChatHandoff(workspaceRoot: string): string {
+export async function prepareArchitectInterviewChatHandoff(workspaceRoot: string): Promise<string> {
+  const intake = await resolveStructuredArchitectInterviewIntake(workspaceRoot);
   const resolvedWorkspaceRoot = path.resolve(workspaceRoot);
-  const context = requireReadyContext(resolvedWorkspaceRoot);
+  const context = requireReadyContext(resolvedWorkspaceRoot, intake);
   assertCanPrepareSubmission(context);
   const sourceHandoff = { path: context.prompt.markdownPath, revision: context.prompt.artifactRevision };
-  const preparedInstruction = buildProjectArchitectInterviewChatInstruction(
+  const preparedInstruction = [`Authoritative WorkflowIntake ${intake.intakeId}@${intake.recordVersion} for exact Workflow ${intake.workflowId}: ${JSON.stringify(intake.values)}`, "Legacy Intake Markdown and the Intake content in prior prompts are historical evidence.", buildProjectArchitectInterviewChatInstruction(
     resolvedWorkspaceRoot,
     context,
     sourceHandoff,
-  );
+    {...intake.values, repositoryBinding: intake.repositoryBinding},
+  )].join("\n\n");
   activeInterviewChatHandoffByWorkspace.set(resolvedWorkspaceRoot, {
     workspaceRoot: resolvedWorkspaceRoot,
     sourceHandoff,
@@ -162,6 +178,7 @@ export function prepareArchitectInterviewChatHandoff(workspaceRoot: string): str
       revision: context.projectIntake.artifactRevision,
     },
     preparedInstruction,
+    structuredIntake: intake,
   });
   return preparedInstruction;
 }
@@ -171,7 +188,7 @@ export function getPreparedArchitectInterviewChatHandoff(workspaceRoot: string):
   const active = activeInterviewChatHandoffByWorkspace.get(resolvedWorkspaceRoot);
   if (!active) return undefined;
   try {
-    const context = requireReadyContext(resolvedWorkspaceRoot);
+    const context = requireReadyContext(resolvedWorkspaceRoot, active.structuredIntake);
     assertCanPrepareSubmission(context);
     if (
       active.sourceHandoff.path !== context.prompt.markdownPath ||
@@ -197,8 +214,8 @@ export function getActiveArchitectInterviewDraftSubmission(workspaceRoot: string
   return getActiveArchitectOutputRuntimeSubmission(workspaceRoot, owningWorkspaceId);
 }
 
-function requireReadyContext(workspaceRoot: string): CanonicalArchitectInterviewReadyContext {
-  const context = resolveCanonicalArchitectInterviewContext(workspaceRoot);
+function requireReadyContext(workspaceRoot: string, structuredIntake?: import("../../shared/workflowIntakeContracts").WorkflowIntakeProjection): CanonicalArchitectInterviewReadyContext {
+  const context = resolveCanonicalArchitectInterviewContext(workspaceRoot, undefined, structuredIntake ?? preparationIntakes.get(path.resolve(workspaceRoot)));
   if (context.status !== "ready") throw new Error(context.reason);
   return context;
 }
@@ -254,11 +271,12 @@ function buildProjectArchitectInterviewChatInstruction(
   workspaceRoot: string,
   context: CanonicalArchitectInterviewReadyContext,
   sourceHandoff: ArchitectDraftSubmission["sourceHandoff"],
+  structuredValues?: Record<string, unknown>,
 ): string {
   const revisionNotes = context.interview?.disposition === "RevisionRequested"
     ? context.interview.operatorReviewNotes
     : undefined;
-  const promptWorkflowData = mergeRepositoryBindingIntoWorkflowData(
+  const promptWorkflowData = structuredValues ?? mergeRepositoryBindingIntoWorkflowData(
     {},
     inheritRepositoryBindingFromSourceRevisions(workspaceRoot, sourceRevisionsFor(context)),
   );
@@ -271,7 +289,7 @@ function buildProjectArchitectInterviewChatInstruction(
     "",
     "Read these exact current inputs:",
     `- Approved Project Architect Interview prompt: ${sourceHandoff.path} revision ${sourceHandoff.revision}`,
-    `- Approved Project Intake: ${context.projectIntake.markdownPath} revision ${context.projectIntake.artifactRevision}`,
+    `- Historical Project Intake evidence: ${context.projectIntake.markdownPath} revision ${context.projectIntake.artifactRevision}`,
     "",
     "Conduct the Project Architect Interview conversationally with the Operator.",
     "Ask one primary question at a time and continue until material scope, constraints, risks, decisions, unresolved questions, acceptance direction, and planning direction are resolved.",
@@ -330,7 +348,7 @@ function buildProjectArchitectInterviewFinalizationInstruction(
     "",
     "Read these exact current inputs:",
     `- Approved Project Architect Interview prompt: ${sourceHandoff.path} revision ${sourceHandoff.revision}`,
-    `- Approved Project Intake: ${context.projectIntake.markdownPath} revision ${context.projectIntake.artifactRevision}`,
+    `- Historical Project Intake evidence: ${context.projectIntake.markdownPath} revision ${context.projectIntake.artifactRevision}`,
     "",
     "Write only the complete body-only Project Architect Interview Markdown that reflects the confirmed interview summary.",
     "Preserve confirmed product and capability intent, principal workflows, acceptance direction, and governing, approved, adopted, canonical, or otherwise Operator-established architecture from the inspected evidence unless the confirmed Operator direction explicitly revised them.",

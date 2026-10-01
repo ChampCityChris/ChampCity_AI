@@ -1,4 +1,5 @@
-import { validateWorkflowIntakePayload } from "../../shared/workflowIntakeContracts";
+import { createWorkflowIntakeService } from "../workflow/workflowIntakeService";
+import { WORKFLOW_INTAKE_DEFINITIONS, validateWorkflowIntakePayload } from "../../shared/workflowIntakeContracts";
 import fs from "node:fs";
 import path from "node:path";
 import type { FeatureIntakeInput } from "../../shared/featurePlanningContracts";
@@ -11,11 +12,6 @@ import { selectedCurrentProjectId } from "../projectState/currentProjectRegistra
 import { createWorkflowApplicationService } from "../workflow/workflowApplicationService";
 
 const operator = { principalId: "local-operator", principalType: "human" as const, role: "Operator" };
-const fields: Array<[keyof FeatureIntakeInput, string]> = [
-  ["requestedCapability", "Requested Capability Delta"], ["baseline", "Current Product Baseline"], ["scopeIn", "Scope In"], ["scopeOut", "Scope Out"],
-  ["constraints", "Constraints"], ["preservation", "Behavior and Contracts to Preserve"], ["affectedSurfaces", "Affected Architecture and Integration Points"],
-  ["evidence", "Evidence and Regression Boundary"], ["compatibilityRollout", "Compatibility and Rollout"],
-];
 type Draft = { stage: "assessment" | "plan"; instruction: string; content: string };
 
 export function createFeaturePlanningService(dependencies: { openStore?: (databasePath: string) => ProjectStateStore & { close(): void } } = {}) {
@@ -34,6 +30,7 @@ export function createFeaturePlanningService(dependencies: { openStore?: (databa
     } finally { store.close(); }
   }
   async function get(root: string, workflowId: string) {
+    const structuredIntake = await createWorkflowIntakeService({openStore}).ensureWorkflowIntake(root, workflowId);
     return withState(root, workflowId, async (store, projectId, workflow) => {
       const state = createProjectStateService(store, operator); const relationships = await store.listRelationships(projectId);
       const owned = new Set(relationships.filter(edge => edge.relationshipType === "workflow_member" && edge.toEntityId === workflowId && !edge.endedAt).map(edge => edge.fromEntityId));
@@ -49,10 +46,10 @@ export function createFeaturePlanningService(dependencies: { openStore?: (databa
       const acceptedAssessment = acceptedDecision ? (await store.listEntities(projectId, "Finding")).filter(item => item.entityType === "Finding" && item.body.category === "feature-assessment" &&
         relationships.some(edge => edge.relationshipType === "workflow_member" && edge.fromEntityId === item.id && edge.toEntityId === workflowId && !edge.endedAt) &&
         relationships.some(edge => edge.relationshipType === "governs" && edge.fromEntityId === acceptedDecision.id && edge.toEntityId === item.id && !edge.endedAt)) : [];
-      const latestIntakeUpdate = findings.reduce((latest, finding) => finding.updatedAt > latest ? finding.updatedAt : latest, "");
+      const latestIntakeUpdate = structuredIntake.updatedAt ?? "";
       const assessmentState = !latestAssessment || latestAssessment.body.decidedAt < latestIntakeUpdate ? "not-reviewed" :
         latestAssessment.body.outcome === "accepted" ? "accepted" : latestAssessment.body.outcome === "revision_requested" ? "revision-requested" : "rejected";
-      const intake: FeatureIntakeInput | null = findings.length ? Object.fromEntries(fields.map(([key, title]) => [key, findings.find(f => f.body.title === title)?.body.statement ?? ""])) as unknown as FeatureIntakeInput : null;
+      const intake = structuredIntake.values as FeatureIntakeInput | null;
       const plan = workflow.body.currentWorkspace === "work-item-map" ? await state.getWorkflowExecutionPlan(projectId, workflowId) : null;
       const context = await workflowApp.getWorkflowPlanningContext(root, workflowId);
       const draft = drafts.get(draftKey(root, workflowId)) ?? null;
@@ -61,24 +58,12 @@ export function createFeaturePlanningService(dependencies: { openStore?: (databa
       const stage = plan ? "work-item-map" : workspaceStage;
       return { project: { projectId, name: project?.body.name ?? "Current Project" }, workflow: { workflowId, lineageId: workflow.lineageId, workflowType: workflow.body.workflowType, title: workflow.body.title, workflowState: workflow.body.workflowState, lifecycleState: workflow.lifecycleState, currentWorkspace: workflow.body.currentWorkspace, createdAt: workflow.createdAt, updatedAt: workflow.updatedAt },
         source: context.source ? { baselineId: context.source.baseline.id, revisionId: context.source.baseline.body.baseRevisionId, bindingPrepared: context.source.binding?.body.preparationState === "ready" } : null,
-        provenance: context.provenance, intake, findings, acceptedAssessment, acceptedArchitecture, assessmentState, acceptedPlan: plan, stage, draft };
+        provenance: context.provenance, intakeAuthority: structuredIntake, intake, findings, acceptedAssessment, acceptedArchitecture, assessmentState, acceptedPlan: plan, stage, draft };
     });
   }
   async function saveIntake(root: string, workflowId: string, intake: FeatureIntakeInput) {
-    validateWorkflowIntakePayload({ workflowType: "feature-capability", values: intake });
-    return withState(root, workflowId, async (store, projectId) => {
-      const workflow = await store.getEntity(projectId, workflowId);
-      if (workflow?.entityType === "Workflow" && workflow.body.currentWorkspace === "work-item-map") throw Error("Accepted Feature Work Item Map is read-only.");
-      const state = createProjectStateService(store, operator); const rels = await store.listRelationships(projectId);
-      const prior = (await store.listEntities(projectId, "Finding")).filter((item): item is import("../../shared/projectState/domainContracts").ProjectStateRecord<"Finding"> => item.entityType === "Finding" && item.body.category === "feature-intake" && rels.some(edge => edge.relationshipType === "workflow_member" && edge.fromEntityId === item.id && edge.toEntityId === workflowId && !edge.endedAt));
-      for (const [key, title] of fields) {
-        const statement = intake[key].trim(); const existing = prior.find(item => item.body.title === title);
-        if (existing) await state.reviseRecord(projectId, existing.id, { statement, observedAt: new Date().toISOString() }, existing.recordVersion);
-        else { const record = await state.createRecord(projectId, "Finding", { title, statement, category: "feature-intake", impact: "Feature planning context", observedAt: new Date().toISOString(), findingState: "current" }); await state.createRelationship(projectId, record.id, "workflow_member", workflowId); }
-      }
-      if (workflow?.entityType === "Workflow" && workflow.body.currentWorkspace !== "feature-intake") await state.reviseRecord(projectId, workflowId, { currentWorkspace: "feature-intake" }, workflow.recordVersion);
-      drafts.delete(draftKey(root, workflowId)); return get(root, workflowId);
-    });
+    await createWorkflowIntakeService({openStore}).saveWorkflowIntake(root, workflowId, {workflowType: "feature-capability", values: intake});
+    drafts.delete(draftKey(root, workflowId)); return get(root, workflowId);
   }
   async function prepare(root: string, workflowId: string, stage: "assessment" | "plan") {
     let projection = await get(root, workflowId);
@@ -88,8 +73,8 @@ export function createFeaturePlanningService(dependencies: { openStore?: (databa
     const workspace = stage === "assessment" ? "feature-assessment" : "feature-planning";
     await withState(root, workflowId, async (store, projectId, workflow) => { if (workflow.body.currentWorkspace !== workspace) await createProjectStateService(store, operator).reviseRecord(projectId, workflowId, { currentWorkspace: workspace }, workflow.recordVersion); });
     projection = await get(root, workflowId);
-    const sections = stage === "assessment" ? fields.map(([, title]) => title).concat(["Excluded Future Work"]) : ["Baseline and Capability Delta", "Preservation and Regression Proof", "Affected Services State UI and Contracts", "Rollout and Compatibility", "Hard Dependencies and Excluded Work", "Feature Candidate Traceability"];
-    const instruction = [`# Feature ${stage} — exact Workflow ${workflowId}`, `Exact Project: ${projection.project.name} (${projection.project.projectId})`, `Exact Workflow: ${projection.workflow.title} (${workflowId})`, `Workflow type: feature-capability`, `SourceBaseline: ${projection.source ? `${projection.source.baselineId} at ${projection.source.revisionId}` : "non-source-backed"}`, stage === "plan" && !projection.source ? "Source-neutral validation policy: required deterministic ValidationCatalog proof is unavailable. Select a supported policy such as semantic_ai, visual_human, or operator_decision for every required Criterion; canonical Project State acceptance enforces this." : "", `Routed provenance (context only): ${projection.provenance === "routed" ? "routed handoff" : "direct start"}`, `Authoritative SPS Feature Intake: ${JSON.stringify(projection.intake)}`, stage === "plan" ? `Exact accepted Feature assessment from SPS: ${JSON.stringify(projection.acceptedAssessment)}` : "", `Current accepted Project architecture and Decisions from SPS: ${JSON.stringify(projection.acceptedArchitecture)}`, `Cover these sections: ${sections.join("; ")}.`, stage === "plan" ? `Return one JSON WorkflowPlanningGraph for WRB03-01, workflowId exactly ${workflowId}. WorkItems kind feature by default; choose direct vs phased with rationale in solution.assumptions/risks. No execution, session, Git, validation-run, or Work Card mechanics.` : "Return JSON keys currentProductBaseline, requestedCapabilityDelta, behaviorAndContractsToPreserve, affectedArchitectureAndIntegrationPoints, compatibilityAndRollout, regressionBoundary, excludedFutureWork. Do not choose a route."].filter(Boolean).join("\n\n");
+    const sections = stage === "assessment" ? WORKFLOW_INTAKE_DEFINITIONS["feature-capability"].fields.map(field => String(field.label)).concat(["Excluded Future Work"]) : ["Baseline and Capability Delta", "Preservation and Regression Proof", "Affected Services State UI and Contracts", "Rollout and Compatibility", "Hard Dependencies and Excluded Work", "Feature Candidate Traceability"];
+    const instruction = [`# Feature ${stage} — exact Workflow ${workflowId}`, `Exact Project: ${projection.project.name} (${projection.project.projectId})`, `Exact Workflow: ${projection.workflow.title} (${workflowId})`, `Workflow type: feature-capability`, `SourceBaseline: ${projection.source ? `${projection.source.baselineId} at ${projection.source.revisionId}` : "non-source-backed"}`, stage === "plan" && !projection.source ? "Source-neutral validation policy: required deterministic ValidationCatalog proof is unavailable. Select a supported policy such as semantic_ai, visual_human, or operator_decision for every required Criterion; canonical Project State acceptance enforces this." : "", `Routed provenance (context only): ${projection.provenance === "routed" ? "routed handoff" : "direct start"}`, `Authoritative WorkflowIntake ${projection.intakeAuthority.intakeId}@${projection.intakeAuthority.recordVersion}: ${JSON.stringify(projection.intake)}`, stage === "plan" ? `Exact accepted Feature assessment from SPS: ${JSON.stringify(projection.acceptedAssessment)}` : "", `Current accepted Project architecture and Decisions from SPS: ${JSON.stringify(projection.acceptedArchitecture)}`, `Cover these sections: ${sections.join("; ")}.`, stage === "plan" ? `Return one JSON WorkflowPlanningGraph for WRB03-01, workflowId exactly ${workflowId}. WorkItems kind feature by default; choose direct vs phased with rationale in solution.assumptions/risks. No execution, session, Git, validation-run, or Work Card mechanics.` : "Return JSON keys currentProductBaseline, requestedCapabilityDelta, behaviorAndContractsToPreserve, affectedArchitectureAndIntegrationPoints, compatibilityAndRollout, regressionBoundary, excludedFutureWork. Do not choose a route."].filter(Boolean).join("\n\n");
     const draft = { stage, instruction, content: "" } satisfies Draft;
     const key = draftKey(root, workflowId);
     drafts.set(key, draft);

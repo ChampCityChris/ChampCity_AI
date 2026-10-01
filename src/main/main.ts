@@ -945,14 +945,14 @@ ipcMain.handle(
 
 ipcMain.handle(
   "architectOutput:prepareHandoff",
-  (_event, workspaceId: WorkspaceId): ArchitectOutputWorkspaceModel => {
+  (_event, workspaceId: WorkspaceId): ArchitectOutputWorkspaceModel | Promise<ArchitectOutputWorkspaceModel> => {
     return prepareArchitectOutputHandoff(getRequiredWorkspaceRoot(), workspaceId);
   },
 );
 
 ipcMain.handle(
   "architectOutput:regenerateInterviewPrompt",
-  (): ArchitectOutputWorkspaceModel => {
+  (): Promise<ArchitectOutputWorkspaceModel> => {
     return regenerateArchitectInterviewPromptWorkspace(getRequiredWorkspaceRoot());
   },
 );
@@ -969,7 +969,7 @@ ipcMain.handle(
 
 ipcMain.handle(
   "architectInterview:prepareFinalDraftHandoff",
-  (): ArchitectOutputWorkspaceModel => {
+  (): Promise<ArchitectOutputWorkspaceModel> => {
     return prepareArchitectInterviewFinalDraftHandoffWorkspace(getRequiredWorkspaceRoot());
   },
 );

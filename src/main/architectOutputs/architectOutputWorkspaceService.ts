@@ -180,15 +180,17 @@ function exactHandoffForWorkspace(
     : undefined;
 }
 
+export function prepareArchitectOutputHandoff(workspaceRoot: string, workspaceId: "architect-interview"): Promise<ArchitectOutputWorkspaceModel>;
+export function prepareArchitectOutputHandoff(workspaceRoot: string, workspaceId: Exclude<WorkspaceId, "architect-interview">): ArchitectOutputWorkspaceModel;
+export function prepareArchitectOutputHandoff(workspaceRoot: string, workspaceId: WorkspaceId): ArchitectOutputWorkspaceModel | Promise<ArchitectOutputWorkspaceModel>;
 export function prepareArchitectOutputHandoff(
   workspaceRoot: string,
   workspaceId: WorkspaceId,
-): ArchitectOutputWorkspaceModel {
+): ArchitectOutputWorkspaceModel | Promise<ArchitectOutputWorkspaceModel> {
   resolveDefinitionByWorkspace(workspaceId);
   switch (workspaceId) {
     case "architect-interview":
-      prepareArchitectInterviewHandoff(workspaceRoot);
-      break;
+      return prepareArchitectInterviewHandoff(workspaceRoot).then(() => getArchitectOutputWorkspaceModel(workspaceRoot, workspaceId));
     case "project-planning-review":
       prepareProjectPlanningHandoff(workspaceRoot);
       break;
@@ -213,17 +215,17 @@ export function prepareArchitectOutputHandoff(
   return getArchitectOutputWorkspaceModel(workspaceRoot, workspaceId);
 }
 
-export function regenerateArchitectInterviewPromptWorkspace(
+export async function regenerateArchitectInterviewPromptWorkspace(
   workspaceRoot: string,
-): ArchitectOutputWorkspaceModel {
-  regenerateArchitectInterviewPrompt(workspaceRoot);
+): Promise<ArchitectOutputWorkspaceModel> {
+  await regenerateArchitectInterviewPrompt(workspaceRoot);
   return getArchitectOutputWorkspaceModel(workspaceRoot, "architect-interview");
 }
 
-export function prepareArchitectInterviewFinalDraftHandoffWorkspace(
+export async function prepareArchitectInterviewFinalDraftHandoffWorkspace(
   workspaceRoot: string,
-): ArchitectOutputWorkspaceModel {
-  prepareArchitectInterviewFinalDraftHandoff(workspaceRoot);
+): Promise<ArchitectOutputWorkspaceModel> {
+  await prepareArchitectInterviewFinalDraftHandoff(workspaceRoot);
   return getArchitectOutputWorkspaceModel(workspaceRoot, "architect-interview");
 }
 

@@ -10,6 +10,7 @@ export interface ProjectArchitectInterviewPromptInput {
   projectIntakeMarkdownPath: string;
   projectIntakeRevision: number;
   projectIntakeWorkflowData: Record<string, unknown>;
+  intakeAuthority?: { intakeId: string; recordVersion: number };
   promptRevision?: number;
   architectInterviewTargetMarkdownPath?: string;
 }
@@ -66,7 +67,7 @@ export function buildProjectArchitectInterviewPrompt(
     relativePath,
     architectInterviewTargetMarkdownPath,
     metadata,
-    bodyMarkdown: architectPromptBody(
+    bodyMarkdown: (input.intakeAuthority ? `Authoritative WorkflowIntake ${input.intakeAuthority.intakeId}@${input.intakeAuthority.recordVersion}: ${JSON.stringify(input.projectIntakeWorkflowData)}\n\nLegacy Intake Markdown is historical evidence.\n\n` : "") + architectPromptBody(
       input.projectName,
       input.projectIntakeMarkdownPath,
       input.projectIntakeWorkflowData,

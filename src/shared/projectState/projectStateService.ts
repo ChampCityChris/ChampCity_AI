@@ -40,8 +40,8 @@ export interface SubstantiveWorkflowCreationInput {
   sourceSeed?: { repositoryId: string; integrationTargetSourceLineId: string; baseRevisionId: string };
 }
 export interface DecisionInput { decisionType: string; outcome: string; decisionScope: string; rationale?: string; effectiveAt?: string }
-export interface WorkflowIntakeSaveInput { workflowId: EntityId; workflowType: WorkflowType; values: EntityBodyMap["WorkflowIntake"]["values"]; expectedIntakeRecordVersion?: number }
-export interface WorkflowIntakeDecisionInput { expectedIntakeRecordVersion: number; outcome: "approved" | "revision_requested" | "rejected"; rationale?: string; notes?: string }
+export interface WorkflowIntakeSaveInput { workflowId: EntityId; workflowType: WorkflowType; values: EntityBodyMap["WorkflowIntake"]["values"]; expectedIntakeRecordVersion?: number; legacySourceRef?: string }
+export interface WorkflowIntakeDecisionInput { expectedIntakeRecordVersion: number; outcome: "approved" | "revision_requested" | "rejected"; rationale?: string; notes?: string; legacyReviewedAt?: string }
 export interface IssueRootCauseCandidateInput { title: string; statement: string; rationale: string; confidence?: number; findingIds: EntityId[]; evidenceIds: EntityId[] }
 export interface IssueRcaAcceptanceInput { workflowId: EntityId; rationale: string; rootCauses: IssueRootCauseCandidateInput[] }
 export interface FeatureAssessmentCandidate {
@@ -690,7 +690,8 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   async function saveWorkflowIntake(projectId: ProjectId, input: WorkflowIntakeSaveInput, context?: MutationContext): Promise<ProjectStateRecord<"WorkflowIntake">> {
-    exactInput(input, ["workflowId", "workflowType", "values", "expectedIntakeRecordVersion"]);
+    exactInput(input, ["workflowId", "workflowType", "values", "expectedIntakeRecordVersion", "legacySourceRef"]);
+    if (input.legacySourceRef !== undefined && (typeof input.legacySourceRef !== "string" || !input.legacySourceRef.trim() || input.legacySourceRef.length > 4096)) fail("Legacy Intake source must be bounded text.");
     if (input.expectedIntakeRecordVersion !== undefined && (!Number.isSafeInteger(input.expectedIntakeRecordVersion) || input.expectedIntakeRecordVersion < 1)) fail("An exact Intake record version is required.");
     return store.transaction(projectId, async unit => {
       const workflow = await requiredRecord(unit, projectId, input.workflowId);
@@ -708,7 +709,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const body = { workflowId: workflow.id, workflowType: input.workflowType, values: structuredClone(input.values) };
       const next = previous ? validateProjectStateEntity({ ...previous, body, recordVersion: previous.recordVersion + 1,
         updatedAt: new Date().toISOString(), updatedBy: trustedPrincipal }) as ProjectStateRecord<"WorkflowIntake">
-        : createProjectStateEntity({ entityType: "WorkflowIntake", projectId, body, principal: trustedPrincipal });
+        : createProjectStateEntity({ entityType: "WorkflowIntake", projectId, body, principal: trustedPrincipal, ...(input.legacySourceRef ? { provenance: { origin: "legacy-import" as const, sourceRef: input.legacySourceRef } } : {}) });
       await unit.saveEntity(next, previous?.recordVersion ?? null);
       await recordMutation(unit, { projectId, entityId: next.id, fromVersion: previous?.recordVersion ?? null, toVersion: next.recordVersion,
         operation: previous ? "revise" : "create", eventType: previous ? PROJECT_STATE_EVENT_TYPES.revise : PROJECT_STATE_EVENT_TYPES.create,
@@ -719,7 +720,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   async function recordWorkflowIntakeDecision(projectId: ProjectId, intakeId: EntityId, input: WorkflowIntakeDecisionInput, context?: MutationContext) {
-    exactInput(input, ["expectedIntakeRecordVersion", "outcome", "rationale", "notes"]);
+    exactInput(input, ["expectedIntakeRecordVersion", "outcome", "rationale", "notes", "legacyReviewedAt"]);
     if (trustedPrincipal.principalType !== "human" || trustedPrincipal.role !== "Operator") fail("Workflow Intake review requires the human Operator principal.");
     if (!Number.isSafeInteger(input.expectedIntakeRecordVersion) || input.expectedIntakeRecordVersion < 1 || !["approved", "revision_requested", "rejected"].includes(input.outcome)) fail("An exact Intake review is required.");
     for (const value of [input.rationale, input.notes]) if (value !== undefined && (typeof value !== "string" || new TextEncoder().encode(value).length > 4096)) fail("Intake review notes must be bounded text.");
@@ -727,7 +728,8 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return store.transaction(projectId, async unit => {
       const intake = await requireCurrentWorkflowIntake(unit, projectId, intakeId);
       if (intake.recordVersion !== input.expectedIntakeRecordVersion) fail("Expected Intake record version is stale.");
-      const now = new Date().toISOString();
+      if (input.legacyReviewedAt !== undefined && !Number.isFinite(Date.parse(input.legacyReviewedAt))) fail("Legacy review timestamp is invalid.");
+      const now = input.legacyReviewedAt ? new Date(input.legacyReviewedAt).toISOString() : new Date().toISOString();
       const record = createProjectStateEntity({ entityType: "Decision", projectId, principal: trustedPrincipal,
         body: decisionBody({ decisionType: "workflow-intake-review", outcome: input.outcome,
           decisionScope: `workflow-intake:${intake.id}@${intake.recordVersion}`, rationale: [input.rationale, input.notes].filter(Boolean).join("\n\n") }, trustedPrincipal, now) });
@@ -878,10 +880,12 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       if (!await unit.getProject(projectId)) fail("Owning Project does not exist.");
       const workflow = await requiredRecord(unit, projectId, input.workflowId);
       if (workflow.entityType !== "Workflow" || workflow.body.workflowType !== "feature-capability" || workflow.lifecycleState !== "active" || workflow.body.workflowState !== "active" || workflow.body.currentWorkspace !== "feature-assessment") fail("Feature assessment acceptance requires the exact active Feature Workflow in its assessment workspace.");
-      const membership = (await unit.listRelationships(projectId, "workflow_member")).filter(edge => edge.toEntityId === workflow.id && !edge.endedAt);
-      const ownedIntake = (await unit.listEntities(projectId, "Finding")).filter((record): record is ProjectStateRecord<"Finding"> => record.entityType === "Finding" && record.lifecycleState === "active" && record.body.findingState === "current" && record.body.category === "feature-intake" && membership.some(edge => edge.fromEntityId === record.id));
-      const requiredIntakeTitles = ["Requested Capability Delta", "Current Product Baseline", "Scope In", "Scope Out", "Constraints", "Behavior and Contracts to Preserve", "Affected Architecture and Integration Points", "Evidence and Regression Boundary", "Compatibility and Rollout"];
-      if (requiredIntakeTitles.some(title => !ownedIntake.some(record => record.body.title === title))) fail("Feature assessment requires the complete current Intake owned by this exact Workflow.");
+      const intakeIds = (await unit.listRelationships(projectId, "intake_for")).filter(edge => edge.toEntityId === workflow.id && !edge.endedAt).map(edge => edge.fromEntityId);
+      const intakes = (await unit.listEntities(projectId, "WorkflowIntake")).filter((record): record is ProjectStateRecord<"WorkflowIntake"> => record.entityType === "WorkflowIntake" && record.lifecycleState === "active" && record.body.workflowId === workflow.id && intakeIds.includes(record.id));
+      if (intakes.length !== 1) fail("Feature assessment requires the complete current Intake owned by this exact Workflow.");
+      await requireCurrentWorkflowIntake(unit, projectId, intakes[0].id);
+      const requiredIntakeKeys = ["requestedCapability", "baseline", "scopeIn", "scopeOut", "constraints", "preservation", "affectedSurfaces", "evidence", "compatibilityRollout"];
+      if (requiredIntakeKeys.some(key => typeof intakes[0].body.values[key] !== "string" || !(intakes[0].body.values[key] as string).trim())) fail("Feature assessment requires the complete current Intake owned by this exact Workflow.");
       const now = new Date().toISOString();
       const findings: ProjectStateRecord<"Finding">[] = [];
       for (const [key, title] of dimensions) {
@@ -915,15 +919,20 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         fail("Issue RCA acceptance requires the exact active Issue Workflow in its RCA workspace.");
       const memberships = (await unit.listRelationships(projectId, "workflow_member")).filter(edge => !edge.endedAt);
       const ownedFindings = new Map((await unit.listEntities(projectId, "Finding")).filter((record): record is ProjectStateRecord<"Finding"> => record.entityType === "Finding" && record.lifecycleState === "active" && record.body.findingState === "current" && record.body.category.startsWith("issue-") && memberships.some(edge => edge.fromEntityId === record.id && edge.toEntityId === workflow.id)).map(record => [record.id, record]));
+      const currentIntakes = (await unit.listEntities(projectId, "WorkflowIntake")).filter(r => r.entityType === "WorkflowIntake" && r.lifecycleState === "active" && r.body.workflowId === workflow.id);
+      if (currentIntakes.length > 1) fail("Issue Workflow has ambiguous current Intake records.");
+      const structuredIntake = currentIntakes[0];
+      if (structuredIntake) await requireCurrentWorkflowIntake(unit, projectId, structuredIntake.id);
       const evidenceRecords = new Map((await unit.listEntities(projectId, "Evidence")).filter((record): record is ProjectStateRecord<"Evidence"> => record.entityType === "Evidence" && record.lifecycleState === "active").map(record => [record.id, record]));
       const supportEdges = (await unit.listRelationships(projectId, "supports")).filter(edge => !edge.endedAt);
       const candidates = input.rootCauses.map(candidate => {
         exactInput(candidate, ["title", "statement", "rationale", "confidence", "findingIds", "evidenceIds"]);
         for (const [key, maximum] of [["title", 200], ["statement", 4096], ["rationale", 4096]] as const) if (typeof candidate[key] !== "string" || !candidate[key].trim() || candidate[key].length > maximum || new TextEncoder().encode(candidate[key] as string).length > 4096 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(candidate[key] as string)) fail(`RootCause ${key} must be bounded text.`);
         if (candidate.confidence !== undefined && (typeof candidate.confidence !== "number" || !Number.isFinite(candidate.confidence) || candidate.confidence < 0 || candidate.confidence > 1)) fail("RootCause confidence must be between zero and one.");
-        if (!Array.isArray(candidate.findingIds) || candidate.findingIds.length < 1 || candidate.findingIds.length > 32 || new Set(candidate.findingIds).size !== candidate.findingIds.length || candidate.findingIds.some(id => !ownedFindings.has(id))) fail("RootCause must cite current Findings owned by this exact Issue Workflow.");
+        if (!Array.isArray(candidate.findingIds) || candidate.findingIds.length > 32 || new Set(candidate.findingIds).size !== candidate.findingIds.length || candidate.findingIds.some(id => !ownedFindings.has(id))) fail("RootCause must cite current Findings owned by this exact Issue Workflow.");
         if (!Array.isArray(candidate.evidenceIds) || candidate.evidenceIds.length > 32 || new Set(candidate.evidenceIds).size !== candidate.evidenceIds.length) fail("RootCause Evidence references are invalid or exceed their bounds.");
-        const unsupportedEvidence = candidate.evidenceIds.find(id => !evidenceRecords.has(id) || !supportEdges.some(edge => edge.fromEntityId === id && (edge.toEntityId === workflow.id || ownedFindings.has(edge.toEntityId))));
+        if (!candidate.findingIds.length && (!structuredIntake || !candidate.evidenceIds.length)) fail("RootCause requires exact Issue Intake and supporting Evidence when no Findings are cited.");
+        const unsupportedEvidence = candidate.evidenceIds.find(id => !evidenceRecords.has(id) || !supportEdges.some(edge => edge.fromEntityId === id && (edge.toEntityId === workflow.id || edge.toEntityId === structuredIntake?.id || ownedFindings.has(edge.toEntityId))));
         if (unsupportedEvidence) fail("RootCause Evidence must be supported by the exact Issue Workflow context.");
         return candidate;
       });

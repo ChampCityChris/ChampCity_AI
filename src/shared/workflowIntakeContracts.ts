@@ -1,3 +1,4 @@
+import { projectTypeOptions, type ProjectIntakeSubmission } from "./workspaceContracts";
 import type { FeatureIntakeInput } from "./featurePlanningContracts";
 import type { IssueIntakeInput } from "./issuePlanningContracts";
 
@@ -51,6 +52,7 @@ export interface ResearchPrototypeIntakeInput {
 }
 
 export interface WorkflowIntakeInputMap {
+  "project-creation": ProjectIntakeSubmission;
   "feature-capability": FeatureIntakeInput;
   "issue-resolution": IssueIntakeInput;
   "refactor-migration": RefactorMigrationIntakeInput;
@@ -82,6 +84,17 @@ type WorkflowIntakeDefinitions = {
 
 /** Deeply frozen ordered questions, independent of renderer and persistence adapters. */
 export const WORKFLOW_INTAKE_DEFINITIONS = Object.freeze({
+  "project-creation": Object.freeze({ workflowType: "project-creation", fields: Object.freeze([
+    Object.freeze({key: "projectName", label: "Project Name", required: true, maxLength: 4096, maxUtf8Bytes: 4096}),
+    Object.freeze({key: "projectPurpose", label: "Project Purpose - What are you trying to create, change, or accomplish?", required: true, maxLength: 4096, maxUtf8Bytes: 4096}),
+    Object.freeze({key: "desiredOutcome", label: "Desired Outcome - What should the finished product allow the user or Operator to do?", required: true, maxLength: 4096, maxUtf8Bytes: 4096}),
+    Object.freeze({key: "projectType", label: "Project Type", required: true, maxLength: 4096, maxUtf8Bytes: 4096}),
+    Object.freeze({key: "projectRepository", label: "Project Repository", required: true, maxLength: 4096, maxUtf8Bytes: 4096}),
+    Object.freeze({key: "hasExistingSourceOrPlanning", label: "Does this repository already contain source code or project planning documents?", required: true, maxLength: 4096, maxUtf8Bytes: 4096}),
+    Object.freeze({key: "knownConstraints", label: "Constraints / Non-Negotiables", required: false, maxLength: 4096, maxUtf8Bytes: 4096}),
+    Object.freeze({key: "repositoryReviewContext", label: "What should the Architect know before reviewing the existing repository?", required: false, maxLength: 4096, maxUtf8Bytes: 4096}),
+  ]) }),
+
   "feature-capability": Object.freeze({
     workflowType: "feature-capability",
     fields: Object.freeze([
@@ -170,7 +183,7 @@ export type WorkflowIntakePayload = {
   [T in ExistingProjectIntakeWorkflowType]: { workflowType: T; values: WorkflowIntakeInputMap[T] }
 }[ExistingProjectIntakeWorkflowType];
 export type WorkflowIntakeProjection = {
-  [T in ExistingProjectIntakeWorkflowType]: { workflowType: T; values: WorkflowIntakeInputMap[T] | null }
+  [T in ExistingProjectIntakeWorkflowType]: { workflowType: T; values: WorkflowIntakeInputMap[T] | null; intakeId?: string; recordVersion?: number; disposition?: import("./projectState/projectStateService").EffectiveDisposition; updatedAt?: string }
 }[ExistingProjectIntakeWorkflowType];
 
 export function isIntakeWorkflowType(value: unknown): value is ExistingProjectIntakeWorkflowType {
@@ -190,8 +203,10 @@ export function validateWorkflowIntakePayload(value: unknown): asserts value is 
   if (Object.keys(values).some(key => !fields.some(field => field.key === key))) throw Error("Unknown Workflow intake field.");
   for (const field of fields) {
     const text = values[field.key];
+    if (field.key === "hasExistingSourceOrPlanning") { if (typeof text !== "boolean") throw Error("Existing source/planning must be boolean."); continue; }
+    if (field.key === "projectType" && !projectTypeOptions.includes(text as never)) throw Error("Project Type is not one of the approved values.");
     if (text === undefined && !field.required) continue;
-    if (typeof text !== "string" || (field.required && !text.trim()) || text.length > field.maxLength ||
+    if (typeof text !== "string" || (field.required && !text.trim()) || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(text) || text.length > field.maxLength ||
         new TextEncoder().encode(text).length > field.maxUtf8Bytes)
       throw Error(`${field.label} must respect required content and the 4,096 character / UTF-8 byte limits.`);
   }

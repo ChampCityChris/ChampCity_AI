@@ -51,16 +51,17 @@ function intake(root) {
   });
 }
 
-function submitDraft(root, body) {
-  prepareArchitectInterviewHandoff(root);
-  const finalized = prepareArchitectInterviewFinalDraftHandoff(root);
+async function submitDraft(root, body) {
+  await require("../support/canonical-markdown-fixtures.cjs").registerProjectCreationFixture(root);
+  await prepareArchitectInterviewHandoff(root);
+  const finalized = await prepareArchitectInterviewFinalDraftHandoff(root);
   const draftPath = finalized.finalDraftHandoffInstruction.match(/Temporary draft Markdown: ([^\n]+)/)[1];
   fs.mkdirSync(path.dirname(path.join(root, draftPath)), { recursive: true });
   fs.writeFileSync(path.join(root, draftPath), body, "utf8");
   return getArchitectInterviewWorkspaceModel(root);
 }
 
-test("Project Intake and Architect Output create canonical Markdown only", () => {
+test("Project Intake and Architect Output create canonical Markdown only", async () => {
   const root = tempWorkspace();
   const result = intake(root);
   assert.equal(fs.existsSync(path.join(root, result.projectIntakeMarkdownPath)), true);
@@ -72,7 +73,7 @@ test("Project Intake and Architect Output create canonical Markdown only", () =>
   setDocumentDisposition(root, intakeDoc.logicalDocumentId, "Approved");
   let model = getArchitectInterviewWorkspaceModel(root);
   assert.equal(model.railStatus, "Waiting for Output");
-  const saved = submitDraft(root, "# Project Understanding\n\nThe project needs a single-file governed workflow.");
+  const saved = await submitDraft(root, "# Project Understanding\n\nThe project needs a single-file governed workflow.");
   assert.equal(fs.existsSync(path.join(root, saved.interviewTargets.markdownPath)), true);
   assert.equal(fs.existsSync(path.join(root, saved.interviewTargets.markdownPath.replace(/\.md$/, ".json"))), false);
   const parsed = parseCanonicalMarkdownDocument(fs.readFileSync(path.join(root, saved.interviewTargets.markdownPath), "utf8"));

@@ -43,13 +43,13 @@ async function qualifyExactWorkflowIntegration(context, workflowType) {
       expected: "The accepted item is present.", reproduction: "Request the item and inspect the response.", environment: "Synthetic test", impact: "The requested result is incomplete.", constraints: "Preserve the current response contract." });
     await issuePlanning.prepare(root, created.workflow.id, "rca");
     store = createSQLiteProjectStateStore(path.join(metadata, "project-state.sqlite")); state = createProjectStateService(store, operator);
-    const finding = (await store.listEntities(projectId, "Finding")).find(record => record.entityType === "Finding" && record.body.category === "issue-intake");
+    const finding = (await store.listEntities(projectId, "WorkflowIntake")).find(record => record.entityType === "WorkflowIntake" && record.body.workflowId === created.workflow.id);
     assert.ok(finding);
     const evidence = await state.recordEvidence(projectId, created.workflow.id, { evidenceType: "issue-supplied", description: "Synthetic reproduction",
       mediaType: "text/plain", payloadRef: "test:issue-reproduction", digest: "a".repeat(64) });
     await state.createRelationship(projectId, evidence.id, "supports", finding.id);
     const acceptedRca = await state.acceptIssueRca(projectId, { workflowId: created.workflow.id, rationale: "Evidence confirms the correction target.",
-      rootCauses: [{ title: "Missing accepted content", statement: "The response omits the required item.", rationale: "Matches reproduction evidence.", findingIds: [finding.id], evidenceIds: [evidence.id] }] });
+      rootCauses: [{ title: "Missing accepted content", statement: "The response omits the required item.", rationale: "Matches reproduction evidence.", findingIds: [], evidenceIds: [evidence.id] }] });
     rootCause = acceptedRca.rootCauses[0];
   }
   const accepted = await state.acceptWorkflowPlanningGraph(projectId, { workflowId: created.workflow.id, topology: "direct",

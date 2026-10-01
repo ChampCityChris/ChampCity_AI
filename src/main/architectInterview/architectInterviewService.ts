@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
-import { parseCanonicalMarkdownDocument } from "../../shared/documents/canonicalMarkdown";
 import type {
   ArchitectInterviewWorkspaceModel,
   ArchitectInterviewWorkspaceState,
@@ -9,6 +8,7 @@ import type {
 } from "../../shared/workspaceContracts";
 import {
   resolveCanonicalArchitectInterviewContext,
+  resolveStructuredArchitectInterviewIntake,
   type CanonicalArtifactIdentity,
 } from "./architectInterviewContextResolver";
 import {
@@ -143,13 +143,13 @@ export function getArchitectInterviewWorkspaceModel(
   };
 }
 
-export function prepareArchitectInterviewHandoff(workspaceRoot: string): ArchitectInterviewWorkspaceModel {
-  prepareArchitectInterviewChatHandoff(workspaceRoot);
-  return getArchitectInterviewWorkspaceModel(workspaceRoot);
+export async function prepareArchitectInterviewHandoff(workspaceRoot: string): Promise<ArchitectInterviewWorkspaceModel> {
+  const handoffInstruction = await prepareArchitectInterviewChatHandoff(workspaceRoot);
+  return {...getArchitectInterviewWorkspaceModel(workspaceRoot), handoffInstruction, canCopyHandoff: true, handoffState: "handoff-ready"};
 }
 
-export function prepareArchitectInterviewFinalDraftHandoff(workspaceRoot: string): ArchitectInterviewWorkspaceModel {
-  prepareArchitectInterviewDraftSubmission(workspaceRoot);
+export async function prepareArchitectInterviewFinalDraftHandoff(workspaceRoot: string): Promise<ArchitectInterviewWorkspaceModel> {
+  await prepareArchitectInterviewDraftSubmission(workspaceRoot);
   return getArchitectInterviewWorkspaceModel(workspaceRoot);
 }
 
@@ -169,8 +169,9 @@ export function getPreparedArchitectInterviewFinalDraftInstruction(workspaceRoot
   return model.finalDraftHandoffInstruction;
 }
 
-export function regenerateArchitectInterviewPrompt(workspaceRoot: string): ArchitectInterviewWorkspaceModel {
-  const context = resolveCanonicalArchitectInterviewContext(workspaceRoot);
+export async function regenerateArchitectInterviewPrompt(workspaceRoot: string): Promise<ArchitectInterviewWorkspaceModel> {
+  const structured = await resolveStructuredArchitectInterviewIntake(workspaceRoot);
+  const context = resolveCanonicalArchitectInterviewContext(workspaceRoot, undefined, structured);
   if (context.status === "ready") {
     return getArchitectInterviewWorkspaceModel(workspaceRoot);
   }
@@ -184,10 +185,7 @@ export function regenerateArchitectInterviewPrompt(workspaceRoot: string): Archi
     throw new Error("Project Architect Interview Prompt target already exists and was not recognized as the current Approved prompt. Resolve the conflict before regenerating.");
   }
 
-  const intake = parseCanonicalMarkdownDocument(
-    fs.readFileSync(path.join(workspace, context.projectIntake.markdownPath), "utf8"),
-  );
-  const projectName = stringValue(intake.metadata.workflowData.projectName);
+  const projectName = stringValue(structured.values?.projectName);
   if (!projectName) {
     throw new Error("Approved Project Intake is missing workflowData.projectName.");
   }
@@ -198,7 +196,8 @@ export function regenerateArchitectInterviewPrompt(workspaceRoot: string): Archi
     projectSlug: context.projectSlug,
     projectIntakeMarkdownPath: context.projectIntake.markdownPath,
     projectIntakeRevision: context.projectIntake.artifactRevision,
-    projectIntakeWorkflowData: intake.metadata.workflowData,
+    projectIntakeWorkflowData: {...structured.values, repositoryBinding: structured.repositoryBinding},
+    intakeAuthority: {intakeId: structured.intakeId!, recordVersion: structured.recordVersion!},
     architectInterviewTargetMarkdownPath: context.interviewTargets.markdownPath,
   });
 

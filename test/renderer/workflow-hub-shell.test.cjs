@@ -618,7 +618,7 @@ test("all six intake entry workspaces share ordered fields and Architect compani
   const { WorkflowIntakeWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowIntakeWorkspace.tsx");
   const { WORKFLOW_INTAKE_DEFINITIONS } = loader.loadRendererSourceModule("src/shared/workflowIntakeContracts.ts");
   const { shouldAttachArchitectSurface } = loader.loadRendererSourceModule("src/renderer/app/architectSurfaceEligibility.ts");
-  for (const [workflowType, definition] of Object.entries(WORKFLOW_INTAKE_DEFINITIONS)) {
+  for (const [workflowType, definition] of Object.entries(WORKFLOW_INTAKE_DEFINITIONS).filter(([type]) => type !== "project-creation")) {
     const workflow = { workflowId: "private-exact-id", workflowType, lifecycleState: "active", currentWorkspace: WORKFLOW_TYPE_REGISTRY[workflowType].entryWorkspace };
     assert.equal(workflowPlanningSurface(workflow), "intake");
     assert.notEqual(workflowPlanningSurface({ ...workflow, currentWorkspace: "unrelated-intake" }), "intake");
