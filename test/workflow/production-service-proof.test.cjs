@@ -5,12 +5,6 @@ const path = require("node:path");
 const test = require("node:test");
 
 const {
-  getArchitectInterviewWorkspaceModel,
-  reviewArchitectInterview,
-  prepareArchitectInterviewFinalDraftHandoff,
-  prepareArchitectInterviewHandoff,
-} = require("../../dist/main/architectInterview/architectInterviewService.js");
-const {
   getCurrentWorkspaceModel,
 } = require("../../dist/main/currentWorkflow/currentWorkflowService.js");
 const {
@@ -55,77 +49,15 @@ function assertSingleMarkdown(root, relativePath) {
   assert.equal(fs.existsSync(path.join(root, relativePath.replace(/\.md$/, ".json"))), false);
 }
 
-async function submitDraft(root, body) {
-  await require("../support/canonical-markdown-fixtures.cjs").registerProjectCreationFixture(root);
-  await prepareArchitectInterviewHandoff(root);
-  const finalized = await prepareArchitectInterviewFinalDraftHandoff(root);
-  const draftPath = finalized.finalDraftHandoffInstruction.match(/Temporary draft Markdown: ([^\n]+)/)[1];
-  fs.mkdirSync(path.dirname(path.join(root, draftPath)), { recursive: true });
-  fs.writeFileSync(path.join(root, draftPath), body, "utf8");
-  return getArchitectInterviewWorkspaceModel(root);
-}
-
-test("Proof 2 production-service workflow reaches Project Planning after revised Architect output", async () => {
-  const root = tempWorkspace();
-  const intakeResult = submitProjectIntake({
-    projectName: "Proof Two",
-    projectPurpose: "Verify the production service path.",
-    desiredOutcome: "Architect output revision advances to Project Planning.",
-    projectType: "Desktop application",
-    projectRepository: root,
-    hasExistingSourceOrPlanning: false,
-    knownConstraints: "",
-    repositoryReviewContext: "",
-  });
-
-  assertSingleMarkdown(root, intakeResult.projectIntakeMarkdownPath);
-  assertSingleMarkdown(root, intakeResult.architectPromptMarkdownPath);
-  const intakeDocument = listPlanningDocuments(root).find((document) => document.markdownPath === intakeResult.projectIntakeMarkdownPath);
-  setDocumentDisposition(root, intakeDocument.logicalDocumentId, "Approved");
-
-  const waiting = getArchitectInterviewWorkspaceModel(root);
-  assert.equal(waiting.railStatus, "Waiting for Output");
-  assert.equal(waiting.interviewTargets.markdownPath, intakeResult.architectInterviewTargetMarkdownPath);
-
-  const firstSave = await submitDraft(root, "# Project Understanding\n\nInitial Architect body.\n");
-  const interviewPath = firstSave.interviewTargets.markdownPath;
-  assertSingleMarkdown(root, interviewPath);
-  let parsed = readCanonical(root, interviewPath);
-  assert.equal(parsed.metadata.artifactRevision, 1);
-  assert.equal(parsed.metadata.documentDisposition.status, "Pending");
-  assert.match(parsed.bodyMarkdown, /Initial Architect body/);
-  assert.deepEqual(parsed.metadata.sourceRevisions, [
-    { path: intakeResult.projectIntakeMarkdownPath, revision: 1 },
-    { path: intakeResult.architectPromptMarkdownPath, revision: 1 },
-  ]);
-
-  reviewArchitectInterview(root, "RevisionRequested", "Tighten the planning implications.", undefined);
-  parsed = readCanonical(root, interviewPath);
-  assert.equal(parsed.metadata.artifactRevision, 1);
-  assert.equal(parsed.metadata.documentDisposition.status, "RevisionRequested");
-  assert.equal(parsed.metadata.documentDisposition.notes, "Tighten the planning implications.");
-
-  await submitDraft(root, "# Project Understanding\n\nRevised Architect body with planning implications.\n");
-  parsed = readCanonical(root, interviewPath);
-  assert.equal(parsed.metadata.artifactRevision, 2);
-  assert.equal(parsed.metadata.documentDisposition.status, "Pending");
-  assert.match(parsed.bodyMarkdown, /Revised Architect body/);
-  assert.deepEqual(parsed.metadata.sourceRevisions, [
-    { path: intakeResult.projectIntakeMarkdownPath, revision: 1 },
-    { path: intakeResult.architectPromptMarkdownPath, revision: 1 },
-  ]);
-
-  reviewArchitectInterview(root, "Approved", "", undefined);
-  parsed = readCanonical(root, interviewPath);
-  assert.equal(parsed.metadata.artifactRevision, 2);
-  assert.equal(parsed.metadata.documentDisposition.status, "Approved");
-
-  const projectPlanning = getCurrentWorkspaceModel(root);
-  assert.equal(projectPlanning.activeWorkspaceId, "project-planning-review");
-  assert.equal(projectPlanning.sourceEvidence.includes(interviewPath), true);
-
-  const reconstructed = getCurrentWorkspaceModel(root);
-  assert.deepEqual(reconstructed, projectPlanning);
+test("Proof 2 production-service workflow reaches Project Planning after revised structured Architect output", async context => {
+  const env = await require("../support/structured-architect-fixture.cjs").structuredArchitectFixture(context);
+  assert.equal(getCurrentWorkspaceModel(env.root).activeWorkspaceId, "architect-interview");
+  await env.architect.review(env.root, env.workflow.id, env.candidate.review.cycleId, {expectedRecordVersion: 1, outcome: "revision_requested", notes: "Clarify full Planning direction"});
+  const revised = await env.architect.save(env.root, env.workflow.id, {...env.input, expectedCycleVersion: 1, output: {...env.output, projectPlanningDirection: ["Full adopted scope and dependencies"]}});
+  await env.architect.review(env.root, env.workflow.id, revised.review.cycleId, {expectedRecordVersion: 2, outcome: "approved"});
+  fs.unlinkSync(path.join(env.root, revised.review.relativePath));
+  const model = getCurrentWorkspaceModel(env.root); assert.equal(model.activeWorkspaceId, "project-planning-review");
+  assert.ok(model.sourceEvidence.includes(revised.review.relativePath)); assert.deepEqual(getCurrentWorkspaceModel(env.root), model);
 });
 
 test("current workflow opens missing Phase Map with Profile and Roadmap input evidence", async () => {

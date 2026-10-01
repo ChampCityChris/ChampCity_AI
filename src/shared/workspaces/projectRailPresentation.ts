@@ -3,8 +3,6 @@ import type { PlanningDocumentSummary } from "../documents/planningDocument";
 import type { ProjectIntakeRailStatus } from "../projectIntake/projectIntakeCorpus";
 import type {
   ArchitectInterviewRailStatus,
-  ArchitectInterviewSelectedDocumentRole,
-  ArchitectInterviewWorkspaceModel,
   ProjectLifecycleRailStatus,
 } from "../workspaceContracts";
 
@@ -95,19 +93,9 @@ export function shouldRenderPhaseMapDispositionControls(
 }
 
 export function deriveArchitectInterviewRailStatus(
-  model: ArchitectInterviewWorkspaceModel | null,
+  model: import("../architectWorkspaceContracts").StructuredArchitectWorkspaceModel | null,
 ): ArchitectInterviewRailStatus {
-  return model?.railStatus ?? "Open";
-}
-
-export function shouldRenderArchitectInterviewDispositionControls({
-  canApplyDisposition,
-  selectedRole,
-}: {
-  selectedRole: ArchitectInterviewSelectedDocumentRole;
-  canApplyDisposition: boolean;
-}): boolean {
-  return selectedRole === "interview" && canApplyDisposition;
+  return model?.railStatus ?? "Not Ready";
 }
 
 export function isArchitectInterviewDualPaneWorkspace(activeWorkspaceId: WorkspaceId): boolean {

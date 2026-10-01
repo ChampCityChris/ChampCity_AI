@@ -31,6 +31,7 @@ export interface ArchitectCandidateSaveInput {intakeId: string; intakeVersion: n
 export function validateArchitectCandidateOutput(type: WorkflowType, output: unknown): void {
   if (type === "project-creation") return validateGreenfieldArchitectOutput(output);
   if (!output || typeof output !== "object" || Array.isArray(output)) throw Error("Typed Architect output is required.");
+  if (new TextEncoder().encode(JSON.stringify(output)).length > 100_000) throw Error("Architect transport exceeds 100 KB.");
   if (type === "feature-capability") {
     if (Object.keys(output).sort().join("|") !== Object.keys(FEATURE_ARCHITECT_SECTIONS).sort().join("|") || Object.values(output).some(value => typeof value !== "string" || !value.trim() || new TextEncoder().encode(value).length > 4096 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value))) throw Error("All seven bounded Feature assessment dimensions are required.");
     return;
@@ -45,7 +46,7 @@ export function validateArchitectCandidateOutput(type: WorkflowType, output: unk
     if (Object.keys(output).join("|") !== "rootCauses" || !Array.isArray(roots) || !roots.length || roots.length > 12) throw Error("RCA requires 1–12 typed RootCause candidates.");
     for (const root of roots) {
       if (!root || typeof root !== "object" || Array.isArray(root) || Object.keys(root).some(key => !["title", "statement", "rationale", "confidence", "findingIds", "evidenceIds"].includes(key)) ||
-        ["title", "statement", "rationale"].some(key => typeof root[key] !== "string" || !root[key].trim() || new TextEncoder().encode(root[key]).length > (key === "title" ? 200 : 4096)) ||
+        ["title", "statement", "rationale"].some(key => typeof root[key] !== "string" || !root[key].trim() || new TextEncoder().encode(root[key]).length > (key === "title" ? 200 : 4096) || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(root[key])) ||
         root.confidence !== undefined && (typeof root.confidence !== "number" || !Number.isFinite(root.confidence) || root.confidence < 0 || root.confidence > 1) ||
         ["findingIds", "evidenceIds"].some(key => !Array.isArray(root[key]) || root[key].length > 32 || new Set(root[key]).size !== root[key].length || root[key].some((id: unknown) => typeof id !== "string" || id.length > 128))) throw Error("Bounded typed RCA fields and exact references are required.");
     }
@@ -79,12 +80,14 @@ export function validateGreenfieldArchitectOutput(value: unknown): asserts value
 }
 export interface StructuredArchitectWorkspaceModel {
   workflowId: string;
-  workflowType?: WorkflowType;
-  title?: string;
-  stageLabel?: string;
-  stageKind?: import("./projectState/domainContracts").ArchitectStageKind;
-  nextStageReady?: boolean;
+  workflowType: WorkflowType;
+  title: string;
+  stageLabel: string;
+  stageKind: import("./projectState/domainContracts").ArchitectStageKind;
+  nextStageReady: boolean;
   supportRecords?: import("./projectState/domainContracts").ProjectStateEntity[];
+  browserCompanionEligible: boolean;
+  intakeRailStatus: "Open" | "Awaiting Approval" | "Completed";
   ready: boolean;
   reason?: string;
   intakeId?: string;

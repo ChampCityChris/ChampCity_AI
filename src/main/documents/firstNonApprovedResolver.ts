@@ -1,3 +1,4 @@
+import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
 import { readProjectCreationIntakeProjection } from "../workflow/workflowIntakeReadProjection";
 import { readApprovedGreenfieldArchitectProjection } from "../architectOutputs/structuredArchitectReadProjection";
 import type { FirstNonApprovedResult } from "../../shared/documents/documentOrder";
@@ -22,6 +23,7 @@ export function resolveFirstNonApprovedDocumentFromSnapshot(
 ): FirstNonApprovedResult {
   const structured = readProjectCreationIntakeProjection(snapshot.workspaceRoot);
   const documents = listPlanningDocumentsFromSnapshot(snapshot);
+  if (selectedCurrentProjectId(snapshot.workspaceRoot) && !structured) return {status: "pre-intake", activeWorkspaceId: "project-intake-capture", message: "Project Intake has not been captured", totalDocumentCount: documents.length, reason: "Create or recover the exact SQL Project Creation Intake before Architect work."};
   if (structured?.reviewDocument?.effectiveDisposition === "Approved") {
     const architect = readApprovedGreenfieldArchitectProjection(snapshot.workspaceRoot);
     if (!architect) return {status: "waiting-for-architect-interview", activeWorkspaceId: "architect-interview", message: "Waiting for Project Architect Interview output", totalDocumentCount: documents.length,

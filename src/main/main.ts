@@ -82,11 +82,8 @@ import {
 import { SelectedWorkspaceEvidenceNotifier } from "./workspaceEvidence/selectedWorkspaceEvidenceNotifier";
 import {
   getArchitectOutputWorkspaceModel,
-  prepareArchitectInterviewFinalDraftHandoffWorkspace,
   prepareArchitectOutputHandoff,
   preparePhaseInterviewFinalDraftHandoffWorkspace,
-  regenerateArchitectInterviewPromptWorkspace,
-  resolveArchitectInterviewCopyFinalDraftHandoff,
   resolveArchitectOutputCopyHandoff,
   resolvePhaseInterviewCopyFinalDraftHandoff,
   mutateArchitectOutputReviewWithPlanningContext,
@@ -943,12 +940,7 @@ ipcMain.handle(
   },
 );
 
-ipcMain.handle(
-  "architectOutput:regenerateInterviewPrompt",
-  (): Promise<ArchitectOutputWorkspaceModel> => {
-    return regenerateArchitectInterviewPromptWorkspace(getRequiredWorkspaceRoot());
-  },
-);
+
 
 ipcMain.handle(
   "architectOutput:copyHandoff",
@@ -960,22 +952,9 @@ ipcMain.handle(
   },
 );
 
-ipcMain.handle(
-  "architectInterview:prepareFinalDraftHandoff",
-  (): Promise<ArchitectOutputWorkspaceModel> => {
-    return prepareArchitectInterviewFinalDraftHandoffWorkspace(getRequiredWorkspaceRoot());
-  },
-);
 
-ipcMain.handle(
-  "architectInterview:copyFinalDraftHandoff",
-  async (): Promise<RuntimeActionResult> => {
-    const workspaceRoot = getRequiredWorkspaceRoot();
-    const { instruction, result } = resolveArchitectInterviewCopyFinalDraftHandoff(workspaceRoot);
-    await clipboard.writeText(instruction);
-    return result;
-  },
-);
+
+
 
 ipcMain.handle(
   "phaseInterview:prepareFinalDraftHandoff",

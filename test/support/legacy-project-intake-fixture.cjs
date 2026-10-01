@@ -15,7 +15,7 @@ const planningDocumentService_1 = require("../../dist/main/documents/planningDoc
 const canonicalMarkdownDocumentWriter_1 = require("../../dist/main/documents/canonicalMarkdownDocumentWriter");
 const repositoryBinding_1 = require("../../dist/main/documents/repositoryBinding");
 const mcpWorkspacePromptContract_1 = require("../../dist/main/integrations/mcpWorkspacePromptContract");
-const projectArchitectInterviewPromptWriter_1 = require("../../dist/main/architectInterview/projectArchitectInterviewPromptWriter");
+const projectArchitectInterviewPromptWriter_1 = require("./legacy-project-architect-prompt.cjs");
 const requiredPlanningDirectories = [
     "planning",
     "planning/project",

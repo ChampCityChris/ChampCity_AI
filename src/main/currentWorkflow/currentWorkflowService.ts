@@ -1,3 +1,5 @@
+import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
+import { readApprovedGreenfieldArchitectProjection } from "../architectOutputs/structuredArchitectReadProjection";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
 import type {
   ClosureDecision,
@@ -28,7 +30,6 @@ import {
   createPlanningProjectionContext,
   type PlanningProjectionContext,
 } from "../documents/planningProjectionContext";
-import { setArchitectInterviewDisposition } from "../architectInterview/architectInterviewService";
 import {
   generateProjectPlanningHandoff,
   getProjectPlanningCompletion,
@@ -210,14 +211,7 @@ function resolveCurrentWorkspaceModel(workspaceRoot: string, planningContext: Pl
   }
 
   if (current.status === "waiting-for-architect-interview") {
-    return currentModelFromArchitectOutput(workspaceRoot, current.activeWorkspaceId, {
-      level: "project",
-      stage: "intake",
-      currentTarget: "Architect Interview",
-      expectedOutput: `Project Architect Interview Markdown: ${current.expectedOutputPaths.markdown}`,
-      expectedNextState: "A Pending Project Architect Interview Markdown document becomes the current review document.",
-      fallbackEvidence: current.sourceEvidence,
-    }, planningContext);
+    return {activeWorkspaceId: "architect-interview", level: "project", stage: "intake", currentTarget: "Architect Interview", sourceEvidence: current.sourceEvidence, requiredAction: "Prepare structured Architect output from the exact approved SQL Intake.", expectedOutput: "Proposed semantic SQL records and exact ArchitectReviewCycle.", eligibility: "Approved current SQL Intake", expectedNextState: "Approve the exact cycle revision to enable Project Planning."};
   }
 
   if (current.status === "all-approved") {
@@ -489,11 +483,12 @@ function isWorkCardLoopDocument(document: {
 
 function missingProjectPlanningModel(workspaceRoot: string, planningContext: PlanningProjectionContext): CurrentWorkspaceCoreModel | null {
   const documents = listPlanningDocuments(planningContext);
-  const approvedInterview = documents
+  const approvedSqlInterview = readApprovedGreenfieldArchitectProjection(workspaceRoot);
+  const approvedInterview = selectedCurrentProjectId(workspaceRoot) ? undefined : documents
     .filter((document) => document.metadata.artifactType === "project-architect-interview")
     .filter((document) => document.effectiveDisposition === "Approved")
     .at(-1);
-  if (!approvedInterview) {
+  if (!approvedSqlInterview && !approvedInterview) {
     return null;
   }
   const profile = documents.find((document) => document.markdownPath === "planning/project/PROJECT_PROFILE.md");
@@ -507,7 +502,7 @@ function missingProjectPlanningModel(workspaceRoot: string, planningContext: Pla
     currentTarget: "Project Planning",
     expectedOutput: "Project Profile Markdown and Project Roadmap Markdown.",
     expectedNextState: "Project Profile and Project Roadmap become current review documents.",
-    fallbackEvidence: [approvedInterview.markdownPath],
+    fallbackEvidence: [approvedSqlInterview?.markdownPath ?? approvedInterview!.markdownPath],
   }, planningContext);
 }
 
@@ -1119,7 +1114,6 @@ function currentModelFromArchitectOutput(
 
 function isArchitectOutputWorkspace(workspaceId: WorkspaceId): boolean {
   return [
-    "architect-interview",
     "project-planning-review",
     "project-phase-map",
     "phase-interview",
@@ -1629,6 +1623,7 @@ export function applyCurrentDisposition(
   const payload = (() => {
     switch (dispositionWorkspaceId) {
       case "architect-interview":
+        throw Error("Architect Interview uses exact SQL cycle review.");
       case "project-planning-review":
       case "project-phase-map":
       case "phase-interview":

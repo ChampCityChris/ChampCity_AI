@@ -941,10 +941,10 @@ test("structured Intake imports all seven legacy families once, preserves eviden
         assert.equal(decision.body.decisionScope, `workflow-intake:${imported.intakeId}@1`);
         assert.match(decision.body.rationale, /Historical approval/);
         assert.deepEqual((await resolveStructuredArchitectInterviewIntake(env.root)).values, values);
-        const architect = require("../../dist/main/architectInterview/architectInterviewService.js").getArchitectInterviewWorkspaceModel(env.root);
-        assert.equal(architect.state, "prompt-missing");
-        assert.equal(architect.intakeRecoveryDetail.logicalDocumentId, imported.intakeId);
-        assert.equal(architect.intakeRecoveryDetail.bodyMarkdown, imported.reviewDocument.bodyMarkdown);
+        const architect = await require("../../dist/main/architectOutputs/structuredArchitectWorkspaceService.js").createStructuredArchitectWorkspaceService().get(env.root, workflow.id);
+        assert.equal(architect.ready, true);
+        assert.equal(architect.intakeId, imported.intakeId);
+        assert.ok(architect.handoff.includes(imported.intakeId));
 
         await intake.saveProjectCreationIntake(env.root, workflow.id, {...values, projectRepository: "ignored", projectPurpose: "Revised structured purpose"}, 1);
         assert.equal((await intake.getWorkflowIntake(env.root, workflow.id)).values.projectRepository, fs.realpathSync(env.root));
@@ -1120,7 +1120,7 @@ test("SQL Intake projection rebuild, manual edits, exact review, failure isolati
 test("Greenfield SQL Intake preserves its generated path and prepares Interview from current approval", async context => {
   const env = await setup(context);
   const {createWorkflowIntakeService} = require("../../dist/main/workflow/workflowIntakeService.js");
-  const {regenerateArchitectInterviewPrompt} = require("../../dist/main/architectInterview/architectInterviewService.js");
+  const architect = require("../../dist/main/architectOutputs/structuredArchitectWorkspaceService.js").createStructuredArchitectWorkspaceService();
   const {resolveFirstNonApprovedDocument} = require("../../dist/main/documents/firstNonApprovedResolver.js");
   const {resolveProjectPlanningContext} = require("../../dist/main/projectPlanning/projectPlanningContext.js");
   try {
@@ -1130,10 +1130,10 @@ test("Greenfield SQL Intake preserves its generated path and prepares Interview 
     let saved = await service.saveWorkflowIntake(env.root,workflow.id,payload);
     assert.equal(saved.values.projectRepository,fs.realpathSync(env.root));
     assert.equal(saved.reviewDocument.markdownPath,"planning/project/Project_Intake/PROJECT_INTAKE_my_greenfield.md");
-    await assert.rejects(regenerateArchitectInterviewPrompt(env.root),/approved/i);
+    await assert.rejects(architect.prepare(env.root, workflow.id),/Approve/i);
     await service.reviewWorkflowIntake(env.root,workflow.id,{expectedIntakeRecordVersion:saved.recordVersion,outcome:"approved"});
-    const prepared = await regenerateArchitectInterviewPrompt(env.root);
-    assert.equal(prepared.canPrepareHandoff,true);
+    const prepared = await architect.prepare(env.root, workflow.id);
+    assert.equal(prepared.ready,true);
     assert.equal(resolveFirstNonApprovedDocument(env.root).activeWorkspaceId,"architect-interview");
     const generated = path.join(env.root,saved.reviewDocument.markdownPath);
     fs.writeFileSync(generated,"A manual file edit cannot remove SQL approval.");
@@ -1144,10 +1144,8 @@ test("Greenfield SQL Intake preserves its generated path and prepares Interview 
     assert.equal(saved.reviewDocument.effectiveDisposition,"Pending");
     assert.equal(resolveFirstNonApprovedDocument(env.root).document.owningWorkspaceId,"project-intake-capture");
     await service.reviewWorkflowIntake(env.root,workflow.id,{expectedIntakeRecordVersion:saved.recordVersion,outcome:"approved"});
-    assert.equal((await regenerateArchitectInterviewPrompt(env.root)).canPrepareHandoff,true);
-    const prompt = require("../../dist/shared/documents/canonicalMarkdown.js").parseCanonicalMarkdownDocument(fs.readFileSync(path.join(env.root,prepared.promptDocument.markdownPath),"utf8"));
-    assert.equal(prompt.metadata.artifactRevision,2);
-    assert.equal(prompt.metadata.sourceRevisions[0].revision,saved.recordVersion);
+    assert.equal((await architect.prepare(env.root, workflow.id)).ready,true);
+    const refreshed = await architect.get(env.root, workflow.id);
+    assert.equal(refreshed.intakeVersion, saved.recordVersion); assert.ok(refreshed.handoff.includes(`${saved.intakeId}@${saved.recordVersion}`));
   } finally {env.store.close();}
 });
-

@@ -105,17 +105,6 @@ export function createIssuePlanningService(dependencies: { openStore?: (database
       const expectedWorkspace = draft.stage === "rca" ? "issue-rca" : "issue-planning";
       if (model.workflow.currentWorkspace !== expectedWorkspace || (draft.stage === "plan" && model.rcaState !== "accepted")) throw Error("The Issue Architect draft is stale for the current Workflow workspace and RCA state.");
       draft.content = String(action.content ?? "").slice(0, 200000); drafts.set(key, draft); return get(root, workflowId); }
-    if (action.type === "decide-rca") {
-      if (model.workflow.currentWorkspace !== "issue-rca") throw Error("Issue RCA disposition requires the current RCA workspace.");
-      const draft = drafts.get(key); if (draft?.stage !== "rca" || !draft.content.trim()) throw Error("Refresh a non-empty current RCA draft before disposition.");
-      if (action.outcome === "accept") {
-        const candidates = action.rootCauses; if (!Array.isArray(candidates) || !candidates.length || candidates.length > 12) throw Error("Accepted RCA requires bounded RootCause candidates.");
-        await withIssue(root, workflowId, async (store, projectId) => createProjectStateService(store, operator).acceptIssueRca(projectId, { workflowId, rationale: (action.rationale ?? "").slice(0, 4096), rootCauses: candidates }));
-        drafts.delete(key); return prepare(root, workflowId, "plan");
-      }
-      await withIssue(root, workflowId, async (store, projectId) => createProjectStateService(store, operator).recordDecision(projectId, workflowId, { decisionType: "issue-rca-review", outcome: action.outcome === "revision" ? "revision_requested" : "rejected", decisionScope: workflowId, rationale: (action.rationale ?? "").slice(0, 8000) }));
-      drafts.delete(key); if (action.outcome === "revision") return prepare(root, workflowId, "rca"); return get(root, workflowId);
-    }
     if (action.type === "decide-plan") {
       if (model.workflow.currentWorkspace !== "issue-planning" || model.rcaState !== "accepted") throw Error("Correction planning requires the current plan workspace and an accepted current RCA.");
       const draft = drafts.get(key); if (draft?.stage !== "plan" || !draft.content.trim()) throw Error("Refresh a non-empty current correction plan before disposition.");

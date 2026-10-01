@@ -450,8 +450,8 @@ function assertHeadings(instruction, title, sections = []) {
 
 test("production catalog requires definition-owned prepared-instruction builders", () => {
   const definitions = activeProductionArchitectOutputDefinitions();
-  assert.equal(productionArchitectOutputCatalog.length, 7);
-  assert.equal(definitions.length, 7);
+  assert.equal(productionArchitectOutputCatalog.length, 6);
+  assert.equal(definitions.length, 6);
   for (const definition of definitions) {
     assert.equal(typeof definition.buildPreparedInstruction, "function", `${definition.outputKind} owns a builder`);
   }
@@ -512,23 +512,6 @@ test("production prompt matrix states all nine slot contracts before draft write
   );
 
   const matrix = [
-    ["project-architect-interview", "Project Architect Interview", [
-      "Project Understanding",
-      "Users and Primary Workflows",
-      "Scope",
-      "Non-Scope",
-      "Constraints",
-      "Key Decisions",
-      "Architect Recommendations",
-      "Data and Integration Requirements",
-      "Security, Compliance, and Operational Considerations",
-      "Risks and Dependencies",
-      "Assumptions",
-      "Deferred Decisions",
-      "Unresolved Questions",
-      "Acceptance Direction",
-      "Project Planning Direction",
-    ]],
     ["project-planning", "Project Profile", projectPlanningRequiredProfileSections()],
     ["project-planning", "Project Roadmap", projectPlanningRequiredRoadmapSections()],
     ["phase-map", "Phase Map", []],

@@ -279,9 +279,9 @@ test("updated Figma side panel renders real project and execution context with p
 });
 
 const { IntakeWorkspaceShell } = loader.loadRendererSourceModule("src/renderer/app/IntakeWorkspaceShell.tsx");
-const { StructuredGreenfieldArchitectWorkspace } = loader.loadRendererSourceModule("src/renderer/app/StructuredGreenfieldArchitectWorkspace.tsx");
+const { StructuredArchitectWorkspace } = loader.loadRendererSourceModule("src/renderer/app/StructuredArchitectWorkspace.tsx");
 test("structured Greenfield Architect renders shared left review and right ChatGPT companion with review disabled before SQL load", () => {
-  const markup = renderToStaticMarkup(React.createElement(StructuredGreenfieldArchitectWorkspace, {workflowId: "exact-workflow", browserVisible: true,
+  const markup = renderToStaticMarkup(React.createElement(StructuredArchitectWorkspace, {workflowId: "exact-workflow", browserVisible: true,
     browserCompanion: React.createElement("aside", {"data-testid": "chat-companion"}, "ChatGPT"), onRailStatus() {}}));
   assert.match(markup, /figma-doc-chat-workspace/);
   assert.ok(markup.indexOf("figma-doc-review-column") < markup.indexOf("chat-companion"));
@@ -354,15 +354,10 @@ test("Architect shell keeps review and controls left and browser companion right
   assert.doesNotMatch(markup, /chat-hidden/);
 });
 
-test("structured Intake recovery bypasses repository reads while Interview and Prompt retain them", async () => {
-  const { readArchitectReviewDocument } = loader.loadRendererSourceModule("src/renderer/app/GreenfieldArchitectWorkspace.tsx");
-  const detail = {logicalDocumentId: "sql-intake-id", bodyMarkdown: "SQL review"};
-  const model = {workspaceId: "architect-interview", domain: {intakeRecoveryDetail: detail}};
-  const reads = [];
-  const reader = async id => { reads.push(id); return {logicalDocumentId: id}; };
-  assert.deepEqual(await readArchitectReviewDocument(detail.logicalDocumentId, model, reader), detail);
-  assert.deepEqual(reads, []);
-  await readArchitectReviewDocument("repository-prompt", model, reader);
-  await readArchitectReviewDocument("repository-interview", model, reader);
-  assert.deepEqual(reads, ["repository-prompt", "repository-interview"]);
+test("Architect SQL workspace bypasses the legacy repository reader and owns its review controls", () => {
+  const source = require("node:fs").readFileSync(require("node:path").join(__dirname, "../../src/renderer/app/StructuredArchitectWorkspace.tsx"), "utf8");
+  assert.match(source, /getStructuredArchitectWorkspace/); assert.match(source, /reviewStructuredArchitectOutput/);
+  assert.doesNotMatch(source, /readDocument|intakeRecoveryDetail|FinalDraft/);
+  const app = require("node:fs").readFileSync(require("node:path").join(__dirname, "../../src/renderer/app/App.tsx"), "utf8");
+  assert.match(app, /options\.workspaceId \?\? activeWorkspaceId\) === "architect-interview"/);
 });

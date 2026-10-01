@@ -11,7 +11,6 @@ const {
   prepareProjectPlanningHandoff,
 } = require("../../dist/main/projectPlanning/projectPlanningService.js");
 const {
-  deriveArchitectInterviewRailStatusFromDocuments,
   deriveProjectLifecycleRailStatuses,
 } = require("../../dist/shared/workspaces/projectLifecycleRailStatus.js");
 const {
@@ -65,9 +64,10 @@ test("reconstruction repair corpus keeps Project Planning ready and context docu
 
   const documents = listPlanningDocuments(root);
   const projectPlanningModel = getProjectPlanningWorkspaceModel(root);
+  // Historical later-family fixture supplies rail state explicitly; documents cannot authorize Architect review.
   const statuses = deriveProjectLifecycleRailStatuses(documents, {
     projectIntakeStatus: "Completed",
-    architectInterviewStatus: deriveArchitectInterviewRailStatusFromDocuments(documents),
+    architectInterviewStatus: "Completed",
     projectPlanningStatus: projectPlanningModel.railStatus,
   });
   assert.equal(statuses["project-intake-capture"], "Completed");
@@ -141,9 +141,10 @@ test("reconstruction repair Project Planning blocker has planning-only evidence 
   assert.equal(projectPlanningModel.evidencePaths.every((evidencePath) => evidencePath.startsWith("planning/")), true);
   assert.equal(projectPlanningModel.evidencePaths.includes("src/index.ts"), false);
 
+  // Historical later-family fixture supplies rail state explicitly; documents cannot authorize Architect review.
   const statuses = deriveProjectLifecycleRailStatuses(documents, {
     projectIntakeStatus: "Completed",
-    architectInterviewStatus: deriveArchitectInterviewRailStatusFromDocuments(documents),
+    architectInterviewStatus: "Completed",
     projectPlanningStatus: projectPlanningModel.railStatus,
   });
   assert.equal(statuses["project-planning-review"], "Needs Attention");
@@ -158,7 +159,7 @@ test("reconstruction repair Project Planning blocker has planning-only evidence 
 
   const statusesAfterActiveWorkspaceProjection = deriveProjectLifecycleRailStatuses(documents, {
     projectIntakeStatus: "Completed",
-    architectInterviewStatus: deriveArchitectInterviewRailStatusFromDocuments(documents),
+    architectInterviewStatus: "Completed",
     projectPlanningStatus: projectPlanningModel.railStatus,
   });
   assert.deepEqual(statusesAfterActiveWorkspaceProjection, statuses);

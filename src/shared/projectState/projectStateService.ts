@@ -1,4 +1,4 @@
-import { ARCHITECT_WORKSPACE_BY_WORKFLOW, ARCHITECT_STAGE_BY_WORKFLOW, architectSemanticDigest, renderArchitectReviewProjection, type ArchitectReviewSaveInput, type ArchitectReviewDecisionInput } from "./architectReviewContracts";
+import { ARCHITECT_WORKSPACE_BY_WORKFLOW, ARCHITECT_STAGE_BY_WORKFLOW, architectSemanticDigest, architectMemberOwnershipIsValid, renderArchitectReviewProjection, type ArchitectReviewSaveInput, type ArchitectReviewDecisionInput } from "./architectReviewContracts";
 import { GREENFIELD_ARCHITECT_SECTIONS, FEATURE_ARCHITECT_SECTIONS, ASSESSMENT_SECTIONS, ASSESSMENT_DESIGNS, type AssessmentWorkflowType, validateArchitectCandidateOutput, type ArchitectCandidateSaveInput, type GreenfieldArchitectOutput } from "../architectWorkspaceContracts";
 import { workflowIntakeDisposition, exactVersionReviewDisposition } from "./workflowIntakeDisposition";
 import type { DispositionState, EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef, ProjectId, ProjectStateEntity, ProjectStateRecord, TestLifecycleAssessmentStatus, ValidationMode, WorkflowState, WorkIntakeState, WorkRoute } from "./domainContracts";
@@ -721,30 +721,9 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     for (const id of ids) {
       const member = await requiredRecord(unit, projectId, id);
       if (member.lifecycleState !== "active" || !["Finding", "RootCause", "BoundedSolution", "Criterion", "Evidence"].includes(member.entityType)) fail("Architect member must be an active semantic record.");
-      const visited = new Set<EntityId>();
-      const pending: EntityId[] = [id];
-      while (pending.length) {
-        const linkedId = pending.pop()!;
-        if (visited.has(linkedId)) continue;
-        visited.add(linkedId);
-        const linked = await requiredRecord(unit, projectId, linkedId);
-        if (linked.entityType === "Workflow" && linked.id !== workflowId) fail("Architect member belongs to a different Workflow.");
-        if (linked.entityType === "WorkflowIntake" && linked.body.workflowId !== workflowId) fail("Architect Evidence belongs to a different Workflow Intake.");
-        if (linked.entityType === "ArchitectReviewCycle" && linked.body.workflowId !== workflowId) fail("Architect member has conflicting Workflow ownership.");
-        for (const edge of edges) {
-          if (edge.fromEntityId === linkedId && (["workflow_member", "review_member", "part_of"].includes(edge.relationshipType) ||
-            !edge.endedAt && (linked.entityType === "Evidence" && edge.relationshipType === "supports" || linked.entityType === "RootCause" && edge.relationshipType === "explains"))) pending.push(edge.toEntityId);
-          if (!edge.endedAt && linked.entityType === "Criterion" && edge.toEntityId === linkedId && edge.relationshipType === "defines_criterion") pending.push(edge.fromEntityId);
-        }
-      }
-      const owners = edges.filter(edge => edge.fromEntityId === id && edge.relationshipType === "workflow_member");
-      if (owners.some(edge => edge.toEntityId !== workflowId)) fail("Architect membership cannot cross Workflows.");
-      for (const edge of edges.filter(edge => edge.fromEntityId === id && edge.relationshipType === "review_member")) {
-        const cycle = await requiredRecord(unit, projectId, edge.toEntityId);
-        if (cycle.entityType !== "ArchitectReviewCycle" || cycle.body.workflowId !== workflowId) fail("Architect member has conflicting Workflow ownership.");
-      }
       members.push(member);
     }
+    if (!architectMemberOwnershipIsValid(workflowId, members, await unit.listEntities(projectId), edges)) fail("Architect member belongs to a different Workflow or unavailable semantic owner.");
     return members;
   }
 
@@ -861,7 +840,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         const edges = await unit.listRelationships(projectId);
         const all = await unit.listEntities(projectId);
         const findings = new Map(all.filter((record): record is ProjectStateRecord<"Finding"> => record.entityType === "Finding" && record.lifecycleState === "active" && record.body.findingState === "current" && edges.some(edge => !edge.endedAt && edge.relationshipType === "workflow_member" && edge.fromEntityId === record.id && edge.toEntityId === workflow.id)).map(record => [record.id, record]));
-        const evidence = new Map(all.filter((record): record is ProjectStateRecord<"Evidence"> => record.entityType === "Evidence" && record.lifecycleState === "active" && edges.some(edge => !edge.endedAt && edge.relationshipType === "supports" && edge.fromEntityId === record.id && (edge.toEntityId === workflow.id || edge.toEntityId === intake.id || findings.has(edge.toEntityId)))).map(record => [record.id, record]));
+        const evidence = new Map(all.filter((record): record is ProjectStateRecord<"Evidence"> => record.entityType === "Evidence" && record.lifecycleState === "active" && record.body.evidenceType !== "architect-intake-source" && edges.some(edge => !edge.endedAt && edge.relationshipType === "supports" && edge.fromEntityId === record.id && (edge.toEntityId === workflow.id || edge.toEntityId === intake.id || findings.has(edge.toEntityId)))).map(record => [record.id, record]));
         for (const candidate of output.rootCauses) {
           if (candidate.findingIds.some(id => !findings.has(id)) || candidate.evidenceIds.some(id => !evidence.has(id)) || !candidate.findingIds.length && !candidate.evidenceIds.length) fail("RCA must cite exact Issue Findings or Intake-supported Evidence.");
           const root = await add("RootCause", {title: candidate.title, statement: candidate.statement, rationale: candidate.rationale, ...(candidate.confidence === undefined ? {} : {confidence: candidate.confidence}), rootCauseState: "proposed"});

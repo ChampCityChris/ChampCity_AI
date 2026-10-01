@@ -1,3 +1,4 @@
+import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
 import { readProjectCreationIntakeProjection } from "../workflow/workflowIntakeReadProjection";
 import { readApprovedGreenfieldArchitectProjection } from "../architectOutputs/structuredArchitectReadProjection";
 import { buildRepositoryBindingFromProjectIntake, type RepositoryBinding } from "../documents/repositoryBinding";
@@ -73,6 +74,7 @@ export function resolveProjectPlanningContext(
     const legacyDocuments = listPlanningDocuments(planningContext ?? workspaceRoot);
     const structured = readProjectCreationIntakeProjection(workspaceRoot);
     const sqlIntake = structured?.reviewDocument;
+    if (selectedCurrentProjectId(workspaceRoot) && !sqlIntake) return notReady("Exact SQL Project Creation Intake and approved Architect cycle are required before Project Planning. Historical Interview Markdown is evidence only.", []);
     const documents = sqlIntake ? [...legacyDocuments.filter(document => document.markdownPath !== sqlIntake.markdownPath), sqlIntake] : legacyDocuments;
     const intakeCorpus = analyzeProjectIntakeCorpus(documents);
     if (structured ? !sqlIntake : intakeCorpus.state === "open") {

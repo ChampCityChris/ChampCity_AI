@@ -101,3 +101,31 @@ All seven substantive Workflow Intake families use exact WorkflowIntake SQL reco
 Save/review commits SQL before derived Markdown materialization. Materialization errors are reported separately and never reverse SQL. Generated Intake Markdown is rebuildable review output and excluded from legacy canonical discovery; manual file edits never update SQL. Greenfield preserves the familiar Intake path and form, and Architect preparation consumes approved structured Intake. Unsaved edits or a revised Intake disable continuation until the current revision is approved. The shared top stage rail and generic Intake shell remain unchanged.
 
 Intake authority is independent of `project_state_authority`. The final project-wide structured marker remains deferred until every still-authoritative legacy family migrates; the global legacy writer fence is unchanged.
+
+## RWS05 Architect family cutover — 2026-10-01
+
+The seven substantive Workflow types now use:
+
+`approved SQL WorkflowIntake -> Architect interaction -> semantic SQL records -> ArchitectReviewCycle -> generated Markdown review projection -> exact-version SQL Decision -> next-stage eligibility`
+
+`ArchitectReviewCycle` holds exact Workflow/type/stage identity and the current semantic-member version digest. It is a grouping/version anchor, not a duplicate document entity. Typed model-authored JSON is bounded transport; proposed Findings, RootCauses, BoundedSolutions, Criteria and Evidence are persisted atomically before Operator disposition. Only human Operator Decisions govern an exact current cycle revision. Material semantic or source-Intake changes invalidate prior eligibility.
+
+The shared ArchitectWorkspaceShell frames left review/actions and the right embedded ChatGPT companion. StructuredArchitectWorkspace owns review state; App retains exact-Workflow routing, Greenfield application rail status and browser-host mechanics. It no longer owns Interview recovery, draft promotion, canonical prompt freshness or review composition. Generated Architect Markdown is derived and rematerializable; it is excluded from canonical repository discovery and never parsed back into authority. Historical free-form Interview files are preserved and require a fresh structured cycle. Unambiguous accepted legacy Feature/Issue SQL sets adopt without recreating their records; ambiguous sets block.
+
+Project Creation approval enables the existing Project Planning boundary; Feature approval enables existing Feature Planning; Issue RCA approval enables existing Correction Planning. Migration, Integration, Infrastructure and Research assessments exist, but their Planning stages remain Not Ready after approval. Registered Projects require SQL prerequisites; historical unregistered Planning-document utilities remain within the later-family infrastructure, outside current Architect Workflow authority. The project-wide `project_state_authority` cutoff and SQLite schema version are unchanged. Family-by-family migration continues with Planning only after Architect and Operator acceptance of RWS05.
+
+Automated semantic/rendering proofs do not establish Operator visual acceptance. The bundle qualification report records the deterministic results and the single-pass visual validation target.
+
+## RWS05 Architect family cutover - 2026-10-01
+
+The seven substantive Workflow types now use:
+
+`approved SQL WorkflowIntake -> Architect interaction -> semantic SQL records -> ArchitectReviewCycle -> generated Markdown review projection -> exact-version SQL Decision -> next-stage eligibility`
+
+ArchitectReviewCycle holds exact Workflow/type/stage identity and the semantic-member version digest. It is a grouping/version anchor, not a duplicate document entity. Typed model-authored JSON is bounded transport; proposed Findings, RootCauses, BoundedSolutions, Criteria and Evidence persist atomically before Operator disposition. Human Operator Decisions govern an exact current cycle revision. Material semantic or source-Intake changes invalidate prior eligibility.
+
+ArchitectWorkspaceShell frames left review/actions and right embedded ChatGPT. StructuredArchitectWorkspace owns review state; App retains exact-Workflow routing, Greenfield application rail status and browser-host mechanics. It no longer owns Interview recovery, draft promotion, canonical prompt freshness or review composition. Generated Architect Markdown is derived and rematerializable, excluded from canonical discovery and never parsed back into authority. Historical free-form Interview files are preserved and require a fresh structured cycle. Unambiguous accepted legacy Feature/Issue SQL sets adopt without recreating their records; ambiguous sets block.
+
+Project Creation approval enables existing Project Planning; Feature approval enables existing Feature Planning; Issue RCA approval enables existing Correction Planning. Migration, Integration, Infrastructure and Research Planning stays Not Ready after assessment approval. Registered Projects require SQL prerequisites; historical unregistered Planning-document utilities remain in the later-family infrastructure, outside current Architect Workflow authority. The project-wide project_state_authority cutoff and SQLite schema version are unchanged. Planning-family migration starts only after Architect and Operator acceptance of RWS05.
+
+Automated proofs do not establish Operator visual acceptance. The bundle qualification report records deterministic results and the single-pass visual validation target.

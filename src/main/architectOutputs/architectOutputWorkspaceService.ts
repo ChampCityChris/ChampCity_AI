@@ -30,14 +30,6 @@ import {
   createFinalDevelopmentPlanningContext,
 } from "../documents/developmentPostMutationProjection";
 import {
-  getPreparedArchitectInterviewFinalDraftInstruction,
-  getPreparedArchitectInterviewHandoffInstruction,
-  getArchitectInterviewWorkspaceModel,
-  prepareArchitectInterviewFinalDraftHandoff,
-  prepareArchitectInterviewHandoff,
-  regenerateArchitectInterviewPrompt,
-} from "../architectInterview/architectInterviewService";
-import {
   generateProjectPlanningHandoff,
   getProjectPlanningWorkspaceModel,
   prepareProjectPlanningHandoff,
@@ -100,17 +92,14 @@ export function getArchitectOutputWorkspaceModel(
   const slots = documentSlotsForDefinition(workspaceRoot, documents, definition.outputKind, workspaceId, planningContext);
   const classifiedState = deriveState(slots, submission?.submission.state);
   const model = domainOverlay(workspaceRoot, workspaceId, classifiedState, planningContext);
-  const interviewDomainModel = workspaceId === "architect-interview"
-    ? model.domain as ReturnType<typeof getArchitectInterviewWorkspaceModel> | undefined
-    : undefined;
   const phaseInterviewDomainModel = workspaceId === "phase-interview"
     ? model.domain as ReturnType<typeof getPhaseInterviewWorkspaceModel> | undefined
     : undefined;
   const state = model.state ?? classifiedState;
   const handoff = sourceHandoffFromSubmission(submission?.submission.sourceHandoff) ??
     exactHandoffForWorkspace(workspaceRoot, documents, workspaceId, planningContext);
-  const preparedInstruction = interviewDomainModel || phaseInterviewDomainModel
-    ? interviewDomainModel?.handoffInstruction ?? phaseInterviewDomainModel?.handoffInstruction
+  const preparedInstruction = phaseInterviewDomainModel
+    ? phaseInterviewDomainModel?.handoffInstruction
     : submission && canCopySubmission(submission.submission.state)
       ? submission.preparedInstruction
       : undefined;
@@ -141,9 +130,7 @@ export function getArchitectOutputWorkspaceModel(
     cleanupStatus: submission?.cleanupStatus,
     cleanupError: submission?.cleanupError,
     canPrepareHandoff: model.canPrepareHandoff ?? canPrepareFromState(state),
-    canCopyHandoff: interviewDomainModel
-      ? interviewDomainModel.canCopyHandoff
-      : phaseInterviewDomainModel
+    canCopyHandoff: phaseInterviewDomainModel
       ? phaseInterviewDomainModel.canCopyHandoff
       : Boolean(preparedInstruction),
     canRegeneratePrompt: model.canRegeneratePrompt,
@@ -152,12 +139,9 @@ export function getArchitectOutputWorkspaceModel(
     canApplyDisposition: slots.length > 0 && slots.every(isReviewableSlot),
     currentOperatorReviewNotes: sharedReviewNotes(slots, documents),
     domain: model.domain,
-    canPrepareFinalDraftHandoff: interviewDomainModel?.canPrepareFinalDraftHandoff ??
-      phaseInterviewDomainModel?.canPrepareFinalDraftHandoff,
-    canCopyFinalDraftHandoff: interviewDomainModel?.canCopyFinalDraftHandoff ??
-      phaseInterviewDomainModel?.canCopyFinalDraftHandoff,
-    finalDraftPreparedInstruction: interviewDomainModel?.finalDraftHandoffInstruction ??
-      phaseInterviewDomainModel?.finalDraftHandoffInstruction,
+    canPrepareFinalDraftHandoff: phaseInterviewDomainModel?.canPrepareFinalDraftHandoff,
+    canCopyFinalDraftHandoff: phaseInterviewDomainModel?.canCopyFinalDraftHandoff,
+    finalDraftPreparedInstruction: phaseInterviewDomainModel?.finalDraftHandoffInstruction,
   };
 }
 
@@ -180,17 +164,12 @@ function exactHandoffForWorkspace(
     : undefined;
 }
 
-export function prepareArchitectOutputHandoff(workspaceRoot: string, workspaceId: "architect-interview"): Promise<ArchitectOutputWorkspaceModel>;
-export function prepareArchitectOutputHandoff(workspaceRoot: string, workspaceId: Exclude<WorkspaceId, "architect-interview">): ArchitectOutputWorkspaceModel;
-export function prepareArchitectOutputHandoff(workspaceRoot: string, workspaceId: WorkspaceId): ArchitectOutputWorkspaceModel | Promise<ArchitectOutputWorkspaceModel>;
 export function prepareArchitectOutputHandoff(
   workspaceRoot: string,
   workspaceId: WorkspaceId,
-): ArchitectOutputWorkspaceModel | Promise<ArchitectOutputWorkspaceModel> {
+): ArchitectOutputWorkspaceModel {
   resolveDefinitionByWorkspace(workspaceId);
   switch (workspaceId) {
-    case "architect-interview":
-      return prepareArchitectInterviewHandoff(workspaceRoot).then(() => getArchitectOutputWorkspaceModel(workspaceRoot, workspaceId));
     case "project-planning-review":
       prepareProjectPlanningHandoff(workspaceRoot);
       break;
@@ -215,20 +194,6 @@ export function prepareArchitectOutputHandoff(
   return getArchitectOutputWorkspaceModel(workspaceRoot, workspaceId);
 }
 
-export async function regenerateArchitectInterviewPromptWorkspace(
-  workspaceRoot: string,
-): Promise<ArchitectOutputWorkspaceModel> {
-  await regenerateArchitectInterviewPrompt(workspaceRoot);
-  return getArchitectOutputWorkspaceModel(workspaceRoot, "architect-interview");
-}
-
-export async function prepareArchitectInterviewFinalDraftHandoffWorkspace(
-  workspaceRoot: string,
-): Promise<ArchitectOutputWorkspaceModel> {
-  await prepareArchitectInterviewFinalDraftHandoff(workspaceRoot);
-  return getArchitectOutputWorkspaceModel(workspaceRoot, "architect-interview");
-}
-
 export function preparePhaseInterviewFinalDraftHandoffWorkspace(
   workspaceRoot: string,
 ): ArchitectOutputWorkspaceModel {
@@ -240,9 +205,6 @@ export function getPreparedArchitectOutputInstruction(
   workspaceRoot: string,
   workspaceId: WorkspaceId,
 ): string {
-  if (workspaceId === "architect-interview") {
-    return getPreparedArchitectInterviewHandoffInstruction(workspaceRoot);
-  }
   if (workspaceId === "phase-interview") {
     return getPhaseInterviewHandoffInstruction(workspaceRoot);
   }
@@ -255,12 +217,6 @@ export function getPreparedArchitectOutputInstruction(
     throw new Error("Prepare Handoff must be completed before Copy Handoff.");
   }
   return instruction;
-}
-
-export function getPreparedArchitectInterviewFinalDraftOutputInstruction(
-  workspaceRoot: string,
-): string {
-  return getPreparedArchitectInterviewFinalDraftInstruction(workspaceRoot);
 }
 
 export function getPreparedPhaseInterviewFinalDraftOutputInstruction(
@@ -289,21 +245,6 @@ export function resolveArchitectOutputCopyHandoff(
   return {
     instruction,
     result: copyArchitectOutputHandoffResult(workspaceId, instruction),
-  };
-}
-
-export function resolveArchitectInterviewCopyFinalDraftHandoff(
-  workspaceRoot: string,
-): { instruction: string; result: RuntimeActionResult } {
-  const instruction = getPreparedArchitectInterviewFinalDraftOutputInstruction(workspaceRoot);
-  return {
-    instruction,
-    result: {
-      ok: true,
-      action: "architectInterview:copyFinalDraftHandoff",
-      message: "Final Draft handoff copied. Paste and send it manually after the interview summary is confirmed.",
-      payload: { bytes: Buffer.byteLength(instruction, "utf8"), workspaceId: "architect-interview" },
-    },
   };
 }
 
@@ -478,13 +419,7 @@ function targetPathsForWorkspace(
   planningContext: PlanningProjectionContext,
 ): Map<string, string> {
   const targets = new Map<string, string>();
-  if (workspaceId === "architect-interview") {
-    const prompt = handoffForWorkspace(documents, workspaceId);
-    const target = prompt
-      ? documents.find((document) => document.markdownPath === prompt.path)?.metadata.canonical?.workflowData.outputMarkdownPath
-      : undefined;
-    targets.set("interview", typeof target === "string" ? target : latestPath(documents, outputKind));
-  } else if (workspaceId === "project-planning-review") {
+  if (workspaceId === "project-planning-review") {
     const handoff = handoffForWorkspace(documents, workspaceId);
     const handoffDocument = handoff ? documents.find((document) => document.markdownPath === handoff.path) : undefined;
     targets.set("project-profile", stringValue(handoffDocument?.metadata.canonical?.workflowData.projectProfileTarget) ?? "planning/project/PROJECT_PROFILE.md");
@@ -524,12 +459,7 @@ function handoffForWorkspace(
     "phase-planning-bundle": "phase-planning",
     "work-card-repair": "repair",
   };
-  const handoff = workspaceId === "architect-interview"
-    ? documents
-        .filter((document) => document.metadata.artifactType === "project-architect-interview-prompt")
-        .filter((document) => document.effectiveDisposition === "Approved")
-        .at(-1)
-    : workspaceId === "work-card-planning"
+  const handoff = workspaceId === "work-card-planning"
       ? undefined
       : documents
           .filter((document) => document.metadata.artifactType === "generated-handoff")
@@ -573,22 +503,6 @@ function domainOverlay(
   try {
     const definition = resolveDefinitionByWorkspace(workspaceId);
     switch (workspaceId) {
-      case "architect-interview": {
-        const model = getArchitectInterviewWorkspaceModel(workspaceRoot, planningContext);
-        return {
-          state: model.state === "prerequisites-unavailable" || model.state === "prompt-missing"
-            ? "not-ready"
-            : model.state === "waiting-for-output"
-            ? "waiting-for-drafts"
-            : model.state,
-          requiredAction: model.requiredAction,
-          reason: model.reason,
-          evidencePaths: model.evidencePaths,
-          canPrepareHandoff: model.canPrepareHandoff ?? model.canCopyHandoff,
-          canRegeneratePrompt: model.canRegeneratePrompt,
-          domain: model,
-        };
-      }
       case "project-planning-review": {
         const model = getProjectPlanningWorkspaceModel(workspaceRoot, planningContext);
         return {

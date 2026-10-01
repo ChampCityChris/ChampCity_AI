@@ -547,6 +547,9 @@ export type ArchitectBrowserAttachmentState =
   (typeof architectBrowserAttachmentStates)[number];
 
 export interface ArchitectHandoffManifest {
+  workflowId?: string;
+  intakeId?: string;
+  intakeVersion?: number;
   state: ArchitectHandoffState;
   promptMarkdownPath?: string;
   projectIntakeMarkdownPath?: string;
@@ -701,18 +704,8 @@ export interface OperatorValidationDecisionInput {
   repairDefectText?: string;
 }
 
-export type ArchitectInterviewWorkspaceState =
-  | "prerequisites-unavailable"
-  | "prompt-missing"
-  | "ready-for-handoff"
-  | "waiting-for-output"
-  | "ready-for-review"
-  | "revision-requested"
-  | "rejected"
-  | "completed"
-  | "needs-attention";
-
 export type ArchitectInterviewRailStatus =
+  | "Not Ready"
   | "Open"
   | "Waiting for Output"
   | "Awaiting Approval"
@@ -730,54 +723,6 @@ export type ProjectLifecycleRailStatus =
   | "Needs Attention"
   | "Conflict";
 
-export type ArchitectInterviewSelectedDocumentRole = "project-intake" | "prompt" | "interview";
-
-export interface ArchitectInterviewDocumentIdentity {
-  logicalDocumentId: string;
-  markdownPath: string;
-  artifactRevision: number;
-  disposition: DocumentDispositionStatus;
-  documentReadState: string;
-  freshnessState?: "fresh" | "stale";
-  participationRole?: string;
-  artifactType?: string;
-  readError?: string;
-  operatorReviewNotes?: string;
-}
-
-export interface ArchitectInterviewWorkspaceModel {
-  state: ArchitectInterviewWorkspaceState;
-  railStatus: ArchitectInterviewRailStatus;
-  handoffState: ArchitectHandoffState;
-  handoffInstruction?: string;
-  draftSubmissionState?: "waiting-for-drafts" | "partial-draft-set" | "ready-for-promotion" | "promotion-failed" | "promoted" | "superseded";
-  draftPromotionError?: string;
-  projectIntakeDocument?: ArchitectInterviewDocumentIdentity;
-  intakeRecoveryDetail?: PlanningDocumentDetail;
-  promptDocument?: ArchitectInterviewDocumentIdentity & { outputMarkdownPath?: string };
-  interviewTargets?: {
-    markdownPath: string;
-  };
-  interviewDocument?: ArchitectInterviewDocumentIdentity;
-  selectedReviewDocumentRole: ArchitectInterviewSelectedDocumentRole;
-  interviewDisposition?: DocumentDispositionStatus;
-  documentReadState?: string;
-  freshnessState?: "fresh" | "stale";
-  canRegeneratePrompt?: boolean;
-  canPrepareHandoff?: boolean;
-  canCopyHandoff: boolean;
-  canPrepareFinalDraftHandoff?: boolean;
-  canCopyFinalDraftHandoff?: boolean;
-  finalDraftHandoffInstruction?: string;
-  canApplyDisposition: boolean;
-  currentOperatorReviewNotes?: string;
-  projectIntakeComplete: boolean;
-  requiredAction: string;
-  reason: string;
-  evidencePaths: string[];
-  markdownPath?: string;
-  preview?: string;
-}
 
 export type ProjectPlanningWorkspaceState =
   | "not-ready"
@@ -1654,10 +1599,7 @@ export interface ChampCityApi {
   getProjectPlanningWorkspaceModel: () => Promise<ProjectPlanningWorkspaceModel>;
   getArchitectOutputWorkspaceModel: (workspaceId: WorkspaceId) => Promise<ArchitectOutputWorkspaceModel>;
   prepareArchitectOutputHandoff: (workspaceId: WorkspaceId) => Promise<ArchitectOutputWorkspaceModel>;
-  regenerateArchitectInterviewPrompt: () => Promise<ArchitectOutputWorkspaceModel>;
   copyArchitectOutputHandoff: (workspaceId: WorkspaceId) => Promise<RuntimeActionResult>;
-  prepareArchitectInterviewFinalDraftHandoff: () => Promise<ArchitectOutputWorkspaceModel>;
-  copyArchitectInterviewFinalDraftHandoff: () => Promise<RuntimeActionResult>;
   preparePhaseInterviewFinalDraftHandoff: () => Promise<ArchitectOutputWorkspaceModel>;
   copyPhaseInterviewFinalDraftHandoff: () => Promise<RuntimeActionResult>;
   reviewArchitectOutput: (

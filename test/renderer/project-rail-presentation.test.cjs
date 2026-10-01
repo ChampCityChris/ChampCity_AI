@@ -6,13 +6,11 @@ const {
   deriveArchitectInterviewRailStatus,
   deriveProjectRailPresentation,
   isArchitectInterviewDualPaneWorkspace,
-  shouldRenderArchitectInterviewDispositionControls,
   shouldRenderGenericPreviewDispositionControls,
   shouldRenderInlineProjectIntakeDisposition,
   shouldRenderPhaseMapDispositionControls,
 } = require("../../dist/shared/workspaces/projectRailPresentation.js");
 const {
-  deriveArchitectInterviewRailStatusFromDocuments,
   deriveProjectLifecycleRailStatuses,
 } = require("../../dist/shared/workspaces/projectLifecycleRailStatus.js");
 const {
@@ -136,56 +134,18 @@ test("Architect Interview rail status is evidence-derived and independent from s
   assert.equal(presentation.isRequired, true);
   assert.equal(presentation.statusLabel, "Waiting for Output");
   assert.equal(deriveArchitectInterviewRailStatus({ railStatus: "Completed" }), "Completed");
-  assert.equal(deriveArchitectInterviewRailStatus(null), "Open");
+  assert.equal(deriveArchitectInterviewRailStatus(null), "Not Ready");
 });
 
-test("Architect Interview rail status can be derived from repository documents without active Architect model", () => {
-  const root = tempWorkspace("champcity-rail-architect-doc-status-");
-  const seeded = seedApprovedProjectIntake(root, "demo");
-  let documents = listPlanningDocuments(root);
-
-  assert.equal(deriveArchitectInterviewRailStatusFromDocuments(documents), "Waiting for Output");
-
-  writeDoc(root, seeded.interview, "project-architect-interview", "Approved", {
-    sourceRevisions: [
-      { path: seeded.intake, revision: 1 },
-      { path: seeded.prompt, revision: 1 },
-    ],
-  });
-  documents = listPlanningDocuments(root);
-  assert.equal(deriveArchitectInterviewRailStatusFromDocuments(documents), "Completed");
-
-  const projectPlanning = getProjectPlanningWorkspaceModel(root);
-  const statuses = deriveProjectLifecycleRailStatuses(documents, {
-    projectIntakeStatus: "Completed",
-    architectInterviewStatus: deriveArchitectInterviewRailStatusFromDocuments(documents),
-    projectPlanningStatus: projectPlanning.railStatus,
-  });
-  assert.equal(statuses["project-planning-review"], "Ready");
+test("Architect Interview rail uses SQL model status independently of historical files", () => {
+  const model = {railStatus: "Completed"};
+  const statuses = deriveProjectLifecycleRailStatuses([], {projectIntakeStatus: "Completed", architectInterviewStatus: deriveArchitectInterviewRailStatus(model), projectPlanningStatus: "Ready"});
+  assert.equal(statuses["architect-interview"], "Completed"); assert.equal(statuses["project-planning-review"], "Ready");
 });
 
-test("Architect Interview prompt selection hides disposition controls", () => {
-  assert.equal(
-    shouldRenderArchitectInterviewDispositionControls({
-      selectedRole: "prompt",
-      canApplyDisposition: true,
-    }),
-    false,
-  );
-  assert.equal(
-    shouldRenderArchitectInterviewDispositionControls({
-      selectedRole: "interview",
-      canApplyDisposition: true,
-    }),
-    true,
-  );
-  assert.equal(
-    shouldRenderArchitectInterviewDispositionControls({
-      selectedRole: "interview",
-      canApplyDisposition: false,
-    }),
-    false,
-  );
+test("Architect disposition controls belong to the structured cycle component", () => {
+  const source = require("node:fs").readFileSync(path.join(__dirname, "../../src/renderer/app/StructuredArchitectWorkspace.tsx"), "utf8");
+  assert.match(source, /canReviewArchitectRevision/); assert.match(source, /expectedRecordVersion: model!\.review!\.recordVersion/);
 });
 
 test("embedded Architect workspaces use dual-pane mode without changing other workspaces", () => {

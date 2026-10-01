@@ -364,23 +364,14 @@ const api: ChampCityApi = {
       "architectOutput:prepareHandoff",
       workspaceId,
     ) as ReturnType<ChampCityApi["prepareArchitectOutputHandoff"]>,
-  regenerateArchitectInterviewPrompt: () =>
-    ipcRenderer.invoke(
-      "architectOutput:regenerateInterviewPrompt",
-    ) as ReturnType<ChampCityApi["regenerateArchitectInterviewPrompt"]>,
+
   copyArchitectOutputHandoff: (workspaceId) =>
     ipcRenderer.invoke(
       "architectOutput:copyHandoff",
       workspaceId,
     ) as ReturnType<ChampCityApi["copyArchitectOutputHandoff"]>,
-  prepareArchitectInterviewFinalDraftHandoff: () =>
-    ipcRenderer.invoke(
-      "architectInterview:prepareFinalDraftHandoff",
-    ) as ReturnType<ChampCityApi["prepareArchitectInterviewFinalDraftHandoff"]>,
-  copyArchitectInterviewFinalDraftHandoff: () =>
-    ipcRenderer.invoke(
-      "architectInterview:copyFinalDraftHandoff",
-    ) as ReturnType<ChampCityApi["copyArchitectInterviewFinalDraftHandoff"]>,
+
+
   preparePhaseInterviewFinalDraftHandoff: () =>
     ipcRenderer.invoke(
       "phaseInterview:prepareFinalDraftHandoff",

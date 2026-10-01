@@ -14,7 +14,6 @@ const routes = new Map([
   ["issueResolution:copyIssueFixCardAdvisoryReviewPrompt", "resolveIssueFixCardAdvisoryReviewPrompt"],
   ["issueResolution:copyIssueFixCardRepairHandoff", "resolveIssueFixCardRepairCopyHandoff"],
   ["architectOutput:copyHandoff", "resolveArchitectOutputCopyHandoff"],
-  ["architectInterview:copyFinalDraftHandoff", "resolveArchitectInterviewCopyFinalDraftHandoff"],
   ["phaseInterview:copyFinalDraftHandoff", "resolvePhaseInterviewCopyFinalDraftHandoff"],
   ["currentWorkflow:copyAdvisoryReviewPrompt", "resolveCurrentAdvisoryReviewPrompt"],
 ]);
@@ -66,3 +65,7 @@ for (const [channel, resolver] of routes) {
     assert.equal(writes, 0);
   });
 }
+
+test("retired Interview clipboard authority is absent", () => {
+  assert.equal(source.statements.some((node) => ts.isExpressionStatement(node) && ts.isCallExpression(node.expression) && node.expression.arguments[0]?.text === "architectInterview:copyFinalDraftHandoff"), false);
+});

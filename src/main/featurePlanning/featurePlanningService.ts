@@ -88,11 +88,9 @@ export function createFeaturePlanningService(dependencies: { openStore?: (databa
       const expectedWorkspace = stage === "assessment" ? "feature-assessment" : "feature-planning";
       if (draft.stage !== stage || model.workflow.currentWorkspace !== expectedWorkspace || (stage === "plan" && model.assessmentState !== "accepted")) throw Error("Feature disposition does not match the current Workflow workspace and assessment state.");
       if (action.outcome === "accept" && stage === "plan") { if (!action.graph || action.graph.workflowId !== workflowId) throw Error("Accepted graph must name the exact Feature Workflow."); await workflowApp.acceptReviewedWorkflowPlanningGraph(root, action.graph); }
-      else if (action.outcome === "accept" && stage === "assessment") { if (!action.assessment) throw Error("Accepted Feature assessment must provide all seven structured dimensions."); await withState(root, workflowId, async (store, projectId) => createProjectStateService(store, operator).acceptFeatureAssessment(projectId, { workflowId, rationale: (action.rationale ?? "").slice(0, 4096), assessment: action.assessment! })); }
       else await withState(root, workflowId, async (store, projectId) => { await createProjectStateService(store, operator).recordDecision(projectId, workflowId, { decisionType: `feature-${stage}-review`, outcome: action.outcome === "revision" ? "revision_requested" : "rejected", decisionScope: workflowId, rationale: (action.rationale ?? "").slice(0, 8000) }); });
       drafts.delete(key);
       if (action.outcome === "revision") return prepare(root, workflowId, stage);
-      if (action.outcome === "accept" && stage === "assessment") return prepare(root, workflowId, "plan");
       return get(root, workflowId);
     }
     throw Error("Unsupported Feature planning action.");

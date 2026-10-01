@@ -43,7 +43,6 @@ const routes = [
   ["generateCloseReturnNextIntakeHandoff", "generateCloseReturnNextIntakeHandoff", ["WC02"]],
   ["getArchitectOutputWorkspaceModel", "getArchitectOutputWorkspaceModel", ["work-card-planning"]],
   ["prepareArchitectOutputHandoff", "prepareArchitectOutputHandoff", ["work-card-planning"]],
-  ["prepareArchitectInterviewFinalDraftHandoff", "prepareArchitectInterviewFinalDraftHandoffWorkspace", []],
   ["preparePhaseInterviewFinalDraftHandoff", "preparePhaseInterviewFinalDraftHandoffWorkspace", []],
   ["applyIssueFixCardValidationDecision", "applyIssueFixCardValidationDecision", ["ISSUE_001", { decision: "Approve" }, "validation"]],
   ["prepareIssueFixCardRepairHandoff", "prepareIssueFixCardRepairHandoff", ["ISSUE_001", "validation"]],
@@ -88,7 +87,6 @@ test("handoff preload calls copy one resolved instruction and return the corresp
   for (const [method, resolver, args] of [
     ["copyCurrentWorkCardAdvisoryReviewPrompt", "resolveCurrentAdvisoryReviewPrompt", []],
     ["copyArchitectOutputHandoff", "resolveArchitectOutputCopyHandoff", ["work-card-planning"]],
-    ["copyArchitectInterviewFinalDraftHandoff", "resolveArchitectInterviewCopyFinalDraftHandoff", []],
     ["copyPhaseInterviewFinalDraftHandoff", "resolvePhaseInterviewCopyFinalDraftHandoff", []],
     ["copyIssueFixCardAdvisoryReviewPrompt", "resolveIssueFixCardAdvisoryReviewPrompt", ["ISSUE_001", "validation"]],
     ["copyIssueFixCardRepairHandoff", "resolveIssueFixCardRepairCopyHandoff", ["ISSUE_001", "validation"]],
@@ -112,19 +110,19 @@ test("registered API surface excludes retired mutation routes and unrestricted n
   await assert.rejects(api.getCurrentWorkspaceModel(), /No workspace selected/);
   assert.equal(calls, 0);
   for (const channel of ["architectInterview:save", "architectInterview:submit", "projectPlanning:save", "projectPlanning:submit", "phaseInterview:saveOutput", "workCardPlanning:saveOutput", "workCardRepair:saveOutput"]) assert.equal(handlers.has(channel), false);
-  for (const method of ["saveFormalWorkCardOutput", "saveRepairWorkCardOutput", "prepareIssueFixCardArchitectReviewHandoff", "copyIssueFixCardArchitectReviewHandoff", "promoteIssueFixCardArchitectReviewDraft", "fs", "shell", "process", "require", "ipcRenderer"]) assert.equal(Object.hasOwn(api, method), false);
+  for (const method of ["prepareArchitectInterviewFinalDraftHandoff", "copyArchitectInterviewFinalDraftHandoff", "saveFormalWorkCardOutput", "saveRepairWorkCardOutput", "prepareIssueFixCardArchitectReviewHandoff", "copyIssueFixCardArchitectReviewHandoff", "promoteIssueFixCardArchitectReviewDraft", "fs", "shell", "process", "require", "ipcRenderer"]) assert.equal(Object.hasOwn(api, method), false);
 });
 
-test("production catalog resolves seven active definitions with nine output slots", () => {
+test("production catalog resolves six active definitions with eight output slots", () => {
   const catalog = require("../../dist/main/architectOutputs/productionArchitectOutputCatalog.js");
   const expected = [
-    ["project-architect-interview", "architect-interview"], ["project-planning", "project-planning-review"],
+    ["project-planning", "project-planning-review"],
     ["phase-map", "project-phase-map"], ["phase-interview", "phase-interview"],
     ["phase-planning-bundle", "phase-planning-bundle"], ["formal-work-card", "work-card-planning"], ["repair-work-card", "work-card-repair"],
   ];
   const definitions = catalog.activeProductionArchitectOutputDefinitions();
   assert.deepEqual(definitions.map((entry) => [entry.outputKind, entry.owningWorkspaceId]), expected);
-  assert.equal(definitions.reduce((count, entry) => count + entry.slots.length, 0), 9);
+  assert.equal(definitions.reduce((count, entry) => count + entry.slots.length, 0), 8);
   for (const entry of definitions) assert.equal(catalog.resolveProductionArchitectOutputDefinition(entry.outputKind, entry.owningWorkspaceId), entry);
   assert.throws(() => catalog.resolveProductionArchitectOutputDefinition("unknown", "work-card-planning"), /Unknown/);
 });

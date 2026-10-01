@@ -1,4 +1,4 @@
-import { StructuredArchitectWorkspace } from "./StructuredGreenfieldArchitectWorkspace";
+import { StructuredArchitectWorkspace } from "./StructuredArchitectWorkspace";
 import { useEffect, useState, type ReactNode } from "react";
 import type { IssuePlanningProjection } from "../../shared/issuePlanningContracts";
 import type { WorkflowInstanceSummary } from "../../shared/workflowApplicationContracts";

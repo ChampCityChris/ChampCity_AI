@@ -1,7 +1,8 @@
+import type { ProjectStateRelationship } from "./relationshipRegistry";
 import type { ArchitectStageKind, EntityId, ProjectStateEntity, ProjectStateRecord } from "./domainContracts";
 import type { WorkflowType } from "./workflowTypeRegistry";
 import type { EffectiveDisposition } from "./projectStateService";
-import { GREENFIELD_ARCHITECT_SECTIONS } from "../architectWorkspaceContracts";
+import { GREENFIELD_ARCHITECT_SECTIONS, FEATURE_ARCHITECT_SECTIONS, ASSESSMENT_SECTIONS, type AssessmentWorkflowType } from "../architectWorkspaceContracts";
 
 export const ARCHITECT_STAGE_BY_WORKFLOW: Partial<Record<WorkflowType, ArchitectStageKind>> = {
   "project-creation": "project-interview", "feature-capability": "feature-assessment", "issue-resolution": "issue-rca",
@@ -24,7 +25,9 @@ export async function architectSemanticDigest(members: ProjectStateEntity[]): Pr
   return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value))), byte => byte.toString(16).padStart(2, "0")).join("");
 }
 export function renderArchitectReviewProjection(cycle: ProjectStateRecord<"ArchitectReviewCycle">, members: ProjectStateEntity[], disposition: EffectiveDisposition): ArchitectReviewProjection {
-  const ordered = [...members].sort((a, b) => a.entityType.localeCompare(b.entityType) || a.id.localeCompare(b.id));
+  const labels = cycle.body.workflowType === "feature-capability" ? Object.values(FEATURE_ARCHITECT_SECTIONS) : Object.hasOwn(ASSESSMENT_SECTIONS, cycle.body.workflowType) ? Object.values(ASSESSMENT_SECTIONS[cycle.body.workflowType as AssessmentWorkflowType]) : [];
+  const rank = (record: ProjectStateEntity) => record.entityType === "Finding" && labels.includes(record.body.title as never) ? labels.indexOf(record.body.title as never) : labels.length + ["RootCause", "BoundedSolution", "Criterion", "Finding", "Evidence"].indexOf(record.entityType);
+  const ordered = [...members].sort((a, b) => rank(a) - rank(b) || a.entityType.localeCompare(b.entityType) || a.id.localeCompare(b.id));
   const filename = `ARCHITECT_REVIEW_${cycle.id}.md`;
   const sources = ordered.map(member => ({entityId: member.id, recordVersion: member.recordVersion}));
   const content = cycle.body.stageKind === "project-interview" ? renderGreenfieldSections(ordered) : ordered.map(member => `## ${member.entityType} ${member.id}\n\n` + Object.entries(member.body).map(([key, value]) => `**${key}**: ${Array.isArray(value) ? value.join("; ") : typeof value === "object" ? JSON.stringify(value) : String(value)}`).join("\n\n")).join("\n\n");
@@ -45,4 +48,24 @@ function renderGreenfieldSections(members: ProjectStateEntity[]): string {
   }
   for (const member of members) if (member.entityType === "Finding" && !member.body.category.startsWith("architect:project-interview:")) (values.projectUnderstanding ??= []).push(`${member.body.title}: ${member.body.statement}`);
   return Object.entries(GREENFIELD_ARCHITECT_SECTIONS).map(([key, title]) => `## ${title}\n\n${(values[key] ?? []).map(value => `- ${value}`).join("\n") || "Not provided."}`).join("\n\n");
+}
+
+/** Same ownership traversal for transactional review and synchronous Planning eligibility. */
+export function architectMemberOwnershipIsValid(workflowId: EntityId, members: ProjectStateEntity[], records: ProjectStateEntity[], edges: ProjectStateRelationship[]): boolean {
+  const byId = new Map(records.map(record => [record.id, record]));
+  for (const member of members) {
+    const pending = [member.id], visited = new Set<EntityId>();
+    while (pending.length) {
+      const id = pending.pop()!;
+      if (visited.has(id)) continue;
+      visited.add(id);
+      const linked = byId.get(id);
+      if (!linked || linked.entityType === "Workflow" && id !== workflowId || linked.entityType === "WorkflowIntake" && linked.body.workflowId !== workflowId || linked.entityType === "ArchitectReviewCycle" && linked.body.workflowId !== workflowId) return false;
+      for (const edge of edges) {
+        if (edge.fromEntityId === id && (["workflow_member", "review_member", "part_of"].includes(edge.relationshipType) || !edge.endedAt && (linked.entityType === "Evidence" && edge.relationshipType === "supports" || linked.entityType === "RootCause" && edge.relationshipType === "explains"))) pending.push(edge.toEntityId);
+        if (!edge.endedAt && linked.entityType === "Criterion" && edge.toEntityId === id && edge.relationshipType === "defines_criterion") pending.push(edge.fromEntityId);
+      }
+    }
+  }
+  return true;
 }

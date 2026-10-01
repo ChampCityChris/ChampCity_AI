@@ -746,10 +746,11 @@ test("structured Intake renderer actions show SQL review, exact approval and uns
 });
 
 test("four remaining Architect stages route through the shared shell with a right browser companion", () => {
-  const {StructuredArchitectWorkspace} = loader.loadRendererSourceModule("src/renderer/app/StructuredGreenfieldArchitectWorkspace.tsx");
+  const {StructuredArchitectWorkspace} = loader.loadRendererSourceModule("src/renderer/app/StructuredArchitectWorkspace.tsx");
   for (const [workflowType, currentWorkspace] of [["refactor-migration", "refactor-assessment"], ["integration-composition", "integration-assessment"], ["infrastructure-platform", "infrastructure-assessment"], ["research-prototype", "research-assessment"]]) {
     assert.equal(workflowPlanningSurface({workflowType, currentWorkspace, lifecycleState: "active"}), "architect");
     const html = renderToStaticMarkup(React.createElement(StructuredArchitectWorkspace, {workflowId: "exact-workflow", stageLabel: "Architect Assessment", browserVisible: true, browserCompanion: React.createElement("div", {id: "assessment-browser"}), onReturn: () => {}}));
     assert.match(html, /figma-doc-review-column/); assert.match(html, /figma-doc-chat-workspace/); assert.match(html, /assessment-browser/); assert.match(html, /Architect Workflow pipeline/); assert.match(html, /Not Ready/);
+    for (const label of ["Work Item Map", "Execution", "Validation", "Close"]) assert.ok(html.includes(label));
   }
 });

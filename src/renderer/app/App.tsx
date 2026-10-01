@@ -28,7 +28,6 @@ import {
   type WorkCardMapProjection,
   workspaceDefinitions,
   type ArchitectBrowserFoundationStatus,
-  type ArchitectInterviewRailStatus,
   type ProjectIntakeSubmission,
   type WorkspaceId,
   type WorkspaceSelection,
@@ -53,7 +52,6 @@ import {
   isArchitectInterviewDualPaneWorkspace,
 } from "../../shared/workspaces/projectRailPresentation";
 import {
-  deriveArchitectInterviewRailStatusFromDocuments,
   deriveProjectLifecycleRailStatuses,
 } from "../../shared/workspaces/projectLifecycleRailStatus";
 import {
@@ -132,8 +130,8 @@ import {
   phaseValidationActionForWorkspace,
   phaseValidationPresentation,
 } from "./phaseValidationRendererOrchestration";
-import { GreenfieldArchitectWorkspace, readArchitectReviewDocument } from "./GreenfieldArchitectWorkspace";
-import { StructuredGreenfieldArchitectWorkspace, StructuredArchitectWorkspace } from "./StructuredGreenfieldArchitectWorkspace";
+import { LegacyArchitectOutputWorkspace } from "./LegacyArchitectOutputWorkspace";
+import { StructuredArchitectWorkspace } from "./StructuredArchitectWorkspace";
 import { FigmaDocumentCard, FigmaMarkdownBody } from "./FigmaDocumentCard";
 import { FigmaDocumentDispositionPanel } from "./FigmaDocumentDispositionPanel";
 import { FigmaAppStrip } from "./figma/FigmaAppStrip";
@@ -1113,14 +1111,19 @@ export function App(): JSX.Element {
   const greenfieldArchitectWorkflowId = workflowInstance?.workflowType === "project-creation" ? workflowInstance.workflowId : greenfieldWorkflows.length === 1 ? greenfieldWorkflows[0].workflowId : null;
   useEffect(() => {
     let active = true;
-    if (greenfieldArchitectWorkflowId) void window.champcity.getStructuredArchitectWorkspace(greenfieldArchitectWorkflowId).then(model => {if (active) setArchitectInterviewRailStatus(model.railStatus);}).catch(() => {if (active) setArchitectInterviewRailStatus("Not Ready");});
+    if (greenfieldArchitectWorkflowId) void window.champcity.getStructuredArchitectWorkspace(greenfieldArchitectWorkflowId).then(model => {if (active) {setArchitectInterviewRailStatus(model.railStatus); setProjectIntakeRailStatus(model.intakeRailStatus);}}).catch(() => {if (active) setArchitectInterviewRailStatus("Not Ready");});
     else setArchitectInterviewRailStatus("Not Ready");
     return () => {active = false;};
   }, [greenfieldArchitectWorkflowId, documents]);
+  useEffect(() => {
+    let active = true;
+    if (workspace.ok && greenfieldArchitectWorkflowId) void window.champcity.getProjectPlanningWorkspaceModel().then(model => {if (active) setProjectPlanningModel(model);}).catch(() => {if (active) setProjectPlanningModel(null);});
+    return () => {active = false;};
+  }, [architectInterviewRailStatus, greenfieldArchitectWorkflowId, workspace.ok, workspace.workspaceRoot]);
   const projectRailStatuses = useMemo(() => {
     const statuses = deriveProjectLifecycleRailStatuses(documents, {
       projectIntakeStatus: projectIntakeRailStatus,
-      architectInterviewStatus: architectInterviewRailStatus === "Not Ready" ? "Open" : architectInterviewRailStatus,
+      architectInterviewStatus: architectInterviewRailStatus,
       projectPlanningStatus: projectPlanningModel?.railStatus ?? "Not Ready",
     });
     if (architectOutputModel) {
@@ -1284,7 +1287,7 @@ export function App(): JSX.Element {
   async function refreshArchitectOutputWorkspace(
     options: { autoSelectOutput?: boolean; autoSelectNewOutput?: boolean; force?: boolean; quiet?: boolean; refreshRepositoryProjection?: boolean; workspaceId?: WorkspaceId } = {},
   ): Promise<void> {
-    if (!workspace.ok) {
+    if (!workspace.ok || (options.workspaceId ?? activeWorkspaceId) === "architect-interview") {
       return;
     }
     if (options.quiet && architectOutputPollInFlightRef.current !== null) {
@@ -1331,7 +1334,7 @@ export function App(): JSX.Element {
         setSelectedArchitectOutputSlotId(selectedSlot.slotId);
       }
       const nextDocumentId =
-        selectedSlot?.logicalDocumentId ?? architectInterviewRecoveryDocumentId(nextModel) ?? null;
+        selectedSlot?.logicalDocumentId ?? null;
 
       if (
         (options.autoSelectOutput ?? options.autoSelectNewOutput) &&
@@ -1415,24 +1418,6 @@ export function App(): JSX.Element {
     }
   }
 
-  async function prepareArchitectInterviewFinalDraftFromAction(): Promise<void> {
-    if (!(await preflightMcpHandoff())) return;
-    setDocumentError("");
-    setArchitectFeedback(null);
-    try {
-      const nextModel = await window.champcity.prepareArchitectInterviewFinalDraftHandoff();
-      setArchitectOutputModel(nextModel);
-      setArchitectFeedback({ kind: "success", message: architectInterviewFinalDraftPreparedFeedback }, 3500);
-      await refreshDocuments({ useResolver: true });
-      await refreshArchitectOutputWorkspace({ force: true, autoSelectOutput: true });
-    } catch (error) {
-      setArchitectFeedback({
-        kind: "error",
-        message: error instanceof Error ? error.message : "Final Draft handoff could not be prepared.",
-      });
-    }
-  }
-
   async function preparePhaseInterviewFinalDraftFromAction(): Promise<void> {
     if (!(await preflightMcpHandoff())) return;
     setDocumentError("");
@@ -1451,23 +1436,6 @@ export function App(): JSX.Element {
     }
   }
 
-  async function copyArchitectInterviewFinalDraftHandoff(): Promise<void> {
-    if (!(await preflightMcpHandoff())) return;
-    setDocumentError("");
-    setArchitectFeedback(null);
-    try {
-      await window.champcity.copyArchitectInterviewFinalDraftHandoff();
-      setArchitectFeedback({ kind: "success", message: architectInterviewFinalDraftCopiedFeedback }, 4500);
-      await refreshArchitectStatus();
-      await refreshArchitectOutputWorkspace({ force: true });
-    } catch (error) {
-      setArchitectFeedback({
-        kind: "error",
-        message: error instanceof Error ? error.message : "Final Draft handoff could not be copied.",
-      });
-    }
-  }
-
   async function copyPhaseInterviewFinalDraftHandoff(): Promise<void> {
     if (!(await preflightMcpHandoff())) return;
     setDocumentError("");
@@ -1481,24 +1449,6 @@ export function App(): JSX.Element {
       setArchitectFeedback({
         kind: "error",
         message: error instanceof Error ? error.message : "Final Draft handoff could not be copied.",
-      });
-    }
-  }
-
-  async function regenerateArchitectInterviewPromptFromAction(): Promise<void> {
-    if (!(await preflightMcpHandoff())) return;
-    setDocumentError("");
-    setArchitectFeedback(null);
-    try {
-      const nextModel = await window.champcity.regenerateArchitectInterviewPrompt();
-      setArchitectOutputModel(nextModel);
-      setArchitectFeedback({ kind: "success", message: "Project Architect Interview prompt regenerated." }, 3500);
-      await refreshDocuments({ useResolver: true });
-      await refreshArchitectOutputWorkspace({ force: true, autoSelectOutput: true });
-    } catch (error) {
-      setArchitectFeedback({
-        kind: "error",
-        message: error instanceof Error ? error.message : "Project Architect Interview prompt could not be regenerated.",
       });
     }
   }
@@ -3805,9 +3755,7 @@ export function App(): JSX.Element {
     setDocumentError("");
     setFeedback("");
     try {
-      const detail = await readArchitectReviewDocument(logicalDocumentId,
-        options.architectOutputModelForViewedRevision ?? architectOutputModel,
-        window.champcity.readDocument);
+      const detail = await window.champcity.readDocument(logicalDocumentId);
       setSelectedDocument(detail);
       setSelectedStatus(
         detail.effectiveDisposition === "Pending" ? "" : detail.effectiveDisposition,
@@ -3970,9 +3918,7 @@ export function App(): JSX.Element {
   }
 
   const architectOutputPrepareHandoffLabel =
-    activeWorkspaceId === "architect-interview"
-      ? "Prepare ChatGPT Handoff"
-      : activeWorkspaceId === "phase-interview"
+    activeWorkspaceId === "phase-interview"
       ? "Prepare Phase Interview Handoff"
       : activeWorkspaceId === "project-planning-review"
       ? "Prepare Project Planning Handoff"
@@ -3980,9 +3926,7 @@ export function App(): JSX.Element {
       ? "Prepare Phase Map Handoff"
       : "Prepare Handoff";
   const architectOutputCopyHandoffLabel =
-    activeWorkspaceId === "architect-interview"
-      ? "Copy ChatGPT Handoff"
-      : activeWorkspaceId === "phase-interview"
+    activeWorkspaceId === "phase-interview"
       ? "Copy Phase Interview Handoff"
       : activeWorkspaceId === "project-planning-review"
       ? "Copy Project Planning Handoff"
@@ -4006,21 +3950,16 @@ export function App(): JSX.Element {
         model={architectOutputModel}
         onCopyHandoff={copyArchitectHandoff}
         onCopyFinalDraftHandoff={
-          activeWorkspaceId === "architect-interview"
-            ? copyArchitectInterviewFinalDraftHandoff
-            : activeWorkspaceId === "phase-interview"
+          activeWorkspaceId === "phase-interview"
             ? copyPhaseInterviewFinalDraftHandoff
             : undefined
         }
         onPrepareFinalDraftHandoff={
-          activeWorkspaceId === "architect-interview"
-            ? prepareArchitectInterviewFinalDraftFromAction
-            : activeWorkspaceId === "phase-interview"
+          activeWorkspaceId === "phase-interview"
             ? preparePhaseInterviewFinalDraftFromAction
             : undefined
         }
         onPrepareHandoff={prepareArchitectOutputFromAction}
-        onRegeneratePrompt={regenerateArchitectInterviewPromptFromAction}
         onRefresh={() => {
           void refreshArchitectStatus();
           void refreshArchitectOutputWorkspace({ force: true });
@@ -4043,7 +3982,7 @@ export function App(): JSX.Element {
       {isDevelopmentForeground ? (
         <NestedWorkflowRail
           activeWorkspaceId={activeWorkspaceId}
-          architectInterviewStatus={architectInterviewRailStatus === "Not Ready" ? "Open" : architectInterviewRailStatus}
+          architectInterviewStatus={architectInterviewRailStatus}
           executionContext={currentModel?.executionContext}
           onWorkspaceChange={(workspaceId) => {
             if (workspaceId === "phase-validation") {
@@ -4512,7 +4451,7 @@ export function App(): JSX.Element {
               key={workflowInstance?.workflowId}
               onRailStatus={setProjectIntakeRailStatus}
               workflowId={workflowInstance?.workflowType === "project-creation" ? workflowInstance.workflowId : undefined}
-              onPrepared={() => { setActiveWorkspaceId("architect-interview"); void refreshArchitectOutputWorkspace({force: true}); }}
+              onPrepared={() => { setActiveWorkspaceId("architect-interview"); }}
               repositoryIdentity={workspace.ok ? workspace.workspaceRoot : ""}
               isChoosingProjectRepository={isChoosingProjectRepository}
               onChooseProjectRepository={chooseProjectRepository}
@@ -4587,11 +4526,11 @@ export function App(): JSX.Element {
             </section>
           ) : null}
 
-          {isVisibleArchitectOutputWorkspace && activeWorkspaceId === "architect-interview" ? <StructuredGreenfieldArchitectWorkspace
+          {isVisibleArchitectOutputWorkspace && activeWorkspaceId === "architect-interview" ? <StructuredArchitectWorkspace
             workflowId={greenfieldArchitectWorkflowId} browserVisible={isArchitectPaneVisible} browserCompanion={architectBrowserColumn} onRailStatus={setArchitectInterviewRailStatus} /> : null}
 
           {isVisibleArchitectOutputWorkspace && !isPhaseMapFigmaWorkspace && activeWorkspaceId !== "architect-interview" ? (
-            <GreenfieldArchitectWorkspace
+            <LegacyArchitectOutputWorkspace
               browserVisible={isArchitectPaneVisible}
               label={`${activeWorkspace.label} Figma document workspace`}
               surfaceRef={documentReviewSurfaceRef}
@@ -6187,34 +6126,6 @@ function isArchitectEnabledWorkspace(activeWorkspaceId: WorkspaceId): boolean {
     activeWorkspaceId === "project-phase-map" ||
     activeWorkspaceId === "work-card-planning" ||
     activeWorkspaceId === "work-card-repair";
-}
-
-function architectInterviewRecoveryDocumentId(model: ArchitectOutputWorkspaceModel): string | undefined {
-  if (model.workspaceId !== "architect-interview") {
-    return undefined;
-  }
-  const domain = model.domain as {
-    selectedReviewDocumentRole?: string;
-    projectIntakeDocument?: { logicalDocumentId?: string };
-  } | undefined;
-  return domain?.selectedReviewDocumentRole === "project-intake"
-    ? domain.projectIntakeDocument?.logicalDocumentId
-    : undefined;
-}
-
-function architectInterviewRailStatusFromGenericModel(
-  model: ArchitectOutputWorkspaceModel | null,
-): ArchitectInterviewRailStatus {
-  if (model?.workspaceId !== "architect-interview") {
-    return "Open";
-  }
-  if (model.railStatus === "Ready" || model.railStatus === "Not Ready") {
-    return "Open";
-  }
-  if (model.railStatus === "In Progress" || model.railStatus === "Conflict") {
-    return "Needs Attention";
-  }
-  return model.railStatus;
 }
 
 function architectBrowserPresentation(status: ArchitectBrowserFoundationStatus | null): {

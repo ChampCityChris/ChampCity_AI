@@ -555,10 +555,6 @@
           "description": "approving Repair Work Card creates repair-specific report and routes to Implement"
         },
         {
-          "behaviorId": "architect-interview-evidence-fingerprint-changes-on-same-logical-id-revision-and-disposition",
-          "description": "Architect Interview evidence fingerprint changes on same logical ID revision and disposition"
-        },
-        {
           "behaviorId": "architect-output-review-blocks-stale-presented-revisions-and-then-permits-current-single-output",
           "description": "architect output review blocks stale presented revisions and then permits current single-output review"
         },
@@ -569,6 +565,10 @@
         {
           "behaviorId": "architect-refresh-fingerprints-distinguish-repository-revision-and-disposition-changes",
           "description": "Architect refresh fingerprints distinguish repository, revision, and disposition changes"
+        },
+        {
+          "behaviorId": "architect-review-acknowledgment-binds-exact-workflow-cycle-revision",
+          "description": "Architect review acknowledgment binds exact Workflow cycle revision"
         },
         {
           "behaviorId": "architect-review-marks-only-the-displayed-readable-current-revision-as-viewed",
@@ -655,16 +655,16 @@
           "description": "missing and conflicting Repair basis are non-mutating and cannot redirect unrelated current work"
         },
         {
+          "behaviorId": "missing-or-stale-architect-prerequisites-cannot-retain-review-eligibility",
+          "description": "missing or stale Architect prerequisites cannot retain review eligibility"
+        },
+        {
           "behaviorId": "missing-slot-revision-or-logical-document-does-not-mark-viewed",
           "description": "missing slot revision or logical document does not mark viewed"
         },
         {
           "behaviorId": "non-approved-formal-work-card-review-outcomes-create-no-implementer-report",
           "description": "non-Approved Formal Work Card review outcomes create no Implementer Report"
-        },
-        {
-          "behaviorId": "pending-hydrates-to-no-selected-disposition-while-revisionrequested-restores-notes",
-          "description": "Pending hydrates to no selected disposition while RevisionRequested restores notes"
         },
         {
           "behaviorId": "phase-map-architect-workspace-uses-generic-prepare-route-for-first-handoff-and-copy-instruction",
@@ -733,22 +733,6 @@
         {
           "behaviorId": "replacement-revision-must-be-displayed-before-the-new-key-is-marked",
           "description": "replacement revision must be displayed before the new key is marked"
-        },
-        {
-          "behaviorId": "review-hydration-preserves-dirty-same-revision-edits-and-resets-on-new-revision",
-          "description": "review hydration preserves dirty same-revision edits and resets on new revision"
-        },
-        {
-          "behaviorId": "review-presentation-hides-controls-for-prompt-or-missing-interview-and-reports-invalid-output",
-          "description": "review presentation hides controls for prompt or missing Interview and reports invalid output"
-        },
-        {
-          "behaviorId": "review-source-key-binds-repository-logical-id-and-artifact-revision",
-          "description": "review source key binds repository, logical ID, and artifact revision"
-        },
-        {
-          "behaviorId": "review-source-key-changes-on-disposition-and-note-only-evidence-changes",
-          "description": "review source key changes on disposition and note-only evidence changes"
         },
         {
           "behaviorId": "single-output-promotion-reports-cleanup-failure-without-rolling-back-final-output-and-supports-b",
@@ -1206,12 +1190,12 @@
           "description": "planning substantive revision increments once and invalidates downstream bundle"
         },
         {
-          "behaviorId": "revisionrequested-disposition-requires-non-empty-notes",
-          "description": "RevisionRequested disposition requires non-empty notes"
+          "behaviorId": "project-intake-and-architect-output-expose-generated-markdown-with-sql-authority-and-no-sidecars",
+          "description": "Governed workflow creation persists one canonical Markdown record without a JSON sibling."
         },
         {
-          "behaviorId": "single-canonical-markdown-without-json-sidecar",
-          "description": "Governed workflow creation persists one canonical Markdown record without a JSON sibling."
+          "behaviorId": "revisionrequested-disposition-requires-non-empty-notes",
+          "description": "RevisionRequested disposition requires non-empty notes"
         },
         {
           "behaviorId": "snapshot-generations-and-logical-indexes-remain-isolated-by-canonical-workspace-root",
@@ -2281,7 +2265,7 @@
         },
         {
           "behaviorId": "production-catalog-resolves-seven-active-definitions-with-nine-output-slots",
-          "description": "production catalog resolves seven active definitions with nine output slots"
+          "description": "production catalog resolves six active definitions with eight output slots"
         },
         {
           "behaviorId": "registered-api-surface-excludes-retired-mutation-routes-and-unrestricted-native-access",
@@ -2993,9 +2977,13 @@
         "src/main/integrations/architectMcpHandoffService.ts",
         "src/main/project*/**",
         "src/renderer/app/*Project*",
+        "src/shared/architectInterview/architectInterviewRefreshState.ts",
         "src/shared/architectWorkspaceContracts.ts",
+        "src/shared/structuredArchitectReviewState.ts",
         "test/support/canonical-markdown-fixtures.cjs",
-        "test/support/legacy-project-intake-fixture.cjs"
+        "test/support/legacy-project-architect-prompt.cjs",
+        "test/support/legacy-project-intake-fixture.cjs",
+        "test/support/structured-architect-fixture.cjs"
       ],
       "dependsOn": [
         "architect-output-lifecycle",
@@ -3011,40 +2999,40 @@
           "description": "active Pending Intake wins over archived Approved Intake"
         },
         {
-          "behaviorId": "architect-interview-handoff-prepares-compact-draft-id-for-real-long-prompt-path",
-          "description": "Architect Interview handoff prepares compact draft ID for real long prompt path"
+          "behaviorId": "architect-interview-browser-handoff-manifest-uses-sql-identity-and-no-markdown-input-contract",
+          "description": "Architect Interview browser handoff manifest uses SQL identity and no Markdown input contract"
         },
         {
-          "behaviorId": "architect-interview-handoff-uses-projectrepository-route-when-repository-binding-has-no-binding",
-          "description": "Architect Interview handoff uses projectRepository route when repository binding has no binding"
+          "behaviorId": "architect-interview-generated-file-edits-cannot-authorize-or-revise-sql-review",
+          "description": "Architect Interview generated file edits cannot authorize or revise SQL review"
         },
         {
-          "behaviorId": "architect-interview-model-does-not-carry-a-truncated-canonical-preview-body",
-          "description": "Architect Interview model does not carry a truncated canonical preview body"
+          "behaviorId": "architect-interview-intake-revision-invalidates-current-cycle-eligibility",
+          "description": "Architect Interview Intake revision invalidates current cycle eligibility"
         },
         {
-          "behaviorId": "architect-interview-polling-and-repeated-preparation-reuse-the-active-waiting-draft",
-          "description": "Architect Interview polling and repeated preparation reuse the active waiting draft"
+          "behaviorId": "architect-interview-material-revision-invalidates-the-prior-exact-sql-review",
+          "description": "Architect Interview material revision invalidates the prior exact SQL review"
         },
         {
-          "behaviorId": "architect-interview-preserves-established-architecture-and-inspects-repository-review-evidence-b",
-          "description": "Architect Interview preserves established architecture and inspects repository review evidence before questions"
+          "behaviorId": "architect-interview-persists-proposed-sql-candidates-before-disposition",
+          "description": "Architect Interview persists proposed SQL candidates before disposition"
         },
         {
-          "behaviorId": "architect-interview-regenerates-a-deleted-prompt-from-approved-project-intake",
-          "description": "Architect Interview regenerates a deleted prompt from Approved Project Intake"
+          "behaviorId": "architect-interview-proposed-guidance-does-not-mutate-governing-project-architecture",
+          "description": "Architect Interview proposed guidance does not mutate governing Project architecture"
         },
         {
-          "behaviorId": "architect-interview-regeneration-does-not-overwrite-a-conflicting-prompt-target",
-          "description": "Architect Interview regeneration does not overwrite a conflicting prompt target"
+          "behaviorId": "architect-interview-refresh-reuses-exact-sql-cycle-without-canonical-prompt-files",
+          "description": "Architect Interview refresh reuses exact SQL cycle without canonical prompt files"
         },
         {
-          "behaviorId": "architect-interview-revision-handoff-uses-a-fresh-draft-and-promotes-as-a-substantive-revision",
-          "description": "Architect Interview revision handoff uses a fresh draft and promotes as a substantive revision"
+          "behaviorId": "architect-interview-regenerates-deleted-projection-from-sql-without-losing-approval",
+          "description": "Architect Interview regenerates deleted projection from SQL without losing approval"
         },
         {
-          "behaviorId": "architect-interview-workspace-promotes-an-application-owned-temporary-draft",
-          "description": "Architect Interview workspace promotes an application-owned temporary draft"
+          "behaviorId": "architect-interview-review-projection-includes-full-sql-semantic-content",
+          "description": "Architect Interview review projection includes full SQL semantic content"
         },
         {
           "behaviorId": "archive-only-project-intake-metadata-is-excluded-from-the-active-corpus",
@@ -3059,20 +3047,24 @@
           "description": "current workflow opens missing Phase Map with Profile and Roadmap input evidence"
         },
         {
-          "behaviorId": "greenfield-architect-interview-prompt-resolves-capabilities-without-assuming-a-prior-version",
-          "description": "greenfield Architect Interview prompt resolves capabilities without assuming a prior version"
+          "behaviorId": "greenfield-architect-interview-transport-enforces-bounded-text-and-all-fifteen-dimensions",
+          "description": "greenfield Architect Interview transport enforces bounded text and all fifteen dimensions"
         },
         {
-          "behaviorId": "ineligible-existing-interview-target-remains-byte-identical-and-blocks-draft-promotion",
-          "description": "ineligible existing Interview target remains byte-identical and blocks draft promotion"
+          "behaviorId": "historical-interview-prose-remains-byte-identical-and-never-creates-semantic-authority",
+          "description": "historical Interview prose remains byte-identical and never creates semantic authority"
         },
         {
-          "behaviorId": "malformed-interview-drafts-remain-visible-and-require-a-fresh-retry",
-          "description": "malformed Interview drafts remain visible and require a fresh retry"
+          "behaviorId": "malformed-interview-transport-cannot-partially-persist-semantic-records",
+          "description": "malformed Interview transport cannot partially persist semantic records"
         },
         {
           "behaviorId": "markdown-only-confirmation-payload-is-created-from-successful-submission-result",
           "description": "Markdown-only confirmation payload is created from successful submission result"
+        },
+        {
+          "behaviorId": "planning-bridge-rejects-extra-intake-source-relationships-and-cross-workflow-semantic-ownership",
+          "description": "Planning bridge rejects extra Intake-source relationships and cross-Workflow semantic ownership"
         },
         {
           "behaviorId": "post-submit-review-preserves-project-intake-view-while-resolver-requires-pending-intake-review",
@@ -3211,8 +3203,8 @@
           "description": "projectRepository folder basename constructs the MCP workspace route"
         },
         {
-          "behaviorId": "proof-2-production-service-workflow-reaches-project-planning-after-revised-architect-output",
-          "description": "Proof 2 production-service workflow reaches Project Planning after revised Architect output"
+          "behaviorId": "proof-2-production-service-workflow-reaches-project-planning-after-revised-structured-architect-outp",
+          "description": "Proof 2 production-service workflow reaches Project Planning after revised structured Architect output"
         },
         {
           "behaviorId": "reconstruction-repair-corpus-keeps-project-planning-ready-and-context-documents-reference-only",
@@ -3993,20 +3985,20 @@
           "description": "all top project rail cards receive one title-cased lifecycle status"
         },
         {
+          "behaviorId": "architect-disposition-controls-belong-to-the-structured-cycle-component",
+          "description": "Architect disposition controls belong to the structured cycle component"
+        },
+        {
           "behaviorId": "architect-evidence-waits-for-a-pre-existing-app-refresh-and-then-performs-exactly-one-fresh-read",
           "description": "Architect evidence waits for a pre-existing App refresh and then performs exactly one fresh read"
         },
         {
-          "behaviorId": "architect-interview-prompt-selection-hides-disposition-controls",
-          "description": "Architect Interview prompt selection hides disposition controls"
-        },
-        {
-          "behaviorId": "architect-interview-rail-status-can-be-derived-from-repository-documents-without-active-architec",
-          "description": "Architect Interview rail status can be derived from repository documents without active Architect model"
-        },
-        {
           "behaviorId": "architect-interview-rail-status-is-evidence-derived-and-independent-from-selected-state",
           "description": "Architect Interview rail status is evidence-derived and independent from selected state"
+        },
+        {
+          "behaviorId": "architect-interview-rail-uses-sql-model-status-independently-of-historical-files",
+          "description": "Architect Interview rail uses SQL model status independently of historical files"
         },
         {
           "behaviorId": "development-rail-renders-workflow-phase-and-work-card-navigation",
@@ -9160,8 +9152,8 @@
     {
       "testPath": "test/architect-interview/architect-interview-workspace.test.cjs",
       "currentTestCount": {
-        "value": 13,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 14,
+        "basis": "RWS05F final typed SQL Interview and synchronous bridge regression proofs."
       },
       "duration": {
         "kind": "measured",
@@ -9203,74 +9195,80 @@
       "behaviorCoverage": [
         {
           "capabilityId": "project-planning-workflow",
-          "behaviorId": "architect-interview-handoff-prepares-compact-draft-id-for-real-long-prompt-path",
-          "proofLocator": "Architect Interview handoff prepares compact draft ID for real long prompt path",
+          "behaviorId": "architect-interview-browser-handoff-manifest-uses-sql-identity-and-no-markdown-input-contract",
+          "proofLocator": "Architect Interview browser handoff manifest uses SQL identity and no Markdown input contract",
           "proofRole": "primary"
         },
         {
           "capabilityId": "project-planning-workflow",
-          "behaviorId": "architect-interview-handoff-uses-projectrepository-route-when-repository-binding-has-no-binding",
-          "proofLocator": "Architect Interview handoff uses projectRepository route when repository binding has no binding",
+          "behaviorId": "architect-interview-generated-file-edits-cannot-authorize-or-revise-sql-review",
+          "proofLocator": "Architect Interview generated file edits cannot authorize or revise SQL review",
           "proofRole": "primary"
         },
         {
           "capabilityId": "project-planning-workflow",
-          "behaviorId": "architect-interview-model-does-not-carry-a-truncated-canonical-preview-body",
-          "proofLocator": "Architect Interview model does not carry a truncated canonical preview body",
+          "behaviorId": "architect-interview-intake-revision-invalidates-current-cycle-eligibility",
+          "proofLocator": "Architect Interview Intake revision invalidates current cycle eligibility",
           "proofRole": "primary"
         },
         {
           "capabilityId": "project-planning-workflow",
-          "behaviorId": "architect-interview-polling-and-repeated-preparation-reuse-the-active-waiting-draft",
-          "proofLocator": "Architect Interview polling and repeated preparation reuse the active waiting draft",
+          "behaviorId": "architect-interview-material-revision-invalidates-the-prior-exact-sql-review",
+          "proofLocator": "Architect Interview material revision invalidates the prior exact SQL review",
           "proofRole": "primary"
         },
         {
           "capabilityId": "project-planning-workflow",
-          "behaviorId": "architect-interview-preserves-established-architecture-and-inspects-repository-review-evidence-b",
-          "proofLocator": "Architect Interview preserves established architecture and inspects repository review evidence before questions",
+          "behaviorId": "architect-interview-persists-proposed-sql-candidates-before-disposition",
+          "proofLocator": "Architect Interview persists proposed SQL candidates before disposition",
           "proofRole": "primary"
         },
         {
           "capabilityId": "project-planning-workflow",
-          "behaviorId": "architect-interview-regenerates-a-deleted-prompt-from-approved-project-intake",
-          "proofLocator": "Architect Interview regenerates a deleted prompt from Approved Project Intake",
+          "behaviorId": "architect-interview-proposed-guidance-does-not-mutate-governing-project-architecture",
+          "proofLocator": "Architect Interview proposed guidance does not mutate governing Project architecture",
           "proofRole": "primary"
         },
         {
           "capabilityId": "project-planning-workflow",
-          "behaviorId": "architect-interview-regeneration-does-not-overwrite-a-conflicting-prompt-target",
-          "proofLocator": "Architect Interview regeneration does not overwrite a conflicting prompt target",
+          "behaviorId": "architect-interview-refresh-reuses-exact-sql-cycle-without-canonical-prompt-files",
+          "proofLocator": "Architect Interview refresh reuses exact SQL cycle without canonical prompt files",
           "proofRole": "primary"
         },
         {
           "capabilityId": "project-planning-workflow",
-          "behaviorId": "architect-interview-revision-handoff-uses-a-fresh-draft-and-promotes-as-a-substantive-revision",
-          "proofLocator": "Architect Interview revision handoff uses a fresh draft and promotes as a substantive revision",
+          "behaviorId": "architect-interview-regenerates-deleted-projection-from-sql-without-losing-approval",
+          "proofLocator": "Architect Interview regenerates deleted projection from SQL without losing approval",
           "proofRole": "primary"
         },
         {
           "capabilityId": "project-planning-workflow",
-          "behaviorId": "architect-interview-workspace-promotes-an-application-owned-temporary-draft",
-          "proofLocator": "Architect Interview workspace promotes an application-owned temporary draft",
+          "behaviorId": "architect-interview-review-projection-includes-full-sql-semantic-content",
+          "proofLocator": "Architect Interview review projection includes full SQL semantic content",
           "proofRole": "primary"
         },
         {
           "capabilityId": "project-planning-workflow",
-          "behaviorId": "greenfield-architect-interview-prompt-resolves-capabilities-without-assuming-a-prior-version",
-          "proofLocator": "greenfield Architect Interview prompt resolves capabilities without assuming a prior version",
+          "behaviorId": "greenfield-architect-interview-transport-enforces-bounded-text-and-all-fifteen-dimensions",
+          "proofLocator": "greenfield Architect Interview transport enforces bounded text and all fifteen dimensions",
           "proofRole": "primary"
         },
         {
           "capabilityId": "project-planning-workflow",
-          "behaviorId": "ineligible-existing-interview-target-remains-byte-identical-and-blocks-draft-promotion",
-          "proofLocator": "ineligible existing Interview target remains byte-identical and blocks draft promotion",
+          "behaviorId": "historical-interview-prose-remains-byte-identical-and-never-creates-semantic-authority",
+          "proofLocator": "historical Interview prose remains byte-identical and never creates semantic authority",
           "proofRole": "primary"
         },
         {
           "capabilityId": "project-planning-workflow",
-          "behaviorId": "malformed-interview-drafts-remain-visible-and-require-a-fresh-retry",
-          "proofLocator": "malformed Interview drafts remain visible and require a fresh retry",
+          "behaviorId": "malformed-interview-transport-cannot-partially-persist-semantic-records",
+          "proofLocator": "malformed Interview transport cannot partially persist semantic records",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "project-planning-workflow",
+          "behaviorId": "planning-bridge-rejects-extra-intake-source-relationships-and-cross-workflow-semantic-ownership",
+          "proofLocator": "Planning bridge rejects extra Intake-source relationships and cross-Workflow semantic ownership",
           "proofRole": "primary"
         }
       ]
@@ -10852,20 +10850,20 @@
         },
         {
           "capabilityId": "canonical-document-storage",
-          "behaviorId": "revisionrequested-disposition-requires-non-empty-notes",
-          "proofLocator": "RevisionRequested disposition requires non-empty notes",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "canonical-document-storage",
-          "behaviorId": "single-canonical-markdown-without-json-sidecar",
+          "behaviorId": "project-intake-and-architect-output-expose-generated-markdown-with-sql-authority-and-no-sidecars",
           "proofLocator": "single-file writer creates one Markdown file and no JSON sibling",
           "proofRole": "supporting",
           "relationshipToPrimary": "complementary",
           "primaryProof": {
             "testPath": "test/documents/single-file-workflow.test.cjs",
-            "proofLocator": "Project Intake and Architect Output create canonical Markdown only"
+            "proofLocator": "Project Intake and Architect Output expose generated Markdown with SQL authority and no sidecars"
           }
+        },
+        {
+          "capabilityId": "canonical-document-storage",
+          "behaviorId": "revisionrequested-disposition-requires-non-empty-notes",
+          "proofLocator": "RevisionRequested disposition requires non-empty notes",
+          "proofRole": "primary"
         },
         {
           "capabilityId": "canonical-document-storage",
@@ -11270,8 +11268,8 @@
       "behaviorCoverage": [
         {
           "capabilityId": "canonical-document-storage",
-          "behaviorId": "single-canonical-markdown-without-json-sidecar",
-          "proofLocator": "Project Intake and Architect Output create canonical Markdown only",
+          "behaviorId": "project-intake-and-architect-output-expose-generated-markdown-with-sql-authority-and-no-sidecars",
+          "proofLocator": "Project Intake and Architect Output expose generated Markdown with SQL authority and no sidecars",
           "proofRole": "primary"
         }
       ]
@@ -15556,8 +15554,8 @@
     {
       "testPath": "test/renderer/architect-interview-refresh-state.test.cjs",
       "currentTestCount": {
-        "value": 6,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 2,
+        "basis": "Observed RWS05F focused SQL revision-token tests."
       },
       "duration": {
         "kind": "measured",
@@ -15599,38 +15597,14 @@
       "behaviorCoverage": [
         {
           "capabilityId": "architect-output-lifecycle",
-          "behaviorId": "architect-interview-evidence-fingerprint-changes-on-same-logical-id-revision-and-disposition",
-          "proofLocator": "Architect Interview evidence fingerprint changes on same logical ID revision and disposition",
+          "behaviorId": "architect-review-acknowledgment-binds-exact-workflow-cycle-revision",
+          "proofLocator": "Architect review acknowledgment binds exact Workflow cycle revision",
           "proofRole": "primary"
         },
         {
           "capabilityId": "architect-output-lifecycle",
-          "behaviorId": "pending-hydrates-to-no-selected-disposition-while-revisionrequested-restores-notes",
-          "proofLocator": "Pending hydrates to no selected disposition while RevisionRequested restores notes",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "architect-output-lifecycle",
-          "behaviorId": "review-hydration-preserves-dirty-same-revision-edits-and-resets-on-new-revision",
-          "proofLocator": "review hydration preserves dirty same-revision edits and resets on new revision",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "architect-output-lifecycle",
-          "behaviorId": "review-presentation-hides-controls-for-prompt-or-missing-interview-and-reports-invalid-output",
-          "proofLocator": "review presentation hides controls for prompt or missing Interview and reports invalid output",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "architect-output-lifecycle",
-          "behaviorId": "review-source-key-binds-repository-logical-id-and-artifact-revision",
-          "proofLocator": "review source key binds repository, logical ID, and artifact revision",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "architect-output-lifecycle",
-          "behaviorId": "review-source-key-changes-on-disposition-and-note-only-evidence-changes",
-          "proofLocator": "review source key changes on disposition and note-only evidence changes",
+          "behaviorId": "missing-or-stale-architect-prerequisites-cannot-retain-review-eligibility",
+          "proofLocator": "missing or stale Architect prerequisites cannot retain review eligibility",
           "proofRole": "primary"
         }
       ]
@@ -17154,20 +17128,20 @@
         },
         {
           "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "architect-interview-prompt-selection-hides-disposition-controls",
-          "proofLocator": "Architect Interview prompt selection hides disposition controls",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "architect-interview-rail-status-can-be-derived-from-repository-documents-without-active-architec",
-          "proofLocator": "Architect Interview rail status can be derived from repository documents without active Architect model",
+          "behaviorId": "architect-disposition-controls-belong-to-the-structured-cycle-component",
+          "proofLocator": "Architect disposition controls belong to the structured cycle component",
           "proofRole": "primary"
         },
         {
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "architect-interview-rail-status-is-evidence-derived-and-independent-from-selected-state",
           "proofLocator": "Architect Interview rail status is evidence-derived and independent from selected state",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "architect-interview-rail-uses-sql-model-status-independently-of-historical-files",
+          "proofLocator": "Architect Interview rail uses SQL model status independently of historical files",
           "proofRole": "primary"
         },
         {
@@ -18169,7 +18143,7 @@
         {
           "capabilityId": "ipc-preload-contracts",
           "behaviorId": "production-catalog-resolves-seven-active-definitions-with-nine-output-slots",
-          "proofLocator": "production catalog resolves seven active definitions with nine output slots",
+          "proofLocator": "production catalog resolves six active definitions with eight output slots",
           "proofRole": "primary"
         },
         {
@@ -20985,8 +20959,8 @@
         },
         {
           "capabilityId": "project-planning-workflow",
-          "behaviorId": "proof-2-production-service-workflow-reaches-project-planning-after-revised-architect-output",
-          "proofLocator": "Proof 2 production-service workflow reaches Project Planning after revised Architect output",
+          "behaviorId": "proof-2-production-service-workflow-reaches-project-planning-after-revised-structured-architect-outp",
+          "proofLocator": "Proof 2 production-service workflow reaches Project Planning after revised structured Architect output",
           "proofRole": "primary"
         }
       ]

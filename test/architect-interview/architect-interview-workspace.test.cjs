@@ -1,579 +1,104 @@
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
-const test = require("node:test");
+const assert = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), test = require("node:test");
+const {structuredArchitectFixture} = require("../support/structured-architect-fixture.cjs");
+const approve = env => env.architect.review(env.root, env.workflow.id, env.candidate.review.cycleId, {expectedRecordVersion: env.candidate.review.recordVersion, outcome: "approved"});
 
-test("Greenfield uses the common kernel with evidence-first new-product discovery and explicit full-scope planning", async (t) => {
-  const { seedPreparedRoutedWorkIntake } = require("../support/work-intake-fixtures.cjs");
-  const { root, intake } = seedPreparedRoutedWorkIntake(t, "greenfield", { workRequest: "Create a study planner", desiredOutcome: "Students organize their study schedule",
-    hasExistingSourceOrPlanning: false, knownConstraints: "Offline use and accessible keyboard navigation" });
-  const { workPlanningKernel } = require("../../dist/main/workPlanning/workPlanningKernel.js");
-  const { resolveWorkPlanningProfile } = require("../../dist/main/workPlanning/workPlanningProfiles.js");
-  const prepared = await workPlanningKernel.prepare(root, intake.intakeId, "assessment");
-  assert.equal(prepared.routeId, "greenfield");
-  const prompt = await workPlanningKernel.copy(root, intake.intakeId, "assessment");
-  for (const coverage of [/target users/, /principal workflows/, /complete intended capability scope/, /runtime and deployment/, /data\/state ownership/, /security\/privacy/, /accessibility/, /recovery/, /repository-known facts/, /zero clarification questions/, /MVP or POC framing only when approved evidence explicitly establishes/]) assert.match(prompt, coverage);
-  assert.match(prompt, /direct Plan/); assert.match(prompt, /phased delivery only when/);
-  assert.doesNotMatch(prompt, /Preserve, Improve or Replace, Add, and Defer|migration seams|cutover criteria/);
-  assert.doesNotMatch(resolveWorkPlanningProfile("feature-change").discoveryQuestions.join("\n"), /Establish the new product's purpose/, "Greenfield discovery does not become the existing-product default");
-  const body = "# Route Architect Assessment\n\n## Evidence\nThe Intake establishes students, offline study scheduling, and accessible navigation.\n\n## Decisions\nAn offline study planner stores schedules locally.\n\n## Risks and Unresolved Questions\nValidate screen-reader and keyboard behavior before acceptance.\n\n## Product Outcome and Users\nStudents can organize sessions around courses.\n\n## Capabilities and Principal Workflows\nCreate courses, schedule sessions, and review upcoming study.\n\n## Product Architecture and Deployment\nA local application owns scheduling and presentation.\n\n## Data and State Lifecycle\nPersist courses and sessions locally with explicit deletion and recovery.\n\n## Dependencies and External Services\nNo external service is required.\n\n## Non-Functional Constraints\nOffline operation and complete keyboard access are required.\n\n## Scope and Deferred Decisions\nDeliver the intended scheduler scope; sharing is explicitly excluded.\n";
-  const draftPath = path.join(root, prepared.submission.expectedDraftSlots[0].draftRelativePath);
-  fs.mkdirSync(path.dirname(draftPath), { recursive: true }); fs.writeFileSync(draftPath, body);
-  const promoted = await workPlanningKernel.get(root, intake.intakeId, "assessment");
-  assert.equal(promoted.artifact.disposition, "Pending", promoted.error);
-  await workPlanningKernel.review(root, intake.intakeId, "assessment", { expectedRevision: 1, disposition: "Approved", notes: "New-product scope approved" });
-  const plan = await workPlanningKernel.prepare(root, intake.intakeId, "plan");
-  assert.match(plan.preparedInstruction, /## Product Outcomes and Capability Coverage/);
-  assert.match(plan.preparedInstruction, /## Non-Functional Acceptance/);
-  assert.match(plan.preparedInstruction, /## Readiness and Delivery Sequencing/);
-  assert.match(plan.preparedInstruction, /explicit approved deferral/);
-  assert.equal(plan.artifact, null, "profile content alone cannot create or approve a Plan");
+test("Greenfield typed handoff uses evidence-first discovery and full adopted Project scope", async context => {
+  const env = await structuredArchitectFixture(context, {save: false});
+  assert.match(env.prepared.handoff, /repository evidence/); assert.match(env.prepared.handoff, /ground zero/); assert.match(env.prepared.handoff, /full adopted Project scope/);
+  for (const key of Object.keys(env.output)) assert.ok(env.prepared.handoff.includes(key));
+  assert.ok(env.prepared.handoff.includes(env.projectId)); assert.ok(env.prepared.handoff.includes(env.workflow.id));
+});
+test("Architect Interview persists proposed SQL candidates before disposition", async context => {
+  const env = await structuredArchitectFixture(context);
+  assert.equal(env.candidate.intakeRailStatus, "Completed");
+  assert.equal(env.candidate.review.disposition.state, "none");
+  assert.equal(env.candidate.review.sources.length, 11); assert.ok((await env.store.listEntities(env.projectId, "BoundedSolution")).length);
+  assert.equal((await env.store.listEntities(env.projectId, "Decision")).filter(record => record.body.decisionType === "architect-review").length, 0);
+});
+test("Architect Interview refresh reuses exact SQL cycle without canonical prompt files", async context => {
+  const env = await structuredArchitectFixture(context);
+  const first = env.candidate.review;
+  assert.equal((await env.architect.prepare(env.root, env.workflow.id)).review.cycleId, first.cycleId);
+  assert.equal((await env.architect.get(env.root, env.workflow.id)).review.recordVersion, first.recordVersion);
+  assert.equal(fs.existsSync(path.join(env.root, "planning/project/Project_Architect_Interview_Prompts")), false);
+});
+test("Architect Interview material revision invalidates the prior exact SQL review", async context => {
+  const env = await structuredArchitectFixture(context); await approve(env);
+  const revised = await env.architect.save(env.root, env.workflow.id, {...env.input, expectedCycleVersion: 1, output: {...env.output, projectUnderstanding: ["Revised understanding"]}});
+  assert.equal(revised.review.recordVersion, 2); assert.equal(revised.review.disposition.state, "none"); assert.equal(revised.nextStageReady, false);
+  await assert.rejects(env.architect.review(env.root, env.workflow.id, revised.review.cycleId, {expectedRecordVersion: 1, outcome: "approved"}));
+});
+test("malformed Interview transport cannot partially persist semantic records", async context => {
+  const env = await structuredArchitectFixture(context, {save: false}), before = (await env.store.listEntities(env.projectId)).length;
+  await assert.rejects(env.architect.save(env.root, env.workflow.id, {...env.input, output: {...env.output, scope: []}}));
+  await assert.rejects(env.architect.save(env.root, env.workflow.id, {...env.input, output: {...env.output, extra: "unknown"}}));
+  assert.equal((await env.store.listEntities(env.projectId)).length, before);
+});
+test("historical Interview prose remains byte-identical and never creates semantic authority", async context => {
+  const env = await structuredArchitectFixture(context, {save: false});
+  const historical = path.join(env.root, "planning/project/Project_Architect_Interviews/PROJECT_ARCHITECT_INTERVIEW_old.md"); fs.mkdirSync(path.dirname(historical), {recursive: true}); fs.writeFileSync(historical, "# Historical approval fiction");
+  const model = await env.architect.get(env.root, env.workflow.id); assert.equal(model.review, undefined);
+  assert.equal(fs.readFileSync(historical, "utf8"), "# Historical approval fiction");
+});
+test("Architect Interview review projection includes full SQL semantic content", async context => {
+  const env = await structuredArchitectFixture(context);
+  for (const values of Object.values(env.output)) assert.ok(env.candidate.reviewDocument.bodyMarkdown.includes(values[0]));
+  assert.match(env.candidate.reviewDocument.bodyMarkdown, /GENERATED FROM CHAMPCITY STRUCTURED PROJECT STATE/);
+});
+test("Architect Interview browser handoff manifest uses SQL identity and no Markdown input contract", async context => {
+  const env = await structuredArchitectFixture(context, {save: false});
+  const manifest = await require("../../dist/main/integrations/architectMcpHandoffService.js").buildArchitectHandoffManifest(env.root);
+  assert.equal(manifest.state, "handoff-ready"); assert.equal(manifest.workflowId, env.workflow.id); assert.equal(manifest.intakeId, env.intake.intakeId);
+  assert.equal(manifest.promptMarkdownPath, undefined); assert.equal(manifest.interviewMarkdownTargetPath, undefined);
+});
+test("Architect Interview proposed guidance does not mutate governing Project architecture", async context => {
+  const env = await structuredArchitectFixture(context);
+  const decisions = (await env.store.listEntities(env.projectId, "Decision")).filter(record => record.body.decisionType === "architect-review"); assert.equal(decisions.length, 0);
+  const solution = (await env.store.listEntities(env.projectId, "BoundedSolution"))[0]; assert.equal(solution.body.solutionState, "proposed");
+});
+test("greenfield Architect Interview transport enforces bounded text and all fifteen dimensions", async context => {
+  const env = await structuredArchitectFixture(context, {save: false});
+  await assert.rejects(env.architect.save(env.root, env.workflow.id, {...env.input, output: {...env.output, constraints: ["x".repeat(4001)]}}));
+  await assert.rejects(env.architect.save(env.root, env.workflow.id, {...env.input, output: {...env.output, assumptions: ["bad\u0000text"]}}));
+});
+test("Architect Interview regenerates deleted projection from SQL without losing approval", async context => {
+  const env = await structuredArchitectFixture(context); await approve(env);
+  fs.unlinkSync(path.join(env.root, env.candidate.review.relativePath));
+  const model = await env.architect.get(env.root, env.workflow.id); assert.equal(model.review.disposition.state, "approved"); assert.equal(model.nextStageReady, true);
+  assert.ok(fs.existsSync(path.join(env.root, model.review.relativePath)));
+});
+test("Architect Interview generated file edits cannot authorize or revise SQL review", async context => {
+  const env = await structuredArchitectFixture(context);
+  fs.writeFileSync(path.join(env.root, env.candidate.review.relativePath), "Approved alternative prose");
+  const model = await env.architect.get(env.root, env.workflow.id); assert.equal(model.review.disposition.state, "none"); assert.equal(model.review.recordVersion, 1);
+  assert.doesNotMatch(model.review.markdown, /Approved alternative prose/);
+});
+test("Architect Interview Intake revision invalidates current cycle eligibility", async context => {
+  const env = await structuredArchitectFixture(context); await approve(env);
+  await env.intakeService.saveProjectCreationIntake(env.root, env.workflow.id, {...env.intake.values, projectPurpose: "Materially revised purpose"}, env.intake.recordVersion);
+  const model = await env.architect.get(env.root, env.workflow.id); assert.equal(model.ready, false); assert.equal(model.intakeRailStatus, "Awaiting Approval"); assert.equal(model.nextStageReady, false); assert.equal(model.review, undefined);
+  await assert.rejects(env.architect.review(env.root, env.workflow.id, env.candidate.review.cycleId, {expectedRecordVersion: 1, outcome: "approved"}));
 });
 
-const {
-  getArchitectInterviewWorkspaceModel,
-  prepareArchitectInterviewFinalDraftHandoff,
-  prepareArchitectInterviewHandoff: productionPrepareArchitectInterviewHandoff,
-  regenerateArchitectInterviewPrompt: productionRegenerateArchitectInterviewPrompt,
-  reviewArchitectInterview,
-} = require("../../dist/main/architectInterview/architectInterviewService.js");
-const {
-  getArchitectOutputWorkspaceModel,
-  prepareArchitectOutputHandoff,
-} = require("../../dist/main/architectOutputs/architectOutputWorkspaceService.js");
-const {
-  parseCanonicalMarkdownDocument,
-} = require("../../dist/shared/documents/canonicalMarkdown.js");
-const {
-  buildDeterministicArchitectDraftSubmissionId,
-} = require("../../dist/main/architectOutputs/architectDraftPaths.js");
-const {
-  getActiveArchitectInterviewDraftSubmission,
-} = require("../../dist/main/architectInterview/architectInterviewDraftPilot.js");
-const {
-  approve,
-  seedApprovedProjectIntake,
-  tempWorkspace,
-  tempWorkspaceWithoutBinding,
-  writeDoc,
-} = require("../support/canonical-markdown-fixtures.cjs");
-const {
-  submitProjectIntake,
-} = require("../support/legacy-project-intake-fixture.cjs");
-const {
-  buildArchitectHandoffManifest,
-} = require("../../dist/main/integrations/architectMcpHandoffService.js");
-
-async function submitDraft(root, body) {
-  await prepareArchitectInterviewHandoff(root);
-  const finalized = await prepareArchitectInterviewFinalDraftHandoff(root);
-  const draftPath = finalized.finalDraftHandoffInstruction.match(/Temporary draft Markdown: ([^\n]+)/)[1];
-  fs.mkdirSync(path.dirname(path.join(root, draftPath)), { recursive: true });
-  fs.writeFileSync(path.join(root, draftPath), body, "utf8");
-  return getArchitectInterviewWorkspaceModel(root);
-}
-
-function invocationFrom(handoffInstruction) {
-  const json = handoffInstruction.match(/```json\n([\s\S]*?)\n```/)[1];
-  return JSON.parse(json);
-}
-
-function assertInitialInterviewHandoffIsNoWrite(instruction) {
-  assert.match(instruction, /Conduct the Project Architect Interview conversationally/);
-  assert.match(instruction, /Ask one primary question at a time/);
-  assert.match(instruction, /confirmation summary/);
-  assert.match(instruction, /Stop and wait for Operator confirmation before any draft creation or write-back/);
-  assert.doesNotMatch(instruction, /artifact_toolbox\.write_markdown_artifact/);
-  assert.doesNotMatch(instruction, /create_markdown_artifact/);
-  assert.doesNotMatch(instruction, /planning\/Architect_Drafts/);
-  assert.doesNotMatch(instruction, /Temporary draft/i);
-  assert.doesNotMatch(instruction, /```json/);
-}
-
-function expectedWorkspaceIdFromRepository(projectRepository) {
-  return path.basename(projectRepository)
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_]+/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^_+|_+$/g, "");
-}
-
-function expectedSubmissionId(targets, submissionKey = "request-1") {
-  return buildDeterministicArchitectDraftSubmissionId({
-    outputKind: "project-architect-interview",
-    owningWorkspaceId: "architect-interview",
-    sourceHandoff: { path: targets.prompt, revision: 1 },
-    submissionKey,
-  });
-}
-
-function expectedPromotionGroupId(targets, submissionKey = "request-1") {
-  return buildDeterministicArchitectDraftSubmissionId({
-    outputKind: "project-architect-interview",
-    owningWorkspaceId: "architect-interview",
-    sourceHandoff: { path: targets.prompt, revision: 1 },
-    submissionKey,
-  });
-}
-
-test("Architect Interview workspace promotes an application-owned temporary draft", async () => {
-  const root = tempWorkspace("champcity-architect-interview-");
-  const targets = seedApprovedProjectIntake(root);
-
-  const waiting = await prepareArchitectInterviewHandoff(root);
-  assert.equal(waiting.railStatus, "Waiting for Output");
-  const retiredContractField = ["architectOutput", "Creation", "ContractId"].join("");
-  assert.equal(waiting[retiredContractField], undefined);
-  assert.equal(waiting.interviewTargets.markdownPath, targets.interview);
-  assert.equal(waiting.canCopyHandoff, true);
-  assert.equal(waiting.canPrepareFinalDraftHandoff, true);
-  assert.equal(waiting.canCopyFinalDraftHandoff, false);
-  assertInitialInterviewHandoffIsNoWrite(waiting.handoffInstruction);
-  assert.doesNotMatch(waiting.handoffInstruction, /submit_handoff_outputs/);
-  assert.doesNotMatch(waiting.handoffInstruction, /paste .*Interview output/i);
-  assert.doesNotMatch(waiting.handoffInstruction, /Architect Output import surface/);
-  assert.doesNotMatch(waiting.handoffInstruction, /"path":/);
-  assert.equal(getActiveArchitectInterviewDraftSubmission(root), undefined);
-
-  const finalizing = await prepareArchitectInterviewFinalDraftHandoff(root);
-  assert.equal(finalizing.canCopyHandoff, true);
-  assert.equal(finalizing.canCopyFinalDraftHandoff, true);
-  assertInitialInterviewHandoffIsNoWrite(finalizing.handoffInstruction);
-  assert.match(finalizing.finalDraftHandoffInstruction, /artifact_toolbox\.write_markdown_artifact/);
-  assert.doesNotMatch(finalizing.finalDraftHandoffInstruction, /create_markdown_artifact/);
-  assert.match(finalizing.finalDraftHandoffInstruction, /Temporary draft Markdown: planning\/Architect_Drafts\//);
-  assert.match(finalizing.finalDraftHandoffInstruction, /remains incomplete until this temporary draft is created and ChampCity A\/I promotes it/);
-  assert.doesNotMatch(finalizing.finalDraftHandoffInstruction, /diagnostics_toolbox\.list_workspaces/);
-
-  const invocation = invocationFrom(finalizing.finalDraftHandoffInstruction);
-  const expectedId = expectedSubmissionId(targets);
-  assert.deepEqual(invocation, {
-    action: "write_markdown_artifact",
-    workspaceId: "alpha",
-    params: {
-      relativePath: `planning/Architect_Drafts/${expectedId}/interview.md`,
-      content: "<complete body-only Interview Markdown>",
-      overwrite: false,
-    },
-  });
-  const active = getActiveArchitectInterviewDraftSubmission(root);
-  assert.equal(active.submission.submissionId, expectedId);
-  assert.equal(active.submission.promotionGroupId, expectedPromotionGroupId(targets));
-
-  fs.mkdirSync(path.dirname(path.join(root, invocation.params.relativePath)), { recursive: true });
-  fs.writeFileSync(path.join(root, invocation.params.relativePath), "# Architect Interview\n\nDraft output body.\n", "utf8");
-  const saved = getArchitectInterviewWorkspaceModel(root);
-  assert.equal(saved.interviewDocument.markdownPath, targets.interview);
-  assert.equal(fs.existsSync(path.join(root, targets.interview.replace(/\.md$/, ".json"))), false);
-
-  const parsed = parseCanonicalMarkdownDocument(fs.readFileSync(path.join(root, targets.interview), "utf8"));
-  assert.equal(parsed.metadata.artifactType, "project-architect-interview");
-  assert.equal(parsed.metadata.documentDisposition.status, "Pending");
-  assert.match(parsed.bodyMarkdown, /Draft output body/);
-
-  const reviewed = reviewArchitectInterview(root, "Approved", "", undefined);
-  assert.equal(reviewed.railStatus, "Completed");
+test("Planning bridge rejects extra Intake-source relationships and cross-Workflow semantic ownership", async context => {
+  const env = await structuredArchitectFixture(context); await approve(env);
+  const {readApprovedGreenfieldArchitectProjection} = require("../../dist/main/architectOutputs/structuredArchitectReadProjection.js");
+  assert.ok(readApprovedGreenfieldArchitectProjection(env.root));
+  const source = (await env.store.listEntities(env.projectId, "Evidence")).find(record => record.body.evidenceType === "architect-intake-source");
+  const edge = (await env.store.listRelationships(env.projectId, "supports")).find(edge => !edge.endedAt && edge.fromEntityId === source.id);
+  await assert.rejects(env.state.endRelationship(env.projectId, edge.id), /Immutable/);
+  await env.state.createRelationship(env.projectId, source.id, "supports", env.workflow.id);
+  assert.equal(readApprovedGreenfieldArchitectProjection(env.root), null);
+  assert.equal((await env.architect.get(env.root, env.workflow.id)).nextStageReady, false);
+  env.candidate = await env.architect.save(env.root, env.workflow.id, {...env.input, expectedCycleVersion: 1});
+  await approve(env);
+  assert.ok(readApprovedGreenfieldArchitectProjection(env.root));
+  const {workflow} = await require("../../dist/main/workflow/workflowApplicationService.js").createWorkflowApplicationService().startDirectWorkflow(env.root, {workflowType: "feature-capability", title: "Foreign owner"});
+  const finding = (await env.store.listEntities(env.projectId, "Finding")).find(record => env.candidate.review.sources.some(source => source.entityId === record.id));
+  await assert.rejects(env.state.createRelationship(env.projectId, finding.id, "workflow_member", workflow.workflowId), /cross Workflows/);
+  const records = await env.store.listEntities(env.projectId);
+  const foreignEdge = require("../../dist/shared/projectState/relationshipRegistry.js").createRelationship({projectId: env.projectId, fromEntityId: finding.id, relationshipType: "workflow_member", toEntityId: workflow.workflowId, createdBy: {principalId: "legacy-fixture", principalType: "human", role: "Operator"}}, id => records.find(record => record.id === id));
+  await env.store.transaction(env.projectId, unit => unit.saveRelationship(foreignEdge));
+  assert.equal(readApprovedGreenfieldArchitectProjection(env.root), null);
+  assert.equal((await env.architect.get(env.root, env.workflow.id)).nextStageReady, false);
 });
-
-test("Architect Interview polling and repeated preparation reuse the active waiting draft", async () => {
-  const root = tempWorkspace("champcity-architect-ordinal-");
-  const targets = seedApprovedProjectIntake(root);
-  const first = await prepareArchitectInterviewHandoff(root);
-  assertInitialInterviewHandoffIsNoWrite(first.handoffInstruction);
-  assert.equal(getActiveArchitectInterviewDraftSubmission(root), undefined);
-  const firstFinalization = await prepareArchitectInterviewFinalDraftHandoff(root);
-  const firstActive = getActiveArchitectInterviewDraftSubmission(root).submission;
-  assert.equal(firstActive.submissionId, expectedSubmissionId(targets, "request-1"));
-
-  getArchitectInterviewWorkspaceModel(root);
-  getArchitectInterviewWorkspaceModel(root);
-  assert.equal(getActiveArchitectInterviewDraftSubmission(root).submission.submissionId, firstActive.submissionId);
-
-  const second = await prepareArchitectInterviewHandoff(root);
-  assertInitialInterviewHandoffIsNoWrite(second.handoffInstruction);
-  const secondFinalization = await prepareArchitectInterviewFinalDraftHandoff(root);
-  const secondActive = getActiveArchitectInterviewDraftSubmission(root).submission;
-  assert.equal(secondActive.submissionId, firstActive.submissionId);
-  assert.equal(secondActive.submissionId, expectedSubmissionId(targets, "request-1"));
-  assert.equal(
-    invocationFrom(secondFinalization.finalDraftHandoffInstruction).params.relativePath,
-    invocationFrom(firstFinalization.finalDraftHandoffInstruction).params.relativePath,
-  );
-});
-
-test("Architect Interview revision handoff uses a fresh draft and promotes as a substantive revision", async () => {
-  const root = tempWorkspace("champcity-architect-revision-");
-  const targets = seedApprovedProjectIntake(root);
-  await submitDraft(root, "# Architect Interview\n\nInitial full body.\n");
-  const revision = reviewArchitectInterview(root, "RevisionRequested", "Clarify project risks.", undefined);
-
-  assert.equal(revision.railStatus, "Awaiting Approval");
-  const prepared = await prepareArchitectInterviewHandoff(root);
-  assert.match(prepared.handoffInstruction, /Read and address current Operator revision notes/);
-  assert.match(prepared.handoffInstruction, /Clarify project risks/);
-  assertInitialInterviewHandoffIsNoWrite(prepared.handoffInstruction);
-  assert.doesNotMatch(prepared.handoffInstruction, /submit_handoff_outputs/);
-  assert.doesNotMatch(prepared.handoffInstruction, /paste .*Interview output/i);
-  assert.doesNotMatch(prepared.handoffInstruction, /Architect Output import surface/);
-  assert.equal(prepared.canCopyFinalDraftHandoff, false);
-
-  const finalized = await prepareArchitectInterviewFinalDraftHandoff(root);
-  assert.equal(finalized.canCopyFinalDraftHandoff, true);
-  assert.match(finalized.finalDraftHandoffInstruction, /write_markdown_artifact/);
-  assert.doesNotMatch(finalized.finalDraftHandoffInstruction, /create_markdown_artifact/);
-  assert.match(finalized.finalDraftHandoffInstruction, /Clarify project risks/);
-  const draftPath = invocationFrom(finalized.finalDraftHandoffInstruction).params.relativePath;
-  fs.mkdirSync(path.dirname(path.join(root, draftPath)), { recursive: true });
-  fs.writeFileSync(path.join(root, draftPath), "# Architect Interview\n\nRevised full body.\n", "utf8");
-  getArchitectInterviewWorkspaceModel(root);
-
-  const revised = parseCanonicalMarkdownDocument(fs.readFileSync(path.join(root, targets.interview), "utf8"));
-  assert.equal(revised.metadata.artifactRevision, 2);
-  assert.equal(revised.metadata.documentDisposition.status, "Pending");
-  assert.equal(revised.metadata.documentDisposition.notes, "");
-  assert.equal(revised.metadata.documentDisposition.reviewedAt, null);
-  assert.match(revised.bodyMarkdown, /Revised full body/);
-});
-
-test("malformed Interview drafts remain visible and require a fresh retry", async () => {
-  const root = tempWorkspace("champcity-architect-malformed-");
-  const targets = seedApprovedProjectIntake(root);
-  const prepared = await prepareArchitectInterviewHandoff(root);
-  assertInitialInterviewHandoffIsNoWrite(prepared.handoffInstruction);
-  const finalized = await prepareArchitectInterviewFinalDraftHandoff(root);
-  const failedDraftPath = finalized.finalDraftHandoffInstruction.match(/Temporary draft Markdown: ([^\n]+)/)[1];
-  fs.mkdirSync(path.dirname(path.join(root, failedDraftPath)), { recursive: true });
-  fs.writeFileSync(path.join(root, failedDraftPath), "<!-- CHAMPCITY-METADATA\n{}\nCHAMPCITY-METADATA -->\n# Bad", "utf8");
-
-  const failed = getArchitectInterviewWorkspaceModel(root);
-  assert.equal(failed.draftSubmissionState, "promotion-failed");
-  assertInitialInterviewHandoffIsNoWrite(failed.handoffInstruction);
-  assert.equal(fs.existsSync(path.join(root, failedDraftPath)), true);
-  assert.equal(fs.existsSync(path.join(root, targets.interview)), false);
-
-  const retried = await prepareArchitectInterviewHandoff(root);
-  assertInitialInterviewHandoffIsNoWrite(retried.handoffInstruction);
-  const retriedFinalization = await prepareArchitectInterviewFinalDraftHandoff(root);
-  const retryInvocation = invocationFrom(retriedFinalization.finalDraftHandoffInstruction);
-  const retryDraftPath = retryInvocation.params.relativePath;
-  assert.notEqual(retryDraftPath, failedDraftPath);
-  assert.equal(retryInvocation.params.overwrite, false);
-  assert.equal(fs.existsSync(path.join(root, failedDraftPath)), true);
-});
-
-test("ineligible existing Interview target remains byte-identical and blocks draft promotion", async () => {
-  const root = tempWorkspace("champcity-architect-ineligible-");
-  const targets = seedApprovedProjectIntake(root);
-  const prepared = await prepareArchitectInterviewHandoff(root);
-  assertInitialInterviewHandoffIsNoWrite(prepared.handoffInstruction);
-  const finalized = await prepareArchitectInterviewFinalDraftHandoff(root);
-  const draftPath = invocationFrom(finalized.finalDraftHandoffInstruction).params.relativePath;
-  writeDoc(root, targets.interview, "project-architect-interview", "Pending", {
-    identity: { "Project.ArtifactKey": "demo", projectSlug: "demo" },
-    sourceRevisions: [
-      { path: targets.intake, revision: 1 },
-      { path: targets.prompt, revision: 1 },
-    ],
-    bodyMarkdown: "# Architect Interview\n\nExisting Pending body.\n",
-  });
-  const before = fs.readFileSync(path.join(root, targets.interview), "utf8");
-  fs.mkdirSync(path.dirname(path.join(root, draftPath)), { recursive: true });
-  fs.writeFileSync(path.join(root, draftPath), "# Architect Interview\n\nOut-of-scope replacement.\n", "utf8");
-
-  const model = getArchitectInterviewWorkspaceModel(root);
-
-  assert.equal(model.draftSubmissionState, "promotion-failed");
-  assert.match(model.draftPromotionError, /not eligible for substantive replacement/);
-  assert.equal(fs.readFileSync(path.join(root, targets.interview), "utf8"), before);
-  assert.equal(fs.existsSync(path.join(root, draftPath)), true);
-});
-
-test("Architect Interview model does not carry a truncated canonical preview body", async () => {
-  const root = tempWorkspace("champcity-architect-no-preview-");
-  seedApprovedProjectIntake(root);
-  await submitDraft(
-    root,
-    `# Architect Interview\n\n${"Complete interview section.\n".repeat(700)}\nSECTION_44_FINAL_PRINCIPLE\n`,
-  );
-
-  const model = getArchitectInterviewWorkspaceModel(root);
-
-  assert.equal(model.interviewDocument.documentReadState, "readable");
-  assert.equal(model.preview, undefined);
-});
-
-test("Architect Interview handoff uses projectRepository route when repository binding has no binding", async () => {
-  const root = tempWorkspaceWithoutBinding("champcity-architect-interview-unbound-");
-  const result = submitProjectIntake({
-    projectName: "Unbound Interview",
-    projectPurpose: "Keep Architect Interview projection usable without MCP binding.",
-    desiredOutcome: "Handoff setup routes from Project Intake repository binding.",
-    projectType: "Desktop application",
-    projectRepository: root,
-    hasExistingSourceOrPlanning: false,
-    knownConstraints: "",
-    repositoryReviewContext: "",
-  });
-  approve(root, result.projectIntakeMarkdownPath);
-
-  const model = getArchitectInterviewWorkspaceModel(root);
-  assert.equal(model.state, "waiting-for-output");
-  assert.equal(model.promptDocument.markdownPath, result.architectPromptMarkdownPath);
-  assert.equal(model.interviewTargets.markdownPath, result.architectInterviewTargetMarkdownPath);
-
-  const expectedWorkspaceId = expectedWorkspaceIdFromRepository(root);
-  const prepared = await prepareArchitectInterviewHandoff(root);
-  assertInitialInterviewHandoffIsNoWrite(prepared.handoffInstruction);
-  const finalized = await prepareArchitectInterviewFinalDraftHandoff(root);
-  const invocation = invocationFrom(finalized.finalDraftHandoffInstruction);
-
-  assert.equal(fs.existsSync(path.join(root, ".champcity", "mcp-workspace-binding.json")), false);
-  assert.equal(prepared.canCopyHandoff, true);
-  assert.equal(invocation.workspaceId, expectedWorkspaceId);
-  assert.match(prepared.handoffInstruction, new RegExp(`Use ChampCity MCP workspaceId "${expectedWorkspaceId}" only\\.`));
-  assert.match(finalized.finalDraftHandoffInstruction, new RegExp(`Use ChampCity MCP workspaceId "${expectedWorkspaceId}" only\\.`));
-  assert.doesNotMatch(prepared.handoffInstruction, /BLOCKED_MCP_WORKSPACE_BINDING_REQUIRED/);
-  assert.match(prepared.handoffInstruction, /do not invent, normalize, or infer an alternate workspaceId/i);
-  assert.doesNotMatch(
-    prepared.handoffInstruction,
-    /resolve the configured workspace ID|search other workspaces|(?:discover|select|use|fall back to) (?:an? )?(?:alternate|another|different|other) (?:MCP )?workspace/i,
-  );
-
-  await registerInterviewFixture(root);
-  const manifest = await buildArchitectHandoffManifest(root);
-  assert.equal(manifest.state, "handoff-ready");
-  assert.equal(manifest.mcpWorkspaceBinding.mcpWorkspaceId, expectedWorkspaceId);
-});
-
-test("Architect Interview preserves established architecture and inspects repository review evidence before questions", async () => {
-  const root = tempWorkspace("champcity-architect-established-architecture-");
-  const result = submitProjectIntake({
-    projectName: "Established Architecture",
-    projectPurpose: "Translate approved architecture into implementation planning.",
-    desiredOutcome: "Preserve settled architecture while resolving genuine gaps.",
-    projectType: "Desktop application",
-    projectRepository: root,
-    hasExistingSourceOrPlanning: true,
-    knownConstraints: "Do not reopen adopted subsystem ownership.",
-    repositoryReviewContext: "Inspect docs/architecture/adopted-design.md before asking unresolved questions.",
-  });
-  const prompt = parseCanonicalMarkdownDocument(
-    fs.readFileSync(path.join(root, result.architectPromptMarkdownPath), "utf8"),
-  );
-
-  assert.match(prompt.bodyMarkdown, /Project Intake declares existing source or planning: Yes/);
-  assert.match(prompt.bodyMarkdown, /Repository review context: Inspect docs\/architecture\/adopted-design\.md before asking unresolved questions\./);
-  assert.match(prompt.bodyMarkdown, /inspect the materially relevant repository source, planning, and architecture evidence before asking unresolved questions/);
-  assert.match(prompt.bodyMarkdown, /governing, approved, adopted, canonical, or otherwise established by the Operator/);
-  assert.match(prompt.bodyMarkdown, /Do not redesign, summarize away, or silently supersede it/);
-  assert.match(prompt.bodyMarkdown, /Do not treat all repository Markdown as controlling planning direction/);
-  assert.match(prompt.bodyMarkdown, /current product capabilities and principal user workflows/);
-  assert.match(prompt.bodyMarkdown, /governing next-version product and capability intent/);
-  assert.match(prompt.bodyMarkdown, /governing architecture and technical constraints/);
-  assert.match(prompt.bodyMarkdown, /verified current implementation evidence/);
-  assert.match(prompt.bodyMarkdown, /unresolved Operator-owned product decisions/);
-  assert.match(prompt.bodyMarkdown, /before asking the Operator to restate known facts/);
-  assert.match(prompt.bodyMarkdown, /Resolve the material next-version capability delta as Preserve, Improve or Replace, Add, and Defer or Conditional/);
-  assert.match(prompt.bodyMarkdown, /principal users and workflows/);
-  assert.match(prompt.bodyMarkdown, /material capability delta, explicitly distinguishing Preserve, Improve or Replace, Add, and Defer or Conditional/);
-  assert.match(prompt.bodyMarkdown, /acceptance direction/);
-  assert.match(prompt.bodyMarkdown, /do not add a new required heading or document schema/);
-  assert.doesNotMatch(prompt.bodyMarkdown, /Feature workflow|Power Workbench|AI Memory|ChampCity A\/I V2/);
-  assert.doesNotMatch(prompt.bodyMarkdown, /## Capability Delta/);
-  assert.match(prompt.bodyMarkdown, /Evidence review controls interview length\. Do not use a target, minimum, or expected question count\./);
-  assert.match(prompt.bodyMarkdown, /Ask only material Operator-owned questions that remain unresolved after evidence review and normal Architect judgment/);
-  assert.match(prompt.bodyMarkdown, /ask zero clarification questions and proceed directly to the concise confirmation summary/);
-  assert.match(prompt.bodyMarkdown, /coverage obligations.*not a questionnaire.*do not imply one question per section/i);
-  assert.match(prompt.bodyMarkdown, /Do not compress unresolved material decisions merely to shorten the interview/);
-  assert.doesNotMatch(prompt.bodyMarkdown, /8[–-]12 substantive questions|approximately five substantive questions|approximately ten substantive questions/i);
-
-  approve(root, result.projectIntakeMarkdownPath);
-  const prepared = await prepareArchitectInterviewHandoff(root);
-  assert.match(prepared.handoffInstruction, /inspect the materially relevant repository source, planning, and architecture evidence before asking unresolved questions/);
-  assert.match(prepared.handoffInstruction, /do not redesign, summarize away, or silently supersede it/);
-  assert.match(prepared.handoffInstruction, /Resolve intended product capabilities, principal user workflows, and acceptance outcomes/);
-  assert.match(prepared.handoffInstruction, /distinguish current product capabilities and workflows, governing next-version product and capability intent/);
-  assert.match(prepared.handoffInstruction, /next-version capability delta as Preserve, Improve or Replace, Add, and Defer or Conditional/);
-  assert.match(prepared.handoffInstruction, /summary must include project understanding; principal users and workflows; intended product capabilities/);
-  assert.match(prepared.handoffInstruction, /summary must also include next-version understanding and a material capability delta/);
-  assert.match(prepared.handoffInstruction, /Evidence review controls interview length\. Do not use a target, minimum, or expected question count\./);
-  assert.match(prepared.handoffInstruction, /Ask only material Operator-owned questions that remain unresolved/);
-  assert.match(prepared.handoffInstruction, /ask zero clarification questions and proceed directly to the concise confirmation summary/);
-  assert.match(prepared.handoffInstruction, /coverage obligations, not a questionnaire or an implied one-question-per-section requirement/);
-  assert.match(prepared.handoffInstruction, /Do not compress unresolved material decisions merely to shorten the interview/);
-  assert.doesNotMatch(prepared.handoffInstruction, /8[–-]12 substantive questions|approximately five substantive questions|approximately ten substantive questions/i);
-
-  const finalized = await prepareArchitectInterviewFinalDraftHandoff(root);
-  assert.match(finalized.finalDraftHandoffInstruction, /Preserve confirmed product and capability intent, principal workflows, acceptance direction/);
-  assert.match(finalized.finalDraftHandoffInstruction, /not as permission to omit established product or capability intent/);
-  assert.match(finalized.finalDraftHandoffInstruction, /preserve the material next-version capability delta as Preserve, Improve or Replace, Add, and Defer or Conditional/);
-  assert.match(finalized.finalDraftHandoffInstruction, /Do not silently redesign, supersede, or summarize away established architecture or product capability intent/);
-});
-
-test("greenfield Architect Interview prompt resolves capabilities without assuming a prior version", async () => {
-  const root = tempWorkspace("champcity-architect-greenfield-capabilities-");
-  const result = submitProjectIntake({
-    projectName: "Greenfield Capability Intent",
-    projectPurpose: "Define a new product from first principles.",
-    desiredOutcome: "Capture intended workflows, capabilities, and acceptance outcomes.",
-    projectType: "Desktop application",
-    projectRepository: root,
-    hasExistingSourceOrPlanning: false,
-    knownConstraints: "",
-    repositoryReviewContext: "",
-  });
-  const prompt = parseCanonicalMarkdownDocument(
-    fs.readFileSync(path.join(root, result.architectPromptMarkdownPath), "utf8"),
-  );
-
-  assert.match(prompt.bodyMarkdown, /For this greenfield project, resolve intended product capabilities, principal workflows, and acceptance outcomes/);
-  assert.match(prompt.bodyMarkdown, /intended product capabilities and acceptance outcomes/);
-  assert.match(prompt.bodyMarkdown, /principal users and workflows/);
-  assert.doesNotMatch(prompt.bodyMarkdown, /existing-product evolution|next-version capability delta|prior version must|migration baseline must/i);
-
-  approve(root, result.projectIntakeMarkdownPath);
-  const prepared = await prepareArchitectInterviewHandoff(root);
-  assert.match(prepared.handoffInstruction, /Resolve intended product capabilities, principal user workflows, and acceptance outcomes/);
-  assert.match(prepared.handoffInstruction, /When the approved inputs describe existing-product evolution/);
-  assert.doesNotMatch(prepared.handoffInstruction, /This is an existing-product evolution|assume a prior version/i);
-});
-
-test("Architect Interview regenerates a deleted prompt from Approved Project Intake", async () => {
-  const outerRoot = tempWorkspaceWithoutBinding("champcity-architect-regenerate-prompt-");
-  const root = path.join(outerRoot, "ChampCity_PDL");
-  fs.mkdirSync(root, { recursive: true });
-  const result = submitProjectIntake({
-    projectName: "Pocket Decision Log",
-    projectPurpose: "Recover a deleted Architect Interview prompt.",
-    desiredOutcome: "The Operator can continue without resubmitting Project Intake.",
-    projectType: "Desktop application",
-    projectRepository: root,
-    hasExistingSourceOrPlanning: false,
-    knownConstraints: "",
-    repositoryReviewContext: "",
-  });
-  approve(root, result.projectIntakeMarkdownPath);
-  const intakeBefore = fs.readFileSync(path.join(root, result.projectIntakeMarkdownPath), "utf8");
-  fs.unlinkSync(path.join(root, result.architectPromptMarkdownPath));
-
-  const missing = getArchitectInterviewWorkspaceModel(root);
-  assert.equal(missing.state, "prompt-missing");
-  assert.equal(missing.selectedReviewDocumentRole, "project-intake");
-  assert.equal(missing.projectIntakeDocument.markdownPath, result.projectIntakeMarkdownPath);
-  assert.deepEqual(missing.evidencePaths, [result.projectIntakeMarkdownPath]);
-  assert.equal(missing.markdownPath, result.projectIntakeMarkdownPath);
-  assert.equal(missing.canRegeneratePrompt, true);
-  assert.equal(missing.canPrepareHandoff, false);
-  assert.equal(missing.canCopyHandoff, false);
-
-  const genericMissing = getArchitectOutputWorkspaceModel(root, "architect-interview");
-  assert.equal(genericMissing.state, "not-ready");
-  assert.equal(genericMissing.canRegeneratePrompt, true);
-  assert.equal(genericMissing.canPrepareHandoff, false);
-
-  const regenerated = await regenerateArchitectInterviewPrompt(root);
-  assert.equal(regenerated.state, "waiting-for-output");
-  assert.equal(regenerated.promptDocument.markdownPath, result.architectPromptMarkdownPath);
-  assert.equal(regenerated.interviewTargets.markdownPath, result.architectInterviewTargetMarkdownPath);
-  assert.match(fs.readFileSync(path.join(root, result.projectIntakeMarkdownPath), "utf8"), /GENERATED FROM CHAMPCITY STRUCTURED PROJECT STATE/);
-
-  const prompt = parseCanonicalMarkdownDocument(
-    fs.readFileSync(path.join(root, result.architectPromptMarkdownPath), "utf8"),
-  );
-  assert.equal(prompt.metadata.artifactType, "project-architect-interview-prompt");
-  assert.equal(prompt.metadata.participationRole, "nonReviewHandoff");
-  assert.equal(prompt.metadata.documentDisposition.status, "Approved");
-  assert.deepEqual(prompt.metadata.sourceRevisions, [
-    { path: result.projectIntakeMarkdownPath, revision: 1 },
-  ]);
-  assert.equal(prompt.metadata.workflowData.projectRepository, path.resolve(root));
-  assert.equal(prompt.metadata.workflowData.repositoryBinding.projectRepository, path.resolve(root));
-  assert.equal(prompt.metadata.workflowData.projectSlug, "pocket_decision_log");
-  assert.equal(prompt.metadata.workflowData.architectOutputTargets.markdown, result.architectInterviewTargetMarkdownPath);
-  const regeneratedPromptBytes = fs.readFileSync(path.join(root, result.architectPromptMarkdownPath), "utf8");
-
-  const genericReady = getArchitectOutputWorkspaceModel(root, "architect-interview");
-  assert.equal(genericReady.canRegeneratePrompt, false);
-  assert.equal(genericReady.canPrepareHandoff, true);
-  assert.equal(genericReady.canCopyHandoff, false);
-
-  await registerInterviewFixture(root);
-  const prepared = await prepareArchitectOutputHandoff(root, "architect-interview");
-  assert.equal(prepared.canCopyHandoff, true);
-  assert.equal(prepared.canPrepareFinalDraftHandoff, true);
-  assert.equal(prepared.canCopyFinalDraftHandoff, false);
-  assert.match(prepared.preparedInstruction, /Use ChampCity MCP workspaceId "champcity_pdl" only\./);
-  assertInitialInterviewHandoffIsNoWrite(prepared.preparedInstruction);
-  assert.match(prepared.preparedInstruction, /do not invent, normalize, or infer an alternate workspaceId/i);
-  assert.doesNotMatch(
-    prepared.preparedInstruction,
-    /resolve the configured workspace ID|search other workspaces|(?:discover|select|use|fall back to) (?:an? )?(?:alternate|another|different|other) (?:MCP )?workspace/i,
-  );
-  const finalized = await prepareArchitectInterviewFinalDraftHandoff(root);
-  assert.equal(finalized.canCopyFinalDraftHandoff, true);
-  assert.match(finalized.finalDraftHandoffInstruction, /Use ChampCity MCP workspaceId "champcity_pdl" only\./);
-  assert.doesNotMatch(finalized.finalDraftHandoffInstruction, /diagnostics_toolbox\.list_workspaces/);
-  const invocation = invocationFrom(finalized.finalDraftHandoffInstruction);
-  const active = getActiveArchitectInterviewDraftSubmission(root);
-  assert.equal(fs.readFileSync(path.join(root, result.architectPromptMarkdownPath), "utf8"), regeneratedPromptBytes);
-  assert.equal(invocation.workspaceId, "champcity_pdl");
-  assert.match(active.submission.submissionId, /^ad-architect-interview-project-architect-interview-request-1-src-[a-f0-9]{20}-r1$/);
-  assert.equal(active.submission.sourceHandoff.path, result.architectPromptMarkdownPath);
-  assert.ok(active.submission.submissionId.length <= 240);
-});
-
-test("Architect Interview regeneration does not overwrite a conflicting prompt target", async () => {
-  const root = tempWorkspace("champcity-architect-regenerate-conflict-");
-  const result = submitProjectIntake({
-    projectName: "Conflict Target",
-    projectPurpose: "Keep regeneration bounded.",
-    desiredOutcome: "Existing nonmatching prompt target requires Operator attention.",
-    projectType: "Desktop application",
-    projectRepository: root,
-    hasExistingSourceOrPlanning: false,
-    knownConstraints: "",
-    repositoryReviewContext: "",
-  });
-  approve(root, result.projectIntakeMarkdownPath);
-  fs.unlinkSync(path.join(root, result.architectPromptMarkdownPath));
-  const conflictBody = "# Nonmatching prompt target\n\nDo not overwrite.\n";
-  fs.writeFileSync(path.join(root, result.architectPromptMarkdownPath), conflictBody, "utf8");
-
-  const model = getArchitectInterviewWorkspaceModel(root);
-  assert.equal(model.state, "needs-attention");
-  assert.match(model.reason, /target exists but is not the current Approved associated prompt/);
-  assert.equal(model.canRegeneratePrompt, false);
-  await assert.rejects(
-    () => regenerateArchitectInterviewPrompt(root),
-    /target exists but is not the current Approved associated prompt/,
-  );
-  assert.equal(fs.readFileSync(path.join(root, result.architectPromptMarkdownPath), "utf8"), conflictBody);
-});
-
-test("Architect Interview handoff prepares compact draft ID for real long prompt path", async () => {
-  const root = tempWorkspace("champcity-architect-interview-long-path-");
-  const targets = seedApprovedProjectIntake(root, "pocket_decision_log");
-  assert.equal(
-    targets.prompt,
-    "planning/project/Project_Architect_Interview_Prompts/PROJECT_ARCHITECT_INTERVIEW_PROMPT_pocket_decision_log.md",
-  );
-
-  const prepared = await prepareArchitectInterviewHandoff(root);
-  assertInitialInterviewHandoffIsNoWrite(prepared.handoffInstruction);
-  assert.equal(getActiveArchitectInterviewDraftSubmission(root), undefined);
-  const finalized = await prepareArchitectInterviewFinalDraftHandoff(root);
-  const invocation = invocationFrom(finalized.finalDraftHandoffInstruction);
-  const active = getActiveArchitectInterviewDraftSubmission(root);
-
-  assert.match(active.submission.submissionId, /^ad-architect-interview-project-architect-interview-request-1-src-[a-f0-9]{20}-r1$/);
-  assert.equal(active.submission.sourceHandoff.path, targets.prompt);
-  assert.equal(active.submission.sourceHandoff.revision, 1);
-  assert.equal(invocation.params.relativePath, `planning/Architect_Drafts/${active.submission.submissionId}/interview.md`);
-  assert.ok(active.submission.submissionId.length <= 240);
-  assert.doesNotMatch(active.submission.submissionId, /project-architect-interview-prompts/);
-});
-
-const {registerProjectCreationFixture: registerInterviewFixture} = require("../support/canonical-markdown-fixtures.cjs");
-async function prepareArchitectInterviewHandoff(root) { await registerInterviewFixture(root); return productionPrepareArchitectInterviewHandoff(root); }
-async function regenerateArchitectInterviewPrompt(root) { await registerInterviewFixture(root); return productionRegenerateArchitectInterviewPrompt(root); }

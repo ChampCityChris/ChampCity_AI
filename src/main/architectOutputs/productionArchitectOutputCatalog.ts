@@ -2,7 +2,6 @@ import type {
   ArchitectOutputBundleMode,
   ArchitectOutputDefinition,
 } from "../../shared/architectOutputs/architectOutputContracts";
-import { projectArchitectInterviewOutputDefinition } from "../architectInterview/architectInterviewDraftPilot";
 import { phaseInterviewArchitectOutputDefinition } from "../phaseInterview/phaseInterviewDraftOutput";
 import { phaseMapArchitectOutputDefinition } from "../phaseMap/phaseMapDraftOutput";
 import { phasePlanningArchitectOutputDefinition } from "../phasePlanning/phasePlanningDraftBundle";
@@ -23,7 +22,6 @@ export interface ProductionArchitectOutputCatalogEntry {
 }
 
 const activeDefinitions = [
-  projectArchitectInterviewOutputDefinition,
   projectPlanningArchitectOutputDefinition,
   phaseMapArchitectOutputDefinition,
   phaseInterviewArchitectOutputDefinition,
@@ -33,14 +31,6 @@ const activeDefinitions = [
 ] as const satisfies readonly AnyProductionArchitectOutputDefinition[];
 
 export const productionArchitectOutputCatalog = validateCatalog([
-  {
-    outputKind: "project-architect-interview",
-    owningWorkspaceId: "architect-interview",
-    bundleMode: "single-output",
-    finalMarkdownOutputs: ["Project Architect Interview"],
-    activeInWc39: true,
-    definition: projectArchitectInterviewOutputDefinition,
-  },
   {
     outputKind: "project-planning",
     owningWorkspaceId: "project-planning-review",

@@ -63,7 +63,7 @@ test("successful renderer dispositions consume the returned transaction with one
   ];
   for (const [action, mutation, args] of cases) await t.test(mutation, async () => {
     const ipcCalls = [];
-    const sideReads = action === "runIssueArchitectReview" ? ["getRoutedIssueLineage"] : [];
+    const sideReads = [];
     const state = new Map();
     const development = {
       documents: [], projectPlanningModel: { generation: "final" },
@@ -321,15 +321,11 @@ test("pathological promotion epoch changes exhaust the bounded retry budget and 
 
 test("Architect review returns a model and Development projection from the same final planning generation", () => {
   const root = tempWorkspace("champcity-architect-review-transaction-");
-  const { intake, prompt, interview } = seedApprovedProjectIntake(root, "demo");
-  writeDoc(root, interview, "project-architect-interview", "Pending", {
-    identity: { "Project.ArtifactKey": "demo" },
-    sourceRevisions: [
-      { path: intake, revision: 1 },
-      { path: prompt, revision: 1 },
-    ],
-  });
-  const presented = getArchitectOutputWorkspaceModel(root, "architect-interview").documentSlots.map((slot) => ({
+  seedApprovedProjectIntake(root, "demo");
+  const { profile: interview, roadmap } = seedApprovedProjectPlanning(root, "demo");
+  writeDoc(root, interview, "project-profile", "Pending", { participationRole: "compoundGatingReview" });
+  writeDoc(root, roadmap, "project-roadmap", "Pending", { participationRole: "compoundGatingReview" });
+  const presented = getArchitectOutputWorkspaceModel(root, "project-planning-review").documentSlots.map((slot) => ({
     slotId: slot.slotId,
     targetPath: slot.targetPath,
     artifactRevision: slot.artifactRevision,
@@ -342,7 +338,7 @@ test("Architect review returns a model and Development projection from the same 
   try {
     const review = reviewArchitectOutputWithPlanningContext(
       root,
-      "architect-interview",
+      "project-planning-review",
       "Approved",
       "Approved for the next lifecycle stage.",
       presented,
@@ -368,16 +364,9 @@ test("Architect review returns a model and Development projection from the same 
 
 test("Architect review rebuilds its model and Development projection together after a reachable promotion", () => {
   const root = tempWorkspace("champcity-architect-review-stabilization-");
-  const { intake, prompt, interview } = seedApprovedProjectIntake(root, "demo");
-  writeDoc(root, interview, "project-architect-interview", "Pending", {
-    identity: { "Project.ArtifactKey": "demo" },
-    sourceRevisions: [
-      { path: intake, revision: 1 },
-      { path: prompt, revision: 1 },
-    ],
-  });
-  seedApprovedProjectPlanning(root, "demo");
-  const presented = getArchitectOutputWorkspaceModel(root, "architect-interview").documentSlots.map((slot) => ({
+  seedApprovedProjectIntake(root, "demo");
+  const { profile: interview, roadmap } = seedApprovedProjectPlanning(root, "demo");
+  const presented = getArchitectOutputWorkspaceModel(root, "project-planning-review").documentSlots.map((slot) => ({
     slotId: slot.slotId,
     targetPath: slot.targetPath,
     artifactRevision: slot.artifactRevision,
@@ -389,7 +378,7 @@ test("Architect review rebuilds its model and Development projection together af
 
   const initialContext = mutateArchitectOutputReviewWithPlanningContext(
     root,
-    "architect-interview",
+    "project-planning-review",
     "Approved",
     "Approved for stabilized review evidence.",
     presented,
@@ -399,7 +388,7 @@ test("Architect review rebuilds its model and Development projection together af
     attempts += 1;
     const currentModel = getCurrentWorkspaceModelFromContext(root, planningContext);
     return {
-      architectOutput: getArchitectOutputWorkspaceModel(root, "architect-interview", planningContext),
+      architectOutput: getArchitectOutputWorkspaceModel(root, "project-planning-review", planningContext),
       development: buildDevelopmentPostMutationProjection(root, planningContext, currentModel, interview),
     };
   });
