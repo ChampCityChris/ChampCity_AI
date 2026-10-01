@@ -1,6 +1,7 @@
 # Development Environment Resolution / Repair03
 
-**Status:** ACTIVE — APPLICATION-LED ENVIRONMENT REPAIR
+**Implementation checkpoint:** `453a950946eaec108b805418323e17ca0cb0432e`  
+**Status:** **BLOCKED — FOLLOW-UP REPAIR REQUIRED**
 
 Controlling RCA:
 
@@ -10,21 +11,18 @@ Controlling repair card:
 
 `DER-R03_application_led_environment_setup_and_node_npm_path_repair.md`
 
-Repair03 restores the intended authority boundary:
+Architect review:
 
-```text
-ChampCity application
--> refresh Windows environment
--> detect/repair PATH
--> verify/provision toolchains
--> deterministic preflight ready
--> Codex may implement
-```
+`DER_R03_ARCHITECT_REVIEW_2026-09-30.md`
 
-Ordinary environment setup must not run through Codex App Server.
+## Accepted direction
 
-For Node/npm, ChampCity must reuse the existing validated standalone Node/npm resolver, repair User PATH when the toolchain is already installed but not exposed, and provision the Node toolchain only when it is genuinely absent.
+DER-R03 successfully removes model-driven Environment Resolution and establishes application-owned Node/npm, PATH, FFmpeg, and ffprobe repair/verification.
 
-`winget search npm` is not an allowed environment-setup path.
+## Remaining blockers
 
-Stop after implementation for Architect review.
+1. First deterministic preflight still occurs only after `CodexRuntimeManager.acquire()`; a fresh Work Card with unavailable Codex has no cached preflight and no environment-retry control.
+2. Node/npm persistent PATH repair is skipped if the pair is visible only through the current process PATH even though Machine/User PATH do not contain the validated root.
+3. The committed DER-R03 Implementer Report is not valid UTF-8 and cannot be read by repository text tooling.
+
+Do not Operator-retest Signal Forge until a bounded Repair03/Repair01 is implemented and reviewed.
