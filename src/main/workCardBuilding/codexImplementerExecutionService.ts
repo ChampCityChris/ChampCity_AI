@@ -298,6 +298,7 @@ export class CodexImplementerExecutionService {
     if (context instanceof Error) {
       return unavailableFromPreflight(context);
     }
+    if (!this.preflightByWorkspaceRoot.has(preflightKey(context))) void this.obtainEnvironmentPreflight(context);
     context.developmentEnvironmentPreflight = this.preflightByWorkspaceRoot.get(preflightKey(context)) ?? null;
     const cachedPreflight = context.developmentEnvironmentPreflight;
     if (
@@ -361,7 +362,7 @@ export class CodexImplementerExecutionService {
     const preflightCacheKey = preflightKey(context);
     const checkingPreflight: DevelopmentEnvironmentPreflightResult = {
       state: "checking",
-      summary: "Preparing development environment...",
+      summary: "Checking development environment...",
       retryAllowed: false,
       requirements: [],
       evidenceMarkdown: "Development environment preflight evidence:\n- Final state: checking",
@@ -369,14 +370,6 @@ export class CodexImplementerExecutionService {
     this.preflightByWorkspaceRoot.set(preflightCacheKey, checkingPreflight);
     let developmentEnvironmentPreflight: DevelopmentEnvironmentPreflightResult;
     try {
-      const provisioningPreflight: DevelopmentEnvironmentPreflightResult = {
-        state: "provisioning",
-        summary: "Installing required development tools...",
-        retryAllowed: false,
-        requirements: [],
-        evidenceMarkdown: "Development environment preflight evidence:\n- Final state: provisioning",
-      };
-      this.preflightByWorkspaceRoot.set(preflightCacheKey, provisioningPreflight);
       developmentEnvironmentPreflight = await this.preflightService.runPreflight({
         workspaceRoot: context.projectRoot,
         formalWorkCardPath: context.formalWorkCardPath!,

@@ -175,7 +175,7 @@ test("exact Implementer and Tester mutation leases serialize one checkout, isola
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
-test("Codex Implementer idle status polling is side-effect free and does not provision environment", async () => {
+test("fresh Implement foreground checks environment once without Codex or App Server", async () => {
   const root = seedBuildReviewWorkspace();
   let appServerFactoryCalled = 0;
   let preflightCalls = 0;
@@ -198,18 +198,28 @@ test("Codex Implementer idle status polling is side-effect free and does not pro
     },
   );
 
+  const first = await service.getStatus(root);
+  assert.ok(first.developmentEnvironmentPreflight);
+  await new Promise(resolve => setImmediate(resolve));
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const status = await service.getStatus(root);
-
     assert.equal(status.state, "ready");
-    assert.equal(status.canRunAgain, false);
-    assert.equal(status.canResolveEnvironment, true);
-    assert.equal(status.developmentEnvironmentPreflight, null);
+    assert.equal(status.canRunAgain, true);
+    assert.equal(status.canResolveEnvironment, false);
+    assert.equal(status.developmentEnvironmentPreflight.state, "not-required");
     assert.equal(status.implementerReportPath, reportPath());
   }
-
   assert.equal(appServerFactoryCalled, 0);
-  assert.equal(preflightCalls, 0);
+  assert.equal(preflightCalls, 1);
+  const formalFile = path.join(root, "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md");
+  const formal = parseCanonicalMarkdownDocument(fs.readFileSync(formalFile, "utf8"));
+  formal.metadata.revision += 1;
+  fs.writeFileSync(formalFile, serializeCanonicalMarkdownDocument(formal.metadata, formal.bodyMarkdown + "\nContract revision changed.\n"));
+  await service.getStatus(root);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(preflightCalls, 2);
+  assert.equal(appServerFactoryCalled, 0);
+
 });
 
 test("Codex Implementer explicit start owns one App Server adapter across status reads and terminal cleanup", async () => {
@@ -490,6 +500,7 @@ test("Issue Fix Card Codex status isolates running and terminal sessions by exac
   releaseExecution();
   const completed = await waitForIssueState(service, root, fc01, "completed");
   assert.equal(completed.workCardId, "ISSUE_120-FC01");
+  await service.getStatus(root, fc02);
   const fc02Status = await service.getStatus(root, fc02);
   assert.equal(fc02Status.state, "ready");
   assert.equal(fc02Status.workCardId, "ISSUE_123-FC01");
@@ -550,6 +561,7 @@ test("Issue Repair Codex completion and retry preserve root Fix Card and exact R
   assert.equal(staleStatus.state, "unavailable");
   assert.match(staleStatus.failureReason, /Issue Codex execution context changed/);
 
+  await service.getStatus(root, { ownerKind: "issue", issueId, fixCardId: rootFixCardId, currentImplementationId: nextRepair.currentImplementationId });
   const currentStatus = await service.getStatus(root, {
     ownerKind: "issue",
     issueId,
@@ -580,7 +592,7 @@ test("Issue Fix Card shares neutral repair with exact contract context", async (
   assert.equal(status.canRunAgain, false);
   assert.equal(status.developmentEnvironmentPreflight.state, "resolution-required");
   const other = await service.getStatus(root, {ownerKind:"issue",issueId:"ISSUE_124",fixCardId:"ISSUE_124-FC01"});
-  assert.equal(other.developmentEnvironmentPreflight, null);
+  assert.equal(other.developmentEnvironmentPreflight.state, "checking");
   assert.equal(calls, 0);
 });
 
@@ -2603,7 +2615,8 @@ for (const state of ["resolution-required", "blocked", "ready", "not-required"])
     );
     const fresh = await service.getStatus(root);
     assert.equal(fresh.canRunAgain,false);
-    assert.equal(fresh.canResolveEnvironment,true);
+    assert.equal(fresh.canResolveEnvironment,false);
+    assert.equal(fresh.developmentEnvironmentPreflight.state,"checking");
     const result = await service.start(root);
     assert.equal(result.canRunAgain,false);
     assert.equal(result.developmentEnvironmentPreflight.state,state);
@@ -2616,3 +2629,53 @@ for (const state of ["resolution-required", "blocked", "ready", "not-required"])
     if (!ready) {await service.start(root);assert.equal(acquisitions,0);assert.equal(order.length,1);}
   });
 }
+
+
+test("Signal Forge startup fixture reaches automatic environment ready and selectable advertised model through IPC and renderer", async (t) => {
+  const root = seedBuildReviewWorkspace();
+  t.after(() => fs.rmSync(path.dirname(root), { recursive: true, force: true }));
+  const file = path.join(root, "planning/phases/phase-01/Work_Cards/WC01_first_work_card.md");
+  const formal = parseCanonicalMarkdownDocument(fs.readFileSync(file, "utf8"));
+  const requirements = ["node", "npm", "ffmpeg", "ffprobe"].map(capabilityId => ({ capabilityId, provisioning: "managed" }));
+  formal.bodyMarkdown += "\n```champcity-development-environment\n" + JSON.stringify({ schemaVersion: 1, requirements }) + "\n```\n";
+  fs.writeFileSync(file, serializeCanonicalMarkdownDocument(formal.metadata, formal.bodyMarkdown));
+  const { DevelopmentEnvironmentPreflightService } = require("../../dist/main/developmentEnvironment/developmentEnvironmentPreflightService.js");
+  let checks = 0, appServers = 0;
+  const neutral = new DevelopmentEnvironmentPreflightService({ async preflight(actual) {
+    checks++; assert.deepEqual(actual, requirements);
+    return { state: "ready", retryAllowed: false, summary: "4 capability requirement(s) already satisfied.",
+      requirements: actual.map(entry => ({ ...entry, beforeState: "satisfied", afterState: "satisfied", actionTaken: "none", retryAllowed: false, commandSummaries: [] })), evidenceMarkdown: "Ready" };
+  } });
+  const { runtimeFixture, catalog } = require("../support/codex-runtime.cjs");
+  const selection = { model: "gpt-6.1-sol", reasoningEffort: "high" };
+  const f = runtimeFixture({ readSelection: async () => selection, probe: async () => [{ ...catalog[0], model: selection.model }] });
+  await f.ready;
+  const service = new CodexImplementerExecutionService(async () => { appServers++; throw Error("Foreground check must not launch Codex"); }, () => Date.now(), defaultExecutionPolicy, neutral, f.manager);
+  const api = require("../support/codex-ipc-harness.cjs").codexIpcHarness(service, f.manager, root);
+  await api.getCodexImplementerExecutionStatus();
+  let execution = await api.getCodexImplementerExecutionStatus();
+  assert.equal(execution.developmentEnvironmentPreflight.state, "ready");
+  assert.equal(execution.canRunAgain, true); assert.equal(execution.canResolveEnvironment, false);
+  assert.equal(checks, 1); assert.equal(appServers, 0);
+  const React = require("react");
+  const { CodexExecutionActions, DevelopmentEnvironmentStatus } = require("../renderer/renderer-source-loader.cjs").loadRendererSourceModule("src/renderer/app/WorkCardBuildingReviewWorkspace.tsx");
+  const { renderToStaticMarkup } = require("react-dom/server");
+  assert.doesNotMatch(renderToStaticMarkup(DevelopmentEnvironmentStatus({ execution })), /Prepare Environment/);
+  const previous = { state: React.useState, effect: React.useEffect };
+  let index = 0;
+  const states = [await api.getCodexManagedRuntimeStatus(), null, false, ""];
+  React.useState = initial => [index < states.length ? states[index++] : initial, () => {}];
+  React.useEffect = () => {};
+  function find(node, predicate) {
+    if (!node || typeof node !== "object") return null;
+    if (predicate(node)) return node;
+    for (const child of React.Children.toArray(node.props?.children)) { const result = find(child, predicate); if (result) return result; }
+    return null;
+  }
+  try {
+    const tree = CodexExecutionActions({ execution, isActionRunning: false, onRun() {}, onCancel() {} });
+    for (const label of ["Model", "Reasoning"]) assert.equal(find(tree, node => node.type === "select" && node.props["aria-label"] === label).props.disabled, false);
+    const run = find(tree, node => node.type === "button" && node.props.className === "apply-button codex-command");
+    assert.equal(run.props.disabled, false);
+  } finally { React.useState = previous.state; React.useEffect = previous.effect; }
+});

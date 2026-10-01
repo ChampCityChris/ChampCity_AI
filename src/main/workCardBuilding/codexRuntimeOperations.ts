@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import os from "node:os";
 import { createRequire } from "node:module";
 import { createHash, randomUUID } from "node:crypto";
 import { execFile, spawn } from "node:child_process";
@@ -10,6 +11,7 @@ import type {
   ManagedCodexRuntime,
 } from "./codexRuntimeInitialization";
 import type { CodexModelSelection } from "../../shared/codexRuntimeContracts";
+import { RuntimeHealthError } from "./codexRuntimeInitialization";
 import { CodexConnectionPolicy, managedConnectionOverrides } from "./codexConnectionPolicy";
 
 const registry = "https://registry.npmjs.org";
@@ -23,6 +25,7 @@ export function createCodexRuntimeOperations(userData: string): CodexRuntimeOper
   const connections = new CodexConnectionPolicy(userData);
   const shutdown = new AbortController();
   const transports = new Set<JsonlCodexAppServerTransport>();
+  const isolatedHomes = new Set<string>();
   const execute = (file: string, args: string[], options: { windowsHide: boolean; timeout: number; maxBuffer?: number }) =>
     new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
       execFile(file, args, { ...options, signal: shutdown.signal, encoding: "utf8" }, (error, stdout, stderr) => error ? reject(error) : resolve({ stdout, stderr }));
@@ -44,18 +47,33 @@ export function createCodexRuntimeOperations(userData: string): CodexRuntimeOper
     await fs.mkdir(directory, { recursive: true });
     return directory;
   };
-  const launchTransport = async (runtime: ManagedCodexRuntime, overrides: string[]) => {
+  const launchTransport = async (runtime: ManagedCodexRuntime, overrides: string[], probeHome?: string) => {
     shutdown.signal.throwIfAborted();
     await fs.mkdir(root, { recursive: true });
     const transport = new JsonlCodexAppServerTransport(() => spawn(runtime.executable, [...overrides, "app-server", "--listen", "stdio://"], {
       cwd: root, windowsHide: true, stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env, PATH: `${path.join(runtime.directory, "vendor", triple, "codex-path")}${path.delimiter}${process.env.PATH ?? ""}` },
+      env: { ...process.env, ...(probeHome ? { CODEX_HOME: probeHome } : {}), PATH: `${path.join(runtime.directory, "vendor", triple, "codex-path")}${path.delimiter}${process.env.PATH ?? ""}` },
     }));
     transports.add(transport);
     const dispose = transport.dispose.bind(transport);
     transport.dispose = async () => { transports.delete(transport); await dispose(); };
     try { await bounded(transport.initialize(), 30_000); return transport; }
     catch (error) { await transport.dispose(); throw error; }
+  };
+  const launchNeutralTransport = async (runtime: ManagedCodexRuntime) => {
+    shutdown.signal.throwIfAborted();
+    const probeHome = await fs.mkdtemp(path.join(os.tmpdir(), "champcity-runtime-isolated-"));
+    isolatedHomes.add(probeHome);
+    try {
+      shutdown.signal.throwIfAborted();
+      const auth = path.join(process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex"), "auth.json");
+      try { await fs.copyFile(auth, path.join(probeHome, "auth.json")); }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+      const transport = await launchTransport(runtime, ["-c", "features.apps=false", "-c", "features.plugins=false"], probeHome);
+      const dispose = transport.dispose.bind(transport);
+      transport.dispose = async () => { try { await dispose(); } finally { await fs.rm(probeHome, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); isolatedHomes.delete(probeHome); } };
+      return transport;
+    } catch (error) { await fs.rm(probeHome, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); isolatedHomes.delete(probeHome); throw error; }
   };
   const inventory = async (runtime: ManagedCodexRuntime): Promise<string[]> => {
     // `mcp list` reads configuration without starting MCP workers. Never retain its raw credential-bearing payload.
@@ -67,20 +85,29 @@ export function createCodexRuntimeOperations(userData: string): CodexRuntimeOper
     return value.map(entry => entry.name);
   };
   const preflight = async (runtime: ManagedCodexRuntime) => {
-    const approved = await connections.read();
-    const names = await inventory(runtime);
+    let approved;
+    let names;
+    try { approved = await connections.read(); }
+    catch { connections.fail("Connection policy check failed. Approved connection projection could not be read."); throw new Error(connections.getStatus().blocker!); }
+    try { names = await inventory(runtime); }
+    catch { connections.fail("Connection inventory check failed. Safe implementation isolation could not be established."); throw new Error(connections.getStatus().blocker!); }
     const candidates = approved.filter(entry => entry.enabled).map(entry => entry.name);
     let transport: JsonlCodexAppServerTransport | undefined;
+    let policyFailed = false;
     try {
-      transport = await launchTransport(runtime, managedConnectionOverrides(names, candidates));
+      transport = candidates.length ? await launchTransport(runtime, managedConnectionOverrides(names, candidates)) : await launchNeutralTransport(runtime);
       const observed = await bounded(transport.listManagedConnections(), 30_000);
       if (observed.some(entry => entry.initialized && !candidates.includes(entry.name))) throw new Error("Unapproved Codex connection detected.");
       connections.project(approved, observed);
     } catch (error) {
-      if (error instanceof Error && error.message === "Unapproved Codex connection detected.") throw error;
+      if (error instanceof Error && error.message === "Unapproved Codex connection detected.") {
+        connections.fail("Connection policy check failed. Unapproved connection detected; implementation blocked.");
+        throw error;
+      }
+      policyFailed = !transport;
       connections.project(approved, [], true);
     } finally { await transport?.dispose(); }
-    return { names, status: connections.getStatus() };
+    return { names, status: connections.getStatus(), policyFailed };
   };
   const launch = async (runtime: ManagedCodexRuntime) => {
     const { names, status } = await preflight(runtime);
@@ -88,11 +115,12 @@ export function createCodexRuntimeOperations(userData: string): CodexRuntimeOper
     // Optional outbound connections remain excluded from implementation. This V1 recovery boundary
     // cannot guarantee that an authenticated optional worker will remain healthy after preflight.
     const required = status.connections.filter(entry => entry.enabled && entry.requirement === "required" && entry.status === "ready").map(entry => entry.name);
-    const transport = await launchTransport(runtime, managedConnectionOverrides(names, required));
-    transport.setManagedConnectionBoundary(names, required);
+    const transport = required.length ? await launchTransport(runtime, managedConnectionOverrides(names, required)) : await launchNeutralTransport(runtime);
+    transport.setManagedConnectionBoundary(required.length ? names : [], required);
     return transport;
   };
   return {
+    verifyCandidateConnections: async (runtime) => { if ((await preflight(runtime)).policyFailed) throw new Error("Candidate connection policy check failed."); },
     getConnectionsStatus: () => connections.getStatus(),
     refreshConnections: async (runtime) => (await preflight(runtime)).status,
     setConnectionEnabled: (name, enabled) => connections.setEnabled(name, enabled),
@@ -137,17 +165,40 @@ export function createCodexRuntimeOperations(userData: string): CodexRuntimeOper
       return runtimeAt(directory, version);
     },
     async probe(runtime) {
-      const version = await execute(runtime.executable, ["--version"], { windowsHide: true, timeout: 15_000 });
-      if (!version.stdout.includes(`codex-cli ${runtime.version}`)) throw new Error("Managed runtime version mismatch.");
+      try {
+        const version = await execute(runtime.executable, ["--version"], { windowsHide: true, timeout: 15_000 });
+        if (!version.stdout.includes(`codex-cli ${runtime.version}`)) throw new Error();
+      } catch { throw new RuntimeHealthError("Runtime executable check failed", "Executable did not report the expected version."); }
       const schemaDirectory = path.join(runtime.directory, "probe-schema");
-      await fs.mkdir(schemaDirectory, { recursive: true });
-      await execute(runtime.executable, ["app-server", "generate-json-schema", "--out", schemaDirectory], { windowsHide: true, timeout: 30_000 });
-      await verifyRequiredSchema(schemaDirectory);
-      // Model/runtime readiness is independent of required outbound connection readiness.
-      // Startup must still expose a healthy runtime when a required connector needs attention.
-      const transport = await launchTransport(runtime, managedConnectionOverrides(await inventory(runtime), []));
-      try { return await bounded(transport.listModels(), 30_000); }
-      finally { await transport.dispose(); }
+      try {
+        await fs.mkdir(schemaDirectory, { recursive: true });
+        await execute(runtime.executable, ["app-server", "generate-json-schema", "--out", schemaDirectory], { windowsHide: true, timeout: 30_000 });
+        await verifyRequiredSchema(schemaDirectory);
+      } catch { throw new RuntimeHealthError("Runtime schema compatibility check failed", "Required execution protocol could not be verified."); }
+      // A fresh CODEX_HOME has no ambient MCP configuration. Authentication is borrowed
+      // only for this transport's lifetime and removed by disposal, including failed probes.
+      let transport: JsonlCodexAppServerTransport | undefined;
+      try {
+        try { transport = await launchNeutralTransport(runtime); }
+        catch { throw new RuntimeHealthError("Runtime App Server initialization failed", "Connection-neutral App Server could not initialize."); }
+        let catalog;
+        try { catalog = await bounded(transport.listModels(), 30_000); }
+        catch { throw new RuntimeHealthError("Model catalog check failed", "Connection-neutral model enumeration failed."); }
+        if (!catalog.length) throw new RuntimeHealthError("Model catalog check failed", "Runtime advertised no models.");
+        return catalog;
+      } catch (error) {
+        if (error instanceof RuntimeHealthError) throw error;
+        throw new RuntimeHealthError("Model catalog check failed", "Probe authentication or metadata could not be prepared.");
+      } finally { await transport?.dispose(); }
+    },
+    async persistVerified(runtime, catalog) {
+      await atomicJson(path.join(root, "verified.json"), {
+        version: runtime.version, catalog: catalog.slice(0, 128).map(entry => ({
+          ...entry, id: entry.id.slice(0, 500), model: entry.model.slice(0, 500), displayName: entry.displayName.slice(0, 500),
+          description: entry.description.slice(0, 4000), supportedReasoningEfforts: entry.supportedReasoningEfforts.slice(0, 32).map(effort => effort.slice(0, 100)),
+          defaultReasoningEffort: entry.defaultReasoningEffort.slice(0, 100),
+        })), verifiedAt: new Date().toISOString(), executionContractVersion: "1",
+      });
     },
     async promote(runtime) {
       shutdown.signal.throwIfAborted();
@@ -162,7 +213,17 @@ export function createCodexRuntimeOperations(userData: string): CodexRuntimeOper
     },
     writeSelection: (selection: CodexModelSelection) => atomicJson(path.join(root, "selection.json"), selection),
     launch,
-    async shutdown() { shutdown.abort(); await Promise.all([...transports].map((transport) => transport.dispose())); },
+    async shutdown() {
+      shutdown.abort();
+      try { await Promise.all([...transports].map((transport) => transport.dispose())); }
+      finally {
+        // Await cleanup even when shutdown interrupts initialization before a transport owns its home.
+        await Promise.all([...isolatedHomes].map(async home => {
+          await fs.rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+          isolatedHomes.delete(home);
+        }));
+      }
+    },
   };
 }
 

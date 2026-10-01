@@ -437,6 +437,19 @@ test("WinGet MCP call failure preserves direct WinGet fallback", async () => {
     attempt.outcome === "failed" &&
     /official MCP transport failure/.test(attempt.summary)
   ), true);
+  const { DevelopmentEnvironmentPreflightService } = require("../../dist/main/developmentEnvironment/developmentEnvironmentPreflightService.js");
+  const neutral = new DevelopmentEnvironmentPreflightService();
+  const neutralRunner = fakeRunner({});
+  const direct = new WindowsPackageProviderResolver(neutralRunner, {
+    ...neutral.provisioner.packageResolverOptions,
+    mcpClient: { async find() { throw Error("Neutral readiness must never invoke MCP"); } },
+  });
+  const directResult = await direct.resolvePackage({ capabilityId: "cmake", versionConstraint: ">=3.24", provisioning: "managed" }, process.cwd());
+  assert.equal(directResult.state, "resolved");
+  assert.equal(directResult.candidate.packageId, "Kitware.CMake");
+  assert.equal(neutralRunner.calls.some(call => call.command === "winget" && call.args[0] === "mcp"), false);
+  assert.equal(directResult.attempts.some(attempt => attempt.provider === "winget-mcp"), false);
+
 });
 
 test("missing or broken WinGet follows Microsoft repair path and retries command availability", async () => {

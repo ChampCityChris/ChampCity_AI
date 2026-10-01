@@ -61,8 +61,8 @@ test('managed launch excludes Signal Forge ambient invalid-token workers before 
     const transport = await ops.launch(runtime);
     assert.equal(calls.length, 2);
     for (const call of calls) {
-      assert.ok(call.args.some(arg => arg.includes('"cloudflare"={enabled=false}')));
-      assert.ok(call.args.some(arg => arg.includes('"github-copilot"={enabled=false}')));
+      assert.ok(call.options.env.CODEX_HOME);
+      assert.deepEqual(call.args, ['-c', 'features.apps=false', '-c', 'features.plugins=false', 'app-server', '--listen', 'stdio://']);
       assert.ok(call.options.cwd.endsWith('codex-runtime'));
     }
     const thread = transport.startThread({ workingDirectory: '<PROJECT_REPO>', model: 'fixture-model' });
@@ -82,14 +82,16 @@ test('optional invalid auth is bounded and excluded from the implementation proc
     const status = ops.getConnectionsStatus();
     assert.equal(status.optionalWarnings, 1); assert.equal(status.blocker, null);
     assert.equal(status.connections[0].status, 'authentication-required');
-    assert.ok(calls.at(-1).args.some(arg => arg.includes('"optional"={enabled=false}')));
+    assert.ok(calls.at(-1).options.env.CODEX_HOME);
+    assert.deepEqual(calls.at(-1).args, ["-c", "features.apps=false", "-c", "features.plugins=false", "app-server", "--listen", "stdio://"]);
     await transport.dispose();
   });
   await fixture([{ name: 'optional', enabled: true }], 'crash', async ({ ops, runtime, calls }) => {
     const transport = await ops.launch(runtime);
     assert.equal(ops.getConnectionsStatus().connections[0].status, 'failed');
     assert.equal(ops.getConnectionsStatus().blocker, null);
-    assert.ok(calls.at(-1).args.some(arg => arg.includes('"optional"={enabled=false}')));
+    assert.ok(calls.at(-1).options.env.CODEX_HOME);
+    assert.deepEqual(calls.at(-1).args, ["-c", "features.apps=false", "-c", "features.plugins=false", "app-server", "--listen", "stdio://"]);
     const streamed = await transport.startThread({ workingDirectory: '<PROJECT_REPO>' }).runStreamed('Implement without optional worker');
     const events = []; for await (const event of streamed.events) events.push(event.type);
     assert.deepEqual(events, ['turn.started', 'turn.completed']);
@@ -164,4 +166,23 @@ test('bundled pinned runtime honors production disable overrides and leaves synt
     if (oldHome === undefined) delete process.env.CODEX_HOME; else process.env.CODEX_HOME = oldHome;
     await fs.rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
+});
+
+
+test('disabled project layers are excluded before thread startup while transport definitions remain valid', async () => {
+  await fixture([], [], async ({ ops, runtime, calls }) => {
+    const transport = await ops.launch(runtime);
+    const original = transport.request.bind(transport);
+    transport.request = async (method, params) => method === 'config/read'
+      ? { config: { mcp_servers: {} }, layers: [{ disabledReason: 'Untrusted project', config: { mcp_servers: { project_ambient: { command: 'invalid-token-worker', args: ['fixture'] } } } }] }
+      : original(method, params);
+    const streamed = await transport.startThread({ workingDirectory: '<PROJECT_REPO>' }).runStreamed('Implement');
+    for await (const _ of streamed.events) {}
+    const projection = calls.at(-1).requests.find(request => request.method === 'thread/start').params.config.mcp_servers;
+    assert.equal(projection.project_ambient.enabled, false);
+    assert.equal(projection.project_ambient.command, 'invalid-token-worker');
+    assert.deepEqual(projection.project_ambient.args, ['fixture']);
+    assert.equal(projection.cloudflare, undefined);
+    await transport.dispose();
+  });
 });

@@ -6,7 +6,7 @@ const ts = require("typescript");
 // Execute the actual selected main registrations and the full compiled preload API.
 function codexIpcHarness(service, manager, root, repairService) {
   const handlers = new Map();
-  const channels = new Set(["codexImplementer:start", "issueResolution:startIssueCodex", "codexRuntime:getStatus", "codexRuntime:setSelection", "developmentEnvironment:repair", "issueResolution:repairIssueDevelopmentEnvironment"]);
+  const channels = new Set(["codexImplementer:getStatus", "codexImplementer:start", "issueResolution:startIssueCodex", "codexRuntime:getStatus", "codexRuntime:retry", "codexRuntime:setSelection", "developmentEnvironment:repair", "issueResolution:repairIssueDevelopmentEnvironment"]);
   const mainPath = path.join(__dirname, "../../src/main/main.ts");
   const source = fs.readFileSync(mainPath, "utf8");
   const ast = ts.createSourceFile(mainPath, source, ts.ScriptTarget.Latest, true);

@@ -46,6 +46,13 @@ export function useCodexModelSelection(disabled: boolean) {
       {model?.supportedReasoningEfforts.map((effort) => <option key={effort} value={effort}>{effort.charAt(0).toUpperCase() + effort.slice(1)}</option>)}
     </select></label>
     <small>Codex {runtime?.version ?? "version pending"} · {runtime?.updateState ?? "initializing"} · {runtime?.message ?? "Checking runtime…"}</small>
+    {runtime?.updateState === "unavailable" ? <button type="button" disabled={disabled || saving || runtime.busy} onClick={() => {
+      setSaving(true); setError("");
+      void window.champcity.retryCodexRuntime().then(status => { setRuntime(status); setDraft(null); })
+        .catch(() => setError("Could not retry Codex runtime."))
+        .finally(() => setSaving(false));
+    }}>Retry Codex Runtime</button> : null}
+    {!runtime?.connections ? <small>Codex connections: {runtime?.updateState === "unavailable" ? "Runtime unavailable" : "Not checked"}</small> : null}
     {runtime?.connections ? <small>Required Codex connections {runtime.connections.requiredReady ? "ready" : "need attention"} · Optional connection warnings: {runtime.connections.optionalWarnings}</small> : null}
     {runtime?.connections?.blocker ? <p role="status">{runtime.connections.blocker}</p> : null}
     {error || blocker ? <p role="status">{error || blocker}</p> : null}

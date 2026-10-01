@@ -1071,6 +1071,7 @@ ipcMain.handle("codexImplementer:getWorkflowWorkItemStatus", (_event, workflowId
   return codexImplementerExecutionService.getStatus(getRequiredWorkspaceRoot(), { ownerKind: "workflow-work-item", workflowId, workItemId });
 });
 
+ipcMain.handle("codexRuntime:retry", () => codexRuntimeManager.retry());
 ipcMain.handle("codexRuntime:getStatus", () => codexRuntimeManager.getStatus());
 ipcMain.handle("codexRuntime:refreshConnections", () => codexRuntimeManager.refreshConnections());
 ipcMain.handle("codexRuntime:setConnectionEnabled", (_event, name, enabled) => codexRuntimeManager.setConnectionEnabled(name, enabled));
@@ -1234,11 +1235,13 @@ if (!desktopSingleInstanceLockAcquired) {
       await app.whenReady();
       await githubProviderService.restore();
       const codexUserDataRoot = getUserDataRoot();
+      const createCodexInitializer = () => new CodexRuntimeInitializerClient({
+        workerEntryPath: path.join(__dirname, "workCardBuilding/codexRuntimeInitializerWorker.js"),
+        userDataRoot: codexUserDataRoot,
+      });
+      codexRuntimeManager.configureInitializerFactory(createCodexInitializer);
       void codexRuntimeManager.initialize(
-        new CodexRuntimeInitializerClient({
-          workerEntryPath: path.join(__dirname, "workCardBuilding/codexRuntimeInitializerWorker.js"),
-          userDataRoot: codexUserDataRoot,
-        }),
+        createCodexInitializer(),
         createCodexRuntimeExecutionOperations(codexUserDataRoot),
       );
       initializeAgentHarnessServiceHostStartupRegistration();

@@ -40,16 +40,19 @@ export interface WindowsPackageMcpClient {
 
 export interface WindowsPackageProviderResolverOptions {
   mcpClient?: WindowsPackageMcpClient;
+  allowMcpDiscovery?: boolean;
 }
 
 export class WindowsPackageProviderResolver {
   private readonly mcpClient: WindowsPackageMcpClient;
+  private readonly allowMcpDiscovery: boolean;
 
   constructor(
     private readonly runner: DevelopmentEnvironmentCommandRunner,
     options: WindowsPackageProviderResolverOptions = {},
   ) {
     this.mcpClient = options.mcpClient ?? new StdioWindowsPackageMcpClient();
+    this.allowMcpDiscovery = options.allowMcpDiscovery ?? true;
   }
 
   async resolvePackage(
@@ -60,47 +63,50 @@ export class WindowsPackageProviderResolver {
     const commandSummaries: CommandRunResult[] = [];
     const attempts: DevelopmentEnvironmentProviderAttempt[] = [];
 
-    const mcp = await this.runner.run("winget", ["mcp"], { cwd: workspaceRoot });
-    commandSummaries.push(mcp);
-    const mcpServerPath = mcp.exitCode === 0 ? parseMcpServerPath(`${mcp.stdout}\n${mcp.stderr}`) : null;
-    attempts.push({
-      provider: "winget-mcp",
-      stage: "discovery",
-      outcome: mcp.exitCode === 0 && mcpServerPath ? "available" : "unavailable",
-      summary: mcp.exitCode === 0 && mcpServerPath
-        ? `WinGet MCP server discovered at ${mcpServerPath}.`
-        : evidenceFromCommand(mcp, "WinGet MCP interface is unavailable; direct WinGet search will be used."),
-    });
-
-    if (mcpServerPath) {
-      const mcpFind = await this.invokeMcpFind(mcpServerPath, query, workspaceRoot);
-      commandSummaries.push(mcpFind.command);
-      const mcpCandidates = filterCandidatesForRequirement(requirement, mcpFind.candidates);
+    if (this.allowMcpDiscovery) {
+      const mcp = await this.runner.run("winget", ["mcp"], { cwd: workspaceRoot });
+      commandSummaries.push(mcp);
+      const mcpServerPath = mcp.exitCode === 0 ? parseMcpServerPath(`${mcp.stdout}\n${mcp.stderr}`) : null;
       attempts.push({
         provider: "winget-mcp",
-        stage: "resolution",
-        query,
-        outcome: outcomeForCandidateSet(mcpFind.command, mcpCandidates),
-        summary: evidenceFromCommand(mcpFind.command, mcpFind.summary),
-        candidates: mcpCandidates,
+        stage: "discovery",
+        outcome: mcp.exitCode === 0 && mcpServerPath ? "available" : "unavailable",
+        summary: mcp.exitCode === 0 && mcpServerPath
+          ? `WinGet MCP server discovered at ${mcpServerPath}.`
+          : evidenceFromCommand(mcp, "WinGet MCP interface is unavailable; direct WinGet search will be used."),
       });
-      const selected = selectUnambiguousCandidate(requirement, mcpCandidates);
-      if (selected) {
-        return {
-          state: "resolved",
-          candidate: selected,
-          attempts,
-          commandSummaries,
-        };
+
+      if (mcpServerPath) {
+        const mcpFind = await this.invokeMcpFind(mcpServerPath, query, workspaceRoot);
+        commandSummaries.push(mcpFind.command);
+        const mcpCandidates = filterCandidatesForRequirement(requirement, mcpFind.candidates);
+        attempts.push({
+          provider: "winget-mcp",
+          stage: "resolution",
+          query,
+          outcome: outcomeForCandidateSet(mcpFind.command, mcpCandidates),
+          summary: evidenceFromCommand(mcpFind.command, mcpFind.summary),
+          candidates: mcpCandidates,
+        });
+        const selected = selectUnambiguousCandidate(requirement, mcpCandidates);
+        if (selected) {
+          return {
+            state: "resolved",
+            candidate: selected,
+            attempts,
+            commandSummaries,
+          };
+        }
+        if (mcpCandidates.length > 1) {
+          return resolutionRequired(
+            attempts,
+            commandSummaries,
+            "WinGet MCP returned multiple materially plausible package candidates; exact package identity is required.",
+            "ambiguous-package",
+          );
+        }
       }
-      if (mcpCandidates.length > 1) {
-        return resolutionRequired(
-          attempts,
-          commandSummaries,
-          "WinGet MCP returned multiple materially plausible package candidates; exact package identity is required.",
-          "ambiguous-package",
-        );
-      }
+
     }
 
     const sourceResults: Array<{ source: "winget" | "msstore"; result: CommandRunResult }> = [];

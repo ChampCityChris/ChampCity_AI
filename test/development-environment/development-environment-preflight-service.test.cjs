@@ -99,3 +99,29 @@ test("preflight service returns not-required for environment-free Work Cards wit
   assert.deepEqual(result.requirements, []);
   assert.equal(provisionerCalled, false);
 });
+
+
+test("automatic and explicit checks coalesce one exact in-flight provisioner", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-preflight-coalesce-"));
+  const formalWorkCardPath = "card.md";
+  fs.writeFileSync(path.join(root, formalWorkCardPath), '```champcity-development-environment\n{"schemaVersion":1,"requirements":[{"capabilityId":"nodejs-lts","provisioning":"managed"}]}\n```');
+  let finish, calls = 0;
+  const service = new DevelopmentEnvironmentPreflightService({ preflight: async () => { calls++; return new Promise(resolve => { finish = resolve; }); } });
+  try {
+    const input = { workspaceRoot: root, formalWorkCardPath };
+    const automatic = service.runPreflight(input);
+    const explicit = service.runPreflight(input);
+    assert.equal(calls, 1);
+    finish({ state: "ready", retryAllowed: false, requirements: [], summary: "Ready", evidenceMarkdown: "Ready" });
+    assert.deepEqual(await automatic, await explicit);
+    const retry = service.runPreflight(input);
+    assert.equal(calls, 2);
+    fs.appendFileSync(path.join(root, formalWorkCardPath), "\nChanged exact contract revision.\n");
+    const changed = service.runPreflight(input);
+    assert.equal(calls, 2, "changed contract waits for the active provisioner");
+    finish({ state: "ready" }); await retry;
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(calls, 3);
+    finish({ state: "ready" }); await changed;
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});

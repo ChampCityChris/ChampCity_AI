@@ -323,10 +323,17 @@ export class JsonlCodexAppServerTransport implements CodexAppServerAdapter {
     if (this.managedBoundary) {
       // Read the selected project's effective config before workers start; project-local additions
       // must obey the same approval boundary as user-level entries.
-      const result = asRecord(await this.request(codexAppServerMethods.configRead, { cwd: thread.options.workingDirectory, includeLayers: false }));
-      const servers = asRecord(asRecord(result.config).mcp_servers);
+      const result = asRecord(await this.request(codexAppServerMethods.configRead, { cwd: thread.options.workingDirectory, includeLayers: true }));
+      // Disabled project layers may become active when thread/start establishes its cwd.
+      // Include their definitions in the pre-turn disable projection before that can happen.
+      const layers = Array.isArray(result.layers) ? result.layers : [];
+      const servers = Object.assign({}, ...layers.map(layer => asRecord(asRecord(asRecord(layer).config).mcp_servers)),
+        asRecord(asRecord(result.config).mcp_servers));
       const names = [...new Set([...this.managedBoundary.names, ...Object.keys(servers)])];
-      config = { mcp_servers: Object.fromEntries(names.map(name => [name, { enabled: this.managedBoundary!.required.includes(name) }])) };
+      // Preserve transport definitions: partial enabled-only entries are invalid on dynamically
+      // managed runtimes. Never invent absent ambient entries in an isolated CODEX_HOME.
+      config = { mcp_servers: Object.fromEntries(names.filter(name => Object.keys(asRecord(servers[name])).length > 0)
+        .map(name => [name, { ...asRecord(servers[name]), enabled: this.managedBoundary!.required.includes(name) }])) };
     }
     const params: CodexAppServerThreadStartParams = {
       config,

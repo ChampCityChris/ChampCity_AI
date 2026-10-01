@@ -5,6 +5,10 @@ import type {
 } from "../../shared/codexRuntimeContracts";
 import { selectionBlocker } from "../../shared/codexRuntimeContracts";
 
+export class RuntimeHealthError extends Error {
+  constructor(stage: string, diagnostic: string) { super(`${stage}: ${diagnostic}`); }
+}
+
 export interface ManagedCodexRuntime {
   version: string;
   executable: string;
@@ -17,6 +21,8 @@ export interface CodexRuntimeMaintenanceOperations {
   latestVersion(): Promise<string>;
   stage(version: string): Promise<ManagedCodexRuntime>;
   probe(runtime: ManagedCodexRuntime): Promise<CodexModelCatalogEntry[]>;
+  verifyCandidateConnections?(runtime: ManagedCodexRuntime): Promise<void>;
+  persistVerified?(runtime: ManagedCodexRuntime, catalog: CodexModelCatalogEntry[]): Promise<void>;
   promote(runtime: ManagedCodexRuntime): Promise<void>;
   readSelection(): Promise<CodexModelSelection | null>;
   shutdown?(): Promise<void>;
@@ -69,6 +75,10 @@ export async function initializeManagedCodexRuntime(
       if (!runtime || newerVersion(latest, runtime.version)) {
         const candidate = await operations.stage(latest);
         const catalog = await operations.probe(candidate);
+        if (runtime && operations.verifyCandidateConnections) {
+          try { await operations.verifyCandidateConnections(candidate); }
+          catch { throw new RuntimeHealthError("Connection policy check failed", "Candidate isolation could not be established; current runtime retained."); }
+        }
         await operations.promote(candidate);
         runtime = candidate;
         status.catalog = catalog;
@@ -78,7 +88,7 @@ export async function initializeManagedCodexRuntime(
         status.updateState = "current";
       }
       status.message = "Managed Codex runtime is ready.";
-    } catch {
+    } catch (error) {
       if (!runtime) {
         const bootstrap = await operations.bootstrap();
         const catalog = await operations.probe(bootstrap);
@@ -88,14 +98,19 @@ export async function initializeManagedCodexRuntime(
         status.version = bootstrap.version;
       }
       status.updateState = "degraded";
-      status.message = "Codex update failed. Using the last verified runtime; runtime currency is not confirmed.";
+      status.message = error instanceof RuntimeHealthError ? error.message : "Runtime update check failed. Using the last verified runtime; runtime currency is not confirmed.";
     }
-  } catch {
+  } catch (error) {
     runtime = null;
     status.version = null;
     status.updateState = "unavailable";
-    status.message = "Managed Codex runtime could not be initialized. Restart to retry the runtime check.";
+    status.message = error instanceof RuntimeHealthError ? error.message : "Bundled fallback check failed: Managed runtime could not be verified. Retry Codex Runtime.";
     status.catalog = [];
+  }
+
+  if (runtime && operations.persistVerified) {
+    try { await operations.persistVerified(runtime, status.catalog); }
+    catch { status.updateState = "degraded"; status.message = "Runtime metadata persistence failed. Verified runtime remains usable for this process."; }
   }
 
   if (!status.selection && !preferenceBroken) {

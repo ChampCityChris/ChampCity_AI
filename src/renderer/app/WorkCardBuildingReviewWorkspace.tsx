@@ -160,11 +160,7 @@ export function DevelopmentEnvironmentStatus({
   if (!preflight) {
     return (
       <section className="development-environment-status" aria-label="Development environment preflight status">
-        <div><span>Development Environment</span><strong>Not checked</strong></div>
-        {onRepair ? <button className="apply-button secondary" disabled={isActionRunning} onClick={onRepair} type="button">
-          <Wrench aria-hidden="true" size={16} /> Prepare Environment
-        </button> : null}
-        <strong className="development-environment-implementation-note">Development environment preparation must complete first.</strong>
+        <div><span>Development Environment</span><strong>Checking…</strong></div>
       </section>
     );
   }

@@ -115,7 +115,7 @@ test("initializer failure atomically projects bounded unavailable state", async 
     catalog: [],
     selection: null,
     selectionBlocker: "The managed Codex runtime is unavailable.",
-    message: "Managed Codex runtime initialization failed in its utility worker. Restart to retry.",
+    message: "Managed Codex runtime initialization failed in its utility worker. Retry Codex Runtime.",
     busy: false,
   });
   await assert.rejects(manager.launch(), /unavailable/);
@@ -150,7 +150,167 @@ test("production operations resolve userData runtime and spawn that executable w
     assert.equal(calls[0].command,runtime.executable);
     assert.equal(path.relative(path.join(root,"codex-runtime","versions",directory),runtime.executable).startsWith(".."),false);
     assert.doesNotMatch(calls[0].command,/node_modules/);
-    assert.deepEqual(calls[0].args,["-c","mcp_servers={}","app-server","--listen","stdio://"]);
+    assert.deepEqual(calls[0].args,["-c","features.apps=false","-c","features.plugins=false","app-server","--listen","stdio://"]);
+    assert.ok(calls[0].options.env.CODEX_HOME);
     assert.equal(calls[0].options.windowsHide,true);
   } finally {await adapter?.dispose();childProcess.spawn=originalSpawn;childProcess.execFile=originalExecFile;await fs.rm(root,{recursive:true,force:true});}
+});
+
+
+test("connection inventory failure preserves verified runtime/catalog and explicit selection", async () => {
+  const f = runtimeFixture({ readSelection: async () => selection,
+    refreshConnections: async () => { throw Error("inventory failure"); },
+    getConnectionsStatus: () => ({ connections: [], requiredReady: false, optionalWarnings: 0, blocker: "Connection inventory check failed." }),
+  });
+  await f.ready;
+  assert.equal(f.manager.getStatus().updateState, "current");
+  assert.deepEqual(f.manager.getStatus().catalog, catalog);
+  assert.deepEqual(f.manager.getStatus().selection, selection);
+  assert.match(f.manager.getStatus().connections.blocker, /inventory/);
+  await f.manager.setSelection(selection);
+});
+
+test("unavailable runtime retry retires the initializer and uses a fresh generation", async () => {
+  const { CodexRuntimeManager } = require("../../dist/main/workCardBuilding/codexRuntimeManager.js");
+  const manager = new CodexRuntimeManager();
+  let retired = 0, generations = 0;
+  const failed = { initialize: async () => { throw Error("failed"); }, shutdown: async () => { retired++; } };
+  const result = { runtime: { version: "0.159.3", executable: "managed/codex", directory: "managed" },
+    status: { version: "0.159.3", updateState: "current", catalog, selection, selectionBlocker: null, message: "Ready", busy: false } };
+  const ops = { writeSelection: async () => {}, launch: async () => ({}) };
+  manager.configureInitializerFactory(() => { generations++; return { initialize: async () => result, shutdown: async () => {} }; });
+  await manager.initialize(failed, ops);
+  assert.equal(manager.getStatus().connections, undefined);
+  const recovered = await manager.retry();
+  assert.equal(retired, 1); assert.equal(generations, 1);
+  assert.deepEqual(recovered.selection, selection);
+  assert.deepEqual(recovered.catalog, catalog);
+  assert.equal(recovered.updateState, "current");
+  const lease = manager.acquire(selection);
+  await assert.rejects(manager.retry(), /active run/);
+  lease.release();
+});
+
+test("core failure reports a bounded stage without raw credential diagnostics", async () => {
+  const { RuntimeHealthError } = require("../../dist/main/workCardBuilding/codexRuntimeInitialization.js");
+  const f = runtimeFixture({ probe: async () => { throw new RuntimeHealthError("Model catalog check failed", "Connection-neutral model enumeration failed."); } });
+  await f.ready;
+  assert.equal(f.manager.getStatus().updateState, "unavailable");
+  assert.match(f.manager.getStatus().message, /^Model catalog check failed:/);
+});
+
+
+test("Windows qualification probes bundled and normal managed current/latest without ambient MCP", {
+  skip: !process.env.CHAMPCITY_IRR_RUNTIME_QUALIFICATION,
+  timeout: 360000,
+}, async () => {
+  const { initializeManagedCodexRuntime } = require("../../dist/main/workCardBuilding/codexRuntimeInitialization.js");
+  const actualRoot = process.env.CHAMPCITY_IRR_RUNTIME_QUALIFICATION;
+  const currentOps = createCodexRuntimeOperations(actualRoot);
+  const current = await currentOps.loadCurrent();
+  assert.ok(current, "qualification requires an actual managed current pointer");
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "champcity-runtime-qualification-"));
+  const ops = createCodexRuntimeOperations(root);
+  const previousHome = process.env.CODEX_HOME;
+  const ambientHome = path.join(root, "ambient-home");
+  const marker = path.join(root, "ambient-worker-started");
+  await fs.mkdir(ambientHome);
+  const auth = path.join(previousHome ?? path.join(os.homedir(), ".codex"), "auth.json");
+  try { await fs.copyFile(auth, path.join(ambientHome, "auth.json")); }
+  catch (error) { if (error.code !== "ENOENT") throw error; }
+  const worker = path.join(root, "invalid-token-worker.cjs");
+  await fs.writeFile(worker, `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'started'); setInterval(() => {}, 1000);`);
+  await fs.writeFile(path.join(ambientHome, "config.toml"), ["cloudflare", "github"].map(name =>
+    `[mcp_servers.${name}]\ncommand=${JSON.stringify(process.execPath)}\nargs=[${JSON.stringify(worker)}]\n`).join("\n"));
+  process.env.CODEX_HOME = ambientHome;
+  try {
+    const bundled = await ops.bootstrap();
+    const bundledCatalog = await ops.probe(bundled);
+    assert.ok(bundledCatalog.length);
+    const initialized = await initializeManagedCodexRuntime({ ...ops, loadCurrent: async () => current });
+    assert.ok(initialized.runtime, initialized.status.message);
+    assert.ok(initialized.status.catalog.some(entry => entry.model === "gpt-6.1-sol"));
+    const connections = await ops.refreshConnections(initialized.runtime);
+    assert.equal(connections.requiredReady, true);
+    assert.equal(connections.blocker, null);
+    const transport = await ops.launch(initialized.runtime);
+    const project = path.join(root, "signal-forge");
+    await fs.mkdir(path.join(project, ".codex"), { recursive: true });
+    await fs.writeFile(path.join(project, ".codex", "config.toml"), `[mcp_servers.project_ambient]\ncommand=${JSON.stringify(process.execPath)}\nargs=[${JSON.stringify(worker)}]\n`);
+    const thread = transport.startThread({ workingDirectory: project, model: "gpt-6.1-sol", sandboxMode: "workspace-write" });
+    const threadId = await transport.startAppThread(thread);
+    assert.ok(threadId);
+    assert.deepEqual((await transport.listManagedConnections(threadId)).filter(entry => entry.initialized), []);
+    await transport.dispose();
+    await assert.rejects(fs.stat(marker), { code: "ENOENT" });
+    const metadata = JSON.parse(await fs.readFile(path.join(root, "codex-runtime", "verified.json"), "utf8"));
+    assert.equal(metadata.version, initialized.runtime.version);
+    assert.ok(metadata.catalog.length);
+    console.log(JSON.stringify({ qualification: "IRR-R01", bundledVersion: bundled.version, bundledCore: "passed", bundledCatalogCount: bundledCatalog.length,
+      managedCurrentVersion: current.version, selectedVersion: initialized.runtime.version, selectedCore: "passed", catalogCount: initialized.status.catalog.length,
+      isolation: "fresh temporary CODEX_HOME; authentication only; apps/plugins disabled; project layers disabled before thread/start", connectionPreflight: "passed", threadIsolation: "passed", updateState: initialized.status.updateState }));
+  } finally {
+    if (previousHome === undefined) delete process.env.CODEX_HOME; else process.env.CODEX_HOME = previousHome;
+    await ops.shutdown(); await currentOps.shutdown(); await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+
+test("candidate connection policy failure preserves current pointer and verified catalog", async () => {
+  let promotions = 0, remembered;
+  const f = runtimeFixture({ latestVersion: async () => "0.160.0", readSelection: async () => selection,
+    verifyCandidateConnections: async () => { throw Error("unsafe candidate isolation"); },
+    promote: async () => { promotions++; },
+    persistVerified: async (runtime, models) => { remembered = { runtime, models }; },
+  });
+  await f.ready;
+  assert.equal(promotions, 0);
+  assert.equal(f.manager.getStatus().version, f.prior.version);
+  assert.equal(f.manager.getStatus().updateState, "degraded");
+  assert.match(f.manager.getStatus().message, /^Connection policy check failed/);
+  assert.deepEqual(remembered.models, catalog);
+  assert.equal(remembered.runtime.version, f.prior.version);
+});
+
+
+test("production core probe neither inventories MCP nor inherits ambient configuration", async () => {
+  const cp = require("node:child_process"), { EventEmitter } = require("node:events"), { PassThrough } = require("node:stream");
+  const original = { execFile: cp.execFile, spawn: cp.spawn };
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "champcity-core-neutral-"));
+  let home, inventoryCalls = 0, hang = false;
+  cp.execFile = (_file, args, _options, done) => {
+    if (args[0] === "mcp") { inventoryCalls++; done(Error("inventory unavailable")); return; }
+    if (args[0] === "--version") { done(null, "codex-cli 0.159.3", ""); return; }
+    const directory = args[args.indexOf("--out") + 1];
+    const schema = { methods: ["initialize", "model/list", "thread/start", "turn/start", "turn/interrupt", "mcpServerStatus/list", "item/commandExecution/requestApproval", "item/fileChange/requestApproval", "item/permissions/requestApproval", "item/tool/requestUserInput", "mcpServer/elicitation/request"],
+      ThreadStartParams: { properties: { model: {}, sandbox: {}, approvalPolicy: {}, approvalsReviewer: {} } },
+      TurnStartParams: { properties: { model: {}, effort: {}, sandboxPolicy: {}, approvalsReviewer: {} } } };
+    require("node:fs").writeFileSync(path.join(directory, "schema.json"), JSON.stringify(schema)); done(null, "", "");
+  };
+  cp.spawn = (_file, args, options) => {
+    home = options.env.CODEX_HOME;
+    assert.ok(home); assert.notEqual(home, process.env.CODEX_HOME);
+    assert.equal(require("node:fs").existsSync(path.join(home, "config.toml")), false);
+    assert.deepEqual(args, ["-c", "features.apps=false", "-c", "features.plugins=false", "app-server", "--listen", "stdio://"]);
+    const child = new EventEmitter(); child.stdin = new PassThrough(); child.stdout = new PassThrough(); child.stderr = new PassThrough();
+    child.kill = () => { child.killed = true; queueMicrotask(() => child.emit("exit", 0)); return true; };
+    child.stdin.on("data", bytes => {
+      const request = JSON.parse(bytes.toString()); if (!request.id || hang) return;
+      const result = request.method === "initialize" ? { userAgent: "fixture" } : { data: catalog.map(entry => ({ ...entry, supportedReasoningEfforts: entry.supportedReasoningEfforts.map(reasoningEffort => ({ reasoningEffort })) })), nextCursor: null };
+      child.stdout.write(JSON.stringify({ id: request.id, result }) + "\n");
+    }); return child;
+  };
+  const ops = createCodexRuntimeOperations(root);
+  try {
+    assert.deepEqual(await ops.probe({ version: "0.159.3", executable: "fixture", directory: root }), catalog);
+    assert.equal(inventoryCalls, 0);
+    await assert.rejects(fs.stat(home), { code: "ENOENT" });
+    hang = true; home = undefined;
+    const pending = ops.probe({ version: "0.159.3", executable: "fixture", directory: root });
+    void pending.catch(() => undefined);
+    while (!home) await new Promise(resolve => setImmediate(resolve));
+    await ops.shutdown();
+    await assert.rejects(pending, /Runtime App Server initialization failed/);
+    await assert.rejects(fs.stat(home), { code: "ENOENT" });
+  } finally { await ops.shutdown(); Object.assign(cp, original); await fs.rm(root, { recursive: true, force: true }); }
 });

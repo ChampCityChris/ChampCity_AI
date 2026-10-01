@@ -140,7 +140,7 @@ test("environment status renders typed permission and restart requirements", () 
 });
 
 
-test("fresh environment action works while Codex is unavailable and disappears after neutral readiness", async () => {
+test("fresh environment renders automatic checking while Codex is unavailable", async () => {
   const React=require("react");
   const {renderToStaticMarkup}=require("react-dom/server");
   const {DevelopmentEnvironmentStatus,CodexExecutionActions}=require("./renderer-source-loader.cjs").loadRendererSourceModule("src/renderer/app/WorkCardBuildingReviewWorkspace.tsx");
@@ -149,19 +149,67 @@ test("fresh environment action works while Codex is unavailable and disappears a
   const repair=async()=>{repairs++;execution.developmentEnvironmentPreflight={state:"ready",summary:"Environment ready",retryAllowed:false,requirements:[]};};
   const tree=DevelopmentEnvironmentStatus({execution,onRepair:repair});
   const button=React.Children.toArray(tree.props.children).find(child=>child.type === "button");
-  assert.equal(button.props.disabled,false);
+  assert.equal(button,undefined);
   const fresh=renderToStaticMarkup(tree);
-  assert.match(fresh,/Development Environment/);assert.match(fresh,/Not checked/);assert.match(fresh,/Prepare Environment/);
+  assert.match(fresh,/Development Environment/);assert.match(fresh,/Checking/);assert.doesNotMatch(fresh,/Prepare Environment/);
   assert.doesNotMatch(fresh,/Model|Reasoning|Codex Availability/);
   const oldWindow=global.window;
   global.window={champcity:{getCodexManagedRuntimeStatus:async()=>({state:"unavailable"})}};
   try {
     assert.match(renderToStaticMarkup(React.createElement(CodexExecutionActions,{execution,onRun(){},onCancel(){},isActionRunning:false})),/disabled/);
-    await button.props.onClick();assert.equal(repairs,1);
+    assert.equal(repairs,0);
+    execution.developmentEnvironmentPreflight={state:"ready",summary:"Environment ready",retryAllowed:false,requirements:[]};
     const ready=renderToStaticMarkup(DevelopmentEnvironmentStatus({execution,onRepair:repair}));
     assert.match(ready,/Development environment ready/);assert.doesNotMatch(ready,/Prepare Environment|Retry Environment Setup/);
     // Environment readiness alone cannot enable unavailable model/runtime controls.
     execution.canRunAgain=true;
     assert.match(renderToStaticMarkup(React.createElement(CodexExecutionActions,{execution,onRun(){},onCancel(){},isActionRunning:false})),/disabled/);
   } finally {global.window=oldWindow;}
+});
+
+
+test("runtime retry button invokes constrained IPC and restores saved advertised picker controls", async () => {
+  const React = require("react");
+  const { CodexRuntimeManager } = require("../../dist/main/workCardBuilding/codexRuntimeManager.js");
+  const { catalog } = require("../support/codex-runtime.cjs");
+  const manager = new CodexRuntimeManager();
+  let generations = 0;
+  const selection = { model: "gpt-6.1-sol", reasoningEffort: "high" };
+  const result = { runtime: { version: "0.159.3", directory: "managed", executable: "managed/codex" }, status: {
+    version: "0.159.3", updateState: "current", catalog: [{ ...catalog[0], model: selection.model }], selection,
+    selectionBlocker: null, message: "Ready", busy: false,
+  } };
+  const operations = { writeSelection: async () => {}, launch: async () => ({}) };
+  await manager.initialize({ initialize: async () => { throw Error("utility worker failed"); }, shutdown: async () => {} }, operations);
+  manager.configureInitializerFactory(() => { generations++; return { initialize: async () => result, shutdown: async () => {} }; });
+  const api = require("../support/codex-ipc-harness.cjs").codexIpcHarness(null, manager, ".");
+  const previousWindow = global.window;
+  global.window = { champcity: api, setInterval: () => 1, clearInterval() {} };
+  const { useCodexModelSelection } = require("./renderer-source-loader.cjs").loadRendererSourceModule("src/renderer/app/CodexModelSelectionControls.tsx");
+  const values = []; let first = true, cursor; const effects = [];
+  function render() {
+    const prior = { state: React.useState, effect: React.useEffect }; cursor = 0;
+    React.useState = initial => { const i = cursor++; if (!(i in values)) values[i] = initial; return [values[i], value => { values[i] = value; }]; };
+    React.useEffect = effect => { if (first) effects.push(effect); };
+    try { return useCodexModelSelection(false); }
+    finally { React.useState = prior.state; React.useEffect = prior.effect; first = false; }
+  }
+  function find(node, predicate) {
+    if (!node || typeof node !== "object") return null;
+    if (predicate(node)) return node;
+    for (const child of React.Children.toArray(node.props?.children)) { const result = find(child, predicate); if (result) return result; }
+    return null;
+  }
+  try {
+    render(); effects.forEach(effect => effect()); await new Promise(resolve => setImmediate(resolve));
+    const before = render();
+    assert.equal(find(before.controls, node => node.type === "select" && node.props["aria-label"] === "Model").props.disabled, true);
+    const retry = find(before.controls, node => node.type === "button" && node.props.children === "Retry Codex Runtime");
+    assert.ok(retry); assert.equal(retry.props.disabled, false);
+    assert.doesNotMatch(require("react-dom/server").renderToStaticMarkup(before.controls), /Required Codex connections ready/);
+    retry.props.onClick(); await new Promise(resolve => setImmediate(resolve));
+    const after = render(); assert.equal(generations, 1); assert.deepEqual(after.selection, selection); assert.equal(after.canRun, true);
+    for (const label of ["Model", "Reasoning"]) assert.equal(find(after.controls, node => node.type === "select" && node.props["aria-label"] === label).props.disabled, false);
+    assert.doesNotMatch(require("react-dom/server").renderToStaticMarkup(after.controls), /\(unavailable\)/);
+  } finally { global.window = previousWindow; }
 });

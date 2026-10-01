@@ -25,6 +25,9 @@ export class CodexRuntimeManager {
   private operations: CodexRuntimeExecutionOperations | null = null;
   private initializer: CodexRuntimeInitializer | null = null;
   private initialization: Promise<void> | null = null;
+  private generation = 0;
+  private connectionsChecked = false;
+  private initializerFactory: (() => CodexRuntimeInitializer) | null = null;
   private runtime: ManagedCodexRuntime | null = null;
   private locked = false;
   private concurrentExactRuns = 0;
@@ -42,15 +45,42 @@ export class CodexRuntimeManager {
     if (!this.initialization) {
       this.initializer = initializer;
       this.operations = operations;
+      const generation = ++this.generation;
       this.initialization = initializer.initialize()
-        .then((result) => this.adoptInitializationResult(result))
-        .catch(() => this.adoptInitializationFailure());
+        .then(async (result) => {
+          if (generation !== this.generation) return;
+          this.adoptInitializationResult(result);
+          if (result.runtime && operations.refreshConnections) {
+            try { await operations.refreshConnections(result.runtime); }
+            catch { /* Connection diagnostics belong to execution operations; retain core health. */ }
+            if (generation === this.generation) this.connectionsChecked = true;
+          }
+        })
+        .catch(() => { if (generation === this.generation) this.adoptInitializationFailure(); });
     }
     return this.initialization;
   }
 
+  configureInitializerFactory(factory: () => CodexRuntimeInitializer): void { this.initializerFactory = factory; }
+
+  async retry(): Promise<CodexManagedRuntimeStatus> {
+    if (this.locked || this.concurrentExactRuns || this.saving) throw new Error("Codex runtime cannot retry during an active run or selection save.");
+    if (this.state.updateState !== "unavailable" || !this.initializerFactory || !this.operations) throw new Error("Codex runtime retry is unavailable.");
+    this.saving = true;
+    this.state.updateState = "initializing";
+    this.state.message = "Retrying managed Codex runtime…";
+    ++this.generation;
+    try {
+      await this.initializer?.shutdown();
+      this.initialization = null;
+      await this.initialize(this.initializerFactory(), this.operations);
+    } catch { this.adoptInitializationFailure(); }
+    finally { this.saving = false; }
+    return this.getStatus();
+  }
+
   getStatus(): CodexManagedRuntimeStatus {
-    const connections = this.operations?.getConnectionsStatus?.();
+    const connections = this.isReady() && this.connectionsChecked ? this.operations?.getConnectionsStatus?.() : undefined;
     return structuredClone({ ...this.state, ...(connections ? { connections } : {}), busy: this.locked || this.concurrentExactRuns > 0 || this.saving });
   }
 
@@ -58,7 +88,7 @@ export class CodexRuntimeManager {
     if (!this.runtime || !this.operations?.refreshConnections) throw new Error("Managed Codex runtime is unavailable.");
     if (this.locked || this.concurrentExactRuns || this.saving) throw new Error("Codex connections cannot change during an active run.");
     this.saving = true;
-    try { return await this.operations.refreshConnections(this.runtime); }
+    try { const result = await this.operations.refreshConnections(this.runtime); this.connectionsChecked = true; return result; }
     finally { this.saving = false; }
   }
 
@@ -85,7 +115,7 @@ export class CodexRuntimeManager {
       catalog: [],
       selection: null,
       selectionBlocker: "The managed Codex runtime is unavailable.",
-      message: "Managed Codex runtime initialization failed in its utility worker. Restart to retry.",
+      message: "Managed Codex runtime initialization failed in its utility worker. Retry Codex Runtime.",
       busy: false,
     };
   }

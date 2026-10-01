@@ -1351,10 +1351,6 @@
           "description": "Codex Implementer explicit start owns one App Server adapter across status reads and terminal cleanup"
         },
         {
-          "behaviorId": "codex-implementer-idle-status-polling-is-side-effect-free-and-does-not-provision-environment",
-          "description": "Codex Implementer idle status polling is side-effect free and does not provision environment"
-        },
-        {
           "behaviorId": "codex-implementer-service-allows-retryable-blocked-preflight-to-rerun-without-using-cached-evide",
           "description": "Codex Implementer service allows retryable blocked preflight to rerun without using cached evidence as ready"
         },
@@ -1501,6 +1497,42 @@
         {
           "behaviorId": "initializer-worker-executes-maintenance-once-and-manager-adopts-its-result-without-rerunning-mai",
           "description": "initializer worker executes maintenance once and manager adopts its result without rerunning maintenance"
+        },
+        {
+          "behaviorId": "irr-r01-automatic-foreground-environment-preflight",
+          "description": "fresh Implement foreground checks environment once without Codex or App Server"
+        },
+        {
+          "behaviorId": "irr-r01-candidate-connection-policy-failure-preserves-current-pointer-and-verified-catalog",
+          "description": "candidate connection policy failure preserves current pointer and verified catalog"
+        },
+        {
+          "behaviorId": "irr-r01-connection-inventory-failure-preserves-verified-runtime-catalog-and-explicit-selection",
+          "description": "connection inventory failure preserves verified runtime/catalog and explicit selection"
+        },
+        {
+          "behaviorId": "irr-r01-core-failure-reports-a-bounded-stage-without-raw-credential-diagnostics",
+          "description": "core failure reports a bounded stage without raw credential diagnostics"
+        },
+        {
+          "behaviorId": "irr-r01-disabled-project-layers-excluded-before-thread-start",
+          "description": "disabled project layers are excluded before thread startup while transport definitions remain valid"
+        },
+        {
+          "behaviorId": "irr-r01-production-core-probe-neither-inventories-mcp-nor-inherits-ambient-configuration",
+          "description": "production core probe neither inventories MCP nor inherits ambient configuration"
+        },
+        {
+          "behaviorId": "irr-r01-signal-forge-startup-fixture-reaches-automatic-environment-ready-and-selectable-advertised-model-thr",
+          "description": "Signal Forge startup fixture reaches automatic environment ready and selectable advertised model through IPC and renderer"
+        },
+        {
+          "behaviorId": "irr-r01-unavailable-runtime-retry-retires-the-initializer-and-uses-a-fresh-generation",
+          "description": "unavailable runtime retry retires the initializer and uses a fresh generation"
+        },
+        {
+          "behaviorId": "irr-r01-windows-qualification-probes-bundled-and-normal-managed-current-latest-without-ambient-mcp",
+          "description": "Windows qualification probes bundled and normal managed current/latest without ambient MCP"
         },
         {
           "behaviorId": "issue-fix-card-codex-status-isolates-running-and-terminal-sessions-by-exact-context",
@@ -1887,6 +1919,10 @@
         {
           "behaviorId": "installation-failure-prevents-ready-state",
           "description": "installation failure prevents ready state"
+        },
+        {
+          "behaviorId": "irr-r01-automatic-and-explicit-checks-coalesce-one-exact-in-flight-provisioner",
+          "description": "automatic and explicit checks coalesce one exact in-flight provisioner"
         },
         {
           "behaviorId": "missing-external-capability-blocks-without-install",
@@ -4657,6 +4693,10 @@
         {
           "behaviorId": "invalid-and-conflicting-repair-implementer-reports-keep-approved-repair-work-card-in-implement-w",
           "description": "invalid and conflicting repair Implementer Reports keep Approved Repair Work Card in Implement with blocker"
+        },
+        {
+          "behaviorId": "irr-r01-runtime-retry-restores-advertised-picker-controls",
+          "description": "runtime retry button invokes constrained IPC and restores saved advertised picker controls"
         },
         {
           "behaviorId": "multiple-completed-handoffs-fail-closed-when-final-validation-record-ordering-evidence-is-ambigu",
@@ -10070,8 +10110,8 @@
     {
       "testPath": "test/development-environment/development-environment-preflight-service.test.cjs",
       "currentTestCount": {
-        "value": 2,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 3,
+        "basis": "IRR-R01 existing owner extended with focused readiness/recovery proofs; dynamic runtime qualification is opt-in with CHAMPCITY_IRR_RUNTIME_QUALIFICATION."
       },
       "duration": {
         "kind": "measured",
@@ -10111,6 +10151,12 @@
         "current-proof-appropriate"
       ],
       "behaviorCoverage": [
+        {
+          "capabilityId": "development-environment-provisioning",
+          "behaviorId": "irr-r01-automatic-and-explicit-checks-coalesce-one-exact-in-flight-provisioner",
+          "proofLocator": "automatic and explicit checks coalesce one exact in-flight provisioner",
+          "proofRole": "primary"
+        },
         {
           "capabilityId": "development-environment-provisioning",
           "behaviorId": "preflight-service-reads-formal-work-card-requirements-and-delegates-exact-managed-capabilities",
@@ -17249,7 +17295,7 @@
     {
       "testPath": "test/renderer/work-card-building-review-workspace.test.cjs",
       "currentTestCount": {
-        "value": 4,
+        "value": 5,
         "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
       },
       "duration": {
@@ -17312,6 +17358,12 @@
           "capabilityId": "work-card-workflow",
           "behaviorId": "environment-status-renders-typed-permission-and-restart-requirements",
           "proofLocator": "environment status renders typed permission and restart requirements",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "work-card-workflow",
+          "behaviorId": "irr-r01-runtime-retry-restores-advertised-picker-controls",
+          "proofLocator": "runtime retry button invokes constrained IPC and restores saved advertised picker controls",
           "proofRole": "primary"
         },
         {
@@ -19062,8 +19114,8 @@
     {
       "testPath": "test/work-card-building/codex-implementer-execution-service.test.cjs",
       "currentTestCount": {
-        "value": 32,
-        "basis": "Observed TAP summary in WRB04-03D exact-path work-item validation receipt."
+        "value": 33,
+        "basis": "IRR-R01 existing owner extended with focused readiness/recovery proofs; dynamic runtime qualification is opt-in with CHAMPCITY_IRR_RUNTIME_QUALIFICATION."
       },
       "duration": {
         "kind": "measured",
@@ -19114,12 +19166,6 @@
           "capabilityId": "codex-implementation-runtime",
           "behaviorId": "codex-implementer-explicit-start-owns-one-app-server-adapter-across-status-reads-and-terminal-cl",
           "proofLocator": "Codex Implementer explicit start owns one App Server adapter across status reads and terminal cleanup",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "codex-implementation-runtime",
-          "behaviorId": "codex-implementer-idle-status-polling-is-side-effect-free-and-does-not-provision-environment",
-          "proofLocator": "Codex Implementer idle status polling is side-effect free and does not provision environment",
           "proofRole": "primary"
         },
         {
@@ -19250,6 +19296,18 @@
         },
         {
           "capabilityId": "codex-implementation-runtime",
+          "behaviorId": "irr-r01-automatic-foreground-environment-preflight",
+          "proofLocator": "fresh Implement foreground checks environment once without Codex or App Server",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "codex-implementation-runtime",
+          "behaviorId": "irr-r01-signal-forge-startup-fixture-reaches-automatic-environment-ready-and-selectable-advertised-model-thr",
+          "proofLocator": "Signal Forge startup fixture reaches automatic environment ready and selectable advertised model through IPC and renderer",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "codex-implementation-runtime",
           "behaviorId": "issue-fix-card-codex-status-isolates-running-and-terminal-sessions-by-exact-context",
           "proofLocator": "Issue Fix Card Codex status isolates running and terminal sessions by exact context",
           "proofRole": "primary"
@@ -19301,7 +19359,7 @@
     {
       "testPath": "test/work-card-building/codex-managed-connections.test.cjs",
       "currentTestCount": {
-        "value": 6,
+        "value": 7,
         "basis": "CRC-R01 declared focused production-path cases."
       },
       "duration": {
@@ -19359,6 +19417,12 @@
           "capabilityId": "codex-implementation-runtime",
           "behaviorId": "connection-policy-only-toggles-approved-names-and-rejects-secrets-or-config-injection",
           "proofLocator": "connection policy only toggles approved names and rejects secrets or config injection",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "codex-implementation-runtime",
+          "behaviorId": "irr-r01-disabled-project-layers-excluded-before-thread-start",
+          "proofLocator": "disabled project layers are excluded before thread startup while transport definitions remain valid",
           "proofRole": "primary"
         },
         {
@@ -19510,8 +19574,8 @@
     {
       "testPath": "test/work-card-building/codex-runtime-manager.test.cjs",
       "currentTestCount": {
-        "value": 11,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 17,
+        "basis": "IRR-R01 existing owner extended with focused readiness/recovery proofs; dynamic runtime qualification is opt-in with CHAMPCITY_IRR_RUNTIME_QUALIFICATION."
       },
       "duration": {
         "kind": "measured",
@@ -19524,8 +19588,8 @@
         "electron": false,
         "filesystem": true,
         "git": false,
-        "network": false,
-        "process": false,
+        "network": true,
+        "process": true,
         "timing": false
       },
       "sourceInspectionClassification": "none",
@@ -19538,9 +19602,12 @@
         "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Opt-in Windows qualification reads the actual managed runtime and registry; fixture-only proofs mock process globals.",
         "ownedResources": [
+          "bounded-child-process",
+          "loopback-dynamic-endpoint",
+          "shared-global-state-exclusive",
           "temp-filesystem-isolated"
         ]
       },
@@ -19585,6 +19652,42 @@
           "capabilityId": "codex-implementation-runtime",
           "behaviorId": "initializer-failure-atomically-projects-bounded-unavailable-state",
           "proofLocator": "initializer failure atomically projects bounded unavailable state",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "codex-implementation-runtime",
+          "behaviorId": "irr-r01-candidate-connection-policy-failure-preserves-current-pointer-and-verified-catalog",
+          "proofLocator": "candidate connection policy failure preserves current pointer and verified catalog",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "codex-implementation-runtime",
+          "behaviorId": "irr-r01-connection-inventory-failure-preserves-verified-runtime-catalog-and-explicit-selection",
+          "proofLocator": "connection inventory failure preserves verified runtime/catalog and explicit selection",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "codex-implementation-runtime",
+          "behaviorId": "irr-r01-core-failure-reports-a-bounded-stage-without-raw-credential-diagnostics",
+          "proofLocator": "core failure reports a bounded stage without raw credential diagnostics",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "codex-implementation-runtime",
+          "behaviorId": "irr-r01-production-core-probe-neither-inventories-mcp-nor-inherits-ambient-configuration",
+          "proofLocator": "production core probe neither inventories MCP nor inherits ambient configuration",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "codex-implementation-runtime",
+          "behaviorId": "irr-r01-unavailable-runtime-retry-retires-the-initializer-and-uses-a-fresh-generation",
+          "proofLocator": "unavailable runtime retry retires the initializer and uses a fresh generation",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "codex-implementation-runtime",
+          "behaviorId": "irr-r01-windows-qualification-probes-bundled-and-normal-managed-current-latest-without-ambient-mcp",
+          "proofLocator": "Windows qualification probes bundled and normal managed current/latest without ambient MCP",
           "proofRole": "primary"
         },
         {

@@ -21,6 +21,9 @@ export class CodexConnectionPolicy {
       new Set(value.map(entry => entry.name)).size !== value.length) throw new Error("Invalid approved Codex connections.");
     return value.map(entry => ({ name: entry.name, enabled: entry.enabled, requirement: entry.requirement ?? "optional" }));
   }
+  fail(message: string): void {
+    this.snapshot = { ...this.snapshot, requiredReady: false, blocker: message };
+  }
   getStatus(): ManagedCodexConnectionsStatus { return structuredClone(this.snapshot); }
   project(approved: ApprovedCodexConnection[], observed: ObservedCodexConnection[], failed = false): ManagedCodexConnectionsStatus {
     const connections: ManagedCodexConnection[] = approved.map(entry => {
