@@ -331,3 +331,28 @@ test("structured Intake disposition controls disable unsaved review and pending 
   assert.match(busy, /<button class="apply-button" disabled=""/);
   assert.equal(renderToStaticMarkup(React.createElement(WorkflowIntakeDisposition, {state: {...state, model: null}})), "");
 });
+
+
+test("Architect shell keeps review and controls left and browser companion right", () => {
+  const { ArchitectWorkspaceShell } = loader.loadRendererSourceModule("src/renderer/app/ArchitectWorkspaceShell.tsx");
+  const markup = renderToStaticMarkup(React.createElement(ArchitectWorkspaceShell, {
+    browserVisible: true, label: "Architect Interview", reviewContent: React.createElement("article", null, "Review"),
+    reviewControls: React.createElement("button", null, "Approve"), browserCompanion: React.createElement("aside", {className: "figma-browser-column"}, "ChatGPT"),
+  }));
+  assert.match(markup, /figma-doc-chat-workspace/);
+  assert.match(markup, /figma-doc-review-column[^]*Review[^]*Approve[^]*figma-browser-column[^]*ChatGPT/);
+  assert.doesNotMatch(markup, /chat-hidden/);
+});
+
+test("structured Intake recovery bypasses repository reads while Interview and Prompt retain them", async () => {
+  const { readArchitectReviewDocument } = loader.loadRendererSourceModule("src/renderer/app/GreenfieldArchitectWorkspace.tsx");
+  const detail = {logicalDocumentId: "sql-intake-id", bodyMarkdown: "SQL review"};
+  const model = {workspaceId: "architect-interview", domain: {intakeRecoveryDetail: detail}};
+  const reads = [];
+  const reader = async id => { reads.push(id); return {logicalDocumentId: id}; };
+  assert.deepEqual(await readArchitectReviewDocument(detail.logicalDocumentId, model, reader), detail);
+  assert.deepEqual(reads, []);
+  await readArchitectReviewDocument("repository-prompt", model, reader);
+  await readArchitectReviewDocument("repository-interview", model, reader);
+  assert.deepEqual(reads, ["repository-prompt", "repository-interview"]);
+});

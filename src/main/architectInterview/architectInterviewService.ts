@@ -42,6 +42,7 @@ export function getArchitectInterviewWorkspaceModel(
       railStatus: "Open",
       handoffState: "handoff-unavailable",
       projectIntakeDocument: context.projectIntake,
+      intakeRecoveryDetail: context.intakeRecoveryDetail,
       interviewTargets: context.interviewTargets,
       selectedReviewDocumentRole: "project-intake",
       documentReadState: context.projectIntake.documentReadState,

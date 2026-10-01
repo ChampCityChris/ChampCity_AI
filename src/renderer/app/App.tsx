@@ -132,6 +132,7 @@ import {
   phaseValidationActionForWorkspace,
   phaseValidationPresentation,
 } from "./phaseValidationRendererOrchestration";
+import { GreenfieldArchitectWorkspace, readArchitectReviewDocument } from "./GreenfieldArchitectWorkspace";
 import { FigmaDocumentCard, FigmaMarkdownBody } from "./FigmaDocumentCard";
 import { FigmaDocumentDispositionPanel } from "./FigmaDocumentDispositionPanel";
 import { FigmaAppStrip } from "./figma/FigmaAppStrip";
@@ -3802,7 +3803,9 @@ export function App(): JSX.Element {
     setDocumentError("");
     setFeedback("");
     try {
-      const detail = await window.champcity.readDocument(logicalDocumentId);
+      const detail = await readArchitectReviewDocument(logicalDocumentId,
+        options.architectOutputModelForViewedRevision ?? architectOutputModel,
+        window.champcity.readDocument);
       setSelectedDocument(detail);
       setSelectedStatus(
         detail.effectiveDisposition === "Pending" ? "" : detail.effectiveDisposition,
@@ -4582,37 +4585,23 @@ export function App(): JSX.Element {
           ) : null}
 
           {isVisibleArchitectOutputWorkspace && !isPhaseMapFigmaWorkspace ? (
-            <section
-              className={[
-                "figma-doc-chat-workspace",
-                !isArchitectPaneVisible ? "chat-hidden" : "",
-              ].filter(Boolean).join(" ")}
-              aria-label={`${activeWorkspace.label} Figma document workspace`}
-              ref={documentReviewSurfaceRef}
-              tabIndex={-1}
-            >
-              <div className="figma-doc-review-column">
-                <FigmaDocumentCard
-                  documentError={documentError}
-                  feedback={feedback}
-                  onCopy={copySelectedDocumentBody}
-                  selectedDocument={selectedDocument}
-                  slots={architectOutputModel?.documentSlots}
-                  selectedSlotId={selectedArchitectOutputSlotId}
-                  onSelectSlot={(slotId, logicalDocumentId) => {
-                    setSelectedArchitectOutputSlotId(slotId);
-                    const slot = architectOutputModel?.documentSlots.find((candidate) => candidate.slotId === slotId);
-                    const revisionKey = slot ? revisionKeyForArchitectOutputSlot(slot) : null;
-                    if (revisionKey) {
-                      setViewedArchitectOutputRevisionKeys((current) =>
-                        current.includes(revisionKey) ? current : [...current, revisionKey],
-                      );
-                    }
-                    if (logicalDocumentId) {
-                      setSelectedDocumentId(logicalDocumentId);
-                    }
-                  }}
-                />
+            <GreenfieldArchitectWorkspace
+              browserVisible={isArchitectPaneVisible}
+              label={`${activeWorkspace.label} Figma document workspace`}
+              surfaceRef={documentReviewSurfaceRef}
+              document={{
+                documentError, feedback, onCopy: copySelectedDocumentBody, selectedDocument,
+                slots: architectOutputModel?.documentSlots,
+                selectedSlotId: selectedArchitectOutputSlotId,
+                onSelectSlot: (slotId, logicalDocumentId) => {
+                  setSelectedArchitectOutputSlotId(slotId);
+                  const slot = architectOutputModel?.documentSlots.find(candidate => candidate.slotId === slotId);
+                  const revisionKey = slot ? revisionKeyForArchitectOutputSlot(slot) : null;
+                  if (revisionKey) setViewedArchitectOutputRevisionKeys(current => current.includes(revisionKey) ? current : [...current, revisionKey]);
+                  if (logicalDocumentId) setSelectedDocumentId(logicalDocumentId);
+                },
+              }}
+              reviewControls={
                 <FigmaArchitectReviewPanel
                   allCurrentRevisionsViewed={allCurrentArchitectRevisionsViewed}
                   canApply={canApplyArchitectReview}
@@ -4625,9 +4614,9 @@ export function App(): JSX.Element {
                   status={architectOutputReviewStatus}
                   selectedDocument={selectedDocument}
                 />
-              </div>
-              {architectBrowserColumn}
-            </section>
+              }
+              browserCompanion={architectBrowserColumn}
+            />
           ) : null}
 
           {isWorkCardRepair ? (

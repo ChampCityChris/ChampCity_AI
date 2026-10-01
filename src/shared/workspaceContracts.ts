@@ -753,6 +753,7 @@ export interface ArchitectInterviewWorkspaceModel {
   draftSubmissionState?: "waiting-for-drafts" | "partial-draft-set" | "ready-for-promotion" | "promotion-failed" | "promoted" | "superseded";
   draftPromotionError?: string;
   projectIntakeDocument?: ArchitectInterviewDocumentIdentity;
+  intakeRecoveryDetail?: PlanningDocumentDetail;
   promptDocument?: ArchitectInterviewDocumentIdentity & { outputMarkdownPath?: string };
   interviewTargets?: {
     markdownPath: string;

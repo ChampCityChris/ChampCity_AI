@@ -39,6 +39,7 @@ export interface CanonicalArtifactIdentity {
 export interface CanonicalArchitectInterviewReadyContext {
   status: "ready";
   projectIntake: CanonicalArtifactIdentity;
+  intakeRecoveryDetail?: import("../../shared/documents/planningDocument").PlanningDocumentDetail;
   prompt: CanonicalArtifactIdentity & {
     outputTarget: {
       markdownPath: string;
@@ -63,6 +64,7 @@ export type CanonicalArchitectInterviewContext =
       status: "prompt-missing-recoverable";
       reason: string;
       projectIntake: CanonicalArtifactIdentity;
+      intakeRecoveryDetail?: import("../../shared/documents/planningDocument").PlanningDocumentDetail;
       projectSlug: string;
       promptTargetPath: string;
       previousPromptRevision?: number;
@@ -127,6 +129,7 @@ export function resolveCanonicalArchitectInterviewContext(
         status: "prompt-missing-recoverable",
         reason: "Project Architect Interview Prompt Markdown is missing and can be regenerated from the Approved Project Intake.",
         projectIntake: intakeIdentity,
+        intakeRecoveryDetail: structuredIntake?.reviewDocument ?? undefined,
         projectSlug,
         promptTargetPath: deterministicPromptPath,
         ...(replaceablePrompt ? {previousPromptRevision: targetDocument!.metadata.artifactRevision} : {}),
@@ -183,6 +186,7 @@ export function resolveCanonicalArchitectInterviewContext(
     return {
       status: "ready",
       projectIntake: intakeIdentity,
+      intakeRecoveryDetail: structuredIntake?.reviewDocument ?? undefined,
       prompt: { ...promptIdentity, outputTarget: interviewTargets },
       interviewTargets,
       interview: interviewValidation.identity,

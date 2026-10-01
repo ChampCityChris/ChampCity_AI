@@ -745,6 +745,11 @@ test("structured Intake imports all seven legacy families once, preserves eviden
         assert.equal(decision.body.decisionScope, `workflow-intake:${imported.intakeId}@1`);
         assert.match(decision.body.rationale, /Historical approval/);
         assert.deepEqual((await resolveStructuredArchitectInterviewIntake(env.root)).values, values);
+        const architect = require("../../dist/main/architectInterview/architectInterviewService.js").getArchitectInterviewWorkspaceModel(env.root);
+        assert.equal(architect.state, "prompt-missing");
+        assert.equal(architect.intakeRecoveryDetail.logicalDocumentId, imported.intakeId);
+        assert.equal(architect.intakeRecoveryDetail.bodyMarkdown, imported.reviewDocument.bodyMarkdown);
+
         await intake.saveProjectCreationIntake(env.root, workflow.id, {...values, projectRepository: "ignored", projectPurpose: "Revised structured purpose"}, 1);
         assert.equal((await intake.getWorkflowIntake(env.root, workflow.id)).values.projectRepository, fs.realpathSync(env.root));
         assert.equal((await intake.getWorkflowIntake(env.root, workflow.id)).disposition.state, "none");
