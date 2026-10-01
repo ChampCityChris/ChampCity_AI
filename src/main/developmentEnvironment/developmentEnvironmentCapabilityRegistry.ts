@@ -11,6 +11,8 @@ export interface CapabilityProbe {
 
 export interface SimpleCapabilityRegistryEntry {
   kind: "simple";
+  toolchain?: "node-npm";
+  provisioningOwner?: "node";
   capabilityId: string;
   probe: CapabilityProbe;
   supportedVersionConstraints: VersionConstraintSupport[];
@@ -84,6 +86,7 @@ function simple(
     {
       kind: "simple",
       capabilityId,
+      ...(["node", "npm", "nodejs-lts"].includes(capabilityId) ? { toolchain: "node-npm" as const, provisioningOwner: "node" as const } : {}),
       probe: { command, args, versionPattern },
       supportedVersionConstraints: ["exact", "minimum"],
       provisionableVersionRange,

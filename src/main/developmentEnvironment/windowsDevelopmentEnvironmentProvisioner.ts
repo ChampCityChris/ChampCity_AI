@@ -1,3 +1,5 @@
+import { resolveWindowsNpmInvocation, trustedWindowsNodeRoots, type WindowsNpmInvocation } from "../core/windowsNpmInvocation";
+import { repairWindowsNodeUserPath } from "./windowsEnvironmentRefresh";
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -64,6 +66,8 @@ export interface NodeCommandRunnerOptions {
 
 export interface WindowsProvisionerOptions {
   runner?: DevelopmentEnvironmentCommandRunner;
+  resolveNodePair?: (discover: boolean) => WindowsNpmInvocation;
+  repairNodePath?: (root: string) => Promise<void>;
   refreshEnvironment?: () => Promise<WindowsEnvironmentRefreshResult>;
   tempRoot?: string;
   platform?: NodeJS.Platform;
@@ -79,6 +83,8 @@ interface ProbeResult {
 }
 
 export class WindowsDevelopmentEnvironmentProvisioner {
+  private readonly resolveNodePair: (discover: boolean) => WindowsNpmInvocation;
+  private readonly repairNodePath: (root: string) => Promise<void>;
   private readonly runner: DevelopmentEnvironmentCommandRunner;
   private readonly refreshEnvironment: () => Promise<WindowsEnvironmentRefreshResult>;
   private readonly tempRoot: string;
@@ -87,6 +93,11 @@ export class WindowsDevelopmentEnvironmentProvisioner {
   private readonly packageResolverOptions: WindowsPackageProviderResolverOptions;
 
   constructor(options: WindowsProvisionerOptions = {}) {
+    this.resolveNodePair = options.resolveNodePair ?? ((discover) => resolveWindowsNpmInvocation({
+      includeHostDirectory: false,
+      candidateRoots: discover ? trustedWindowsNodeRoots() : [],
+    }));
+    this.repairNodePath = options.repairNodePath ?? repairWindowsNodeUserPath;
     this.runner = options.runner ?? new NodeCommandRunner();
     this.refreshEnvironment = options.refreshEnvironment ?? refreshWindowsProcessEnvironment;
     this.tempRoot = options.tempRoot ?? path.join(os.tmpdir(), "champcity-development-environment");
@@ -114,9 +125,43 @@ export class WindowsDevelopmentEnvironmentProvisioner {
       );
     }
 
+    const toolchainRun: { provisioning?: Promise<ProvisioningAttempt>; nodeRequirement?: DevelopmentEnvironmentRequirement } = {
+      nodeRequirement: requirements.find(requirement => requirement.provisioning === "managed" &&
+        ["node", "nodejs-lts"].includes(requirement.capabilityId)),
+    };
+    let initialRefresh: WindowsEnvironmentRefreshResult;
+    try { initialRefresh = await this.refreshEnvironment(); }
+    catch { return resultFromRequirements("blocked", "Windows environment refresh failed before capability probing.",
+      requirements.map(requirement => blockedRequirement(requirement, "Windows environment refresh failed before capability probing.", "verification-failure", true))); }
+    let nodePathBlocker: string | null = null;
+    if (requirements.some(requirement => isNodeToolchain(requirement.capabilityId) && requirement.provisioning === "managed")) {
+      try { this.resolveNodePair(false); }
+      catch {
+        let discovered: WindowsNpmInvocation | null = null;
+        try { discovered = this.resolveNodePair(true); } catch { /* Absence permits Node toolchain provisioning. */ }
+        if (discovered) {
+          const root = path.dirname(discovered.executable);
+          try {
+            await this.repairNodePath(root);
+            const refreshed = await this.refreshEnvironment();
+            const pathValue = refreshed.env.PATH ?? refreshed.env.Path ?? "";
+            if (!pathValue.split(";").some(entry => path.normalize(entry.trim().replace(/^"|"$/g, "")).toLowerCase() === path.normalize(root).toLowerCase())) {
+              throw new Error("Refreshed PATH does not contain the validated Node installation root.");
+            }
+            this.resolveNodePair(false);
+          } catch {
+            nodePathBlocker = "User PATH repair or post-repair Node/npm verification failed. Retry environment setup; reinstall was not attempted.";
+          }
+        }
+      }
+    }
     const requirementResults: DevelopmentEnvironmentRequirementResult[] = [];
     for (const requirement of requirements) {
       const entry = resolveCapabilityRegistryEntry(requirement);
+      if (nodePathBlocker && isNodeToolchain(requirement.capabilityId)) {
+        requirementResults.push(blockedRequirement(requirement, nodePathBlocker, "verification-failure", true));
+        continue;
+      }
       if (isWindowsX64HostRequirement(requirement)) {
         requirementResults.push(windowsX64HostRequirement(requirement, this.platform, this.arch));
         continue;
@@ -129,20 +174,27 @@ export class WindowsDevelopmentEnvironmentProvisioner {
         requirementResults.push(await this.resolveProviderBackedRequirement(requirement, workspaceRoot));
         continue;
       }
+      if (isNodeToolchain(requirement.capabilityId) && !registrySupportsVersionConstraint(entry, requirement.versionConstraint)) {
+        requirementResults.push(blockedRequirement(requirement, "Node/npm version constraint is unsupported by deterministic provisioning.", "unsupported", false));
+        continue;
+      }
       if (!registrySupportsVersionConstraint(entry, requirement.versionConstraint)) {
         requirementResults.push(await this.resolveProviderBackedRequirement(requirement, workspaceRoot, entry));
         continue;
       }
-      requirementResults.push(await this.resolveRequirement(requirement, entry, workspaceRoot));
+      requirementResults.push(await this.resolveRequirement(requirement, entry, workspaceRoot, toolchainRun));
     }
 
-    return resultFromRequirements(finalState(requirementResults), summaryForRequirements(requirementResults), requirementResults);
+    const result = resultFromRequirements(finalState(requirementResults), summaryForRequirements(requirementResults), requirementResults);
+    result.evidenceMarkdown = `- Initial Windows environment refresh: ${initialRefresh.refreshed ? "completed" : "not-required"}; before first probe\n${result.evidenceMarkdown}`;
+    return result;
   }
 
   private async resolveRequirement(
     requirement: DevelopmentEnvironmentRequirement,
     entry: DevelopmentEnvironmentCapabilityRegistryEntry,
     workspaceRoot: string,
+    toolchainRun: { provisioning?: Promise<ProvisioningAttempt>; nodeRequirement?: DevelopmentEnvironmentRequirement },
   ): Promise<DevelopmentEnvironmentRequirementResult> {
     const before = await this.probe(entry, requirement, workspaceRoot);
     const commandSummaries = [summaryFromCommand(before.command)];
@@ -198,7 +250,7 @@ export class WindowsDevelopmentEnvironmentProvisioner {
       );
     }
 
-    const packageResolution = entry.kind === "simple"
+    const packageResolution = entry.kind === "simple" && !isNodeToolchain(requirement.capabilityId)
       ? await new WindowsPackageProviderResolver(this.runner, this.packageResolverOptions)
         .resolvePackage(requirement, workspaceRoot)
       : null;
@@ -224,7 +276,10 @@ export class WindowsDevelopmentEnvironmentProvisioner {
     }
 
     const resolvedCandidate = packageResolution?.candidate;
-    const provisioned = entry.kind === "simple" && resolvedCandidate
+    const provisioned = isNodeToolchain(requirement.capabilityId)
+      ? await (toolchainRun.provisioning ??= this.installSimpleCapability("OpenJS.NodeJS.LTS", "winget",
+          toolchainRun.nodeRequirement ?? { ...requirement, capabilityId: "node", versionConstraint: undefined }, workspaceRoot, "specialized-adapter"))
+      : entry.kind === "simple" && resolvedCandidate
       ? await this.installSimpleCapability(resolvedCandidate.packageId, resolvedCandidate.source, requirement, workspaceRoot)
       : await this.configureCompositeCapability(requirement, workspaceRoot);
     commandSummaries.push(...provisioned.commandSummaries);
@@ -434,7 +489,24 @@ export class WindowsDevelopmentEnvironmentProvisioner {
     workspaceRoot: string,
   ): Promise<ProbeResult> {
     if (entry.kind === "simple") {
-      const command = await this.runner.run(entry.probe.command, entry.probe.args, { cwd: workspaceRoot });
+      let command: CommandRunResult;
+      if (isNodeToolchain(requirement.capabilityId)) {
+        try {
+          const pair = this.resolveNodePair(false);
+          const args = requirement.capabilityId === "npm" ? [pair.cliPath, ...entry.probe.args] : entry.probe.args;
+          const internal = await this.runner.run(pair.executable, args, { cwd: workspaceRoot });
+          const boundedOutput = (text: string) => path.isAbsolute(pair.executable)
+            ? text.split(pair.cliPath).join("<npm-cli.js>").split(path.dirname(pair.executable)).join("<node-install-root>")
+            : text;
+          command = { ...internal, command: entry.probe.command, args: entry.probe.args,
+            stdout: boundedOutput(internal.stdout), stderr: boundedOutput(internal.stderr) };
+          // Node readiness also requires executable npm from the same validated pair.
+          if (requirement.capabilityId !== "npm" && internal.exitCode === 0) {
+            const npm = await this.runner.run(pair.executable, [pair.cliPath, "--version"], { cwd: workspaceRoot });
+            if (npm.exitCode !== 0) command = { ...command, exitCode: npm.exitCode, stderr: "Paired npm verification failed." };
+          }
+        } catch { command = { command: entry.probe.command, args: entry.probe.args, exitCode: null, stdout: "", stderr: "A validated standalone Node/npm pair could not be resolved." }; }
+      } else command = await this.runner.run(entry.probe.command, entry.probe.args, { cwd: workspaceRoot });
       if (command.exitCode !== 0) {
         return { state: command.exitCode === null ? "missing" : "unknown", command };
       }
@@ -534,6 +606,7 @@ export class WindowsDevelopmentEnvironmentProvisioner {
     source: string,
     requirement: DevelopmentEnvironmentRequirement,
     workspaceRoot: string,
+    provider: "winget-search" | "specialized-adapter" = "winget-search",
   ): Promise<ProvisioningAttempt> {
     const args = [
       "install",
@@ -558,7 +631,7 @@ export class WindowsDevelopmentEnvironmentProvisioner {
     return {
       ...attempt,
       providerAttempts: [{
-        provider: "winget-search",
+        provider,
         stage: "provisioning",
         outcome: provisioningResolved ? "resolved" : "failed",
         summary: provisioningResolved
@@ -1444,3 +1517,5 @@ function sanitizeOutput(value: string): string {
 function quotePowerShell(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;
 }
+
+function isNodeToolchain(capabilityId: string): boolean { return ["node", "npm", "nodejs-lts"].includes(capabilityId); }

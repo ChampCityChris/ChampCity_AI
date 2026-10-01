@@ -141,17 +141,20 @@ test("unknown presence-only capability uses bounded PATH lookup without version 
   assert.deepEqual(runner.calls.map(callString), ["where.exe custom-tool"]);
 });
 
-test("Signal Forge declared requirement set reaches ready using registered executable probes", async () => {
-  const runner = fakeRunner({
-    "node --version": success("v22.0.0"), "npm --version": success("11.0.0"),
-    "ffmpeg -version": success("ffmpeg version 9.0.2"), "ffprobe -version": success("ffprobe version 9.0.2"),
-  });
-  const result = await new WindowsDevelopmentEnvironmentProvisioner({ runner, platform: "win32" })
-    .preflight([{ capabilityId: "node", versionConstraint: ">=22.0.0", provisioning: "managed" },
-      ...["npm", "ffmpeg", "ffprobe"].map(capabilityId => ({ capabilityId, provisioning: "managed" }))], process.cwd());
-  assert.equal(result.state, "ready");
-  assert.equal(result.requirements.every(requirement => requirement.afterState === "satisfied"), true);
-  assert.deepEqual(runner.calls.map(callString), ["node --version", "npm --version", "ffmpeg -version", "ffprobe -version"]);
+test("Signal Forge semantic Node/npm probes use a validated pair and bounded public evidence", async () => {
+  const pair = {executable:"node",cliPath:"validated-npm-cli.js"};
+  let refreshed = false;
+  const runner = fakeRunner({"node --version":success("v22.0.0"),"node validated-npm-cli.js --version":success("11.0.0"),
+    "ffmpeg -version":success("ffmpeg version 9.0.2"),"ffprobe -version":success("ffprobe version 9.0.2")});
+  const result = await new WindowsDevelopmentEnvironmentProvisioner({runner,platform:"win32",
+    refreshEnvironment:async()=>{refreshed=true;return {refreshed:true,summary:"refreshed",env:{}};},
+    resolveNodePair(){assert.equal(refreshed,true);return pair;},repairNodePath(){throw Error("No PATH write expected");}})
+    .preflight([{capabilityId:"node",versionConstraint:">=22.0.0",provisioning:"managed"},
+      ...["npm","ffmpeg","ffprobe"].map(capabilityId=>({capabilityId,provisioning:"managed"}))],process.cwd());
+  assert.equal(result.state,"ready");
+  assert.equal(runner.calls.some(call=>call.command==="winget" || call.command==="npm"),false);
+  assert.equal(result.requirements[1].commandSummaries[0].command,"npm --version");
+  assert.equal(result.requirements[0].detectedVersion,"22.0.0");
 });
 
 test("missing simple managed capability uses exact WinGet install, refreshes environment, and re-verifies", async () => {
@@ -184,7 +187,7 @@ test("missing simple managed capability uses exact WinGet install, refreshes env
   assert.equal(result.requirements[0].actionTaken, "install");
   assert.equal(result.requirements[0].afterState, "satisfied");
   assert.equal(result.requirements[0].providerAttempts.some((attempt) => attempt.provider === "winget-search"), true);
-  assert.equal(refreshCount, 1);
+  assert.equal(refreshCount, 2);
   assert.equal(runner.calls.map(callString).includes("winget mcp"), true);
   assert.equal(runner.calls.some((call) => callString(call).startsWith("winget mcp find")), false);
   assert.equal(runner.calls.map(callString).includes("winget search --query git --source winget --accept-source-agreements"), true);
@@ -223,7 +226,7 @@ test("already-installed CMake refreshes process environment and verifies from se
   assert.equal(result.requirements[0].actionTaken, "install");
   assert.equal(result.requirements[0].afterState, "satisfied");
   assert.equal(result.requirements[0].detectedVersion, "3.31.0");
-  assert.equal(refreshCount, 1);
+  assert.equal(refreshCount, 2);
   assert.equal(runner.calls.filter((call) => callString(call) === "cmake --version").length, 2);
   assert.equal(result.requirements[0].commandSummaries.some((command) =>
     command.command === "refresh Windows process environment" &&
@@ -261,12 +264,13 @@ test("already-installed CMake remains unresolved when refreshed semantic probe s
   assert.equal(result.requirements[0].afterState, "missing");
   assert.equal(result.requirements[0].blockerKind, "verification-failure");
   assert.match(result.requirements[0].blocker, /remained missing after provisioning/);
-  assert.equal(refreshCount, 1);
+  assert.equal(refreshCount, 2);
   assert.equal(runner.calls.filter((call) => callString(call) === "cmake --version").length, 2);
 });
 
 test("incompatible version provisions when registry supports minimum constraints", async () => {
   const runner = sequentialRunner({
+    "node npm-cli.js --version": [success("11.0.0"), success("11.0.0")],
     "node --version": [
       success("v18.0.0"),
       success("v20.12.0"),
@@ -280,6 +284,7 @@ test("incompatible version provisions when registry supports minimum constraints
   const provisioner = new WindowsDevelopmentEnvironmentProvisioner({
     runner,
     platform: "win32",
+    resolveNodePair: () => ({ executable: "node", cliPath: "npm-cli.js" }),
     refreshEnvironment: fakeRefresh(),
   });
 
@@ -1327,3 +1332,39 @@ function providerCandidateForQuery(query, source) {
   }
   return null;
 }
+
+for (const scenario of ["stale process PATH", "persistent PATH missing", "toolchain absent"]) {
+  test(`Node/npm ${scenario} recovers deterministically with one owning toolchain`, async () => {
+    const { appendWindowsUserPath } = require("../../dist/main/developmentEnvironment/windowsEnvironmentRefresh.js");
+    const events = []; let installed = scenario !== "toolchain absent"; let inPath = false;
+    let userPath = "C:\\Unrelated;C:\\Other";
+    const root = "C:\\Program Files\\nodejs";
+    const pair = {executable:path.join(root,"node.exe"),cliPath:path.join(root,"node_modules","npm","bin","npm-cli.js")};
+    const runner = {async run(command,args) {
+      events.push([command,...args].join(" "));
+      if(command === pair.executable) return {command,args,...success(args[0] === pair.cliPath ? "11.0.0" : "v24.0.0")};
+      if(command === "winget" && args[0] === "install") {assert.equal(args.at(-2),"--version");assert.equal(args.at(-1),"24.0.0");installed=true; inPath=true; return {command,args,...success("installed")};}
+      assert.equal(command,"winget"); assert.ok(["--version","configure"].includes(args[0]));
+      return {command,args,...success("v1.11.0")};
+    }};
+    const result = await new WindowsDevelopmentEnvironmentProvisioner({runner,platform:"win32",
+      refreshEnvironment:async()=>{events.push("refresh"); if(scenario === "stale process PATH") inPath=true;return {refreshed:true,summary:"refreshed",env:{PATH:inPath?root:""}};},
+      resolveNodePair(discover){events.push(discover?"discover":"resolve");if(!installed || (!discover && !inPath))throw Error("missing");return pair;},
+      repairNodePath:async()=>{events.push("path-write");userPath=appendWindowsUserPath(userPath,root);userPath=appendWindowsUserPath(userPath,root.toUpperCase());inPath=true;}
+    }).preflight([{capabilityId:"npm",provisioning:"managed"},{capabilityId:"node",versionConstraint:scenario === "toolchain absent" ? "24.0.0" : ">=22",provisioning:"managed"}],process.cwd());
+    assert.equal(result.state,"ready"); assert.equal(events[0],"refresh");
+    assert.equal(events.filter(event=>event.startsWith("winget install")).length,scenario === "toolchain absent"?1:0);
+    assert.equal(events.some(event=>event.includes("search") || event.includes("mcp")),false);
+    assert.equal(events.filter(event=>event === "path-write").length,scenario === "persistent PATH missing"?1:0);
+    if(scenario === "persistent PATH missing") assert.equal(userPath,`C:\\Unrelated;C:\\Other;${root}`);
+    assert.ok(events.includes(`${pair.executable} ${pair.cliPath} --version`));
+  });
+}
+
+test("discovered Node pair with a failed User PATH write blocks without reinstall", async () => {
+  let installs=0;
+  const result=await new WindowsDevelopmentEnvironmentProvisioner({platform:"win32",runner:{async run(){installs++;throw Error("Must not run");}},
+    refreshEnvironment:fakeRefresh(),resolveNodePair(discover){if(!discover)throw Error("missing PATH");return {executable:"C:\\nodejs\\node.exe",cliPath:"C:\\nodejs\\node_modules\\npm\\bin\\npm-cli.js"};},
+    repairNodePath:async()=>{throw Error("write denied");}}).preflight([{capabilityId:"npm",provisioning:"managed"}],process.cwd());
+  assert.equal(installs,0); assert.match(result.requirements[0].blocker,/User PATH repair/);
+});

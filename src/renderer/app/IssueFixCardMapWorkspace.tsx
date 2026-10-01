@@ -512,7 +512,7 @@ export function IssueFixCardImplementWorkspace({
           <div><dt>Report Readiness</dt><dd>{fixCardProjection?.implementerReportReadiness ?? "Waiting"}</dd></div>
           <div><dt>Readiness Reason</dt><dd>{fixCardProjection?.implementerReportReadinessReason ?? "Waiting"}</dd></div>
         </dl>
-        <DevelopmentEnvironmentStatus execution={codexExecution ?? null} />
+        <DevelopmentEnvironmentStatus execution={codexExecution ?? null} onRepair={onResolveEnvironment} isActionRunning={isActionPending} />
         <LastRunSummary execution={codexExecution ?? null} />
         {showRecovery ? (
           <button className="apply-button" disabled={isActionPending} onClick={onRecoverImplementSetup} type="button">

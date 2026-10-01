@@ -140,3 +140,27 @@ test("the real fixed-command adapter launches every npm-backed release identity 
     }
   }
 });
+
+test("bounded trusted discovery resolves a real pair outside PATH without selecting the host", {skip:process.platform!=="win32"}, () => {
+  const resolved=resolveWindowsNpmInvocation({includeHostDirectory:false,pathValue:"",candidateRoots:[path.dirname(process.execPath)]});
+  assert.equal(resolved.executable,fs.realpathSync(process.execPath));
+});
+
+test("real stale process PATH is refreshed before Node/npm probes without User PATH writes or installs", {skip:process.platform!=="win32"}, async (t) => {
+  const {WindowsDevelopmentEnvironmentProvisioner,NodeCommandRunner}=require("../../dist/main/developmentEnvironment/windowsDevelopmentEnvironmentProvisioner.js");
+  const {refreshWindowsProcessEnvironment}=require("../../dist/main/developmentEnvironment/windowsEnvironmentRefresh.js");
+  const pair=resolveWindowsNpmInvocation();
+  const root=path.dirname(pair.executable).toLowerCase();
+  const old=process.env.PATH;
+  t.after(()=>{process.env.PATH=old;});
+  process.env.PATH=old.split(";").filter(entry=>path.normalize(entry.trim().replace(/^"|"$/g,"")).toLowerCase()!==root).join(";");
+  let refreshes=0; const real=new NodeCommandRunner(); const launches=[];
+  const result=await new WindowsDevelopmentEnvironmentProvisioner({
+    refreshEnvironment:async()=>{refreshes++;return refreshWindowsProcessEnvironment();},
+    repairNodePath:async()=>{throw Error("Stale process must not write User PATH");},
+    runner:{async run(command,args,options){assert.ok(refreshes>0);assert.notEqual(command,"winget"); launches.push({command,args});return real.run(command,args,options);}}
+  }).preflight([{capabilityId:"node",versionConstraint:">=22",provisioning:"managed"},{capabilityId:"npm",provisioning:"managed"}],process.cwd());
+  assert.equal(result.state,"ready");assert.equal(refreshes,1);
+  assert.ok(launches.some(launch=>launch.command===pair.executable && launch.args[0]===pair.cliPath));
+  assert.equal(result.requirements[1].commandSummaries[0].command,"npm --version");
+});

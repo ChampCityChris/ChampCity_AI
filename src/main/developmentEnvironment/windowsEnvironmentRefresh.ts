@@ -130,9 +130,10 @@ async function readWindowsEnvironmentScope(scope: EnvironmentScope): Promise<Rec
 function runProcess(
   command: string,
   args: string[],
+  env: NodeJS.ProcessEnv = process.env,
 ): Promise<{ exitCode: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
-    const child = spawn(command, args, { windowsHide: true });
+    const child = spawn(command, args, { windowsHide: true, env });
     let stdout = "";
     let stderr = "";
     child.stdout?.on("data", (chunk) => {
@@ -148,4 +149,25 @@ function runProcess(
       resolve({ exitCode, stdout: stdout.trim(), stderr: stderr.trim() });
     });
   });
+}
+
+/** Preserve User PATH bytes and append only one validated installation root. */
+export function appendWindowsUserPath(current: string, root: string): string {
+  const key = (value: string) => value.trim().replace(/^"|"$/g, "").replace(/[\\/]+$/, "").toLowerCase();
+  return current.split(";").some(entry => key(entry) === key(root))
+    ? current : `${current}${current && !current.endsWith(";") ? ";" : ""}${root}`;
+}
+
+export async function repairWindowsNodeUserPath(root: string): Promise<void> {
+  // Data travels in the child environment, never as executable PowerShell text.
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    "$root = $env:CHAMPCITY_NODE_INSTALL_ROOT",
+    "$current = [Environment]::GetEnvironmentVariable('Path', 'User')",
+    "$key = $root.Trim().TrimEnd('\\').ToLowerInvariant()",
+    "$found = @($current -split ';' | Where-Object { $_.Trim().Trim([char]34).TrimEnd('\\').ToLowerInvariant() -eq $key }).Count -gt 0",
+    "if (-not $found) { $separator = if ($current -and -not $current.EndsWith(';')) { ';' } else { '' }; [Environment]::SetEnvironmentVariable('Path', ($current + $separator + $root), 'User') }",
+  ].join("; ");
+  const result = await runProcess("powershell.exe", ["-NoProfile", "-Command", script], { ...process.env, CHAMPCITY_NODE_INSTALL_ROOT: root });
+  if (result.exitCode !== 0) throw new Error("User PATH repair failed for the validated Node/npm installation.");
 }

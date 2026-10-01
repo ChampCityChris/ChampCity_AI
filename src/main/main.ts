@@ -1,3 +1,4 @@
+import { developmentEnvironmentRepairService } from "./developmentEnvironment/developmentEnvironmentRepairService";
 import type { CodexModelSelection } from "../shared/codexRuntimeContracts";
 import { createGithubRuntimeOperations } from "./externalProviders/githubRuntime";
 import { GithubProviderService } from "./externalProviders/githubProviderService";
@@ -845,9 +846,9 @@ ipcMain.handle(
 );
 
 ipcMain.handle(
-  "issueResolution:startIssueCodexEnvironmentResolution",
-  (_event, issueId: string, fixCardId: string, currentImplementationId?: string): Promise<CodexImplementerExecutionModel> => {
-    return codexImplementerExecutionService.startEnvironmentResolution(getRequiredWorkspaceRoot(), {
+  "issueResolution:repairIssueDevelopmentEnvironment",
+  (_event, issueId: string, fixCardId: string, currentImplementationId?: string): Promise<import("../shared/developmentEnvironmentContracts").DevelopmentEnvironmentPreflightResult> => {
+    return repairEnvironmentAndProject({
       ownerKind: "issue",
       issueId,
       fixCardId,
@@ -1089,8 +1090,8 @@ ipcMain.handle("codexImplementer:startWorkflowWorkItem", (_event, workflowId: st
   return codexImplementerExecutionService.start(getRequiredWorkspaceRoot(), { ownerKind: "workflow-work-item", workflowId, workItemId }, selection);
 });
 
-ipcMain.handle("codexImplementer:startEnvironmentResolution", (): Promise<CodexImplementerExecutionModel> => {
-  return codexImplementerExecutionService.startEnvironmentResolution(getRequiredWorkspaceRoot());
+ipcMain.handle("developmentEnvironment:repair", (): Promise<import("../shared/developmentEnvironmentContracts").DevelopmentEnvironmentPreflightResult> => {
+  return repairEnvironmentAndProject();
 });
 
 ipcMain.handle(
@@ -1422,4 +1423,11 @@ function currentAgentHarnessServiceHostLaunchTargetInput(): AgentHarnessServiceH
     executablePath: process.execPath,
     applicationPath: app.isPackaged ? app.getAppPath() : path.resolve(__dirname, "../.."),
   };
+}
+
+async function repairEnvironmentAndProject(selector?: import("./developmentEnvironment/workCardApplicationContext").DevelopmentEnvironmentWorkSelector): Promise<import("../shared/developmentEnvironmentContracts").DevelopmentEnvironmentPreflightResult> {
+  const root = getRequiredWorkspaceRoot();
+  const result = await developmentEnvironmentRepairService.repairDevelopmentEnvironment(root, selector);
+  await codexImplementerExecutionService.projectDevelopmentEnvironment(root, result, selector);
+  return result;
 }

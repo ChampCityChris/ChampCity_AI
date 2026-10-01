@@ -17,19 +17,6 @@ export function codexTerminalFeedback(
   if (execution.state === "cancelled") {
     return { message: execution.failureReason ?? "Codex execution was cancelled.", tone: "warning" };
   }
-  if (execution.executionKind === "environment-resolution") {
-    const preflight = execution.developmentEnvironmentPreflight;
-    if (preflight?.state === "ready" || preflight?.state === "not-required") {
-      return {
-        message: "Environment Resolution completed. Development environment is ready. Work Card implementation can now start.",
-        tone: "success",
-      };
-    }
-    return {
-      message: `Environment Resolution completed, but development environment preparation is still incomplete: ${preflight?.summary ?? "Deterministic preflight has not confirmed readiness."}`,
-      tone: "warning",
-    };
-  }
   if (execution.failureReason) {
     return { message: execution.failureReason, tone: "warning" };
   }

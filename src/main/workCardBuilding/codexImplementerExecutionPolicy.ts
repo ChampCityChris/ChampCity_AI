@@ -21,9 +21,7 @@ export function resolveDefaultCodexImplementerExecutionPolicy(input: {
   workspaceRoot: string;
 }): CodexImplementerExecutionPolicy {
   return {
-    sandboxMode: input.executionKind === "environment-resolution"
-      ? "danger-full-access"
-      : "workspace-write",
+    sandboxMode: "workspace-write",
     approvalPolicy: "on-request",
     approvalsReviewer: "user",
     networkAccessEnabled: true,

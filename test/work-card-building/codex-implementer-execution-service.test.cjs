@@ -431,171 +431,25 @@ test("Codex Implementer service blocks App Server start when development environ
   assert.equal(startThreadCalled, false);
 });
 
-test("Codex Implementer service runs bounded environment resolution and reruns preflight before implementation", async () => {
+test("application-owned environment retry projects readiness without acquiring Codex", async () => {
   const root = seedBuildReviewWorkspace();
-  const captured = {};
-  let preflightCalls = 0;
-  let refreshCalls = 0;
-  const eventOrder = [];
-  const service = createService(
-    async () => ({
-      startThread(options) {
-        captured.threadOptions = options;
-        return {
-          id: null,
-          async runStreamed(prompt) {
-            captured.prompt = prompt;
-            return { events: environmentResolutionEvents() };
-          },
-        };
-      },
-    }),
-    () => Date.now(),
-    defaultExecutionPolicy,
-    {
-      async runPreflight() {
-        preflightCalls += 1;
-        eventOrder.push(`preflight-${preflightCalls}`);
-        if (preflightCalls === 1) {
-          return resolutionRequiredPreflight();
-        }
-        assert.equal(refreshCalls, 1);
-        return {
-          state: "ready",
-          summary: "Development environment ready; 1 capability requirement(s) already satisfied.",
-          retryAllowed: false,
-          requirements: [{
-            capabilityId: "made-up-build-tool",
-            provisioning: "managed",
-            beforeState: "satisfied",
-            actionTaken: "none",
-            afterState: "satisfied",
-            commandSummaries: [],
-            retryAllowed: false,
-          }],
-          evidenceMarkdown: "Development environment preflight evidence:\n- Final state: ready",
-        };
-      },
-    },
-    async () => {
-      refreshCalls += 1;
-      eventOrder.push("parent-refresh");
-      return { refreshed: true, summary: "parent environment refreshed", env: {} };
-    },
-  );
-
-  const unavailable = await service.start(root);
-  assert.equal(unavailable.state, "unavailable");
-  assert.equal(unavailable.canRunAgain, false);
-  assert.equal(unavailable.canResolveEnvironment, true);
-  assert.equal(unavailable.developmentEnvironmentPreflight.state, "resolution-required");
-
-  const resolving = await service.startEnvironmentResolution(root);
-  assert.equal(resolving.state, "running");
-  assert.equal(resolving.executionKind, "environment-resolution");
-  assert.equal(captured.threadOptions.workingDirectory, path.resolve(root));
-  assert.equal(captured.threadOptions.sandboxMode, "danger-full-access");
-  assert.match(captured.prompt, /Environment Resolution/);
-  assert.match(captured.prompt, /not normal Work Card implementation/);
-  assert.match(captured.prompt, /Approved Work Card path: planning\/phases\/phase-01\/Work_Cards\/WC01_first_work_card\.md/);
-  assert.match(captured.prompt, /Approved Work Card artifact revision: 1/);
-  assert.match(captured.prompt, new RegExp(`Approved Work Card SHA-256: ${sha256(root, workCardPath())}`));
-  assert.match(captured.prompt, /capabilityId: made-up-build-tool/);
-  assert.match(captured.prompt, /versionConstraint: >=7\.2/);
-  assert.match(captured.prompt, /profile: cli/);
-  assert.match(captured.prompt, /provider: winget-mcp/);
-  assert.match(captured.prompt, /provider: winget-search/);
-  assert.match(captured.prompt, /packageId: Vendor\.MadeUpBuildTool/);
-  assert.match(captured.prompt, /packageId: Community\.MadeUpBuildTool/);
-  assert.match(captured.prompt, /command: winget mcp/);
-  assert.match(captured.prompt, /exitCode: 1/);
-  assert.match(captured.prompt, /stderr\/error: MCP server launch failed/);
-  assert.match(captured.prompt, /Do not substitute project architecture, platform, compiler family, target architecture, package ecosystem, or approved capability identity/);
-
-  const completed = await waitForState(service, root, "completed");
-  assert.equal(completed.executionKind, "environment-resolution");
-  assert.equal(completed.canResolveEnvironment, false);
-  assert.equal(completed.canRunAgain, true);
-  assert.equal(completed.developmentEnvironmentPreflight.state, "ready");
-  assert.equal(completed.state, "completed");
-  assert.equal(completed.reportUpdated, false);
-  assert.equal(completed.failureReason, null);
-  assert.equal(completed.finalResponseTail.at(-1), "Environment Resolution completed.");
-  assert.deepEqual(eventOrder, ["preflight-1", "parent-refresh", "preflight-2"]);
-  assert.equal(completed.eventTail.some((event) => event.includes("environment-resolution.parent-environment-refresh.succeeded")), true);
-  assert.equal(completed.eventTail.some((event) => event.includes("environment-resolution.preflight.ready")), true);
-  assert.equal(preflightCalls, 2);
-});
-
-test("Environment Resolution keeps implementation blocked when deterministic rerun still requires resolution", async () => {
-  const root = seedBuildReviewWorkspace();
-  let preflightCalls = 0;
-  let refreshCalls = 0;
-  const service = createService(
-    async () => ({
-      startThread() {
-        return { id: null, async runStreamed() { return { events: environmentResolutionEvents() }; } };
-      },
-    }),
-    () => Date.now(),
-    defaultExecutionPolicy,
-    { async runPreflight() { preflightCalls += 1; return resolutionRequiredPreflight(); } },
-    async () => { refreshCalls += 1; return { refreshed: true, summary: "parent environment refreshed", env: {} }; },
-  );
-
-  await service.start(root);
-  await service.startEnvironmentResolution(root);
-  const completed = await waitForState(service, root, "completed");
-
-  assert.equal(preflightCalls, 2);
-  assert.equal(refreshCalls, 1);
-  assert.equal(completed.executionKind, "environment-resolution");
-  assert.equal(completed.developmentEnvironmentPreflight.state, "resolution-required");
-  assert.equal(completed.canRunAgain, false);
-  assert.equal(completed.canResolveEnvironment, true);
-  assert.equal(completed.reportUpdated, false);
-  assert.equal(completed.failureReason, null);
-});
-
-test("Codex Implementer service surfaces parent environment refresh failure before post-resolution preflight", async () => {
-  const root = seedBuildReviewWorkspace();
-  let preflightCalls = 0;
-  const service = createService(
-    async () => ({
-      startThread() {
-        return {
-          id: null,
-          async runStreamed() {
-            return { events: environmentResolutionEvents() };
-          },
-        };
-      },
-    }),
-    () => Date.now(),
-    defaultExecutionPolicy,
-    {
-      async runPreflight() {
-        preflightCalls += 1;
-        return resolutionRequiredPreflight();
-      },
-    },
-    async () => {
-      throw new Error("parent PATH refresh failed");
-    },
-  );
-
-  await service.start(root);
-  await service.startEnvironmentResolution(root);
-  const failed = await waitForState(service, root, "failed");
-
-  assert.equal(preflightCalls, 1);
-  assert.equal(failed.executionKind, "environment-resolution");
-  assert.equal(failed.failureReason, "Parent process environment refresh failed before deterministic preflight rerun: parent PATH refresh failed");
-  assert.equal(failed.developmentEnvironmentPreflight.state, "resolution-required");
-  assert.equal(failed.developmentEnvironmentPreflight.retryAllowed, true);
-  assert.match(failed.developmentEnvironmentPreflight.summary, /Parent process environment refresh failed/);
-  assert.equal(failed.eventTail.some((event) => event.includes("environment-resolution.parent-environment-refresh.failed")), true);
-  assert.equal(failed.stderrTail.some((entry) => /parent PATH refresh failed/.test(entry)), true);
+  let calls = 0;
+  const service = createService(async () => { calls++; throw Error("Codex must not be invoked"); });
+  const { DevelopmentEnvironmentRepairService } = require("../../dist/main/developmentEnvironment/developmentEnvironmentRepairService.js");
+  const repair = new DevelopmentEnvironmentRepairService({ async runPreflight(input) {
+    assert.equal(input.formalWorkCardPath, workCardPath());
+    return notRequiredPreflight();
+  } });
+  const {codexIpcHarness} = require("../support/codex-ipc-harness.cjs");
+  const api = codexIpcHarness(service, null, root, repair);
+  const result = await api.repairDevelopmentEnvironment();
+  assert.equal(result.state, "not-required");
+  assert.equal(api.startCodexEnvironmentResolution, undefined);
+  const status = await service.getStatus(root);
+  assert.equal(status.developmentEnvironmentPreflight.state, "not-required");
+  assert.equal(status.canRunAgain, true);
+  assert.equal(calls, 0);
+  assert.equal(service.startEnvironmentResolution, undefined);
 });
 
 test("Issue Fix Card Codex status isolates running and terminal sessions by exact context", async () => {
@@ -705,53 +559,27 @@ test("Issue Repair Codex completion and retry preserve root Fix Card and exact R
   assert.equal(currentStatus.implementerReportPath, nextRepair.implementerReportPath);
 });
 
-test("Issue Fix Card preflight and Environment Resolution cache are keyed by contract context", async () => {
+test("Issue Fix Card shares neutral repair with exact contract context", async () => {
   const root = seedIssueFixCardCodexWorkspace("ISSUE_121");
   seedIssueFixCardCodexWorkspace("ISSUE_124", root);
-  let preflightCalls = 0;
-  const captured = {};
-  const service = createService(
-    async () => ({
-      startThread(options) {
-        captured.threadOptions = options;
-        return {
-          id: "thread-issue-env",
-          async runStreamed(prompt) {
-            captured.prompt = prompt;
-            return { events: environmentResolutionEvents() };
-          },
-        };
-      },
-    }),
-    () => Date.now(),
-    defaultExecutionPolicy,
-    {
-      async runPreflight({ formalWorkCardPath }) {
-        preflightCalls += 1;
-        if (/ISSUE_121-FC01/.test(formalWorkCardPath)) {
-          return resolutionRequiredPreflight();
-        }
-        return notRequiredPreflight();
-      },
-    },
-    async () => ({ refreshed: false, summary: "parent environment unchanged", env: {} }),
-  );
-
-  const fc01 = { ownerKind: "issue", issueId: "ISSUE_121", fixCardId: "ISSUE_121-FC01" };
-  const fc02 = { ownerKind: "issue", issueId: "ISSUE_124", fixCardId: "ISSUE_124-FC01" };
-  const fc01Unavailable = await service.start(root, fc01);
-  assert.equal(fc01Unavailable.state, "unavailable");
-  assert.equal(fc01Unavailable.canResolveEnvironment, true);
-
-  const fc02Status = await service.getStatus(root, fc02);
-  assert.equal(fc02Status.state, "ready");
-  assert.equal(fc02Status.developmentEnvironmentPreflight, null);
-
-  const resolving = await service.startEnvironmentResolution(root, fc01);
-  assert.equal(resolving.state, "running");
-  assert.equal(resolving.executionKind, "environment-resolution");
-  assert.match(captured.prompt, /Fix Card path: issues\/ISSUE_121\/Fix_Cards\/ISSUE_121-FC01_/);
-  assert.equal(preflightCalls, 1);
+  let calls = 0;
+  const service = createService(async () => { calls++; throw Error("Codex must not be invoked"); });
+  const { DevelopmentEnvironmentRepairService } = require("../../dist/main/developmentEnvironment/developmentEnvironmentRepairService.js");
+  const repair = new DevelopmentEnvironmentRepairService({ async runPreflight({formalWorkCardPath}) {
+    assert.match(formalWorkCardPath, /ISSUE_121-FC01/);
+    return resolutionRequiredPreflight();
+  } });
+  const selected = {ownerKind:"issue", issueId:"ISSUE_121", fixCardId:"ISSUE_121-FC01"};
+  const {codexIpcHarness} = require("../support/codex-ipc-harness.cjs");
+  const api = codexIpcHarness(service, null, root, repair);
+  const result = await api.repairIssueDevelopmentEnvironment(selected.issueId, selected.fixCardId);
+  assert.equal(api.startIssueCodexEnvironmentResolution, undefined);
+  const status = await service.getStatus(root, selected);
+  assert.equal(status.canRunAgain, false);
+  assert.equal(status.developmentEnvironmentPreflight.state, "resolution-required");
+  const other = await service.getStatus(root, {ownerKind:"issue",issueId:"ISSUE_124",fixCardId:"ISSUE_124-FC01"});
+  assert.equal(other.developmentEnvironmentPreflight, null);
+  assert.equal(calls, 0);
 });
 
 test("Codex Implementer service allows retryable blocked preflight to rerun without using cached evidence as ready", async () => {
@@ -808,10 +636,10 @@ test("Codex Implementer service allows retryable blocked preflight to rerun with
   const rerun = await service.start(root);
 
   assert.equal(blocked.state, "unavailable");
-  assert.equal(blocked.canRunAgain, true);
+  assert.equal(blocked.canRunAgain, false);
   assert.equal(blocked.retryBlocker, null);
   assert.equal(cachedStatus.state, "unavailable");
-  assert.equal(cachedStatus.canRunAgain, true);
+  assert.equal(cachedStatus.canRunAgain, false);
   assert.equal(cachedStatus.developmentEnvironmentPreflight.state, "blocked");
   assert.equal(rerun.state, "running");
   assert.equal(preflightCalls, 2);
@@ -860,9 +688,9 @@ test("Codex Implementer status keeps cached waiting preflight unavailable but re
   const status = await service.getStatus(root);
 
   assert.equal(started.state, "unavailable");
-  assert.equal(started.canRunAgain, true);
+  assert.equal(started.canRunAgain, false);
   assert.equal(status.state, "unavailable");
-  assert.equal(status.canRunAgain, true);
+  assert.equal(status.canRunAgain, false);
   assert.equal(status.retryBlocker, null);
   assert.equal(status.developmentEnvironmentPreflight.state, "waiting-for-operator");
   assert.equal(appServerFactoryCalled, false);
@@ -2257,7 +2085,7 @@ test("exact source-neutral Feature and Issue WorkItem selectors use fake App Ser
         })() };
       } };
     } };
-  }, undefined, input => { assert.equal(input.executionKind, "workflow-work-item-implementation"); return { sandboxMode: "workspace-write", approvalPolicy: "on-request", approvalsReviewer: "user", networkAccessEnabled: false }; }, undefined, undefined,
+  }, undefined, input => { assert.equal(input.executionKind, "workflow-work-item-implementation"); return { sandboxMode: "workspace-write", approvalPolicy: "on-request", approvalsReviewer: "user", networkAccessEnabled: false }; }, undefined,
   fixture.manager, () => createWorkflowExecutionApplicationService());
   for (const [workflowId, item] of [[feature.workflow.id, featureItem], [issue.workflow.id, issueItem]]) {
     const selector = { ownerKind: "workflow-work-item", workflowId, workItemId: item.id };
@@ -2371,7 +2199,7 @@ test("exact Workflow Implementer input request resumes only through its Workflow
     })() }; },
     async respondToUserInput(requestId, answers) { capturedResponse = { requestId, answers }; answerSession(); } }; } }),
     undefined, () => ({ sandboxMode: "workspace-write", approvalPolicy: "on-request", approvalsReviewer: "user", networkAccessEnabled: false }),
-    undefined, undefined, fixture.manager, () => createWorkflowExecutionApplicationService());
+    undefined, fixture.manager, () => createWorkflowExecutionApplicationService());
   await service.start(root, selector, selection);
   let pending;
   for (let attempt = 0; attempt < 80; attempt += 1) {
@@ -2449,12 +2277,10 @@ test("exact Workflow Tester input response resumes only its Workflow, WorkItem, 
 function createService(...args) {
   const { runtimeFixture, selection } = require("../support/codex-runtime.cjs");
   const fixture = runtimeFixture();
-  while (args.length < 5) args.push(undefined);
+  while (args.length < 4) args.push(undefined);
   const service = new CodexImplementerExecutionService(...args, fixture.manager);
   const start = service.start.bind(service);
   service.start = async (root, selector, chosen = selection) => { await fixture.ready; return start(root, selector, chosen); };
-  const resolve = service.startEnvironmentResolution.bind(service);
-  service.startEnvironmentResolution = async (...input) => { await fixture.ready; return resolve(...input); };
   return service;
 }
 
@@ -2488,7 +2314,7 @@ for (const workflow of ["development", "issue"]) {
       });
       return loadCodexAppServerAdapter(() => child);
     };
-    const service = new CodexImplementerExecutionService(factory, undefined, undefined, undefined, undefined, fixture.manager);
+    const service = new CodexImplementerExecutionService(factory, undefined, undefined, undefined, fixture.manager);
     const api = codexIpcHarness(service, fixture.manager, root);
     await api.setCodexModelSelection(chosen);
     const maliciousExtraFields = {...chosen, sandboxMode:"danger-full-access", approvalsReviewer:"auto_review", networkAccessEnabled:false};
@@ -2580,7 +2406,7 @@ test("exact source-backed and source-neutral WorkItems use the bounded Tester li
       })() };
     } }; } };
   }, undefined, () => ({ sandboxMode: "workspace-write", approvalPolicy: "on-request", approvalsReviewer: "user", networkAccessEnabled: false }),
-  undefined, undefined, fixture.manager, dependencies => createWorkflowExecutionApplicationService(dependencies));
+  undefined, fixture.manager, dependencies => createWorkflowExecutionApplicationService(dependencies));
   service.configureSourceCheckoutProjection(async () => ({ workspaceId: "source-execution", projection: { registerRepositoryCheckout: async (_workspaceId, checkout) => {
     checkoutRegistrations++;
     return { ...checkout, ...(checkout.workflowId === unrelated.workflow.id ? { projectRelativePath: `.champcity/checkouts/${created.workflow.id}` } : {}),

@@ -284,7 +284,7 @@ test("Issue Fix Card Implement exposes Issue-scoped environment resolution", () 
     onRunCodex: () => undefined,
   }));
 
-  assert.match(markup, /Resolve Environment/);
+  assert.match(markup, /Retry Environment Setup/);
   assert.match(markup, /Development environment resolution is required/);
 });
 

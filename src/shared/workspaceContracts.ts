@@ -1173,7 +1173,6 @@ export type CodexImplementerIntegrationMode = "app-server-stdio";
 export type CodexImplementerExecutionKind =
   | "work-card-implementation"
   | "workflow-work-item-implementation"
-  | "environment-resolution"
   | "integration-repair";
 
 export interface CodexRuntimeCapabilityStatus {
@@ -1623,11 +1622,11 @@ export interface ChampCityApi {
     currentImplementationId: string | undefined,
     selection: CodexModelSelection,
   ) => Promise<CodexImplementerExecutionModel>;
-  startIssueCodexEnvironmentResolution: (
+  repairIssueDevelopmentEnvironment: (
     issueId: string,
     fixCardId: string,
     currentImplementationId?: string,
-  ) => Promise<CodexImplementerExecutionModel>;
+  ) => Promise<import("./developmentEnvironmentContracts").DevelopmentEnvironmentPreflightResult>;
   submitProjectIntake: (
     submission: ProjectIntakeSubmission,
   ) => Promise<ProjectIntakeSubmissionResult>;
@@ -1681,7 +1680,7 @@ export interface ChampCityApi {
   cancelWorkflowWorkItemTester: (workflowId: string, workItemId: string, implementationRecordId: string) => Promise<CodexTesterExecutionModel>;
   respondToWorkflowWorkItemTesterApproval: (workflowId: string, workItemId: string, implementationRecordId: string, requestId: string, decision: "approve" | "deny") => Promise<CodexTesterExecutionModel>;
   respondToWorkflowWorkItemTesterInput: (workflowId: string, workItemId: string, implementationRecordId: string, requestId: string, answers: Record<string, string[]>) => Promise<CodexTesterExecutionModel>;
-  startCodexEnvironmentResolution: () => Promise<CodexImplementerExecutionModel>;
+  repairDevelopmentEnvironment: () => Promise<import("./developmentEnvironmentContracts").DevelopmentEnvironmentPreflightResult>;
   respondToCodexApproval: (response: CodexApprovalResponse) => Promise<CodexImplementerExecutionModel>;
   respondToCodexUserInput: (response: CodexUserInputResponse) => Promise<CodexImplementerExecutionModel>;
   respondToCodexMcpElicitation: (response: CodexMcpElicitationResponse) => Promise<CodexImplementerExecutionModel>;

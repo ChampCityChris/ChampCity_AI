@@ -2020,23 +2020,17 @@ export function App(): JSX.Element {
     }
   }
 
-  async function startCodexEnvironmentResolution(): Promise<void> {
+  async function repairDevelopmentEnvironment(): Promise<void> {
     setIsCodexExecutionActionRunning(true);
     setDocumentError("");
     setFeedback("");
     try {
-      const status = await window.champcity.startCodexEnvironmentResolution();
+      const result = await window.champcity.repairDevelopmentEnvironment();
+      const status = await window.champcity.getCodexImplementerExecutionStatus();
       dispatchCodexExecutionPresentation({ type: "set-development", status });
-      developmentCodexExecutionPreviousStateRef.current = status.state;
-      if (status.state === "running") {
-        setFeedback("Environment Resolution started.");
-      } else if (["completed", "failed", "cancelled"].includes(status.state)) {
-        await refreshBuildReviewAfterCodex(status);
-      } else if (status.failureReason) {
-        setDocumentError(status.failureReason);
-      }
+      setFeedback(result.summary);
     } catch (error) {
-      setDocumentError(error instanceof Error ? error.message : "Environment Resolution could not be started.");
+      setDocumentError(error instanceof Error ? error.message : "Environment setup could not be completed.");
     } finally {
       setIsCodexExecutionActionRunning(false);
     }
@@ -3580,7 +3574,7 @@ export function App(): JSX.Element {
     }
   }
 
-  async function startIssueCodexEnvironmentResolution(): Promise<void> {
+  async function repairIssueDevelopmentEnvironment(): Promise<void> {
     const selectedFixCardId = issueFixCardProjection?.selectedCandidate?.fixCardId;
     const currentImplementationId = issueFixCardProjection?.currentImplementationId;
     if (!currentIssue || !selectedFixCardId || !currentImplementationId) {
@@ -3591,17 +3585,16 @@ export function App(): JSX.Element {
     setIssuePlanningActionError("");
     setIssuePlanningActionFeedback("");
     try {
-      const status = await window.champcity.startIssueCodexEnvironmentResolution(
+      const result = await window.champcity.repairIssueDevelopmentEnvironment(
         currentIssue.issueId,
         selectedFixCardId,
         currentImplementationId,
       );
-      const contextKey = issueCodexExecutionContextKey(currentIssue.issueId, currentImplementationId);
-      dispatchCodexExecutionPresentation({ type: "set-issue", contextKey, status });
-      issueCodexExecutionPreviousStateRef.current = status.state;
-      setIssuePlanningActionFeedback(status.failureReason ?? "Environment Resolution started for the selected Fix Card.");
+      const status = await window.champcity.getIssueCodexImplementerExecutionStatus(currentIssue.issueId, selectedFixCardId, currentImplementationId);
+      dispatchCodexExecutionPresentation({ type: "set-issue", contextKey: issueCodexExecutionContextKey(currentIssue.issueId, currentImplementationId), status });
+      setIssuePlanningActionFeedback(result.summary);
     } catch (error) {
-      setIssuePlanningActionError(error instanceof Error ? error.message : "Environment Resolution could not start.");
+      setIssuePlanningActionError(error instanceof Error ? error.message : "Environment setup could not be completed.");
     } finally {
       setIsCodexExecutionActionRunning(false);
     }
@@ -4400,7 +4393,7 @@ export function App(): JSX.Element {
                 isActionPending={isIssuePlanningActionPending || isCodexExecutionActionRunning}
                 onCancelCodex={() => void cancelCodexImplementerExecution()}
                 onRecoverImplementSetup={() => void runIssueFixCardAction(window.champcity.reserveIssueFixCardImplementerReport)}
-                onResolveEnvironment={() => void startIssueCodexEnvironmentResolution()}
+                onResolveEnvironment={() => void repairIssueDevelopmentEnvironment()}
                 onRespondToCodexMcpElicitation={(requestId, action, content) =>
                   void respondToCodexMcpElicitation(requestId, action, content)}
                 onRespondToCodexApproval={(requestId, decision) => void respondToCodexApproval(requestId, decision)}
@@ -4802,7 +4795,7 @@ export function App(): JSX.Element {
                 void respondToCodexMcpElicitation(requestId, action, content)}
               onRespondToCodexApproval={(requestId, decision) => void respondToCodexApproval(requestId, decision)}
               onRespondToCodexUserInput={(requestId, answers) => void respondToCodexUserInput(requestId, answers)}
-              onResolveEnvironment={() => void startCodexEnvironmentResolution()}
+              onResolveEnvironment={() => void repairDevelopmentEnvironment()}
               onRunCodex={(selection) => void startCodexImplementerExecution(selection)}
             />
           ) : null}

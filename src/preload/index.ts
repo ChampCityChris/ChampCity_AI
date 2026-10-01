@@ -297,13 +297,13 @@ const api: ChampCityApi = {
       currentImplementationId,
       selection,
     ) as ReturnType<ChampCityApi["startIssueCodexImplementerExecution"]>,
-  startIssueCodexEnvironmentResolution: (issueId, fixCardId, currentImplementationId) =>
+  repairIssueDevelopmentEnvironment: (issueId, fixCardId, currentImplementationId) =>
     ipcRenderer.invoke(
-      "issueResolution:startIssueCodexEnvironmentResolution",
+      "issueResolution:repairIssueDevelopmentEnvironment",
       issueId,
       fixCardId,
       currentImplementationId,
-    ) as ReturnType<ChampCityApi["startIssueCodexEnvironmentResolution"]>,
+    ) as ReturnType<ChampCityApi["repairIssueDevelopmentEnvironment"]>,
   submitProjectIntake: (submission) =>
     ipcRenderer.invoke(
       "projectIntake:submit",
@@ -430,10 +430,10 @@ const api: ChampCityApi = {
     ipcRenderer.invoke("codexTester:respondToApproval", workflowId, workItemId, implementationRecordId, requestId, decision) as ReturnType<ChampCityApi["respondToWorkflowWorkItemTesterApproval"]>,
   respondToWorkflowWorkItemTesterInput: (workflowId, workItemId, implementationRecordId, requestId, answers) =>
     ipcRenderer.invoke("codexTester:respondToUserInput", workflowId, workItemId, implementationRecordId, requestId, answers) as ReturnType<ChampCityApi["respondToWorkflowWorkItemTesterInput"]>,
-  startCodexEnvironmentResolution: () =>
+  repairDevelopmentEnvironment: () =>
     ipcRenderer.invoke(
-      "codexImplementer:startEnvironmentResolution",
-    ) as ReturnType<ChampCityApi["startCodexEnvironmentResolution"]>,
+      "developmentEnvironment:repair",
+    ) as ReturnType<ChampCityApi["repairDevelopmentEnvironment"]>,
   respondToCodexUserInput: (response) =>
     ipcRenderer.invoke(
       "codexImplementer:respondToUserInput",

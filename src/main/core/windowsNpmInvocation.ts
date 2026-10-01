@@ -11,10 +11,12 @@ export interface WindowsNpmInvocation {
 export function resolveWindowsNpmInvocation(options: {
   executablePath?: string;
   pathValue?: string;
+  candidateRoots?: readonly string[];
+  includeHostDirectory?: boolean;
 } = {}): WindowsNpmInvocation {
   const executablePath = options.executablePath ?? process.execPath;
   const pathValue = options.pathValue ?? process.env.PATH ?? process.env.Path ?? "";
-  const searchRoots = windowsNpmSearchRoots(executablePath, pathValue);
+  const searchRoots = windowsNpmSearchRoots(executablePath, pathValue, options.candidateRoots ?? [], options.includeHostDirectory !== false);
 
   for (const searchRoot of searchRoots) {
     try {
@@ -65,13 +67,20 @@ function pathsEqual(left: string, right: string): boolean {
   return path.normalize(left).toLowerCase() === path.normalize(right).toLowerCase();
 }
 
-function windowsNpmSearchRoots(executablePath: string, pathValue: string): string[] {
+function windowsNpmSearchRoots(executablePath: string, pathValue: string, candidateRoots: readonly string[], includeHostDirectory: boolean): string[] {
   const unique = new Map<string, string>();
-  for (const rawCandidate of [path.dirname(executablePath), ...pathValue.split(path.delimiter)]) {
+  for (const rawCandidate of [...(includeHostDirectory ? [path.dirname(executablePath)] : []), ...pathValue.split(path.delimiter), ...candidateRoots]) {
     const candidate = rawCandidate.trim().replace(/^"|"$/g, "");
     if (!candidate || !path.isAbsolute(candidate)) continue;
     const normalized = path.normalize(candidate);
     unique.set(normalized.toLowerCase(), normalized);
   }
   return [...unique.values()];
+}
+
+/** Bounded roots derived from the refreshed machine environment, never from a repository. */
+export function trustedWindowsNodeRoots(env: NodeJS.ProcessEnv = process.env): string[] {
+  return [env.ProgramFiles && path.join(env.ProgramFiles, "nodejs"),
+    env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, "Programs", "nodejs"),
+    env.NVM_SYMLINK, env.FNM_MULTISHELL_PATH].filter((root): root is string => Boolean(root && path.isAbsolute(root)));
 }

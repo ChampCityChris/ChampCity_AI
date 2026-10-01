@@ -113,7 +113,7 @@ export function WorkCardBuildingReviewWorkspace({
             <dd>{projection?.reportReadinessReason ?? "Waiting"}</dd>
           </div>
         </dl>
-        <DevelopmentEnvironmentStatus execution={codexExecution} />
+        <DevelopmentEnvironmentStatus execution={codexExecution} onRepair={onResolveEnvironment} isActionRunning={isCodexActionRunning} />
         <LastRunSummary execution={codexExecution} />
         {projection?.reportReadError ? (
           <div className="document-error" role="status">{projection.reportReadError}</div>
@@ -150,9 +150,11 @@ export function WorkCardBuildingReviewWorkspace({
 }
 
 export function DevelopmentEnvironmentStatus({
-  execution,
+  execution, onRepair, isActionRunning = false,
 }: {
   execution: CodexImplementerExecutionModel | null;
+  onRepair?: () => void;
+  isActionRunning?: boolean;
 }): JSX.Element | null {
   const preflight = execution?.developmentEnvironmentPreflight;
   if (!preflight) {
@@ -166,6 +168,11 @@ export function DevelopmentEnvironmentStatus({
         <strong>{label}</strong>
       </div>
       <small>{preflight.summary}</small>
+      {onRepair && preflight.retryAllowed && preflight.state !== "ready" && preflight.state !== "not-required" ? (
+        <button className="apply-button secondary" disabled={isActionRunning} onClick={onRepair} type="button">
+          <Wrench aria-hidden="true" size={16} /> Retry Environment Setup
+        </button>
+      ) : null}
       {preflight.state !== "ready" && preflight.state !== "not-required" ? (
         <strong className="development-environment-implementation-note">
           Work Card implementation has not started. Development environment preparation must complete first.
@@ -252,7 +259,7 @@ function recoveryLabelForRequirement(
   }
   if (requirement.retryAllowed) {
     return requirement.blockerKind === "ambiguous-package" || requirement.blockerKind === "provider-resolution-required"
-      ? "Resolve Environment available"
+      ? "Retry Environment Setup available"
       : "retry available";
   }
   return "blocked";
@@ -269,7 +276,7 @@ function developmentEnvironmentStatusLabel(
     case "provisioning":
       return "Installing required development tools...";
     case "resolution-required":
-      return "Environment resolution required";
+      return "Environment setup requires repair";
     case "ready":
       return "Development environment ready.";
     case "waiting-for-operator":
@@ -301,13 +308,8 @@ export function LastRunSummary({
 }): JSX.Element {
   const lastRunState = execution?.lastRunState ?? null;
   const preflight = execution?.developmentEnvironmentPreflight;
-  const retryState = execution?.executionKind === "environment-resolution" && lastRunState
-    ? preflight?.state === "ready" || preflight?.state === "not-required"
-      ? "Ready to run Work Card implementation"
-      : preflight?.summary ?? execution.retryBlocker ?? "Development environment preparation is incomplete."
-    : execution?.canRunAgain
-      ? "Ready to run again"
-      : execution?.retryBlocker ?? "Waiting for Codex preflight.";
+  const retryState = preflight && preflight.state !== "ready" && preflight.state !== "not-required"
+    ? preflight.summary : execution?.canRunAgain ? "Ready to run again" : execution?.retryBlocker ?? "Waiting for Codex preflight.";
   return (
     <section className="codex-last-run-summary" aria-label="Last Codex run summary">
       <span>Last Run</span>
@@ -337,7 +339,6 @@ export function CodexExecutionActions({
   const modelSelection = useCodexModelSelection(isActionRunning || execution?.state === "running");
   const state = execution?.state ?? "unavailable";
   const canRun = Boolean(execution?.canRunAgain) && canRunOverride && !isActionRunning;
-  const canResolveEnvironment = Boolean(onResolveEnvironment && execution?.canResolveEnvironment) && !isActionRunning;
   const isRunning = state === "running";
 
   return (
@@ -353,17 +354,6 @@ export function CodexExecutionActions({
           <Play aria-hidden="true" size={16} />
           {runLabel}
         </button>
-        {onResolveEnvironment && execution?.developmentEnvironmentPreflight?.state === "resolution-required" ? (
-          <button
-            className="apply-button codex-command secondary"
-            disabled={!canResolveEnvironment}
-            onClick={onResolveEnvironment}
-            type="button"
-          >
-            <Wrench aria-hidden="true" size={16} />
-            Resolve Environment
-          </button>
-        ) : null}
         {isRunning ? (
         <button
           className="apply-button codex-command secondary"
@@ -407,8 +397,7 @@ export function CodexExecutionConsole({
   const state = execution?.state ?? "unavailable";
   const availability = codexImplementerAvailabilityLabel(execution);
   const integrationRepair = execution?.executionKind === "integration-repair";
-  const executionLabel = integrationRepair ? "Integration Repair" : execution?.executionKind === "environment-resolution"
-    ? "Environment Resolution" : "Work Card Implementation";
+  const executionLabel = integrationRepair ? "Integration Repair" : "Work Card Implementation";
   const reportUpdated = execution?.reportUpdated ? "Updated" : "Not updated";
 
   return (
@@ -440,7 +429,7 @@ export function CodexExecutionConsole({
           <dt>Elapsed</dt>
           <dd>{formatElapsed(execution?.elapsedMs)}</dd>
         </div>
-        {!integrationRepair && execution?.executionKind !== "environment-resolution" ? <div>
+        {!integrationRepair ? <div>
           <dt>Report Update</dt>
           <dd>{reportUpdated}</dd>
         </div> : null}

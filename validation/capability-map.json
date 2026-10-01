@@ -1253,6 +1253,7 @@
         "src/renderer/app/WorkCardBuildingReviewWorkspace.tsx",
         "src/shared/workItemCheckpointContracts.ts",
         "src/shared/workspaceContracts.ts",
+        "test/support/codex-ipc-harness.cjs",
         "test/support/windows-test.cjs"
       ],
       "dependsOn": [
@@ -1319,6 +1320,10 @@
         {
           "behaviorId": "app-server-transport-uses-jsonl-initialize-thread-turn-notifications-and-user-input-response",
           "description": "App Server transport uses JSONL initialize, thread, turn, notifications, and user input response"
+        },
+        {
+          "behaviorId": "application-owned-environment-retry-projects-readiness-without-acquiring-codex",
+          "description": "application-owned environment retry projects readiness without acquiring Codex"
         },
         {
           "behaviorId": "approving-a-revised-pending-formal-work-card-registers-a-fresh-report-sourced-to-current-revisio",
@@ -1389,20 +1394,12 @@
           "description": "Codex Implementer service resolves thread policy through injectable seam"
         },
         {
-          "behaviorId": "codex-implementer-service-runs-bounded-environment-resolution-and-reruns-preflight-before-implem",
-          "description": "Codex Implementer service runs bounded environment resolution and reruns preflight before implementation"
-        },
-        {
           "behaviorId": "codex-implementer-service-shutdown-cancels-and-disposes-the-active-app-server-run",
           "description": "Codex Implementer service shutdown cancels and disposes the active App Server run"
         },
         {
           "behaviorId": "codex-implementer-service-starts-app-server-thread-from-current-implement-context-and-exact-prom",
           "description": "Codex Implementer service starts App Server thread from current Implement context and exact prompt"
-        },
-        {
-          "behaviorId": "codex-implementer-service-surfaces-parent-environment-refresh-failure-before-post-resolution-pre",
-          "description": "Codex Implementer service surfaces parent environment refresh failure before post-resolution preflight"
         },
         {
           "behaviorId": "codex-implementer-service-treats-canonical-blocked-report-as-reviewable-evidence",
@@ -1489,8 +1486,8 @@
           "description": "Issue Fix Card Codex status isolates running and terminal sessions by exact context"
         },
         {
-          "behaviorId": "issue-fix-card-preflight-and-environment-resolution-cache-are-keyed-by-contract-context",
-          "description": "Issue Fix Card preflight and Environment Resolution cache are keyed by contract context"
+          "behaviorId": "issue-fix-card-shares-neutral-repair-with-exact-contract-context",
+          "description": "Issue Fix Card shares neutral repair with exact contract context"
         },
         {
           "behaviorId": "issue-repair-codex-completion-and-retry-preserve-root-fix-card-and-exact-repair-identities",
@@ -1783,6 +1780,10 @@
           "description": "bare Ninja version output satisfies constrained requirements"
         },
         {
+          "behaviorId": "bounded-trusted-discovery-resolves-a-real-pair-outside-path-without-selecting-the-host",
+          "description": "bounded trusted discovery resolves a real pair outside PATH without selecting the host"
+        },
+        {
           "behaviorId": "capability-specific-version-support-blocks-impossible-fixed-major-requests-before-install",
           "description": "capability-specific version support blocks impossible fixed-major requests before install"
         },
@@ -1815,6 +1816,10 @@
           "description": "development environment contract parser trims canonical requirement identity fields"
         },
         {
+          "behaviorId": "discovered-node-pair-with-a-failed-user-path-write-blocks-without-reinstall",
+          "description": "discovered Node pair with a failed User PATH write blocks without reinstall"
+        },
+        {
           "behaviorId": "elevated-command-transport-preserves-target-identity-ordered-args-output-streams-exit-code-and-c",
           "description": "elevated command transport preserves target identity, ordered args, output streams, exit code, and cleanup"
         },
@@ -1829,6 +1834,10 @@
         {
           "behaviorId": "elevation-and-reboot-map-to-resumable-operator-states",
           "description": "elevation and reboot map to resumable operator states"
+        },
+        {
+          "behaviorId": "environment-repair-controls-use-current-deterministic-state-without-codex-availability",
+          "description": "environment repair controls use current deterministic state without Codex availability"
         },
         {
           "behaviorId": "fo76-host-readiness-shape-reaches-provider-and-composite-resolution-without-static-aliases",
@@ -1867,6 +1876,18 @@
           "description": "msvc-x64 probe is bounded to Visual Studio 2022 generation"
         },
         {
+          "behaviorId": "node-npm-persistent-path-missing-recovers-deterministically-with-one-owning-toolchain",
+          "description": "Node/npm persistent PATH missing recovers deterministically with one owning toolchain"
+        },
+        {
+          "behaviorId": "node-npm-stale-process-path-recovers-deterministically-with-one-owning-toolchain",
+          "description": "Node/npm stale process PATH recovers deterministically with one owning toolchain"
+        },
+        {
+          "behaviorId": "node-npm-toolchain-absent-recovers-deterministically-with-one-owning-toolchain",
+          "description": "Node/npm toolchain absent recovers deterministically with one owning toolchain"
+        },
+        {
           "behaviorId": "ordinary-non-microsoft-winget-community-package-resolves-without-registry-package-identity",
           "description": "unknown constrained package resolves but cannot fabricate executable version verification"
         },
@@ -1899,6 +1920,10 @@
           "description": "production elevated transport maps outer cancellation to typed Windows permission interaction"
         },
         {
+          "behaviorId": "real-stale-process-path-is-refreshed-before-node-npm-probes-without-user-path-writes-or-in",
+          "description": "real stale process PATH is refreshed before Node/npm probes without User PATH writes or installs"
+        },
+        {
           "behaviorId": "registry-supports-required-initial-capability-ids",
           "description": "registry supports required initial capability IDs"
         },
@@ -1917,6 +1942,10 @@
         {
           "behaviorId": "satisfied-managed-capability-causes-no-install-and-allows-ready-preflight",
           "description": "satisfied managed capability causes no install and allows ready preflight"
+        },
+        {
+          "behaviorId": "signal-forge-semantic-node-npm-probes-use-a-validated-pair-and-bounded-public-evidence",
+          "description": "Signal Forge semantic Node/npm probes use a validated pair and bounded public evidence"
         },
         {
           "behaviorId": "structural-blockers-and-recoverable-provider-gaps-stay-distinct-in-mixed-preflight-state",
@@ -8731,6 +8760,18 @@
           "behaviorId": "windows-npm-resolution-fails-closed-when-no-standalone-node-prerequisite-exists",
           "proofLocator": "Windows npm resolution fails closed when no standalone Node prerequisite exists",
           "proofRole": "primary"
+        },
+        {
+          "capabilityId": "development-environment-provisioning",
+          "behaviorId": "bounded-trusted-discovery-resolves-a-real-pair-outside-path-without-selecting-the-host",
+          "proofLocator": "bounded trusted discovery resolves a real pair outside PATH without selecting the host",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "development-environment-provisioning",
+          "behaviorId": "real-stale-process-path-is-refreshed-before-node-npm-probes-without-user-path-writes-or-in",
+          "proofLocator": "real stale process PATH is refreshed before Node/npm probes without User PATH writes or installs",
+          "proofRole": "primary"
         }
       ]
     },
@@ -10275,6 +10316,12 @@
         },
         {
           "capabilityId": "development-environment-provisioning",
+          "behaviorId": "discovered-node-pair-with-a-failed-user-path-write-blocks-without-reinstall",
+          "proofLocator": "discovered Node pair with a failed User PATH write blocks without reinstall",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "development-environment-provisioning",
           "behaviorId": "elevation-and-reboot-map-to-resumable-operator-states",
           "proofLocator": "elevation and reboot map to resumable operator states",
           "proofRole": "primary"
@@ -10335,6 +10382,24 @@
         },
         {
           "capabilityId": "development-environment-provisioning",
+          "behaviorId": "node-npm-persistent-path-missing-recovers-deterministically-with-one-owning-toolchain",
+          "proofLocator": "Node/npm persistent PATH missing recovers deterministically with one owning toolchain",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "development-environment-provisioning",
+          "behaviorId": "node-npm-stale-process-path-recovers-deterministically-with-one-owning-toolchain",
+          "proofLocator": "Node/npm stale process PATH recovers deterministically with one owning toolchain",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "development-environment-provisioning",
+          "behaviorId": "node-npm-toolchain-absent-recovers-deterministically-with-one-owning-toolchain",
+          "proofLocator": "Node/npm toolchain absent recovers deterministically with one owning toolchain",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "development-environment-provisioning",
           "behaviorId": "ordinary-non-microsoft-winget-community-package-resolves-without-registry-package-identity",
           "proofLocator": "unknown constrained package resolves but cannot fabricate executable version verification",
           "proofRole": "primary"
@@ -10379,6 +10444,12 @@
           "capabilityId": "development-environment-provisioning",
           "behaviorId": "satisfied-managed-capability-causes-no-install-and-allows-ready-preflight",
           "proofLocator": "satisfied managed capability causes no install and allows ready preflight",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "development-environment-provisioning",
+          "behaviorId": "signal-forge-semantic-node-npm-probes-use-a-validated-pair-and-bounded-public-evidence",
+          "proofLocator": "Signal Forge semantic Node/npm probes use a validated pair and bounded public evidence",
           "proofRole": "primary"
         },
         {
@@ -17179,6 +17250,12 @@
       ],
       "behaviorCoverage": [
         {
+          "capabilityId": "development-environment-provisioning",
+          "behaviorId": "environment-repair-controls-use-current-deterministic-state-without-codex-availability",
+          "proofLocator": "environment repair controls use current deterministic state without Codex availability",
+          "proofRole": "primary"
+        },
+        {
           "capabilityId": "work-card-workflow",
           "behaviorId": "build-workspace-availability-distinguishes-unavailable-preflight-retry-from-codex-readiness",
           "proofLocator": "Build workspace availability distinguishes unavailable preflight retry from Codex readiness",
@@ -18988,6 +19065,12 @@
       "behaviorCoverage": [
         {
           "capabilityId": "codex-implementation-runtime",
+          "behaviorId": "application-owned-environment-retry-projects-readiness-without-acquiring-codex",
+          "proofLocator": "application-owned environment retry projects readiness without acquiring Codex",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "codex-implementation-runtime",
           "behaviorId": "codex-implementer-explicit-start-owns-one-app-server-adapter-across-status-reads-and-terminal-cl",
           "proofLocator": "Codex Implementer explicit start owns one App Server adapter across status reads and terminal cleanup",
           "proofRole": "primary"
@@ -19084,12 +19167,6 @@
         },
         {
           "capabilityId": "codex-implementation-runtime",
-          "behaviorId": "codex-implementer-service-runs-bounded-environment-resolution-and-reruns-preflight-before-implem",
-          "proofLocator": "Codex Implementer service runs bounded environment resolution and reruns preflight before implementation",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "codex-implementation-runtime",
           "behaviorId": "codex-implementer-service-shutdown-cancels-and-disposes-the-active-app-server-run",
           "proofLocator": "Codex Implementer service shutdown cancels and disposes the active App Server run",
           "proofRole": "primary"
@@ -19098,12 +19175,6 @@
           "capabilityId": "codex-implementation-runtime",
           "behaviorId": "codex-implementer-service-starts-app-server-thread-from-current-implement-context-and-exact-prom",
           "proofLocator": "Codex Implementer service starts App Server thread from current Implement context and exact prompt",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "codex-implementation-runtime",
-          "behaviorId": "codex-implementer-service-surfaces-parent-environment-refresh-failure-before-post-resolution-pre",
-          "proofLocator": "Codex Implementer service surfaces parent environment refresh failure before post-resolution preflight",
           "proofRole": "primary"
         },
         {
@@ -19144,8 +19215,8 @@
         },
         {
           "capabilityId": "codex-implementation-runtime",
-          "behaviorId": "issue-fix-card-preflight-and-environment-resolution-cache-are-keyed-by-contract-context",
-          "proofLocator": "Issue Fix Card preflight and Environment Resolution cache are keyed by contract context",
+          "behaviorId": "issue-fix-card-shares-neutral-repair-with-exact-contract-context",
+          "proofLocator": "Issue Fix Card shares neutral repair with exact contract context",
           "proofRole": "primary"
         },
         {
