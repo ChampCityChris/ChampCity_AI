@@ -277,3 +277,59 @@ test("updated Figma side panel renders real project and execution context with p
   assert.doesNotMatch(markup, /MVP-01/);
   assert.doesNotMatch(markup, /PHASE_LIST/);
 });
+
+const { IntakeWorkspaceShell } = loader.loadRendererSourceModule("src/renderer/app/IntakeWorkspaceShell.tsx");
+const { ProjectIntakeWorkspace } = loader.loadRendererSourceModule("src/renderer/app/ProjectIntakeWorkspace.tsx");
+
+test("intake shell owns heading, optional actions and distinct generic regions", () => {
+  const markup = renderToStaticMarkup(React.createElement(IntakeWorkspaceShell, {
+    heading: "Synthetic intake", headerActions: React.createElement("button", null, "Local action"),
+    intake: React.createElement("form", null, "Typed content"),
+    companion: React.createElement("aside", null, "Generic companion"),
+  }));
+  assert.ok(markup.includes('<h1 id="workspace-heading">Synthetic intake</h1>'));
+  assert.match(markup, /workspace-actions.*Local action/);
+  assert.match(markup, /aria-label="Intake content".*Typed content/);
+  assert.match(markup, /aria-label="Intake companion".*Generic companion/);
+  const withoutActions = renderToStaticMarkup(React.createElement(IntakeWorkspaceShell, {
+    heading: "Intake", intake: null, companion: null,
+  }));
+  assert.doesNotMatch(withoutActions, /workspace-actions/);
+});
+
+const intakeWorkspaceProps = {
+  isChoosingProjectRepository: false, isSubmittingIntake: false,
+  onChange() {}, onChooseProjectRepository() {}, onSubmit() {},
+  postSubmitConfirmation: { projectIntakeMarkdownPath: "planning/intake.md", architectPromptMarkdownPath: "planning/prompt.md" },
+  value: { projectName: "Sample", projectPurpose: "Purpose", desiredOutcome: "Outcome", projectType: "Greenfield", projectRepository: "synthetic-repo", hasExistingSourceOrPlanning: true },
+  selectedDocument: { displayFilename: "Project Intake.md", effectiveDisposition: "Pending", metadata: { artifactType: "project-intake" }, bodyMarkdown: "Intake body" },
+  selectedDocumentHasLocalError: false, isApplying: false, notes: "Review", status: "Approved",
+  onApply() {}, onNotesChange() {}, onStatusChange() {}, onCopy() {}, documentError: "", feedback: "",
+};
+
+test("Greenfield intake preserves fields, confirmation and shared document review through the shell", () => {
+  const markup = renderToStaticMarkup(React.createElement(ProjectIntakeWorkspace, intakeWorkspaceProps));
+  for (const text of ["Project Intake Questionnaire", "Project Name", "Project Purpose", "Desired Outcome", "Project Type", "Constraints / Non-Negotiables", "Project Repository", "Choose", "What should the Architect know", "Submit Project Intake", "submission confirmation", "planning/intake.md", "planning/prompt.md", "Current document", "Document disposition", "Apply Review", "Review &amp; Validation"]) {
+    assert.ok(markup.includes(text), text);
+  }
+  assert.match(markup, /intake-workspace-shell/);
+  assert.equal((markup.match(/Document Disposition/g) || []).length, 1);
+  const plain = renderToStaticMarkup(React.createElement(ProjectIntakeWorkspace, {
+    ...intakeWorkspaceProps, selectedDocument: null, postSubmitConfirmation: null,
+    value: { ...intakeWorkspaceProps.value, hasExistingSourceOrPlanning: false },
+  }));
+  assert.doesNotMatch(plain, /What should the Architect know|submission confirmation|Apply Review/);
+});
+
+test("Project Intake review and pending actions retain their disabling semantics", () => {
+  for (const state of [{ selectedDocumentHasLocalError: true }, { isApplying: true }]) {
+    const markup = renderToStaticMarkup(React.createElement(ProjectIntakeWorkspace, { ...intakeWorkspaceProps, ...state }));
+    const review = markup.slice(markup.indexOf('aria-label="Document disposition"'));
+    assert.match(review, /<select disabled=""/);
+    assert.match(review, /<input disabled=""/);
+    assert.match(review, /<button class="apply-button" disabled=""/);
+  }
+  const pending = renderToStaticMarkup(React.createElement(ProjectIntakeWorkspace, { ...intakeWorkspaceProps, isChoosingProjectRepository: true, isSubmittingIntake: true }));
+  assert.match(pending, /disabled=""[^>]*>.*Choosing.../);
+  assert.match(pending, /<button class="apply-button" disabled=""[^>]*>Saving.../);
+});

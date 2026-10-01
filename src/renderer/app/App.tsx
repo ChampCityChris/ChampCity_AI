@@ -1,3 +1,4 @@
+import { ProjectIntakeWorkspace } from "./ProjectIntakeWorkspace";
 import type { CodexModelSelection } from "../../shared/codexRuntimeContracts";
 import type { ExistingProjectGitAdoptionPlan } from "../../shared/sourceControlContracts";
 import { GithubProviderSettings } from "./GithubProviderSettings";
@@ -17,7 +18,6 @@ import {
   type AgentHarnessStatus,
   type AgentHarnessWorkspaceRegistrySnapshot,
   type ArchitectOutputWorkspaceModel,
-  projectTypeOptions,
   type ProjectPlanningWorkspaceModel,
   type PhaseValidationActionProjection,
   type RuntimeActionResult,
@@ -4499,7 +4499,7 @@ export function App(): JSX.Element {
             />
           ) : (
           <>
-          {!isWorkCardMap ? (
+          {!isWorkCardMap && activeWorkspaceId !== "project-intake-capture" ? (
           <header className="workspace-header">
             <div className="workspace-heading-copy">
               <h1 id="workspace-heading">{workspaceHeadingLabel}</h1>
@@ -4572,42 +4572,26 @@ export function App(): JSX.Element {
           />
 
           {activeWorkspaceId === "project-intake-capture" ? (
-            <section className="figma-intake-workspace" aria-label="Project Intake Questionnaire">
-              <div className="figma-intake-form-column">
-                <ProjectIntakeCapture
-                  isChoosingProjectRepository={isChoosingProjectRepository}
-                  isSubmittingIntake={isSubmittingIntake}
-                  onChange={setProjectIntake}
-                  onChooseProjectRepository={chooseProjectRepository}
-                  onSubmit={submitProjectIntake}
-                  postSubmitConfirmation={projectIntakeConfirmation}
-                  value={projectIntake}
-                />
-                {selectedDocument ? (
-                  <FigmaProjectIntakeDispositionPanel
-                    canApply={
-                      Boolean(selectedDocument) &&
-                      Boolean(selectedStatus) &&
-                      !selectedDocumentHasLocalError
-                    }
-                    isApplying={isApplying}
-                    notes={projectIntakeReviewNotes}
-                    onApply={applyDisposition}
-                    onNotesChange={setProjectIntakeReviewNotes}
-                    onStatusChange={setSelectedStatus}
-                    selectedDocument={selectedDocument}
-                    selectedDocumentHasLocalError={selectedDocumentHasLocalError}
-                    status={selectedStatus}
-                  />
-                ) : null}
-              </div>
-              <FigmaDocumentCard
-                documentError={documentError}
-                feedback={feedback}
-                onCopy={copySelectedDocumentBody}
-                selectedDocument={selectedDocument}
-              />
-            </section>
+            <ProjectIntakeWorkspace
+              isChoosingProjectRepository={isChoosingProjectRepository}
+              isSubmittingIntake={isSubmittingIntake}
+              onChange={setProjectIntake}
+              onChooseProjectRepository={chooseProjectRepository}
+              onSubmit={submitProjectIntake}
+              postSubmitConfirmation={projectIntakeConfirmation}
+              value={projectIntake}
+              selectedDocument={selectedDocument}
+              selectedDocumentHasLocalError={selectedDocumentHasLocalError}
+              isApplying={isApplying}
+              notes={projectIntakeReviewNotes}
+              onApply={applyDisposition}
+              onNotesChange={setProjectIntakeReviewNotes}
+              onStatusChange={setSelectedStatus}
+              status={selectedStatus}
+              documentError={documentError}
+              feedback={feedback}
+              onCopy={copySelectedDocumentBody}
+            />
           ) : null}
 
           {isSettingsWorkspace ? (
@@ -5100,84 +5084,6 @@ function FigmaArchitectReviewPanel({
         : undefined}
       workflowStep="Review & Validation"
     />
-  );
-}
-
-function FigmaProjectIntakeDispositionPanel({
-  canApply,
-  isApplying,
-  notes,
-  onApply,
-  onNotesChange,
-  onStatusChange,
-  selectedDocument,
-  selectedDocumentHasLocalError,
-  status,
-}: {
-  canApply: boolean;
-  isApplying: boolean;
-  notes: string;
-  onApply: () => void;
-  onNotesChange: (notes: string) => void;
-  onStatusChange: (status: DocumentDispositionStatus | "") => void;
-  selectedDocument: PlanningDocumentDetail;
-  selectedDocumentHasLocalError: boolean;
-  status: DocumentDispositionStatus | "";
-}): JSX.Element {
-  const controlsDisabled = isApplying || selectedDocumentHasLocalError;
-
-  return (
-    <section className="figma-disposition-panel figma-project-intake-disposition" aria-label="Document disposition">
-      <header>
-        <span>Document Disposition</span>
-      </header>
-      <div className="figma-disposition-row">
-        <label>
-          <span>Disposition</span>
-          <select
-            disabled={controlsDisabled}
-            onChange={(event) => onStatusChange(event.target.value as DocumentDispositionStatus | "")}
-            value={status}
-          >
-            <option value="">Select disposition</option>
-            {dispositionOptions.map((option) => (
-              <option key={option.status} value={option.status}>{option.label}</option>
-            ))}
-          </select>
-        </label>
-        <button
-          className="apply-button"
-          disabled={isApplying || !canApply}
-          onClick={onApply}
-          type="button"
-        >
-          Apply Review
-        </button>
-        <label className="figma-review-notes">
-          <span>Review Notes</span>
-          <input
-            disabled={controlsDisabled}
-            onChange={(event) => onNotesChange(event.target.value)}
-            placeholder="Add notes..."
-            value={notes}
-          />
-        </label>
-      </div>
-      <dl>
-        <div>
-          <dt>Current Document</dt>
-          <dd>{selectedDocument.displayFilename}</dd>
-        </div>
-        <div>
-          <dt>Effective Disposition</dt>
-          <dd>{selectedDocument.effectiveDisposition ?? "Pending"}</dd>
-        </div>
-        <div>
-          <dt>Workflow Step</dt>
-          <dd>Review & Validation</dd>
-        </div>
-      </dl>
-    </section>
   );
 }
 
@@ -6327,140 +6233,6 @@ export function CurrentActionPanel({
             Create Current Project Closeout
           </button>
         </>
-      ) : null}
-    </section>
-  );
-}
-
-function ProjectIntakeCapture({
-  isChoosingProjectRepository,
-  isSubmittingIntake,
-  onChange,
-  onChooseProjectRepository,
-  onSubmit,
-  postSubmitConfirmation,
-  value,
-}: {
-  isChoosingProjectRepository: boolean;
-  isSubmittingIntake: boolean;
-  onChange: (value: ProjectIntakeSubmission) => void;
-  onChooseProjectRepository: () => void;
-  onSubmit: () => void;
-  postSubmitConfirmation: ProjectIntakePostSubmitConfirmation | null;
-  value: ProjectIntakeSubmission;
-}): JSX.Element {
-  const update = <Key extends keyof ProjectIntakeSubmission>(
-    key: Key,
-    nextValue: ProjectIntakeSubmission[Key],
-  ): void => {
-    onChange({ ...value, [key]: nextValue });
-  };
-
-  return (
-    <section className="intake-form" aria-label="Project Intake Capture">
-      <label className="figma-intake-full">
-        <span>Project Name</span>
-        <input
-          onChange={(event) => update("projectName", event.target.value)}
-          required
-          value={value.projectName}
-        />
-      </label>
-      <label className="figma-intake-full">
-        <span>Project Purpose - What are you trying to create, change, or accomplish?</span>
-        <textarea
-          onChange={(event) => update("projectPurpose", event.target.value)}
-          required
-          value={value.projectPurpose}
-        />
-      </label>
-      <label className="figma-intake-full">
-        <span>Desired Outcome - What should the finished product allow the user or Operator to do?</span>
-        <textarea
-          onChange={(event) => update("desiredOutcome", event.target.value)}
-          required
-          value={value.desiredOutcome}
-        />
-      </label>
-      <div className="figma-intake-project-type">
-        <label>
-          <span>Project Type</span>
-          <select
-            onChange={(event) =>
-              update("projectType", event.target.value as ProjectIntakeSubmission["projectType"])
-            }
-            required
-            value={value.projectType}
-          >
-            {projectTypeOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="checkbox-row">
-          <input
-            checked={value.hasExistingSourceOrPlanning}
-            onChange={(event) => update("hasExistingSourceOrPlanning", event.target.checked)}
-            type="checkbox"
-          />
-          <span>Does this repository already contain source code or project planning documents?</span>
-        </label>
-      </div>
-      <label>
-        <span>Constraints / Non-Negotiables</span>
-        <textarea
-          onChange={(event) => update("knownConstraints", event.target.value)}
-          value={value.knownConstraints ?? ""}
-        />
-      </label>
-      <div className="intake-repository-row figma-intake-full">
-        <label>
-          <span>Project Repository</span>
-          <input readOnly required value={value.projectRepository} />
-        </label>
-        <button
-          className="icon-button text-button"
-          disabled={isChoosingProjectRepository}
-          onClick={onChooseProjectRepository}
-          type="button"
-        >
-          <FolderOpen aria-hidden="true" size={18} />
-          {isChoosingProjectRepository ? "Choosing..." : "Choose"}
-        </button>
-      </div>
-      {value.hasExistingSourceOrPlanning ? (
-        <label className="figma-intake-full">
-          <span>What should the Architect know before reviewing the existing repository?</span>
-          <textarea
-            onChange={(event) => update("repositoryReviewContext", event.target.value)}
-            value={value.repositoryReviewContext ?? ""}
-          />
-        </label>
-      ) : null}
-      <button
-        className="apply-button"
-        disabled={isSubmittingIntake}
-        onClick={onSubmit}
-        type="button"
-      >
-        {isSubmittingIntake ? "Saving..." : "Submit Project Intake"}
-      </button>
-      {postSubmitConfirmation ? (
-        <section className="intake-confirmation" aria-label="Project Intake submission confirmation">
-          <strong>Project Intake and Architect Interview Prompt Markdown were created successfully in the active repository.</strong>
-          <dl>
-            <div>
-              <dt>Project Intake Markdown</dt>
-              <dd>{postSubmitConfirmation.projectIntakeMarkdownPath}</dd>
-            </div>
-            <div>
-              <dt>Architect Interview Prompt Markdown</dt>
-              <dd>{postSubmitConfirmation.architectPromptMarkdownPath}</dd>
-            </div>
-          </dl>
-        </section>
       ) : null}
     </section>
   );

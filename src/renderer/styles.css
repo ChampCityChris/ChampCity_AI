@@ -7109,6 +7109,7 @@ body {
   line-height: 1.25;
 }
 
+.intake-workspace-shell,
 .figma-intake-workspace,
 .figma-doc-chat-workspace {
   min-width: 0;
@@ -7118,6 +7119,7 @@ body {
   padding: 16px;
 }
 
+.intake-workspace-shell,
 .figma-intake-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(360px, 1fr);
@@ -7390,6 +7392,8 @@ body {
   flex: 1;
 }
 
+.intake-workspace-shell-intake,
+.intake-workspace-shell-companion,
 .figma-intake-form-column,
 .figma-doc-review-column,
 .figma-browser-column {
@@ -7401,11 +7405,12 @@ body {
   overflow: hidden;
 }
 
+.intake-workspace-shell-intake,
 .figma-intake-form-column {
   overflow-y: auto;
 }
 
-.figma-intake-workspace .intake-form {
+:is(.figma-intake-workspace, .intake-workspace-shell) .intake-form {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-content: start;
   gap: 12px;
@@ -7418,27 +7423,27 @@ body {
   border-radius: 0;
 }
 
-.figma-intake-workspace .figma-intake-full,
-.figma-intake-workspace .intake-repository-row,
-.figma-intake-workspace .intake-confirmation {
+:is(.figma-intake-workspace, .intake-workspace-shell) .figma-intake-full,
+:is(.figma-intake-workspace, .intake-workspace-shell) .intake-repository-row,
+:is(.figma-intake-workspace, .intake-workspace-shell) .intake-confirmation {
   grid-column: 1 / -1;
 }
 
-.figma-intake-workspace .figma-intake-project-type {
+:is(.figma-intake-workspace, .intake-workspace-shell) .figma-intake-project-type {
   display: grid;
   align-content: start;
   gap: 8px;
   min-width: 0;
 }
 
-.figma-intake-workspace .intake-form label {
+:is(.figma-intake-workspace, .intake-workspace-shell) .intake-form label {
   gap: 6px;
   color: var(--foreground);
   font-size: 13px;
   font-weight: 650;
 }
 
-.figma-intake-workspace .intake-form label > span {
+:is(.figma-intake-workspace, .intake-workspace-shell) .intake-form label > span {
   color: var(--muted-foreground);
   font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
   font-size: 11px;
@@ -7446,9 +7451,9 @@ body {
   text-transform: uppercase;
 }
 
-.figma-intake-workspace .intake-form input,
-.figma-intake-workspace .intake-form select,
-.figma-intake-workspace .intake-form textarea {
+:is(.figma-intake-workspace, .intake-workspace-shell) .intake-form input,
+:is(.figma-intake-workspace, .intake-workspace-shell) .intake-form select,
+:is(.figma-intake-workspace, .intake-workspace-shell) .intake-form textarea {
   min-height: 38px;
   color: var(--foreground);
   background: var(--input-background);
@@ -7456,18 +7461,18 @@ body {
   border-radius: 5px;
 }
 
-.figma-intake-workspace .intake-form textarea {
+:is(.figma-intake-workspace, .intake-workspace-shell) .intake-form textarea {
   min-height: 74px;
 }
 
-.figma-intake-workspace .intake-repository-row {
+:is(.figma-intake-workspace, .intake-workspace-shell) .intake-repository-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   align-items: end;
 }
 
-.figma-intake-workspace .intake-repository-row .icon-button {
+:is(.figma-intake-workspace, .intake-workspace-shell) .intake-repository-row .icon-button {
   min-width: 110px;
   min-height: 38px;
   color: var(--foreground);
@@ -7476,7 +7481,7 @@ body {
   border-radius: 5px;
 }
 
-.figma-intake-workspace .intake-form .checkbox-row {
+:is(.figma-intake-workspace, .intake-workspace-shell) .intake-form .checkbox-row {
   display: flex !important;
   align-items: flex-start;
   gap: 8px;
@@ -7486,7 +7491,7 @@ body {
   line-height: 1.35;
 }
 
-.figma-intake-workspace .intake-form .checkbox-row input {
+:is(.figma-intake-workspace, .intake-workspace-shell) .intake-form .checkbox-row input {
   flex: 0 0 auto;
   width: 13px;
   height: 13px;
@@ -7494,7 +7499,7 @@ body {
   margin-top: 3px;
 }
 
-.figma-intake-workspace .intake-form .checkbox-row span {
+:is(.figma-intake-workspace, .intake-workspace-shell) .intake-form .checkbox-row span {
   color: var(--muted-foreground);
   font-family: inherit;
   font-size: 13px;
@@ -7502,7 +7507,7 @@ body {
   text-transform: none;
 }
 
-.figma-intake-workspace .intake-form .apply-button {
+:is(.figma-intake-workspace, .intake-workspace-shell) .intake-form .apply-button {
   grid-column: 1 / -1;
   min-height: 46px;
 }
@@ -8888,6 +8893,7 @@ body {
 }
 
 @media (max-width: 1100px) {
+  .intake-workspace-shell,
   .figma-intake-workspace,
   .figma-doc-chat-workspace,
   .figma-phase-map-workspace {
@@ -9410,4 +9416,8 @@ body {
   .source-graph-board { grid-template-columns: minmax(0, 1fr); }
   .source-graph-labels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); border-inline-end: 0; border-block-end: 1px solid var(--border); }
   .source-graph-labels button { height: auto; min-height: 56px; }
+}
+
+.intake-workspace-shell-companion > .figma-document-card {
+  flex: 1;
 }
