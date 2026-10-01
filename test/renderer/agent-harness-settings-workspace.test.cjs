@@ -17,8 +17,7 @@ const {
   agentHarnessSettingsFormFromStatus,
   backgroundAgentLifecycleLabel,
   buildAgentHarnessSettingsInput,
-  openSettingsNavigationState,
-  returnFromSettingsNavigationState,
+  App,
 } = require(path.join(root, "src", "renderer", "app", "App.tsx"));
 const {
   FigmaSidebar,
@@ -102,15 +101,109 @@ test("left rail renders app-level Settings while Theme remains outside Settings"
   assert.doesNotMatch(markup, /allowed[-_ ]roots|allowedRoots|project selector/i);
 });
 
-test("Settings navigation preserves workflow position across open and return", () => {
-  const opened = openSettingsNavigationState("work-card-building-review", "project-intake-capture");
-  assert.equal(opened.activeWorkspaceId, "settings");
-  assert.equal(opened.priorWorkflowWorkspaceId, "work-card-building-review");
+// Run the App's real callbacks with persistent React hook storage; effects are
+// suppressed so this bounded navigation proof does not start runtime polling.
+function navigationHarness(seed, getWorkflow) {
+  const source = fs.readFileSync(path.join(root, "src/renderer/app/App.tsx"), "utf8");
+  const names = [...source.matchAll(/const \[([^,]+),[^\]]+\] = useState/g)].map(match => match[1]);
+  const values = [], refs = [];
+  const original = Object.fromEntries(["useState", "useRef", "useEffect", "useMemo", "useCallback", "useReducer"].map(key => [key, React[key]]));
+  global.window = { localStorage: { getItem: () => null }, champcity: { getWorkflow } };
+  function render() {
+    let stateIndex = 0, refIndex = 0;
+    React.useState = initial => {
+      const index = stateIndex++, name = names[index];
+      if (!(index in values)) values[index] = name in seed ? seed[name] : typeof initial === "function" ? initial() : initial;
+      return [values[index], value => { values[index] = typeof value === "function" ? value(values[index]) : value; }];
+    };
+    React.useRef = initial => refs[refIndex++] ??= { current: initial };
+    React.useEffect = () => {};
+    React.useMemo = callback => callback();
+    React.useCallback = callback => callback;
+    React.useReducer = (_reducer, initial) => [initial, () => {}];
+    try { return App(); } finally { Object.assign(React, original); }
+  }
+  function find(node, type) {
+    if (!node || typeof node !== "object") return null;
+    if (node.type === type) return node;
+    for (const child of [node.props?.children].flat(Infinity)) {
+      const found = find(child, type); if (found) return found;
+    }
+    return null;
+  }
+  return { render, find, state: name => values[names.indexOf(name)], set: (name, value) => { values[names.indexOf(name)] = value; } };
+}
 
-  const reopened = openSettingsNavigationState("settings", "work-card-building-review");
-  assert.equal(reopened.activeWorkspaceId, "settings");
-  assert.equal(reopened.priorWorkflowWorkspaceId, "work-card-building-review");
-  assert.equal(returnFromSettingsNavigationState(reopened.priorWorkflowWorkspaceId), "work-card-building-review");
+for (const foreground of ["workflow", "workflow-instance", "work-intake", "workflow-hub", "workflow-type", "issue-resolution", "source-control"]) {
+  test(`App Settings restores exact ${foreground} foreground without reopening Project`, async () => {
+    const workflow = { workflowId: foreground === "workflow-instance" ? "feature-exact" : "creation-exact", workflowType: foreground === "workflow-instance" ? "feature" : "project-creation" };
+    const seed = {
+      shellView: foreground === "issue-resolution" ? "workflow" : foreground,
+      activeWorkspaceId: "work-card-building-review",
+      activeWorkflowId: foreground === "issue-resolution" ? "issue-resolution" : null,
+      selectedWorkflowId: workflow.workflowId, selectedWorkflowType: workflow.workflowType,
+      selectedWorkIntakeId: "intake-exact", workflowInstance: workflow,
+      workspace: { ok: true, workspaceRoot: "fixture", projectName: "Signal_Forge" },
+      currentProject: { projectCreationWorkflowId: workflow.workflowId },
+    };
+    const calls = [];
+    const harness = navigationHarness(seed, async id => { calls.push(id); return { workflow }; });
+    let tree = harness.render();
+    if (foreground === "workflow" || foreground === "workflow-instance") {
+      harness.set("shellView", "workflow-type");
+      tree = harness.render();
+      const { WorkflowTypeWorkspace } = require(path.join(root, "src/renderer/app/WorkflowTypeWorkspace.tsx"));
+      harness.find(tree, WorkflowTypeWorkspace).props.onOpenWorkflow(workflow.workflowId);
+      await Promise.resolve();
+      // The Greenfield owner normally foregrounds Intake on open; reproduce
+      // the reported Implement step before entering Settings.
+      harness.set("activeWorkspaceId", "work-card-building-review");
+      seed.selectedWorkflowType = foreground === "workflow" ? null : workflow.workflowType;
+      tree = harness.render();
+    }
+    harness.find(tree, FigmaSidebar).props.onOpenSettings();
+    tree = harness.render();
+    assert.equal(harness.state("workflowInstance"), workflow);
+    assert.equal(harness.state("selectedWorkflowId"), workflow.workflowId);
+    // Clicking Settings again must not replace the saved target.
+    harness.find(tree, FigmaSidebar).props.onOpenSettings();
+    await harness.find(tree, AgentHarnessSettingsWorkspace).props.onReturn();
+    harness.render();
+    for (const name of ["shellView", "activeWorkspaceId", "activeWorkflowId", "selectedWorkflowId", "selectedWorkflowType", "selectedWorkIntakeId", "workflowInstance", "currentProject", "workspace"])
+      assert.equal(harness.state(name), seed[name], name);
+    assert.deepEqual(calls, Array(foreground === "workflow" || foreground === "workflow-instance" ? 2 : 1).fill(workflow.workflowId));
+    delete global.window;
+  });
+}
+
+test("App Settings Workflows escape preserves Project and cancels stale Return", async () => {
+  let resolve;
+  const workflow = { workflowId: "exact", workflowType: "feature" };
+  const workspace = { ok: true, workspaceRoot: "fixture" };
+  const harness = navigationHarness({ shellView: "workflow-instance", workspace, selectedWorkflowId: "exact", workflowInstance: workflow },
+    () => new Promise(done => { resolve = done; }));
+  harness.find(harness.render(), FigmaSidebar).props.onOpenSettings();
+  const tree = harness.render();
+  const sidebar = harness.find(tree, FigmaSidebar);
+  assert.match(renderToStaticMarkup(sidebar), />Workflows<\/button>/);
+  const returning = harness.find(tree, AgentHarnessSettingsWorkspace).props.onReturn();
+  sidebar.props.onReturnToWorkflowHub();
+  resolve({ workflow }); await returning;
+  harness.render();
+  assert.equal(harness.state("shellView"), "workflow-hub");
+  assert.equal(harness.state("workspace"), workspace);
+  delete global.window;
+});
+
+test("App Settings unavailable exact Workflow falls back with bounded error", async () => {
+  const harness = navigationHarness({ shellView: "workflow-instance", workspace: { ok: true, workspaceRoot: "fixture" }, selectedWorkflowId: "deleted" },
+    async () => { throw Error("unavailable"); });
+  harness.find(harness.render(), FigmaSidebar).props.onOpenSettings();
+  await harness.find(harness.render(), AgentHarnessSettingsWorkspace).props.onReturn();
+  harness.render();
+  assert.equal(harness.state("shellView"), "workflow-hub");
+  assert.match(harness.state("workflowHubError"), /previous Workflow is no longer available/);
+  delete global.window;
 });
 
 test("Settings workspace renders persistent controls, lifecycle controls, OAuth status, and failure projection", () => {

@@ -253,27 +253,13 @@ type ArchitectActionFeedback = {
   message: string;
 } | null;
 
-export interface SettingsNavigationState {
+export interface SettingsReturnContext {
+  shellView: SettingsReturnShellView;
   activeWorkspaceId: WorkspaceId;
-  priorWorkflowWorkspaceId: WorkspaceId;
-}
-
-export function openSettingsNavigationState(
-  activeWorkspaceId: WorkspaceId,
-  priorWorkflowWorkspaceId: WorkspaceId,
-): SettingsNavigationState {
-  return {
-    activeWorkspaceId: settingsWorkspaceId,
-    priorWorkflowWorkspaceId: activeWorkspaceId === settingsWorkspaceId
-      ? priorWorkflowWorkspaceId
-      : activeWorkspaceId,
-  };
-}
-
-export function returnFromSettingsNavigationState(
-  priorWorkflowWorkspaceId: WorkspaceId,
-): WorkspaceId {
-  return priorWorkflowWorkspaceId;
+  activeWorkflowId: LegacyWorkflowForegroundId | null;
+  selectedWorkflowType: WorkflowType | null;
+  selectedWorkflowId: string | null;
+  selectedWorkIntakeId: string | null;
 }
 
 export function App(): JSX.Element {
@@ -291,9 +277,6 @@ export function App(): JSX.Element {
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<WorkspaceId>(
     workspaceDefinitions[0].id,
   );
-  const [priorWorkflowWorkspaceId, setPriorWorkflowWorkspaceId] = useState<WorkspaceId>(
-    workspaceDefinitions[0].id,
-  );
   const [shellView, setShellView] = useState<ShellView>("landing");
   const [workIntakeProjection, setWorkIntakeProjection] = useState<WorkIntakeProjection | null>(null);
   const [selectedWorkIntakeId, setSelectedWorkIntakeId] = useState<string | null>(null);
@@ -304,10 +287,7 @@ export function App(): JSX.Element {
   const [workflowInstance, setWorkflowInstance] = useState<WorkflowInstanceSummary | null>(null);
   const [isWorkflowInventoryLoading, setIsWorkflowInventoryLoading] = useState(false);
   const [workflowHubError, setWorkflowHubError] = useState("");
-  const [settingsReturnShellView, setSettingsReturnShellView] =
-    useState<SettingsReturnShellView>("workflow-hub");
-  const [settingsReturnWorkflowId, setSettingsReturnWorkflowId] =
-    useState<LegacyWorkflowForegroundId | null>(null);
+  const settingsReturnContext = useRef<SettingsReturnContext | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceSelection>(fallbackWorkspace);
   const [currentProject, setCurrentProject] = useState<CurrentProjectRuntimeContext | null>(null);
   const [agentHarnessStatus, setAgentHarnessStatus] =
@@ -2592,7 +2572,6 @@ export function App(): JSX.Element {
       setShellView("workflow");
       setActiveWorkflowId(null);
       setActiveWorkspaceId("project-intake-capture");
-      setPriorWorkflowWorkspaceId("project-intake-capture");
       return;
     }
 
@@ -2602,6 +2581,7 @@ export function App(): JSX.Element {
   }
 
   function clearRepositoryDerivedState(): void {
+    settingsReturnContext.current = null;
     workflowInventoryRefreshRequestRef.current += 1;
     setWorkflowInventory(null);
     setSelectedWorkflowType(null);
@@ -2762,9 +2742,6 @@ export function App(): JSX.Element {
       setActiveWorkflowId(isDevelopmentForeground ? null : "development");
     }
     setActiveWorkspaceId(destinationWorkspaceId);
-    if (destinationWorkspaceId !== settingsWorkspaceId) {
-      setPriorWorkflowWorkspaceId(destinationWorkspaceId);
-    }
     const nextDocuments = options.documents ?? documents;
     const nextDocumentId = documentIdForWorkflowStep({
       destinationWorkspaceId,
@@ -2785,34 +2762,45 @@ export function App(): JSX.Element {
   }
 
   function openSettingsWorkspace(): void {
-    const returnShellView = shellView === "workflow" || shellView === "workflow-type" || shellView === "workflow-instance"
-      ? shellView : "workflow-hub";
-    setSettingsReturnShellView(returnShellView);
-    setSettingsReturnWorkflowId(returnShellView === "workflow" ? activeWorkflowId : null);
-    const next = openSettingsNavigationState(activeWorkspaceId, priorWorkflowWorkspaceId);
-    setPriorWorkflowWorkspaceId(next.priorWorkflowWorkspaceId);
-    setActiveWorkspaceId(next.activeWorkspaceId);
+    if (shellView === "settings") return;
+    settingsReturnContext.current = {
+      shellView: shellView === "landing" ? "workflow-hub" : shellView,
+      activeWorkspaceId,
+      activeWorkflowId,
+      selectedWorkflowType,
+      selectedWorkflowId,
+      selectedWorkIntakeId,
+    };
+    setActiveWorkspaceId(settingsWorkspaceId);
     setShellView("settings");
   }
 
-  function returnFromSettingsWorkspace(): void {
-    if (settingsReturnShellView === "workflow-type" || settingsReturnShellView === "workflow-instance") {
-      setShellView(settingsReturnShellView);
-      return;
+  async function returnFromSettingsWorkspace(): Promise<void> {
+    const context = settingsReturnContext.current;
+    if (!context) { returnToWorkflowHub(); return; }
+    try {
+      if (context.selectedWorkflowId) {
+        const opened = await window.champcity.getWorkflow(context.selectedWorkflowId);
+        if (opened.workflow.workflowId !== context.selectedWorkflowId)
+          throw Error("The previous Workflow is no longer available.");
+        // An escape or project change during revalidation owns the newer foreground.
+        if (settingsReturnContext.current !== context) return;
+      }
+      if (settingsReturnContext.current !== context) return;
+      setSelectedWorkflowType(context.selectedWorkflowType);
+      setSelectedWorkflowId(context.selectedWorkflowId);
+      setSelectedWorkIntakeId(context.selectedWorkIntakeId);
+      setActiveWorkflowId(context.activeWorkflowId);
+      setActiveWorkspaceId(context.activeWorkspaceId);
+      setShellView(context.shellView);
+      settingsReturnContext.current = null;
+    } catch {
+      if (settingsReturnContext.current !== context) return;
+      returnToWorkflowHub();
+      setSelectedWorkflowId(null);
+      setWorkflowInstance(null);
+      setWorkflowHubError("The previous Workflow is no longer available. Choose a Workflow from Workflows.");
     }
-    if (settingsReturnShellView === "workflow-hub") {
-      setShellView("workflow-hub");
-      setActiveWorkflowId(null);
-      setActiveWorkspaceId(returnFromSettingsNavigationState(priorWorkflowWorkspaceId));
-      return;
-    }
-    if (settingsReturnWorkflowId === "issue-resolution") {
-      setShellView("workflow");
-      setActiveWorkflowId("issue-resolution");
-      setActiveWorkspaceId(returnFromSettingsNavigationState(priorWorkflowWorkspaceId));
-      return;
-    }
-    transitionToWorkflowStep(returnFromSettingsNavigationState(priorWorkflowWorkspaceId));
   }
 
   async function refreshWorkflowInventory(preferredWorkflowId: string | null = selectedWorkflowId): Promise<WorkflowInventory | null> {
@@ -2878,7 +2866,6 @@ export function App(): JSX.Element {
       setActiveWorkflowId(null);
       if (result.workflow.workflowType === "project-creation") {
         setActiveWorkspaceId("project-intake-capture");
-        setPriorWorkflowWorkspaceId("project-intake-capture");
         setShellView("workflow");
       } else setShellView("workflow-instance");
     } catch (failure) {
@@ -2933,6 +2920,7 @@ export function App(): JSX.Element {
   }
 
   function returnToWorkflowHub(): void {
+    settingsReturnContext.current = null;
     setSelectedWorkflowType(null);
     setShellView("workflow-hub");
     setActiveWorkflowId(null);
@@ -4167,6 +4155,8 @@ export function App(): JSX.Element {
                 ? "development"
                 : isIssueResolutionForeground
                 ? "issue-resolution"
+                : isSettingsWorkspace
+                ? "settings"
                 : isSourceControlForeground
                 ? "source-control"
                 : "hub"

@@ -12,7 +12,7 @@ import type {
 } from "../../../shared/issueResolutionContracts";
 
 export type FigmaThemeMode = "dark" | "light";
-export type FigmaSidebarMode = "hub" | "development" | "issue-resolution" | "source-control";
+export type FigmaSidebarMode = "hub" | "development" | "issue-resolution" | "source-control" | "settings";
 
 export function FigmaSidebar({
   currentModel,
@@ -61,7 +61,7 @@ export function FigmaSidebar({
 
   return (
     <aside className="sidebar figma-sidebar" aria-label="Project navigation">
-      {isHubMode ? null : (
+      {isHubMode || (mode === "settings" && !workspace.ok) ? null : (
         <section className="figma-sidebar-section workflow-return-section" aria-label="Workflow navigation">
           <button
             className="figma-sidebar-action figma-workflows-action"
