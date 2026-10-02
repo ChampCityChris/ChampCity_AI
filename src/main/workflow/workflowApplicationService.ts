@@ -3,6 +3,8 @@ import path from "node:path";
 import type { ProjectId, ProjectStateRecord } from "../../shared/projectState/domainContracts";
 import { getWorkflowTypeDefinition, WORKFLOW_TYPE_IDS, type WorkflowType } from "../../shared/projectState/workflowTypeRegistry";
 import { createProjectStateService, type WorkflowPlanningGraph } from "../../shared/projectState/projectStateService";
+import type { PlanCandidate } from "../../shared/projectState/planReviewContracts";
+import type { ArchitectReviewDecisionInput } from "../../shared/projectState/architectReviewContracts";
 import type { ProjectStateStore } from "../../shared/projectState/projectStateStore";
 import type { DirectWorkflowStartRequest, WorkflowInstanceSummary, WorkflowInventory, WorkflowOpenResult } from "../../shared/workflowApplicationContracts";
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
@@ -163,6 +165,16 @@ export function createWorkflowApplicationService(dependencies: {
     return withCurrentProject(projectRoot, (store, projectId) => createProjectStateService(store, operator).acceptWorkflowPlanningGraph(projectId, graph));
   }
 
+  async function savePlanCandidate(projectRoot: string, candidate: PlanCandidate & {expectedRecordVersion?: number}) {
+    return withCurrentProject(projectRoot, (store, projectId) => createProjectStateService(store, operator).savePlanCandidate(projectId, candidate));
+  }
+  async function getPlanReview(projectRoot: string, cycleId: string) {
+    return withCurrentProject(projectRoot, (store, projectId) => createProjectStateService(store, operator).getPlanReview(projectId, cycleId));
+  }
+  async function recordPlanReview(projectRoot: string, cycleId: string, input: ArchitectReviewDecisionInput) {
+    return withCurrentProject(projectRoot, (store, projectId) => createProjectStateService(store, operator).recordPlanReview(projectId, cycleId, input));
+  }
+
   async function startDirectWorkflow(projectRoot: string, input: DirectWorkflowStartRequest): Promise<{ workflow: WorkflowInstanceSummary }> {
     if (!input || typeof input !== "object" || Object.keys(input).some(key => !["workflowType", "title"].includes(key)))
       throw Error("Direct Workflow request has unsupported fields.");
@@ -224,5 +236,5 @@ export function createWorkflowApplicationService(dependencies: {
     });
   }
 
-  return { listCurrentProjectWorkflows, getCurrentProjectWorkflow, getWorkflowPlanningContext, getAcceptedWorkflowPlanningGraph, acceptReviewedWorkflowPlanningGraph, startDirectWorkflow, ensureProjectCreationWorkflow, completeIncompleteGreenfieldInitialization };
+  return { savePlanCandidate, getPlanReview, recordPlanReview, listCurrentProjectWorkflows, getCurrentProjectWorkflow, getWorkflowPlanningContext, getAcceptedWorkflowPlanningGraph, acceptReviewedWorkflowPlanningGraph, startDirectWorkflow, ensureProjectCreationWorkflow, completeIncompleteGreenfieldInitialization };
 }

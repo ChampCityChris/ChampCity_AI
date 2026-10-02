@@ -19,7 +19,7 @@ interface RelationshipDefinition {
 }
 
 const all: readonly EntityType[] = ["Project", "ProjectResource", "WorkIntake", "RouteAssessment", "WorkflowIntake", "ArchitectReviewCycle", "Workflow", "SourceBaseline", "Phase", "Finding", "RootCause", "BoundedSolution", "Criterion", "WorkItem", "ImplementationRecord", "TesterResult", "Validation", "Evidence", "Decision", "RegressionObligation", "SourceBinding", "SourceCheckpoint", "IntegrationRecord"];
-const nonProject = all.filter(type => type !== "Project");
+const nonProject = [...all, "PlanReviewCycle" as const].filter(type => type !== "Project");
 const rule = (from: readonly EntityType[], to: readonly EntityType[], immutableProvenance = false): RelationshipDefinition => ({ from, to, immutableProvenance });
 
 /** Direction and endpoint type are explicit; no runtime predicate registration exists. */
@@ -39,7 +39,8 @@ export const RELATIONSHIP_REGISTRY = Object.freeze({
   derived_from: rule(nonProject, nonProject, true),
   evaluates: rule(["Validation"], ["Criterion", "WorkItem", "BoundedSolution", "RegressionObligation", "ProjectResource", "IntegrationRecord"], true),
   explains: rule(["RootCause"], ["Finding"], true),
-  governs: rule(["Decision"], all, true),
+  governs: rule(["Decision"], [...all, "PlanReviewCycle"], true),
+  plan_review_for: rule(["PlanReviewCycle"], ["Workflow"], true),
   intake_for: rule(["WorkflowIntake"], ["Workflow"], true),
   implements: rule(["WorkItem"], ["BoundedSolution"]),
   implements_work_item: rule(["ImplementationRecord"], ["WorkItem"], true),
@@ -81,6 +82,7 @@ export function validateRelationship(
   if (!from || !to) fail("Relationship endpoint does not exist.");
   if (from.projectId !== relationship.projectId || to.projectId !== relationship.projectId) fail("Relationship endpoints must belong to one Project.");
   if (!definition.from.includes(from.entityType) || !definition.to.includes(to.entityType)) fail("Relationship direction or endpoint type is invalid.");
+  if (relationship.relationshipType === "plan_review_for" && (from.entityType !== "PlanReviewCycle" || to.entityType !== "Workflow" || from.body.workflowId !== to.id || from.body.workflowType !== to.body.workflowType || from.lifecycleState !== "active" || to.lifecycleState !== "active" || to.body.workflowState !== "active" || to.body.workflowType === "work-intake-routing")) fail("Plan review requires the exact active substantive Workflow.");
   if (relationship.relationshipType === "architect_review_for" && (from.entityType !== "ArchitectReviewCycle" || to.entityType !== "Workflow" ||
     from.body.workflowId !== to.id || from.body.workflowType !== to.body.workflowType || to.body.workflowType === "work-intake-routing" ||
     from.lifecycleState !== "active" || to.lifecycleState !== "active" || to.body.workflowState !== "active")) fail("Architect review requires the exact active substantive Workflow.");

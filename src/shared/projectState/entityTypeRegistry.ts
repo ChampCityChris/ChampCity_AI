@@ -2,7 +2,7 @@ import { ARCHITECT_STAGE_BY_WORKFLOW } from "./architectReviewContracts";
 import { ARCHITECT_STAGE_KINDS, PROJECT_STATE_SCHEMA_VERSION, type EntityBodyMap, type EntityType, type PrincipalRef, type ProjectId, type ProjectStateEntity, type ProjectStateRecord, type Provenance, type RecordEnvelope } from "./domainContracts";
 import { WORKFLOW_TYPE_IDS } from "./workflowTypeRegistry";
 
-type FieldKind = "text" | "source-ref" | "id" | "instant" | "number" | "boolean" | "version" | "text-list" | "id-list" | "principal" | "digest" | "scalar-map";
+type FieldKind = "text" | "source-ref" | "id" | "instant" | "number" | "boolean" | "version" | "text-list" | "id-list" | "principal" | "digest" | "scalar-map" | "plan-layout";
 type FieldRule = FieldKind | readonly string[];
 interface EntityDefinition { schemaVersion: typeof PROJECT_STATE_SCHEMA_VERSION; required: Readonly<Record<string, FieldRule>>; optional?: Readonly<Record<string, FieldRule>>; immutableAfterCreation: boolean }
 
@@ -14,6 +14,7 @@ const idList = "id-list" as const;
 
 /** One reviewed type registry owns field vocabulary and immutable-record policy. */
 export const ENTITY_TYPE_REGISTRY: Readonly<Record<EntityType, EntityDefinition>> = Object.freeze({
+  PlanReviewCycle: { schemaVersion: 1, required: { workflowId: id, workflowType: WORKFLOW_TYPE_IDS, semanticDigest: "digest", layout: "plan-layout" }, immutableAfterCreation: false },
   Project: { schemaVersion: 1, required: { name: text, description: text }, immutableAfterCreation: false },
   ArchitectReviewCycle: { schemaVersion: 1, required: { workflowId: id, workflowType: WORKFLOW_TYPE_IDS, stageKind: ARCHITECT_STAGE_KINDS, semanticDigest: "digest" }, immutableAfterCreation: false },
   WorkflowIntake: { schemaVersion: 1, required: { workflowId: id, workflowType: WORKFLOW_TYPE_IDS, values: "scalar-map" }, immutableAfterCreation: false },
@@ -78,6 +79,24 @@ function principal(value: unknown, label: string) {
 function checkField(value: unknown, rule: FieldRule, label: string) {
   if (Array.isArray(rule)) { if (!rule.includes(value as string)) fail(`${label} is unsupported.`); return; }
   switch (rule) {
+    case "plan-layout": {
+      const layout = object(value, label);
+      exactFields(layout, ["solutionId", "solutionAddresses", "solutionCriterionIds", "phases", "workItems", "boundaries", "sources"], new Set(["solutionId", "solutionAddresses", "solutionCriterionIds", "phases", "workItems", "boundaries", "sources"]), label);
+      canonicalId(layout.solutionId, label);
+      checkField(layout.solutionAddresses, "id-list", label);
+      checkField(layout.solutionCriterionIds, "id-list", label);
+      for (const [field, bound] of [["phases", 32], ["workItems", 128], ["boundaries", 31], ["sources", 128]] as const) {
+        const items = layout[field];
+        if (!Array.isArray(items) || items.length > bound) fail(`${label}.${field} exceeds bounds.`);
+        for (const entry of items) {
+          const item = object(entry, label);
+          if (field === "sources") { exactFields(item, ["entityId", "recordVersion"], new Set(["entityId", "recordVersion"]), label); canonicalId(item.entityId, label); checkField(item.recordVersion, "version", label); }
+          else if (field === "boundaries") { exactFields(item, ["phaseKey", "reason", "rationale", "evidenceRefs"], new Set(["phaseKey", "reason", "rationale", "evidenceRefs"]), label); for (const name of ["phaseKey", "reason", "rationale"]) boundedText(item[name], label); checkField(item.evidenceRefs, "text-list", label); }
+          else { exactFields(item, ["key", "entityId", "criterionIds", "dependencyKeys"], new Set(["key", "entityId", "criterionIds", "dependencyKeys", ...(field === "workItems" ? ["phaseKey"] : [])]), label); canonicalId(item.entityId, label); boundedText(item.key, label); if (item.phaseKey !== undefined) boundedText(item.phaseKey, label); checkField(item.criterionIds, "id-list", label); checkField(item.dependencyKeys, "text-list", label); }
+        }
+      }
+      return;
+    }
     case "scalar-map": {
       const map = object(value, label);
       if (Reflect.ownKeys(map).length > 32 || Object.getOwnPropertySymbols(map).length) fail(`${label} exceeds its map bound.`);

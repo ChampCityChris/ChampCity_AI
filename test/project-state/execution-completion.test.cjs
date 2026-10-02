@@ -521,3 +521,62 @@ function failOnDecomposedLink(store) {
     },
   });
 }
+
+const { resolvePlanTopology } = require("../../dist/shared/projectState/planReviewContracts.js");
+const planCandidate = workflow => ({workflowId: workflow.id, workflowType: workflow.body.workflowType,
+  solution: {title: "Candidate", objective: "Bounded outcome", scopeIn: ["outcome"], scopeOut: [], constraints: [], assumptions: [], risks: []},
+  solutionCriteria: [], sources: [], workItems: [{key: "a", kind: "feature", title: "First", objective: "First outcome", dependencyKeys: [], criteria: []}, {key: "b", kind: "feature", title: "Second", objective: "Second outcome", dependencyKeys: ["a"], criteria: []}]});
+function phasedCandidate(workflow) {
+  const candidate = planCandidate(workflow);
+  candidate.phases = [1, 2].map(sequence => ({key: `p${sequence}`, title: `Phase ${sequence}`, objective: "Independently accepted outcome", sequence, criteria: [{statement: "Accept outcome", criticality: "required", verificationIntent: "Inspect outcome", validationPolicy: "operator_decision"}]}));
+  candidate.workItems.forEach((work, i) => work.phaseKey = `p${i + 1}`);
+  candidate.phaseDependencies = [{phaseKey: "p2", dependencyKeys: ["p1"]}];
+  candidate.boundaries = [{phaseKey: "p2", reason: "cutover_transition", rationale: "Cut over after preparation", evidenceRefs: ["architecture:cutover"]}];
+  return candidate;
+}
+test("Plan topology derives direct and phased and fails closed on invalid semantic boundaries", () => {
+  const workflow = {id: "workflow", body: {workflowType: "feature-capability"}};
+  assert.equal(resolvePlanTopology(planCandidate(workflow)).topology, "direct");
+  assert.equal(resolvePlanTopology(phasedCandidate(workflow)).topology, "phased");
+  for (const [edit, pattern] of [
+    [c => c.phases.pop(), /single Phase/],
+    [c => delete c.workItems[1].phaseKey, /assigned exactly once/],
+    [c => c.phaseDependencies.push({phaseKey: "p1", dependencyKeys: ["p2"]}), /cycle/],
+    [c => {c.workItems[0].dependencyKeys = ["b"]; c.workItems[1].dependencyKeys = [];}, /contradicts Phase order/],
+    [c => c.boundaries[0].reason = "file_count", /allowed reason/],
+    [c => c.boundaries[0].evidenceRefs = [], /bounded rationale\/evidence/],
+    [c => c.phases[0].criteria = [], /acceptance criteria/],
+  ]) { const candidate = phasedCandidate(workflow); edit(candidate); assert.throws(() => resolvePlanTopology(candidate), pattern); }
+});
+for (const [name, factory] of [["memory", () => createInMemoryProjectStateStore()], ["SQLite", sqliteFixture]]) {
+  test(`${name}: Plan review persists exact revision and atomically activates the same semantic graph`, async context => {
+    const store = factory(context), service = createProjectStateService(store, operator);
+    const project = await service.createRecord(null, "Project", {name: "Plan", description: "Synthetic"});
+    const workflow = await service.createWorkflow(project.id, {workflowType: "feature-capability", title: "Feature", currentWorkspace: "feature-planning"});
+    const first = await service.savePlanCandidate(project.id, phasedCandidate(workflow));
+    assert.equal((await service.getWorkflowExecutionPlan(project.id, workflow.id)).directWorkItems.length, 0);
+    assert.equal((await service.getWorkflowExecutionPlan(project.id, workflow.id)).phases.length, 0);
+    await service.recordPlanReview(project.id, first.id, {expectedRecordVersion: 1, outcome: "revision_requested", notes: "Refine scope"});
+    const second = await service.savePlanCandidate(project.id, {...phasedCandidate(workflow), expectedRecordVersion: 1});
+    assert.equal(second.recordVersion, 2);
+    assert.equal((await service.getPlanReview(project.id, second.id)).disposition.state, "none");
+    await assert.rejects(service.recordPlanReview(project.id, second.id, {expectedRecordVersion: 1, outcome: "approved"}), /stale/);
+    await service.recordPlanReview(project.id, second.id, {expectedRecordVersion: 2, outcome: "approved"});
+    const accepted = await service.getWorkflowExecutionPlan(project.id, workflow.id);
+    assert.equal(accepted.solutions[0].id, second.body.layout.solutionId);
+    assert.deepEqual(accepted.phases.map(phase => phase.phaseId), second.body.layout.phases.map(phase => phase.entityId));
+    assert.equal(accepted.dependencyIds.length, 1);
+    assert.equal((await service.getPlanReview(project.id, second.id)).disposition.state, "approved");
+    await assert.rejects(service.savePlanCandidate(project.id, {...phasedCandidate(workflow), expectedRecordVersion: 2}), /approved Plan/);
+  });
+  test(`${name}: rejected and stale-source Plans do not materialize an execution graph`, async context => {
+    const store = factory(context), service = createProjectStateService(store, operator);
+    const project = await service.createRecord(null, "Project", {name: "Plan", description: "Synthetic"});
+    const workflow = await service.createWorkflow(project.id, {workflowType: "feature-capability", title: "Feature", currentWorkspace: "feature-planning"});
+    const cycle = await service.savePlanCandidate(project.id, planCandidate(workflow));
+    await service.recordPlanReview(project.id, cycle.id, {expectedRecordVersion: 1, outcome: "rejected"});
+    assert.equal((await service.getWorkflowExecutionPlan(project.id, workflow.id)).directWorkItems.length, 0);
+    await service.reviseRecord(project.id, workflow.id, {title: "Changed"}, workflow.recordVersion);
+    await assert.rejects(service.recordPlanReview(project.id, cycle.id, {expectedRecordVersion: 1, outcome: "approved"}), /source revision is stale/);
+  });
+}

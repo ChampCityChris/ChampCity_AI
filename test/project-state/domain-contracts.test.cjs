@@ -10,6 +10,7 @@ const now = new Date().toISOString();
 const linkedId = randomUUID();
 const common = { title: "Title", statement: "Statement" };
 const bodies = {
+  PlanReviewCycle: {workflowId: linkedId, workflowType: "feature-capability", semanticDigest: "a".repeat(64), layout: {solutionId: linkedId, solutionAddresses: [], solutionCriterionIds: [], phases: [], workItems: [], boundaries: [], sources: []}},
   Project: { name: "Project", description: "Description" },
   ProjectResource: { resourceType: "repository", provider: "git", logicalName: "Source", locator: "opaque", role: "source" },
   WorkIntake: { request: "Request", desiredOutcome: "Outcome", constraints: [], evidenceContext: [], intakeState: "captured", requestedIntegrationTarget: "dev" },
