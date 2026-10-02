@@ -1,3 +1,4 @@
+import {selectedCurrentProjectId} from "../projectState/currentProjectRegistrationService";
 import fs from "node:fs";
 import { isDeepStrictEqual } from "node:util";
 import { workItemArtifactIdentity, workItemReportPath, workItemReportPrefix, workItemFormalPrefix, type WorkItemArtifactScope } from "../workCardLoop/workItemArtifactScope";
@@ -158,6 +159,7 @@ export function createImplementerReportForApprovedWorkCard(
   phaseId: WorkItemArtifactScope,
   workCardId: string,
 ): ImplementerReportResult {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Registered Project review/validation/repair uses exact SQL WorkItem commands; Markdown is projection-only.");
   const context = resolveApprovedReportContext(workspaceRoot, phaseId, workCardId);
   ensureNoConflictingReport(workspaceRoot, context);
   if (context.existingReport) {
@@ -337,6 +339,7 @@ export function setImplementerReportDisposition(
   status: DocumentDispositionStatus,
   notes = "",
 ) {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Registered Project review/validation/repair uses exact SQL WorkItem commands; Markdown is projection-only.");
   const context = resolveApprovedReportContext(workspaceRoot, phaseId, workCardId);
   if (!context.existingReport) {
     throw new Error(`Implementer Report is missing: ${context.implementerReportPath}`);
@@ -536,6 +539,7 @@ export function requireCurrentImplementerReportForRepair(workspaceRoot: string, 
 }
 
 export function reviseImplementerReport(workspaceRoot: string, phaseId: WorkItemArtifactScope, workCardId: string): void {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Registered Project review/validation/repair uses exact SQL WorkItem commands; Markdown is projection-only.");
   const context = resolveApprovedReportContext(workspaceRoot, phaseId, workCardId);
   if (!context.existingReport) {
     throw new Error(`Implementer Report is missing: ${context.implementerReportPath}`);

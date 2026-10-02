@@ -1,3 +1,4 @@
+import {selectedCurrentProjectId} from "../projectState/currentProjectRegistrationService";
 import { sourceDigestsCurrent } from "../workCardLoop/workCardEvidence";
 import fs from "node:fs";
 import { createHash } from "node:crypto";
@@ -717,6 +718,7 @@ export function createRepairWorkCard(
   origin: RepairOrigin,
   defect: string,
 ): RepairCreationResult {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Registered Project review/validation/repair uses exact SQL WorkItem commands; Markdown is projection-only.");
   const evidence = requiredRevisionRequestedEvidence(workspaceRoot, evidencePath, origin);
   const documents = scopedRepairDocuments(listPlanningDocuments(workspaceRoot), typeof phaseId === "string" ? undefined : phaseId);
   if (typeof phaseId !== "string" && !workItemMatchesScope(evidence.metadata.canonical?.identity ?? {}, phaseId, parentWorkCardId)) throw Error("Repair evidence does not match the current scoped execution Work Card.");

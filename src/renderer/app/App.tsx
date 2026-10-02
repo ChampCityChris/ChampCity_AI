@@ -1,3 +1,4 @@
+import {GreenfieldExecutionWorkspace} from "./GreenfieldExecutionWorkspace";
 import {StructuredPhaseLoopWorkspace, DerivedPhaseWorkIntakeWorkspace} from "./StructuredPhaseLoopWorkspace";
 import {StructuredPhaseMapWorkspace} from "./StructuredPhaseMapWorkspace";
 import {StructuredProjectPlanningWorkspace} from "./StructuredProjectPlanningWorkspace";
@@ -1114,6 +1115,7 @@ export function App(): JSX.Element {
   const [architectInterviewRailStatus, setArchitectInterviewRailStatus] = useState<import("../../shared/architectWorkspaceContracts").StructuredArchitectWorkspaceModel["railStatus"]>("Not Ready");
   const greenfieldWorkflows = workflowInventory?.groups.find(group => group.workflowType === "project-creation")?.workflows.filter(item => item.workflowState === "active") ?? [];
   const greenfieldArchitectWorkflowId = workflowInstance?.workflowType === "project-creation" ? workflowInstance.workflowId : greenfieldWorkflows.length === 1 ? greenfieldWorkflows[0].workflowId : null;
+  const isStructuredGreenfieldExecution = Boolean(currentProject && greenfieldArchitectWorkflowId && ["work-card-building-review","work-card-report-review","work-card-repair","work-card-close"].includes(activeWorkspaceId));
   useEffect(() => {
     let active = true;
     if (greenfieldArchitectWorkflowId) void window.champcity.getStructuredArchitectWorkspace(greenfieldArchitectWorkflowId).then(model => {if (active) {setArchitectInterviewRailStatus(model.railStatus); setProjectIntakeRailStatus(model.intakeRailStatus);}}).catch(() => {if (active) setArchitectInterviewRailStatus("Not Ready");});
@@ -4502,7 +4504,8 @@ export function App(): JSX.Element {
 
           {activeWorkspaceId === "phase-interview" || activeWorkspaceId === "phase-planning-bundle" ? <StructuredPhaseLoopWorkspace workflowId={greenfieldArchitectWorkflowId} phaseId={currentModel?.currentPhaseId} stageKind={activeWorkspaceId === "phase-interview" ? "interview" : "planning"} browserPanel={architectBrowserColumn} onNext={async () => {await refreshCurrentModel(); setActiveWorkspaceId(activeWorkspaceId === "phase-interview" ? "phase-planning-bundle" : "phase-work-card-selection");}} /> : null}
           {activeWorkspaceId === "work-card-intake" ? <DerivedPhaseWorkIntakeWorkspace phaseId={currentModel?.currentPhaseId} workItemId={currentModel?.currentWorkCardId} onNext={async () => {setActiveWorkspaceId("work-card-planning");}} /> : null}
-          {activeWorkspaceId === "work-card-planning" && greenfieldArchitectWorkflowId && currentModel?.currentWorkCardId ? <WorkItemPlanningWorkspace workflowId={greenfieldArchitectWorkflowId} workItemId={currentModel.currentWorkCardId} browserPanel={architectBrowserColumn} onChanged={async () => {await refreshCurrentModel();}} onNext={async () => {setActiveWorkspaceId("work-card-building");}} /> : null}
+          {isStructuredGreenfieldExecution && greenfieldArchitectWorkflowId ? <GreenfieldExecutionWorkspace workflowId={greenfieldArchitectWorkflowId} workItemId={currentModel?.currentWorkCardId} browserPanel={architectBrowserColumn} onReturn={() => {void refreshCurrentModel(); setActiveWorkspaceId("phase-work-card-selection");}} /> : null}
+          {activeWorkspaceId === "work-card-planning" && greenfieldArchitectWorkflowId && currentModel?.currentWorkCardId ? <WorkItemPlanningWorkspace workflowId={greenfieldArchitectWorkflowId} workItemId={currentModel.currentWorkCardId} browserPanel={architectBrowserColumn} onChanged={async () => {await refreshCurrentModel();}} onNext={async () => {setActiveWorkspaceId("work-card-building-review");}} /> : null}
           {isVisibleArchitectOutputWorkspace && activeWorkspaceId !== "work-card-planning" && !isPhaseMapFigmaWorkspace && activeWorkspaceId !== "architect-interview" && activeWorkspaceId !== "project-planning-review" && activeWorkspaceId !== "phase-interview" && activeWorkspaceId !== "phase-planning-bundle" ? (
             <LegacyArchitectOutputWorkspace
               browserVisible={isArchitectPaneVisible}
@@ -4538,7 +4541,7 @@ export function App(): JSX.Element {
             />
           ) : null}
 
-          {isWorkCardRepair ? (
+          {isWorkCardRepair && !isStructuredGreenfieldExecution ? (
             <WorkCardRepairWorkspace
               actionError={documentError || architectOutputPollingError}
               actionFeedback={feedback}
@@ -4618,7 +4621,7 @@ export function App(): JSX.Element {
             />
           ) : null}
 
-          {isWorkCardBuildingReview ? (
+          {isWorkCardBuildingReview && !isStructuredGreenfieldExecution ? (
             <WorkCardBuildingReviewWorkspace
               codexExecution={codexExecution}
               documentError={documentError}
@@ -4636,7 +4639,7 @@ export function App(): JSX.Element {
             />
           ) : null}
 
-          {isWorkCardReportReview ? (
+          {isWorkCardReportReview && !isStructuredGreenfieldExecution ? (
             <section
               aria-label="Review & Validation workspace"
               className={[
@@ -4704,7 +4707,7 @@ export function App(): JSX.Element {
             </section>
           ) : null}
 
-          {isWorkCardClose ? (
+          {isWorkCardClose && !isStructuredGreenfieldExecution ? (
             <WorkCardCloseWorkspace
               actionError={documentError}
               actionFeedback={feedback}
@@ -4732,7 +4735,7 @@ export function App(): JSX.Element {
             />
           ) : null}
 
-          {!isVisibleArchitectOutputWorkspace && !isWorkCardClose && !isWorkCardPlanningPreparation && !isWorkCardBuildingReview && !isWorkCardReportReview && !isFigmaActionWorkspace && !isWorkCardRepair && !isWorkCardMap && !isSettingsWorkspace && activeWorkspaceId !== "project-intake-capture" && activeWorkspaceId !== "work-card-intake" && activeWorkspaceId !== "phase-planning-bundle" && activeWorkspaceId !== "phase-interview" ? (
+          {!isStructuredGreenfieldExecution && !isVisibleArchitectOutputWorkspace && !isWorkCardClose && !isWorkCardPlanningPreparation && !isWorkCardBuildingReview && !isWorkCardReportReview && !isFigmaActionWorkspace && !isWorkCardRepair && !isWorkCardMap && !isSettingsWorkspace && activeWorkspaceId !== "project-intake-capture" && activeWorkspaceId !== "work-card-intake" && activeWorkspaceId !== "phase-planning-bundle" && activeWorkspaceId !== "phase-interview" ? (
           <section
             className={[
               isArchitectInterviewDualPaneWorkspace(activeWorkspaceId) || activeWorkspaceId === "phase-planning-bundle"

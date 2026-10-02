@@ -20,7 +20,7 @@ const operator = { principalId: "local-operator", principalType: "human" as cons
 const workflowApplication = { principalId: "workflow-execution-application", principalType: "system" as const, role: "System" };
 const workflowCompletionApplication = { principalId: "workflow-execution-completion", principalType: "system" as const, role: "WorkflowExecution" };
 type WorkflowRecord = ProjectStateRecord<"Workflow">;
-const implementationWorkflowTypes: ReadonlySet<string> = new Set(EXACT_EXECUTION_WORKFLOW_TYPES);
+const implementationWorkflowTypes: ReadonlySet<string> = new Set([...EXACT_EXECUTION_WORKFLOW_TYPES, "project-creation"]);
 
 function isCurrentWorkflow(record: WorkflowRecord): boolean {
   return record.lifecycleState === "active" && record.body.workflowState !== "closed" && record.body.workflowState !== "cancelled";
@@ -63,6 +63,14 @@ export function createWorkflowExecutionApplicationService(dependencies: {
     const plan = await createProjectStateService(store, operator).getWorkflowExecutionPlan(projectId, workflowId);
     if (workflow.body.workflowType === "research-prototype" && (plan.solutions.length !== 1 || ![...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].length)) throw Error("Research requires an accepted implementation Plan before execution; no-Plan outcomes cannot enter execution.");
     return plan;
+  }
+
+  async function workItemPlan(store: ProjectStateStore, projectId: ProjectId, plan: WorkflowExecutionPlanView, workItemId: EntityId) {
+    if (plan.workflow.body.workflowType !== "project-creation") return plan;
+    const ids = new Set((await store.listRelationships(projectId, "implements")).filter(edge => !edge.endedAt && edge.fromEntityId === workItemId).map(edge => edge.toEntityId));
+    const solutions = plan.solutions.filter(solution => ids.has(solution.id));
+    if (solutions.length !== 1) throw Error("Greenfield WorkItem requires its one exact accepted Phase direction.");
+    return {...plan, solutions, criteria: plan.criteria.filter(entry => !plan.solutions.some(solution => solution.id === entry.ownerId) || ids.has(entry.ownerId))};
   }
 
   async function currentPhaseTesterIds(store: ProjectStateStore, projectId: ProjectId, plan: WorkflowExecutionPlanView, workItemIds: EntityId[], sourceRevisionId: string | null) {
@@ -209,7 +217,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
     if (typeof workflowId !== "string" || !workflowId.trim() || workflowId.length > 128 ||
       typeof workItemId !== "string" || !workItemId.trim() || workItemId.length > 128) throw Error("Exact Workflow and WorkItem IDs are required.");
     return withCurrentProject(projectRoot, async (store, projectId) => {
-      const plan = await exactPlan(store, projectId, workflowId);
+      const plan = await workItemPlan(store, projectId, await exactPlan(store, projectId, workflowId), workItemId);
       const workflow = plan.workflow;
       const projection = await project(store, projectId, plan);
       const item = projection.items.find(candidate => candidate.record.id === workItemId);
@@ -224,7 +232,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
       if (testerResults.length > 1) throw Error("Current implementation has duplicate TesterResults.");
       const tester = testerResults[0] ?? null;
-      if (implementation?.body.outcome === "implemented" && !tester) throw Error("Exact current TesterResult is missing.");
+      // Missing Tester evidence remains a completion blocker while the exact Tester can start.
       if (tester && tester.body.sourceMode !== (projection.source.state === "non-source" ? "source-neutral" : "source-backed"))
         throw Error("TesterResult source mode does not match the exact Workflow.");
       const criterionViews = [];
@@ -356,7 +364,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       if (!implementationWorkflowTypes.has(workflow.workflow.body.workflowType)) throw Error("Execution planning requires the exact current supported Workflow.");
       const projection = await project(store, projectId, workflow);
       const item = projection.items.find(candidate => candidate.record.id === input.workItemId);
-      if (!item || !["planned", "ready"].includes(item.record.body.workState) || item.record.recordVersion !== input.expectedVersion) throw Error("Execution planning requires the exact current planned/ready WorkItem.");
+      if (!item || !["planned", "ready"].includes(item.record.body.workState) || item.record.recordVersion !== input.expectedVersion) throw Error("Execution planning requires the exact current planned/ready WorkItem; identity or revision is stale.");
       if (item.repairIds.some(id => projection.items.some(candidate => candidate.record.id === id && !["closed", "cancelled"].includes(candidate.record.body.workState)))) throw Error("Execution planning is blocked while an active Repair owns the next correction.");
       if (item.implementationAttempts.length) {
         const latest = item.implementationAttempts.at(-1)!;
@@ -399,7 +407,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       !["pass", "fail", "inconclusive"].includes(input.outcome) || typeof input.summary !== "string" || !input.summary.trim() || input.summary.length > 4000)
       throw Error("Exact current Criterion evidence and bounded visual summary are required.");
     return withCurrentProject(projectRoot, async (store, projectId) => {
-      const plan = await exactPlan(store, projectId, input.workflowId);
+      const plan = await workItemPlan(store, projectId, await exactPlan(store, projectId, input.workflowId), input.workItemId);
       const view = await project(store, projectId, plan);
       const item = view.items.find(entry => entry.record.id === input.workItemId);
       const criterion = plan.criteria.find(entry => entry.record.id === input.criterionId &&
@@ -433,7 +441,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       !["approved", "rejected"].includes(input.outcome) || typeof input.rationale !== "string" || !input.rationale.trim() || input.rationale.length > 2000)
       throw Error("Exact Operator Criterion Decision and bounded rationale are required.");
     return withCurrentProject(projectRoot, async (store, projectId) => {
-      const plan = await exactPlan(store, projectId, input.workflowId), view = await project(store, projectId, plan);
+      const plan = await workItemPlan(store, projectId, await exactPlan(store, projectId, input.workflowId), input.workItemId), view = await project(store, projectId, plan);
       const item = view.items.find(entry => entry.record.id === input.workItemId);
       const criterion = plan.criteria.find(entry => entry.record.id === input.criterionId &&
         (entry.ownerId === input.workItemId || plan.solutions.some(solution => solution.id === entry.ownerId)));
@@ -661,7 +669,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       typeof selection.reasoningEffort !== "string" || !selection.reasoningEffort.trim() || selection.reasoningEffort.length > 64)
       throw Error("Bounded Validator model selection is required.");
     return withCurrentProject(projectRoot, async (store, projectId) => {
-      const plan = await exactPlan(store, projectId, workflowId);
+      const plan = await workItemPlan(store, projectId, await exactPlan(store, projectId, workflowId), workItemId);
       const projection = await project(store, projectId, plan);
       const item = projection.items.find(candidate => candidate.record.id === workItemId);
       if (!item || item.record.body.workState !== "validation_pending") throw Error("Validator requires the exact active validation-pending WorkItem.");
@@ -728,7 +736,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
 
   async function validateDeterministicWorkItemCriterion(projectRoot: string, workflowId: EntityId, workItemId: EntityId, criterionId: EntityId) {
     return withCurrentProject(projectRoot, async (store, projectId) => {
-      const plan = await exactPlan(store, projectId, workflowId);
+      const plan = await workItemPlan(store, projectId, await exactPlan(store, projectId, workflowId), workItemId);
       const projection = await project(store, projectId, plan);
       const item = projection.items.find(candidate => candidate.record.id === workItemId);
       if (!item || item.record.body.workState !== "validation_pending") throw Error("Deterministic Validator requires the exact active validation-pending WorkItem.");
@@ -887,7 +895,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       throw Error("A bounded Work Item execution contract is required.");
     for (const value of [...input.affectedPaths, ...input.proofIntent]) if (typeof value !== "string" || !value.trim() || value.length > 512) throw Error("Execution contract details must be bounded text.");
     return withCurrentProject(projectRoot, async (store, projectId) => {
-      const plan = await exactPlan(store, projectId, workflowId);
+      const plan = await workItemPlan(store, projectId, await exactPlan(store, projectId, workflowId), workItemId);
       const projection = await project(store, projectId, plan);
       if (input.sourceMutation === "required" && projection.source.state === "non-source") throw Error("SOURCE_CAPABILITY_UNAVAILABLE");
       if (input.sourceMutation === "required" && projection.source.state !== "ready") throw Error("Source-backed execution requires a prepared exact Workflow checkout.");
@@ -933,7 +941,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
     affectedPaths: string[]; proofIntent: string[];
   }, allowValidationPending = false): Promise<WorkItemExecutionContract> {
     return withCurrentProject(projectRoot, async (store, projectId) => {
-      const plan = await exactPlan(store, projectId, workflowId);
+      const plan = await workItemPlan(store, projectId, await exactPlan(store, projectId, workflowId), workItemId);
       const projection = await project(store, projectId, plan);
       if (projection.source.state !== "non-source") throw Error("Exact Codex WorkItem mode requires a source-neutral Workflow.");
       if (!Array.isArray(input?.affectedPaths) || !Array.isArray(input?.proofIntent)) throw Error("A bounded source-neutral execution contract is required.");

@@ -1,3 +1,4 @@
+import {createStructuredWorkItemReviewService} from "../workCardValidation/structuredWorkItemReviewService";
 import {createStructuredWorkItemPlanningService} from "../workCardPlanning/structuredWorkItemPlanningService";
 import {createStructuredPhaseLoopService} from "../phasePlanning/structuredPhaseLoopService";
 import {structuredWorkCardIntake} from "../phasePlanning/structuredPhaseLoopReadProjection";
@@ -125,6 +126,7 @@ export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcR
       title: request.title as string,
     });
   });
+  for (const [channel,method] of [["workReview:get","get"],["workReview:migrate","migrate"]] as const) registry.handle(channel,async(_event,...args)=>{if(args.length!==2||args.some(value=>typeof value!=="string"||!value.trim()||value.length>128))throw Error("Exact Workflow and WorkItem IDs required.");return createStructuredWorkItemReviewService()[method](getCurrentProjectRoot(),args[0] as string,args[1] as string);});
   registry.handle("workflow:get", async (_event, ...args) => {
     if (args.length !== 1 || typeof args[0] !== "string" || !args[0].trim() || args[0].length > 128)
       throw Error("Exact Workflow ID is required.");

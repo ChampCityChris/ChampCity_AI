@@ -14,6 +14,9 @@ export const EXACT_EXECUTION_WORKFLOW_TYPES = Object.freeze(["feature-capability
 const exactExecutionTypes: ReadonlySet<string> = new Set(EXACT_EXECUTION_WORKFLOW_TYPES);
 export function isExactExecutionWorkflowType(value: unknown): boolean {return typeof value === "string" && exactExecutionTypes.has(value);}
 
+/** Greenfield uses the same SQL execution boundary after accepted Phase Planning. */
+export function isStructuredExecutionWorkflowType(value: unknown): boolean {return value === "project-creation" || isExactExecutionWorkflowType(value);}
+
 export type WorkflowType = (typeof WORKFLOW_TYPE_IDS)[number];
 
 export interface WorkflowTypeDefinition {

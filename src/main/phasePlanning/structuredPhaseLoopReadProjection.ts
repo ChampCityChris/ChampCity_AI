@@ -22,7 +22,7 @@ export function readStructuredPhaseLoop(root: string, phaseKey: string, stageKin
   if (cycles.length !== 1) return null;
   const cycle = cycles[0], edges = relationships.filter(edge => !edge.endedAt), disposition = exactVersionReviewDisposition(cycle, records, relationships, outbox, "phase-loop-review", "phase-loop-review");
   if (edges.filter(edge => edge.relationshipType === "phase_review_for" && edge.fromEntityId === cycle.id && edge.toEntityId === phase.id).length !== 1 || cycle.body.layout.sources.some(source => !records.some(record => record.id === source.entityId && record.lifecycleState === "active" && (record.entityType === "Phase" || record.recordVersion === source.recordVersion)))) return null;
-  if (cycle.body.layout.memberIds.some(id => !records.some(record => record.id === id && (record.lifecycleState === "active" || disposition.state === "approved" && record.lifecycleState === "voided" && edges.some(edge => edge.relationshipType === "decomposed_into" && edge.fromEntityId === id || edge.relationshipType === "derived_from" && edge.toEntityId === id))))) return null;
+  if (cycle.body.layout.memberIds.some(id => !records.some(record => record.id === id && (record.lifecycleState === "active" || disposition.state === "approved" && record.entityType === "WorkItem" && record.lifecycleState === "closed" || disposition.state === "approved" && record.lifecycleState === "voided" && edges.some(edge => edge.relationshipType === "decomposed_into" && edge.fromEntityId === id || edge.relationshipType === "derived_from" && edge.toEntityId === id))))) return null;
   const members = cycle.body.layout.memberIds.map(id => (disposition.state === "approved" ? originalMapMembers : records).find(record => record.id === id));
   if (members.some(member => !member)) return null;
   const current = members.filter(member => !!member);
@@ -30,8 +30,8 @@ export function readStructuredPhaseLoop(root: string, phaseKey: string, stageKin
   if (digest !== cycle.body.semanticDigest) return null;
   const descendantIds = new Set(cycle.body.layout.memberIds);
   let changed = true;
-  while (changed) {changed = false; for (const edge of edges.filter(edge => edge.relationshipType === "decomposed_into" && descendantIds.has(edge.fromEntityId))) if (!descendantIds.has(edge.toEntityId)) {descendantIds.add(edge.toEntityId); changed = true;}}
-  const workItems = records.filter((record): record is ProjectStateRecord<"WorkItem"> => record.entityType === "WorkItem" && record.lifecycleState === "active" && descendantIds.has(record.id) && edges.some(edge => edge.relationshipType === "part_of" && edge.fromEntityId === record.id && edge.toEntityId === phase.id));
+  while (changed) {changed = false; for (const edge of edges) {const child = edge.relationshipType === "decomposed_into" && descendantIds.has(edge.fromEntityId) ? edge.toEntityId : edge.relationshipType === "repairs" && descendantIds.has(edge.toEntityId) ? edge.fromEntityId : null; if (child && !descendantIds.has(child)) {descendantIds.add(child); changed = true;}}}
+  const workItems = records.filter((record): record is ProjectStateRecord<"WorkItem"> => record.entityType === "WorkItem" && ["active", "closed"].includes(record.lifecycleState) && descendantIds.has(record.id) && edges.some(edge => edge.relationshipType === "part_of" && edge.fromEntityId === record.id && edge.toEntityId === phase.id));
   const candidates = workItems.map(record => ({candidateId: record.id, order: record.body.planningOrder!, title: record.body.title, purpose: record.body.objective, dependsOn: edges.filter(edge => edge.relationshipType === "depends_on" && edge.fromEntityId === record.id).map(edge => edge.toEntityId), resolutionStatus: record.body.planningResolution!, resolutionReason: record.body.resolutionReason ?? "", evidencePaths: record.body.planningEvidence ?? [], carriedForwardToPhaseId: record.body.carriedForwardToPhaseId})).sort((a,b) => a.order-b.order);
   return {cycle, phase, disposition, members: current, workItems, candidates, markdown: renderPhaseLoop(cycle, current, edges)};
 }
@@ -39,7 +39,10 @@ export function readStructuredPhaseLoop(root: string, phaseKey: string, stageKin
 export function structuredWorkCardMap(root: string, phaseKey: string): WorkCardMapProjection {
   const review = readStructuredPhaseLoop(root, phaseKey, "planning");
   if (review?.disposition.state !== "approved") return {state: "needs-attention", phaseId: phaseKey, candidates: [], phaseValidationWorkspaceId: "phase-validation", reason: "Approve the current exact SQL Phase Planning review."};
-  const active = review.workItems.filter(work => work.body.planningPreparedAt && !["closed", "cancelled"].includes(work.body.workState));
+  const liveEdges = readIntakeAdapterSnapshot(path.join(fs.realpathSync(root), ".champcity", "project-state.sqlite"), selectedCurrentProjectId(root)!).relationships.filter(edge => !edge.endedAt);
+  const openIds = new Set(review.workItems.filter(work => !["closed", "cancelled"].includes(work.body.workState)).map(work => work.id));
+  const repairTargets = new Set(liveEdges.filter(edge => edge.relationshipType === "repairs" && openIds.has(edge.fromEntityId)).map(edge => edge.toEntityId));
+  const active = review.workItems.filter(work => work.body.planningPreparedAt && !repairTargets.has(work.id) && !["closed", "cancelled"].includes(work.body.workState));
   const candidates = review.candidates.map(candidate => {
     const work = review.workItems.find(work => work.id === candidate.candidateId)!;
     const complete = work.body.workState === "closed", dependencyReady = candidate.dependsOn.every(id => review.workItems.some(work => work.id === id && work.body.workState === "closed"));

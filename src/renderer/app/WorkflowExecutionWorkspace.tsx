@@ -1,3 +1,5 @@
+import {ReviewValidationShell} from "./ReviewValidationShell";
+import type {StructuredWorkItemReview} from "../../shared/structuredWorkItemReviewContracts";
 import {WorkItemPlanningWorkspace} from "./WorkItemPlanningWorkspace";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -9,11 +11,12 @@ import type { IntegrationRepairAttempt, IntegrationRepairPatch } from "../../sha
 import type { WorkflowCheckpointRecoveryProjection } from "../../shared/workflowApplicationContracts";
 import {ExecutionShell, ExecutionSelectedWorkItemPanel, ExecutionRuntimePanel, ExecutionInteractionsPanel, ExecutionCheckpointPanel, ExecutionIntegrationPanel} from "./ExecutionShell";
 
-type Props = { workflow: WorkflowInstanceSummary; onReturn: () => void; browserPanel: ReactNode };
+type Props = { workflow: WorkflowInstanceSummary; onReturn: () => void; browserPanel: ReactNode; initialWorkItemId?: string };
 
-export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel }: Props): JSX.Element {
-  const loadGeneration = useRef(0), selectedIdentity = useRef("");
+export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel, initialWorkItemId }: Props): JSX.Element {
+  const loadGeneration = useRef(0), selectedIdentity = useRef(initialWorkItemId ?? "");
   const [projection, setProjection] = useState<WorkflowExecutionProjection | null>(null);
+  const [review,setReview]=useState<StructuredWorkItemReview|null>(null);
   const [validation, setValidation] = useState<WorkItemValidationProjection | null>(null);
   const [runtime, setRuntime] = useState<CodexManagedRuntimeStatus | null>(null);
   const [implementer, setImplementer] = useState<CodexImplementerExecutionModel | null>(null);
@@ -38,13 +41,13 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel }:
       const selected = next.items.find(item => item.record.id === selectedIdentity.current) ?? next.items.find(item => !["closed", "cancelled"].includes(item.record.body.workState)) ?? next.items[0];
       const phaseEntries = await Promise.all(next.plan.phases.map(async phase => {try {return [phase.phaseId, await window.champcity.getWorkflowPhaseValidation(workflow.workflowId, phase.phaseId)] as const;} catch {return null;}}));
       const [nextValidation, nextRecovery, nextImplementer, nextTester] = selected ? await Promise.all([
-        window.champcity.getWorkItemValidation(workflow.workflowId, selected.record.id), window.champcity.getWorkflowCheckpointRecovery(workflow.workflowId, selected.record.id), window.champcity.getWorkflowWorkItemCodexExecutionStatus(workflow.workflowId, selected.record.id),
+        window.champcity.getStructuredWorkItemReview(workflow.workflowId, selected.record.id), window.champcity.getWorkflowCheckpointRecovery(workflow.workflowId, selected.record.id), window.champcity.getWorkflowWorkItemCodexExecutionStatus(workflow.workflowId, selected.record.id),
         selected.implementationAttempts.at(-1) ? window.champcity.getWorkflowWorkItemTesterStatus(workflow.workflowId, selected.record.id, selected.implementationAttempts.at(-1)!.id) : Promise.resolve(null),
       ]) : [null,null,null,null];
       let nextIntegration: typeof integration = null;
       if (["execution-complete", "integration-ready"].includes(next.plan.workflow.body.currentWorkspace)) try {nextIntegration = await window.champcity.getWorkflowIntegration(workflow.workflowId);} catch { /* Exact integration state may still be preparing. */ }
       if (request !== loadGeneration.current) return;
-      selectedIdentity.current = selected?.record.id ?? ""; setSelectedId(selectedIdentity.current); setProjection(next); setRuntime(models); setValidation(nextValidation); setCheckpointRecovery(nextRecovery);
+      selectedIdentity.current = selected?.record.id ?? ""; setSelectedId(selectedIdentity.current); setProjection(next); setRuntime(models); setReview(nextValidation); setValidation(nextValidation?.validation ?? null); setCheckpointRecovery(nextRecovery);
       if (preserveRuntimeRole !== "implementer") setImplementer(nextImplementer);
       if (preserveRuntimeRole !== "tester") setTester(nextTester);
       setPhaseValidation(Object.fromEntries(phaseEntries.filter((entry): entry is NonNullable<typeof entry> => entry !== null))); setIntegration(nextIntegration);
@@ -93,12 +96,12 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel }:
   }, "Workflow execution completed.");
   const selectWorkItem = async (id: string) => {
     const request = ++loadGeneration.current; selectedIdentity.current = id;
-    setSelectedId(id); setValidation(null); setCheckpointRecovery(null); setImplementer(null); setTester(null);
+    setSelectedId(id); setReview(null); setValidation(null); setCheckpointRecovery(null); setImplementer(null); setTester(null);
     const selected = projection?.items.find(entry => entry.record.id === id); if (!selected) return;
     try {const [nextValidation, nextRecovery, nextImplementer, nextTester] = await Promise.all([
-      window.champcity.getWorkItemValidation(workflow.workflowId, id), window.champcity.getWorkflowCheckpointRecovery(workflow.workflowId, id), window.champcity.getWorkflowWorkItemCodexExecutionStatus(workflow.workflowId, id),
+      window.champcity.getStructuredWorkItemReview(workflow.workflowId, id), window.champcity.getWorkflowCheckpointRecovery(workflow.workflowId, id), window.champcity.getWorkflowWorkItemCodexExecutionStatus(workflow.workflowId, id),
       selected.implementationAttempts.at(-1) ? window.champcity.getWorkflowWorkItemTesterStatus(workflow.workflowId, id, selected.implementationAttempts.at(-1)!.id) : Promise.resolve(null),
-    ]); if (request !== loadGeneration.current) return; setValidation(nextValidation); setCheckpointRecovery(nextRecovery); setImplementer(nextImplementer); setTester(nextTester);} catch (reason) {if (request === loadGeneration.current) setError(String(reason));}
+    ]); if (request !== loadGeneration.current) return; setReview(nextValidation); setValidation(nextValidation?.validation ?? null); setCheckpointRecovery(nextRecovery); setImplementer(nextImplementer); setTester(nextTester);} catch (reason) {if (request === loadGeneration.current) setError(String(reason));}
   };
   return <ExecutionShell workflow={workflow} projection={projection} selectedId={selectedId} error={error} feedback={feedback} onReturn={onReturn} onSelect={id => void selectWorkItem(id)} browserPanel={browserPanel}>
     {projection && <>{item && <ExecutionSelectedWorkItemPanel item={item}>
@@ -128,7 +131,7 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel }:
           onInput={(requestId, answers) => {if (latest) void act(() => window.champcity.respondToWorkflowWorkItemTesterInput(workflow.workflowId, item.record.id, latest.id, requestId, answers), "Tester input sent to the exact session.", "tester");}} />
         {tester?.state === "running" && latest && <button onClick={() => void act(() => window.champcity.cancelWorkflowWorkItemTester(workflow.workflowId, item.record.id, latest.id), "Exact Tester session cancelled.", "tester")}>Cancel Tester</button>}
         </ExecutionRuntimePanel>
-        {validation && <><h3>Validator</h3><p>{validation.sourceMode} · {validation.completion.eligible ? "completion eligible" : validation.completion.blockers.join(", ")}</p><ul>{validation.criteria.map(entry => <li key={entry.criterion.id}>
+        <ReviewValidationShell review={review}>{validation && <><h3>Validator</h3><p>{validation.sourceMode} · {validation.completion.eligible ? "completion eligible" : validation.completion.blockers.join(", ")}</p><ul>{validation.criteria.map(entry => <li key={entry.criterion.id}>
           {entry.criterion.body.statement} — {entry.outcome} · {entry.policy === "semantic_ai" ? "semantic Validator" : entry.policy === "deterministic" ? "deterministic Validator" : entry.policy === "deferred_visual_phase" ? "human visual evidence at Phase close" : "human Operator decision"}{entry.reason ? ` (${entry.reason})` : ""}
           {entry.outcome === "pending" && entry.policy !== "operator_decision" && entry.policy !== "deferred_visual_phase" && <button onClick={() => void runValidation(entry.criterion.id, entry.policy)}>Validate</button>}
           {entry.criterion.body.criticality === "required" && entry.policy === "visual_human" && latest?.body.outcome === "implemented" && tester?.testerResultId && <><label>Visual outcome<select aria-label="Visual outcome" value={humanVisualOutcome} onChange={event => setHumanVisualOutcome(event.target.value as typeof humanVisualOutcome)}><option value="pass">Pass</option><option value="fail">Fail</option><option value="inconclusive">Inconclusive</option></select></label><label>Visual evidence summary<textarea value={humanSummary} onChange={event => setHumanSummary(event.target.value)} /></label>
@@ -141,7 +144,7 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel }:
           {entry.outcome === "fail" && entry.repairable && (entry.policy === "operator_decision" ? entry.decisionId : entry.validationIds.at(-1)) && <button onClick={() => void act(() => window.champcity.createWorkflowRepair(workflow.workflowId, item.record.id, (entry.policy === "operator_decision" ? entry.decisionId : entry.validationIds.at(-1))!), "Canonical Repair WorkItem created.")}>Create Repair</button>}
         </li>)}</ul></>}
         {item.record.body.workState === "validation_pending" && <button disabled={!validation?.completion.eligible} onClick={() => void act(() => window.champcity.completeWorkflowWorkItem(workflow.workflowId, item.record.id, item.record.recordVersion), "WorkItem completed.")}>Complete Work Item</button>}
-      </ExecutionSelectedWorkItemPanel>}
+      </ReviewValidationShell></ExecutionSelectedWorkItemPanel>}
       {projection.plan.phases.length > 0 && <section aria-label="Phase validation and completion"><h2>Phase validation and completion</h2>{projection.plan.phases.map(phase => {
         const review = phaseValidation[phase.phaseId]; if (!review) return <p key={phase.phaseId} role="status">Loading Phase {phase.record.body.sequence} validation state…</p>;
         const isClosed = phase.record.body.phaseState === "closed";

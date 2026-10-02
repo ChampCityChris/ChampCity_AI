@@ -1,3 +1,4 @@
+import {selectedCurrentProjectId} from "../projectState/currentProjectRegistrationService";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { workItemArtifactIdentity, workItemFormalPrefix, workItemValidationPath, workItemValidationPrefix, workItemMatchesScope, workItemScopePhaseId, type WorkItemArtifactScope } from "../workCardLoop/workItemArtifactScope";
@@ -66,6 +67,7 @@ export interface OperatorValidationAdvisoryPromptInput {
 }
 
 export function createValidationAttempt(workspaceRoot: string, phaseId: WorkItemArtifactScope, workCardId: string): ValidationAttemptResult {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Registered Project review/validation/repair uses exact SQL WorkItem commands; Markdown is projection-only.");
   const workCard = currentApprovedFormalWorkCard(workspaceRoot, phaseId, workCardId);
   const report = latestApprovedReport(workspaceRoot, phaseId, workCardId);
   const attemptNumber = nextAttemptNumber(workspaceRoot, phaseId, workCardId);
@@ -223,6 +225,7 @@ export function applyOperatorValidationDecision(
   workCardId: string,
   input: OperatorValidationDecisionInput,
 ): OperatorValidationDecisionResult {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Registered Project review/validation/repair uses exact SQL WorkItem commands; Markdown is projection-only.");
   const workCard = currentApprovedFormalWorkCard(workspaceRoot, phaseId, workCardId);
   const report = currentImplementerReport(workspaceRoot, phaseId, workCardId);
   if (report.documentReadState !== "readable" || report.readError) {
@@ -300,6 +303,7 @@ export function applyOperatorValidationDecision(
 }
 
 export function setValidationRecordDisposition(workspaceRoot: string, phaseId: WorkItemArtifactScope, workCardId: string, status: DocumentDispositionStatus) {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Registered Project review/validation/repair uses exact SQL WorkItem commands; Markdown is projection-only.");
   const record = latestValidationRecord(workspaceRoot, phaseId, workCardId);
   if (!record) throw new Error("Validation Record is required.");
   return setDocumentDisposition(workspaceRoot, record.logicalDocumentId, status);

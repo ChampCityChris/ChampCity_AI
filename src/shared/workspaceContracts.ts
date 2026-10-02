@@ -1399,6 +1399,9 @@ export interface WorkspaceMigrationResult {
 }
 
 export interface ChampCityApi {
+  getStructuredWorkItemReview(workflowId:string,workItemId:string):Promise<import("./structuredWorkItemReviewContracts").StructuredWorkItemReview>;
+  migrateStructuredWorkItemReview(workflowId:string,workItemId:string):Promise<import("./structuredWorkItemReviewContracts").StructuredWorkItemReview>;
+
   getStructuredWorkItemPlanning(workflowId: string, workItemId: string): ReturnType<ReturnType<typeof import("../main/workCardPlanning/structuredWorkItemPlanningService").createStructuredWorkItemPlanningService>["get"]>;
   saveStructuredWorkItemPlanning(workflowId: string, workItemId: string, json: string): ReturnType<ChampCityApi["getStructuredWorkItemPlanning"]>;
   reviewStructuredWorkItemPlanning(workflowId: string, workItemId: string, input: import("./projectState/architectReviewContracts").ArchitectReviewDecisionInput): ReturnType<ChampCityApi["getStructuredWorkItemPlanning"]>;

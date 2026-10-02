@@ -4125,6 +4125,10 @@
           "description": "Source Control uses native read-only controls and lays out feature and hotfix integration ancestry"
         },
         {
+          "behaviorId": "sql-review-validation-shell-exact-evidence",
+          "description": "SQL Review Validation shell shows exact evidence and leaves human actions with adapters"
+        },
+        {
           "behaviorId": "structured-wir-routing-uses-embedded-architect-and-six-route-set",
           "description": "Structured Work Intake omits branch ownership controls, while the WIR workspace presents the embedded Architect and six Existing-Project route choices."
         },
@@ -4942,14 +4946,17 @@
         "src/main/projectPlanning/structuredProjectPlanningService.ts",
         "src/main/sourceControl/workflowIntegrationService.ts",
         "src/main/workCardPlanning/structuredWorkItemPlanningService.ts",
+        "src/main/workCardValidation/structuredWorkItemReviewService.ts",
         "src/main/workPlanning/exactWorkflowPlanningService.ts",
         "src/main/workflow/**",
         "src/main/workflow/workflowExecutionApplicationService.ts",
         "src/renderer/app/ExactWorkflowPlanningWorkspace.tsx",
         "src/renderer/app/ExecutionShell.tsx",
         "src/renderer/app/FeaturePlanningWorkspace.tsx",
+        "src/renderer/app/GreenfieldExecutionWorkspace.tsx",
         "src/renderer/app/IssueWorkflowPlanningWorkspace.tsx",
         "src/renderer/app/PlanReviewShell.tsx",
+        "src/renderer/app/ReviewValidationShell.tsx",
         "src/renderer/app/StructuredPhaseLoopWorkspace.tsx",
         "src/renderer/app/StructuredPhaseMapWorkspace.tsx",
         "src/renderer/app/StructuredProjectPlanningWorkspace.tsx",
@@ -4967,6 +4974,7 @@
         "src/shared/projectState/projectStateService.ts",
         "src/shared/projectState/workItemPlanningContracts.ts",
         "src/shared/projectState/workflowTypeRegistry.ts",
+        "src/shared/structuredWorkItemReviewContracts.ts",
         "src/shared/structuredWorkRoutingContracts.ts",
         "src/shared/workflowApplicationContracts.ts",
         "test/source-control/workflow-integration-service.test.cjs",
@@ -5025,6 +5033,10 @@
         {
           "behaviorId": "feature-planning-persists-exact-workflow-intake-and-normalizes-reviewed-graph",
           "description": "Direct and WIR-routed Feature Workflows share exact-ID intake, structured durable SPS assessment semantics, and accepted assessment-fed graph normalization; Project context excludes peer Workflow plans."
+        },
+        {
+          "behaviorId": "greenfield-sql-review-repair-currentness",
+          "description": "Greenfield SQL review and Repair preserve current Tester, human Criteria and exact return lineage"
         },
         {
           "behaviorId": "issue-workflow-persists-evidence-and-accepted-rca-before-fix-graph-normalization",
@@ -13233,8 +13245,8 @@
     {
       "testPath": "test/phase-planning/phase-planning-service.test.cjs",
       "currentTestCount": {
-        "value": 6,
-        "basis": "RWS06E adds exact SQL Phase stage review and deterministic typed Phase Planning migration proofs."
+        "value": 7,
+        "basis": "RWS06E adds exact SQL Phase stage review and deterministic typed Phase Planning migration proofs. RWS06H adds SQL review/repair convergence proof."
       },
       "duration": {
         "kind": "measured",
@@ -13290,6 +13302,12 @@
           "capabilityId": "phase-execution-workflow",
           "behaviorId": "phase-planning-revisionrequested-bundle-revises-both-documents-once-and-resets-review-state",
           "proofLocator": "phase planning RevisionRequested bundle revises both documents once and resets review state",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "greenfield-sql-review-repair-currentness",
+          "proofLocator": "Greenfield SQL review and Repair preserve current Tester, human Criteria and exact return lineage",
           "proofRole": "primary"
         },
         {
@@ -17891,8 +17909,8 @@
     {
       "testPath": "test/renderer/workflow-hub-shell.test.cjs",
       "currentTestCount": {
-        "value": 24,
-        "basis": "Existing renderer navigation proof plus the EPGA-R01 single forced-conversion warning and controller apply-before-register consent gating scenarios. RWS06G adds exact shared execution proof."
+        "value": 25,
+        "basis": "Existing renderer navigation proof plus the EPGA-R01 single forced-conversion warning and controller apply-before-register consent gating scenarios. RWS06G adds exact shared execution proof. RWS06H adds SQL review/repair convergence proof."
       },
       "duration": {
         "kind": "measured",
@@ -17992,6 +18010,12 @@
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "selected-project-hub-exposes-source-control-and-work-intake-without-legacy-workflow-recovery",
           "proofLocator": "Source-backed Current Project exposes Source Control; non-source Current Project keeps Work Intake and omits the source card; neither restores Development or Issue recovery",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "sql-review-validation-shell-exact-evidence",
+          "proofLocator": "SQL Review Validation shell shows exact evidence and leaves human actions with adapters",
           "proofRole": "primary"
         },
         {

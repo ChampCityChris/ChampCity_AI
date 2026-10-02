@@ -771,3 +771,13 @@ test("Execution Shell preserves phased readiness, exact source identity and boun
   const approval=ExecutionInteractionsPanel({role:"Tester",approval:{requestId:"approval-exact",impactSummary:"Bounded proof"},onApproval:(id,decision)=>calls.push([id,decision]),onInput(){}});
   buttons(approval)[0].props.onClick();assert.deepEqual(calls.at(-1),["approval-exact","approve"]);
 });
+
+
+test("SQL Review Validation shell shows exact evidence and leaves human actions with adapters", () => {
+  const {ReviewValidationShell}=loader.loadRendererSourceModule("src/renderer/app/ReviewValidationShell.tsx"),review={workflowId:"workflow-exact",workItem:{id:"work-exact",recordVersion:4},implementations:[{id:"implementation-exact",body:{outcome:"implemented",summary:"Bounded result"}}],testers:[{id:"tester-exact",body:{implementationRecordId:"implementation-exact",recommendation:"reuse-existing-proof",rationale:"Independent review"}}],validations:[{id:"validation-exact",body:{targetEntityId:"criterion-exact",targetRecordVersion:2,validationMode:"semantic_ai",outcome:"pass"}}],decisions:[],evidence:[],checkpoints:[],repairs:[{repairId:"repair-exact",parentId:"work-exact"}],validation:{implementationRecordId:"implementation-exact",testerResultId:"tester-exact"},markdown:"Generated SQL report"};
+  const markup=renderToStaticMarkup(React.createElement(ReviewValidationShell,{review},React.createElement("button",null,"Record exact visual evidence")));
+  for(const identity of ["work-exact","implementation-exact","tester-exact","validation-exact","criterion-exact","repair-exact"])assert.ok(markup.includes(identity),identity);assert.match(markup,/Record exact visual evidence/);
+  const shell=fs.readFileSync(path.join(repoRoot,"src/renderer/app/ReviewValidationShell.tsx"),"utf8");assert.doesNotMatch(shell,/window\.champcity|JSON\.parse|onClick/);
+  const adapter=fs.readFileSync(path.join(repoRoot,"src/renderer/app/GreenfieldExecutionWorkspace.tsx"),"utf8");assert.match(adapter,/workflowType!=="project-creation"/);assert.match(adapter,/initialWorkItemId=\{props\.workItemId\}/);
+  const app=fs.readFileSync(path.join(repoRoot,"src/renderer/app/App.tsx"),"utf8");assert.match(app,/isStructuredGreenfieldExecution.*GreenfieldExecutionWorkspace/);assert.match(app,/isWorkCardReportReview && !isStructuredGreenfieldExecution/);
+});

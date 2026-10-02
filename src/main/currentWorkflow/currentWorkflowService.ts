@@ -831,6 +831,11 @@ function currentModelFromWorkCardLoopState(
   if (!workCardId) {
     return null;
   }
+  if (selectedCurrentProjectId(workspaceRoot)) return {
+    activeWorkspaceId: loopState.workspaceId, level: "work-card", stage: loopState.workspaceId === "work-card-repair" ? "repair" : loopState.workspaceId === "work-card-planning" || loopState.workspaceId === "work-card-intake" ? "planning" : "building",
+    currentPhaseId: phaseId, currentWorkCardId: workCardId, currentTarget: loopState.workspaceId === "work-card-report-review" ? "SQL Review and Validation" : loopState.workspaceId === "work-card-repair" ? "SQL Repair WorkItem" : "SQL WorkItem",
+    sourceEvidence: [], requiredAction: loopState.requiredAction, expectedOutput: "Exact SQL contract, ImplementationRecord, TesterResult and Criterion evidence.", eligibility: loopState.reason, expectedNextState: "SQL completion or exact Repair determines the next lifecycle boundary.",
+  };
   if (loopState.workspaceId === "work-card-planning") {
     const model = currentModelFromArchitectOutput(workspaceRoot, "work-card-planning", {
       level: "work-card",
