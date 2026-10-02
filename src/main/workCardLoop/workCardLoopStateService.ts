@@ -1,5 +1,4 @@
 import {selectedCurrentProjectId} from "../projectState/currentProjectRegistrationService";
-import {structuredWorkCardMap, readStructuredPhaseLoop, structuredWorkItemContractEligibility} from "../phasePlanning/structuredPhaseLoopReadProjection";
 import fs from "node:fs";
 import { workItemIntakeTargets, type WorkItemArtifactScope } from "./workItemArtifactScope";
 import path from "node:path";
@@ -189,12 +188,7 @@ export function resolveWorkCardLoopState(
     };
   }
 
-  if (selectedCurrentProjectId(workspaceRoot)) {
-    const map = structuredWorkCardMap(workspaceRoot, phaseId), active = map.candidates.filter(candidate => candidate.isActive);
-    const work = active.length === 1 ? readStructuredPhaseLoop(workspaceRoot, phaseId, "planning")?.workItems.find(work => work.id === active[0].candidateId) : null;
-    const workspaceId = map.state === "all-complete" ? "phase-validation" : !work ? "phase-work-card-selection" : work.body.workState === "validation_pending" ? "work-card-report-review" : work.body.workState === "in_progress" ? "work-card-building-review" : !work.body.contractRevision ? work.body.workItemKind === "repair" || work.body.workItemKind === "fix" && work.body.candidateKey?.startsWith("repair_") ? "work-card-repair" : "work-card-intake" : structuredWorkItemContractEligibility(workspaceRoot, phaseId, work.id).eligible ? "work-card-building-review" : "work-card-planning";
-    return {status: map.state === "needs-attention" ? "no-plan" : active.length > 1 ? "conflict" : map.state === "all-complete" ? "all-complete" : active.length ? "active" : "map-ready", workspaceId, phaseId, workCardId: work?.id, candidateId: work?.id, loopStep: workspaceId === "work-card-report-review" ? "ReviewAndValidation" : workspaceId === "work-card-repair" ? "Repair" : workspaceId === "work-card-building-review" ? "Build" : work ? "Planning" : "Map", candidates: map.candidates, sourceWorkCardPlanPath: map.sourceWorkCardPlanPath, sourceEvidence: [], requiredAction: work ? "Continue the exact SQL WorkItem lifecycle." : map.reason, reason: map.reason};
-  }
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Legacy Work Card loop is retired; use shared SQL WorkItem execution.");
   planningContext = resolvePlanningProjectionContext(workspaceRoot, planningContext);
 
   const phasePlanning = getPhasePlanningCompletion(workspaceRoot, phaseId, planningContext);
@@ -1245,7 +1239,7 @@ function formalWorkCardDocumentForTarget(
 }
 
 function readCandidates(workspaceRoot: string, phaseId: string, planningContext?: PlanningProjectionContext): WorkCardCandidate[] {
-  if (selectedCurrentProjectId(workspaceRoot)) {const review = readStructuredPhaseLoop(workspaceRoot, phaseId, "planning"); if (review?.disposition.state !== "approved") throw Error("Accepted SQL Phase Planning required."); return review.candidates;}
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Legacy Work Card candidates are retired; use shared SQL WorkItem execution.");
   const workCardPlan = requiredApproved(workspaceRoot, `planning/phases/${phaseId}/Work_Card_Plan`, ".md", planningContext);
   const workflowData = planningContext
     ? workCardPlan.metadata.canonical?.workflowData ?? {}

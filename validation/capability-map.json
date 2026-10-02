@@ -1315,14 +1315,6 @@
           "description": "Implementer Report readiness classifier distinguishes ready, invalid, and conflict states"
         },
         {
-          "behaviorId": "inactive-development-cleanup-cannot-clear-a-populated-issue-codex-status",
-          "description": "inactive Development cleanup cannot clear a populated Issue Codex status"
-        },
-        {
-          "behaviorId": "inactive-issue-cleanup-cannot-clear-a-populated-development-codex-status",
-          "description": "inactive Issue cleanup cannot clear a populated Development Codex status"
-        },
-        {
           "behaviorId": "initializer-failure-atomically-projects-bounded-unavailable-state",
           "description": "initializer failure atomically projects bounded unavailable state"
         },
@@ -1429,10 +1421,6 @@
         {
           "behaviorId": "shutdown-during-initialization-requests-cancellation-and-confirms-worker-exit",
           "description": "shutdown during initialization requests cancellation and confirms worker exit"
-        },
-        {
-          "behaviorId": "switching-issue-execution-context-clears-only-issue-presentation-and-rejects-a-stale-status-resp",
-          "description": "switching Issue execution context clears only Issue presentation and rejects a stale status response"
         },
         {
           "behaviorId": "tester-checkpoint-requires-file-change-events-to-equal-the-exact-managed-checkout-delta",
@@ -2143,7 +2131,8 @@
       "description": "Phase map, interview, planning, validation, close, and renderer transition behavior.",
       "sourcePatterns": [
         "src/main/phase*/**",
-        "src/renderer/app/*Phase*"
+        "src/renderer/app/*Phase*",
+        "test/support/phase-validation-fixtures.cjs"
       ],
       "dependsOn": [
         "canonical-document-storage",
@@ -2508,14 +2497,6 @@
         {
           "behaviorId": "projectrepository-folder-basename-constructs-the-mcp-workspace-route",
           "description": "projectRepository folder basename constructs the MCP workspace route"
-        },
-        {
-          "behaviorId": "reconstruction-repair-corpus-keeps-project-planning-ready-and-context-documents-reference-only",
-          "description": "reconstruction repair corpus keeps Project Planning ready and context documents reference-only"
-        },
-        {
-          "behaviorId": "reconstruction-repair-project-planning-blocker-has-planning-only-evidence-across-rail-and-worksp",
-          "description": "reconstruction repair Project Planning blocker has planning-only evidence across rail and workspace model"
         },
         {
           "behaviorId": "repository-change-clears-project-intake-confirmation-without-inventing-navigation",
@@ -3886,44 +3867,12 @@
           "description": "Desktop validation is Operator-owned, final, and cannot validate a reserved Implementer Report scaffold"
         },
         {
-          "behaviorId": "disposition-formal-work-card-blocks-preparation-and-late-revision-promotion-without-changing-byt",
-          "description": "${disposition} Formal Work Card blocks preparation and late revision promotion without changing bytes"
-        },
-        {
           "behaviorId": "exact-approved-repair-validation-closes-the-parent-and-releases-dependencies-only-after-close-re",
           "description": "exact Approved Repair validation closes the parent and releases dependencies only after close return"
         },
         {
           "behaviorId": "exact-revisionrequested-repair-validation-keeps-the-parent-incomplete-and-creates-the-next-norma",
           "description": "exact RevisionRequested Repair validation keeps the parent incomplete and creates the next normalized Repair"
-        },
-        {
-          "behaviorId": "formal-work-card-preparation-targets-the-active-selected-candidate",
-          "description": "formal Work Card preparation targets the active selected candidate"
-        },
-        {
-          "behaviorId": "formal-work-card-promotion-accepts-substantive-bodies-with-embedded-heading-examples",
-          "description": "formal Work Card promotion accepts substantive bodies with embedded heading examples"
-        },
-        {
-          "behaviorId": "formal-work-card-promotion-accepts-substantive-bodies-without-the-former-heading-shape",
-          "description": "formal Work Card promotion accepts substantive bodies without the former heading shape"
-        },
-        {
-          "behaviorId": "formal-work-card-promotion-context-rejects-mismatched-active-target-evidence",
-          "description": "formal Work Card promotion context rejects mismatched active target evidence"
-        },
-        {
-          "behaviorId": "formal-work-card-promotion-rejects-malformed-champcity-development-environment-block",
-          "description": "formal Work Card promotion rejects malformed champcity-development-environment block"
-        },
-        {
-          "behaviorId": "formal-work-card-promotion-validates-champcity-development-environment-block",
-          "description": "formal Work Card promotion validates champcity-development-environment block"
-        },
-        {
-          "behaviorId": "formal-work-card-retained-validators-reject-empty-and-metadata-drafts-without-final-mutation",
-          "description": "formal Work Card retained validators reject empty and metadata drafts without final mutation"
         },
         {
           "behaviorId": "invalid-and-conflicting-repair-implementer-reports-keep-approved-repair-work-card-in-implement-w",
@@ -3956,10 +3905,6 @@
         {
           "behaviorId": "repair-creation-preserves-attached-legacy-defect-slug-handoff-target",
           "description": "repair creation preserves attached legacy defect-slug handoff target"
-        },
-        {
-          "behaviorId": "repair-projection-enables-architect-preparation-and-copy-after-handoff-creation",
-          "description": "repair projection enables Architect preparation and copy after handoff creation"
         },
         {
           "behaviorId": "repair-projection-surfaces-conflicting-active-repair-basis",
@@ -4054,10 +3999,6 @@
           "description": "Work Card Plan source view renders canonical Markdown body behind Hide Source"
         },
         {
-          "behaviorId": "work-card-planning-creates-markdown-only-formal-work-card-and-approves-eligibility",
-          "description": "work card planning creates Markdown-only Formal Work Card and approves eligibility"
-        },
-        {
           "behaviorId": "work-card-planning-preparation-disables-repeated-generation-while-in-flight-and-shows-exact-loca",
           "description": "Work Card Planning preparation disables repeated generation while in flight and shows exact local errors"
         },
@@ -4125,6 +4066,7 @@
       "sourcePatterns": [
         "src/main/featurePlanning/**",
         "src/main/issuePlanning/**",
+        "src/main/issueResolution/issueResolutionService.ts",
         "src/main/phaseMap/structuredPhaseMapReadProjection.ts",
         "src/main/phaseMap/structuredPhaseMapService.ts",
         "src/main/phasePlanning/structuredPhaseLoopReadProjection.ts",
@@ -4171,6 +4113,7 @@
         "src/shared/structuredWorkRoutingContracts.ts",
         "src/shared/workflowApplicationContracts.ts",
         "test/source-control/workflow-integration-service.test.cjs",
+        "test/support/issue-close-fixtures.cjs",
         "test/workflow/deterministic-work-item-validator.test.cjs",
         "test/workflow/semantic-work-item-validator.test.cjs",
         "test/workflow/workflow-application-service.test.cjs",
@@ -13059,64 +13002,6 @@
       ]
     },
     {
-      "testPath": "test/reconstruction/reconstruction-repair01.test.cjs",
-      "currentTestCount": {
-        "value": 2,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 328,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
-      },
-      "proposedValidationLane": "integration",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "migrate",
-      "validationRoles": [
-        "capability",
-        "integration"
-      ],
-      "execution": {
-        "requiresBuild": true,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
-        "ownedResources": [
-          "temp-filesystem-isolated"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral"
-      ],
-      "dispositionReasons": [
-        "behavior-owner-will-change"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "project-planning-workflow",
-          "behaviorId": "reconstruction-repair-corpus-keeps-project-planning-ready-and-context-documents-reference-only",
-          "proofLocator": "reconstruction repair corpus keeps Project Planning ready and context documents reference-only",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "project-planning-workflow",
-          "behaviorId": "reconstruction-repair-project-planning-blocker-has-planning-only-evidence-across-rail-and-worksp",
-          "proofLocator": "reconstruction repair Project Planning blocker has planning-only evidence across rail and workspace model",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
       "testPath": "test/renderer/agent-harness-settings-workspace.test.cjs",
       "currentTestCount": {
         "value": 17,
@@ -13324,70 +13209,6 @@
           "capabilityId": "architect-browser",
           "behaviorId": "zero-size-architect-host-does-not-invoke-visible-success-attachment",
           "proofLocator": "zero-size Architect host does not invoke visible-success attachment",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/renderer/codex-execution-presentation-ownership.test.cjs",
-      "currentTestCount": {
-        "value": 3,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 192,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
-      },
-      "proposedValidationLane": "affected-capability",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability"
-      ],
-      "execution": {
-        "requiresBuild": false,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
-        "ownedResources": [
-          "repository-readonly"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral",
-        "rendered-output"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "codex-implementation-runtime",
-          "behaviorId": "inactive-development-cleanup-cannot-clear-a-populated-issue-codex-status",
-          "proofLocator": "inactive Development cleanup cannot clear a populated Issue Codex status",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "codex-implementation-runtime",
-          "behaviorId": "inactive-issue-cleanup-cannot-clear-a-populated-development-codex-status",
-          "proofLocator": "inactive Issue cleanup cannot clear a populated Development Codex status",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "codex-implementation-runtime",
-          "behaviorId": "switching-issue-execution-context-clears-only-issue-presentation-and-rejects-a-stale-status-resp",
-          "proofLocator": "switching Issue execution context clears only Issue presentation and rejects a stale status response",
           "proofRole": "primary"
         }
       ]
@@ -16548,62 +16369,8 @@
         },
         {
           "capabilityId": "work-card-workflow",
-          "behaviorId": "disposition-formal-work-card-blocks-preparation-and-late-revision-promotion-without-changing-byt",
-          "proofLocator": "${disposition} Formal Work Card blocks preparation and late revision promotion without changing bytes",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "work-card-workflow",
-          "behaviorId": "formal-work-card-preparation-targets-the-active-selected-candidate",
-          "proofLocator": "formal Work Card preparation targets the active selected candidate",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "work-card-workflow",
-          "behaviorId": "formal-work-card-promotion-accepts-substantive-bodies-with-embedded-heading-examples",
-          "proofLocator": "formal Work Card promotion accepts substantive bodies with embedded heading examples",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "work-card-workflow",
-          "behaviorId": "formal-work-card-promotion-accepts-substantive-bodies-without-the-former-heading-shape",
-          "proofLocator": "formal Work Card promotion accepts substantive bodies without the former heading shape",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "work-card-workflow",
-          "behaviorId": "formal-work-card-promotion-context-rejects-mismatched-active-target-evidence",
-          "proofLocator": "formal Work Card promotion context rejects mismatched active target evidence",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "work-card-workflow",
-          "behaviorId": "formal-work-card-promotion-rejects-malformed-champcity-development-environment-block",
-          "proofLocator": "formal Work Card promotion rejects malformed champcity-development-environment block",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "work-card-workflow",
-          "behaviorId": "formal-work-card-promotion-validates-champcity-development-environment-block",
-          "proofLocator": "formal Work Card promotion validates champcity-development-environment block",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "work-card-workflow",
-          "behaviorId": "formal-work-card-retained-validators-reject-empty-and-metadata-drafts-without-final-mutation",
-          "proofLocator": "formal Work Card retained validators reject empty and metadata drafts without final mutation",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "work-card-workflow",
           "behaviorId": "retained-work-card-standard-maps-validation-scope-to-owned-behavior",
           "proofLocator": "retained Work Card standard maps validation scope to owned behavior",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "work-card-workflow",
-          "behaviorId": "work-card-planning-creates-markdown-only-formal-work-card-and-approves-eligibility",
-          "proofLocator": "work card planning creates Markdown-only Formal Work Card and approves eligibility",
           "proofRole": "primary"
         },
         {
@@ -16668,12 +16435,6 @@
           "capabilityId": "work-card-workflow",
           "behaviorId": "repair-creation-preserves-attached-legacy-defect-slug-handoff-target",
           "proofLocator": "repair creation preserves attached legacy defect-slug handoff target",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "work-card-workflow",
-          "behaviorId": "repair-projection-enables-architect-preparation-and-copy-after-handoff-creation",
-          "proofLocator": "repair projection enables Architect preparation and copy after handoff creation",
           "proofRole": "primary"
         },
         {

@@ -1772,7 +1772,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
 
       const repair = createProjectStateEntity({ entityType: "WorkItem", projectId,
         body: { workItemKind: workflow.body.workflowType === "issue-resolution" ? "repair" : "fix",
-          ...(workflow.body.workflowType === "project-creation" ? {candidateKey: `repair_${globalThis.crypto.randomUUID().replaceAll("-", "")}`, planningOrder: (parent.body.planningOrder ?? 1)+1, planningResolution: "planned" as const, planningPreparedAt: new Date().toISOString(), contractReviewRequired: true} : {}),
+          ...(workflow.body.workflowType === "project-creation" ? {candidateKey: `repair_${globalThis.crypto.randomUUID().replaceAll("-", "")}`, planningOrder: (parent.body.planningOrder ?? 1)+1, planningResolution: "planned" as const, contractReviewRequired: true} : {}),
           title: `Repair: ${parent.body.title}`.slice(0, 512), objective: `${failureSummary.trim().slice(0, 4096 - identity.length - 3)} [${identity}]`, workState: "planned" }, principal: trustedPrincipal });
       const repairCriterion = createProjectStateEntity({ entityType: "Criterion", projectId,
         body: { statement: criterion ? `Resolve failed Criterion: ${criterion.body.statement}`.slice(0, 4096) : `Resolve production defect: ${failureSummary.trim()}`.slice(0, 4096),
@@ -1841,7 +1841,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const ownerEdges = (await unit.listRelationships(projectId, "part_of")).filter(edge => edge.fromEntityId === phaseRecord.id && !edge.endedAt);
       if (ownerEdges.length !== 1 || ownerEdges[0].toEntityId !== workflow.id) fail("Phase is not owned by the exact Workflow.");
       const repair = createProjectStateEntity({ entityType: "WorkItem", projectId, body: { workItemKind: workflow.body.workflowType === "issue-resolution" ? "repair" : "fix",
-        title: `Repair: ${criterion.body.statement}`.slice(0, 512), objective: `${failureSummary.trim().slice(0, 3500)} [${failureIdentity}]`, workState: "planned", ...(workflow.body.workflowType === "project-creation" ? {candidateKey:`phase_repair_${globalThis.crypto.randomUUID().replaceAll("-", "")}`,planningOrder:phase.workItemIds.length+1,planningResolution:"planned" as const,planningPreparedAt:new Date().toISOString(),contractReviewRequired:true} : {}) }, principal: trustedPrincipal });
+        title: `Repair: ${criterion.body.statement}`.slice(0, 512), objective: `${failureSummary.trim().slice(0, 3500)} [${failureIdentity}]`, workState: "planned", ...(workflow.body.workflowType === "project-creation" ? {candidateKey:`phase_repair_${globalThis.crypto.randomUUID().replaceAll("-", "")}`,planningOrder:phase.workItemIds.length+1,planningResolution:"planned" as const,contractReviewRequired:true} : {}) }, principal: trustedPrincipal });
       const repairCriterion = createProjectStateEntity({ entityType: "Criterion", projectId, body: { statement: `Resolve failed Phase Criterion: ${criterion.body.statement}`.slice(0, 4096),
         criticality: "required", verificationIntent: criterion.body.verificationIntent, validationPolicy: repairValidationPolicy, criterionState: "active" }, principal: trustedPrincipal });
       for (const record of [repair, repairCriterion]) {
@@ -3592,19 +3592,6 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       await unit.saveEntity(decision, null); await recordMutation(unit, {projectId, entityId: decision.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: now, changedFields: Object.keys(decision.body), defaultReason: "Review exact Phase semantics"}); await linkSemantic(unit, projectId, decision, cycle, "governs"); return cycle;
     });
   }
-  async function preparePhaseWorkItem(projectId: ProjectId, cycleId: EntityId, workItemId: EntityId) {
-    return store.transaction(projectId, async unit => {
-      const review = await phaseLoopSnapshot(unit, projectId, cycleId);
-      const work = review.workItems.find(record => record.id === workItemId);
-      if (review.cycle.body.stageKind !== "planning" || review.disposition.state !== "approved" || !work || work.body.workState !== "ready" || work.body.planningResolution !== "planned") fail("Accepted eligible exact Phase WorkItem required.");
-      if (review.workItems.some(record => record.id !== work.id && record.body.planningPreparedAt && !["closed", "cancelled"].includes(record.body.workState))) fail("Another WorkItem is already selected for preparation.");
-      for (const edge of (await unit.listRelationships(projectId)).filter(edge => !edge.endedAt && edge.relationshipType === "depends_on" && edge.fromEntityId === work.id)) {const dependency = await requiredRecord(unit, projectId, edge.toEntityId); if (dependency.entityType !== "WorkItem" || dependency.body.workState !== "closed") fail("WorkItem dependency is not complete.");}
-      if (work.body.planningPreparedAt) return work;
-      const next = validateProjectStateEntity({...work, recordVersion: work.recordVersion + 1, updatedAt: new Date().toISOString(), updatedBy: trustedPrincipal, body: {...work.body, planningPreparedAt: new Date().toISOString()}}) as ProjectStateRecord<"WorkItem">;
-      await unit.saveEntity(next, work.recordVersion); await recordMutation(unit, {projectId, entityId: work.id, fromVersion: work.recordVersion, toVersion: next.recordVersion, operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: next.updatedAt, changedFields: ["planningPreparedAt"], defaultReason: "Prepare existing Phase WorkItem without new identity"}); return next;
-    });
-  }
-
   async function greenfieldMapParent(unit: ProjectStateUnitOfWork, projectId: ProjectId, workflowId: EntityId) {
     const workflow = await requiredRecord(unit, projectId, workflowId);
     if (workflow.entityType !== "Workflow" || workflow.body.workflowType !== "project-creation" || workflow.lifecycleState !== "active" || workflow.body.workflowState !== "active") fail("Exact active Greenfield Workflow required.");
@@ -4229,7 +4216,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return pending.sort((a, b) => a.targetId.localeCompare(b.targetId) || a.criterionId.localeCompare(b.criterionId));
   }
 
-  return {saveWorkItemPlanningContract, getWorkItemPlanningReview, recordWorkItemPlanningReview, savePhaseLoopCandidate, getPhaseLoopReview, recordPhaseLoopReview, preparePhaseWorkItem, saveGreenfieldPhaseMap, getGreenfieldPhaseMap, recordGreenfieldPhaseMapReview, saveProjectPlanningCandidate, getProjectPlanningReview, recordProjectPlanningReview, closeResearchAfterAssessment, savePlanCandidate, getPlanReview, recordPlanReview, prepareArchitectWorkspace, prepareExactPlanningWorkspace, adoptLegacyArchitectReview, saveArchitectCandidate, saveGreenfieldArchitectOutput, getArchitectReviewProjection, saveArchitectReviewCycle, getCurrentArchitectReviewCycle, getArchitectReviewDisposition, recordArchitectReview, saveWorkflowIntake, recordWorkflowIntakeDecision, getWorkflowIntakeDisposition, createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
+  return {saveWorkItemPlanningContract, getWorkItemPlanningReview, recordWorkItemPlanningReview, savePhaseLoopCandidate, getPhaseLoopReview, recordPhaseLoopReview, saveGreenfieldPhaseMap, getGreenfieldPhaseMap, recordGreenfieldPhaseMapReview, saveProjectPlanningCandidate, getProjectPlanningReview, recordProjectPlanningReview, closeResearchAfterAssessment, savePlanCandidate, getPlanReview, recordPlanReview, prepareArchitectWorkspace, prepareExactPlanningWorkspace, adoptLegacyArchitectReview, saveArchitectCandidate, saveGreenfieldArchitectOutput, getArchitectReviewProjection, saveArchitectReviewCycle, getCurrentArchitectReviewCycle, getArchitectReviewDisposition, recordArchitectReview, saveWorkflowIntake, recordWorkflowIntakeDecision, getWorkflowIntakeDisposition, createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
     createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, completeTesterResultCheckpoint, createIntegrationRecord, advanceIntegrationRecord, completeWorkflowExecution, closeIntegratedWorkflow,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, createTesterResult, createWorkflowRepair, createPhaseRepair, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, recordCriterionOperatorDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,

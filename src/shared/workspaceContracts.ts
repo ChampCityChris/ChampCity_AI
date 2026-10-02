@@ -1416,8 +1416,8 @@ export interface ChampCityApi {
   getStructuredPhaseLoop(workflowId: string, phaseId: string, stageKind: "interview" | "planning"): ReturnType<ReturnType<typeof import("../main/phasePlanning/structuredPhaseLoopService").createStructuredPhaseLoopService>["get"]>;
   saveStructuredPhaseLoop(workflowId: string, phaseId: string, stageKind: "interview" | "planning", input: import("./projectState/phaseLoopContracts").PhaseLoopCandidate): ReturnType<ChampCityApi["getStructuredPhaseLoop"]>;
   reviewStructuredPhaseLoop(workflowId: string, phaseId: string, stageKind: "interview" | "planning", cycleId: string, input: import("./projectState/architectReviewContracts").ArchitectReviewDecisionInput): ReturnType<ChampCityApi["getStructuredPhaseLoop"]>;
-  getStructuredPhaseWorkIntake(phaseId: string, workItemId: string): Promise<ReturnType<typeof import("../main/phasePlanning/structuredPhaseLoopReadProjection").structuredWorkCardIntake>>;
-  prepareStructuredPhaseWorkItem(cycleId: string, workItemId: string): ReturnType<ReturnType<typeof import("../main/phasePlanning/structuredPhaseLoopService").createStructuredPhaseLoopService>["prepareWorkItem"]>;
+
+
   getStructuredPhaseMap(workflowId: string): ReturnType<ReturnType<typeof import("../main/phaseMap/structuredPhaseMapService").createStructuredPhaseMapService>["get"]>;
   saveStructuredPhaseMap(workflowId: string, candidate: import("./projectState/greenfieldPhaseMapContracts").GreenfieldPhaseMapCandidate): ReturnType<ChampCityApi["getStructuredPhaseMap"]>;
   reviewStructuredPhaseMap(workflowId: string, cycleId: string, input: import("./projectState/architectReviewContracts").ArchitectReviewDecisionInput): ReturnType<ChampCityApi["getStructuredPhaseMap"]>;

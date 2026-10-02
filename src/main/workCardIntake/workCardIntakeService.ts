@@ -1,5 +1,4 @@
 import {selectedCurrentProjectId} from "../projectState/currentProjectRegistrationService";
-import {structuredWorkCardMap, structuredWorkCardIntake} from "../phasePlanning/structuredPhaseLoopReadProjection";
 import type { PlanningDocumentSummary } from "../../shared/documents/planningDocument";
 import { workItemArtifactIdentity, workItemIntakeTargets, type ResolvedWorkItemArtifactScope } from "../workCardLoop/workItemArtifactScope";
 import type { RoutedDevelopmentExecutionBinding } from "../../shared/routedDevelopmentExecutionContracts";
@@ -214,7 +213,7 @@ export function getWorkCardIntakeProjection(
   phaseId: string,
   candidateId?: string,
 ): WorkCardIntakeProjection {
-  if (selectedCurrentProjectId(workspaceRoot)) return structuredWorkCardIntake(workspaceRoot, phaseId, candidateId);
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Legacy Work Card preparation is retired; use shared SQL WorkItem execution.");
   const context = resolveWorkCardIntakeContext(workspaceRoot, phaseId, candidateId);
   return {
     phaseId: context.phaseId,
@@ -232,7 +231,7 @@ export function getWorkCardMapProjection(
   options: WorkCardMapProjectionOptions = {},
   planningContext?: PlanningProjectionContext,
 ): WorkCardMapProjection {
-  if (selectedCurrentProjectId(workspaceRoot)) return structuredWorkCardMap(workspaceRoot, phaseId);
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Legacy Work Card preparation is retired; use shared SQL WorkItem execution.");
   return getWorkCardMapProjectionFromState(workspaceRoot, phaseId, options, planningContext);
 }
 

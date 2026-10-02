@@ -1,5 +1,4 @@
 import {selectedCurrentProjectId} from "../projectState/currentProjectRegistrationService";
-import {structuredWorkItemContractEligibility} from "../phasePlanning/structuredPhaseLoopReadProjection";
 import fs from "node:fs";
 import { workItemFormalPrefix, workItemArtifactIdentity, type WorkItemArtifactScope } from "../workCardLoop/workItemArtifactScope";
 import path from "node:path";
@@ -254,7 +253,7 @@ export function getWorkCardBuildingEligibility(
   phaseId: string,
   workCardId: string,
 ): WorkCardBuildingEligibility {
-  if (selectedCurrentProjectId(workspaceRoot)) return structuredWorkItemContractEligibility(workspaceRoot, phaseId, workCardId);
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Legacy Work Card preparation is retired; use shared SQL WorkItem execution.");
   const formal = findByPrefix(workspaceRoot, workItemFormalPrefix(phaseId, workCardId), ".md");
   if (!formal) {
     return { eligible: false, reason: "Formal Work Card is required." };

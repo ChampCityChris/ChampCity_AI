@@ -7,10 +7,6 @@ const {
   resolveCurrentRepairEvidence,
 } = require("../../dist/main/workCardRepair/workCardRepairService.js");
 const {
-  getArchitectOutputWorkspaceModel,
-  prepareArchitectOutputHandoff,
-} = require("../../dist/main/architectOutputs/architectOutputWorkspaceService.js");
-const {
   listPlanningDocuments,
   tempWorkspace,
   writeDoc,
@@ -135,49 +131,6 @@ test("repair creation preserves attached legacy defect-slug handoff target", () 
   assert.equal(result.repairMarkdownPath, oldTarget);
   assert.equal(handoff.metadata.canonical.workflowData.repairWorkCardTarget, oldTarget);
   assert.equal(handoff.metadata.artifactRevision, 1);
-});
-
-test("repair projection enables Architect preparation and copy after handoff creation", () => {
-  const root = tempWorkspace("champcity-work-card-repair-projection-");
-  const { evidencePath, reportPath, formalPath } = seedPostValidationRepairEvidence(root);
-
-  let projection = getWorkCardRepairProjection(root);
-  assert.equal(projection.state, "handoff-needed");
-  assert.equal(projection.canCreateRepairHandoff, true);
-  assert.equal(projection.repairDefectText, "Repair the workspace handoff flow.");
-  assert.equal(projection.primaryEvidenceDocument.label, "Validation Record");
-  assert.equal(projection.primaryEvidenceDocument.markdownPath, evidencePath);
-  assert.equal(projection.primaryEvidenceDocument.documentReadState, "readable");
-  assert.deepEqual(
-    projection.supportingEvidenceDocuments.map((document) => document.markdownPath),
-    [reportPath, formalPath],
-  );
-  assert.match(projection.primaryEvidenceDocument.bodyMarkdown, /Operator Validation Notes/);
-  assert.equal(projection.operatorValidationNotes, "Operator noted the failed repair UX.");
-  assert.equal(projection.advisorySummary, "Architect advised a prompt-flow repair.");
-
-  createRepairWorkCard(root, "MVP-01", "WC02", evidencePath, "postValidationRecord", "Repair the workspace handoff flow.");
-  projection = getWorkCardRepairProjection(root);
-  assert.equal(projection.state, "handoff-ready");
-  assert.equal(projection.canPrepareArchitectHandoff, true);
-  assert.equal(projection.repairWorkCardTarget, "planning/phases/MVP-01/Work_Cards/WC02-REPAIR01.md");
-
-  const prepared = prepareArchitectOutputHandoff(root, "work-card-repair");
-  assert.equal(prepared.canCopyHandoff, true);
-  projection = getWorkCardRepairProjection(root);
-  assert.equal(projection.state, "draft-pending");
-  assert.equal(projection.canCopyArchitectHandoff, true);
-  const refreshed = getArchitectOutputWorkspaceModel(root, "work-card-repair");
-  assert.match(refreshed.preparedInstruction, /Bound workspaceId: alpha/);
-  assert.match(refreshed.preparedInstruction, /Use ChampCity MCP workspaceId "alpha" only\./);
-  assert.match(refreshed.preparedInstruction, /Treat the Validation Record as the repair basis/);
-  assert.match(refreshed.preparedInstruction, /Read the Validation Record first/);
-  assert.match(refreshed.preparedInstruction, new RegExp(`Validation Record path: ${evidencePath}`));
-  assert.match(refreshed.preparedInstruction, new RegExp(`Implementer Report path: ${reportPath}`));
-  assert.match(refreshed.preparedInstruction, new RegExp(`Formal Work Card path: ${formalPath}`));
-  assert.match(refreshed.preparedInstruction, /Phase ID: MVP-01/);
-  assert.match(refreshed.preparedInstruction, /Final Repair Work Card target: planning\/phases\/MVP-01\/Work_Cards\/WC02-REPAIR01\.md/);
-  assert.doesNotMatch(refreshed.preparedInstruction, /separate Advisory Architect Review document/);
 });
 
 test("repair projection surfaces conflicting active repair basis", () => {

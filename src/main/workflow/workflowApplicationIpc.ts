@@ -2,7 +2,7 @@ import {createStructuredCloseAdvanceService} from "./structuredCloseAdvanceServi
 import {createStructuredWorkItemReviewService} from "../workCardValidation/structuredWorkItemReviewService";
 import {createStructuredWorkItemPlanningService} from "../workCardPlanning/structuredWorkItemPlanningService";
 import {createStructuredPhaseLoopService} from "../phasePlanning/structuredPhaseLoopService";
-import {structuredWorkCardIntake} from "../phasePlanning/structuredPhaseLoopReadProjection";
+
 import {createStructuredPhaseMapService} from "../phaseMap/structuredPhaseMapService";
 import {createStructuredProjectPlanningService} from "../projectPlanning/structuredProjectPlanningService";
 import { createWorkflowIntakeService } from "./workflowIntakeService";
@@ -56,8 +56,8 @@ export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcR
   registry.handle("workflow:phaseLoopGet", (_event, ...args) => {const ids = phaseArgs(args, 3); return phaseLoop.get(getCurrentProjectRoot(), ids.workflowId, ids.phaseId, ids.stageKind);});
   registry.handle("workflow:phaseLoopSave", (_event, ...args) => {const ids = phaseArgs(args, 4); if (!args[3] || typeof args[3] !== "object" || Array.isArray(args[3]) || new TextEncoder().encode(JSON.stringify(args[3])).length > 200000) throw Error("Bounded Phase candidate required."); return phaseLoop.save(getCurrentProjectRoot(), ids.workflowId, ids.phaseId, ids.stageKind, args[3] as Parameters<typeof phaseLoop.save>[4]);});
   registry.handle("workflow:phaseLoopReview", (_event, ...args) => {const ids = phaseArgs(args, 5); if (typeof args[3] !== "string" || !args[3].trim() || args[3].length > 128) throw Error("Exact Phase cycle required."); return phaseLoop.review(getCurrentProjectRoot(), ids.workflowId, ids.phaseId, ids.stageKind, args[3], args[4] as Parameters<typeof phaseLoop.review>[5]);});
-  registry.handle("workflow:phaseWorkIntakeGet", (_event, ...args) => {const phaseId = intakeId(args, 2); if (typeof args[1] !== "string" || !args[1].trim() || args[1].length > 128) throw Error("Exact WorkItem required."); return structuredWorkCardIntake(getCurrentProjectRoot(), phaseId, args[1]);});
-  registry.handle("workflow:phaseWorkPrepare", (_event, ...args) => {const cycleId = intakeId(args, 2); if (typeof args[1] !== "string" || !args[1].trim() || args[1].length > 128) throw Error("Exact WorkItem required."); return phaseLoop.prepareWorkItem(getCurrentProjectRoot(), cycleId, args[1]);});
+
+
   const phaseMap = createStructuredPhaseMapService();
   registry.handle("workflow:phaseMapGet", (_event, ...args) => phaseMap.get(getCurrentProjectRoot(), intakeId(args, 1)));
   registry.handle("workflow:phaseMapSave", (_event, ...args) => {

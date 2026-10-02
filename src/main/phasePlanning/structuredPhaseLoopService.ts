@@ -50,6 +50,5 @@ export function createStructuredPhaseLoopService() {
     const context = await get(root, workflowId, phaseId, stageKind);
     await withState(root, async (store, projectId, state) => {const cycle = await store.getEntity(projectId, cycleId); if (cycle?.entityType !== "PhaseReviewCycle" || cycle.body.workflowId !== workflowId || cycle.body.phaseId !== context.phase.id || cycle.body.stageKind !== stageKind) throw Error("Exact Phase review mismatch."); return state.recordPhaseLoopReview(projectId, cycleId, input);}); return get(root, workflowId, phaseId, stageKind);
   };
-  const prepareWorkItem = (root: string, cycleId: string, workItemId: string) => withState(root, (_store, projectId, state) => state.preparePhaseWorkItem(projectId, cycleId, workItemId));
-  return {get, save, review, prepareWorkItem};
+  return {get, save, review};
 }

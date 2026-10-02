@@ -23,8 +23,8 @@ const api: ChampCityApi = {
   getStructuredPhaseLoop: (workflowId, phaseId, stageKind) => ipcRenderer.invoke("workflow:phaseLoopGet", workflowId, phaseId, stageKind),
   saveStructuredPhaseLoop: (workflowId, phaseId, stageKind, input) => ipcRenderer.invoke("workflow:phaseLoopSave", workflowId, phaseId, stageKind, input),
   reviewStructuredPhaseLoop: (workflowId, phaseId, stageKind, cycleId, input) => ipcRenderer.invoke("workflow:phaseLoopReview", workflowId, phaseId, stageKind, cycleId, input),
-  getStructuredPhaseWorkIntake: (phaseId, workItemId) => ipcRenderer.invoke("workflow:phaseWorkIntakeGet", phaseId, workItemId),
-  prepareStructuredPhaseWorkItem: (cycleId, workItemId) => ipcRenderer.invoke("workflow:phaseWorkPrepare", cycleId, workItemId),
+
+
   getStructuredPhaseMap: (workflowId) => ipcRenderer.invoke("workflow:phaseMapGet", workflowId),
   saveStructuredPhaseMap: (workflowId, candidate) => ipcRenderer.invoke("workflow:phaseMapSave", workflowId, candidate),
   reviewStructuredPhaseMap: (workflowId, cycleId, input) => ipcRenderer.invoke("workflow:phaseMapReview", workflowId, cycleId, input),
