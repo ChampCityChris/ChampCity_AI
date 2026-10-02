@@ -3,6 +3,7 @@ import { ArchitectWorkspaceShell } from "./ArchitectWorkspaceShell";
 import { FigmaDocumentCard } from "./FigmaDocumentCard";
 import { validateArchitectCandidateOutput, type ArchitectCandidateOutput, type StructuredArchitectWorkspaceModel } from "../../shared/architectWorkspaceContracts";
 import { WorkflowStageRail } from "./WorkflowStageRail";
+import { ReviewDecisionPanel } from "./ReviewDecisionPanel";
 
 export function StructuredArchitectWorkspace(props: {workflowId: string | null; browserCompanion: ReactNode; browserVisible: boolean; onRailStatus?: (status: StructuredArchitectWorkspaceModel["railStatus"]) => void;
   stageLabel?: string; onReturn?: () => void; onNext?: () => Promise<void>; supportControls?: ReactNode; refreshToken?: number}): JSX.Element {
@@ -48,16 +49,13 @@ export function StructuredArchitectWorkspace(props: {workflowId: string | null; 
     ]} /> : null}</>}
     feedback={<>{error ? <p role="alert">{error}</p> : null}{feedback ? <p role="status">{feedback}</p> : null}{model?.materializationError ? <p role="alert">{model.materializationError}</p> : null}</>}
     reviewContent={<><FigmaDocumentCard selectedDocument={selectedDocument} documentError="" feedback="" slots={slots} selectedSlotId={selectedSlotId} onSelectSlot={slotId => setSelectedSlotId(slotId)} onCopy={() => void action(async () => {await navigator.clipboard.writeText(selectedDocument?.bodyMarkdown ?? selectedDocument?.preview ?? "");})} />
-      {showingReview ? <section className="figma-disposition-panel architect-review-disposition" aria-label="Architect Review disposition"><header><span>Architect Review Decision</span></header>
-        <label><span>Operator review notes</span><textarea value={notes} onChange={event => setNotes(event.target.value)} maxLength={4096} /></label>
-        <div className="figma-disposition-row">{(["approved", "revision_requested", "rejected"] as const).map(outcome => <button className="apply-button" key={outcome} disabled={busy || !revision || outcome === "revision_requested" && !notes.trim()}
-          onClick={() => void action(async () => {accept(await window.champcity.reviewStructuredArchitectOutput(props.workflowId!, model!.review!.cycleId, {expectedRecordVersion: model!.review!.recordVersion, outcome, notes})); setFeedback("Operator review recorded.");})}>
-          {{approved: "Approve", revision_requested: "Revision Requested", rejected: "Reject"}[outcome]}</button>)}</div></section> : null}
-      {!props.onReturn && props.onNext ? <button disabled={busy || !model?.nextStageReady} onClick={() => void action(props.onNext!)}>Continue to Project Planning</button> : null}
+      {showingReview && model?.review ? <ReviewDecisionPanel label="Review Decision" notes={notes} onNotesChange={setNotes} hasCurrentRevision={!!revision} busy={busy}
+        expectedRecordVersion={model.review.recordVersion} onReview={input => action(async () => {accept(await window.champcity.reviewStructuredArchitectOutput(props.workflowId!, model!.review!.cycleId, input)); setFeedback("Operator review recorded.");})} /> : null}
+      {!props.onReturn && props.onNext ? <section className="architect-workflow-action-panel" aria-label="Workflow action"><header>Next stage</header><button className="apply-button" disabled={busy || !model?.nextStageReady} onClick={() => void action(props.onNext!)}>Continue to Project Planning</button></section> : null}
       {props.supportControls}
       {model?.supportRecords?.length ? <details><summary>Workflow supporting records</summary><ul>{model.supportRecords.map(record => <li key={record.id}><code>{record.id}</code> · {record.entityType === "Evidence" ? record.body.description : record.entityType === "Finding" ? record.body.title : record.entityType}</li>)}</ul></details> : null}
-      <label>Architect structured JSON<textarea aria-label="Architect structured JSON" value={output} onChange={event => setOutput(event.target.value)} maxLength={100000} /></label>
-      <button disabled={busy || !model?.ready || !output.trim()} onClick={() => void action(async () => {const parsed: unknown = JSON.parse(output); validateArchitectCandidateOutput(model!.workflowType!, parsed);
-        accept(await window.champcity.saveStructuredArchitectOutput(props.workflowId!, {intakeId: model!.intakeId!, intakeVersion: model!.intakeVersion!, expectedCycleVersion: model!.cycleVersion, output: parsed as ArchitectCandidateOutput}), true); setOutput(""); setFeedback("Structured Architect output saved for review.");})}>Save Architect output</button></>}
+      <section className="architect-output-panel" aria-label="Architect Output"><header>Architect Output</header><label><span>Structured JSON</span><textarea aria-label="Architect structured JSON" value={output} onChange={event => setOutput(event.target.value)} maxLength={100000} /></label>
+      <button className="apply-button" disabled={busy || !model?.ready || !output.trim()} onClick={() => void action(async () => {const parsed: unknown = JSON.parse(output); validateArchitectCandidateOutput(model!.workflowType!, parsed);
+        accept(await window.champcity.saveStructuredArchitectOutput(props.workflowId!, {intakeId: model!.intakeId!, intakeVersion: model!.intakeVersion!, expectedCycleVersion: model!.cycleVersion, output: parsed as ArchitectCandidateOutput}), true); setOutput(""); setFeedback("Structured Architect output saved for review.");})}>Save Architect output</button></section></>}
     />;
 }

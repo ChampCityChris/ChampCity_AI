@@ -23,6 +23,6 @@ export function ArchitectWorkspaceShell(props: ArchitectWorkspaceShellProps): JS
       {props.heading}{props.context}{props.headerActions}{props.feedback}
       {props.reviewContent}{props.reviewControls}
     </div>
-    <div className="architect-browser-column">{props.browserCompanion}{props.browserActions}</div>
+    <div className="figma-browser-column">{props.browserCompanion}{props.browserActions}</div>
   </section>;
 }

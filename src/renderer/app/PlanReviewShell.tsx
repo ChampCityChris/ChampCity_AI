@@ -1,6 +1,7 @@
 import {useState, type ReactNode} from "react";
 import {ArchitectWorkspaceShell} from "./ArchitectWorkspaceShell";
 import type {ArchitectReviewDecisionInput} from "../../shared/projectState/architectReviewContracts";
+import { ReviewDecisionPanel } from "./ReviewDecisionPanel";
 
 export function PlanReviewShell(props: {title: string; workflowId: string; browserPanel: ReactNode; handoff?: string | null; projection?: string; revision?: number; cycleId?: string; disposition?: string; staleReason?: string; content?: ReactNode; onPrepare: () => Promise<void>; onSave: (json: string) => Promise<void>; onReview: (input: ArchitectReviewDecisionInput) => Promise<void>}): JSX.Element {
   const [candidate, setCandidate] = useState(""), [notes, setNotes] = useState(""), [error, setError] = useState(""), [feedback, setFeedback] = useState(""), [busy, setBusy] = useState(false);
@@ -11,5 +12,6 @@ export function PlanReviewShell(props: {title: string; workflowId: string; brows
     feedback={<>{error ? <p role="alert">{error}</p> : null}{feedback ? <p role="status">{feedback}</p> : null}</>}
     headerActions={<><button disabled={busy} onClick={() => void action(props.onPrepare, "Handoff refreshed from current SQL sources.")}>Prepare / Refresh</button><button disabled={busy || !props.handoff} onClick={() => void action(async () => navigator.clipboard.writeText(`${props.handoff}\n\nOperator revision instructions: ${notes}`), "Handoff copied.")}>Copy handoff</button></>}
     reviewContent={<>{props.content}{props.projection ? <pre>{props.projection}</pre> : <p>No structured candidate saved.</p>}<label>Architect Planning JSON<textarea maxLength={200000} value={candidate} onChange={event => setCandidate(event.target.value)} /></label><button disabled={busy || !candidate.trim()} onClick={() => void action(async () => {await props.onSave(candidate); setCandidate("");}, "Structured candidate saved for review.")}>Save for review</button></>}
-    reviewControls={<section className="figma-disposition-panel" aria-label="Planning review disposition"><header><span>Review Decision</span></header><label><span>Operator notes</span><textarea maxLength={4096} value={notes} onChange={event => setNotes(event.target.value)} /></label><div className="figma-disposition-row">{(["approved", "revision_requested", "rejected"] as const).map(outcome => <button className="apply-button" key={outcome} disabled={busy || !hasCurrentRevision || outcome === "revision_requested" && !notes.trim()} onClick={() => void action(async () => {await props.onReview({expectedRecordVersion: props.revision!, outcome, notes});}, "Exact revision disposition recorded.")}>{{approved: "Approve", revision_requested: "Revision Requested", rejected: "Reject"}[outcome]}</button>)}</div></section>} />;
+    reviewControls={hasCurrentRevision ? <ReviewDecisionPanel notes={notes} onNotesChange={setNotes} hasCurrentRevision={hasCurrentRevision} busy={busy} expectedRecordVersion={props.revision!}
+      onReview={input => action(async () => {await props.onReview(input);}, "Exact revision disposition recorded.")} /> : null} />;
 }

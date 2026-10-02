@@ -1841,7 +1841,7 @@ h1 {
 
 .figma-browser-panel {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
   color: #9aa0a6;
   background: #1a1a1a;
@@ -7929,6 +7929,31 @@ body {
   border: 1px solid var(--border);
   border-radius: 8px;
 }
+
+.shared-review-decision .figma-disposition-row button.apply-button {
+  color: var(--primary-foreground, #fff);
+  background: var(--primary);
+  border: 1px solid var(--primary);
+}
+
+.shared-review-decision .figma-disposition-row button.apply-button:hover:not(:disabled) { filter: brightness(1.08); }
+.shared-review-decision .figma-disposition-row button.apply-button:focus-visible,
+.architect-output-panel button:focus-visible,
+.architect-workflow-action-panel button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+.architect-output-panel,
+.architect-workflow-action-panel {
+  display: grid; flex: 0 0 auto; gap: 10px; min-width: 0; padding: 12px;
+  color: var(--foreground); background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+}
+.architect-output-panel header,
+.architect-workflow-action-panel header {
+  color: var(--muted-foreground); font: 650 11px "Cascadia Mono", "SFMono-Regular", Consolas, monospace; text-transform: uppercase;
+}
+.architect-output-panel label { display: grid; gap: 6px; }
+.architect-output-panel textarea { min-height: 120px; max-height: 360px; resize: vertical; }
+.architect-output-panel button,
+.architect-workflow-action-panel button { justify-self: start; }
 
 .issue-architect-browser-column.figma-browser-column,
 .issue-planning-browser-column.figma-browser-column {

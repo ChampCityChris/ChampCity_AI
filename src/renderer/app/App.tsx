@@ -3943,8 +3943,7 @@ export function App(): JSX.Element {
       : activeWorkspaceId === "project-phase-map"
       ? "Copy Phase Map Handoff"
       : "Copy Handoff";
-  const architectBrowserColumn = isArchitectPaneVisible ? (
-    <div className="figma-browser-column">
+  const architectBrowserPanel = isArchitectPaneVisible ? (
       <FigmaBrowserPanel
         hostRef={architectHostRef}
         onReload={() => void reloadArchitectBrowser()}
@@ -4499,18 +4498,18 @@ export function App(): JSX.Element {
             />
           ) : null}
 
-          {isPhaseMapFigmaWorkspace ? <StructuredPhaseMapWorkspace workflowId={greenfieldArchitectWorkflowId} browserPanel={architectBrowserColumn} onNext={async () => {await refreshCurrentModel(); setActiveWorkspaceId("phase-interview");}} /> : null}
+          {isPhaseMapFigmaWorkspace ? <StructuredPhaseMapWorkspace workflowId={greenfieldArchitectWorkflowId} browserPanel={architectBrowserPanel} onNext={async () => {await refreshCurrentModel(); setActiveWorkspaceId("phase-interview");}} /> : null}
 
-          {activeWorkspaceId === "project-planning-review" ? <StructuredProjectPlanningWorkspace workflowId={greenfieldArchitectWorkflowId} browserPanel={architectBrowserColumn} onNext={() => setActiveWorkspaceId("project-phase-map")} onRailStatus={status => setProjectPlanningModel(current => current ? {...current, railStatus: status} : current)} /> : null}
+          {activeWorkspaceId === "project-planning-review" ? <StructuredProjectPlanningWorkspace workflowId={greenfieldArchitectWorkflowId} browserPanel={architectBrowserPanel} onNext={() => setActiveWorkspaceId("project-phase-map")} onRailStatus={status => setProjectPlanningModel(current => current ? {...current, railStatus: status} : current)} /> : null}
 
           {isVisibleArchitectOutputWorkspace && activeWorkspaceId === "architect-interview" ? <StructuredArchitectWorkspace
-            workflowId={greenfieldArchitectWorkflowId} browserVisible={isArchitectPaneVisible} browserCompanion={architectBrowserColumn} onRailStatus={setArchitectInterviewRailStatus} onNext={async () => {setActiveWorkspaceId("project-planning-review");}} /> : null}
+            workflowId={greenfieldArchitectWorkflowId} browserVisible={isArchitectPaneVisible} browserCompanion={architectBrowserPanel} onRailStatus={setArchitectInterviewRailStatus} onNext={async () => {setActiveWorkspaceId("project-planning-review");}} /> : null}
 
-          {activeWorkspaceId === "phase-interview" || activeWorkspaceId === "phase-planning-bundle" ? <StructuredPhaseLoopWorkspace workflowId={greenfieldArchitectWorkflowId} phaseId={currentModel?.currentPhaseId} stageKind={activeWorkspaceId === "phase-interview" ? "interview" : "planning"} browserPanel={architectBrowserColumn} onNext={async () => {await refreshCurrentModel(); setActiveWorkspaceId(activeWorkspaceId === "phase-interview" ? "phase-planning-bundle" : "phase-work-card-selection");}} /> : null}
+          {activeWorkspaceId === "phase-interview" || activeWorkspaceId === "phase-planning-bundle" ? <StructuredPhaseLoopWorkspace workflowId={greenfieldArchitectWorkflowId} phaseId={currentModel?.currentPhaseId} stageKind={activeWorkspaceId === "phase-interview" ? "interview" : "planning"} browserPanel={architectBrowserPanel} onNext={async () => {await refreshCurrentModel(); setActiveWorkspaceId(activeWorkspaceId === "phase-interview" ? "phase-planning-bundle" : "phase-work-card-selection");}} /> : null}
           {activeWorkspaceId === "work-card-intake" ? <DerivedPhaseWorkIntakeWorkspace phaseId={currentModel?.currentPhaseId} workItemId={currentModel?.currentWorkCardId} onNext={async () => {setActiveWorkspaceId("work-card-planning");}} /> : null}
           {isStructuredGreenfieldClose && greenfieldArchitectWorkflowId ? <><CloseAdvanceWorkspace workflowId={greenfieldArchitectWorkflowId} scope={activeWorkspaceId.startsWith("phase-")?"phase":"workflow"} entityId={activeWorkspaceId.startsWith("phase-")?(currentModel?.currentPhaseId??""):greenfieldArchitectWorkflowId} onNext={next=>{if(next.workspaceId==="workflow-hub"){returnToWorkflowHub();return;}if(next.workspaceId==="workflow-execution"){void openCurrentWorkflow(greenfieldArchitectWorkflowId);return;}void refreshCurrentModel().then(()=>setActiveWorkspaceId(next.workspaceId));}} /><GreenfieldExecutionWorkspace workflowId={greenfieldArchitectWorkflowId} browserPanel={architectBrowserColumn} onReturn={()=>void refreshCurrentModel()} /></> : null}
           {isStructuredGreenfieldExecution && greenfieldArchitectWorkflowId ? <GreenfieldExecutionWorkspace workflowId={greenfieldArchitectWorkflowId} workItemId={currentModel?.currentWorkCardId} browserPanel={architectBrowserColumn} onReturn={() => {void refreshCurrentModel(); setActiveWorkspaceId("phase-work-card-selection");}} /> : null}
-          {activeWorkspaceId === "work-card-planning" && greenfieldArchitectWorkflowId && currentModel?.currentWorkCardId ? <WorkItemPlanningWorkspace workflowId={greenfieldArchitectWorkflowId} workItemId={currentModel.currentWorkCardId} browserPanel={architectBrowserColumn} onChanged={async () => {await refreshCurrentModel();}} onNext={async () => {setActiveWorkspaceId("work-card-building-review");}} /> : null}
+          {activeWorkspaceId === "work-card-planning" && greenfieldArchitectWorkflowId && currentModel?.currentWorkCardId ? <WorkItemPlanningWorkspace workflowId={greenfieldArchitectWorkflowId} workItemId={currentModel.currentWorkCardId} browserPanel={architectBrowserPanel} onChanged={async () => {await refreshCurrentModel();}} onNext={async () => {setActiveWorkspaceId("work-card-building-review");}} /> : null}
           {isVisibleArchitectOutputWorkspace && activeWorkspaceId !== "work-card-planning" && !isPhaseMapFigmaWorkspace && activeWorkspaceId !== "architect-interview" && activeWorkspaceId !== "project-planning-review" && activeWorkspaceId !== "phase-interview" && activeWorkspaceId !== "phase-planning-bundle" ? (
             <LegacyArchitectOutputWorkspace
               browserVisible={isArchitectPaneVisible}

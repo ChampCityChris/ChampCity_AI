@@ -283,7 +283,7 @@ const { IntakeWorkspaceShell } = loader.loadRendererSourceModule("src/renderer/a
 const { StructuredArchitectWorkspace } = loader.loadRendererSourceModule("src/renderer/app/StructuredArchitectWorkspace.tsx");
 test("structured Architect renders a document review column and real Browser Actions beside ChatGPT", () => {
   const markup = renderToStaticMarkup(React.createElement(StructuredArchitectWorkspace, {workflowId: "exact-workflow", browserVisible: true,
-    browserCompanion: React.createElement("aside", {"data-testid": "chat-companion"}, "ChatGPT"), onRailStatus() {}}));
+    browserCompanion: React.createElement("aside", {"data-testid": "chat-companion"}, "ChatGPT"), onRailStatus() {}, onNext: async () => {}}));
   assert.match(markup, /figma-doc-chat-workspace/);
   assert.ok(markup.indexOf("figma-doc-review-column") < markup.indexOf("chat-companion"));
   assert.match(markup, /Architect structured JSON/);
@@ -292,13 +292,22 @@ test("structured Architect renders a document review column and real Browser Act
   assert.match(markup, /Prepare \/ Refresh Handoff/);
   assert.match(markup, /Copy Handoff/);
   assert.doesNotMatch(markup, /I have reviewed this revision|Workflow &lt;code&gt;/);
+  const fs = require("node:fs"); const path = require("node:path");
+  const shell = fs.readFileSync(path.join(__dirname, "../../src/renderer/app/ArchitectWorkspaceShell.tsx"), "utf8");
+  const browser = fs.readFileSync(path.join(__dirname, "../../src/renderer/app/figma/FigmaBrowserPanel.tsx"), "utf8");
+  const css = fs.readFileSync(path.join(__dirname, "../../src/renderer/styles.css"), "utf8");
+  assert.match(shell, /className="figma-browser-column"/); assert.doesNotMatch(shell, /architect-browser-column/);
+  assert.match(css, /\.figma-browser-panel\s*\{\s*display: grid;\s*grid-template-rows: auto minmax\(0, 1fr\) auto;/);
+  assert.match(css, /\.figma-browser-column \.figma-browser-panel\s*\{\s*flex: 1 1 auto;\s*min-height: 0;/);
+  assert.doesNotMatch(browser, /figma-browser-tabbar|figma-browser-address|chatgpt\.com/);
+  assert.match(markup, /architect-output-panel/); assert.match(markup, /architect-workflow-action-panel/);
 });
 test("shared plan disposition is immediately actionable for an exact current revision", () => {
   const {PlanReviewShell} = loader.loadRendererSourceModule("src/renderer/app/PlanReviewShell.tsx");
   const markup = renderToStaticMarkup(React.createElement(PlanReviewShell, {title: "Project Planning", workflowId: "exact-workflow", browserPanel: null, projection: "SQL plan", cycleId: "cycle", revision: 3, onPrepare: async () => {}, onSave: async () => {}, onReview: async () => {}}));
   assert.match(markup, /Review Decision/); assert.match(markup, /<button class="apply-button">Approve<\/button>/); assert.match(markup, /<button class="apply-button" disabled="">Revision Requested/); assert.match(markup, /<button class="apply-button">Reject<\/button>/);
   const source = require("node:fs").readFileSync(require("node:path").join(__dirname, "../../src/renderer/app/PlanReviewShell.tsx"), "utf8");
-  assert.match(source, /expectedRecordVersion: props\.revision!/); assert.doesNotMatch(source, /viewed|revisionKey/);
+  assert.match(source, /expectedRecordVersion=\{props\.revision!\}/); assert.match(source, /ReviewDecisionPanel/); assert.doesNotMatch(source, /viewed|revisionKey/);
 });
 const { ProjectIntakeWorkspace } = loader.loadRendererSourceModule("src/renderer/app/ProjectIntakeWorkspace.tsx");
 
