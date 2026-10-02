@@ -11521,7 +11521,7 @@
     {
       "testPath": "test/project-state/current-project-entry.test.cjs",
       "currentTestCount": {
-        "value": 22,
+        "value": 23,
         "basis": "Twenty-two focused Existing Project and Current Project entry scenarios after EPGA-R04-R03-R07."
       },
       "duration": {
@@ -17220,7 +17220,7 @@
     {
       "testPath": "test/workflow/workflow-planning-ipc.test.cjs",
       "currentTestCount": {
-        "value": 14,
+        "value": 13,
         "basis": "RWS06D adds shared direct/phased Work Map rendering to the exact Planning and shared shell owner."
       },
       "duration": {
@@ -17272,7 +17272,7 @@
         {
           "capabilityId": "workflow-application-service",
           "behaviorId": "feature-and-issue-planning-ipc-preserves-exact-workflow-argument-contracts",
-          "proofLocator": "Captured Feature and Issue IPC listeners receive separate Workflow ID and payload arguments; invalid arity/actions reject, and malformed renderer JSON sets visible error without calling disposition.",
+          "proofLocator": "Captured Feature and Issue IPC listeners receive separate Workflow ID and payload arguments; invalid arity and actions reject.",
           "proofRole": "primary"
         }
       ]

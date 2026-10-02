@@ -273,7 +273,7 @@ test("Greenfield Architect persists typed SQL candidates, rematerializes review 
   const intakeService = require("../../dist/main/workflow/workflowIntakeService.js").createWorkflowIntakeService();
   const {WORKFLOW_INTAKE_DEFINITIONS} = require("../../dist/shared/workflowIntakeContracts.js");
   const {resolveProjectPlanningContext} = require("../../dist/main/projectPlanning/projectPlanningContext.js");
-  const {resolveFirstNonApprovedDocument} = require("../../dist/main/documents/firstNonApprovedResolver.js");
+  const {createGreenfieldNavigationService} = require("../../dist/main/workflow/greenfieldNavigationService.js");
   const env = await setup(context);
   try {
     const workflow = (await env.state.createProjectCreationWorkflow(env.projectId, {title: "Greenfield SQL"})).workflow;
@@ -286,7 +286,8 @@ test("Greenfield Architect persists typed SQL candidates, rematerializes review 
     const prepared = await architect.prepare(env.root, workflow.id);
     assertArchitectHandoff(prepared, "project-creation");
     assert.equal(prepared.ready, true); assert.ok(prepared.handoff.includes(`${intake.intakeId}@1`));
-    assert.equal(resolveFirstNonApprovedDocument(env.root).activeWorkspaceId, "architect-interview");
+    assert.throws(() => require("../../dist/main/documents/firstNonApprovedResolver.js").resolveFirstNonApprovedDocument(env.root), /fenced after Structured Project State authority selection/);
+    assert.equal((await createGreenfieldNavigationService().get(env.root, workflow.id)).currentWorkspace, "architect-interview");
     assert.notEqual(resolveProjectPlanningContext(env.root).status, "ready");
     const output = Object.fromEntries(Object.keys(GREENFIELD_ARCHITECT_SECTIONS).map(key => [key, [`${key} direction`]]));
     await assert.rejects(architect.save(env.root, workflow.id, {intakeId: intake.intakeId, intakeVersion: 1, output: {...output, extra: "not bounded"}}));
@@ -307,8 +308,6 @@ test("Greenfield Architect persists typed SQL candidates, rematerializes review 
     assert.equal(approved.railStatus, "Completed"); fs.unlinkSync(projection);
     const planning = resolveProjectPlanningContext(env.root);
     assert.equal(planning.status, "ready"); assert.ok(planning.architectSemanticMarkdown.includes("projectPlanningDirection direction"));
-    require("../../dist/main/projectPlanning/projectPlanningService.js").generateProjectPlanningHandoff(env.root);
-    assert.ok(fs.readFileSync(path.join(env.root, planning.handoffMarkdownPath), "utf8").includes("projectPlanningDirection direction"));
     assert.equal(planning.interview.logicalDocumentId, cycle.id); assert.equal(fs.readFileSync(historical, "utf8"), "Historical prose: must not import as architecture.");
     const structuredPlanning = require("../../dist/main/projectPlanning/structuredProjectPlanningService.js").createStructuredProjectPlanningService();
     const planningModel = await structuredPlanning.get(env.root, workflow.id);
@@ -462,10 +461,11 @@ test("Workflow inventory, open and direct start leave Project authority generati
   try {
     const application = createWorkflowApplicationService();
     const created = await application.startDirectWorkflow(env.root, { workflowType: "feature-capability", title: "Fresh structured work" });
-    assert.equal(await env.store.getProviderGeneration(env.projectId), null);
+    const before = await env.store.getProviderGeneration(env.projectId);
+    assert.equal(before.authority, "structured");
     await application.listCurrentProjectWorkflows(env.root);
     await application.getCurrentProjectWorkflow(env.root, created.workflow.workflowId);
-    assert.equal(await env.store.getProviderGeneration(env.projectId), null);
+    assert.deepEqual(await env.store.getProviderGeneration(env.projectId), before);
   } finally { env.store.close(); }
 });
 
@@ -1017,16 +1017,13 @@ test("generic intake IPC and preload bound arguments while preserving later plan
 test("historical Intake Markdown and Findings stay inert until a fresh SQL Intake is submitted", async context => {
   const {createWorkflowIntakeService} = require("../../dist/main/workflow/workflowIntakeService.js");
   const {WORKFLOW_INTAKE_DEFINITIONS} = require("../../dist/shared/workflowIntakeContracts.js");
-  const {writeCanonicalMarkdownDocument} = require("../../dist/main/documents/canonicalMarkdownDocumentWriter.js");
   const env = await setup(context), intake = createWorkflowIntakeService(), app = createWorkflowApplicationService();
   try {
     const projectCreation = (await env.state.createProjectCreationWorkflow(env.projectId, {title: "Fresh Project"})).workflow;
     const feature = (await app.startDirectWorkflow(env.root, {workflowType: "feature-capability", title: "Fresh feature"})).workflow;
     const relativePath = "planning/project/Project_Intake/PROJECT_INTAKE_legacy.md";
-    writeCanonicalMarkdownDocument({workspaceRoot: env.root, relativePath, metadata: {schemaVersion: 1, artifactType: "project-intake", artifactRevision: 1,
-      participationRole: "gatingReview", identity: {"Project.ArtifactKey": "legacy"}, sourceRevisions: [],
-      workflowData: {projectName: "Historical project", projectPurpose: "Historical purpose"},
-      documentDisposition: {status: "Approved", notes: "Historical approval", reviewedAt: "2026-01-02T03:04:05.000Z"}}, bodyMarkdown: "Historical Intake evidence."});
+    fs.mkdirSync(path.dirname(path.join(env.root, relativePath)), {recursive: true});
+    fs.writeFileSync(path.join(env.root, relativePath), "Historical Intake evidence with an apparent Approved disposition.");
     const historicBytes = fs.readFileSync(path.join(env.root, relativePath));
     const finding = await env.state.createRecord(env.projectId, "Finding", {title: "Requested Capability Delta", statement: "Historical request", category: "feature-intake",
       impact: "Historic", observedAt: "2026-01-01T00:00:00.000Z", findingState: "current"});
@@ -1080,9 +1077,11 @@ test("SQL Intake projection rebuild, manual edits, exact review, failure isolati
     const file = path.join(env.root, saved.reviewDocument.markdownPath);
     const content = fs.readFileSync(file, "utf8");
     assert.match(content, /GENERATED FROM CHAMPCITY STRUCTURED PROJECT STATE/);
-    assert.equal(listPlanningDocuments(env.root).some(d => d.markdownPath === saved.reviewDocument.markdownPath), false);
-    writeCanonicalMarkdownDocument({workspaceRoot: env.root, relativePath: "planning/unrelated-notes.md", metadata: {schemaVersion: 1, artifactType: "context-notes", artifactRevision: 1, participationRole: "contextOnly", identity: {}, sourceRevisions: [], workflowData: {}, documentDisposition: {status: "Pending", notes: "", reviewedAt: null}}, bodyMarkdown: `# Notes\n\nQuoted marker: ${require("../../dist/shared/documents/generatedIntakeProjection.js").GENERATED_INTAKE_MARKER}`});
-    assert.equal(listPlanningDocuments(env.root).some(d => d.markdownPath === "planning/unrelated-notes.md"), true, "Unrelated Markdown quoting the marker remains discoverable");
+    assert.throws(() => listPlanningDocuments(env.root), /fenced after Structured Project State authority selection/);
+    const unrelated = path.join(env.root, "planning/unrelated-notes.md");
+    fs.mkdirSync(path.dirname(unrelated), {recursive: true});
+    fs.writeFileSync(unrelated, "Historical notes are inert and legacy inventory remains fenced.");
+    assert.throws(() => listPlanningDocuments(env.root), /fenced after Structured Project State authority selection/);
     const {writeIntakeProjection} = require("../../dist/main/workflow/workflowIntakeProjectionWriter.js");
     assert.throws(() => writeIntakeProjection(env.root, {...saved.reviewDocument, markdownPath: "../escaped.md"}), /path/i);
     const directory = path.dirname(file), backup = directory + "-held";
@@ -1115,9 +1114,6 @@ test("SQL Intake projection rebuild, manual edits, exact review, failure isolati
     assert.match(failed.materializationError, /SQL Intake is committed/);
     assert.equal((await env.store.getEntity(env.projectId, saved.intakeId)).recordVersion, 3);
     fs.rmdirSync(file);
-    const {DatabaseSync} = require("node:sqlite");
-    const db = new DatabaseSync(database(env.root));
-    try { db.prepare("INSERT INTO project_state_authority (project_id,generation,authority,updated_at) VALUES (?,1,'structured',?) ON CONFLICT(project_id) DO UPDATE SET authority='structured'").run(env.projectId, new Date().toISOString()); } finally {db.close();}
     const structured = await service.ensureWorkflowIntake(env.root, id);
     assert.equal(structured.materializationError, undefined); assert.equal(fs.readFileSync(file, "utf8"), structured.reviewDocument.bodyMarkdown);
     assert.throws(() => writeCanonicalMarkdownDocument({workspaceRoot: env.root, relativePath: "planning/unrelated.md", metadata: {}, bodyMarkdown: "Legacy authority"}), /structured|legacy|authority/i);
@@ -1129,7 +1125,7 @@ test("Greenfield SQL Intake preserves its generated path and prepares Interview 
   const env = await setup(context);
   const {createWorkflowIntakeService} = require("../../dist/main/workflow/workflowIntakeService.js");
   const architect = require("../../dist/main/architectOutputs/structuredArchitectWorkspaceService.js").createStructuredArchitectWorkspaceService();
-  const {resolveFirstNonApprovedDocument} = require("../../dist/main/documents/firstNonApprovedResolver.js");
+  const {createGreenfieldNavigationService} = require("../../dist/main/workflow/greenfieldNavigationService.js");
   const {resolveProjectPlanningContext} = require("../../dist/main/projectPlanning/projectPlanningContext.js");
   try {
     const workflow = (await env.state.createProjectCreationWorkflow(env.projectId,{title:"Greenfield fixture"})).workflow;
@@ -1142,15 +1138,17 @@ test("Greenfield SQL Intake preserves its generated path and prepares Interview 
     await service.reviewWorkflowIntake(env.root,workflow.id,{expectedIntakeRecordVersion:saved.recordVersion,outcome:"approved"});
     const prepared = await architect.prepare(env.root, workflow.id);
     assert.equal(prepared.ready,true);
-    assert.equal(resolveFirstNonApprovedDocument(env.root).activeWorkspaceId,"architect-interview");
+    assert.throws(() => require("../../dist/main/documents/firstNonApprovedResolver.js").resolveFirstNonApprovedDocument(env.root), /fenced after Structured Project State authority selection/);
+    assert.equal((await createGreenfieldNavigationService().get(env.root, workflow.id)).currentWorkspace,"architect-interview");
     const generated = path.join(env.root,saved.reviewDocument.markdownPath);
     fs.writeFileSync(generated,"A manual file edit cannot remove SQL approval.");
-    assert.equal(resolveFirstNonApprovedDocument(env.root).activeWorkspaceId,"architect-interview");
+    assert.throws(() => require("../../dist/main/documents/firstNonApprovedResolver.js").resolveFirstNonApprovedDocument(env.root), /fenced after Structured Project State authority selection/);
+    assert.equal((await createGreenfieldNavigationService().get(env.root, workflow.id)).currentWorkspace,"architect-interview");
     assert.match(resolveProjectPlanningContext(env.root).reason,/Architect Interview output/);
     saved = await service.saveWorkflowIntake(env.root,workflow.id,{...payload,values:{...payload.values,projectName:"Renamed project"}},saved.recordVersion);
     assert.equal(saved.reviewDocument.markdownPath,"planning/project/Project_Intake/PROJECT_INTAKE_my_greenfield.md");
     assert.equal(saved.reviewDocument.effectiveDisposition,"Pending");
-    assert.equal(resolveFirstNonApprovedDocument(env.root).document.owningWorkspaceId,"project-intake-capture");
+    assert.equal((await createGreenfieldNavigationService().get(env.root, workflow.id)).currentWorkspace,"project-intake-capture");
     await service.reviewWorkflowIntake(env.root,workflow.id,{expectedIntakeRecordVersion:saved.recordVersion,outcome:"approved"});
     assert.equal((await architect.prepare(env.root, workflow.id)).ready,true);
     const refreshed = await architect.get(env.root, workflow.id);

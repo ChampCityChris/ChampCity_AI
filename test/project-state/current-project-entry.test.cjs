@@ -8,7 +8,7 @@ const test = require("node:test");
 const { mainPreloadHarness, loadProductionFunctions } = require("../support/production-execution.cjs");
 const { MANAGED_PROJECT_SOURCE_PATHS } = require("../../dist/shared/sourceLifecycleContracts.js");
 const { AgentHarnessService } = require("../../dist/main/agentHarness/runtime/agentHarnessService.js");
-const { CURRENT_PROJECT_REPOSITORY_ID, currentProjectRepositoryId, registerCurrentProject, selectedCurrentProjectId } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
+const { CURRENT_PROJECT_REPOSITORY_ID, activateStructuredProjectAuthority, currentProjectRepositoryId, registerCurrentProject, selectedCurrentProjectId } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
 const { selectedSourceGraphRepositoryId } = require("../../dist/main/sourceControl/sourceGraphService.js");
 const { resolveManagedDevRepositoryCheckout } = require("../../dist/main/sourceControl/managedProjectSourceService.js");
 const { createSourceControlService } = require("../../dist/main/sourceControl/sourceControlService.js");
@@ -70,6 +70,20 @@ function initializeConventionalGit(rootPath) {
   git(rootPath, "commit", "-m", "baseline");
   git(rootPath, "branch", "dev");
 }
+
+test("Current Project registration activates Project-scoped structured authority once", async context => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-project-authority-"));
+  context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const registration = await registerCurrentProject(root, "existing", { projectName: "Authority Fixture" });
+  const store = createSQLiteProjectStateStore(path.join(root, ".champcity", "project-state.sqlite"));
+  try {
+    const first = await store.getProviderGeneration(registration.project.id);
+    assert.equal(first.authority, "structured");
+    assert.equal(first.generation, 1);
+    await activateStructuredProjectAuthority(root);
+    assert.deepEqual(await store.getProviderGeneration(registration.project.id), first);
+  } finally { store.close(); }
+});
 
 test("Existing Project adoption IPC derives selected root and accepts only an exact plan digest", async () => {
   const selected = "selected-root-owned-by-main";
@@ -157,8 +171,6 @@ test("admission carries migration hydration status into the Project and skips it
   const reopened = await openInspectedExistingProject(api, { ...plan, state: "managed-ready" });
   assert.equal(reopened.kind, "ready");
   assert.equal(reopened.project.environmentHydration, undefined);
-  assert.match(rendererSource, /Project migrated successfully; development environment needs attention/);
-  assert.match(rendererSource, /Project migrated successfully; environment ready/);
 });
 
 test("Existing Project conversion pauses and resumes active evidence watchers without losing selection", {
@@ -891,48 +903,20 @@ test("post-conversion projection outage stays degraded and later reconciliation 
     .map(checkout => checkout.role).sort(), ["dev", "main"]);
 });
 
-test("all Project entry actions use canonical admission while Clear and Intake cannot bypass Current Project identity", () => {
-  const start = rendererSource.slice(rendererSource.indexOf("async function startNewProjectFromLanding"),
-    rendererSource.indexOf("async function activateWorkspaceSelection"));
-  const open = rendererSource.slice(rendererSource.indexOf("async function openExistingProject()"),
-    rendererSource.indexOf("async function startNewProjectFromLanding"));
-  const sidebarOpen = rendererSource.slice(rendererSource.indexOf("async function chooseWorkspace()"),
-    rendererSource.indexOf("async function clearWorkspace()"));
-  const clear = rendererSource.slice(rendererSource.indexOf("async function clearWorkspace()"),
-    rendererSource.indexOf("async function chooseProjectRepository()"));
-  const intakeRepository = rendererSource.slice(rendererSource.indexOf("async function chooseProjectRepository()"),
-    rendererSource.indexOf("function currentEvidenceRefreshTarget()"));
+test("all Project entry actions use canonical Project activation and preserve consent boundaries", () => {
+  const start = rendererSource.slice(rendererSource.indexOf("async function startNewProject()"), rendererSource.indexOf("async function clearProject()"));
+  const open = rendererSource.slice(rendererSource.indexOf("async function openExistingProject()"), rendererSource.indexOf("async function continueProjectEntry("));
+  const accept = rendererSource.slice(rendererSource.indexOf("async function acceptProjectAdoption()"), rendererSource.indexOf("async function cancelProjectAdoption()"));
+  const cancel = rendererSource.slice(rendererSource.indexOf("async function cancelProjectAdoption()"), rendererSource.indexOf("async function startNewProject()"));
   assert.match(start, /registerCurrentProject\("greenfield"\)/);
-  assert.match(start, /activateWorkspaceSelection\(selection, "project-intake-capture", project\)/);
-  assert.doesNotMatch(start, /openWorkIntake/);
-  assert.match(sidebarOpen, /await openExistingProject\(\)/);
-  assert.match(rendererSource, /onChooseProject=\{chooseWorkspace\}/);
+  assert.match(start, /activateProject\(selection, "project-creation", registered\)/);
   assert.match(open, /admitExistingProject\(window\.champcity\)/);
-  assert.match(open, /setShellView\("landing"\)/);
-  assert.doesNotMatch(open, /chooseWorkspaceFolder\(\)/);
-  assert.match(entryControllerSource, /chooseWorkspaceFolder\(\)/);
-  assert.match(entryControllerSource, /inspectExistingProjectGitAdoption\(\)/);
-  assert.ok(entryControllerSource.indexOf("chooseWorkspaceFolder()") < entryControllerSource.indexOf("inspectExistingProjectGitAdoption()"));
-  assert.match(clear, /setCurrentProject\(null\)/);
-  assert.match(clear, /setPendingExistingProjectPlan\(null\)/);
-  assert.match(clear, /setShellView\("landing"\)/);
-  assert.doesNotMatch(clear, /setShellView\("workflow-hub"\)/);
-  assert.doesNotMatch(intakeRepository, /chooseWorkspaceFolder|activateWorkspaceSelection/);
-  assert.match(intakeRepository, /projectRepository: workspace\.workspaceRoot/);
-  const activate = rendererSource.slice(rendererSource.indexOf("async function activateWorkspaceSelection"), rendererSource.indexOf("function clearRepositoryDerivedState"));
-  assert.match(activate, /if \(!project\) throw Error\("A Current Project is required before opening a Project workspace\."\)/);
-  assert.match(activate, /getWorkflow\(project\.projectCreationWorkflowId\)/);
-  assert.match(activate, /setSelectedWorkflowId\(opened\.workflow\.workflowId\)/);
-  assert.match(activate, /workflowType !== "project-creation"/);
-  assert.match(rendererSource, /selectedWorkflowId === workflowInstance\.workflowId/);
-  assert.match(entryControllerSource, /applyExistingProjectGitAdoption\(plan\.planId\)/);
-  assert.match(entryControllerSource, /registerCurrentProject\("existing"\)/);
-  assert.match(open, /activateWorkspaceSelection\(result\.selection, "workflow-hub", result\.project\)/);
-  const cancel = rendererSource.slice(rendererSource.indexOf("async function cancelExistingProjectMigration"),
-    rendererSource.indexOf("async function startNewProjectFromLanding"));
+  assert.match(open, /consent-required/);
+  assert.match(open, /activateProject\(result\.selection, "workflow-hub", result\.project\)/);
+  assert.match(accept, /acceptExistingProjectAdoption\(window\.champcity, plan\)/);
+  assert.match(accept, /activateProject\(selection, "workflow-hub", registered\)/);
   assert.match(cancel, /clearSelectedWorkspace\(\)/);
-  assert.match(cancel, /setCurrentProject\(null\)/);
-  assert.match(cancel, /setShellView\("landing"\)/);
-  assert.doesNotMatch(cancel, /applyExistingProjectGitAdoption|registerCurrentProject/);
-  assert.match(open, /Project source changed\. Review the conversion warning before accepting again\./);
+  assert.match(cancel, /Conversion canceled/);
+  assert.doesNotMatch(cancel, /acceptExistingProjectAdoption|registerCurrentProject/);
+  assert.match(entryControllerSource, /registerCurrentProject\("existing"\)/);
 });

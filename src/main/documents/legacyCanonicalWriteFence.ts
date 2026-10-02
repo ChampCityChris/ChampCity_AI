@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
 
 const cutoverFences = new Set<string>();
 
@@ -33,9 +34,11 @@ function assertLegacyCanonicalAccessAllowed(workspaceRoot: string, action: "read
   const databasePath = path.join(appRoot, "project-state.sqlite");
   if (!fs.existsSync(databasePath)) return;
   if (fs.lstatSync(databasePath).isSymbolicLink() || !fs.lstatSync(databasePath).isFile()) throw Error("Project State authority store is invalid.");
+  const projectId = selectedCurrentProjectId(root);
+  if (!projectId) return;
   const database = new DatabaseSync(databasePath, { readOnly: true });
   try {
-    const row = database.prepare("SELECT COUNT(*) AS selected FROM project_state_authority WHERE authority = 'structured'").get() as { selected: number };
-    if (row.selected > 0) throw Error(`Legacy canonical Markdown ${action} are fenced after Structured Project State authority selection.`);
+    const row = database.prepare("SELECT authority FROM project_state_authority WHERE project_id = ?").get(projectId) as { authority?: string } | undefined;
+    if (row?.authority === "structured") throw Error(`Legacy canonical Markdown ${action} are fenced after Structured Project State authority selection.`);
   } finally { database.close(); }
 }

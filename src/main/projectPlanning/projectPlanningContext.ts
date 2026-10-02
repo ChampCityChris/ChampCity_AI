@@ -71,11 +71,11 @@ export function resolveProjectPlanningContext(
   planningContext?: PlanningProjectionContext,
 ): ProjectPlanningContext {
   try {
-    const legacyDocuments = listPlanningDocuments(planningContext ?? workspaceRoot);
     const structured = readProjectCreationIntakeProjection(workspaceRoot);
     const sqlIntake = structured?.reviewDocument;
     if (selectedCurrentProjectId(workspaceRoot) && !sqlIntake) return notReady("Exact SQL Project Creation Intake and approved Architect cycle are required before Project Planning. Historical Interview Markdown is evidence only.", []);
-    const documents = sqlIntake ? [...legacyDocuments.filter(document => document.markdownPath !== sqlIntake.markdownPath), sqlIntake] : legacyDocuments;
+    const legacyDocuments = sqlIntake ? [] : listPlanningDocuments(planningContext ?? workspaceRoot);
+    const documents = sqlIntake ? [...legacyDocuments, sqlIntake] : legacyDocuments;
     const intakeCorpus = analyzeProjectIntakeCorpus(documents);
     if (structured ? !sqlIntake : intakeCorpus.state === "open") {
       return notReady("Approved current Project Intake is required before Project Planning.", []);

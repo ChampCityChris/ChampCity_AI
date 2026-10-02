@@ -5,6 +5,8 @@ const path = require("node:path");
 const test = require("node:test");
 const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
 const { createProjectWorkflowStateFacade } = require("../../dist/main/projectState/projectWorkflowStateFacade.js");
+const { CURRENT_PROJECT_REGISTRATION_RESOURCE, activateStructuredProjectAuthority } = require("../../dist/main/projectState/currentProjectRegistrationService.js");
+const { createProjectStateService } = require("../../dist/shared/projectState/projectStateService.js");
 const { writeCanonicalMarkdownDocument, writeCanonicalMarkdownDocumentOnce,
   replaceCanonicalMarkdownBodyPreservingMetadata } = require("../../dist/main/documents/canonicalMarkdownDocumentWriter.js");
 
@@ -39,7 +41,7 @@ test("Project, Architect Planning and Work Intake execute from Structured Projec
     objective: "Implement", workItems: [{ workItemKind: "feature", title: "Work", objective: "Deliver" }] }] });
   assert.equal(plan.phases.length, 1);
   assert.equal(plan.workflow.body.workflowType, "project-creation");
-  assert.equal(plan.workflow.body.title, "Project Creation / Greenfield");
+  assert.equal(plan.workflow.body.title, "Greenfield Project");
   assert.equal(plan.workflow.body.currentWorkspace, "project-planning");
   await assert.rejects(facade.createProjectPlan(project.id, { workflowType: "project-creation", phases: [{ title: "Phase 2",
     objective: "Implement", workItems: [{ workItemKind: "feature", title: "More work", objective: "Deliver" }] }] }), /non-repeatable project-creation Workflow/);
@@ -62,6 +64,7 @@ test("legacy canonical writer remains compatible before cutover and is fenced by
   const { root, store, facade } = fixture(context);
   const { project } = await facade.createProject({ name: "Synthetic", purpose: "Build", repository: {
     provider: "git", repositoryId: "repository-1", locator: "repo://synthetic" } });
+  await createProjectStateService(store, operator).createRecord(project.id, "ProjectResource", CURRENT_PROJECT_REGISTRATION_RESOURCE);
   const relativePath = "planning/project/PROJECT.md";
   const input = { workspaceRoot: root, relativePath, bodyMarkdown: "# Legacy Project\n",
     metadata: { schemaVersion: 1, artifactType: "project-profile", artifactRevision: 1, participationRole: "contextOnly",
@@ -72,8 +75,12 @@ test("legacy canonical writer remains compatible before cutover and is fenced by
   await store.transaction(project.id, async unit => unit.advanceProviderGeneration({ projectId: project.id, generation: 1,
     authority: "legacy", updatedAt: "2026-09-20T12:00:00.000Z" }, null));
   writeCanonicalMarkdownDocument({ ...input, bodyMarkdown: "# Still Legacy\n" });
-  await store.transaction(project.id, async unit => unit.advanceProviderGeneration({ projectId: project.id, generation: 2,
-    authority: "structured", updatedAt: "2026-09-20T12:01:00.000Z" }, 1));
+  await activateStructuredProjectAuthority(root);
+  await activateStructuredProjectAuthority(root);
+  assert.equal((await store.getProviderGeneration(project.id)).generation, 2);
+  await assert.rejects(store.transaction(project.id, async unit => unit.advanceProviderGeneration({ projectId: project.id, generation: 3,
+    authority: "structured", updatedAt: "2026-09-20T12:02:00.000Z" }, 1)), /stale|generation/i);
+  assert.throws(() => require("../../dist/main/documents/planningDocumentService.js").listPlanningDocuments(root), /fenced after Structured Project State authority selection/);
   const current = fs.readFileSync(path.join(root, relativePath), "utf8");
   assert.notEqual(current, before);
   assert.throws(() => writeCanonicalMarkdownDocument(input), /fenced after Structured Project State authority selection/);

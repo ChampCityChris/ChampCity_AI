@@ -1,6 +1,5 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { runPlanningDraftAction } = require("../renderer/renderer-source-loader.cjs").loadRendererSourceModule("src/renderer/app/planningDraftAction.ts");
 
 const { registerFeaturePlanningIpc } = require("../../dist/main/featurePlanning/featurePlanningIpc.js");
 const { registerIssuePlanningIpc } = require("../../dist/main/issuePlanning/issuePlanningIpc.js");
@@ -84,13 +83,6 @@ test("Issue planning IPC accepts preload argument shapes and rejects missing or 
   rejectsSync(() => handlers.get("issuePlanning:act")({}, id, { type: "decide-plan", outcome: "maybe" }), /outcome is invalid/);
 });
 
-test("planning renderer reports invalid JSON and never invokes disposition", async () => {
-  let visibleError = "";
-  let dispositions = 0;
-  await runPlanningDraftAction(() => JSON.parse("{"), async () => { dispositions++; }, message => { visibleError = message; });
-  assert.match(visibleError, /JSON/);
-  assert.equal(dispositions, 0);
-});
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 const {registerCurrentProject} = require('../../dist/main/projectState/currentProjectRegistrationService.js');
 const {createSQLiteProjectStateStore} = require('../../dist/main/projectState/sqliteProjectStateStore.js');

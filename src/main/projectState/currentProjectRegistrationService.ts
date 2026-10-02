@@ -92,6 +92,25 @@ export async function currentProjectRepositoryId(projectRoot: string): Promise<s
   } finally { store.close(); }
 }
 
+/** Advances the exact registered Current Project to structured authority with generation CAS. */
+export async function activateStructuredProjectAuthority(projectRoot: string): Promise<void> {
+  const canonicalRoot = fs.realpathSync(projectRoot);
+  const projectId = selectedCurrentProjectId(canonicalRoot);
+  if (!projectId) throw Error("A registered Current Project is required to activate Structured Project State authority.");
+  const { database } = containedProjectState(canonicalRoot);
+  const store = createSQLiteProjectStateStore(database);
+  try {
+    await store.transaction(projectId, async unit => {
+      const project = await unit.getProject(projectId);
+      if (!project || project.lifecycleState !== "active") throw Error("The registered Current Project is unavailable for authority activation.");
+      const current = await unit.getProviderGeneration(projectId);
+      if (current?.authority === "structured") return;
+      await unit.advanceProviderGeneration({ projectId, generation: (current?.generation ?? 0) + 1,
+        authority: "structured", updatedAt: new Date().toISOString() }, current?.generation ?? null);
+    });
+  } finally { store.close(); }
+}
+
 /** Establishes or opens the Current Project independently from its optional Git Repository. */
 export async function registerCurrentProject(projectRoot: string, mode: CurrentProjectRegistrationMode,
   options: { projectName?: string; sourceRepositoryId?: string } = {}): Promise<CurrentProjectRegistration> {
@@ -142,6 +161,7 @@ export async function registerCurrentProject(projectRoot: string, mode: CurrentP
     const marker = registrationMarkers[0];
     if (!result || marker.entityType !== "ProjectResource" || sources.length > 1)
       throw Error("Current Project registration could not be verified.");
+    await activateStructuredProjectAuthority(canonicalRoot);
     return { project: result.project, projectResource: marker, repositoryResource: (sources[0] as ProjectStateRecord<"ProjectResource"> | undefined) ?? null,
       projectRoot: canonicalRoot, mode, created };
   } finally { store.close(); }
