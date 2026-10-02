@@ -14,6 +14,15 @@ import {ExecutionShell, ExecutionSelectedWorkItemPanel, ExecutionRuntimePanel, E
 
 type Props = { workflow: WorkflowInstanceSummary; onReturn: () => void; browserPanel: ReactNode; initialWorkItemId?: string; onProjectionChanged?: () => Promise<void> };
 
+/** Preserve explicit selection; otherwise prefer execution or unblocked contract planning. */
+export function selectExecutionWorkItem(items: WorkflowExecutionProjection["items"], selectedId: string) {
+  const open = items.filter(item => !["closed", "cancelled"].includes(item.record.body.workState));
+  return items.find(item => item.record.id === selectedId)
+    ?? open.find(item => item.eligibility.eligible)
+    ?? open.find(item => item.eligibility.blockers.every(blocker => blocker === "work-item-contract-review-required"))
+    ?? open[0] ?? items[0];
+}
+
 export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel, initialWorkItemId, onProjectionChanged }: Props): JSX.Element {
   const loadGeneration = useRef(0), selectedIdentity = useRef(initialWorkItemId ?? "");
   const [projection, setProjection] = useState<WorkflowExecutionProjection | null>(null);
@@ -39,7 +48,7 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel, i
     const request = ++loadGeneration.current;
     try {
       const [next, models] = await Promise.all([window.champcity.getWorkflowExecutionProjection(workflow.workflowId), window.champcity.getCodexManagedRuntimeStatus()]);
-      const selected = next.items.find(item => item.record.id === selectedIdentity.current) ?? next.items.find(item => item.eligibility.eligible && !["closed", "cancelled"].includes(item.record.body.workState)) ?? next.items.find(item => !["closed", "cancelled"].includes(item.record.body.workState)) ?? next.items[0];
+      const selected = selectExecutionWorkItem(next.items, selectedIdentity.current);
       const phaseEntries = await Promise.all(next.plan.phases.map(async phase => {try {return [phase.phaseId, await window.champcity.getWorkflowPhaseValidation(workflow.workflowId, phase.phaseId)] as const;} catch {return null;}}));
       const [nextValidation, nextRecovery, nextImplementer, nextTester] = selected ? await Promise.all([
         window.champcity.getStructuredWorkItemReview(workflow.workflowId, selected.record.id), window.champcity.getWorkflowCheckpointRecovery(workflow.workflowId, selected.record.id), window.champcity.getWorkflowWorkItemCodexExecutionStatus(workflow.workflowId, selected.record.id),

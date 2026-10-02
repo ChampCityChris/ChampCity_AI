@@ -542,6 +542,15 @@ test("Project Creation selection is SQL-driven and does not use the Markdown Wor
   assert.match(source, /<WorkflowExecutionWorkspace workflow=\{workflow\}/);
   assert.match(source, /onProjectionChanged=\{refresh\}/);
   assert.doesNotMatch(source, /getStructuredPhaseWorkIntake|prepareStructuredPhaseWorkItem|work-card-intake/);
+  const {selectExecutionWorkItem}=loader.loadRendererSourceModule("src/renderer/app/WorkflowExecutionWorkspace.tsx");
+  for (const workflowType of ["project-creation","feature-capability","issue-resolution","refactor-migration","integration-composition","infrastructure-platform","research-prototype"]) {
+    const item=(id,blockers,workState="planned")=>({record:{id,body:{workState}},eligibility:{eligible:!blockers.length,blockers}});
+    const blocked=item("a-dependent",["dependency:z-first","work-item-contract-review-required"]),first=item("z-first",["work-item-contract-review-required"]),later=item("b-later-phase",["prior-phase:phase-1","work-item-contract-review-required"]);
+    assert.equal(selectExecutionWorkItem([blocked,later,first],"").record.id,"z-first",workflowType);
+    assert.equal(selectExecutionWorkItem([blocked,later,first],"a-dependent").record.id,"a-dependent");
+    assert.equal(selectExecutionWorkItem([blocked,first,item("ready",[])],"").record.id,"ready");
+    assert.equal(selectExecutionWorkItem([item("closed",[],"closed"),first],"").record.id,"z-first");
+  }
   assert.doesNotMatch(source, /getWorkCardMapProjection|WorkCardMapWorkspace/);
   const app = fs.readFileSync(path.join(repoRoot, "src/renderer/app/App.tsx"), "utf8");
   assert.match(app, /<StructuredWorkflowWorkspace/);
