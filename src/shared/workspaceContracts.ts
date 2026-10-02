@@ -1512,102 +1512,44 @@ export interface ChampCityApi {
   listAgentHarnessRegisteredWorkspaces: () => Promise<AgentHarnessWorkspaceRegistrySnapshot>;
   chooseAndRegisterAgentHarnessWorkspace: () => Promise<AgentHarnessWorkspaceRegistrationResult>;
   unregisterAgentHarnessWorkspace: (workspaceId: string) => Promise<AgentHarnessWorkspaceRegistrySnapshot>;
-  listDocuments: () => Promise<PlanningDocumentSummary[]>;
-  readDocument: (logicalDocumentId: string) => Promise<PlanningDocumentDetail>;
-  setDocumentDisposition: (
-    logicalDocumentId: string,
-    status: DocumentDispositionStatus,
-  ) => Promise<DocumentDispositionTransactionResult>;
-  previewDispositionInitialization: () => Promise<InitializationPreview>;
-  applyDispositionInitialization: () => Promise<InitializationResult>;
-  previewWorkspaceMigration: () => Promise<WorkspaceMigrationPreview>;
-  applyWorkspaceMigration: () => Promise<WorkspaceMigrationResult>;
-  resolveCurrentDocument: () => Promise<FirstNonApprovedResult>;
-  discoverIssueInventory: () => Promise<IssueInventoryProjection>;
-  createLightweightIssueRecord: (input: NewIssueInput) => Promise<CreateIssueResult>;
-  getIssueArchitectPlanningProjection: (issueId: string | null) => Promise<IssueArchitectPlanningProjection>;
-  prepareIssueArchitectPlanningHandoff: (issueId: string) => Promise<IssueArchitectPlanningActionResult>;
-  copyIssueArchitectPlanningHandoff: (issueId: string) => Promise<IssueArchitectPlanningActionResult>;
-  promoteIssueArchitectPlanningDraft: (issueId: string) => Promise<IssueArchitectPlanningActionResult>;
-  applyIssueArchitectReview: (issueId: string, input: IssueArchitectReviewInput) => Promise<IssueArchitectPlanningMutationResult>;
-  getIssuePlanningProjection: (issueId: string | null) => Promise<IssuePlanningProjection>;
-  getIssueResolutionNavigationProjection: (issueId: string | null) => Promise<IssueResolutionNavigationProjection>;
-  getIssueValidationProjection: (issueId: string | null) => Promise<IssueValidationProjection>;
-  applyIssueValidationDecision: (
-    issueId: string,
-    input: IssueValidationDecisionInput,
-  ) => Promise<IssueValidationMutationResult>;
-  getIssueCloseProjection: (issueId: string | null) => Promise<IssueCloseProjection>;
-  closeIssue: (
-    issueId: string,
-    input: IssueCloseActionInput,
-  ) => Promise<IssueCloseActionResult>;
-  prepareIssuePlanningHandoff: (issueId: string) => Promise<IssuePlanningActionResult>;
-  copyIssuePlanningHandoff: (issueId: string) => Promise<IssuePlanningActionResult>;
-  applyIssuePlanningReview: (issueId: string, input: IssueArchitectReviewInput) => Promise<IssuePlanningMutationResult>;
-  getIssueFixCardProjection: (
-    issueId: string | null,
-    currentStep?: IssueFixCardLoopStepId,
-  ) => Promise<IssueFixCardProjection>;
-  selectIssueFixCardCandidate: (
-    issueId: string,
-    fixCardId: string,
-    currentStep?: IssueFixCardLoopStepId,
-  ) => Promise<IssueFixCardActionResult>;
-  prepareIssueFixCardPlanningHandoff: (
-    issueId: string,
-    currentStep?: IssueFixCardLoopStepId,
-  ) => Promise<IssueFixCardActionResult>;
-  copyIssueFixCardPlanningHandoff: (
-    issueId: string,
-    currentStep?: IssueFixCardLoopStepId,
-  ) => Promise<IssueFixCardActionResult>;
-  applyIssueFixCardContractReview: (
-    issueId: string,
-    input: IssueArchitectReviewInput,
-    currentStep?: IssueFixCardLoopStepId,
-  ) => Promise<IssueFixCardMutationResult>;
-  reserveIssueFixCardImplementerReport: (
-    issueId: string,
-    currentStep?: IssueFixCardLoopStepId,
-  ) => Promise<IssueFixCardActionResult>;
-  copyIssueFixCardAdvisoryReviewPrompt: (
-    issueId: string,
-    currentStep?: IssueFixCardLoopStepId,
-  ) => Promise<IssueFixCardActionResult>;
-  applyIssueFixCardValidationDecision: (
-    issueId: string,
-    input: IssueFixCardValidationDecisionInput,
-    currentStep?: IssueFixCardLoopStepId,
-  ) => Promise<IssueFixCardMutationResult>;
-  prepareIssueFixCardRepairHandoff: (
-    issueId: string,
-    currentStep?: IssueFixCardLoopStepId,
-  ) => Promise<IssueFixCardActionResult>;
-  copyIssueFixCardRepairHandoff: (
-    issueId: string,
-    currentStep?: IssueFixCardLoopStepId,
-  ) => Promise<IssueFixCardActionResult>;
-  closeIssueFixCard: (
-    issueId: string,
-    currentStep?: IssueFixCardLoopStepId,
-  ) => Promise<IssueFixCardMutationResult>;
-  getIssueCodexImplementerExecutionStatus: (
-    issueId: string,
-    fixCardId: string,
-    currentImplementationId?: string,
-  ) => Promise<CodexImplementerExecutionModel>;
-  startIssueCodexImplementerExecution: (
-    issueId: string,
-    fixCardId: string,
-    currentImplementationId: string | undefined,
-    selection: CodexModelSelection,
-  ) => Promise<CodexImplementerExecutionModel>;
-  repairIssueDevelopmentEnvironment: (
-    issueId: string,
-    fixCardId: string,
-    currentImplementationId?: string,
-  ) => Promise<import("./developmentEnvironmentContracts").DevelopmentEnvironmentPreflightResult>;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   getArchitectBrowserFoundationStatus: () => Promise<ArchitectBrowserFoundationStatus>;
   onArchitectBrowserFoundationStatus: (
     listener: (status: ArchitectBrowserFoundationStatus) => void,
@@ -1626,22 +1568,16 @@ export interface ChampCityApi {
   ) => Promise<ArchitectBrowserFoundationStatus>;
   confirmArchitectSignedIn: () => Promise<ArchitectBrowserFoundationStatus>;
   reloadArchitectBrowser: () => Promise<ArchitectBrowserFoundationStatus>;
-  getProjectPlanningWorkspaceModel: () => Promise<ProjectPlanningWorkspaceModel>;
-  getArchitectOutputWorkspaceModel: (workspaceId: WorkspaceId) => Promise<ArchitectOutputWorkspaceModel>;
-  prepareArchitectOutputHandoff: (workspaceId: WorkspaceId) => Promise<ArchitectOutputWorkspaceModel>;
-  copyArchitectOutputHandoff: (workspaceId: WorkspaceId) => Promise<RuntimeActionResult>;
-  preparePhaseInterviewFinalDraftHandoff: () => Promise<ArchitectOutputWorkspaceModel>;
-  copyPhaseInterviewFinalDraftHandoff: () => Promise<RuntimeActionResult>;
-  reviewArchitectOutput: (
-    workspaceId: WorkspaceId,
-    status: DocumentDispositionStatus,
-    operatorReviewNotes: string,
-    presentedRevisions: ArchitectOutputPresentedSlotRevision[],
-    selectedDocumentId?: string | null,
-  ) => Promise<ArchitectOutputReviewResult>;
-  getCurrentWorkspaceModel: () => Promise<CurrentWorkspaceModel>;
-  getPhaseValidationActionProjection: () => Promise<PhaseValidationActionProjection>;
-  getCodexImplementerExecutionStatus: () => Promise<CodexImplementerExecutionModel>;
+
+
+
+
+
+
+
+
+
+
   getWorkflowWorkItemCodexExecutionStatus: (workflowId: string, workItemId: string) => Promise<CodexImplementerExecutionModel>;
   getWorkflowWorkItemTesterStatus: (workflowId: string, workItemId: string, implementationRecordId: string) => Promise<CodexTesterExecutionModel>;
   getWorkflowCheckpointRecovery: (workflowId: string, workItemId: string) => Promise<import("./workflowApplicationContracts").WorkflowCheckpointRecoveryProjection>;
@@ -1652,51 +1588,31 @@ export interface ChampCityApi {
   retryCodexRuntime: () => Promise<import("./codexRuntimeContracts").CodexManagedRuntimeStatus>;
   refreshCodexConnections: () => Promise<import("./codexConnectionContracts").ManagedCodexConnectionsStatus>;
   setCodexConnectionEnabled: (name: string, enabled: boolean) => Promise<import("./codexConnectionContracts").ManagedCodexConnectionsStatus>;
-  startCodexImplementerExecution: (selection: CodexModelSelection) => Promise<CodexImplementerExecutionModel>;
+
   startWorkflowWorkItemCodexExecution: (workflowId: string, workItemId: string, selection: CodexModelSelection) => Promise<CodexImplementerExecutionModel>;
   startWorkflowWorkItemTester: (workflowId: string, workItemId: string, implementationRecordId: string, selection: CodexModelSelection) => Promise<CodexTesterExecutionModel>;
   cancelWorkflowWorkItemTester: (workflowId: string, workItemId: string, implementationRecordId: string) => Promise<CodexTesterExecutionModel>;
   respondToWorkflowWorkItemTesterApproval: (workflowId: string, workItemId: string, implementationRecordId: string, requestId: string, decision: "approve" | "deny") => Promise<CodexTesterExecutionModel>;
   respondToWorkflowWorkItemTesterInput: (workflowId: string, workItemId: string, implementationRecordId: string, requestId: string, answers: Record<string, string[]>) => Promise<CodexTesterExecutionModel>;
-  repairDevelopmentEnvironment: () => Promise<import("./developmentEnvironmentContracts").DevelopmentEnvironmentPreflightResult>;
+
   respondToCodexApproval: (response: CodexApprovalResponse) => Promise<CodexImplementerExecutionModel>;
   respondToCodexUserInput: (response: CodexUserInputResponse) => Promise<CodexImplementerExecutionModel>;
   respondToCodexMcpElicitation: (response: CodexMcpElicitationResponse) => Promise<CodexImplementerExecutionModel>;
   cancelCodexImplementerExecution: (identity?: { workflowId: string; workItemId: string }) => Promise<CodexImplementerExecutionModel>;
-  generateCurrentHandoff: () => Promise<RuntimeActionResult>;
-  getWorkCardMapProjection: (
-    phaseId: string,
-    options?: WorkCardMapProjectionOptions,
-  ) => Promise<RuntimeActionResult>;
-  beginWorkCardPlanning: (
-    phaseId: string,
-    candidateId: string,
-    options?: BeginWorkCardPlanningOptions,
-  ) => Promise<RuntimeActionResult>;
-  getCurrentCloseProjection: () => Promise<RuntimeActionResult>;
-  getCurrentRepairWorkspaceProjection: () => Promise<RuntimeActionResult>;
-  getCloseReturnSelectionProjection: () => Promise<RuntimeActionResult>;
-  generateCloseReturnNextIntakeHandoff: (candidateId: string) => Promise<RuntimeActionResult>;
-  copyCurrentWorkCardAdvisoryReviewPrompt: () => Promise<RuntimeActionResult>;
-  applyOperatorValidationDecisionForCurrentWorkCard: (
-    input: OperatorValidationDecisionInput,
-    selectedDocumentId?: string | null,
-  ) => Promise<CurrentWorkflowMutationResult>;
-  applyCurrentDisposition: (
-    status: DocumentDispositionStatus,
-    operatorReviewNotes?: string,
-    targetWorkspaceId?: WorkspaceId,
-  ) => Promise<RuntimeActionResult>;
-  createRepairForCurrentFailure: (defect?: string) => Promise<RuntimeActionResult>;
-  createValidationAttemptForCurrentWorkCard: () => Promise<RuntimeActionResult>;
-  createPhaseCloseoutForCurrentPhase: (
-    closureDecision: ClosureDecision,
-    rationale: string,
-  ) => Promise<RuntimeActionResult>;
-  createProjectCloseoutForCurrentProject: (
-    closureDecision: ClosureDecision,
-    rationale: string,
-  ) => Promise<RuntimeActionResult>;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }
 
 export const visibleWorkspaceDefinitions: readonly WorkspaceDefinition[] = createWorkspaceRegistry([

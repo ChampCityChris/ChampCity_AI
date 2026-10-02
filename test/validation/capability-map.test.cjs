@@ -257,6 +257,5 @@ test("protector sets expose primary, complementary, overlapping, and redundant r
   ));
   assert.ok(protectors.every((protector) => protector.primary.length === 1));
   assert.ok(protectors.some((protector) => protector.complementary.length > 0), "map must expose complementary proof");
-  assert.ok(protectors.some((protector) => protector.overlapping.length > 0), "map must expose overlapping proof");
-  assert.ok(protectors.every((protector) => Array.isArray(protector.redundant)));
+  assert.ok(protectors.every((protector) => Array.isArray(protector.redundant) && Array.isArray(protector.overlapping)));
 });

@@ -238,21 +238,18 @@ test("workspace IPC activates only session selections and clears attached runtim
     },
     detachArchitectBrowserSurface: () => events.push(["detach"]),
     getAgentHarnessServiceHostClient: () => ({ registerWorkspace: async (root) => events.push(["register", root]) }),
-    getCurrentWorkspaceModel: (root) => ({ root }),
   };
   Object.assign(scope, loadProductionFunctions("src/main/main.ts", [
     "getRequiredWorkspaceRoot", "deactivateSelectedWorkspaceRuntime",
   ], scope));
   const { api } = mainPreloadHarness([
-    "workspace:get", "workspace:choose", "workspace:clear", "currentWorkflow:getModel",
+    "workspace:get", "workspace:choose", "workspace:clear",
   ], scope);
   assert.equal((await api.getSelectedWorkspace()).ok, false);
   assert.equal((await api.chooseWorkspaceFolder()).ok, false);
-  await assert.rejects(api.getCurrentWorkspaceModel(), /No workspace selected/);
   assert.deepEqual(events, []);
   choice = { canceled: false, filePaths: [first] };
   assert.equal((await api.chooseWorkspaceFolder()).workspaceRoot, first);
-  assert.deepEqual(await api.getCurrentWorkspaceModel(), { root: first });
   choice = { canceled: true, filePaths: [] };
   assert.equal((await api.chooseWorkspaceFolder()).workspaceRoot, first);
   choice = { canceled: false, filePaths: [path.join(root, "missing")] };
@@ -267,7 +264,6 @@ test("workspace IPC activates only session selections and clears attached runtim
   assert.equal((await api.clearSelectedWorkspace()).ok, false);
   assert.equal((await api.getSelectedWorkspace()).ok, false);
   assert.equal(settings.readSelectedWorkspace(userDataRoot).ok, false);
-  await assert.rejects(api.getCurrentWorkspaceModel(), /No workspace selected/);
   assert.deepEqual(events, [
     ["select", first], ["register", first], ["select", second], ["detach"],
     ["register", second], ["clear"], ["detach"],
@@ -317,19 +313,4 @@ test("loaded workspace registry contains current visible labels", () => {
   ]);
   assert.equal(new Set(visibleWorkspaceDefinitions.map((definition) => definition.id)).size,
     visibleWorkspaceDefinitions.length);
-});
-
-test("empty workflow UI renders the exact neutral message", () => {
-  const React = require("react");
-  const { renderToStaticMarkup } = require("react-dom/server");
-  const { FigmaActionWorkspace } = require("../renderer/renderer-source-loader.cjs")
-    .loadRendererSourceModule("src/renderer/app/App.tsx");
-  const markup = renderToStaticMarkup(React.createElement(FigmaActionWorkspace, {
-    activeWorkspaceId: "project-intake-capture", documentError: "", feedback: "",
-    inputs: { defect: "", closureDecision: "Close", rationale: "", status: "Approved" },
-    model: null, phaseAction: null, selectedDocument: null, selectedDocumentId: null,
-    selectedSummary: null, workspaceGroups: [], workspaceOk: false,
-    onChange() {}, onRun() {}, onSelectDocument() {}, onApplyPhaseDisposition() {}, onCreatePhaseCloseout() {},
-  }));
-  assert.match(markup, /Document workflow not yet implemented/);
 });

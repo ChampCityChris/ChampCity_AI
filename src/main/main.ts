@@ -1,4 +1,4 @@
-import { developmentEnvironmentRepairService } from "./developmentEnvironment/developmentEnvironmentRepairService";
+
 import type { CodexModelSelection } from "../shared/codexRuntimeContracts";
 import { createGithubRuntimeOperations } from "./externalProviders/githubRuntime";
 import { GithubProviderService } from "./externalProviders/githubProviderService";
@@ -80,36 +80,11 @@ import {
   subscribeArchitectBrowserFoundationStatus,
 } from "./browser/architectBrowserService";
 import { SelectedWorkspaceEvidenceNotifier } from "./workspaceEvidence/selectedWorkspaceEvidenceNotifier";
-import {
-  getArchitectOutputWorkspaceModel,
-  prepareArchitectOutputHandoff,
-  preparePhaseInterviewFinalDraftHandoffWorkspace,
-  resolveArchitectOutputCopyHandoff,
-  resolvePhaseInterviewCopyFinalDraftHandoff,
-  mutateArchitectOutputReviewWithPlanningContext,
-} from "./architectOutputs/architectOutputWorkspaceService";
+
 import {
   getProjectPlanningWorkspaceModel as getCurrentProjectPlanningWorkspaceModel,
 } from "./projectPlanning/projectPlanningService";
-import {
-  applyCurrentDisposition,
-  applyOperatorValidationDecisionForCurrentWorkCard,
-  createPhaseCloseoutForCurrentPhase,
-  createProjectCloseoutForCurrentProject,
-  createRepairForCurrentFailure,
-  createValidationAttemptForCurrentWorkCard,
-  beginWorkCardPlanning,
-  generateCloseReturnNextIntakeHandoff,
-  generateCurrentHandoff,
-  getCloseReturnSelectionProjection,
-  getCurrentCloseProjection,
-  getCurrentRepairWorkspaceProjection,
-  getCurrentWorkspaceModel,
-  getCurrentWorkspaceModelFromContext,
-  getCurrentWorkCardMapProjection,
-  getPhaseValidationActionProjection,
-  resolveCurrentAdvisoryReviewPrompt,
-} from "./currentWorkflow/currentWorkflowService";
+
 import { codexImplementerExecutionService } from "./workCardBuilding/codexImplementerExecutionService";
 import { CodexTesterExecutionService } from "./workCardBuilding/codexTesterExecutionService";
 import { requireBoundMcpWorkspace } from "./integrations/mcpWorkspacePromptContract";
@@ -117,35 +92,7 @@ import {
   migrateWorkspaceToCanonicalMarkdownV1,
   previewWorkspaceMigrationToCanonicalMarkdownV1,
 } from "./migrations/pairedArtifactsToCanonicalMarkdownV1";
-import {
-  applyIssueArchitectReview,
-  applyIssuePlanningReview,
-  createLightweightIssueRecord,
-  discoverIssueInventory,
-  getIssueCloseProjection,
-  getIssueArchitectPlanningProjection,
-  getIssueFixCardProjection,
-  getIssuePlanningProjection,
-  getIssueResolutionNavigationProjection,
-  getIssueValidationProjection,
-  prepareIssueArchitectPlanningHandoff,
-  prepareIssueFixCardPlanningHandoff,
-  prepareIssuePlanningHandoff,
-  promoteIssueArchitectPlanningDraft,
-  reserveIssueFixCardImplementerReport,
-  resolveIssueArchitectPlanningCopyHandoff,
-  resolveIssueFixCardAdvisoryReviewPrompt,
-  resolveIssueFixCardPlanningCopyHandoff,
-  resolveIssuePlanningCopyHandoff,
-  selectIssueFixCardCandidate,
-  applyIssueFixCardContractReview,
-  applyIssueFixCardValidationDecision,
-  applyIssueValidationDecision,
-  closeIssue,
-  closeIssueFixCard,
-  prepareIssueFixCardRepairHandoff,
-  resolveIssueFixCardRepairCopyHandoff,
-} from "./issueResolution/issueResolutionService";
+
 import { buildLocalRendererContextMenuTemplate } from "./contextMenu/localRendererContextMenu";
 import type { DocumentDispositionStatus } from "../shared/documents/documentDisposition";
 import type {
@@ -555,13 +502,9 @@ ipcMain.handle("agentHarness:unregisterWorkspace", (_event, workspaceId: string)
   return getAgentHarnessServiceHostClient().unregisterWorkspace(workspaceId);
 });
 
-ipcMain.handle("documents:list", () => {
-  return listPlanningDocuments(getRequiredWorkspaceRoot());
-});
 
-ipcMain.handle("documents:read", (_event, logicalDocumentId: string) => {
-  return readPlanningDocument(getRequiredWorkspaceRoot(), logicalDocumentId);
-});
+
+
 
 ipcMain.handle("documents:exportMarkdown", async (_event, request: unknown): Promise<import("../shared/workspaceContracts").MarkdownExportResult> => {
   if (!request || typeof request !== "object" || Array.isArray(request)) throw new Error("Markdown export request must be an object.");
@@ -578,296 +521,77 @@ ipcMain.handle("documents:exportMarkdown", async (_event, request: unknown): Pro
   return {status: "saved", path: result.filePath};
 });
 
-ipcMain.handle(
-  "documents:setDisposition",
-  (_event, logicalDocumentId: string, status: DocumentDispositionStatus): DocumentDispositionTransactionResult => {
-    const workspaceRoot = getRequiredWorkspaceRoot();
-    const mutation = setGenericDocumentDispositionWithPlanningContext(
-      workspaceRoot,
-      logicalDocumentId,
-      status,
-      {},
-      () => createFinalDevelopmentPlanningContext(workspaceRoot),
-    );
-    return buildStableDevelopmentPostMutationResult(
-      workspaceRoot,
-      mutation.planningContext,
-      (planningContext) => {
-        const currentModel = getCurrentWorkspaceModelFromContext(workspaceRoot, planningContext);
-        const development = buildDevelopmentPostMutationProjection(
-          workspaceRoot,
-          planningContext,
-          currentModel,
-          logicalDocumentId,
-        );
-        const document = development.documents.find((entry) =>
-          entry.logicalDocumentId === logicalDocumentId
-        );
-        if (!document) {
-          throw new Error("Updated planning document is missing from stable post-mutation projection.");
-        }
-        return { document, development };
-      },
-    );
-  },
-);
 
-ipcMain.handle("documents:previewInitialization", () => {
-  return previewDispositionInitialization(getRequiredWorkspaceRoot());
-});
 
-ipcMain.handle("documents:applyInitialization", () => {
-  return applyDispositionInitialization(getRequiredWorkspaceRoot());
-});
 
-ipcMain.handle("workspaceMigration:preview", (): WorkspaceMigrationPreview => {
-  return previewWorkspaceMigrationToCanonicalMarkdownV1(getRequiredWorkspaceRoot());
-});
 
-ipcMain.handle("workspaceMigration:apply", (): WorkspaceMigrationResult => {
-  return migrateWorkspaceToCanonicalMarkdownV1(getRequiredWorkspaceRoot());
-});
 
-ipcMain.handle("documents:resolveCurrent", () => {
-  return resolveFirstNonApprovedDocument(getRequiredWorkspaceRoot());
-});
 
-ipcMain.handle("issueResolution:discoverIssues", () => {
-  return discoverIssueInventory(getRequiredWorkspaceRoot());
-});
 
-ipcMain.handle(
-  "issueResolution:createIssue",
-  (_event, input: NewIssueInput) => {
-    return createLightweightIssueRecord(getRequiredWorkspaceRoot(), input);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:getArchitectPlanning",
-  (_event, issueId: string | null) => {
-    return getIssueArchitectPlanningProjection(getRequiredWorkspaceRoot(), issueId);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:prepareArchitectHandoff",
-  (_event, issueId: string) => {
-    return prepareIssueArchitectPlanningHandoff(getRequiredWorkspaceRoot(), issueId);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:copyArchitectHandoff",
-  async (_event, issueId: string) => {
-    const workspaceRoot = getRequiredWorkspaceRoot();
-    const { instruction, result } = resolveIssueArchitectPlanningCopyHandoff(workspaceRoot, issueId);
-    await clipboard.writeText(instruction);
-    return result;
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:promoteArchitectDraft",
-  (_event, issueId: string) => {
-    return promoteIssueArchitectPlanningDraft(getRequiredWorkspaceRoot(), issueId);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:applyArchitectReview",
-  (_event, issueId: string, input: IssueArchitectReviewInput) => {
-    return applyIssueArchitectReview(getRequiredWorkspaceRoot(), issueId, input);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:getIssuePlanning",
-  (_event, issueId: string | null) => {
-    return getIssuePlanningProjection(getRequiredWorkspaceRoot(), issueId);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:getNavigation",
-  (_event, issueId: string | null) => {
-    return getIssueResolutionNavigationProjection(getRequiredWorkspaceRoot(), issueId);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:getIssueValidation",
-  (_event, issueId: string | null) => {
-    return getIssueValidationProjection(getRequiredWorkspaceRoot(), issueId);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:applyIssueValidationDecision",
-  (_event, issueId: string, input: IssueValidationDecisionInput) => {
-    return applyIssueValidationDecision(getRequiredWorkspaceRoot(), issueId, input);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:getIssueClose",
-  (_event, issueId: string | null) => {
-    return getIssueCloseProjection(getRequiredWorkspaceRoot(), issueId);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:closeIssue",
-  (_event, issueId: string, input: IssueCloseActionInput) => {
-    return closeIssue(getRequiredWorkspaceRoot(), issueId, input);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:prepareIssuePlanningHandoff",
-  (_event, issueId: string) => {
-    return prepareIssuePlanningHandoff(getRequiredWorkspaceRoot(), issueId);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:copyIssuePlanningHandoff",
-  async (_event, issueId: string) => {
-    const workspaceRoot = getRequiredWorkspaceRoot();
-    const { instruction, result } = resolveIssuePlanningCopyHandoff(workspaceRoot, issueId);
-    await clipboard.writeText(instruction);
-    return result;
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:applyIssuePlanningReview",
-  (_event, issueId: string, input: IssueArchitectReviewInput) => {
-    return applyIssuePlanningReview(getRequiredWorkspaceRoot(), issueId, input);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:getIssueFixCard",
-  (_event, issueId: string | null, currentStep?: IssueFixCardLoopStepId) => {
-    return getIssueFixCardProjection(getRequiredWorkspaceRoot(), issueId, currentStep);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:selectIssueFixCardCandidate",
-  (_event, issueId: string, fixCardId: string, currentStep?: IssueFixCardLoopStepId) => {
-    return selectIssueFixCardCandidate(getRequiredWorkspaceRoot(), issueId, fixCardId, currentStep);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:prepareIssueFixCardPlanningHandoff",
-  (_event, issueId: string, currentStep?: IssueFixCardLoopStepId) => {
-    return prepareIssueFixCardPlanningHandoff(getRequiredWorkspaceRoot(), issueId, currentStep);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:copyIssueFixCardPlanningHandoff",
-  async (_event, issueId: string, currentStep?: IssueFixCardLoopStepId) => {
-    const workspaceRoot = getRequiredWorkspaceRoot();
-    const { instruction, result } = resolveIssueFixCardPlanningCopyHandoff(workspaceRoot, issueId, currentStep);
-    await clipboard.writeText(instruction);
-    return result;
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:applyIssueFixCardContractReview",
-  (_event, issueId: string, input: IssueArchitectReviewInput, currentStep?: IssueFixCardLoopStepId) => {
-    return applyIssueFixCardContractReview(getRequiredWorkspaceRoot(), issueId, input, currentStep);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:reserveIssueFixCardImplementerReport",
-  (_event, issueId: string, currentStep?: IssueFixCardLoopStepId) => {
-    return reserveIssueFixCardImplementerReport(getRequiredWorkspaceRoot(), issueId, currentStep);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:copyIssueFixCardAdvisoryReviewPrompt",
-  async (_event, issueId: string, currentStep?: IssueFixCardLoopStepId) => {
-    const workspaceRoot = getRequiredWorkspaceRoot();
-    const { instruction, result } = resolveIssueFixCardAdvisoryReviewPrompt(workspaceRoot, issueId, currentStep);
-    await clipboard.writeText(instruction);
-    return result;
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:applyIssueFixCardValidationDecision",
-  (_event, issueId: string, input: IssueFixCardValidationDecisionInput, currentStep?: IssueFixCardLoopStepId) => {
-    return applyIssueFixCardValidationDecision(getRequiredWorkspaceRoot(), issueId, input, currentStep);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:prepareIssueFixCardRepairHandoff",
-  (_event, issueId: string, currentStep?: IssueFixCardLoopStepId) => {
-    return prepareIssueFixCardRepairHandoff(getRequiredWorkspaceRoot(), issueId, currentStep);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:copyIssueFixCardRepairHandoff",
-  async (_event, issueId: string, currentStep?: IssueFixCardLoopStepId) => {
-    const workspaceRoot = getRequiredWorkspaceRoot();
-    const { instruction, result } = resolveIssueFixCardRepairCopyHandoff(workspaceRoot, issueId, currentStep);
-    await clipboard.writeText(instruction);
-    return result;
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:closeIssueFixCard",
-  (_event, issueId: string, currentStep?: IssueFixCardLoopStepId) => {
-    return closeIssueFixCard(getRequiredWorkspaceRoot(), issueId, currentStep);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:getIssueCodexStatus",
-  (_event, issueId: string, fixCardId: string, currentImplementationId?: string): Promise<CodexImplementerExecutionModel> => {
-    return codexImplementerExecutionService.getStatus(getRequiredWorkspaceRoot(), {
-      ownerKind: "issue",
-      issueId,
-      fixCardId,
-      currentImplementationId,
-    });
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:startIssueCodex",
-  (_event, issueId: string, fixCardId: string, currentImplementationId: string | undefined, selection: CodexModelSelection): Promise<CodexImplementerExecutionModel> => {
-    return codexImplementerExecutionService.start(getRequiredWorkspaceRoot(), {
-      ownerKind: "issue",
-      issueId,
-      fixCardId,
-      currentImplementationId,
-    }, selection);
-  },
-);
 
-ipcMain.handle(
-  "issueResolution:repairIssueDevelopmentEnvironment",
-  (_event, issueId: string, fixCardId: string, currentImplementationId?: string): Promise<import("../shared/developmentEnvironmentContracts").DevelopmentEnvironmentPreflightResult> => {
-    return repairEnvironmentAndProject({
-      ownerKind: "issue",
-      issueId,
-      fixCardId,
-      currentImplementationId,
-    });
-  },
-);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 registerWorkflowApplicationIpc({ handle: (channel, listener) => {
   ipcMain.handle(channel, (event, ...args) => listener(event, ...args));
@@ -934,112 +658,31 @@ ipcMain.handle("architectBrowser:reload", (): ArchitectBrowserFoundationStatus =
   return reloadArchitectBrowserSurface();
 });
 
-ipcMain.handle(
-  "projectPlanning:getWorkspaceModel",
-  (): ProjectPlanningWorkspaceModel => {
-    return getCurrentProjectPlanningWorkspaceModel(getRequiredWorkspaceRoot());
-  },
-);
-
-ipcMain.handle(
-  "architectOutput:getWorkspaceModel",
-  (_event, workspaceId: WorkspaceId): ArchitectOutputWorkspaceModel => {
-    return getArchitectOutputWorkspaceModel(getRequiredWorkspaceRoot(), workspaceId);
-  },
-);
-
-ipcMain.handle(
-  "architectOutput:prepareHandoff",
-  (_event, workspaceId: WorkspaceId): ArchitectOutputWorkspaceModel | Promise<ArchitectOutputWorkspaceModel> => {
-    return prepareArchitectOutputHandoff(getRequiredWorkspaceRoot(), workspaceId);
-  },
-);
-
-
-
-ipcMain.handle(
-  "architectOutput:copyHandoff",
-  async (_event, workspaceId: WorkspaceId): Promise<RuntimeActionResult> => {
-    const workspaceRoot = getRequiredWorkspaceRoot();
-    const { instruction, result } = resolveArchitectOutputCopyHandoff(workspaceRoot, workspaceId);
-    await clipboard.writeText(instruction);
-    return result;
-  },
-);
 
 
 
 
 
-ipcMain.handle(
-  "phaseInterview:prepareFinalDraftHandoff",
-  (): ArchitectOutputWorkspaceModel => {
-    return preparePhaseInterviewFinalDraftHandoffWorkspace(getRequiredWorkspaceRoot());
-  },
-);
 
-ipcMain.handle(
-  "phaseInterview:copyFinalDraftHandoff",
-  async (): Promise<RuntimeActionResult> => {
-    const workspaceRoot = getRequiredWorkspaceRoot();
-    const { instruction, result } = resolvePhaseInterviewCopyFinalDraftHandoff(workspaceRoot);
-    await clipboard.writeText(instruction);
-    return result;
-  },
-);
 
-ipcMain.handle(
-  "architectOutput:review",
-  (
-    _event,
-    workspaceId: WorkspaceId,
-    status: DocumentDispositionStatus,
-    operatorReviewNotes: string,
-    presentedRevisions: ArchitectOutputPresentedSlotRevision[],
-    selectedDocumentId?: string | null,
-  ): ArchitectOutputReviewResult => {
-    const workspaceRoot = getRequiredWorkspaceRoot();
-    const planningContext = mutateArchitectOutputReviewWithPlanningContext(
-      workspaceRoot,
-      workspaceId,
-      status,
-      operatorReviewNotes,
-      presentedRevisions,
-    );
-    return buildStableDevelopmentPostMutationResult(
-      workspaceRoot,
-      planningContext,
-      (stablePlanningContext) => {
-        const currentModel = getCurrentWorkspaceModelFromContext(workspaceRoot, stablePlanningContext);
-        return {
-          architectOutput: getArchitectOutputWorkspaceModel(
-            workspaceRoot,
-            workspaceId,
-            stablePlanningContext,
-          ),
-          development: buildDevelopmentPostMutationProjection(
-            workspaceRoot,
-            stablePlanningContext,
-            currentModel,
-            selectedDocumentId,
-          ),
-        };
-      },
-    );
-  },
-);
 
-ipcMain.handle("currentWorkflow:getModel", (): CurrentWorkspaceModel => {
-  return getCurrentWorkspaceModel(getRequiredWorkspaceRoot());
-});
 
-ipcMain.handle("currentWorkflow:getPhaseValidationActionProjection", (): PhaseValidationActionProjection => {
-  return getPhaseValidationActionProjection(getRequiredWorkspaceRoot());
-});
 
-ipcMain.handle("codexImplementer:getStatus", (): Promise<CodexImplementerExecutionModel> => {
-  return codexImplementerExecutionService.getStatus(getRequiredWorkspaceRoot());
-});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 const codexTesterExecutionService = new CodexTesterExecutionService();
 
@@ -1064,9 +707,7 @@ ipcMain.handle("codexRuntime:refreshConnections", () => codexRuntimeManager.refr
 ipcMain.handle("codexRuntime:setConnectionEnabled", (_event, name, enabled) => codexRuntimeManager.setConnectionEnabled(name, enabled));
 ipcMain.handle("codexRuntime:setSelection", (_event, selection: unknown) => codexRuntimeManager.setSelection(selection));
 
-ipcMain.handle("codexImplementer:start", (_event, selection: CodexModelSelection): Promise<CodexImplementerExecutionModel> => {
-  return codexImplementerExecutionService.start(getRequiredWorkspaceRoot(), undefined, selection);
-});
+
 
 ipcMain.handle("codexImplementer:startWorkflowWorkItem", (_event, workflowId: string, workItemId: string, selection: CodexModelSelection): Promise<CodexImplementerExecutionModel> => {
   codexImplementerExecutionService.configureSourceCheckoutProjection(async (projectRoot, _projectId) => {
@@ -1080,9 +721,7 @@ ipcMain.handle("codexImplementer:startWorkflowWorkItem", (_event, workflowId: st
   return codexImplementerExecutionService.start(getRequiredWorkspaceRoot(), { ownerKind: "workflow-work-item", workflowId, workItemId }, selection);
 });
 
-ipcMain.handle("developmentEnvironment:repair", (): Promise<import("../shared/developmentEnvironmentContracts").DevelopmentEnvironmentPreflightResult> => {
-  return repairEnvironmentAndProject();
-});
+
 
 ipcMain.handle(
   "codexImplementer:respondToUserInput",
@@ -1127,85 +766,33 @@ ipcMain.handle("codexImplementer:cancel", (_event, identity?: { workflowId: stri
   return codexImplementerExecutionService.cancel(getRequiredWorkspaceRoot(), identity ? { ownerKind: "workflow-work-item", ...identity } : undefined);
 });
 
-ipcMain.handle("currentWorkflow:generateHandoff", (): RuntimeActionResult => {
-  return generateCurrentHandoff(getRequiredWorkspaceRoot());
-});
 
-ipcMain.handle("currentWorkflow:getWorkCardMapProjection", (
-  _event,
-  phaseId: string,
-  options: WorkCardMapProjectionOptions = {},
-): RuntimeActionResult => {
-  return getCurrentWorkCardMapProjection(getRequiredWorkspaceRoot(), phaseId, options);
-});
 
-ipcMain.handle("currentWorkflow:beginWorkCardPlanning", (
-  _event,
-  phaseId: string,
-  candidateId: string,
-  options: BeginWorkCardPlanningOptions = {},
-): RuntimeActionResult => {
-  return beginWorkCardPlanning(getRequiredWorkspaceRoot(), phaseId, candidateId, options);
-});
 
-ipcMain.handle("currentWorkflow:copyAdvisoryReviewPrompt", async (): Promise<RuntimeActionResult> => {
-  const { instruction, result } = resolveCurrentAdvisoryReviewPrompt(getRequiredWorkspaceRoot());
-  await clipboard.writeText(instruction);
-  return result;
-});
 
-ipcMain.handle("currentWorkflow:applyOperatorValidationDecision", (
-  _event,
-  input: OperatorValidationDecisionInput,
-  selectedDocumentId?: string | null,
-): CurrentWorkflowMutationResult => {
-  return applyOperatorValidationDecisionForCurrentWorkCard(
-    getRequiredWorkspaceRoot(),
-    input,
-    selectedDocumentId,
-  );
-});
 
-ipcMain.handle("currentWorkflow:applyDisposition", (
-  _event,
-  status: DocumentDispositionStatus,
-  operatorReviewNotes = "",
-  targetWorkspaceId?: WorkspaceId,
-): RuntimeActionResult => {
-  return applyCurrentDisposition(getRequiredWorkspaceRoot(), status, operatorReviewNotes, targetWorkspaceId);
-});
 
-ipcMain.handle("currentWorkflow:createRepair", (_event, defect = ""): RuntimeActionResult => {
-  return createRepairForCurrentFailure(getRequiredWorkspaceRoot(), defect);
-});
 
-ipcMain.handle("currentWorkflow:createValidationAttempt", (): RuntimeActionResult => {
-  return createValidationAttemptForCurrentWorkCard(getRequiredWorkspaceRoot());
-});
 
-ipcMain.handle("currentWorkflow:createPhaseCloseout", (_event, closureDecision: ClosureDecision, rationale: string): RuntimeActionResult => {
-  return createPhaseCloseoutForCurrentPhase(getRequiredWorkspaceRoot(), closureDecision, rationale);
-});
 
-ipcMain.handle("currentWorkflow:createProjectCloseout", (_event, closureDecision: ClosureDecision, rationale: string): RuntimeActionResult => {
-  return createProjectCloseoutForCurrentProject(getRequiredWorkspaceRoot(), closureDecision, rationale);
-});
 
-ipcMain.handle("currentWorkflow:getCloseProjection", (): RuntimeActionResult => {
-  return getCurrentCloseProjection(getRequiredWorkspaceRoot());
-});
 
-ipcMain.handle("currentWorkflow:getRepairWorkspaceProjection", (): RuntimeActionResult => {
-  return getCurrentRepairWorkspaceProjection(getRequiredWorkspaceRoot());
-});
 
-ipcMain.handle("currentWorkflow:getCloseReturnSelectionProjection", (): RuntimeActionResult => {
-  return getCloseReturnSelectionProjection(getRequiredWorkspaceRoot());
-});
 
-ipcMain.handle("currentWorkflow:generateCloseReturnNextIntakeHandoff", (_event, candidateId: string): RuntimeActionResult => {
-  return generateCloseReturnNextIntakeHandoff(getRequiredWorkspaceRoot(), candidateId);
-});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 if (!desktopSingleInstanceLockAcquired) {
   app.quit();
@@ -1415,11 +1002,4 @@ function currentAgentHarnessServiceHostLaunchTargetInput(): AgentHarnessServiceH
     executablePath: process.execPath,
     applicationPath: app.isPackaged ? app.getAppPath() : path.resolve(__dirname, "../.."),
   };
-}
-
-async function repairEnvironmentAndProject(selector?: import("./developmentEnvironment/workCardApplicationContext").DevelopmentEnvironmentWorkSelector): Promise<import("../shared/developmentEnvironmentContracts").DevelopmentEnvironmentPreflightResult> {
-  const root = getRequiredWorkspaceRoot();
-  const result = await developmentEnvironmentRepairService.repairDevelopmentEnvironment(root, selector);
-  await codexImplementerExecutionService.projectDevelopmentEnvironment(root, result, selector);
-  return result;
 }

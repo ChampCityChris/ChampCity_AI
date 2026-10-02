@@ -1,4 +1,3 @@
-import { resolveWorkCardApplicationContext } from "../developmentEnvironment/workCardApplicationContext";
 import { redactCodexDiagnostic } from "./codexConnectionPolicy";
 import { codexRuntimeManager, type CodexRuntimeManager } from "./codexRuntimeManager";
 import type { CodexModelSelection } from "../../shared/codexRuntimeContracts";
@@ -6,7 +5,6 @@ import crypto from "node:crypto";
 import { captureWorkItemCheckpoint, observeCheckpointChanges, type WorkItemCheckpointCapture } from "../planExecution/workItemCheckpointService";
 import { completePlanWorkItemSource } from "../planExecution/planExecutor";
 import { resolveRoutedImplementerContext } from "../planExecution/routedImplementerContext";
-import type { IntegrationRepairExecutionContext } from "../planExecution/integrationRepairImplementerService";
 import type { WorkItemCheckpointResult } from "../../shared/workItemCheckpointContracts";
 import fs from "node:fs";
 import path from "node:path";
@@ -37,10 +35,6 @@ import {
   parseCanonicalMarkdownDocument,
 } from "../../shared/documents/canonicalMarkdown";
 import { evaluateDocumentFreshness } from "../documents/planningDocumentService";
-import { getCurrentWorkspaceModel } from "../currentWorkflow/currentWorkflowService";
-import {
-  issueFixCardReportReadinessBlocker,
-} from "../issueResolution/issueResolutionService";
 import {
   type CodexImplementerExecutionPolicy,
   type CodexImplementerExecutionPolicyResolver,
@@ -157,7 +151,7 @@ interface WorkflowWorkItemExecutionContext extends ExecutionContextFields {
 }
 type WorkCardExecutionContext = LegacyWorkCardExecutionContext | WorkflowWorkItemExecutionContext;
 /** The Integration Repair owner carries source scope instead of a Work Card and Implementer Report. */
-export type CodexExecutionContext = WorkCardExecutionContext | IntegrationRepairExecutionContext;
+export type CodexExecutionContext = WorkCardExecutionContext;
 type ExecutionContext = WorkCardExecutionContext;
 
 interface IssueExecutionSelector {
@@ -1063,18 +1057,7 @@ export class CodexImplementerExecutionService {
 
   private async resolvePreflightContext(workspaceRoot: string, selector?: CodexExecutionSelector): Promise<ExecutionContext | Error> {
     if (selector?.ownerKind === "workflow-work-item") return this.resolveWorkflowWorkItemContext(workspaceRoot, selector);
-    if (selector?.ownerKind === "integration-repair") return new Error("Integration Repair uses its bounded isolated execution owner.");
-    return resolveWorkCardApplicationContext(workspaceRoot, selector);
-  }
-
-  /** Compatibility projection: neutral preflight owns repair; this only updates the execution screen. */
-  async projectDevelopmentEnvironment(workspaceRoot: string, result: DevelopmentEnvironmentPreflightResult, selector?: CodexExecutionSelector): Promise<CodexImplementerExecutionModel> {
-    const context = await this.resolvePreflightContext(workspaceRoot, selector);
-    if (context instanceof Error) return unavailableFromPreflight(context);
-    this.preflightByWorkspaceRoot.set(preflightKey(context), result);
-    const session = this.sessionsByWorkspaceRoot.get(workspaceKey(workspaceRoot));
-    if (session && sameExecutionContext(session, context)) session.developmentEnvironmentPreflight = result;
-    return this.getStatus(workspaceRoot, selector);
+    return new Error("Exact Workflow WorkItem identity is required for Implementer execution.");
   }
 
   private async resolveRetryReadiness(
@@ -1664,35 +1647,7 @@ async function finalReportReadinessBlocker(session: SessionRecord): Promise<stri
     }
     return null;
   }
-  if (session.ownerKind === "issue" && session.issueId) {
-    if (!session.rootFixCardId || !session.currentImplementationId) {
-      return "Issue Codex execution identity is incomplete; final report readiness cannot be resolved.";
-    }
-    return issueFixCardReportReadinessBlocker(
-      session.projectRoot,
-      session.issueId,
-      session.rootFixCardId,
-      session.currentImplementationId,
-    );
-  }
-  try {
-    const projection = session.ownerKind === "routed-development" && session.intakeId && session.rootWorkItemId
-      ? (await resolveRoutedImplementerContext(session.projectRoot, session.intakeId, session.rootWorkItemId)).projection
-      : getCurrentWorkspaceModel(session.projectRoot).workCardBuildingReview;
-    if (
-      !projection ||
-      (projection.phaseId ?? null) !== session.phaseId ||
-      projection.workCardId !== session.workCardId ||
-      projection.implementerReportPath !== session.implementerReportPath
-    ) {
-      return "Final Implementer Report readiness could not be resolved for the completed Codex run.";
-    }
-    return projection.reportReadiness === "ready-for-review"
-      ? null
-      : projection.reportReadinessReason;
-  } catch (error) {
-    return error instanceof Error ? error.message : String(error);
-  }
+  return "Exact Workflow WorkItem identity is required to finalize an Implementer attempt.";
 }
 
 function delay(milliseconds: number): Promise<void> {

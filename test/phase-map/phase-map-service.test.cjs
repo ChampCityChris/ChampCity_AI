@@ -12,9 +12,6 @@ const {
   setPhaseMapDisposition,
 } = require("../../dist/main/phaseMap/phaseMapService.js");
 const {
-  getCurrentWorkspaceModel,
-} = require("../../dist/main/currentWorkflow/currentWorkflowService.js");
-const {
   generateProjectPlanningHandoff,
 } = require("../../dist/main/projectPlanning/projectPlanningService.js");
 const {
@@ -238,52 +235,6 @@ test("ineligible phase map target remains byte-identical and blocks promotion", 
   assert.equal(fs.existsSync(path.join(root, invocation.params.relativePath)), true);
 });
 
-test("phase map polling does not create submissions and promotes only an active ready draft", () => {
-  const root = tempWorkspace("champcity-phase-map-draft-polling-");
-  const { intake, prompt, interview } = seedApprovedProjectIntake(root, "demo");
-  writeDoc(root, interview, "project-architect-interview", "Approved", {
-    identity: { "Project.ArtifactKey": "demo" },
-    sourceRevisions: [
-      { path: intake, revision: 1 },
-      { path: prompt, revision: 1 },
-    ],
-  });
-  const planning = generateProjectPlanningHandoff(root);
-  const planningSources = [
-    { path: intake, revision: 1 },
-    { path: prompt, revision: 1 },
-    { path: interview, revision: 1 },
-    { path: planning.handoffMarkdownPath, revision: 1 },
-  ];
-  writeDoc(root, planning.profileMarkdownPath, "project-profile", "Approved", {
-    participationRole: "compoundGatingReview",
-    identity: { "Project.ArtifactKey": "demo" },
-    sourceRevisions: planningSources,
-  });
-  writeDoc(root, planning.roadmapMarkdownPath, "project-roadmap", "Approved", {
-    participationRole: "compoundGatingReview",
-    identity: { "Project.ArtifactKey": "demo" },
-    sourceRevisions: planningSources,
-  });
-
-  let model = getCurrentWorkspaceModel(root);
-  assert.equal(model.activeWorkspaceId, "project-phase-map");
-  assert.equal(model.draftSubmissionState, undefined);
-
-  const result = generatePhaseMapHandoff(root);
-  const invocation = invocationFrom(getPhaseMapHandoffInstruction(root));
-  model = getCurrentWorkspaceModel(root);
-  assert.equal(model.draftSubmissionState, "waiting-for-drafts");
-
-  writeRaw(root, invocation.params.relativePath, validPhaseMapBody("phase-polled"));
-  model = getCurrentWorkspaceModel(root);
-  const parsed = readCanonical(root, result.phaseMapMarkdownPath);
-
-  assert.equal(model.activeWorkspaceId, "project-phase-map");
-  assert.equal(model.draftSubmissionState, "promoted");
-  assert.equal(parsed.metadata.workflowData.phases[0].phaseId, "phase-polled");
-  assert.equal(fs.existsSync(path.join(root, invocation.params.relativePath)), false);
-});
 
 test("phase map handoff preparation is byte-idempotent for unchanged evidence", () => {
   const root = tempWorkspace("champcity-phase-map-idempotent-");
@@ -435,8 +386,6 @@ test("phase map projection skips a lower-order blocked phase and selects the low
   assert.equal(projection.state, "first-incomplete");
   assert.equal(projection.phase.phaseId, "phase-enabler");
   assert.deepEqual(projection.completedPhaseIds, []);
-  assert.equal(getCurrentWorkspaceModel(root).activeWorkspaceId, "phase-interview");
-  assert.equal(getCurrentWorkspaceModel(root).currentPhaseId, "phase-enabler");
 });
 
 test("phase dependency selector reports explicit evidence when no incomplete phase is eligible", () => {

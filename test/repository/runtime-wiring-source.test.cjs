@@ -27,90 +27,11 @@ function wiring(scope) {
   return { api, handlers, invocations };
 }
 
-const routes = [
-  ["getCurrentWorkspaceModel", "getCurrentWorkspaceModel", []],
-  ["generateCurrentHandoff", "generateCurrentHandoff", []],
-  ["getWorkCardMapProjection", "getCurrentWorkCardMapProjection", ["phase-01", {}]],
-  ["beginWorkCardPlanning", "beginWorkCardPlanning", ["phase-01", "WC02", {}]],
-  ["getCurrentCloseProjection", "getCurrentCloseProjection", []],
-  ["getCurrentRepairWorkspaceProjection", "getCurrentRepairWorkspaceProjection", []],
-  ["applyCurrentDisposition", "applyCurrentDisposition", ["Approved", "notes", "work-card-planning"]],
-  ["applyOperatorValidationDecisionForCurrentWorkCard", "applyOperatorValidationDecisionForCurrentWorkCard", [{ decision: "Approve" }, "document-id"]],
-  ["createRepairForCurrentFailure", "createRepairForCurrentFailure", ["defect"]],
-  ["createValidationAttemptForCurrentWorkCard", "createValidationAttemptForCurrentWorkCard", []],
-  ["createPhaseCloseoutForCurrentPhase", "createPhaseCloseoutForCurrentPhase", ["Close", "rationale"]],
-  ["createProjectCloseoutForCurrentProject", "createProjectCloseoutForCurrentProject", ["Close", "rationale"]],
-  ["generateCloseReturnNextIntakeHandoff", "generateCloseReturnNextIntakeHandoff", ["WC02"]],
-  ["getArchitectOutputWorkspaceModel", "getArchitectOutputWorkspaceModel", ["work-card-planning"]],
-  ["prepareArchitectOutputHandoff", "prepareArchitectOutputHandoff", ["work-card-planning"]],
-  ["preparePhaseInterviewFinalDraftHandoff", "preparePhaseInterviewFinalDraftHandoffWorkspace", []],
-  ["applyIssueFixCardValidationDecision", "applyIssueFixCardValidationDecision", ["ISSUE_001", { decision: "Approve" }, "validation"]],
-  ["prepareIssueFixCardRepairHandoff", "prepareIssueFixCardRepairHandoff", ["ISSUE_001", "validation"]],
-  ["closeIssueFixCard", "closeIssueFixCard", ["ISSUE_001", "close-next"]],
-  ["getIssueValidationProjection", "getIssueValidationProjection", ["ISSUE_001"]],
-  ["applyIssueValidationDecision", "applyIssueValidationDecision", ["ISSUE_001", { decision: "ValidateResolved" }]],
-  ["getIssueCloseProjection", "getIssueCloseProjection", ["ISSUE_001"]],
-  ["closeIssue", "closeIssue", ["ISSUE_001", { rationale: "resolved" }]],
-];
 
-test("preload actions invoke the actual main handlers with selected-root and input preservation", async (t) => {
-  for (const [method, service, args] of routes) {
-    await t.test(method, async () => {
-      const calls = [];
-      const result = { fixture: method };
-      const { api, invocations } = wiring({ getRequiredWorkspaceRoot: () => "selected-root", [service]: (...input) => { calls.push(input); return result; } });
-      assert.equal(await api[method](...args), result);
-      assert.deepEqual(calls, [["selected-root", ...args]]);
-      assert.equal(invocations.length, 1);
-    });
-  }
-});
-
-test("Codex preload start cannot forward renderer-supplied permission arguments", async () => {
-  const calls = [];
-  const selection = { model: "fixture-model", reasoningEffort: "high" };
-  const service = Object.fromEntries(["getStatus", "start", "cancel", "respondToUserInput", "respondToMcpElicitation"].map((name) => [name, (...args) => { calls.push([name, ...args]); return name; }]));
-  const { api } = wiring({ getRequiredWorkspaceRoot: () => "selected-root", codexImplementerExecutionService: service });
-  assert.equal(await api.startCodexImplementerExecution(selection, { networkAccessEnabled: true }), "start");
-  await api.getCodexImplementerExecutionStatus();
-  await api.cancelCodexImplementerExecution();
-  await api.respondToCodexUserInput({ requestId: "request", answers: { answer: "value" } });
-  await api.respondToCodexMcpElicitation({ requestId: "request", action: "accept", content: { value: true } });
-  assert.deepEqual(JSON.parse(JSON.stringify(calls)), [
-    ["start", "selected-root", null, selection], ["getStatus", "selected-root"], ["cancel", "selected-root"],
-    ["respondToUserInput", "selected-root", "request", { answer: "value" }],
-    ["respondToMcpElicitation", "selected-root", "request", { action: "accept", content: { value: true } }],
-  ]);
-});
-
-test("handoff preload calls copy one resolved instruction and return the corresponding receipt", async () => {
-  for (const [method, resolver, args] of [
-    ["copyCurrentWorkCardAdvisoryReviewPrompt", "resolveCurrentAdvisoryReviewPrompt", []],
-    ["copyArchitectOutputHandoff", "resolveArchitectOutputCopyHandoff", ["work-card-planning"]],
-    ["copyPhaseInterviewFinalDraftHandoff", "resolvePhaseInterviewCopyFinalDraftHandoff", []],
-    ["copyIssueFixCardAdvisoryReviewPrompt", "resolveIssueFixCardAdvisoryReviewPrompt", ["ISSUE_001", "validation"]],
-    ["copyIssueFixCardRepairHandoff", "resolveIssueFixCardRepairCopyHandoff", ["ISSUE_001", "validation"]],
-  ]) {
-    const calls = [];
-    const result = { ok: true };
-    const { api } = wiring({ getRequiredWorkspaceRoot: () => "selected-root",
-      [resolver]: (...input) => { calls.push(input); return { instruction: "prepared", result }; },
-      clipboard: { writeText: (text) => { calls.push([text]); } },
-    });
-    assert.equal(await api[method](...args), result);
-    assert.deepEqual(calls, [["selected-root", ...args], ["prepared"]]);
-  }
-});
-
-test("registered API surface excludes retired mutation routes and unrestricted native access", async () => {
-  let calls = 0;
-  const { api, handlers } = wiring({ getRequiredWorkspaceRoot: () => { throw new Error("No workspace selected."); },
-    getCurrentWorkspaceModel: () => { calls += 1; },
-  });
-  await assert.rejects(api.getCurrentWorkspaceModel(), /No workspace selected/);
-  assert.equal(calls, 0);
-  for (const channel of ["architectInterview:save", "architectInterview:submit", "projectPlanning:save", "projectPlanning:submit", "phaseInterview:saveOutput", "workCardPlanning:saveOutput", "workCardRepair:saveOutput"]) assert.equal(handlers.has(channel), false);
-  for (const method of ["prepareArchitectInterviewFinalDraftHandoff", "copyArchitectInterviewFinalDraftHandoff", "saveFormalWorkCardOutput", "saveRepairWorkCardOutput", "prepareIssueFixCardArchitectReviewHandoff", "copyIssueFixCardArchitectReviewHandoff", "promoteIssueFixCardArchitectReviewDraft", "fs", "shell", "process", "require", "ipcRenderer"]) assert.equal(Object.hasOwn(api, method), false);
+test("retired migrated-workflow API methods and IPC handlers are absent", () => {
+  const { api, handlers } = wiring({});
+  for (const method of ["getCurrentWorkspaceModel", "getIssueValidationProjection", "applyIssueValidationDecision", "getIssueCloseProjection", "closeIssue", "getArchitectOutputWorkspaceModel", "getCurrentWorkCardMapProjection", "startCodexImplementerExecution"]) assert.equal(Object.hasOwn(api, method), false, method);
+  for (const channel of ["issueResolution:getValidationProjection", "issueResolution:applyValidationDecision", "currentWorkflow:getModel", "codexImplementer:start"]) assert.equal(handlers.has(channel), false, channel);
 });
 
 test("production catalog resolves six active definitions with eight output slots", () => {

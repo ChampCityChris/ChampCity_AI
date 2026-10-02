@@ -10,7 +10,6 @@ const { App } = loader.loadRendererSourceModule("src/renderer/app/App.tsx");
 const { FigmaSidebar } = loader.loadRendererSourceModule("src/renderer/app/figma/FigmaSidebar.tsx");
 const { LandingWorkspace } = loader.loadRendererSourceModule("src/renderer/app/LandingWorkspace.tsx");
 const { acceptExistingProjectAdoption, openInspectedExistingProject } = loader.loadRendererSourceModule("src/renderer/app/existingProjectEntryController.ts");
-const { NestedWorkflowRail } = loader.loadRendererSourceModule("src/renderer/app/NestedWorkflowRail.tsx");
 const { WorkflowHubWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowHubWorkspace.tsx");
 const { WorkflowTypeWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowTypeWorkspace.tsx");
 const { WorkflowInstanceWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowInstanceWorkspace.tsx");
@@ -479,58 +478,6 @@ test("Hub sidebar has no legacy Development lifecycle fields", () => {
   assert.doesNotMatch(hubMarkup, /Current Phase|Current Work Card|phase-00|WC01/);
 });
 
-test("Development rail renders workflow, phase, and Work Card navigation", () => {
-  const railMarkup = renderToStaticMarkup(React.createElement(NestedWorkflowRail, {
-    activeWorkspaceId: "work-card-report-review",
-    executionContext: sampleCurrentModel().executionContext,
-    onWorkspaceChange: () => undefined,
-    requiredWorkspaceId: "work-card-report-review",
-  }));
-
-  assert.match(railMarkup, /aria-label="Workflow navigation"/);
-  assert.match(railMarkup, /aria-label="Phase loop"/);
-  assert.match(railMarkup, /aria-label="Work Card loop"/);
-});
-
-function sampleCurrentModel() {
-  return {
-    activeWorkspaceId: "work-card-report-review",
-    level: "work-card",
-    stage: "Review",
-    railStatus: "In Progress",
-    currentPhaseId: "phase-00",
-    currentWorkCardId: "WC01",
-    executionContext: {
-      phase: {
-        state: "active",
-        phaseId: "phase-00",
-        title: "Foundation",
-        order: 1,
-        totalPhaseCount: 1,
-        purpose: "Prove the shell.",
-        dependsOn: [],
-        loopStep: "Work Cards",
-        reason: "Current phase resolved.",
-      },
-      workCard: {
-        state: "active",
-        workCardId: "WC01",
-        title: "Workflow Hub Shell",
-        loopStep: "Review & Validation",
-        dispositionOrState: "In Progress",
-        reason: "Current Work Card resolved.",
-      },
-    },
-    currentTarget: "WC01",
-    sourceEvidence: [],
-    requiredAction: "Review implementation.",
-    expectedOutput: "Hub shell.",
-    eligibility: "Ready",
-    expectedNextState: "Operator validation",
-  };
-}
-
-
 test("all six intake entry workspaces share ordered fields and generated Markdown review", () => {
   const { WorkflowIntakeWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowIntakeWorkspace.tsx");
   const { WORKFLOW_INTAKE_DEFINITIONS } = loader.loadRendererSourceModule("src/shared/workflowIntakeContracts.ts");
@@ -589,26 +536,17 @@ test("six exact substantive Intake rails share seven stages and disable future n
   assert.equal(deriveWorkflowStageRailModel(null), null);
 });
 
-test("legacy nested workflow composition is not mounted by the structured app shell", () => {
-  const calls = [];
-  const tree = NestedWorkflowRail({ activeWorkspaceId: "work-card-planning", onWorkspaceChange: id => calls.push(id) });
-  assert.equal(tree.type.name, "WorkflowStageRail");
-  assert.deepEqual(tree.props.stages.map(s => s.label), ["Project Intake", "Architect Interview", "Project Planning", "Phase Map", "Phases", "Project Validation", "Project Close"]);
-  assert.equal(tree.props.stages[4].state, "parent");
-  tree.props.stages[0].onClick();
-  assert.deepEqual(calls, ["project-intake-capture"]);
-  const markup = renderToStaticMarkup(tree);
-  assert.match(markup, /aria-label="Phase loop"/);
-  assert.match(markup, /aria-label="Work Card loop"/);
-  const source = fs.readFileSync(path.join(repoRoot, "src/renderer/app/App.tsx"), "utf8");
-  assert.match(source, /<WorkflowStageRail stages=\{workflowStages\}/);
-  assert.doesNotMatch(source, /<NestedWorkflowRail/);
-  assert.match(source, /deriveWorkflowStageRailModel\(workflow\)/);
-  const intake = fs.readFileSync(path.join(repoRoot, "src/renderer/app/WorkflowIntakeWorkspace.tsx"), "utf8");
-  assert.match(intake, /<IntakeWorkspaceShell/);
-  assert.doesNotMatch(intake, /WorkflowStageRail|figma-pipeline/);
+test("Project Creation selection is SQL-driven and does not use the Markdown Work Card Map", () => {
+  const source = fs.readFileSync(path.join(repoRoot, "src/renderer/app/GreenfieldWorkspace.tsx"), "utf8");
+  assert.match(source, /getGreenfieldNavigation\(workflow\.workflowId\)/);
+  assert.match(source, /currentWorkItemId/);
+  assert.match(source, /getStructuredPhaseWorkIntake/);
+  assert.match(source, /prepareStructuredPhaseWorkItem/);
+  assert.doesNotMatch(source, /getWorkCardMapProjection|WorkCardMapWorkspace/);
+  const app = fs.readFileSync(path.join(repoRoot, "src/renderer/app/App.tsx"), "utf8");
+  assert.match(app, /<StructuredWorkflowWorkspace/);
+  assert.doesNotMatch(app, /<NestedWorkflowRail|<WorkCardMapWorkspace/);
 });
-
 
 test("structured Intake renderer actions show SQL review, exact approval and unsaved/revised continuation gates", async () => {
   const {loadProductionFunctions} = require("../support/production-execution.cjs");

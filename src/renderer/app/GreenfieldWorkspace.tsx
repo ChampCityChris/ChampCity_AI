@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState, type ReactNode} from "react";
-import type {ProjectIntakeSubmission, WorkCardMapProjection, WorkspaceId} from "../../shared/workspaceContracts";
+import type {ProjectIntakeSubmission, WorkspaceId} from "../../shared/workspaceContracts";
 import type {GreenfieldNavigationProjection} from "../../shared/greenfieldNavigationContracts";
 import type {WorkflowInstanceSummary} from "../../shared/workflowApplicationContracts";
 import {ProjectIntakeWorkspace} from "./ProjectIntakeWorkspace";
@@ -8,7 +8,6 @@ import {StructuredProjectPlanningWorkspace} from "./StructuredProjectPlanningWor
 import {StructuredPhaseMapWorkspace} from "./StructuredPhaseMapWorkspace";
 import {StructuredPhaseLoopWorkspace, DerivedPhaseWorkIntakeWorkspace} from "./StructuredPhaseLoopWorkspace";
 import {WorkItemPlanningWorkspace} from "./WorkItemPlanningWorkspace";
-import {WorkCardMapWorkspace} from "./WorkCardMapWorkspace";
 import {GreenfieldExecutionWorkspace} from "./GreenfieldExecutionWorkspace";
 import {CloseAdvanceWorkspace} from "./CloseAdvanceWorkspace";
 
@@ -19,18 +18,15 @@ export function GreenfieldWorkspace({workflow, repositoryIdentity, browserPanel,
   workflow: WorkflowInstanceSummary; repositoryIdentity: string; browserPanel: ReactNode; onReturn: () => void;
 }) {
   const [navigation, setNavigation] = useState<GreenfieldNavigationProjection | null>(null), [stage, setStage] = useState<WorkspaceId>(workflow.currentWorkspace as WorkspaceId);
-  const [map, setMap] = useState<WorkCardMapProjection | null>(null), [error, setError] = useState(""), [busy, setBusy] = useState(false);
+  const [error, setError] = useState(""), [busy, setBusy] = useState(false);
   const [intake, setIntake] = useState({...emptyIntake, projectRepository: repositoryIdentity});
   const generation = useRef(0);
   const refresh = async () => {
     const request = ++generation.current;
     const current = await window.champcity.getGreenfieldNavigation(workflow.workflowId);
     const nextStage = current.currentWorkspace;
-    const result = nextStage === "phase-work-card-selection" && current.currentPhaseId ? await window.champcity.getWorkCardMapProjection(current.currentPhaseId) : null;
     if (request !== generation.current) return;
-    setNavigation(current); setStage(nextStage);
-    setMap(result?.ok ? result.payload as WorkCardMapProjection : null);
-    if (result && !result.ok) setError(result.message);
+    setNavigation(current); setStage(nextStage); setError("");
   };
   useEffect(() => {void refresh().catch(reason => setError(String(reason))); return () => {generation.current++;};}, [workflow.workflowId]);
   const go = async (_destination: WorkspaceId) => {await refresh();};
@@ -60,8 +56,12 @@ export function GreenfieldWorkspace({workflow, repositoryIdentity, browserPanel,
       content = <StructuredPhaseLoopWorkspace workflowId={workflow.workflowId} phaseId={phaseId ?? undefined} stageKind={stage === "phase-interview" ? "interview" : "planning"}
         browserPanel={browserPanel} onNext={() => go(stage === "phase-interview" ? "phase-planning-bundle" : "phase-work-card-selection")} />; break;
     case "phase-work-card-selection":
-      content = <WorkCardMapWorkspace model={null} projection={map} actionError={error} actionFeedback="" isBeginningPlanning={busy}
-        onBeginPlanning={id => void begin(id)} onOpenPhaseValidation={() => void go("phase-validation").catch(reason => setError(String(reason)))} />; break;
+      content = <section aria-label="Current Phase WorkItem">
+        <h2>Current Phase WorkItem</h2>
+        {workItemId ? <><p>The SQL Phase map has selected WorkItem <strong>{workItemId}</strong>.</p>
+          <button disabled={busy} onClick={() => void begin(workItemId)}>Open WorkItem Planning</button></>
+          : <p role="status">No current SQL WorkItem is ready for planning.</p>}
+      </section>; break;
     case "work-card-intake":
       content = <DerivedPhaseWorkIntakeWorkspace phaseId={phaseId ?? undefined} workItemId={workItemId ?? undefined} onNext={() => go("work-card-planning")} />; break;
     case "work-card-planning":

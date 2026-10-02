@@ -18,29 +18,22 @@ const {
   __setPlanningRepositorySnapshotTestHooks,
 } = require("../../dist/main/documents/planningRepositorySnapshot.js");
 const {
-  __setIssueProjectionReadTestHooks,
-} = require("../../dist/main/issueResolution/issueResolutionService.js");
-const {
   tempWorkspace,
 } = require("../support/canonical-markdown-fixtures.cjs");
 
 test.afterEach(() => {
   resetArchitectBrowserServiceForTest();
   __setPlanningRepositorySnapshotTestHooks();
-  __setIssueProjectionReadTestHooks();
 });
 
 test("Architect browser foundation status is secure, repository-free, and side-effect-free", () => {
   const root = tempWorkspace("champcity-browser-handoff-");
   const before = fs.readdirSync(root);
-  const counters = { planning: 0, issues: 0 };
+  const counters = { planning: 0 };
   __setPlanningRepositorySnapshotTestHooks({
     onSnapshotAcquisition: () => { counters.planning += 1; },
     onInventoryScan: () => { counters.planning += 1; },
     onContentRead: () => { counters.planning += 1; },
-  });
-  __setIssueProjectionReadTestHooks({
-    onMarkdownRead: () => { counters.issues += 1; },
   });
 
   let status;
@@ -56,19 +49,16 @@ test("Architect browser foundation status is secure, repository-free, and side-e
     preload: null,
   });
   assert.equal("handoff" in status, false);
-  assert.deepEqual(counters, { planning: 0, issues: 0 });
+  assert.deepEqual(counters, { planning: 0 });
   assert.deepEqual(fs.readdirSync(root), before);
 });
 
 test("121 accepted and stale bounds updates preserve narrow ACK fencing with zero repository work", () => {
-  const counters = { planning: 0, issues: 0 };
+  const counters = { planning: 0 };
   __setPlanningRepositorySnapshotTestHooks({
     onSnapshotAcquisition: () => { counters.planning += 1; },
     onInventoryScan: () => { counters.planning += 1; },
     onContentRead: () => { counters.planning += 1; },
-  });
-  __setIssueProjectionReadTestHooks({
-    onMarkdownRead: () => { counters.issues += 1; },
   });
   const { view, window } = fakeBrowserBoundary();
   configureArchitectBrowserServiceForTest({ createView: () => view });
@@ -109,18 +99,15 @@ test("121 accepted and stale bounds updates preserve narrow ACK fencing with zer
   assert.equal(stale.boundsSequence, 121);
   assert.equal(view.bounds.at(-1).sequence, 121);
   assert.ok(Buffer.byteLength(JSON.stringify(accepted), "utf8") <= 512);
-  assert.deepEqual(counters, { planning: 0, issues: 0 });
+  assert.deepEqual(counters, { planning: 0 });
 });
 
 test("browser runtime changes are pushed without repository projection work", () => {
-  const counters = { planning: 0, issues: 0 };
+  const counters = { planning: 0 };
   __setPlanningRepositorySnapshotTestHooks({
     onSnapshotAcquisition: () => { counters.planning += 1; },
     onInventoryScan: () => { counters.planning += 1; },
     onContentRead: () => { counters.planning += 1; },
-  });
-  __setIssueProjectionReadTestHooks({
-    onMarkdownRead: () => { counters.issues += 1; },
   });
   const { view, window } = fakeBrowserBoundary();
   configureArchitectBrowserServiceForTest({ createView: () => view });
@@ -138,7 +125,7 @@ test("browser runtime changes are pushed without repository projection work", ()
   assert.ok(states.includes("loading"));
   assert.ok(states.includes("loaded-auth-state-unknown"));
   assert.equal(states.at(-1), "loaded-auth-state-unknown");
-  assert.deepEqual(counters, { planning: 0, issues: 0 });
+  assert.deepEqual(counters, { planning: 0 });
 });
 
 test("browser preload and IPC execute without workspace resolution and unsubscribe notifications", async () => {
@@ -154,7 +141,6 @@ test("browser preload and IPC execute without workspace resolution and unsubscri
   configureArchitectBrowserServiceForTest({ createView: () => view });
   let repositoryReads = 0;
   __setPlanningRepositorySnapshotTestHooks({ onSnapshotAcquisition: () => { repositoryReads += 1; } });
-  __setIssueProjectionReadTestHooks({ onMarkdownRead: () => { repositoryReads += 1; } });
   vm.runInNewContext(ts.transpileModule(registrations.map((node) => node.getText(ast)).join("\n"), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, {
     ...service, mainWindow: window,
     getRequiredWorkspaceRoot: () => assert.fail("Browser IPC resolved a workspace"),
