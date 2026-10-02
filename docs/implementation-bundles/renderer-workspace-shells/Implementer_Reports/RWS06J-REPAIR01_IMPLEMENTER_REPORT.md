@@ -1,0 +1,11 @@
+# RWS06J-REPAIR01 Implementer Report
+
+Approved Dev repository root verified; branch `dev`, remote `origin` configured; no push. Repair card RWS06J-REPAIR01.
+
+Greenfield formerly selected Work Cards, prepared derived Intake, then routed contract planning and execution through a thin Greenfield adapter. It now owns only Project/Phase authoring and hands accepted SQL WorkItems directly to `WorkflowExecutionWorkspace`. The dedicated Greenfield stage union excludes every transitional Work Card stage. The adapter is deleted. Shared execution notifies its parent after projection refresh, so Phase closure re-resolves SQL to the next Phase authoring boundary or final shared closure. Default execution selection prefers an eligible open item across all workflow types. Terminal navigation includes closed Projects.
+
+Modified: greenfield navigation service/contracts, Greenfield compositor, shared execution workspace, Phase lifecycle proof and workflow shell proof. Deleted: GreenfieldExecutionWorkspace. No schema, migration, dependency or selection persistence created. The legitimate exact accepted Phase-context adapter in shared planning remains.
+
+Validation: `npm run build` initially exposed a narrowed-union comparison, corrected; next restricted build returned spawn EPERM. Normal Windows build passed. Fresh normal Windows build plus `node --test test/phase-planning/phase-planning-service.test.cjs test/renderer/workflow-hub-shell.test.cjs test/workflow/workflow-execution-application-service.test.cjs` passed. This covers Phase authoring, exact identities, dependency and prior-Phase guards, shared planning/implementation/Tester/repair/close, Phase 1 to Phase 2 navigation, final SQL closure and inert historical/generated Markdown. Renderer routing is structural evidence; no visual or live provider acceptance claimed.
+
+`git diff --check` passed after EOF normalization. Staged diff reviewed for secrets, concrete machine paths and generated artifacts; none added. Existing E diagnostic edits preserved outside this checkpoint. Checkpoint pending at report creation; required message `RWS06J-R01 converge Greenfield on shared WorkItem pipeline`. No external blockers; next task RWS06J-REPAIR02 continues immediately.

@@ -539,9 +539,9 @@ test("six exact substantive Intake rails share seven stages and disable future n
 test("Project Creation selection is SQL-driven and does not use the Markdown Work Card Map", () => {
   const source = fs.readFileSync(path.join(repoRoot, "src/renderer/app/GreenfieldWorkspace.tsx"), "utf8");
   assert.match(source, /getGreenfieldNavigation\(workflow\.workflowId\)/);
-  assert.match(source, /currentWorkItemId/);
-  assert.match(source, /getStructuredPhaseWorkIntake/);
-  assert.match(source, /prepareStructuredPhaseWorkItem/);
+  assert.match(source, /<WorkflowExecutionWorkspace workflow=\{workflow\}/);
+  assert.match(source, /onProjectionChanged=\{refresh\}/);
+  assert.doesNotMatch(source, /getStructuredPhaseWorkIntake|prepareStructuredPhaseWorkItem|work-card-intake/);
   assert.doesNotMatch(source, /getWorkCardMapProjection|WorkCardMapWorkspace/);
   const app = fs.readFileSync(path.join(repoRoot, "src/renderer/app/App.tsx"), "utf8");
   assert.match(app, /<StructuredWorkflowWorkspace/);
@@ -620,7 +620,7 @@ test("SQL Review Validation shell shows exact evidence and leaves human actions 
   const markup=renderToStaticMarkup(React.createElement(ReviewValidationShell,{review},React.createElement("button",null,"Record exact visual evidence")));
   for(const identity of ["work-exact","implementation-exact","tester-exact","validation-exact","criterion-exact","repair-exact"])assert.ok(markup.includes(identity),identity);assert.match(markup,/Record exact visual evidence/);
   const shell=fs.readFileSync(path.join(repoRoot,"src/renderer/app/ReviewValidationShell.tsx"),"utf8");assert.doesNotMatch(shell,/window\.champcity|JSON\.parse|onClick/);
-  const adapter=fs.readFileSync(path.join(repoRoot,"src/renderer/app/GreenfieldExecutionWorkspace.tsx"),"utf8");assert.match(adapter,/workflowType!=="project-creation"/);assert.match(adapter,/initialWorkItemId=\{props\.workItemId\}/);
+  const adapter=fs.readFileSync(path.join(repoRoot,"src/renderer/app/GreenfieldWorkspace.tsx"),"utf8");assert.match(adapter,/<WorkflowExecutionWorkspace workflow=\{workflow\}/);
   const app=fs.readFileSync(path.join(repoRoot,"src/renderer/app/App.tsx"),"utf8");
   assert.match(app,/<StructuredWorkflowWorkspace/);
   assert.doesNotMatch(app,/activeIssueStageId|IssueResolutionWorkspace|isStructuredGreenfieldExecution|GreenfieldExecutionWorkspace|StructuredPhaseMapWorkspace|StructuredPhaseLoopWorkspace|WorkItemPlanningWorkspace|CloseAdvanceWorkspace/);
