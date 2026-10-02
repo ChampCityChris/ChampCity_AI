@@ -1,5 +1,5 @@
 import {selectedCurrentProjectId} from "../projectState/currentProjectRegistrationService";
-import {structuredWorkCardMap, readStructuredPhaseLoop} from "../phasePlanning/structuredPhaseLoopReadProjection";
+import {structuredWorkCardMap, readStructuredPhaseLoop, structuredWorkItemContractEligibility} from "../phasePlanning/structuredPhaseLoopReadProjection";
 import fs from "node:fs";
 import { workItemIntakeTargets, type WorkItemArtifactScope } from "./workItemArtifactScope";
 import path from "node:path";
@@ -191,7 +191,7 @@ export function resolveWorkCardLoopState(
 
   if (selectedCurrentProjectId(workspaceRoot)) {
     const map = structuredWorkCardMap(workspaceRoot, phaseId), active = map.candidates.filter(candidate => candidate.isActive);
-    return {status: map.state === "needs-attention" ? "no-plan" : active.length > 1 ? "conflict" : map.state === "all-complete" ? "all-complete" : active.length ? "active" : "map-ready", workspaceId: map.state === "all-complete" ? "phase-validation" : active.length === 1 ? "work-card-intake" : "phase-work-card-selection", phaseId, workCardId: active[0]?.candidateId, candidateId: active[0]?.candidateId, loopStep: active.length ? "Planning" : "Map", candidates: map.candidates, sourceWorkCardPlanPath: map.sourceWorkCardPlanPath, sourceEvidence: [], requiredAction: active.length ? "Prepare the selected existing SQL WorkItem." : map.reason, reason: map.reason};
+    return {status: map.state === "needs-attention" ? "no-plan" : active.length > 1 ? "conflict" : map.state === "all-complete" ? "all-complete" : active.length ? "active" : "map-ready", workspaceId: map.state === "all-complete" ? "phase-validation" : active.length === 1 ? !readStructuredPhaseLoop(workspaceRoot, phaseId, "planning")?.workItems.find(work => work.id === active[0].candidateId)?.body.contractRevision ? "work-card-intake" : structuredWorkItemContractEligibility(workspaceRoot, phaseId, active[0].candidateId).eligible ? "work-card-building" : "work-card-planning" : "phase-work-card-selection", phaseId, workCardId: active[0]?.candidateId, candidateId: active[0]?.candidateId, loopStep: active.length ? "Planning" : "Map", candidates: map.candidates, sourceWorkCardPlanPath: map.sourceWorkCardPlanPath, sourceEvidence: [], requiredAction: active.length ? "Prepare the selected existing SQL WorkItem." : map.reason, reason: map.reason};
   }
   planningContext = resolvePlanningProjectionContext(workspaceRoot, planningContext);
 

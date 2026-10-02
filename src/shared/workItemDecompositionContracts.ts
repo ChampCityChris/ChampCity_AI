@@ -10,6 +10,7 @@ export interface WorkItemDecompositionProposal {
   phases?: PlanPhaseCandidate[];
   phaseAssignments?: Record<string, string>;
   topologyRationale?: string;
+  boundaries?: import("./projectState/planReviewContracts").PlanBoundary[];
 }
 export interface WorkItemDecompositionModel {
   kind: "decomposition-proposal";

@@ -134,6 +134,7 @@ import {
   phaseValidationActionForWorkspace,
   phaseValidationPresentation,
 } from "./phaseValidationRendererOrchestration";
+import {WorkItemPlanningWorkspace} from "./WorkItemPlanningWorkspace";
 import { LegacyArchitectOutputWorkspace } from "./LegacyArchitectOutputWorkspace";
 import { StructuredArchitectWorkspace } from "./StructuredArchitectWorkspace";
 import { FigmaDocumentCard, FigmaMarkdownBody } from "./FigmaDocumentCard";
@@ -4501,7 +4502,8 @@ export function App(): JSX.Element {
 
           {activeWorkspaceId === "phase-interview" || activeWorkspaceId === "phase-planning-bundle" ? <StructuredPhaseLoopWorkspace workflowId={greenfieldArchitectWorkflowId} phaseId={currentModel?.currentPhaseId} stageKind={activeWorkspaceId === "phase-interview" ? "interview" : "planning"} browserPanel={architectBrowserColumn} onNext={async () => {await refreshCurrentModel(); setActiveWorkspaceId(activeWorkspaceId === "phase-interview" ? "phase-planning-bundle" : "phase-work-card-selection");}} /> : null}
           {activeWorkspaceId === "work-card-intake" ? <DerivedPhaseWorkIntakeWorkspace phaseId={currentModel?.currentPhaseId} workItemId={currentModel?.currentWorkCardId} onNext={async () => {setActiveWorkspaceId("work-card-planning");}} /> : null}
-          {isVisibleArchitectOutputWorkspace && !isPhaseMapFigmaWorkspace && activeWorkspaceId !== "architect-interview" && activeWorkspaceId !== "project-planning-review" && activeWorkspaceId !== "phase-interview" && activeWorkspaceId !== "phase-planning-bundle" ? (
+          {activeWorkspaceId === "work-card-planning" && greenfieldArchitectWorkflowId && currentModel?.currentWorkCardId ? <WorkItemPlanningWorkspace workflowId={greenfieldArchitectWorkflowId} workItemId={currentModel.currentWorkCardId} browserPanel={architectBrowserColumn} onChanged={async () => {await refreshCurrentModel();}} onNext={async () => {setActiveWorkspaceId("work-card-building");}} /> : null}
+          {isVisibleArchitectOutputWorkspace && activeWorkspaceId !== "work-card-planning" && !isPhaseMapFigmaWorkspace && activeWorkspaceId !== "architect-interview" && activeWorkspaceId !== "project-planning-review" && activeWorkspaceId !== "phase-interview" && activeWorkspaceId !== "phase-planning-bundle" ? (
             <LegacyArchitectOutputWorkspace
               browserVisible={isArchitectPaneVisible}
               label={`${activeWorkspace.label} Figma document workspace`}

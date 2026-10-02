@@ -1,3 +1,4 @@
+import {createStructuredWorkItemPlanningService} from "../workCardPlanning/structuredWorkItemPlanningService";
 import {createStructuredPhaseLoopService} from "../phasePlanning/structuredPhaseLoopService";
 import {structuredWorkCardIntake} from "../phasePlanning/structuredPhaseLoopReadProjection";
 import {createStructuredPhaseMapService} from "../phaseMap/structuredPhaseMapService";
@@ -27,6 +28,16 @@ export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcR
     return args[0];
   };
   registry.handle("workflow:getIntake", (_event, ...args) => intake.ensureWorkflowIntake(getCurrentProjectRoot(), intakeId(args, 1)));
+  const workItemPlanning = createStructuredWorkItemPlanningService();
+  const workArgs = (args: unknown[], count: number) => {
+    const workflowId = intakeId(args, count);
+    if (typeof args[1] !== "string" || !args[1].trim() || args[1].length > 128) throw Error("Exact bounded WorkItem required.");
+    return {workflowId, workItemId: args[1]};
+  };
+  registry.handle("workflow:workItemPlanningGet", (_event, ...args) => {const ids = workArgs(args, 2); return workItemPlanning.get(getCurrentProjectRoot(), ids.workflowId, ids.workItemId);});
+  registry.handle("workflow:workItemPlanningSave", (_event, ...args) => {const ids = workArgs(args, 3); return workItemPlanning.save(getCurrentProjectRoot(), ids.workflowId, ids.workItemId, args[2] as string);});
+  registry.handle("workflow:workItemPlanningReview", (_event, ...args) => {const ids = workArgs(args, 3); return workItemPlanning.review(getCurrentProjectRoot(), ids.workflowId, ids.workItemId, args[2] as Parameters<typeof workItemPlanning.review>[3]);});
+  registry.handle("workflow:workItemPlanningDecompose", (_event, ...args) => {const ids = workArgs(args, 3); return workItemPlanning.decompose(getCurrentProjectRoot(), ids.workflowId, ids.workItemId, args[2] as string);});
   const phaseLoop = createStructuredPhaseLoopService();
   const phaseArgs = (args: unknown[], count: number) => {
     const workflowId = intakeId(args, count);

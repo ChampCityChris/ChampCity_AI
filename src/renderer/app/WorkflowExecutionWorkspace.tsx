@@ -1,3 +1,4 @@
+import {WorkItemPlanningWorkspace} from "./WorkItemPlanningWorkspace";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { WorkflowInstanceSummary } from "../../shared/workflowApplicationContracts";
@@ -27,9 +28,6 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel }:
   const [humanSummary, setHumanSummary] = useState("");
   const [humanVisualOutcome, setHumanVisualOutcome] = useState<"pass" | "fail" | "inconclusive">("pass");
   const [criterionDecisionOutcome, setCriterionDecisionOutcome] = useState<"approved" | "rejected">("approved");
-  const [decompositionJson, setDecompositionJson] = useState("");
-  const [executionPlanDraft, setExecutionPlanDraft] = useState({ implementationBoundaries: "", affectedPaths: "", proofIntent: "" });
-  const [architectDraft, setArchitectDraft] = useState("");
   const [phaseValidation, setPhaseValidation] = useState<Record<string, PhaseValidationProjection>>({});
 
   const refresh = async (preserveOperationFeedback = false, preserveRuntimeRole?: "implementer" | "tester") => {
@@ -75,17 +73,6 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel }:
   const item = projection?.items.find(candidate => candidate.record.id === selectedId);
   const latest = item?.implementationAttempts.at(-1);
   const selectedModel = runtime?.selection ?? (runtime?.catalog[0] ? { model: runtime.catalog[0].model, reasoningEffort: runtime.catalog[0].defaultReasoningEffort } : null);
-  const decompositionDraft = (entry: NonNullable<typeof item>) => {
-    const firstKey = "replacement-a", secondKey = "replacement-b";
-    return JSON.stringify({
-      replacements: [
-        { key: firstKey, kind: workflow.workflowType === "issue-resolution" ? "fix" : entry.record.body.workItemKind, title: `${entry.record.body.title} — part A`, objective: `Complete the first bounded part of: ${entry.record.body.objective}`, solutionId: projection?.plan.solutions[0]?.id, dependencyWorkItemIds: entry.dependencyIds, dependencyReplacementKeys: [] },
-        { key: secondKey, kind: workflow.workflowType === "issue-resolution" ? "fix" : entry.record.body.workItemKind, title: `${entry.record.body.title} — part B`, objective: `Complete the second bounded part of: ${entry.record.body.objective}`, solutionId: projection?.plan.solutions[0]?.id, dependencyWorkItemIds: [], dependencyReplacementKeys: [firstKey] },
-      ],
-      criterionDispositions: projection?.plan.criteria.filter(candidate => candidate.ownerId === entry.record.id).map(candidate => ({ criterionId: candidate.record.id, disposition: "transfer", replacementKey: firstKey })) ?? [],
-      incomingDependentMappings: projection?.items.filter(candidate => candidate.dependencyIds.includes(entry.record.id)).map(candidate => ({ dependentWorkItemId: candidate.record.id, replacementKeys: [firstKey, secondKey] })) ?? [],
-    }, null, 2);
-  };
   const act = async (operation: () => Promise<unknown>, message: string, role?: "implementer" | "tester") => {
     try { const result = await operation();
       if (result && typeof result === "object" && "state" in result && (result.state === "unavailable" || result.state === "failed" || ("failureReason" in result && result.failureReason))) {
@@ -127,7 +114,7 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel }:
         </p>
         {projection.source.state === "unprepared" && <p>Source checkout is prepared on the first exact Implementer run.</p>}
         {projection.items.length === 0 ? <p role="status">No accepted Work Items are available for this Workflow.</p> : <ol>{projection.items.map(entry => <li key={entry.record.id}>
-          <button type="button" onClick={() => { setSelectedId(entry.record.id); setValidation(null); setImplementer(null); setTester(null); setDecompositionJson(decompositionDraft(entry)); void Promise.all([
+          <button type="button" onClick={() => { setSelectedId(entry.record.id); setValidation(null); setImplementer(null); setTester(null); void Promise.all([
             window.champcity.getWorkItemValidation(workflow.workflowId, entry.record.id), window.champcity.getWorkflowWorkItemCodexExecutionStatus(workflow.workflowId, entry.record.id),
           ]).then(([nextValidation, nextImplementer]) => { setValidation(nextValidation); setImplementer(nextImplementer); const implementation = entry.implementationAttempts.at(-1); return implementation
             ? window.champcity.getWorkflowWorkItemTesterStatus(workflow.workflowId, entry.record.id, implementation.id).then(setTester) : undefined; }).catch(reason => setError(String(reason))); }}>{entry.record.body.title}</button> — {entry.record.body.workState} · {entry.eligibility.eligible ? "ready" : entry.eligibility.blockers.join(", ")}
@@ -135,56 +122,8 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel }:
         </li>)}</ol>}
       </section>
         {item && <section aria-label="Exact Work Item execution"><h2>{item.record.body.title}</h2><p>{item.record.body.objective}</p><p>WorkItem <code>{item.record.id}</code> · {item.record.body.workState} · contract from accepted plan</p>
-        { ["planned", "ready"].includes(item.record.body.workState) && !item.record.body.implementationBoundaries?.length && <section aria-label="Architect WorkItem execution planning"><h3>Architect execution plan required</h3>
-          <p>Prepare the exact Architect handoff, then accept its bounded execution contract before decomposition or Implementer execution.</p>
-          <button onClick={() => void act(async () => {
-            const solution = projection.plan.solutions[0]; const phase = projection.plan.phases.find(candidate => candidate.phaseId === item.phaseId);
-            const handoff = `Architect WorkItem execution plan\nWorkflow ID: ${workflow.workflowId}\nWorkItem ID/version: ${item.record.id}/${item.record.recordVersion}\nObjective: ${item.record.body.objective}\nAccepted BoundedSolution: ${JSON.stringify(solution)}\nWorkItem Criteria: ${JSON.stringify(projection.plan.criteria.filter(candidate => candidate.ownerId === item.record.id).map(candidate => candidate.record))}\nSolution Criteria: ${JSON.stringify(projection.plan.criteria.filter(candidate => candidate.ownerId === solution?.id).map(candidate => candidate.record))}\nPhase context: ${JSON.stringify(phase ?? null)}\nDependencies: ${JSON.stringify(item.dependencyIds)}\nScope/constraints: ${JSON.stringify({ scopeIn: solution?.body.scopeIn, scopeOut: solution?.body.scopeOut, constraints: solution?.body.constraints })}\nSource mode/context: ${JSON.stringify({ mode: projection.source.state === "non-source" ? "source-neutral" : "source-backed", currentRevisionId: projection.source.currentRevisionId, workSourceLineId: projection.source.workSourceLineId, repositoryCheckoutId: projection.source.repositoryCheckoutId })}\n${projection.source.state === "non-source" ? "Source-neutral policy: required deterministic ValidationCatalog proof is unavailable. Select a supported policy such as semantic_ai, visual_human, or operator_decision for every required Criterion; canonical acceptance enforces this." : "Source-backed deterministic ValidationCatalog proof is available when appropriate."}\nReturn implementationBoundaries (1..32), affectedPaths (0..128 normalized repo-relative paths; empty for source-neutral), proofIntent (1..32), whether decomposition is required, and bounded current repository context relevant to this exact scope. Do not return raw transcript or Markdown as authority.`;
-            await navigator.clipboard.writeText(handoff); return { copied: true };
-          }, "Exact Architect handoff copied.")}>Prepare Architect handoff</button>
-          <label>Architect structured result<textarea aria-label="Architect structured result" value={architectDraft} onChange={event => setArchitectDraft(event.target.value)} placeholder={'{"implementationBoundaries":[],"affectedPaths":[],"proofIntent":[],"decompositionRequired":false}'} /></label>
-          <button onClick={() => {
-            try {
-              const parsed = JSON.parse(architectDraft) as Record<string, unknown>;
-              const allowed = ["implementationBoundaries", "affectedPaths", "proofIntent", "decompositionRequired", "decomposition"];
-              if (!parsed || Array.isArray(parsed) || typeof parsed !== "object" || Object.keys(parsed).some(key => !allowed.includes(key)) ||
-                !Array.isArray(parsed.implementationBoundaries) || !Array.isArray(parsed.affectedPaths) || !Array.isArray(parsed.proofIntent) || typeof parsed.decompositionRequired !== "boolean" ||
-                (parsed.decompositionRequired ? !parsed.decomposition || typeof parsed.decomposition !== "object" : parsed.decomposition !== undefined)) throw Error("Architect result must match the bounded WorkItem planning contract.");
-              if (parsed.implementationBoundaries.length < 1 || parsed.implementationBoundaries.length > 32 || parsed.affectedPaths.length > 128 || parsed.proofIntent.length < 1 || parsed.proofIntent.length > 32 ||
-                (projection?.source.state === "non-source" && parsed.affectedPaths.length > 0)) throw Error("Architect planning lists exceed bounds or include source paths for a source-neutral WorkItem.");
-              const asLines = (values: unknown[]) => values.map(value => { if (typeof value !== "string" || !value.trim()) throw Error("Architect planning lists must contain non-empty text only."); return value.trim(); }).join("\n");
-              let typedDecomposition: string | undefined;
-              if (parsed.decompositionRequired) {
-                const decomposition = parsed.decomposition as Record<string, unknown>;
-                if (!Array.isArray(decomposition.replacements) || !Array.isArray(decomposition.criterionDispositions) || !Array.isArray(decomposition.incomingDependentMappings)) throw Error("Architect decomposition must use the existing typed replacements, Criterion dispositions, and dependency mappings contract.");
-                typedDecomposition = JSON.stringify(decomposition, null, 2);
-              }
-              setExecutionPlanDraft({ implementationBoundaries: asLines(parsed.implementationBoundaries), affectedPaths: asLines(parsed.affectedPaths), proofIntent: asLines(parsed.proofIntent) });
-              if (typedDecomposition) setDecompositionJson(typedDecomposition);
-              setError(""); setFeedback("Bounded Architect result loaded for review.");
-            } catch (reason) { setError(String(reason)); }
-          }}>Import bounded Architect result</button>
-          <label>Implementation boundaries<textarea value={executionPlanDraft.implementationBoundaries} onChange={event => setExecutionPlanDraft(current => ({ ...current, implementationBoundaries: event.target.value }))} /></label>
-          <label>Affected repository paths<textarea value={executionPlanDraft.affectedPaths} onChange={event => setExecutionPlanDraft(current => ({ ...current, affectedPaths: event.target.value }))} /></label>
-          <label>Focused proof intent<textarea value={executionPlanDraft.proofIntent} onChange={event => setExecutionPlanDraft(current => ({ ...current, proofIntent: event.target.value }))} /></label>
-          <button onClick={() => void act(() => window.champcity.acceptWorkflowWorkItemExecutionPlan({ workflowId: workflow.workflowId, workItemId: item.record.id, expectedVersion: item.record.recordVersion, plan: {
-            implementationBoundaries: executionPlanDraft.implementationBoundaries.split(/\r?\n/).map(value => value.trim()).filter(Boolean),
-            affectedPaths: executionPlanDraft.affectedPaths.split(/\r?\n/).map(value => value.trim()).filter(Boolean), proofIntent: executionPlanDraft.proofIntent.split(/\r?\n/).map(value => value.trim()).filter(Boolean),
-          } }), "Architect execution plan accepted.")}>Accept Architect execution plan</button>
-        </section>}
+        {["planned", "ready"].includes(item.record.body.workState) && <WorkItemPlanningWorkspace workflowId={workflow.workflowId} workItemId={item.record.id} browserPanel={null} onChanged={refresh} />}
         <details><summary>Execution contract</summary><p>Scope in: {projection.plan.solutions[0]?.body.scopeIn.join("; ")}</p><p>Scope out: {projection.plan.solutions[0]?.body.scopeOut.join("; ")}</p><p>Constraints: {projection.plan.solutions[0]?.body.constraints.join("; ")}</p><p>Contract digest is generated from exact Workflow, WorkItem, accepted solution, phase, dependencies, Criteria, and source revision when execution starts.</p></details>
-        {["planned", "ready"].includes(item.record.body.workState) && item.implementationAttempts.length === 0 && <details><summary>Decompose WorkItem before execution</summary>
-          <p>Expected WorkItem version: <code>{item.record.recordVersion}</code>. Edit each replacement, transfer/elevate/split every Criterion, and map all incoming/outgoing dependencies. The typed action is atomic.</p>
-          <label>Typed decomposition JSON<textarea value={decompositionJson || decompositionDraft(item)} onChange={event => setDecompositionJson(event.target.value)} /></label>
-          <button onClick={() => void act(async () => {
-            const draft = JSON.parse(decompositionJson || decompositionDraft(item)) as Record<string, unknown>;
-            if (Object.keys(draft).sort().join("|") !== "criterionDispositions|incomingDependentMappings|replacements") throw Error("Decomposition JSON must contain only replacements, criterionDispositions, and incomingDependentMappings.");
-            return window.champcity.decomposeWorkflowWorkItem({ workflowId: workflow.workflowId, workItemId: item.record.id, expectedWorkItemVersion: item.record.recordVersion,
-              replacements: draft.replacements as import("../../shared/projectState/projectStateService").WorkItemDecompositionCandidate[],
-              criterionDispositions: draft.criterionDispositions as import("../../shared/projectState/projectStateService").WorkItemCriterionDisposition[],
-              incomingDependentMappings: draft.incomingDependentMappings as import("../../shared/projectState/projectStateService").WorkItemDecompositionInput["incomingDependentMappings"] });
-          }, "Typed decomposition accepted; current plan refreshed.")}>Accept typed decomposition</button>
-        </details>}
         <h3>Implementer</h3><p>{latest ? `Implementation ${latest.id}: ${latest.body.outcome} · ${latest.body.summary}` : "No implementation attempt yet."}{implementer?.executionContractDigest && <> · contract <code>{implementer.executionContractDigest}</code></>}</p>
         {runtime?.catalog.length ? <label>Codex model <select value={selectedModel?.model ?? ""} onChange={async event => {
           const entry = runtime.catalog.find(candidate => candidate.model === event.target.value); if (!entry) return;

@@ -1,3 +1,4 @@
+import {resolvePlanTopology} from "../../shared/projectState/planReviewContracts";
 import type { WorkItemDecompositionProposal } from "../../shared/workItemDecompositionContracts";
 import type { WorkPlanStructure } from "../../shared/workPlanningContracts";
 import { validateWorkPlanStructure } from "../workPlanning/workPlanStructure";
@@ -9,10 +10,10 @@ export function decompositionFromBody(body: string): WorkItemDecompositionPropos
   if (blocks.length !== 1) throw Error("Decomposition requires exactly one champcity-work-item-decomposition block.");
   const value = JSON.parse(blocks[0][1]) as WorkItemDecompositionProposal;
   const text = (item: unknown): item is string => typeof item === "string" && !!item.trim() && item.length <= 4000;
-  if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).some((key) => !["kind", "rationale", "evidence", "replacements", "phases", "phaseAssignments", "topologyRationale"].includes(key)) ||
+  if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).some((key) => !["kind", "rationale", "evidence", "replacements", "phases", "phaseAssignments", "topologyRationale", "boundaries"].includes(key)) ||
     !["siblings", "direct-to-phased"].includes(value.kind) || !text(value.rationale) || !Array.isArray(value.evidence) || !value.evidence.length || value.evidence.length > 100 || !value.evidence.every(text) ||
     !Array.isArray(value.replacements) || value.replacements.length < 2 || value.replacements.length > 100) throw Error("Decomposition requires bounded evidence, rationale and at least two replacement outcomes.");
-  if (value.kind === "siblings" && (value.phases !== undefined || value.phaseAssignments !== undefined || value.topologyRationale !== undefined)) throw Error("Sibling decomposition cannot change Plan topology.");
+  if (value.kind === "siblings" && (value.phases !== undefined || value.phaseAssignments !== undefined || value.topologyRationale !== undefined || value.boundaries !== undefined)) throw Error("Sibling decomposition cannot change Plan topology.");
   if (value.kind === "direct-to-phased" && (!Array.isArray(value.phases) || !value.phaseAssignments || typeof value.phaseAssignments !== "object" || Array.isArray(value.phaseAssignments) || !text(value.topologyRationale))) throw Error("Topology correction requires explicit Phases, assignments and rationale.");
   return value;
 }
@@ -36,6 +37,10 @@ export function applyWorkItemDecomposition(plan: WorkPlanStructure, workItemId: 
     const unchangedIds = plan.workItems.filter((item) => item.workItemId !== workItemId).map((item) => item.workItemId);
     if (Object.keys(proposal.phaseAssignments!).length !== unchangedIds.length || unchangedIds.some((id) => typeof proposal.phaseAssignments![id] !== "string")) throw Error("Assign every unchanged Work Item to exactly one proposed Phase.");
     workItems = workItems.map((item) => ids.includes(item.workItemId) ? item : { ...item, phaseId: proposal.phaseAssignments![item.workItemId] });
+    resolvePlanTopology({workflowId: "topology-correction", solution: {title: "Accepted plan", objective: proposal.topologyRationale!, scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: []}, solutionCriteria: [], boundaries: proposal.boundaries,
+      phases: proposal.phases!.map((phase, index) => ({key: phase.phaseId, title: phase.title, objective: phase.purpose, sequence: index+1, criteria: phase.acceptanceCriteria.map(statement => ({statement, criticality: "required" as const, verificationIntent: statement, validationPolicy: "operator_decision" as const}))})),
+      phaseDependencies: proposal.phases!.map(phase => ({phaseKey: phase.phaseId, dependencyKeys: phase.dependsOn})),
+      workItems: workItems.map(work => ({key: work.workItemId, kind: "feature", title: work.title, objective: work.purpose, phaseKey: work.phaseId, dependencyKeys: work.dependsOn, criteria: []}))});
     structure = validateWorkPlanStructure({ ...plan, topology: "phased", topologyRationale: proposal.topologyRationale, phases: proposal.phases, workItems });
   } else structure = validateWorkPlanStructure({ ...plan, workItems });
   const earlierPhases = (phaseId: string, found = new Set<string>()): string[] => {

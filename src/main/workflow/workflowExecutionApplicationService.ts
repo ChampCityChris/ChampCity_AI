@@ -332,7 +332,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
     });
   }
 
-  async function acceptWorkItemExecutionPlan(projectRoot: string, input: import("../../shared/workflowApplicationContracts").WorkItemExecutionPlanInput) {
+  async function acceptWorkItemExecutionPlan(projectRoot: string, input: import("../../shared/workflowApplicationContracts").WorkItemExecutionPlanInput, approve = true, criteria?: import("../../shared/projectState/workItemPlanningContracts").WorkItemPlanningContract["criteria"]) {
     const plan = input?.plan;
     if (!input || !Number.isSafeInteger(input.expectedVersion) || !plan || !Array.isArray(plan.implementationBoundaries) || !Array.isArray(plan.affectedPaths) || !Array.isArray(plan.proofIntent)) throw Error("A bounded exact WorkItem execution plan is required.");
     const boundedList = (values: string[], min: number, max: number, label: string) => {
@@ -382,7 +382,9 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       if ((!item.implementationAttempts.length && validations.length) || (!item.implementationAttempts.length && testers.length) || checkpoints.some(record => record.body.checkpointState !== "not-required")) throw Error("Execution plan cannot change after implementation evidence or source checkpoints exist.");
       if (projection.source.state === "non-source" && affectedPaths.length) throw Error("Source-neutral execution plans must have an empty affected-path scope.");
       const state = createProjectStateService(store, operator);
-      return state.reviseRecord(projectId, item.record.id, { implementationBoundaries, affectedPaths, proofIntent }, input.expectedVersion);
+      const workItem = await state.saveWorkItemPlanningContract(projectId, {workflowId: input.workflowId, workItemId: item.record.id, expectedVersion: input.expectedVersion, implementationBoundaries, affectedPaths, proofIntent, ...(criteria !== undefined ? {criteria} : {})});
+      if (approve) await state.recordWorkItemPlanningReview(projectId, input.workflowId, workItem.id, {expectedRecordVersion: workItem.recordVersion, outcome: "approved", notes: "Accept exact Architect execution contract."});
+      return workItem;
     });
   }
 

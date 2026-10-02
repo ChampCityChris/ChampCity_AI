@@ -14,6 +14,10 @@ import type {
 } from "../shared/workspaceContracts";
 
 const api: ChampCityApi = {
+  getStructuredWorkItemPlanning: (workflowId, workItemId) => ipcRenderer.invoke("workflow:workItemPlanningGet", workflowId, workItemId),
+  saveStructuredWorkItemPlanning: (workflowId, workItemId, json) => ipcRenderer.invoke("workflow:workItemPlanningSave", workflowId, workItemId, json),
+  reviewStructuredWorkItemPlanning: (workflowId, workItemId, input) => ipcRenderer.invoke("workflow:workItemPlanningReview", workflowId, workItemId, input),
+  decomposeStructuredWorkItemPlanning: (workflowId, workItemId, json) => ipcRenderer.invoke("workflow:workItemPlanningDecompose", workflowId, workItemId, json),
   getStructuredPhaseLoop: (workflowId, phaseId, stageKind) => ipcRenderer.invoke("workflow:phaseLoopGet", workflowId, phaseId, stageKind),
   saveStructuredPhaseLoop: (workflowId, phaseId, stageKind, input) => ipcRenderer.invoke("workflow:phaseLoopSave", workflowId, phaseId, stageKind, input),
   reviewStructuredPhaseLoop: (workflowId, phaseId, stageKind, cycleId, input) => ipcRenderer.invoke("workflow:phaseLoopReview", workflowId, phaseId, stageKind, cycleId, input),

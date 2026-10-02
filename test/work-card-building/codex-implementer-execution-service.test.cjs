@@ -2163,7 +2163,7 @@ test("exact source-neutral Feature and Issue WorkItem selectors use fake App Ser
   assert.equal((await store.getEntity(registration.project.id, failedItem.id)).body.workState, "ready");
 
   const currentIssueItem = await store.getEntity(registration.project.id, issueItem.id);
-  const blocked = await state.reviseRecord(registration.project.id, issueItem.id, { ...currentIssueItem.body, workState: "blocked" }, currentIssueItem.recordVersion);
+  const blocked = await state.reviseRecord(registration.project.id, issueItem.id, { workState: "blocked" }, currentIssueItem.recordVersion);
   const blockedStart = await service.start(root, { ownerKind: "workflow-work-item", workflowId: issue.workflow.id, workItemId: blocked.id }, selection);
   assert.equal(blockedStart.state, "unavailable");
   assert.equal(appServerCalls, 4);

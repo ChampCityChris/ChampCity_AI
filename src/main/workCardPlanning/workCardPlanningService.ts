@@ -1,3 +1,5 @@
+import {selectedCurrentProjectId} from "../projectState/currentProjectRegistrationService";
+import {structuredWorkItemContractEligibility} from "../phasePlanning/structuredPhaseLoopReadProjection";
 import fs from "node:fs";
 import { workItemFormalPrefix, workItemArtifactIdentity, type WorkItemArtifactScope } from "../workCardLoop/workItemArtifactScope";
 import path from "node:path";
@@ -229,6 +231,7 @@ export function setFormalWorkCardDisposition(
   workCardId: string,
   status: DocumentDispositionStatus,
 ): PlanningDocumentSummary {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Use exact typed SQL WorkItem contract review; generated Formal Work Card disposition is not authority.");
   const formal = requiredAny(workspaceRoot, workItemFormalPrefix(phaseId, workCardId), ".md");
   if (status === "Approved") {
     approveFormalWorkCardAndRegisterReport({
@@ -251,6 +254,7 @@ export function getWorkCardBuildingEligibility(
   phaseId: string,
   workCardId: string,
 ): WorkCardBuildingEligibility {
+  if (selectedCurrentProjectId(workspaceRoot)) return structuredWorkItemContractEligibility(workspaceRoot, phaseId, workCardId);
   const formal = findByPrefix(workspaceRoot, workItemFormalPrefix(phaseId, workCardId), ".md");
   if (!formal) {
     return { eligible: false, reason: "Formal Work Card is required." };
@@ -274,6 +278,7 @@ export function reviseFormalWorkCard(
   phaseId: string,
   workCardId: string,
 ): void {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Revise the exact SQL WorkItem contract; historical Formal Work Card is evidence only.");
   const formal = requiredAny(workspaceRoot, workItemFormalPrefix(phaseId, workCardId), ".md");
   savePlanningDocumentRevision(workspaceRoot, formal.logicalDocumentId);
 }

@@ -1399,6 +1399,10 @@ export interface WorkspaceMigrationResult {
 }
 
 export interface ChampCityApi {
+  getStructuredWorkItemPlanning(workflowId: string, workItemId: string): ReturnType<ReturnType<typeof import("../main/workCardPlanning/structuredWorkItemPlanningService").createStructuredWorkItemPlanningService>["get"]>;
+  saveStructuredWorkItemPlanning(workflowId: string, workItemId: string, json: string): ReturnType<ChampCityApi["getStructuredWorkItemPlanning"]>;
+  reviewStructuredWorkItemPlanning(workflowId: string, workItemId: string, input: import("./projectState/architectReviewContracts").ArchitectReviewDecisionInput): ReturnType<ChampCityApi["getStructuredWorkItemPlanning"]>;
+  decomposeStructuredWorkItemPlanning(workflowId: string, workItemId: string, json: string): ReturnType<ReturnType<typeof import("../main/workCardPlanning/structuredWorkItemPlanningService").createStructuredWorkItemPlanningService>["decompose"]>;
   getStructuredPhaseLoop(workflowId: string, phaseId: string, stageKind: "interview" | "planning"): ReturnType<ReturnType<typeof import("../main/phasePlanning/structuredPhaseLoopService").createStructuredPhaseLoopService>["get"]>;
   saveStructuredPhaseLoop(workflowId: string, phaseId: string, stageKind: "interview" | "planning", input: import("./projectState/phaseLoopContracts").PhaseLoopCandidate): ReturnType<ChampCityApi["getStructuredPhaseLoop"]>;
   reviewStructuredPhaseLoop(workflowId: string, phaseId: string, stageKind: "interview" | "planning", cycleId: string, input: import("./projectState/architectReviewContracts").ArchitectReviewDecisionInput): ReturnType<ChampCityApi["getStructuredPhaseLoop"]>;

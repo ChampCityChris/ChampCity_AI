@@ -670,3 +670,9 @@ test("routed projection shares one fresh inventory across large Work Item and do
     hooks();fs.unlinkSync(path.join(root,handoff.handoffMarkdownPath));
   }
 });
+test('shared WorkItem planning adapter contains no Architect parsing or prompt authority', () => {
+  const source=fs.readFileSync(path.join(__dirname,'../../src/renderer/app/WorkItemPlanningWorkspace.tsx'),'utf8');
+  const exact=fs.readFileSync(path.join(__dirname,'../../src/renderer/app/WorkflowExecutionWorkspace.tsx'),'utf8');
+  assert.doesNotMatch(source,/JSON\.parse|Return bounded JSON|implementationBoundaries:/); assert.doesNotMatch(exact,/Architect WorkItem execution plan\\n|JSON\.parse\(architectDraft|decompositionDraft/);
+  assert.match(source,/PlanReviewShell/); assert.match(exact,/WorkItemPlanningWorkspace/);
+});

@@ -4937,6 +4937,7 @@
         "src/main/projectPlanning/structuredProjectPlanningReadProjection.ts",
         "src/main/projectPlanning/structuredProjectPlanningService.ts",
         "src/main/sourceControl/workflowIntegrationService.ts",
+        "src/main/workCardPlanning/structuredWorkItemPlanningService.ts",
         "src/main/workPlanning/exactWorkflowPlanningService.ts",
         "src/main/workflow/**",
         "src/main/workflow/workflowExecutionApplicationService.ts",
@@ -4947,6 +4948,7 @@
         "src/renderer/app/StructuredPhaseLoopWorkspace.tsx",
         "src/renderer/app/StructuredPhaseMapWorkspace.tsx",
         "src/renderer/app/StructuredProjectPlanningWorkspace.tsx",
+        "src/renderer/app/WorkItemPlanningWorkspace.tsx",
         "src/renderer/app/WorkMapShell.tsx",
         "src/renderer/app/WorkflowIntakeWorkspace.tsx",
         "src/renderer/app/planningDraftAction.ts",
@@ -4958,6 +4960,7 @@
         "src/shared/projectState/projectArchitectureContext.ts",
         "src/shared/projectState/projectPlanningReviewContracts.ts",
         "src/shared/projectState/projectStateService.ts",
+        "src/shared/projectState/workItemPlanningContracts.ts",
         "src/shared/projectState/workflowTypeRegistry.ts",
         "src/shared/structuredWorkRoutingContracts.ts",
         "src/shared/workflowApplicationContracts.ts",
@@ -5045,6 +5048,22 @@
         {
           "behaviorId": "workflow-inventory-resolves-unambiguous-wir-provenance-and-fails-closed",
           "description": "Current Workflow summaries resolve WIR and routed target provenance while direct Workflow summaries retain the same core shape."
+        },
+        {
+          "behaviorId": "workitem-contract-exact-legacy-metadata-import",
+          "description": "exact typed legacy Formal metadata migrates once while free-form prose remains historical evidence"
+        },
+        {
+          "behaviorId": "workitem-contract-exact-review-and-topology",
+          "description": "exact WorkItem planning requires current Operator review and rejects unsupported topology atomically"
+        },
+        {
+          "behaviorId": "workitem-contract-greenfield-revision-review",
+          "description": "SQL WorkItem planning governs Greenfield contract revisions and ignores generated Formal Markdown"
+        },
+        {
+          "behaviorId": "workitem-planning-renderer-application-boundary",
+          "description": "shared WorkItem planning adapter contains no Architect parsing or prompt authority"
         }
       ]
     },
@@ -13205,7 +13224,7 @@
     {
       "testPath": "test/phase-planning/phase-planning-service.test.cjs",
       "currentTestCount": {
-        "value": 5,
+        "value": 6,
         "basis": "RWS06E adds exact SQL Phase stage review and deterministic typed Phase Planning migration proofs."
       },
       "duration": {
@@ -13262,6 +13281,12 @@
           "capabilityId": "phase-execution-workflow",
           "behaviorId": "phase-planning-revisionrequested-bundle-revises-both-documents-once-and-resets-review-state",
           "proofLocator": "phase planning RevisionRequested bundle revises both documents once and resets review state",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "workitem-contract-greenfield-revision-review",
+          "proofLocator": "SQL WorkItem planning governs Greenfield contract revisions and ignores generated Formal Markdown",
           "proofRole": "primary"
         }
       ]
@@ -20113,7 +20138,7 @@
     {
       "testPath": "test/work-card-planning/work-card-planning-service.test.cjs",
       "currentTestCount": {
-        "value": 14,
+        "value": 15,
         "basis": "Observed TAP summary in the final WRB02-05 normal Windows focused run."
       },
       "duration": {
@@ -20229,6 +20254,12 @@
           "capabilityId": "work-card-workflow",
           "behaviorId": "work-card-planning-creates-markdown-only-formal-work-card-and-approves-eligibility",
           "proofLocator": "work card planning creates Markdown-only Formal Work Card and approves eligibility",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "workitem-planning-renderer-application-boundary",
+          "proofLocator": "shared WorkItem planning adapter contains no Architect parsing or prompt authority",
           "proofRole": "primary"
         }
       ]
@@ -21127,7 +21158,7 @@
     {
       "testPath": "test/workflow/workflow-execution-application-service.test.cjs",
       "currentTestCount": {
-        "value": 10,
+        "value": 12,
         "basis": "Ten focused service and IPC scenarios cover exact shared execution, current Criteria, source-neutral semantic evidence and close, peer-Workflow Phase isolation, bounded product APIs, system completion attribution, and canonical Repair re-entry."
       },
       "duration": {
@@ -21215,6 +21246,18 @@
           "capabilityId": "workflow-application-service",
           "behaviorId": "tester-only-contract-projection-reads-validation-pending-work-item-without-enabling-implementer-attempts",
           "proofLocator": "Tester-only contract projection reads the exact validation-pending WorkItem while the Implementer contract remains ineligible",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "workitem-contract-exact-legacy-metadata-import",
+          "proofLocator": "exact typed legacy Formal metadata migrates once while free-form prose remains historical evidence",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "workitem-contract-exact-review-and-topology",
+          "proofLocator": "exact WorkItem planning requires current Operator review and rejects unsupported topology atomically",
           "proofRole": "primary"
         }
       ]

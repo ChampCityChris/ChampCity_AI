@@ -22,13 +22,16 @@ export function readStructuredPhaseLoop(root: string, phaseKey: string, stageKin
   if (cycles.length !== 1) return null;
   const cycle = cycles[0], edges = relationships.filter(edge => !edge.endedAt), disposition = exactVersionReviewDisposition(cycle, records, relationships, outbox, "phase-loop-review", "phase-loop-review");
   if (edges.filter(edge => edge.relationshipType === "phase_review_for" && edge.fromEntityId === cycle.id && edge.toEntityId === phase.id).length !== 1 || cycle.body.layout.sources.some(source => !records.some(record => record.id === source.entityId && record.lifecycleState === "active" && (record.entityType === "Phase" || record.recordVersion === source.recordVersion)))) return null;
-  if (cycle.body.layout.memberIds.some(id => !records.some(record => record.id === id && record.lifecycleState === "active"))) return null;
+  if (cycle.body.layout.memberIds.some(id => !records.some(record => record.id === id && (record.lifecycleState === "active" || disposition.state === "approved" && record.lifecycleState === "voided" && edges.some(edge => edge.relationshipType === "decomposed_into" && edge.fromEntityId === id || edge.relationshipType === "derived_from" && edge.toEntityId === id))))) return null;
   const members = cycle.body.layout.memberIds.map(id => (disposition.state === "approved" ? originalMapMembers : records).find(record => record.id === id));
   if (members.some(member => !member)) return null;
   const current = members.filter(member => !!member);
   const digest = createHash("sha256").update(JSON.stringify(current.map(member => [member.id, member.recordVersion]).sort((a,b) => String(a[0]).localeCompare(String(b[0]))))).digest("hex");
   if (digest !== cycle.body.semanticDigest) return null;
-  const workItems = records.filter((record): record is ProjectStateRecord<"WorkItem"> => record.entityType === "WorkItem" && cycle.body.layout.memberIds.includes(record.id));
+  const descendantIds = new Set(cycle.body.layout.memberIds);
+  let changed = true;
+  while (changed) {changed = false; for (const edge of edges.filter(edge => edge.relationshipType === "decomposed_into" && descendantIds.has(edge.fromEntityId))) if (!descendantIds.has(edge.toEntityId)) {descendantIds.add(edge.toEntityId); changed = true;}}
+  const workItems = records.filter((record): record is ProjectStateRecord<"WorkItem"> => record.entityType === "WorkItem" && record.lifecycleState === "active" && descendantIds.has(record.id) && edges.some(edge => edge.relationshipType === "part_of" && edge.fromEntityId === record.id && edge.toEntityId === phase.id));
   const candidates = workItems.map(record => ({candidateId: record.id, order: record.body.planningOrder!, title: record.body.title, purpose: record.body.objective, dependsOn: edges.filter(edge => edge.relationshipType === "depends_on" && edge.fromEntityId === record.id).map(edge => edge.toEntityId), resolutionStatus: record.body.planningResolution!, resolutionReason: record.body.resolutionReason ?? "", evidencePaths: record.body.planningEvidence ?? [], carriedForwardToPhaseId: record.body.carriedForwardToPhaseId})).sort((a,b) => a.order-b.order);
   return {cycle, phase, disposition, members: current, workItems, candidates, markdown: renderPhaseLoop(cycle, current, edges)};
 }
@@ -53,4 +56,12 @@ export function structuredWorkCardIntake(root: string, phaseKey: string, candida
   const candidate = review.candidates.find(candidate => candidate.candidateId === selection.candidateId)!;
   const handoffInstruction = `# Work Card preparation\n\nExact SQL WorkItem ${selection.candidateId}; Phase ${review.phase.id}; Plan review ${review.cycle.id}@${review.cycle.recordVersion}\n\n${selection.title}\n${selection.purpose}\n\nDependencies: ${candidate.dependsOn.join(", ")}\n\n${review.markdown}\n\nPrepare the existing WorkItem. Do not create another identity or canonical Intake record.`;
   return {phaseId: review.phase.body.phaseKey ?? review.phase.id, candidate, selectionReason: selection.reason, sourceWorkCardPlanPath: map.sourceWorkCardPlanPath!, handoffMarkdownPath: selection.handoffMarkdownPath, formalWorkCardMarkdownPath: selection.formalWorkCardMarkdownPath, workItemId: selection.candidateId, reviewCycleId: review.cycle.id, handoffInstruction};
+}
+
+export function structuredWorkItemContractEligibility(root: string, phaseKey: string, workItemId: string) {
+  const review = readStructuredPhaseLoop(root, phaseKey, "planning"), work = review?.workItems.find(work => work.id === workItemId);
+  if (!work || review?.disposition.state !== "approved" || !work.body.contractRevision || !work.body.implementationBoundaries?.length || !work.body.proofIntent?.length) return {eligible: false, reason: "Save and approve the exact SQL WorkItem contract."};
+  const snapshot = readIntakeAdapterSnapshot(path.join(fs.realpathSync(root), ".champcity", "project-state.sqlite"), work.projectId);
+  const disposition = exactVersionReviewDisposition({id: work.id, recordVersion: work.body.contractRevision}, snapshot.records, snapshot.relationships, snapshot.outbox, "work-item-planning-review", "work-item-planning-review");
+  return {eligible: disposition.state === "approved", reason: disposition.state === "approved" ? "Approved exact SQL WorkItem contract." : "Approve the current SQL WorkItem contract revision."};
 }
