@@ -18,7 +18,7 @@ interface RelationshipDefinition {
   immutableProvenance: boolean;
 }
 
-const all: readonly EntityType[] = ["Project", "ProjectResource", "WorkIntake", "RouteAssessment", "WorkflowIntake", "ArchitectReviewCycle", "PhaseMapReviewCycle", "ProjectPlanningReviewCycle", "Workflow", "SourceBaseline", "Phase", "Finding", "RootCause", "BoundedSolution", "Criterion", "WorkItem", "ImplementationRecord", "TesterResult", "Validation", "Evidence", "Decision", "RegressionObligation", "SourceBinding", "SourceCheckpoint", "IntegrationRecord"];
+const all: readonly EntityType[] = ["Project", "ProjectResource", "WorkIntake", "RouteAssessment", "WorkflowIntake", "ArchitectReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle", "ProjectPlanningReviewCycle", "Workflow", "SourceBaseline", "Phase", "Finding", "RootCause", "BoundedSolution", "Criterion", "WorkItem", "ImplementationRecord", "TesterResult", "Validation", "Evidence", "Decision", "RegressionObligation", "SourceBinding", "SourceCheckpoint", "IntegrationRecord"];
 const nonProject = [...all, "PlanReviewCycle" as const, "ResearchOutcome" as const].filter(type => type !== "Project");
 const rule = (from: readonly EntityType[], to: readonly EntityType[], immutableProvenance = false): RelationshipDefinition => ({ from, to, immutableProvenance });
 
@@ -40,6 +40,7 @@ export const RELATIONSHIP_REGISTRY = Object.freeze({
   evaluates: rule(["Validation"], ["Criterion", "WorkItem", "BoundedSolution", "RegressionObligation", "ProjectResource", "IntegrationRecord"], true),
   explains: rule(["RootCause"], ["Finding"], true),
   governs: rule(["Decision"], [...all, "PlanReviewCycle", "ResearchOutcome", "ProjectPlanningReviewCycle"], true),
+  phase_review_for: rule(["PhaseReviewCycle"], ["Phase"], true),
   phase_map_review_for: rule(["PhaseMapReviewCycle"], ["Workflow"], true),
   project_planning_review_for: rule(["ProjectPlanningReviewCycle"], ["Workflow"], true),
   plan_review_for: rule(["PlanReviewCycle"], ["Workflow"], true),
@@ -85,6 +86,7 @@ export function validateRelationship(
   if (from.projectId !== relationship.projectId || to.projectId !== relationship.projectId) fail("Relationship endpoints must belong to one Project.");
   if (!definition.from.includes(from.entityType) || !definition.to.includes(to.entityType)) fail("Relationship direction or endpoint type is invalid.");
   if (relationship.relationshipType === "depends_on" && from.entityType !== to.entityType) fail("Dependency endpoints must have the same scope type.");
+  if (relationship.relationshipType === "phase_review_for" && (from.entityType !== "PhaseReviewCycle" || to.entityType !== "Phase" || from.body.phaseId !== to.id)) fail("Phase review requires its exact Phase owner.");
   if (relationship.relationshipType === "phase_map_review_for" && (from.entityType !== "PhaseMapReviewCycle" || to.entityType !== "Workflow" || from.body.workflowId !== to.id || to.body.workflowType !== "project-creation" || from.lifecycleState !== "active" || to.lifecycleState !== "active" || to.body.workflowState !== "active")) fail("Phase Map requires its exact active Project Creation Workflow.");
   if (relationship.relationshipType === "project_planning_review_for" && (from.entityType !== "ProjectPlanningReviewCycle" || to.entityType !== "Workflow" || from.body.workflowId !== to.id || to.body.workflowType !== "project-creation" || from.lifecycleState !== "active" || to.lifecycleState !== "active" || to.body.workflowState !== "active")) fail("Project Planning requires its exact active Project Creation Workflow.");
   if (relationship.relationshipType === "plan_review_for" && (from.entityType !== "PlanReviewCycle" || to.entityType !== "Workflow" || from.body.workflowId !== to.id || from.body.workflowType !== to.body.workflowType || from.lifecycleState !== "active" || to.lifecycleState !== "active" || to.body.workflowState !== "active" || to.body.workflowType === "work-intake-routing")) fail("Plan review requires the exact active substantive Workflow.");

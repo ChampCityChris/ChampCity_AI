@@ -7,6 +7,16 @@ const {
 } = require("./renderer-source-loader.cjs")
   .loadRendererSourceModule("src/renderer/app/WorkCardMapWorkspace.tsx");
 
+test("Greenfield Phase Interview and Planning adapters use the shared Architect shell and derived Intake", () => {
+  const {StructuredPhaseLoopWorkspace, DerivedPhaseWorkIntakeWorkspace} = require("./renderer-source-loader.cjs").loadRendererSourceModule("src/renderer/app/StructuredPhaseLoopWorkspace.tsx");
+  const interview = renderToStaticMarkup(React.createElement(StructuredPhaseLoopWorkspace, {workflowId:"exact-workflow",phaseId:"exact-phase",stageKind:"interview",browserPanel:React.createElement("aside",null,"Architect companion"),onNext:async()=>{}}));
+  assert.match(interview,/Phase Interview/); assert.match(interview,/Architect companion/); assert.match(interview,/Prepare \/ Refresh/); assert.doesNotMatch(interview,/Continue to Work Card Map/);
+  const planning = renderToStaticMarkup(React.createElement(StructuredPhaseLoopWorkspace, {workflowId:"exact-workflow",phaseId:"exact-phase",stageKind:"planning",browserPanel:React.createElement("aside",null,"Architect companion"),onNext:async()=>{}}));
+  assert.match(planning,/Phase Planning and Work Card Plan/); assert.match(planning,/Architect companion/);
+  const intake = renderToStaticMarkup(React.createElement(DerivedPhaseWorkIntakeWorkspace, {phaseId:"exact-phase",workItemId:"same-work-item",onNext:async()=>{}}));
+  assert.match(intake,/WorkItem Preparation/); assert.doesNotMatch(intake,/Approve|Revision Requested|Save for review/);
+});
+
 function mapProjection(overrides = {}) {
   return {
     state: "ready",

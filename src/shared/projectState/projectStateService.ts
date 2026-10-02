@@ -1,3 +1,4 @@
+import {renderPhaseLoop, type PhaseLoopCandidate} from "./phaseLoopContracts";
 import {validateGreenfieldPhases, type GreenfieldPhaseMapCandidate, type GreenfieldPhaseEntry} from "./greenfieldPhaseMapContracts";
 import {renderProjectPlanningReview, type ProjectPlanningCandidate} from "./projectPlanningReviewContracts";
 import { resolvePlanTopology, type PlanCandidate, type PlanReviewLayout } from "./planReviewContracts";
@@ -116,7 +117,7 @@ export const PROJECT_STATE_EVENT_TYPES = Object.freeze({
   relationshipEnd: "project-state.relationship-ended",
 });
 
-const restrictedGenericTypes = new Set<EntityType>(["Decision", "Validation", "Evidence", "TesterResult", "ResearchOutcome", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle"]);
+const restrictedGenericTypes = new Set<EntityType>(["Decision", "Validation", "Evidence", "TesterResult", "ResearchOutcome", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle"]);
 function fail(message: string): never { throw new ProjectStateDomainError(message); }
 const dispositionOutcomes = new Set<DispositionState>(["advisory", "proposed", "approved", "revision_requested", "accepted", "rejected", "revoked"]);
 const workRoutes = new Set<WorkRoute>(["greenfield", "feature-change", "refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype", "issue-resolution"]);
@@ -465,13 +466,14 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) fail("An exact expected revision is required.");
     return store.transaction(projectId, async unit => {
       const current = await requiredRecord(unit, projectId, entityId);
-      if (["WorkflowIntake", "ArchitectReviewCycle", "PlanReviewCycle", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle"].includes(current.entityType)) fail("WorkflowIntake requires the typed save command.");
+      if (["WorkflowIntake", "ArchitectReviewCycle", "PlanReviewCycle", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle"].includes(current.entityType)) fail("WorkflowIntake requires the typed save command.");
       if (restrictedGenericTypes.has(current.entityType)) fail("Immutable semantic records require typed correction or supersession.");
       if (current.entityType === "WorkIntake") fail("Work Intake revision requires a typed command.");
       if (current.entityType === "Phase" && Object.keys(patch).some(key => key !== "phaseState")) {
         const cycles = (await unit.listEntities(projectId, "PhaseMapReviewCycle")).filter(record => record.entityType === "PhaseMapReviewCycle" && record.body.layout.memberIds.includes(current.id));
         for (const cycle of cycles) if (exactVersionReviewDisposition(cycle, await unit.listEntities(projectId), await unit.listRelationships(projectId), await unit.listOutbox(projectId), "phase-map-review", "phase-map-review").state === "approved") fail("Accepted Greenfield Phase semantics require a typed revision boundary.");
       }
+      if (current.entityType === "WorkItem" && current.body.candidateKey && Object.keys(patch).some(key => !["workState", "startedAt", "implementedAt"].includes(key))) fail("Accepted Phase WorkItem semantics require typed planning; preparation uses its typed command.");
       if (current.entityType === "RegressionObligation" || (current.entityType === "ProjectResource" && current.body.resourceType === "permanent-test-reference")) fail("Tester semantic revision requires a typed command.");
       if (["SourceBaseline", "SourceBinding", "SourceCheckpoint", "IntegrationRecord"].includes(current.entityType)) fail("Source semantic revision requires a typed command.");
       if (current.entityType === "Workflow" && patch.workflowType !== undefined && patch.workflowType !== current.body.workflowType) fail("Workflow type is immutable.");
@@ -492,7 +494,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) fail("An exact expected revision is required.");
     return store.transaction(projectId, async unit => {
       const previous = await requiredRecord(unit, projectId, entityId);
-      if (["WorkflowIntake", "ArchitectReviewCycle", "PlanReviewCycle", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle"].includes(previous.entityType)) fail("WorkflowIntake retains its identity through the typed save command.");
+      if (["WorkflowIntake", "ArchitectReviewCycle", "PlanReviewCycle", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle"].includes(previous.entityType)) fail("WorkflowIntake retains its identity through the typed save command.");
       if (previous.entityType === "Project" || previous.recordVersion !== expectedRevision) fail("Supersession target is unavailable or stale.");
       if (previous.lifecycleState !== "active" && previous.lifecycleState !== "closed") fail("Only a current active or closed record can be superseded.");
       if (restrictedGenericTypes.has(previous.entityType)) fail("Issued Decision, Validation, Evidence and TesterResult require a typed correction policy.");
@@ -612,6 +614,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         if ((ownerA || ownerB) && ownerA !== ownerB) fail("Dependencies cannot cross Workflow ownership.");
       }
       if (["part_of", "depends_on", "defines_criterion", "implements"].includes(relationshipType)) {
+        if ((await unit.listEntities(projectId, "PhaseReviewCycle")).some(record => record.entityType === "PhaseReviewCycle" && record.lifecycleState === "active" && record.body.layout.memberIds.some(id => id === fromEntityId || id === toEntityId))) fail("Phase review semantic relationships require the typed planning command.");
         const all = (await unit.listRelationships(projectId)).filter(edge => !edge.endedAt);
         const findWorkflowOwner = async (entityId: EntityId, seen = new Set<EntityId>()): Promise<EntityId | null> => {
           if (seen.has(entityId)) return null;
@@ -666,6 +669,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     await store.transaction(projectId, async unit => {
       const edge = (await unit.listRelationships(projectId)).find(candidate => candidate.id === relationshipId);
       if (!edge) fail("Relationship does not exist in this Project.");
+      if ((await unit.listEntities(projectId, "PhaseReviewCycle")).some(record => record.entityType === "PhaseReviewCycle" && record.lifecycleState === "active" && (record.id === edge.fromEntityId || record.body.layout.memberIds.some(id => id === edge.fromEntityId || id === edge.toEntityId))) && ["phase_review_for", "part_of", "depends_on", "defines_criterion", "implements"].includes(edge.relationshipType)) fail("Phase review relationships cannot be ended outside typed planning.");
       if (["architect_review_for", "review_member"].includes(edge.relationshipType)) fail("Architect membership requires the typed cycle command.");
       const from = await requiredRecord(unit, projectId, edge.fromEntityId);
       const endedAt = new Date().toISOString();
@@ -1046,7 +1050,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   async function recordDecision(projectId: ProjectId, targetId: EntityId, input: DecisionInput, context?: MutationContext) {
-    if (["workflow-intake-review", "architect-review", "plan-review", "project-planning-review", "phase-map-review"].includes(input.decisionType) || ["WorkflowIntake", "ArchitectReviewCycle", "PlanReviewCycle", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle"].includes((await requiredRecord(store, projectId, targetId)).entityType)) fail("Workflow review requires the typed decision command.");
+    if (["workflow-intake-review", "architect-review", "plan-review", "project-planning-review", "phase-map-review", "phase-loop-review"].includes(input.decisionType) || ["WorkflowIntake", "ArchitectReviewCycle", "PlanReviewCycle", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle"].includes((await requiredRecord(store, projectId, targetId)).entityType)) fail("Workflow review requires the typed decision command.");
     const now = new Date().toISOString();
     return recordLinked(projectId, targetId, "Decision", decisionBody(input, trustedPrincipal, now), "governs", context);
   }
@@ -3277,6 +3281,120 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     });
   }
 
+  async function phaseLoopParent(unit: ProjectStateUnitOfWork, projectId: ProjectId, workflowId: EntityId, phaseId: EntityId, stageKind: "interview" | "planning") {
+    const maps = (await unit.listEntities(projectId, "PhaseMapReviewCycle")).filter(record => record.entityType === "PhaseMapReviewCycle" && record.body.workflowId === workflowId && record.lifecycleState === "active");
+    if (maps.length !== 1) fail("Exact approved SQL Phase Map required.");
+    const map = await greenfieldMapSnapshot(unit, projectId, maps[0].id);
+    if (map.disposition.state !== "approved" || !map.livePhases.some(phase => phase.id === phaseId)) fail("Exact Phase must belong to approved Greenfield map.");
+    const phase = map.livePhases.find(record => record.id === phaseId)!;
+    if (["closed", "cancelled", "blocked"].includes(phase.body.phaseState)) fail("Phase is not available for planning.");
+    const edges = (await unit.listRelationships(projectId)).filter(edge => !edge.endedAt);
+    for (const edge of edges.filter(edge => edge.relationshipType === "depends_on" && edge.fromEntityId === phaseId)) {
+      const dependency = await requiredRecord(unit, projectId, edge.toEntityId);
+      if (dependency.entityType !== "Phase" || dependency.body.phaseState !== "closed") fail("Phase dependency is not complete.");
+    }
+    const sources: ProjectStateEntity[] = [map.cycle, phase];
+    if (stageKind === "planning") {
+      const reviews = (await unit.listEntities(projectId, "PhaseReviewCycle")).filter(record => record.entityType === "PhaseReviewCycle" && record.body.phaseId === phaseId && record.body.workflowId === workflowId && record.body.stageKind === "interview" && record.lifecycleState === "active");
+      if (reviews.length !== 1) fail("Exact approved structured Phase Interview required.");
+      const interview = await phaseLoopSnapshot(unit, projectId, reviews[0].id);
+      if (interview.disposition.state !== "approved") fail("Approve current Phase Interview before Phase Planning.");
+      sources.push(interview.cycle, ...interview.members);
+    }
+    return {phase, sources};
+  }
+  async function savePhaseLoopCandidate(projectId: ProjectId, input: PhaseLoopCandidate) {
+    exactInput(input, ["workflowId", "phaseId", "stageKind", "facts", "direction", "criteria", "candidates", "sources", "expectedRecordVersion"]);
+    if (!["interview", "planning"].includes(input.stageKind) || !Array.isArray(input.facts) || input.facts.length > 64 || !Array.isArray(input.criteria) || input.criteria.length > 64 || !Array.isArray(input.candidates ?? []) || (input.candidates?.length ?? 0) > 128 || input.stageKind === "interview" && input.candidates?.length) fail("Bounded exact Phase stage candidate required.");
+    return store.transaction(projectId, async unit => {
+      const {phase, sources} = await phaseLoopParent(unit, projectId, input.workflowId, input.phaseId, input.stageKind);
+      if (!Array.isArray(input.sources) || input.sources.length !== sources.length || sources.some(record => !input.sources.some(source => source.entityId === record.id && source.recordVersion === record.recordVersion))) fail("Exact current Phase context sources required.");
+      const existing = (await unit.listEntities(projectId, "PhaseReviewCycle")).filter((record): record is ProjectStateRecord<"PhaseReviewCycle"> => record.entityType === "PhaseReviewCycle" && record.body.phaseId === phase.id && record.body.stageKind === input.stageKind && record.lifecycleState === "active");
+      if (existing.length > 1) fail("Ambiguous Phase review identity.");
+      const previous = existing[0];
+      if (previous ? input.expectedRecordVersion !== previous.recordVersion : input.expectedRecordVersion !== undefined) fail("Phase review revision is stale.");
+      if (previous && exactVersionReviewDisposition(previous, await unit.listEntities(projectId), await unit.listRelationships(projectId), await unit.listOutbox(projectId), "phase-loop-review", "phase-loop-review").state === "approved") fail("Accepted Phase review cannot be replaced behind its execution graph.");
+      const members: ProjectStateEntity[] = [];
+      const create = async <T extends EntityType>(entityType: T, body: EntityBodyMap[T]) => {
+        const record = createProjectStateEntity({entityType, projectId, body, principal: trustedPrincipal});
+        await unit.saveEntity(record as ProjectStateEntity, null); members.push(record as ProjectStateEntity);
+        await recordMutation(unit, {projectId, entityId: record.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: record.createdAt, changedFields: Object.keys(body), defaultReason: "Save structured Phase semantic member"});
+        await linkSemantic(unit, projectId, record as ProjectStateEntity, phase, "derived_from"); return record;
+      };
+      const direction = await create("BoundedSolution", {...input.direction, solutionState: "candidate"});
+      for (const fact of input.facts) {exactInput(fact, ["title", "statement", "impact"]); await create("Finding", {...fact, category: "phase-understanding", observedAt: new Date().toISOString(), findingState: "verified"});}
+      for (const criterion of input.criteria) await linkSemantic(unit, projectId, direction, await create("Criterion", {...criterion, criterionState: "candidate"}), "defines_criterion");
+      const candidates = input.candidates ?? [], keys = new Map(candidates.map(candidate => [candidate.candidateId, candidate]));
+      if (keys.size !== candidates.length || new Set(candidates.map(candidate => candidate.order)).size !== candidates.length) fail("Unique WorkItem candidate identity and order required.");
+      const works = new Map<string, ProjectStateRecord<"WorkItem">>();
+      for (const candidate of candidates) {
+        exactInput(candidate, ["candidateId", "order", "title", "purpose", "dependsOn", "resolutionStatus", "resolutionReason", "evidencePaths", "carriedForwardToPhaseId", "criteria"]);
+        if (!/^[A-Za-z0-9_-]{1,128}$/.test(candidate.candidateId) || !Number.isSafeInteger(candidate.order) || candidate.order < 1 || !Array.isArray(candidate.dependsOn) || candidate.dependsOn.length > 128 || new Set(candidate.dependsOn).size !== candidate.dependsOn.length || !Array.isArray(candidate.evidencePaths) || candidate.evidencePaths.length > 64 || !["planned", "deferred", "superseded", "alreadySatisfied", "carriedForward"].includes(candidate.resolutionStatus) || candidate.resolutionStatus !== "planned" && (!candidate.resolutionReason.trim() || !candidate.evidencePaths.length) || candidate.resolutionStatus === "carriedForward" && !candidate.carriedForwardToPhaseId) fail("Invalid bounded WorkItem candidate semantics.");
+        if (candidate.evidencePaths.some(ref => !ref || ref.includes(":") || ref.includes("\\") || ref.startsWith("/") || ref.split("/").includes(".."))) fail("Candidate evidence must be repository-relative.");
+        for (const dependency of candidate.dependsOn) if (!keys.has(dependency) || keys.get(dependency)!.order >= candidate.order) fail("WorkItem dependency is missing, cyclic or contradicts order.");
+        const work = await create("WorkItem", {workItemKind: "feature", title: candidate.title, objective: candidate.purpose, workState: "planned", candidateKey: candidate.candidateId, planningOrder: candidate.order, planningResolution: candidate.resolutionStatus, planningEvidence: candidate.evidencePaths, ...(candidate.resolutionReason ? {resolutionReason: candidate.resolutionReason} : {}), ...(candidate.carriedForwardToPhaseId ? {carriedForwardToPhaseId: candidate.carriedForwardToPhaseId} : {})});
+        works.set(candidate.candidateId, work); await linkSemantic(unit, projectId, work, direction, "implements");
+        if (!Array.isArray(candidate.criteria ?? []) || (candidate.criteria?.length ?? 0) > 64) fail("Bounded WorkItem obligations required.");
+        for (const criterion of candidate.criteria ?? []) await linkSemantic(unit, projectId, work, await create("Criterion", {...criterion, criterionState: "candidate"}), "defines_criterion");
+      }
+      for (const candidate of candidates) for (const dependency of candidate.dependsOn) await linkSemantic(unit, projectId, works.get(candidate.candidateId)!, works.get(dependency)!, "depends_on");
+      const body = {workflowId: input.workflowId, phaseId: phase.id, stageKind: input.stageKind, semanticDigest: await architectSemanticDigest(members), layout: {memberIds: members.map(record => record.id), sources: structuredClone(input.sources)}};
+      const cycle = previous ? validateProjectStateEntity({...previous, body, recordVersion: previous.recordVersion + 1, updatedAt: new Date().toISOString(), updatedBy: trustedPrincipal}) as ProjectStateRecord<"PhaseReviewCycle"> : createProjectStateEntity({entityType: "PhaseReviewCycle", projectId, body, principal: trustedPrincipal});
+      await unit.saveEntity(cycle, previous?.recordVersion ?? null);
+      await recordMutation(unit, {projectId, entityId: cycle.id, fromVersion: previous?.recordVersion ?? null, toVersion: cycle.recordVersion, operation: previous ? "revise" : "create", eventType: previous ? PROJECT_STATE_EVENT_TYPES.revise : PROJECT_STATE_EVENT_TYPES.create, occurredAt: cycle.updatedAt, changedFields: Object.keys(body), defaultReason: "Bind exact Phase review revision"});
+      if (!previous) await linkSemantic(unit, projectId, cycle, phase, "phase_review_for"); return cycle;
+    });
+  }
+  async function phaseLoopSnapshot(unit: ProjectStateUnitOfWork, projectId: ProjectId, cycleId: EntityId) {
+    const cycle = await requiredRecord(unit, projectId, cycleId);
+    if (cycle.entityType !== "PhaseReviewCycle" || cycle.lifecycleState !== "active") fail("Exact current Phase review required.");
+    await phaseLoopParent(unit, projectId, cycle.body.workflowId, cycle.body.phaseId, cycle.body.stageKind);
+    const edges = (await unit.listRelationships(projectId)).filter(edge => !edge.endedAt);
+    if (edges.filter(edge => edge.relationshipType === "phase_review_for" && edge.fromEntityId === cycle.id && edge.toEntityId === cycle.body.phaseId).length !== 1) fail("Phase review ownership changed.");
+    for (const source of cycle.body.layout.sources) {const record = await requiredRecord(unit, projectId, source.entityId); if (record.lifecycleState !== "active" || record.entityType !== "Phase" && record.recordVersion !== source.recordVersion) fail("Phase review source revision is stale.");}
+    const disposition = exactVersionReviewDisposition(cycle, await unit.listEntities(projectId), edges, await unit.listOutbox(projectId), "phase-loop-review", "phase-loop-review");
+    const members: ProjectStateEntity[] = [], workItems: ProjectStateRecord<"WorkItem">[] = [];
+    for (const id of cycle.body.layout.memberIds) {const live = await requiredRecord(unit, projectId, id); if (live.lifecycleState !== "active") fail("Phase semantic member is no longer current."); if (live.entityType === "WorkItem") workItems.push(live); const record = disposition.state === "approved" ? await unit.getEntityVersion(projectId, id, 1) : live; if (!record || !["Finding", "BoundedSolution", "Criterion", "WorkItem"].includes(record.entityType)) fail("Phase semantic member missing."); members.push(record);}
+    if (await architectSemanticDigest(members) !== cycle.body.semanticDigest) fail("Phase semantic revision changed.");
+    return {cycle, members, workItems, disposition, markdown: renderPhaseLoop(cycle, members, edges)};
+  }
+  const getPhaseLoopReview = (projectId: ProjectId, cycleId: EntityId) => store.transaction(projectId, unit => phaseLoopSnapshot(unit, projectId, cycleId));
+  async function recordPhaseLoopReview(projectId: ProjectId, cycleId: EntityId, input: ArchitectReviewDecisionInput) {
+    exactInput(input, ["expectedRecordVersion", "outcome", "notes"]);
+    if (trustedPrincipal.principalType !== "human" || trustedPrincipal.role !== "Operator" || !Number.isSafeInteger(input.expectedRecordVersion) || !["approved", "revision_requested", "rejected"].includes(input.outcome) || input.notes !== undefined && (typeof input.notes !== "string" || input.notes.length > 4096) || input.outcome === "revision_requested" && !input.notes?.trim()) fail("Exact Phase Operator review required.");
+    return store.transaction(projectId, async unit => {
+      const snapshot = await phaseLoopSnapshot(unit, projectId, cycleId), cycle = snapshot.cycle;
+      if (cycle.recordVersion !== input.expectedRecordVersion) fail("Phase review revision is stale.");
+      if (snapshot.disposition.state === "approved") return cycle;
+      if (input.outcome === "approved" && cycle.body.stageKind === "planning") {
+        const phase = await requiredRecord(unit, projectId, cycle.body.phaseId);
+        const relationships = (await unit.listRelationships(projectId)).filter(edge => !edge.endedAt);
+        const directions = snapshot.members.filter(record => record.entityType === "BoundedSolution");
+        for (const criterion of snapshot.members.filter(record => record.entityType === "Criterion" && relationships.some(edge => edge.relationshipType === "defines_criterion" && edge.toEntityId === record.id && directions.some(direction => direction.id === edge.fromEntityId)))) await linkSemantic(unit, projectId, phase, criterion, "defines_criterion");
+        for (const work of snapshot.workItems) {
+          await linkSemantic(unit, projectId, work, phase, "part_of");
+          const next = validateProjectStateEntity({...work, recordVersion: work.recordVersion + 1, updatedAt: new Date().toISOString(), updatedBy: trustedPrincipal, body: {...work.body, workState: work.body.planningResolution === "planned" ? "ready" : "cancelled"}}) as ProjectStateRecord<"WorkItem">;
+          await unit.saveEntity(next, work.recordVersion);
+          await recordMutation(unit, {projectId, entityId: work.id, fromVersion: work.recordVersion, toVersion: next.recordVersion, operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: next.updatedAt, changedFields: ["workState"], defaultReason: "Accept exact Phase WorkItem candidate"});
+        }
+      }
+      const now = new Date().toISOString(), decision = createProjectStateEntity({entityType: "Decision", projectId, principal: trustedPrincipal, body: decisionBody({decisionType: "phase-loop-review", outcome: input.outcome, decisionScope: `phase-loop-review:${cycle.id}@${cycle.recordVersion}`, rationale: input.notes ?? ""}, trustedPrincipal, now)});
+      await unit.saveEntity(decision, null); await recordMutation(unit, {projectId, entityId: decision.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: now, changedFields: Object.keys(decision.body), defaultReason: "Review exact Phase semantics"}); await linkSemantic(unit, projectId, decision, cycle, "governs"); return cycle;
+    });
+  }
+  async function preparePhaseWorkItem(projectId: ProjectId, cycleId: EntityId, workItemId: EntityId) {
+    return store.transaction(projectId, async unit => {
+      const review = await phaseLoopSnapshot(unit, projectId, cycleId);
+      const work = review.workItems.find(record => record.id === workItemId);
+      if (review.cycle.body.stageKind !== "planning" || review.disposition.state !== "approved" || !work || work.body.workState !== "ready" || work.body.planningResolution !== "planned") fail("Accepted eligible exact Phase WorkItem required.");
+      if (review.workItems.some(record => record.id !== work.id && record.body.planningPreparedAt && !["closed", "cancelled"].includes(record.body.workState))) fail("Another WorkItem is already selected for preparation.");
+      for (const edge of (await unit.listRelationships(projectId)).filter(edge => !edge.endedAt && edge.relationshipType === "depends_on" && edge.fromEntityId === work.id)) {const dependency = await requiredRecord(unit, projectId, edge.toEntityId); if (dependency.entityType !== "WorkItem" || dependency.body.workState !== "closed") fail("WorkItem dependency is not complete.");}
+      if (work.body.planningPreparedAt) return work;
+      const next = validateProjectStateEntity({...work, recordVersion: work.recordVersion + 1, updatedAt: new Date().toISOString(), updatedBy: trustedPrincipal, body: {...work.body, planningPreparedAt: new Date().toISOString()}}) as ProjectStateRecord<"WorkItem">;
+      await unit.saveEntity(next, work.recordVersion); await recordMutation(unit, {projectId, entityId: work.id, fromVersion: work.recordVersion, toVersion: next.recordVersion, operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: next.updatedAt, changedFields: ["planningPreparedAt"], defaultReason: "Prepare existing Phase WorkItem without new identity"}); return next;
+    });
+  }
+
   async function greenfieldMapParent(unit: ProjectStateUnitOfWork, projectId: ProjectId, workflowId: EntityId) {
     const workflow = await requiredRecord(unit, projectId, workflowId);
     if (workflow.entityType !== "Workflow" || workflow.body.workflowType !== "project-creation" || workflow.lifecycleState !== "active" || workflow.body.workflowState !== "active") fail("Exact active Greenfield Workflow required.");
@@ -3335,7 +3453,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     for (const id of cycle.body.layout.memberIds) {const live = await requiredRecord(unit, projectId, id); if (live.entityType === "Phase") livePhases.push(live); const record = disposition.state === "approved" ? await unit.getEntityVersion(projectId, id, 1) : live; if (!record || !["Phase", "Criterion"].includes(record.entityType)) fail("Phase Map member changed."); members.push(record);}
     if (await architectSemanticDigest(members) !== cycle.body.semanticDigest) fail("Phase Map semantic revision changed.");
     const phaseRecords = members.filter((record): record is ProjectStateRecord<"Phase"> => record.entityType === "Phase");
-    const phases: GreenfieldPhaseEntry[] = phaseRecords.map(record => ({phaseId: record.body.phaseKey!, title: record.body.title, order: record.body.sequence, purpose: record.body.objective, sourceReferences: record.body.sourceReferences ?? [], dependsOn: edges.filter(edge => edge.relationshipType === "depends_on" && edge.fromEntityId === record.id).map(edge => phaseRecords.find(phase => phase.id === edge.toEntityId)?.body.phaseKey ?? "missing"), criteria: edges.filter(edge => edge.relationshipType === "defines_criterion" && edge.fromEntityId === record.id).map(edge => {const criterion = members.find(item => item.id === edge.toEntityId); if (criterion?.entityType !== "Criterion") fail("Phase criterion changed."); const {criterionState: _, ...body} = criterion.body; return body;})})).sort((a,b) => a.order-b.order);
+    const phases: GreenfieldPhaseEntry[] = phaseRecords.map(record => ({phaseId: record.body.phaseKey!, title: record.body.title, order: record.body.sequence, purpose: record.body.objective, sourceReferences: record.body.sourceReferences ?? [], dependsOn: edges.filter(edge => edge.relationshipType === "depends_on" && edge.fromEntityId === record.id).map(edge => phaseRecords.find(phase => phase.id === edge.toEntityId)?.body.phaseKey ?? "missing"), criteria: edges.filter(edge => edge.relationshipType === "defines_criterion" && edge.fromEntityId === record.id && cycle.body.layout.memberIds.includes(edge.toEntityId)).map(edge => {const criterion = members.find(item => item.id === edge.toEntityId); if (criterion?.entityType !== "Criterion") fail("Phase criterion changed."); const {criterionState: _, ...body} = criterion.body; return body;})})).sort((a,b) => a.order-b.order);
     validateGreenfieldPhases(phases);
     const structureMarkdown = `<!-- Generated SQL Phase Map ${cycle.id}@${cycle.recordVersion} -->\n# Phase Map\n\n\`\`\`champcity-phase-map\n${JSON.stringify({phases: phases.map(({criteria: _, ...phase}) => phase)}, null, 2)}\n\`\`\``;
     const markdown = structureMarkdown + "\n\n" + phases.map(phase => `## ${phase.title} acceptance direction\n\n${phase.criteria?.map(criterion => `- ${criterion.statement} - ${criterion.criticality} - ${criterion.validationPolicy}: ${criterion.verificationIntent}`).join("\n") || "No explicit Phase obligations supplied."}`).join("\n\n");
@@ -3372,7 +3490,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         if (record.lifecycleState !== "active" || record.recordVersion !== source.recordVersion) fail("Plan source revision is stale.");
         const relationships = await unit.listRelationships(projectId);
         if (record.id !== workflow.id && record.id !== projectId && !architectMemberOwnershipIsValid(workflow.id, [record], await unit.listEntities(projectId), relationships)) fail("Plan source belongs to another Workflow.");
-        if (["SourceBaseline", "SourceBinding", "WorkflowIntake", "ArchitectReviewCycle", "PlanReviewCycle", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle"].includes(record.entityType) && "workflowId" in record.body && record.body.workflowId !== workflow.id) fail("Plan source belongs to another Workflow.");
+        if (["SourceBaseline", "SourceBinding", "WorkflowIntake", "ArchitectReviewCycle", "PlanReviewCycle", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle"].includes(record.entityType) && "workflowId" in record.body && record.body.workflowId !== workflow.id) fail("Plan source belongs to another Workflow.");
       }
       const sources = input.sources.some(source => source.entityId === workflow.id) ? input.sources : [...input.sources, { entityId: workflow.id, recordVersion: workflow.recordVersion }];
       const members: ProjectStateEntity[] = [];
@@ -3900,7 +4018,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return pending.sort((a, b) => a.targetId.localeCompare(b.targetId) || a.criterionId.localeCompare(b.criterionId));
   }
 
-  return {saveGreenfieldPhaseMap, getGreenfieldPhaseMap, recordGreenfieldPhaseMapReview, saveProjectPlanningCandidate, getProjectPlanningReview, recordProjectPlanningReview, closeResearchAfterAssessment, savePlanCandidate, getPlanReview, recordPlanReview, prepareArchitectWorkspace, adoptLegacyArchitectReview, saveArchitectCandidate, saveGreenfieldArchitectOutput, getArchitectReviewProjection, saveArchitectReviewCycle, getCurrentArchitectReviewCycle, getArchitectReviewDisposition, recordArchitectReview, saveWorkflowIntake, recordWorkflowIntakeDecision, getWorkflowIntakeDisposition, createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
+  return {savePhaseLoopCandidate, getPhaseLoopReview, recordPhaseLoopReview, preparePhaseWorkItem, saveGreenfieldPhaseMap, getGreenfieldPhaseMap, recordGreenfieldPhaseMapReview, saveProjectPlanningCandidate, getProjectPlanningReview, recordProjectPlanningReview, closeResearchAfterAssessment, savePlanCandidate, getPlanReview, recordPlanReview, prepareArchitectWorkspace, adoptLegacyArchitectReview, saveArchitectCandidate, saveGreenfieldArchitectOutput, getArchitectReviewProjection, saveArchitectReviewCycle, getCurrentArchitectReviewCycle, getArchitectReviewDisposition, recordArchitectReview, saveWorkflowIntake, recordWorkflowIntakeDecision, getWorkflowIntakeDisposition, createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
     createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, completeTesterResultCheckpoint, createIntegrationRecord, advanceIntegrationRecord, completeWorkflowExecution, closeIntegratedWorkflow,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, createTesterResult, createWorkflowRepair, createPhaseRepair, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, recordCriterionOperatorDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,

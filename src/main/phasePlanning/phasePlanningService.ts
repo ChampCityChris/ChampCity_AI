@@ -1,3 +1,6 @@
+import {selectedCurrentProjectId} from "../projectState/currentProjectRegistrationService";
+import {getPhaseMapProjection} from "../phaseMap/phaseMapService";
+import {readStructuredPhaseLoop} from "../phasePlanning/structuredPhaseLoopReadProjection";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -72,6 +75,7 @@ export interface PhasePlanningCompletion {
 }
 
 export function generatePhasePlanningHandoff(workspaceRoot: string): PhasePlanningHandoffResult {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Use exact structured SQL Phase review; historical Markdown is evidence only.");
   const context = requireReadyPhasePlanningContext(workspaceRoot);
   const metadata = phasePlanningHandoffMetadata(workspaceRoot, context);
   const bodyMarkdown = buildPhasePlanningHandoffBody(context);
@@ -111,6 +115,7 @@ export function getPhasePlanningWorkspaceModel(
   workspaceRoot: string,
   planningContext?: PlanningProjectionContext,
 ): PhasePlanningWorkspaceModel {
+  if (selectedCurrentProjectId(workspaceRoot)) {const map = getPhaseMapProjection(workspaceRoot); const phase = map.state === "first-incomplete" ? map.phase : null; const review = phase ? readStructuredPhaseLoop(workspaceRoot, phase.phaseId, "planning") : null; return {state: review?.disposition.state === "approved" ? "completed" : phase ? "ready-for-handoff" : "not-ready", railStatus: review?.disposition.state === "approved" ? "Completed" : phase ? "Ready" : "Not Ready", requiredAction: "Use exact structured Phase Planning review.", reason: "SQL Phase Planning authority.", evidencePaths: [], handoffState: "handoff-unavailable", canPrepareHandoff: false, canCopyHandoff: false, canApplyBundleDisposition: false, phase, phasePlanningTarget: review ? `planning/phase-reviews/${review.cycle.id}/Phase_Planning.md` : "", workCardPlanTarget: review ? `planning/phase-reviews/${review.cycle.id}/Work_Card_Plan.md` : "", selectedPlanningDocumentRole: "phase-planning", bundleSynchronizationState: review ? "synchronized" : "missing"};}
   const draftStatus = getPhasePlanningDraftBundleStatus(workspaceRoot);
   const contextSnapshot = resolvePlanningProjectionContext(workspaceRoot, planningContext);
   const context = resolvePhasePlanningDraftContext(workspaceRoot, contextSnapshot);
@@ -197,6 +202,7 @@ export function getPhasePlanningWorkspaceModel(
 export function preparePhasePlanningHandoff(
   workspaceRoot: string,
 ): PhasePlanningWorkspaceModel {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Use exact structured SQL Phase review; historical Markdown is evidence only.");
   const result = generatePhasePlanningHandoff(workspaceRoot);
   return {
     ...getPhasePlanningWorkspaceModel(workspaceRoot),
@@ -207,6 +213,7 @@ export function preparePhasePlanningHandoff(
 }
 
 export function getPhasePlanningHandoffInstruction(workspaceRoot: string): string {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Use exact structured SQL Phase review; historical Markdown is evidence only.");
   let model = getPhasePlanningWorkspaceModel(workspaceRoot);
   if (!model.handoffInstruction && (model.canCopyHandoff || model.canPrepareHandoff)) {
     model = preparePhasePlanningHandoff(workspaceRoot);
@@ -223,6 +230,7 @@ export function setPhasePlanningBundleDisposition(
   status: DocumentDispositionStatus,
   options: RollbackWriteOptions & { operatorReviewNotes?: string } = {},
 ): void {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Use exact structured SQL Phase review; historical Markdown is evidence only.");
   const notes = (options.operatorReviewNotes ?? "").trim();
   if (status === "RevisionRequested" && !notes) {
     throw new Error("RevisionRequested requires Operator revision instructions.");
@@ -261,6 +269,7 @@ export function reviewPhasePlanningBundle(
   status: DocumentDispositionStatus,
   operatorReviewNotes = "",
 ): PhasePlanningWorkspaceModel {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Use exact structured SQL Phase review; historical Markdown is evidence only.");
   const context = requireReadyPhasePlanningContext(workspaceRoot);
   setPhasePlanningBundleDisposition(workspaceRoot, context.selectedPhase.phaseId, status, { operatorReviewNotes });
   return getPhasePlanningWorkspaceModel(workspaceRoot);
@@ -271,6 +280,7 @@ export function getPhasePlanningCompletion(
   phaseId?: string,
   planningContext?: PlanningProjectionContext,
 ): PhasePlanningCompletion {
+  if (selectedCurrentProjectId(workspaceRoot)) {const map = getPhaseMapProjection(workspaceRoot); const key = phaseId ?? (map.state === "first-incomplete" ? map.phase.phaseId : undefined); const review = key ? readStructuredPhaseLoop(workspaceRoot, key, "planning") : null; return {complete: review?.disposition.state === "approved", phaseId: key, reason: "Exact current SQL Phase Planning controls completion."};}
   const contextSnapshot = resolvePlanningProjectionContext(workspaceRoot, planningContext);
   const context = resolvePhasePlanningDraftContext(workspaceRoot, contextSnapshot);
   const selectedPhaseId = phaseId ?? (context.status === "ready" ? context.selectedPhase.phaseId : undefined);

@@ -1,3 +1,6 @@
+import {selectedCurrentProjectId} from "../projectState/currentProjectRegistrationService";
+import {getPhaseMapProjection} from "../phaseMap/phaseMapService";
+import {readStructuredPhaseLoop} from "../phasePlanning/structuredPhaseLoopReadProjection";
 import fs from "node:fs";
 import path from "node:path";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
@@ -53,6 +56,7 @@ export interface PhaseIntakeCompletion {
 }
 
 export function generatePhaseInterviewHandoff(workspaceRoot: string): PhaseInterviewHandoffResult {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Use exact structured SQL Phase review; historical Markdown is evidence only.");
   const context = requireReadyPhaseInterviewContext(workspaceRoot);
   const sourceRevisions = [
     { path: context.profile.markdownPath, revision: context.profile.metadata.artifactRevision ?? 1 },
@@ -97,6 +101,7 @@ export function getPhaseInterviewWorkspaceModel(
   workspaceRoot: string,
   planningContext?: PlanningProjectionContext,
 ): PhaseInterviewWorkspaceModel {
+  if (selectedCurrentProjectId(workspaceRoot)) {const map = getPhaseMapProjection(workspaceRoot); const phase = map.state === "first-incomplete" ? map.phase : undefined; const review = phase ? readStructuredPhaseLoop(workspaceRoot, phase.phaseId, "interview") : null; return {state: review?.disposition.state === "approved" ? "completed" : phase ? "ready-for-handoff" : "not-ready", railStatus: review?.disposition.state === "approved" ? "Completed" : phase ? "Ready" : "Not Ready", requiredAction: "Use exact structured Phase Interview review.", reason: "SQL Phase Interview authority.", evidencePaths: [], handoffState: "handoff-unavailable", canPrepareHandoff: false, canCopyHandoff: false, canApplyDisposition: false, phase: phase ? {...phase, dependencyCloseoutPaths: []} : undefined, phaseInterviewTarget: review ? `planning/phase-reviews/${review.cycle.id}/Phase_Interview.md` : "", selectedReviewDocumentRole: "phase-interview"};}
   const draftStatus = getPhaseInterviewDraftStatus(workspaceRoot);
   const contextSnapshot = resolvePlanningProjectionContext(workspaceRoot, planningContext);
   const context = resolvePhaseInterviewDraftContext(workspaceRoot, contextSnapshot);
@@ -186,6 +191,7 @@ export function getPhaseInterviewWorkspaceModel(
 export function preparePhaseInterviewHandoff(
   workspaceRoot: string,
 ): PhaseInterviewWorkspaceModel {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Use exact structured SQL Phase review; historical Markdown is evidence only.");
   const result = generatePhaseInterviewHandoff(workspaceRoot);
   preparePhaseInterviewChatHandoff(workspaceRoot);
   return {
@@ -197,6 +203,7 @@ export function preparePhaseInterviewHandoff(
 }
 
 export function getPhaseInterviewHandoffInstruction(workspaceRoot: string): string {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Use exact structured SQL Phase review; historical Markdown is evidence only.");
   const instruction = getPreparedPhaseInterviewChatHandoff(workspaceRoot);
   if (!instruction) {
     throw new Error("Prepare Phase Interview Handoff must be completed before Copy Phase Interview Handoff.");
@@ -207,6 +214,7 @@ export function getPhaseInterviewHandoffInstruction(workspaceRoot: string): stri
 export function preparePhaseInterviewFinalDraftHandoff(
   workspaceRoot: string,
 ): PhaseInterviewWorkspaceModel {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Use exact structured SQL Phase review; historical Markdown is evidence only.");
   preparePhaseInterviewDraftSubmission(workspaceRoot);
   return getPhaseInterviewWorkspaceModel(workspaceRoot);
 }
@@ -224,6 +232,7 @@ export function reviewPhaseInterview(
   status: DocumentDispositionStatus,
   operatorReviewNotes = "",
 ): PhaseInterviewWorkspaceModel {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Use exact structured SQL Phase review; historical Markdown is evidence only.");
   const trimmedNotes = operatorReviewNotes.trim();
   if (status === "RevisionRequested" && !trimmedNotes) {
     throw new Error("RevisionRequested requires Operator revision instructions.");
@@ -254,6 +263,7 @@ export function setPhaseInterviewDisposition(
   phaseId: string,
   status: DocumentDispositionStatus,
 ): void {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Use exact structured SQL Phase review; historical Markdown is evidence only.");
   const expectedPath = phaseInterviewOutputPath(phaseId);
   const interview = listPlanningDocuments(workspaceRoot)
     .find((document) => document.markdownPath === expectedPath);
@@ -273,6 +283,7 @@ export function getPhaseIntakeCompletion(
   phaseId?: string,
   planningContext?: PlanningProjectionContext,
 ): PhaseIntakeCompletion {
+  if (selectedCurrentProjectId(workspaceRoot)) {const map = getPhaseMapProjection(workspaceRoot); const key = phaseId ?? (map.state === "first-incomplete" ? map.phase.phaseId : undefined); const review = key ? readStructuredPhaseLoop(workspaceRoot, key, "interview") : null; return {complete: review?.disposition.state === "approved", phaseId: key, reason: "Exact current SQL Phase Interview controls completion."};}
   const contextSnapshot = resolvePlanningProjectionContext(workspaceRoot, planningContext);
   const context = resolvePhaseInterviewDraftContext(workspaceRoot, contextSnapshot);
   const selectedPhaseId = phaseId ?? (context.status === "ready" ? context.selectedPhase.phaseId : undefined);

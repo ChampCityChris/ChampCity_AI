@@ -1,3 +1,5 @@
+import {selectedCurrentProjectId} from "../projectState/currentProjectRegistrationService";
+import {structuredWorkCardMap, structuredWorkCardIntake} from "../phasePlanning/structuredPhaseLoopReadProjection";
 import type { PlanningDocumentSummary } from "../../shared/documents/planningDocument";
 import { workItemArtifactIdentity, workItemIntakeTargets, type ResolvedWorkItemArtifactScope } from "../workCardLoop/workItemArtifactScope";
 import type { RoutedDevelopmentExecutionBinding } from "../../shared/routedDevelopmentExecutionContracts";
@@ -151,6 +153,7 @@ export function generateWorkCardIntakeHandoff(
   candidateId?: string,
   options: WorkCardMapProjectionOptions = {},
 ): WorkCardIntakeHandoffResult {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Prepare the existing SQL WorkItem through the structured Phase service; canonical Intake is retired.");
   const context = resolveWorkCardIntakeContext(workspaceRoot, phaseId, candidateId, options);
   const candidate = context.candidate;
   const existing = currentApprovedHandoffForCandidate(
@@ -211,6 +214,7 @@ export function getWorkCardIntakeProjection(
   phaseId: string,
   candidateId?: string,
 ): WorkCardIntakeProjection {
+  if (selectedCurrentProjectId(workspaceRoot)) return structuredWorkCardIntake(workspaceRoot, phaseId, candidateId);
   const context = resolveWorkCardIntakeContext(workspaceRoot, phaseId, candidateId);
   return {
     phaseId: context.phaseId,
@@ -228,6 +232,7 @@ export function getWorkCardMapProjection(
   options: WorkCardMapProjectionOptions = {},
   planningContext?: PlanningProjectionContext,
 ): WorkCardMapProjection {
+  if (selectedCurrentProjectId(workspaceRoot)) return structuredWorkCardMap(workspaceRoot, phaseId);
   return getWorkCardMapProjectionFromState(workspaceRoot, phaseId, options, planningContext);
 }
 
@@ -237,6 +242,7 @@ export function beginWorkCardPlanningForCandidate(
   candidateId: string,
   options: BeginWorkCardPlanningOptions = {},
 ): WorkCardIntakeHandoffResult {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Prepare the existing SQL WorkItem through the structured Phase service; canonical Intake is retired.");
   const activeState = resolveActiveWorkCardState(workspaceRoot, phaseId);
   if (activeState.status === "conflict") {
     throw new Error(`${activeState.reason} Evidence: ${activeState.evidencePaths.join("; ")}`);

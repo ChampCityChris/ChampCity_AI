@@ -1,3 +1,5 @@
+import {selectedCurrentProjectId} from "../projectState/currentProjectRegistrationService";
+import {structuredWorkCardMap, readStructuredPhaseLoop} from "../phasePlanning/structuredPhaseLoopReadProjection";
 import fs from "node:fs";
 import { workItemIntakeTargets, type WorkItemArtifactScope } from "./workItemArtifactScope";
 import path from "node:path";
@@ -187,6 +189,10 @@ export function resolveWorkCardLoopState(
     };
   }
 
+  if (selectedCurrentProjectId(workspaceRoot)) {
+    const map = structuredWorkCardMap(workspaceRoot, phaseId), active = map.candidates.filter(candidate => candidate.isActive);
+    return {status: map.state === "needs-attention" ? "no-plan" : active.length > 1 ? "conflict" : map.state === "all-complete" ? "all-complete" : active.length ? "active" : "map-ready", workspaceId: map.state === "all-complete" ? "phase-validation" : active.length === 1 ? "work-card-intake" : "phase-work-card-selection", phaseId, workCardId: active[0]?.candidateId, candidateId: active[0]?.candidateId, loopStep: active.length ? "Planning" : "Map", candidates: map.candidates, sourceWorkCardPlanPath: map.sourceWorkCardPlanPath, sourceEvidence: [], requiredAction: active.length ? "Prepare the selected existing SQL WorkItem." : map.reason, reason: map.reason};
+  }
   planningContext = resolvePlanningProjectionContext(workspaceRoot, planningContext);
 
   const phasePlanning = getPhasePlanningCompletion(workspaceRoot, phaseId, planningContext);
@@ -408,6 +414,7 @@ export function resolveActiveWorkCardStateFromLoop(
   phaseId?: string,
   planningContext?: PlanningProjectionContext,
 ): ActiveWorkCardState {
+  if (selectedCurrentProjectId(workspaceRoot)) return {status: "none", phaseId, reason: "Canonical Intake ownership is retired; selection is read from SQL WorkItem preparation.", evidencePaths: []};
   planningContext = resolvePlanningProjectionContext(workspaceRoot, planningContext);
   const documents = listPlanningDocuments(planningContext ?? workspaceRoot);
   return resolveActiveWorkCardStateFromDocuments(workspaceRoot, documents, phaseId, planningContext);
@@ -1236,6 +1243,7 @@ function formalWorkCardDocumentForTarget(
 }
 
 function readCandidates(workspaceRoot: string, phaseId: string, planningContext?: PlanningProjectionContext): WorkCardCandidate[] {
+  if (selectedCurrentProjectId(workspaceRoot)) {const review = readStructuredPhaseLoop(workspaceRoot, phaseId, "planning"); if (review?.disposition.state !== "approved") throw Error("Accepted SQL Phase Planning required."); return review.candidates;}
   const workCardPlan = requiredApproved(workspaceRoot, `planning/phases/${phaseId}/Work_Card_Plan`, ".md", planningContext);
   const workflowData = planningContext
     ? workCardPlan.metadata.canonical?.workflowData ?? {}

@@ -49,6 +49,7 @@ export interface RecordEnvelope<T extends EntityType = EntityType> {
 
 export interface EntityBodyMap {
   ResearchOutcome: import("../workPlanningContracts").WorkResearchOutcome & {workflowId: EntityId};
+  PhaseReviewCycle: {workflowId: EntityId; phaseId: EntityId; stageKind: "interview" | "planning"; semanticDigest: string; layout: {memberIds: EntityId[]; sources: {entityId: EntityId; recordVersion: number}[]}};
   PhaseMapReviewCycle: {workflowId: EntityId; semanticDigest: string; layout: {memberIds: EntityId[]; sources: {entityId: EntityId; recordVersion: number}[]}};
   ProjectPlanningReviewCycle: { workflowId: EntityId; semanticDigest: string; layout: {memberIds: EntityId[]; sources: {entityId: EntityId; recordVersion: number}[]} };
   PlanReviewCycle: { workflowId: EntityId; workflowType: WorkflowType; semanticDigest: string; layout: import("./planReviewContracts").PlanReviewLayout };
@@ -65,7 +66,7 @@ export interface EntityBodyMap {
   RootCause: { title: string; statement: string; rationale: string; confidence?: number; rootCauseState: string };
   BoundedSolution: { title: string; objective: string; scopeIn: string[]; scopeOut: string[]; constraints: string[]; assumptions: string[]; risks: string[]; solutionState: string };
   Criterion: { statement: string; criticality: "required" | "optional" | "informational"; verificationIntent: string; validationPolicy: ValidationPolicyClass; criterionState: string };
-  WorkItem: { workItemKind: WorkItemKind; title: string; objective: string; workState: WorkState; implementationBoundaries?: string[]; affectedPaths?: string[]; proofIntent?: string[]; startedAt?: string; implementedAt?: string };
+  WorkItem: { workItemKind: WorkItemKind; title: string; objective: string; workState: WorkState; implementationBoundaries?: string[]; affectedPaths?: string[]; proofIntent?: string[]; candidateKey?: string; planningOrder?: number; planningResolution?: "planned" | "deferred" | "superseded" | "alreadySatisfied" | "carriedForward"; resolutionReason?: string; planningEvidence?: string[]; carriedForwardToPhaseId?: string; planningPreparedAt?: string; startedAt?: string; implementedAt?: string };
   ImplementationRecord: { workItemId: EntityId; summary: string; deviations: string[]; blockers: string[]; residualRisks: string[]; outcome: ImplementationOutcome; executionRef?: string };
   TesterResult: { workflowId: EntityId; workItemId: EntityId; implementationRecordId: EntityId; sourceMode: "source-backed" | "source-neutral"; implementerRevisionId?: string; recommendation: TesterRecommendation; affectedCapabilityIds: string[]; permanentTestPaths: string[]; determinationEvidence: string[]; unknowns: string[]; rationale: string; checkpointState: "not-required" | "pending" | "committed" | "blocked"; candidateRevisionId?: string; sourceCheckpointId?: EntityId };
   Validation: { validationType: string; method: string; validationMode: ValidationMode; outcome: "pass" | "fail" | "blocked" | "inconclusive"; targetEntityId: EntityId; targetRecordVersion: number; sourceBaselineRef?: string; implementationRecordId?: EntityId; assessmentStatus?: TestLifecycleAssessmentStatus; performedBy: PrincipalRef; performedAt: string; summary: string };

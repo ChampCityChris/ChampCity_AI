@@ -598,6 +598,7 @@ function missingPhaseInterviewModel(workspaceRoot: string, planningContext: Plan
     return null;
   }
   const phaseId = projection.phase.phaseId;
+  if (selectedCurrentProjectId(workspaceRoot)) return getPhaseIntakeCompletion(workspaceRoot, phaseId).complete ? null : {activeWorkspaceId: "phase-interview", level: "phase", stage: "intake", currentPhaseId: phaseId, currentTarget: "Phase Interview", sourceEvidence: [], requiredAction: "Review exact structured SQL Phase Interview.", expectedOutput: "Approved Phase Interview semantic review.", eligibility: "Approved SQL Phase Map", expectedNextState: "Approved Interview enables separate Phase Planning."};
   const draftStatus = getPhaseInterviewDraftSubmissionStatus(workspaceRoot);
   const intake = getPhaseIntakeCompletion(workspaceRoot, phaseId, planningContext);
   if (intake.complete) {
@@ -647,6 +648,7 @@ function missingPhasePlanningModel(workspaceRoot: string, planningContext: Plann
     return null;
   }
   const phaseId = projection.phase.phaseId;
+  if (selectedCurrentProjectId(workspaceRoot)) return !getPhaseIntakeCompletion(workspaceRoot, phaseId).complete || getPhasePlanningCompletion(workspaceRoot, phaseId).complete ? null : {activeWorkspaceId: "phase-planning-bundle", level: "phase", stage: "planning", currentPhaseId: phaseId, currentTarget: "Phase Planning", sourceEvidence: [], requiredAction: "Review exact SQL Phase Planning and WorkItem candidates.", expectedOutput: "Approved Phase Planning semantic graph.", eligibility: "Approved SQL Phase Interview", expectedNextState: "Approved Planning enables SQL Work Card Map."};
   const phasePlanningWorkspace = getPhasePlanningWorkspaceModel(workspaceRoot, planningContext);
   const draftStatus = getPhasePlanningDraftSubmissionStatus(workspaceRoot);
   const intake = getPhaseIntakeCompletion(workspaceRoot, phaseId, planningContext);
@@ -725,6 +727,7 @@ function missingWorkCardIntakeOrFormalModel(workspaceRoot: string): CurrentWorks
   if (map.state !== "ready") {
     return null;
   }
+  if (selectedCurrentProjectId(workspaceRoot)) {const active = map.candidates.find(candidate => candidate.isActive); return {activeWorkspaceId: active ? "work-card-intake" : "phase-work-card-selection", level: active ? "work-card" : "phase", stage: active ? "planning" : "building", currentPhaseId: phaseId, currentWorkCardId: active?.candidateId, currentTarget: active ? "WorkItem Preparation" : "Work Card Map", sourceEvidence: [], requiredAction: active ? "Prepare the selected existing SQL WorkItem from current Phase context." : "Select an eligible SQL WorkItem.", expectedOutput: "Derived WorkItem preparation handoff.", eligibility: map.reason, expectedNextState: "Selected WorkItem proceeds to formal preparation."};}
   const handoff = resolveActiveWorkCardPlanningHandoff(workspaceRoot, phaseId);
   if (!handoff) {
     return {

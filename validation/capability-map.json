@@ -4932,6 +4932,8 @@
         "src/main/issuePlanning/**",
         "src/main/phaseMap/structuredPhaseMapReadProjection.ts",
         "src/main/phaseMap/structuredPhaseMapService.ts",
+        "src/main/phasePlanning/structuredPhaseLoopReadProjection.ts",
+        "src/main/phasePlanning/structuredPhaseLoopService.ts",
         "src/main/projectPlanning/structuredProjectPlanningReadProjection.ts",
         "src/main/projectPlanning/structuredProjectPlanningService.ts",
         "src/main/sourceControl/workflowIntegrationService.ts",
@@ -4942,6 +4944,7 @@
         "src/renderer/app/FeaturePlanningWorkspace.tsx",
         "src/renderer/app/IssueWorkflowPlanningWorkspace.tsx",
         "src/renderer/app/PlanReviewShell.tsx",
+        "src/renderer/app/StructuredPhaseLoopWorkspace.tsx",
         "src/renderer/app/StructuredPhaseMapWorkspace.tsx",
         "src/renderer/app/StructuredProjectPlanningWorkspace.tsx",
         "src/renderer/app/WorkMapShell.tsx",
@@ -4951,6 +4954,7 @@
         "src/shared/featurePlanningContracts.ts",
         "src/shared/issuePlanningContracts.ts",
         "src/shared/projectState/greenfieldPhaseMapContracts.ts",
+        "src/shared/projectState/phaseLoopContracts.ts",
         "src/shared/projectState/projectArchitectureContext.ts",
         "src/shared/projectState/projectPlanningReviewContracts.ts",
         "src/shared/projectState/projectStateService.ts",
@@ -13201,8 +13205,8 @@
     {
       "testPath": "test/phase-planning/phase-planning-service.test.cjs",
       "currentTestCount": {
-        "value": 3,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 5,
+        "basis": "RWS06E adds exact SQL Phase stage review and deterministic typed Phase Planning migration proofs."
       },
       "duration": {
         "kind": "measured",
@@ -17530,8 +17534,8 @@
     {
       "testPath": "test/renderer/work-card-map-workspace.test.cjs",
       "currentTestCount": {
-        "value": 5,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 6,
+        "basis": "RWS06E adds shared Phase stage presentation and derived Intake proof."
       },
       "duration": {
         "kind": "measured",
