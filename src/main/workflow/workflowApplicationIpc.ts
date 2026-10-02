@@ -1,3 +1,4 @@
+import {createStructuredCloseAdvanceService} from "./structuredCloseAdvanceService";
 import {createStructuredWorkItemReviewService} from "../workCardValidation/structuredWorkItemReviewService";
 import {createStructuredWorkItemPlanningService} from "../workCardPlanning/structuredWorkItemPlanningService";
 import {createStructuredPhaseLoopService} from "../phasePlanning/structuredPhaseLoopService";
@@ -20,6 +21,10 @@ export interface WorkflowApplicationIpcRegistry {
 export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcRegistry,
   getCurrentProjectRoot: () => string,
   service = createWorkflowApplicationService()): void {
+  const closeAdvance=createStructuredCloseAdvanceService();
+  registry.handle("closeAdvance:get",(_event,workflowId,scope,entityId)=>{if([workflowId,entityId].some(value=>typeof value!=="string"||!value.trim()||value.length>128)||!["work-item","phase","workflow"].includes(String(scope)))throw Error("Bounded exact close identities required.");return closeAdvance.get(getCurrentProjectRoot(),workflowId as string,scope as import("../../shared/closeAdvanceContracts").CloseAdvanceScope,entityId as string);});
+  registry.handle("closeAdvance:close",(_event,input)=>closeAdvance.close(getCurrentProjectRoot(),input as import("../../shared/closeAdvanceContracts").CloseAdvanceRequest));
+  registry.handle("closeAdvance:projectCriterion",(_event,input)=>closeAdvance.projectCriterion(getCurrentProjectRoot(),input as Parameters<typeof closeAdvance.projectCriterion>[1]));
   const intake = createWorkflowIntakeService();
   const architect = createStructuredArchitectWorkspaceService();
   const planning = createExactWorkflowPlanningService();

@@ -29,7 +29,7 @@ export function resolveFirstNonApprovedDocumentFromSnapshot(
     if (!architect) return {status: "waiting-for-architect-interview", activeWorkspaceId: "architect-interview", message: "Waiting for Project Architect Interview output", totalDocumentCount: documents.length,
       reason: "Approved SQL Intake requires a fresh structured Architect review cycle.", sourceEvidence: [structured.reviewDocument.markdownPath], promptLogicalDocumentId: structured.intakeId!, expectedOutputPaths: {markdown: "planning/architect-reviews/"}};
     // The SQL cycle already establishes Interview eligibility; historical prompt/interview files cannot gate it.
-    return resolveFirstNonApproved(documents.filter(document => !["project-intake", "project-architect-interview", "project-architect-interview-prompt", "project-profile", "project-roadmap", "phase-map", "phase-interview", "phase-planning", "work-card-plan", "work-card-intake-handoff", "formal-work-card", "implementer-report", "validation-record", "repair-work-card", "repair-architect-handoff"].includes(document.metadata.artifactType ?? "")), undefined, true);
+    return resolveFirstNonApproved(documents.filter(document => !["project-intake", "project-architect-interview", "project-architect-interview-prompt", "project-profile", "project-roadmap", "phase-map", "phase-interview", "phase-planning", "work-card-plan", "work-card-intake-handoff", "formal-work-card", "implementer-report", "validation-record", "repair-work-card", "repair-architect-handoff", "work-card-close-return-record", "phase-closeout", "project-closeout", "plan-closeout"].includes(document.metadata.artifactType ?? "")), undefined, true);
   }
   return resolveFirstNonApproved(documents, structured ? structured.reviewDocument ?? null : undefined);
 }

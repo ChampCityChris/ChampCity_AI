@@ -1,3 +1,5 @@
+import {readStructuredCloseState} from "../workflow/structuredCloseReadProjection";
+import {selectedCurrentProjectId} from "../projectState/currentProjectRegistrationService";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
 import {
   evaluateDocumentFreshness,
@@ -17,6 +19,7 @@ import {
 } from "../documents/repositoryBinding";
 
 export function createProjectCloseout(workspaceRoot: string, closureDecision: "Close" | "DoNotClose", rationale: string) {
+  if(selectedCurrentProjectId(workspaceRoot,{includeClosed:true}))throw Error("Registered Project closure requires SQL Close / Advance; closeout Markdown is projection only.");
   assertProjectCloseEligible(workspaceRoot);
   const content = { closureDecision, rationale, phaseCompletionSummary: "", deliveredOutcomes: [], limitations: [], unresolvedWork: [] };
   const documents = listPlanningDocuments(workspaceRoot);
@@ -47,6 +50,7 @@ export function createProjectCloseout(workspaceRoot: string, closureDecision: "C
 }
 
 export function setProjectCloseoutDisposition(workspaceRoot: string, status: DocumentDispositionStatus) {
+  if(selectedCurrentProjectId(workspaceRoot,{includeClosed:true}))throw Error("Registered Project disposition requires SQL Close / Advance.");
   const closeout = latestCloseout(workspaceRoot);
   if (!closeout) throw new Error("Project Closeout is required.");
   return setDocumentDisposition(workspaceRoot, closeout.logicalDocumentId, status);
@@ -56,6 +60,8 @@ export function getProjectCloseProjection(
   workspaceRoot: string,
   planningContext?: PlanningProjectionContext,
 ) {
+  const structured=readStructuredCloseState(workspaceRoot);
+  if(structured)return {complete:structured.projectClosed,workspaceId:structured.projectClosed?"project-close":"project-validation",blockers:structured.projectClosed?[]:["Validate current SQL Project Criteria, complete all Phases and close Project Creation."]};
   const context = resolvePlanningProjectionContext(workspaceRoot, planningContext);
   const blockers = projectCloseBlockers(workspaceRoot, context);
   const closeout = latestCloseout(context);

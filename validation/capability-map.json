@@ -4949,7 +4949,11 @@
         "src/main/workCardValidation/structuredWorkItemReviewService.ts",
         "src/main/workPlanning/exactWorkflowPlanningService.ts",
         "src/main/workflow/**",
+        "src/main/workflow/structuredCloseAdvanceService.ts",
+        "src/main/workflow/structuredCloseReadProjection.ts",
         "src/main/workflow/workflowExecutionApplicationService.ts",
+        "src/renderer/app/CloseAdvanceShell.tsx",
+        "src/renderer/app/CloseAdvanceWorkspace.tsx",
         "src/renderer/app/ExactWorkflowPlanningWorkspace.tsx",
         "src/renderer/app/ExecutionShell.tsx",
         "src/renderer/app/FeaturePlanningWorkspace.tsx",
@@ -4964,6 +4968,7 @@
         "src/renderer/app/WorkMapShell.tsx",
         "src/renderer/app/WorkflowIntakeWorkspace.tsx",
         "src/renderer/app/planningDraftAction.ts",
+        "src/shared/closeAdvanceContracts.ts",
         "src/shared/exactWorkflowPlanningContracts.ts",
         "src/shared/featurePlanningContracts.ts",
         "src/shared/issuePlanningContracts.ts",
@@ -13245,8 +13250,8 @@
     {
       "testPath": "test/phase-planning/phase-planning-service.test.cjs",
       "currentTestCount": {
-        "value": 7,
-        "basis": "RWS06E adds exact SQL Phase stage review and deterministic typed Phase Planning migration proofs. RWS06H adds SQL review/repair convergence proof."
+        "value": 8,
+        "basis": "RWS06E adds exact SQL Phase stage review and deterministic typed Phase Planning migration proofs. RWS06H adds SQL review/repair convergence proof. RWS06I adds structured close/advance lifecycle proof."
       },
       "duration": {
         "kind": "measured",
@@ -17909,8 +17914,8 @@
     {
       "testPath": "test/renderer/workflow-hub-shell.test.cjs",
       "currentTestCount": {
-        "value": 25,
-        "basis": "Existing renderer navigation proof plus the EPGA-R01 single forced-conversion warning and controller apply-before-register consent gating scenarios. RWS06G adds exact shared execution proof. RWS06H adds SQL review/repair convergence proof."
+        "value": 26,
+        "basis": "Existing renderer navigation proof plus the EPGA-R01 single forced-conversion warning and controller apply-before-register consent gating scenarios. RWS06G adds exact shared execution proof. RWS06H adds SQL review/repair convergence proof. RWS06I adds structured close/advance lifecycle proof."
       },
       "duration": {
         "kind": "measured",
@@ -18712,8 +18717,8 @@
     {
       "testPath": "test/source-control/workflow-integration-service.test.cjs",
       "currentTestCount": {
-        "value": 2,
-        "basis": "WRB04-06 exact Feature and Issue linked-Dev integration verticals."
+        "value": 6,
+        "basis": "WRB04-06 exact Feature and Issue linked-Dev integration verticals. RWS06I qualifies all six implementation families against the same machine-owned integration vertical."
       },
       "duration": {
         "kind": "measured",

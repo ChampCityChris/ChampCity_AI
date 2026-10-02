@@ -1,3 +1,5 @@
+import {readStructuredCloseState} from "../workflow/structuredCloseReadProjection";
+import {selectedCurrentProjectId} from "../projectState/currentProjectRegistrationService";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
 import {
   evaluateDocumentFreshness,
@@ -33,6 +35,7 @@ export interface PhaseCloseProjection {
 }
 
 export function createPhaseCloseout(workspaceRoot: string, phaseId: string, closureDecision: "Close" | "DoNotClose", rationale: string) {
+  if(selectedCurrentProjectId(workspaceRoot,{includeClosed:true}))throw Error("Registered Phase closure requires SQL Close / Advance; closeout Markdown is projection only.");
   const content = { phaseId, closureDecision, rationale, completionSummary: "", limitations: [], unresolvedMatters: [] };
   const number = phaseId.match(/\d+/)?.[0] ?? "00";
   const slug = slugify(closureDecision);
@@ -67,6 +70,7 @@ export function setPhaseCloseoutDisposition(
   status: DocumentDispositionStatus,
   expectedLogicalDocumentId?: string,
 ) {
+  if(selectedCurrentProjectId(workspaceRoot,{includeClosed:true}))throw Error("Registered Phase disposition requires SQL Close / Advance.");
   const closeout = latestCloseout(workspaceRoot, phaseId);
   if (!closeout) throw new Error("Phase Closeout is required.");
   if (expectedLogicalDocumentId && closeout.logicalDocumentId !== expectedLogicalDocumentId) {
@@ -80,6 +84,8 @@ export function getPhaseCloseProjection(
   phaseId: string,
   planningContext?: PlanningProjectionContext,
 ): PhaseCloseProjection {
+  const structured=readStructuredCloseState(workspaceRoot,phaseId);
+  if(structured)return {phaseId:structured.phaseId??phaseId,complete:structured.phaseClosed,workspaceId:structured.phaseClosed?"phase-close":"phase-validation",reason:structured.phaseClosed?"Closed by exact SQL Phase lifecycle.":"Validate exact SQL Phase Criteria and close the current Phase revision."};
   const context = resolvePlanningProjectionContext(workspaceRoot, planningContext);
   const closeout = latestCloseout(context, phaseId);
   if (!closeout) {

@@ -34,7 +34,7 @@ async function qualifyExactWorkflowIntegration(context, workflowType) {
   let store = createSQLiteProjectStateStore(path.join(metadata, "project-state.sqlite"));
   let state = createProjectStateService(store, operator);
   const projectId = registration.project.id;
-  const created = await state.createSubstantiveWorkflow(projectId, { workflowType, title: `Exact ${workflowType} integration`, entryWorkspace: workflowType === "feature-capability" ? "feature-intake" : "issue-intake" });
+  const created = await state.createSubstantiveWorkflow(projectId, { workflowType, title: `Exact ${workflowType} integration`, entryWorkspace: require("../../dist/shared/projectState/workflowTypeRegistry.js").getWorkflowTypeDefinition(workflowType).entryWorkspace });
   let rootCause;
   if (workflowType === "issue-resolution") {
     store.close();
@@ -58,7 +58,7 @@ async function qualifyExactWorkflowIntegration(context, workflowType) {
   const accepted = await state.acceptWorkflowPlanningGraph(projectId, { workflowId: created.workflow.id, topology: "direct",
     ...(rootCause ? { solutionAddresses: [rootCause.id] } : {}),
     solution: { title: "Accepted", objective: "Deliver the behavior", scopeIn: ["feature.txt"], scopeOut: [], constraints: [], assumptions: [], risks: [] },
-    solutionCriteria: [], phases: [], workItems: [{ key: "feature", kind: workflowType === "feature-capability" ? "feature" : "fix", title: "Correction", objective: "Change feature.txt", dependencyKeys: [],
+    solutionCriteria: [], phases: [], workItems: [{ key: "feature", kind: workflowType === "issue-resolution" ? "fix" : workflowType === "refactor-migration" ? "migration" : "feature", title: "Correction", objective: "Change feature.txt", dependencyKeys: [],
       criteria: workflowType === "feature-capability" ? [{ statement: "The updated interface is legible", criticality: "required", verificationIntent: "Inspect the exact current visual candidate", validationPolicy: "visual_human" }] : [] }] });
   const workItem = accepted.directWorkItems[0];
   assert.equal((await state.getWorkflowExecutionPlan(projectId, created.workflow.id)).solutions[0].id, accepted.solutions[0].id);
@@ -127,3 +127,5 @@ async function qualifyExactWorkflowIntegration(context, workflowType) {
 
 test("Feature source-backed vertical uses exact Workflow integration with attributed idempotent validation", context => qualifyExactWorkflowIntegration(context, "feature-capability"));
 test("Issue accepted correction vertical uses the same exact Workflow services and pre-plan RCA context", context => qualifyExactWorkflowIntegration(context, "issue-resolution"));
+
+for(const workflowType of ["refactor-migration","integration-composition","infrastructure-platform","research-prototype"])test(`${workflowType} source-backed vertical preserves exact baseline, integration proof and SQL closure`,context=>qualifyExactWorkflowIntegration(context,workflowType));

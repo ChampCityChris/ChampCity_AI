@@ -145,9 +145,10 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       const plan = await exactPlan(store, projectId, workflowId);
       const view = await project(store, projectId, plan);
       const blockers: string[] = [];
-      if (plan.solutions.length !== 1 || plan.decisions.length !== 1) blockers.push("accepted-plan-missing-or-ambiguous");
+      if (plan.workflow.body.workflowType !== "project-creation" && (plan.solutions.length !== 1 || plan.decisions.length !== 1)) blockers.push("accepted-plan-missing-or-ambiguous");
       if (view.source.state !== "non-source" && view.source.state !== "ready") blockers.push("source-not-ready");
       const state = createProjectStateService(store, operator);
+      if (plan.workflow.body.workflowType === "project-creation") blockers.push(...(await state.getProjectCompletionEligibility(projectId, workflowId, view.source.currentRevisionId ?? undefined)).blockers);
       for (const item of view.items) {
         if (item.record.body.workState !== "closed") blockers.push(`work-item-open:${item.record.id}`);
         else {
@@ -175,7 +176,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
         const source = await store.getEntity(projectId, edge.fromEntityId);
         if (source?.lifecycleState === "active") blockers.push(`blocking-record:${source.id}`);
       }
-      const phaseAndSolutionOwners = new Set<EntityId>(plan.solutions.map(solution => solution.id));
+      const phaseAndSolutionOwners = new Set<EntityId>(plan.workflow.body.workflowType === "project-creation" ? [] : plan.solutions.map(solution => solution.id));
       for (const criterion of plan.criteria.filter(entry => phaseAndSolutionOwners.has(entry.ownerId) && entry.record.lifecycleState === "active" && entry.record.body.criticality === "required")) {
         if (criterion.record.body.validationPolicy === "deferred_visual_phase") continue;
         if (criterion.record.body.validationPolicy === "operator_decision") {
@@ -470,7 +471,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       const phase = plan.phases[phaseIndex];
       const view = await project(store, projectId, plan);
       const deferred = plan.criteria.filter(entry => entry.record.lifecycleState === "active" && entry.record.body.validationPolicy === "deferred_visual_phase" &&
-        (phase.workItemIds.includes(entry.ownerId) || phaseIndex === plan.phases.length - 1 && plan.solutions.some(solution => solution.id === entry.ownerId)));
+        (phase.workItemIds.includes(entry.ownerId) || phaseIndex === plan.phases.length - 1 && plan.workflow.body.workflowType !== "project-creation" && plan.solutions.some(solution => solution.id === entry.ownerId)));
       const criteria = plan.criteria.filter(entry => entry.ownerId === phaseId).concat(deferred)
         .filter((entry, index, all) => all.findIndex(candidate => candidate.record.id === entry.record.id) === index);
       const state = createProjectStateService(store, operator);
@@ -514,7 +515,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       if (phase.record.recordVersion !== input.expectedPhaseVersion || !phase.workItemIds.every(id => view.items.find(item => item.record.id === id)?.record.body.workState === "closed"))
         throw Error("Phase visual evidence requires the current Phase after all member WorkItems close.");
       const deferred = plan.criteria.some(entry => entry.record.id === input.criterionId && entry.record.body.validationPolicy === "deferred_visual_phase" &&
-        (phase.workItemIds.includes(entry.ownerId) || phaseIndex === plan.phases.length - 1 && plan.solutions.some(solution => solution.id === entry.ownerId)));
+        (phase.workItemIds.includes(entry.ownerId) || phaseIndex === plan.phases.length - 1 && plan.workflow.body.workflowType !== "project-creation" && plan.solutions.some(solution => solution.id === entry.ownerId)));
       const criterion = plan.criteria.find(entry => entry.record.id === input.criterionId && (entry.ownerId === input.phaseId || deferred));
       if (!criterion || criterion.record.recordVersion !== input.expectedCriterionVersion || criterion.record.lifecycleState !== "active" ||
         criterion.record.body.criticality !== "required" || !["visual_human", "deferred_visual_phase"].includes(criterion.record.body.validationPolicy))

@@ -1,3 +1,4 @@
+import {CloseAdvanceWorkspace} from "./CloseAdvanceWorkspace";
 import {ReviewValidationShell} from "./ReviewValidationShell";
 import type {StructuredWorkItemReview} from "../../shared/structuredWorkItemReviewContracts";
 import {WorkItemPlanningWorkspace} from "./WorkItemPlanningWorkspace";
@@ -54,7 +55,7 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel, i
       if (!preserveOperationFeedback) setError("");
     } catch (reason) {
       if (request !== loadGeneration.current) return;
-      try {const current = await window.champcity.getWorkflow(workflow.workflowId); if (request !== loadGeneration.current) return; if (current.workflow.lifecycleState === "closed" || current.workflow.workflowState === "closed") {setProjection(null); setError(""); setFeedback("Workflow is integrated and closed. Its final state is available from the Workflows Hub."); return;}} catch { /* Retain the exact Workflow service error. */ }
+      try {const current = await window.champcity.getWorkflow(workflow.workflowId); if (request !== loadGeneration.current) return; if (current.workflow.lifecycleState === "closed" || current.workflow.workflowState === "closed") {setProjection(null); setError(""); setFeedback("Workflow is closed. Its final state is available from the Workflows Hub."); return;}} catch { /* Retain the exact Workflow service error. */ }
       if (!preserveOperationFeedback && request === loadGeneration.current) setError(String(reason));
     }
   };
@@ -89,11 +90,6 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel, i
     }
     return window.champcity.validateDeterministicWorkflowCriterion(workflow.workflowId, selectedId, criterionId);
   }, "Validator result saved to the exact Workflow.");
-  const refreshCompletion = async () => act(async () => {
-    const completion = await window.champcity.getWorkflowExecutionCompletion(workflow.workflowId);
-    if (!completion.eligible) throw Error(`Workflow completion is blocked: ${completion.blockers.join(", ")}`);
-    return window.champcity.completeWorkflowExecution(workflow.workflowId, completion.workflowVersion);
-  }, "Workflow execution completed.");
   const selectWorkItem = async (id: string) => {
     const request = ++loadGeneration.current; selectedIdentity.current = id;
     setSelectedId(id); setReview(null); setValidation(null); setCheckpointRecovery(null); setImplementer(null); setTester(null);
@@ -104,7 +100,7 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel, i
     ]); if (request !== loadGeneration.current) return; setReview(nextValidation); setValidation(nextValidation?.validation ?? null); setCheckpointRecovery(nextRecovery); setImplementer(nextImplementer); setTester(nextTester);} catch (reason) {if (request === loadGeneration.current) setError(String(reason));}
   };
   return <ExecutionShell workflow={workflow} projection={projection} selectedId={selectedId} error={error} feedback={feedback} onReturn={onReturn} onSelect={id => void selectWorkItem(id)} browserPanel={browserPanel}>
-    {projection && <>{item && <ExecutionSelectedWorkItemPanel item={item}>
+    {projection && <><CloseAdvanceWorkspace key={workflow.workflowId+projection.plan.workflow.recordVersion} workflowId={workflow.workflowId} scope="workflow" entityId={workflow.workflowId} onNext={next=>{if(next.workspaceId==="workflow-hub")onReturn();else void refresh();}} />{item && <ExecutionSelectedWorkItemPanel item={item}>
         {["planned", "ready"].includes(item.record.body.workState) && <WorkItemPlanningWorkspace workflowId={workflow.workflowId} workItemId={item.record.id} browserPanel={null} onChanged={refresh} />}
         <details><summary>Execution contract</summary><p>Scope in: {projection.plan.solutions[0]?.body.scopeIn.join("; ")}</p><p>Scope out: {projection.plan.solutions[0]?.body.scopeOut.join("; ")}</p><p>Constraints: {projection.plan.solutions[0]?.body.constraints.join("; ")}</p><p>Contract digest is generated from exact Workflow, WorkItem, accepted solution, phase, dependencies, Criteria, and source revision when execution starts.</p></details>
         <ExecutionRuntimePanel role="Implementer" model={implementer}><p>{latest ? `Implementation ${latest.id}: ${latest.body.outcome} · ${latest.body.summary}` : "No implementation attempt yet."}{implementer?.executionContractDigest && <> · contract <code>{implementer.executionContractDigest}</code></>}</p>
@@ -143,7 +139,7 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel, i
               expectedCriterionVersion: entry.criterion.recordVersion, outcome: criterionDecisionOutcome, rationale: operatorRationale }), "Operator Criterion Decision recorded.")}>{entry.decisionId ? "Correct Operator Decision" : "Record Operator Decision"}</button></>}
           {entry.outcome === "fail" && entry.repairable && (entry.policy === "operator_decision" ? entry.decisionId : entry.validationIds.at(-1)) && <button onClick={() => void act(() => window.champcity.createWorkflowRepair(workflow.workflowId, item.record.id, (entry.policy === "operator_decision" ? entry.decisionId : entry.validationIds.at(-1))!), "Canonical Repair WorkItem created.")}>Create Repair</button>}
         </li>)}</ul></>}
-        {item.record.body.workState === "validation_pending" && <button disabled={!validation?.completion.eligible} onClick={() => void act(() => window.champcity.completeWorkflowWorkItem(workflow.workflowId, item.record.id, item.record.recordVersion), "WorkItem completed.")}>Complete Work Item</button>}
+        {item.record.body.workState === "validation_pending" && <CloseAdvanceWorkspace key={item.record.id+item.record.recordVersion} workflowId={workflow.workflowId} scope="work-item" entityId={item.record.id} onNext={next=>{void refresh();if(next.entityId&&projection.items.some(entry=>entry.record.id===next.entityId))void selectWorkItem(next.entityId!);}} />}
       </ReviewValidationShell></ExecutionSelectedWorkItemPanel>}
       {projection.plan.phases.length > 0 && <section aria-label="Phase validation and completion"><h2>Phase validation and completion</h2>{projection.plan.phases.map(phase => {
         const review = phaseValidation[phase.phaseId]; if (!review) return <p key={phase.phaseId} role="status">Loading Phase {phase.record.body.sequence} validation state…</p>;
@@ -168,10 +164,10 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel, i
                 outcome: criterionDecisionOutcome, rationale: operatorRationale }), "Phase Operator Decision recorded.")}>{entry.decisionId ? "Correct Phase Operator Decision" : "Record Phase Operator Decision"}</button></>}
             {entry.outcome === "fail" && (entry.validationId || entry.decisionId) && <button onClick={() => void act(() => window.champcity.createWorkflowPhaseRepair(workflow.workflowId, phase.phaseId, (entry.decisionId ?? entry.validationId)!), "Canonical Phase Repair WorkItem created.")}>Create Phase Repair</button>}
           </div>)}
-          {!isClosed && review.workItemsClosed && <button disabled={!review.completion.eligible} onClick={() => void act(() => window.champcity.completeWorkflowPhase(workflow.workflowId, phase.phaseId, review.phaseVersion), "Phase completed.")}>Complete Phase</button>}
+          {!isClosed && review.workItemsClosed && <CloseAdvanceWorkspace key={phase.phaseId+review.phaseVersion} workflowId={workflow.workflowId} scope="phase" entityId={phase.phaseId} onNext={()=>void refresh()} />}
         </article>;
       })}</section>}
-      {projection.items.length > 0 && projection.items.every(entry => entry.record.body.workState === "closed") && <ExecutionIntegrationPanel projection={integration} onCompleteExecution={() => void refreshCompletion()} onIntegrate={() => void act(() => window.champcity.integrateWorkflow(workflow.workflowId), "Workflow integration was advanced.")} onPrepareRepair={candidateId => void window.champcity.prepareWorkflowIntegrationRepair(workflow.workflowId, candidateId).then(setRepairAttempt).catch(reason => setError(String(reason)))}>
+      {projection.items.length > 0 && projection.items.every(entry => entry.record.body.workState === "closed") && <ExecutionIntegrationPanel projection={integration} onIntegrate={() => void act(() => window.champcity.integrateWorkflow(workflow.workflowId), "Workflow integration was advanced.")} onPrepareRepair={candidateId => void window.champcity.prepareWorkflowIntegrationRepair(workflow.workflowId, candidateId).then(setRepairAttempt).catch(reason => setError(String(reason)))}>
         {repairAttempt && <section aria-label="Integration Repair"><h3>Integration Repair {repairAttempt.repairId}</h3><p>{repairAttempt.status}: {repairAttempt.message}</p>
           <p>Editable paths: {repairAttempt.policy.editablePaths.join(", ")}</p><pre>{repairAttempt.prompt}</pre>
           <label>Bounded repair patches as JSON<textarea value={repairPatches} onChange={event => setRepairPatches(event.target.value)} /></label>

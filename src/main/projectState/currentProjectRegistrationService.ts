@@ -32,7 +32,7 @@ function isCurrentProjectRegistration(body: unknown): boolean {
 }
 
 /** Resolves the single active Current Project only through its dedicated registration resource. */
-export function selectedCurrentProjectId(projectRoot: string): string | null {
+export function selectedCurrentProjectId(projectRoot: string, options: {includeClosed?: boolean} = {}): string | null {
   const canonical = fs.realpathSync(projectRoot);
   const directory = path.join(canonical, ".champcity");
   if (!fs.existsSync(directory)) return null;
@@ -49,7 +49,7 @@ export function selectedCurrentProjectId(projectRoot: string): string | null {
     const rows = database.prepare(`SELECT e.project_id, v.body_json FROM state_entities e
       JOIN state_entity_versions v ON v.project_id=e.project_id AND v.entity_id=e.entity_id AND v.record_version=e.current_record_version
       JOIN projects p ON p.project_id=e.project_id
-      WHERE e.entity_type='ProjectResource' AND e.lifecycle_state='active' AND p.lifecycle_state='active'`).all() as { project_id: string; body_json: string }[];
+      WHERE e.entity_type='ProjectResource' AND e.lifecycle_state='active' AND (p.lifecycle_state='active' OR (${options.includeClosed === true ? 1 : 0}=1 AND p.lifecycle_state='closed'))`).all() as { project_id: string; body_json: string }[];
     const registrations = rows.filter(row => { try { return isCurrentProjectRegistration(JSON.parse(row.body_json)); } catch { return false; } });
     if (registrations.length > 1) throw Error("Selected Project State contains ambiguous Project identities.");
     return registrations[0]?.project_id ?? null;

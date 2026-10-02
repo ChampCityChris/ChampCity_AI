@@ -65,7 +65,10 @@ export function createWorkflowIntegrationService(projectRoot: string, workflowId
       }
       if (chainedRevision !== binding.body.currentRevisionId) throw Error("Workflow SourceBinding does not match its exact checkpoint chain.");
       const completion = await state.getWorkflowExecutionPlan(currentProjectId, workflowId);
-      if (completion.solutions.length !== 1 || completion.decisions.length !== 1) throw Error("Exact Workflow has no unique accepted canonical plan.");
+      if (workflow.body.workflowType === "project-creation") {
+        const eligible=await state.getProjectCompletionEligibility(currentProjectId,workflowId,binding.body.currentRevisionId);
+        if(!eligible.eligible)throw Error(`Project integration is blocked: ${eligible.blockers.join(", ")}.`);
+      } else if (completion.solutions.length !== 1 || completion.decisions.length !== 1) throw Error("Exact Workflow has no unique accepted canonical plan.");
       const workItems = [...completion.directWorkItems, ...Object.values(completion.workItemsByPhase).flat()];
       for (const item of workItems) {
         if (item.body.workState !== "closed") throw Error("Exact Workflow execution is incomplete.");
@@ -74,13 +77,17 @@ export function createWorkflowIntegrationService(projectRoot: string, workflowId
       }
       if (completion.phases.some(phase => phase.record.body.phaseState !== "closed")) throw Error("Exact Workflow has an incomplete Phase.");
       const requiredNonWorkCriteria = completion.criteria.filter(entry => entry.ownerId !== workflowId &&
-        (completion.phases.some(phase => phase.phaseId === entry.ownerId) || completion.solutions.some(solution => solution.id === entry.ownerId)) &&
+        (completion.phases.some(phase => phase.phaseId === entry.ownerId) || workflow.body.workflowType !== "project-creation" && completion.solutions.some(solution => solution.id === entry.ownerId)) &&
         entry.record.lifecycleState === "active" && entry.record.body.criticality === "required");
       for (const criterion of requiredNonWorkCriteria) {
         if (criterion.record.body.validationPolicy === "deferred_visual_phase") continue;
         if (criterion.record.body.validationPolicy === "operator_decision") {
-          const disposition = await state.getEffectiveDisposition(currentProjectId, criterion.ownerId);
-          if (!["approved", "accepted"].includes(disposition.state)) throw Error("Exact Workflow Phase or solution requires an Operator Decision.");
+          const ownerPhase=completion.phases.find(phase=>phase.phaseId===criterion.ownerId);
+          const memberIds=ownerPhase?.workItemIds??workItems.map(work=>work.id);
+          const latestIds=new Set((await Promise.all(memberIds.map(id=>state.getImplementationAttempts(currentProjectId,id)))).map(attempts=>attempts.at(-1)?.id));
+          const testerIds=(await store.listEntities(currentProjectId,"TesterResult")).filter(record=>record.entityType==="TesterResult"&&record.body.workflowId===workflowId&&latestIds.has(record.body.implementationRecordId)&&["not-required","committed"].includes(record.body.checkpointState)).map(record=>record.id);
+          const disposition = await state.getCriterionOperatorDecisionStatus(currentProjectId, criterion.record.id, testerIds);
+          if (!disposition.current || !["approved", "accepted"].includes(disposition.state)) throw Error("Exact Workflow Phase or solution requires an Operator Decision.");
         } else if (!(await state.getCriterionValidationStatus(currentProjectId, criterion.record.id, binding.body.currentRevisionId)).satisfied)
           throw Error("Exact Workflow Phase or solution Criterion is not satisfied.");
       }

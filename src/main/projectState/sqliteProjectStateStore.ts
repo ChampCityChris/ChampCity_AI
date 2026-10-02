@@ -432,7 +432,8 @@ export function readIntakeAdapterSnapshot(databasePath: string, projectId: Proje
     const outbox = all(database, "SELECT * FROM outbox_events WHERE project_id=? ORDER BY sequence", projectId).map(hydrateOutbox);
     const originalIntakes = all(database, "SELECT * FROM state_entity_versions WHERE project_id=? AND entity_type='WorkflowIntake' AND record_version=1", projectId).map(row => hydrateVersion(row) as ProjectStateRecord<"WorkflowIntake">);
     const originalMapMembers = all(database, "SELECT * FROM state_entity_versions WHERE project_id=? AND entity_type IN ('Phase', 'Criterion', 'Finding', 'BoundedSolution', 'WorkItem') AND record_version=1", projectId).map(row => hydrateVersion(row));
+    const projectRow=one(database, `SELECT v.* FROM projects p JOIN project_versions v ON v.project_id=p.project_id AND v.record_version=p.current_record_version WHERE p.project_id=?`,projectId);
     database.exec("COMMIT");
-    return {records, relationships, outbox, originalIntakes, originalMapMembers};
+    return {records, relationships, outbox, originalIntakes, originalMapMembers, project:projectRow?hydrateVersion(projectRow,true) as ProjectStateRecord<"Project">:null};
   } finally { database.close(); }
 }

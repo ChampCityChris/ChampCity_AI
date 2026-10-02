@@ -1,3 +1,4 @@
+import {readStructuredCloseState} from "../workflow/structuredCloseReadProjection";
 import {readStructuredPhaseMap} from "../phaseMap/structuredPhaseMapReadProjection";
 import {readStructuredProjectPlanning} from "../projectPlanning/structuredProjectPlanningReadProjection";
 import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
@@ -156,6 +157,7 @@ function resolveVisibleWorkCardBuildingReviewProjection(
 }
 
 function resolveCurrentWorkspaceModel(workspaceRoot: string, planningContext: PlanningProjectionContext): CurrentWorkspaceCoreModel {
+  if(readStructuredCloseState(workspaceRoot)?.projectClosed)return {activeWorkspaceId:"project-close",level:"project",stage:"close",currentTarget:"Closed Project",sourceEvidence:[],requiredAction:"Project Creation and Project are closed by SQL lifecycle.",expectedOutput:"SQL Project history",eligibility:"Complete",expectedNextState:"Return to Workflows Hub."};
   const phaseMapArchitectOutput = getArchitectOutputWorkspaceModel(workspaceRoot, "project-phase-map", planningContext);
   if (!selectedCurrentProjectId(workspaceRoot) && phaseMapArchitectOutput.state === "promotion-failed") {
     return currentModelFromArchitectOutput(workspaceRoot, "project-phase-map", {
@@ -226,10 +228,10 @@ function resolveCurrentWorkspaceModel(workspaceRoot: string, planningContext: Pl
       return missingModel;
     }
     return {
-      activeWorkspaceId: "project-close",
+      activeWorkspaceId: selectedCurrentProjectId(workspaceRoot)?"project-validation":"project-close",
       level: "project",
       stage: "close",
-      currentTarget: "All planning artifacts",
+      currentTarget: "Project validation and closure",
       sourceEvidence: [],
       requiredAction: "No blocking lifecycle document is pending.",
       expectedOutput: current.message,

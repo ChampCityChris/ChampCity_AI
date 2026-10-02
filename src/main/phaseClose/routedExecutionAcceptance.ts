@@ -1,3 +1,4 @@
+import {selectedCurrentProjectId} from "../projectState/currentProjectRegistrationService";
 import fs from "node:fs";
 import { resolvePlanningProjectionContext, type PlanningProjectionContext } from "../documents/planningProjectionContext";
 import { createHash } from "node:crypto";
@@ -84,6 +85,7 @@ function readAcceptance(root: string, binding: RoutedDevelopmentExecutionBinding
 
 /** Populate real Phase and Plan acceptance, then let the generic executor decide completion. */
 export function loadRoutedAcceptance(root: string, binding: RoutedDevelopmentExecutionBinding, input: PlanExecutionInput, planningContext?: PlanningProjectionContext): RoutedAcceptanceProjection[] {
+  if(selectedCurrentProjectId(root,{includeClosed:true}))throw Error("Registered routed acceptance requires exact SQL Workflow closure; Markdown is projection only.");
   planningContext = resolvePlanningProjectionContext(root, planningContext);
   const boundaries = routedAcceptanceBoundaries(binding);
   // Basis uses deterministic Phase paths, so record loading does not depend on array order.
@@ -95,6 +97,7 @@ export function loadRoutedAcceptance(root: string, binding: RoutedDevelopmentExe
 }
 
 export function saveRoutedAcceptance(root: string, binding: RoutedDevelopmentExecutionBinding, input: PlanExecutionInput, request: RoutedAcceptanceInput, planningContext?: PlanningProjectionContext) {
+  if(selectedCurrentProjectId(root,{includeClosed:true}))throw Error("Registered routed acceptance requires exact SQL Workflow closure; Markdown is projection only.");
   planningContext = resolvePlanningProjectionContext(root, planningContext);
   const relativePath = routedAcceptancePath(binding, request.boundary);
   if (!eligible(input, request.boundary)) throw Error("Acceptance requires current completed children and prerequisite boundaries.");
@@ -120,6 +123,7 @@ export function saveRoutedAcceptance(root: string, binding: RoutedDevelopmentExe
 }
 
 export function reviewRoutedAcceptance(root: string, binding: RoutedDevelopmentExecutionBinding, input: PlanExecutionInput, request: { boundary: RoutedAcceptanceBoundary; expectedRevision: number; disposition: "Approved" | "RevisionRequested" | "Rejected"; notes?: string }, planningContext?: PlanningProjectionContext) {
+  if(selectedCurrentProjectId(root,{includeClosed:true}))throw Error("Registered routed acceptance requires exact SQL Workflow closure; Markdown is projection only.");
   planningContext = resolvePlanningProjectionContext(root, planningContext);
   const { projection } = readAcceptance(root, binding, input, request.boundary, planningContext);
   if (!projection.eligible || !projection.fresh || projection.artifactRevision !== request.expectedRevision || !["Approved", "RevisionRequested", "Rejected"].includes(request.disposition)) throw Error("Current eligible acceptance revision is required for review.");

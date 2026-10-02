@@ -1,3 +1,4 @@
+import {selectedCurrentProjectId} from "../projectState/currentProjectRegistrationService";
 import { workItemCloseReturnPath, workItemArtifactIdentity, workItemMatchesScope, type WorkItemArtifactScope } from "./workItemArtifactScope";
 import fs from "node:fs";
 import { createHash } from "node:crypto";
@@ -121,6 +122,7 @@ export function consumeWorkCardCloseReturn(
   workspaceRoot: string,
   completion: EffectiveWorkCardCompletion,
 ): WorkCardCloseReturnConsumptionResult {
+  if(selectedCurrentProjectId(workspaceRoot,{includeClosed:true}))throw Error("Registered WorkItem closure requires SQL Close / Advance; close-return Markdown is projection only.");
   if (!isApprovedCompletion(completion)) {
     throw new Error("Close / Next requires exact current Approved completion evidence.");
   }

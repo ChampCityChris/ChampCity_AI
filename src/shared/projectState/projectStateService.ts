@@ -104,7 +104,7 @@ export interface WorkflowRepairInput {
   workItemId: EntityId;
   failureEvidenceId: EntityId;
 }
-export interface CriterionOperatorDecisionEvidenceContext { workflowId: EntityId; workItemId?: EntityId; phaseId?: EntityId }
+export interface CriterionOperatorDecisionEvidenceContext { workflowId: EntityId; workItemId?: EntityId; phaseId?: EntityId; project?: boolean }
 export interface CriterionOperatorDecisionInput { expectedCriterionVersion: number; outcome: "approved" | "rejected"; rationale: string; correctsDecisionId?: EntityId }
 export interface CurrentWorkRoute { route: WorkRoute; decisionId: EntityId; assessmentId: EntityId | null; effectiveAt: string }
 export interface WorkIntakeSummary { intakeId: EntityId; request: string; desiredOutcome: string; constraints: string[]; evidenceContext: string[]; intakeState: WorkIntakeState; requestedIntegrationTarget: string; routingWorkflowId: EntityId; targetWorkflowId: EntityId | null; currentRoute: CurrentWorkRoute | null; assessmentIds: EntityId[]; routeDecisionIds: EntityId[] }
@@ -1067,22 +1067,26 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   async function recordCriterionOperatorDecision(projectId: ProjectId, criterionId: EntityId, input: CriterionOperatorDecisionInput,
     evidenceContext: CriterionOperatorDecisionEvidenceContext, context?: MutationContext) {
     exactInput(input, ["expectedCriterionVersion", "outcome", "rationale", "correctsDecisionId"]);
-    exactInput(evidenceContext, ["workflowId", "workItemId", "phaseId"]);
+    exactInput(evidenceContext, ["workflowId", "workItemId", "phaseId", "project"]);
     if (trustedPrincipal.principalType !== "human" || trustedPrincipal.role !== "Operator") fail("Criterion Operator Decisions require the human Operator principal.");
     if (!Number.isSafeInteger(input.expectedCriterionVersion) || !["approved", "rejected"].includes(input.outcome) ||
       typeof input.rationale !== "string" || !input.rationale.trim() || input.rationale.length > 2000 || new TextEncoder().encode(input.rationale).length > 2000)
       fail("A bounded exact Criterion Operator Decision is required.");
-    if (Boolean(evidenceContext.workItemId) === Boolean(evidenceContext.phaseId)) fail("Decision evidence context must identify exactly one WorkItem or Phase.");
+    if ([Boolean(evidenceContext.workItemId), Boolean(evidenceContext.phaseId), evidenceContext.project === true].filter(Boolean).length !== 1) fail("Decision evidence context must identify exactly one WorkItem or Phase.");
     return store.transaction(projectId, async unit => {
       const criterion = await requiredRecord(unit, projectId, criterionId);
       if (criterion.entityType !== "Criterion" || criterion.lifecycleState !== "active" || criterion.recordVersion !== input.expectedCriterionVersion ||
         criterion.body.criticality !== "required" || criterion.body.validationPolicy !== "operator_decision")
         fail("Decision requires the exact current active required operator_decision Criterion.");
       const plan = await getWorkflowExecutionPlan(projectId, evidenceContext.workflowId);
-      const entry = plan.criteria.find(candidate => candidate.record.id === criterionId);
+      const projectCycles = evidenceContext.project ? (await unit.listEntities(projectId, "ProjectPlanningReviewCycle")).filter((record): record is ProjectStateRecord<"ProjectPlanningReviewCycle"> => record.entityType === "ProjectPlanningReviewCycle" && record.lifecycleState === "active" && record.body.workflowId === evidenceContext.workflowId) : [];
+      if (evidenceContext.project && (plan.workflow.body.workflowType !== "project-creation" || projectCycles.length !== 1 || !projectCycles[0].body.layout.memberIds.includes(criterionId) || !plan.phases.length || plan.phases.some(phase => phase.record.body.phaseState !== "closed"))) fail("Project Criterion requires exact completed Project Creation Phases and accepted planning membership.");
+      const entry = evidenceContext.project ? {ownerId: projectId, record: criterion} : plan.criteria.find(candidate => candidate.record.id === criterionId);
       if (!entry) fail("Criterion is not part of the exact current Workflow.");
       let evidenceWorkItems: EntityId[];
-      if (evidenceContext.workItemId) {
+      if (evidenceContext.project) {
+        evidenceWorkItems = Object.values(plan.workItemsByPhase).flat().map(work => work.id).sort();
+      } else if (evidenceContext.workItemId) {
         const workItemId = evidenceContext.workItemId;
         const workItem = [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].find(candidate => candidate.id === workItemId);
         if (!workItem || !(entry.ownerId === workItemId || plan.solutions.some(solution => solution.id === entry.ownerId))) fail("Criterion does not govern the exact Workflow WorkItem or accepted solution.");
@@ -1778,9 +1782,9 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const criterionId = evidence.entityType === "Validation" ? evidence.body.targetEntityId : evidence.entityType === "Decision"
         ? (await unit.listRelationships(projectId, "governs")).find(edge => edge.fromEntityId === evidence.id && !edge.endedAt)?.toEntityId : undefined;
       const criterion = criterionId ? await unit.getEntity(projectId, criterionId) : null;
-      const entry = criterion?.entityType === "Criterion" ? plan.criteria.find(candidate => candidate.record.id === criterion.id) : null;
+      const entry = criterion?.entityType === "Criterion" ? plan.criteria.find(candidate => candidate.record.id === criterion.id && candidate.ownerId === phaseRecord.id) ?? plan.criteria.find(candidate => candidate.record.id === criterion.id) : null;
       const consumed = entry && (entry.ownerId === phaseRecord.id || entry.record.body.validationPolicy === "deferred_visual_phase" &&
-        (phase.workItemIds.includes(entry.ownerId) || phaseIndex === plan.phases.length - 1 && plan.solutions.some(solution => solution.id === entry.ownerId)));
+        (phase.workItemIds.includes(entry.ownerId) || phaseIndex === plan.phases.length - 1 && plan.workflow.body.workflowType !== "project-creation" && plan.solutions.some(solution => solution.id === entry.ownerId)));
       if (!consumed || criterion?.entityType !== "Criterion" || criterion.lifecycleState !== "active" || criterion.body.criticality !== "required") fail("Phase Repair failure must belong to an exact active required Criterion consumed at this Phase boundary.");
       const failureIdentity = `phase-failure:${evidence.id}:criterion:${criterion.id}:phase:${phaseRecord.id}`;
       for (const edge of (await unit.listRelationships(projectId, "part_of")).filter(edge => edge.toEntityId === phaseRecord.id && !edge.endedAt)) {
@@ -1802,7 +1806,8 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         failureSummary = evidence.body.rationale;
       } else fail("Phase Repair requires current failing Phase Validation or rejected Criterion Operator Decision evidence.");
       const governingEdges = (await unit.listRelationships(projectId, "governs")).filter(edge => !edge.endedAt);
-      const acceptedSolutions = plan.solutions.filter(solution => workflow.body.workflowType === "project-creation" || plan.decisions.some(decision => governingEdges.some(edge => edge.fromEntityId === decision.id && edge.toEntityId === solution.id)));
+      const phaseSolutionIds = new Set((await unit.listRelationships(projectId,"implements")).filter(edge=>!edge.endedAt&&phase.workItemIds.includes(edge.fromEntityId)).map(edge=>edge.toEntityId));
+      const acceptedSolutions = plan.solutions.filter(solution => workflow.body.workflowType === "project-creation" ? phaseSolutionIds.has(solution.id) : plan.decisions.some(decision => governingEdges.some(edge => edge.fromEntityId === decision.id && edge.toEntityId === solution.id)));
       if (acceptedSolutions.length !== 1) fail("Phase Repair requires one accepted BoundedSolution in the exact Workflow.");
       const sourceBindings = (await unit.listEntities(projectId, "SourceBinding")).filter((record): record is ProjectStateRecord<"SourceBinding"> => record.entityType === "SourceBinding" && record.lifecycleState === "active" && record.body.workflowId === workflow.id);
       if (sourceBindings.length > 1) fail("Phase Repair source mode is ambiguous for the exact Workflow.");
@@ -1810,7 +1815,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const ownerEdges = (await unit.listRelationships(projectId, "part_of")).filter(edge => edge.fromEntityId === phaseRecord.id && !edge.endedAt);
       if (ownerEdges.length !== 1 || ownerEdges[0].toEntityId !== workflow.id) fail("Phase is not owned by the exact Workflow.");
       const repair = createProjectStateEntity({ entityType: "WorkItem", projectId, body: { workItemKind: workflow.body.workflowType === "issue-resolution" ? "repair" : "fix",
-        title: `Repair: ${criterion.body.statement}`.slice(0, 512), objective: `${failureSummary.trim().slice(0, 3500)} [${failureIdentity}]`, workState: "planned" }, principal: trustedPrincipal });
+        title: `Repair: ${criterion.body.statement}`.slice(0, 512), objective: `${failureSummary.trim().slice(0, 3500)} [${failureIdentity}]`, workState: "planned", ...(workflow.body.workflowType === "project-creation" ? {candidateKey:`phase_repair_${globalThis.crypto.randomUUID().replaceAll("-", "")}`,planningOrder:phase.workItemIds.length+1,planningResolution:"planned" as const,planningPreparedAt:new Date().toISOString(),contractReviewRequired:true} : {}) }, principal: trustedPrincipal });
       const repairCriterion = createProjectStateEntity({ entityType: "Criterion", projectId, body: { statement: `Resolve failed Phase Criterion: ${criterion.body.statement}`.slice(0, 4096),
         criticality: "required", verificationIntent: criterion.body.verificationIntent, validationPolicy: repairValidationPolicy, criterionState: "active" }, principal: trustedPrincipal });
       for (const record of [repair, repairCriterion]) {
@@ -2550,18 +2555,63 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   /** Exact execution-stage close/state advance; integration remains a separate typed stage. */
+  async function getProjectCompletionEligibility(projectId: ProjectId, workflowId: EntityId, currentSourceBaselineRef?: string): Promise<CompletionEligibility> {
+    const workflow = await requiredRecord(store, projectId, workflowId);
+    if (workflow.entityType !== "Workflow" || workflow.body.workflowType !== "project-creation") fail("Exact Project Creation Workflow required.");
+    const blockers: string[] = [];
+    const cycles = (await store.listEntities(projectId, "ProjectPlanningReviewCycle")).filter((record): record is ProjectStateRecord<"ProjectPlanningReviewCycle"> => record.entityType === "ProjectPlanningReviewCycle" && record.lifecycleState === "active" && record.body.workflowId === workflowId);
+    if (cycles.length !== 1) fail("One exact Project Planning review required.");
+    const planning = await getProjectPlanningReview(projectId, cycles[0].id);
+    if (planning.disposition.state !== "approved") blockers.push("project-planning-not-approved");
+    const maps = (await store.listEntities(projectId, "PhaseMapReviewCycle")).filter((record): record is ProjectStateRecord<"PhaseMapReviewCycle"> => record.entityType === "PhaseMapReviewCycle" && record.lifecycleState === "active" && record.body.workflowId === workflowId);
+    if (maps.length !== 1) fail("One exact approved Project Phase Map required.");
+    const map = await getGreenfieldPhaseMap(projectId, maps[0].id);
+    if (map.disposition.state !== "approved" || !map.livePhases.length) blockers.push("phase-map-not-approved");
+    for (const phase of map.livePhases) {
+      if (phase.body.phaseState !== "closed") blockers.push(`phase-open:${phase.id}`);
+      const reviews = (await store.listEntities(projectId, "PhaseReviewCycle")).filter(record => record.entityType === "PhaseReviewCycle" && record.lifecycleState === "active" && record.body.workflowId === workflowId && record.body.phaseId === phase.id && record.body.stageKind === "planning");
+      if (reviews.length !== 1 || (await getPhaseLoopReview(projectId, reviews[0].id)).disposition.state !== "approved") blockers.push(`phase-planning-not-approved:${phase.id}`);
+      for (const blocker of (await getPhaseCompletionEligibility(projectId, phase.id, currentSourceBaselineRef)).blockers) blockers.push(`phase:${phase.id}:${blocker}`);
+    }
+    const projectTesterIds = (await Promise.all(map.livePhases.map(phase => currentPhaseEvidenceTesterIds(projectId, workflowId, phase.id, currentSourceBaselineRef, false)))).flat();
+    for (const criterion of (await store.listEntities(projectId)).filter((record): record is ProjectStateRecord<"Criterion"> => record.entityType === "Criterion" && cycles[0].body.layout.memberIds.includes(record.id) && record.body.criticality === "required")) {
+      if (criterion.body.validationPolicy === "operator_decision") {
+        const disposition = await getCriterionOperatorDecisionStatus(projectId, criterion.id, projectTesterIds);
+        if (!disposition.current || !["accepted", "approved"].includes(disposition.state)) blockers.push(`project-criterion:${criterion.id}`);
+      } else if (!(await getCriterionValidationStatus(projectId, criterion.id, currentSourceBaselineRef)).satisfied) blockers.push(`project-criterion:${criterion.id}`);
+    }
+    return {entityId: projectId, eligible: blockers.length === 0, blockers: [...new Set(blockers)].sort()};
+  }
+
+  async function closeProjectLifecycle(unit: ProjectStateUnitOfWork, projectId: ProjectId, context?: MutationContext) {
+    const project = await unit.getProject(projectId);
+    if (!project || project.lifecycleState !== "active") fail("Exact active Project required for lifecycle closure.");
+    const now = new Date().toISOString();
+    const next = validateProjectStateEntity({...project, recordVersion: project.recordVersion + 1, lifecycleState: "closed", closedAt: now, updatedAt: now, updatedBy: trustedPrincipal});
+    await unit.saveEntity(next, project.recordVersion);
+    await recordMutation(unit, {projectId, entityId: project.id, fromVersion: project.recordVersion, toVersion: next.recordVersion, operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now, changedFields: ["lifecycleState", "closedAt"], defaultReason: "Close Project after exact Project Creation completion", context});
+  }
+
   async function completeWorkflowExecution(projectId: ProjectId, workflowId: EntityId, expectedRevision: number,
     sourceMode: "source-backed" | "source-neutral", expectedSourceRevision: string | null, context?: MutationContext) {
     if (principal.role !== "WorkflowExecution") fail("Workflow execution completion requires its application principal.");
     const plan = await getWorkflowExecutionPlan(projectId, workflowId);
+    const projectGuardRecords = plan.workflow.body.workflowType === "project-creation" ? await store.listEntities(projectId) : [];
+    const projectEligibility = plan.workflow.body.workflowType === "project-creation" ? await getProjectCompletionEligibility(projectId, workflowId, expectedSourceRevision ?? undefined) : null;
     return store.transaction(projectId, async unit => {
       const workflow = await requiredRecord(unit, projectId, workflowId);
       if (workflow.entityType !== "Workflow" || workflow.recordVersion !== expectedRevision || workflow.lifecycleState !== "active" ||
         !isStructuredExecutionWorkflowType(workflow.body.workflowType) || ["closed", "cancelled"].includes(workflow.body.workflowState)) fail("Exact current substantive Workflow is unavailable or stale.");
+      if (workflow.body.workflowType === "project-creation") {
+        if (!projectEligibility?.eligible) fail(`Project completion is blocked: ${projectEligibility?.blockers.join(", ")}.`);
+        const currentGuardRecords=await unit.listEntities(projectId);
+        if(currentGuardRecords.length!==projectGuardRecords.length||projectGuardRecords.some(record=>!currentGuardRecords.some(current=>current.id===record.id&&current.recordVersion===record.recordVersion&&current.lifecycleState===record.lifecycleState)))fail("Project completion evidence changed before closure.");
+      } else {
       if (plan.solutions.length !== 1 || plan.decisions.length !== 1) fail("Workflow execution completion requires one accepted canonical plan.");
       const accepted = await requiredRecord(unit, projectId, plan.decisions[0].id);
       const solution = await requiredRecord(unit, projectId, plan.solutions[0].id);
       if (accepted.entityType !== "Decision" || accepted.lifecycleState !== "active" || accepted.body.outcome !== "accepted" || solution.entityType !== "BoundedSolution" || solution.lifecycleState !== "active") fail("Workflow accepted plan changed before completion.");
+      }
       const workItems = [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()];
       for (const item of workItems) {
         const current = await requiredRecord(unit, projectId, item.id);
@@ -2585,6 +2635,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         ...(closed ? { lifecycleState: "closed" as const, closedAt: now } : {}), updatedAt: now, updatedBy: trustedPrincipal,
         body: { ...workflow.body, workflowState: closed ? "closed" as const : "active" as const, currentWorkspace: closed ? "execution-complete" : "integration-ready" } });
       await unit.saveEntity(next, expectedRevision);
+      if (closed && workflow.body.workflowType === "project-creation") await closeProjectLifecycle(unit, projectId, context);
       await recordMutation(unit, { projectId, entityId: workflowId, fromVersion: expectedRevision, toVersion: next.recordVersion,
         operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now,
         changedFields: ["workflowState", "currentWorkspace", ...(closed ? ["lifecycleState", "closedAt"] : [])],
@@ -2595,6 +2646,13 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
 
   async function closeIntegratedWorkflow(projectId: ProjectId, workflowId: EntityId, integrationId: EntityId, expectedRevision: number, resultRevisionId: string, context?: MutationContext) {
     if (principal.role !== "WorkflowIntegration") fail("Workflow closure requires its integration application principal.");
+    const owner=await requiredRecord(store,projectId,workflowId);
+    if(owner.entityType==="Workflow"&&owner.body.workflowType==="project-creation"){
+      const bindings=(await store.listEntities(projectId,"SourceBinding")).filter((record):record is ProjectStateRecord<"SourceBinding">=>record.entityType==="SourceBinding"&&record.lifecycleState==="active"&&record.body.workflowId===workflowId);
+      if(bindings.length!==1)fail("Project integration requires its exact SourceBinding.");
+      const eligibility=await getProjectCompletionEligibility(projectId,workflowId,bindings[0].body.currentRevisionId);
+      if(!eligibility.eligible)fail(`Project integration closure is blocked: ${eligibility.blockers.join(", ")}.`);
+    }
     return store.transaction(projectId, async unit => {
       const workflow = await requiredRecord(unit, projectId, workflowId);
       const integration = await requiredRecord(unit, projectId, integrationId);
@@ -2606,6 +2664,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const next = validateProjectStateEntity({ ...workflow, recordVersion: expectedRevision + 1, lifecycleState: "closed", closedAt: now,
         updatedAt: now, updatedBy: trustedPrincipal, body: { ...workflow.body, workflowState: "closed", currentWorkspace: "integrated" } });
       await unit.saveEntity(next, expectedRevision);
+      if (workflow.body.workflowType === "project-creation") await closeProjectLifecycle(unit, projectId, context);
       await recordMutation(unit, { projectId, entityId: workflowId, fromVersion: expectedRevision, toVersion: next.recordVersion, operation: "revise",
         eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now, changedFields: ["workflowState", "lifecycleState", "closedAt", "currentWorkspace"],
         defaultReason: "Close Workflow after exact Dev integration", context });
@@ -3094,8 +3153,8 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const plan = await getWorkflowExecutionPlan(projectId, workflowId);
       const phase = plan.phases.find(candidate => candidate.phaseId === phaseId);
       const index = plan.phases.findIndex(candidate => candidate.phaseId === phaseId);
-      const criterion = plan.criteria.find(entry => entry.record.id === target.id);
-      const consumed = criterion && (criterion.ownerId === phaseId || criterion.record.body.validationPolicy === "deferred_visual_phase" && (phase?.workItemIds.includes(criterion.ownerId) || index === plan.phases.length - 1 && plan.solutions.some(solution => solution.id === criterion.ownerId)));
+      const criterion = plan.criteria.find(entry => entry.record.id === target.id && entry.ownerId === phaseId) ?? plan.criteria.find(entry => entry.record.id === target.id);
+      const consumed = criterion && (criterion.ownerId === phaseId || criterion.record.body.validationPolicy === "deferred_visual_phase" && (phase?.workItemIds.includes(criterion.ownerId) || index === plan.phases.length - 1 && plan.workflow.body.workflowType !== "project-creation" && plan.solutions.some(solution => solution.id === criterion.ownerId)));
       if (!phase || !consumed || !["deterministic", "semantic_ai", "visual_human"].includes(validation.body.validationMode ?? "") || criterion!.record.body.criticality !== "required") fail("Validation is not for a required Criterion consumed at this exact Phase boundary.");
       const expected = await currentPhaseEvidenceTesterIds(projectId, workflowId, phaseId, currentSourceBaselineRef);
       if (!expected.length || expected.length !== testerResultIds.length || expected.some((id, i) => id !== [...testerResultIds].sort()[i])) fail("Phase Validation evidence must bind the complete current member TesterResult set.");
@@ -3123,12 +3182,12 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       try {
         const matches: Array<{ workflowId: EntityId; phaseId: EntityId }> = [];
         for (const workflow of (await store.listEntities(projectId, "Workflow")).filter((item): item is ProjectStateRecord<"Workflow"> => item.entityType === "Workflow" && item.lifecycleState === "active" && item.body.workflowState !== "closed" && item.body.workflowState !== "cancelled")) {
-          const plan = await getWorkflowExecutionPlan(projectId, workflow.id), criterion = plan.criteria.find(entry => entry.record.id === target.id);
+          const plan = await getWorkflowExecutionPlan(projectId, workflow.id), criterion = plan.criteria.find(entry => entry.record.id === target.id && plan.phases.some(phase => phase.phaseId === entry.ownerId)) ?? plan.criteria.find(entry => entry.record.id === target.id);
           if (!criterion) continue;
           for (let phaseIndex = 0; phaseIndex < plan.phases.length; phaseIndex++) {
             const phase = plan.phases[phaseIndex];
             if (criterion.ownerId === phase.phaseId || criterion.record.body.validationPolicy === "deferred_visual_phase" &&
-              (phase.workItemIds.includes(criterion.ownerId) || phaseIndex === plan.phases.length - 1 && plan.solutions.some(solution => solution.id === criterion.ownerId))) matches.push({ workflowId: workflow.id, phaseId: phase.phaseId });
+              (phase.workItemIds.includes(criterion.ownerId) || phaseIndex === plan.phases.length - 1 && plan.workflow.body.workflowType !== "project-creation" && plan.solutions.some(solution => solution.id === criterion.ownerId))) matches.push({ workflowId: workflow.id, phaseId: phase.phaseId });
           }
         }
         if (matches.length !== 1) throw Error("Phase boundary is missing or ambiguous.");
@@ -3397,13 +3456,13 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     });
   }
 
-  async function phaseLoopParent(unit: ProjectStateUnitOfWork, projectId: ProjectId, workflowId: EntityId, phaseId: EntityId, stageKind: "interview" | "planning") {
+  async function phaseLoopParent(unit: ProjectStateUnitOfWork, projectId: ProjectId, workflowId: EntityId, phaseId: EntityId, stageKind: "interview" | "planning", historicalRead = false) {
     const maps = (await unit.listEntities(projectId, "PhaseMapReviewCycle")).filter(record => record.entityType === "PhaseMapReviewCycle" && record.body.workflowId === workflowId && record.lifecycleState === "active");
     if (maps.length !== 1) fail("Exact approved SQL Phase Map required.");
     const map = await greenfieldMapSnapshot(unit, projectId, maps[0].id);
     if (map.disposition.state !== "approved" || !map.livePhases.some(phase => phase.id === phaseId)) fail("Exact Phase must belong to approved Greenfield map.");
     const phase = map.livePhases.find(record => record.id === phaseId)!;
-    if (["closed", "cancelled", "blocked"].includes(phase.body.phaseState)) fail("Phase is not available for planning.");
+    if (["closed", "cancelled", "blocked"].includes(phase.body.phaseState) && !(historicalRead && phase.body.phaseState === "closed")) fail("Phase is not available for planning.");
     const edges = (await unit.listRelationships(projectId)).filter(edge => !edge.endedAt);
     for (const edge of edges.filter(edge => edge.relationshipType === "depends_on" && edge.fromEntityId === phaseId)) {
       const dependency = await requiredRecord(unit, projectId, edge.toEntityId);
@@ -3464,14 +3523,16 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   async function phaseLoopSnapshot(unit: ProjectStateUnitOfWork, projectId: ProjectId, cycleId: EntityId) {
     const cycle = await requiredRecord(unit, projectId, cycleId);
     if (cycle.entityType !== "PhaseReviewCycle" || cycle.lifecycleState !== "active") fail("Exact current Phase review required.");
-    await phaseLoopParent(unit, projectId, cycle.body.workflowId, cycle.body.phaseId, cycle.body.stageKind);
+    await phaseLoopParent(unit, projectId, cycle.body.workflowId, cycle.body.phaseId, cycle.body.stageKind, true);
     const edges = (await unit.listRelationships(projectId)).filter(edge => !edge.endedAt);
     if (edges.filter(edge => edge.relationshipType === "phase_review_for" && edge.fromEntityId === cycle.id && edge.toEntityId === cycle.body.phaseId).length !== 1) fail("Phase review ownership changed.");
-    for (const source of cycle.body.layout.sources) {const record = await requiredRecord(unit, projectId, source.entityId); if (record.lifecycleState !== "active" || record.entityType !== "Phase" && record.recordVersion !== source.recordVersion) fail("Phase review source revision is stale.");}
+    for (const source of cycle.body.layout.sources) {const record = await requiredRecord(unit, projectId, source.entityId); if (record.lifecycleState !== "active" && !(record.entityType === "Phase" && record.lifecycleState === "closed") || record.entityType !== "Phase" && record.recordVersion !== source.recordVersion) fail("Phase review source revision is stale.");}
     const disposition = exactVersionReviewDisposition(cycle, await unit.listEntities(projectId), edges, await unit.listOutbox(projectId), "phase-loop-review", "phase-loop-review");
     const members: ProjectStateEntity[] = [], workItems: ProjectStateRecord<"WorkItem">[] = [];
     for (const id of cycle.body.layout.memberIds) {const live = await requiredRecord(unit, projectId, id); if (live.lifecycleState !== "active" && !(disposition.state === "approved" && live.entityType === "WorkItem" && live.lifecycleState === "closed") && !(disposition.state === "approved" && live.lifecycleState === "voided" && edges.some(edge => edge.relationshipType === "decomposed_into" && edge.fromEntityId === live.id || edge.relationshipType === "derived_from" && edge.toEntityId === live.id))) fail("Phase semantic member is no longer current."); if (live.entityType === "WorkItem" && ["active", "closed"].includes(live.lifecycleState)) workItems.push(live); const record = disposition.state === "approved" ? await unit.getEntityVersion(projectId, id, 1) : live; if (!record || !["Finding", "BoundedSolution", "Criterion", "WorkItem"].includes(record.entityType)) fail("Phase semantic member missing."); members.push(record);}
     if (disposition.state === "approved" && cycle.body.stageKind === "planning") {
+      const descendants = (await unit.listEntities(projectId,"WorkItem")).filter((record):record is ProjectStateRecord<"WorkItem">=>record.entityType==="WorkItem"&&record.body.candidateKey?.startsWith("phase_repair_")===true&&["active","closed"].includes(record.lifecycleState)&&edges.some(edge=>edge.relationshipType==="part_of"&&edge.fromEntityId===record.id&&edge.toEntityId===cycle.body.phaseId));
+      for(const descendant of descendants)if(!workItems.some(work=>work.id===descendant.id))workItems.push(descendant);
       const descendantIds = new Set(workItems.map(work => work.id));
       const originalIds = new Set(cycle.body.layout.memberIds);
       let changed = true;
@@ -3938,7 +3999,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     const phaseIndex = workflowPlan?.phases.findIndex(item => item.phaseId === phaseId) ?? -1;
     const deferredCriterionIds = workflowPlan?.criteria.filter(entry => entry.record.lifecycleState === "active" &&
       entry.record.body.criticality === "required" && entry.record.body.validationPolicy === "deferred_visual_phase" &&
-      ((membership?.workItemIds ?? []).includes(entry.ownerId) || phaseIndex === workflowPlan!.phases.length - 1 && workflowPlan!.solutions.some(solution => solution.id === entry.ownerId)))
+      ((membership?.workItemIds ?? []).includes(entry.ownerId) || phaseIndex === workflowPlan!.phases.length - 1 && workflowPlan!.workflow.body.workflowType !== "project-creation" && workflowPlan!.solutions.some(solution => solution.id === entry.ownerId)))
       .map(entry => entry.record.id) ?? [];
     for (const id of membership?.workItemIds ?? []) {
       const workItem = await requiredRecord(store, projectId, id);
@@ -4148,6 +4209,6 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, recordCriterionOperatorDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,
     getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, renderView, exportStructuredProjectState, getAuthoritativeContext, getCommittedEventFeed, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
     getEffectiveDisposition, getCriterionOperatorDecisionStatus, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus, linkPhaseValidationEvidence,
-    getImplementationAttempts, getExecutionPlan, getWorkflowExecutionPlan, getWorkflowSourceRevisionChain: (projectId: ProjectId, workflowId: EntityId) => workflowSourceRevisionChain(projectId, workflowId), acceptWorkflowPlanningGraph, acceptFeatureAssessment, acceptIssueRca, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,
+    getImplementationAttempts, getExecutionPlan, getWorkflowExecutionPlan, getProjectCompletionEligibility, getWorkflowSourceRevisionChain: (projectId: ProjectId, workflowId: EntityId) => workflowSourceRevisionChain(projectId, workflowId), acceptWorkflowPlanningGraph, acceptFeatureAssessment, acceptIssueRca, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,
     getWorkRouteHistory, getCurrentWorkRoute, getWorkIntakeSummary, getSourceSemanticView, getRegressionObligationView };
 }

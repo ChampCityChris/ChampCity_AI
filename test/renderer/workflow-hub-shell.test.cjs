@@ -781,3 +781,13 @@ test("SQL Review Validation shell shows exact evidence and leaves human actions 
   const adapter=fs.readFileSync(path.join(repoRoot,"src/renderer/app/GreenfieldExecutionWorkspace.tsx"),"utf8");assert.match(adapter,/workflowType!=="project-creation"/);assert.match(adapter,/initialWorkItemId=\{props\.workItemId\}/);
   const app=fs.readFileSync(path.join(repoRoot,"src/renderer/app/App.tsx"),"utf8");assert.match(app,/isStructuredGreenfieldExecution.*GreenfieldExecutionWorkspace/);assert.match(app,/isWorkCardReportReview && !isStructuredGreenfieldExecution/);
 });
+
+
+test("Close Advance shell renders exact SQL eligibility and dispatches typed closure callbacks",()=>{
+ const {CloseAdvanceShell}=loader.loadRendererSourceModule("src/renderer/app/CloseAdvanceShell.tsx"),calls=[];
+ const projection={workflowId:"workflow-exact",entityId:"work-exact",expectedVersion:7,scope:"work-item",label:"WorkItem",closed:false,eligible:false,blockers:["tester-current-proof-required"],sourceMode:"source-neutral",next:{workspaceId:"phase-validation",entityId:"phase-exact",label:"Phase validation"},criteria:[]};
+ const markup=renderToStaticMarkup(React.createElement(CloseAdvanceShell,{projection,rationale:"Current exact proof",onRationale(){},onClose(){},onKeepOpen(){},onNext(){}}));for(const text of ["work-exact","tester-current-proof-required","phase-exact"])assert.ok(markup.includes(text));assert.match(markup,/disabled/);
+ const node=CloseAdvanceShell({projection:{...projection,eligible:true,blockers:[]},rationale:"Exact proof",onRationale(){},onClose:()=>calls.push("close"),onKeepOpen:()=>calls.push("keep"),onNext:()=>calls.push("next")});
+ function buttons(node){if(Array.isArray(node))return node.flatMap(buttons);if(!React.isValidElement(node))return [];return [...(node.type==="button"?[node]:[]),...buttons(node.props.children)];}buttons(node)[0].props.onClick();assert.deepEqual(calls,["close"]);
+ const source=fs.readFileSync(path.join(repoRoot,"src/renderer/app/CloseAdvanceShell.tsx"),"utf8");assert.doesNotMatch(source,/window.champcity|MarkdownPath|JSON.parse/);
+});

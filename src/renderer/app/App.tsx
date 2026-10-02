@@ -1,3 +1,4 @@
+import {CloseAdvanceWorkspace} from "./CloseAdvanceWorkspace";
 import {GreenfieldExecutionWorkspace} from "./GreenfieldExecutionWorkspace";
 import {StructuredPhaseLoopWorkspace, DerivedPhaseWorkIntakeWorkspace} from "./StructuredPhaseLoopWorkspace";
 import {StructuredPhaseMapWorkspace} from "./StructuredPhaseMapWorkspace";
@@ -1115,6 +1116,7 @@ export function App(): JSX.Element {
   const [architectInterviewRailStatus, setArchitectInterviewRailStatus] = useState<import("../../shared/architectWorkspaceContracts").StructuredArchitectWorkspaceModel["railStatus"]>("Not Ready");
   const greenfieldWorkflows = workflowInventory?.groups.find(group => group.workflowType === "project-creation")?.workflows.filter(item => item.workflowState === "active") ?? [];
   const greenfieldArchitectWorkflowId = workflowInstance?.workflowType === "project-creation" ? workflowInstance.workflowId : greenfieldWorkflows.length === 1 ? greenfieldWorkflows[0].workflowId : null;
+  const isStructuredGreenfieldClose = Boolean(currentProject && greenfieldArchitectWorkflowId && ["phase-validation","phase-close","project-validation","project-close"].includes(activeWorkspaceId));
   const isStructuredGreenfieldExecution = Boolean(currentProject && greenfieldArchitectWorkflowId && ["work-card-building-review","work-card-report-review","work-card-repair","work-card-close"].includes(activeWorkspaceId));
   useEffect(() => {
     let active = true;
@@ -3863,6 +3865,7 @@ export function App(): JSX.Element {
   const embeddedBrowserAvailable =
     architectBrowserWorkspaceAvailable || isWorkCardRepair;
   const isFigmaActionWorkspace =
+    !isStructuredGreenfieldClose &&
     activeWorkspaceId !== "project-intake-capture" &&
     !isSettingsWorkspace &&
     !isWorkCardPlanningPreparation &&
@@ -4504,6 +4507,7 @@ export function App(): JSX.Element {
 
           {activeWorkspaceId === "phase-interview" || activeWorkspaceId === "phase-planning-bundle" ? <StructuredPhaseLoopWorkspace workflowId={greenfieldArchitectWorkflowId} phaseId={currentModel?.currentPhaseId} stageKind={activeWorkspaceId === "phase-interview" ? "interview" : "planning"} browserPanel={architectBrowserColumn} onNext={async () => {await refreshCurrentModel(); setActiveWorkspaceId(activeWorkspaceId === "phase-interview" ? "phase-planning-bundle" : "phase-work-card-selection");}} /> : null}
           {activeWorkspaceId === "work-card-intake" ? <DerivedPhaseWorkIntakeWorkspace phaseId={currentModel?.currentPhaseId} workItemId={currentModel?.currentWorkCardId} onNext={async () => {setActiveWorkspaceId("work-card-planning");}} /> : null}
+          {isStructuredGreenfieldClose && greenfieldArchitectWorkflowId ? <><CloseAdvanceWorkspace workflowId={greenfieldArchitectWorkflowId} scope={activeWorkspaceId.startsWith("phase-")?"phase":"workflow"} entityId={activeWorkspaceId.startsWith("phase-")?(currentModel?.currentPhaseId??""):greenfieldArchitectWorkflowId} onNext={next=>{if(next.workspaceId==="workflow-hub"){returnToWorkflowHub();return;}if(next.workspaceId==="workflow-execution"){void openCurrentWorkflow(greenfieldArchitectWorkflowId);return;}void refreshCurrentModel().then(()=>setActiveWorkspaceId(next.workspaceId));}} /><GreenfieldExecutionWorkspace workflowId={greenfieldArchitectWorkflowId} browserPanel={architectBrowserColumn} onReturn={()=>void refreshCurrentModel()} /></> : null}
           {isStructuredGreenfieldExecution && greenfieldArchitectWorkflowId ? <GreenfieldExecutionWorkspace workflowId={greenfieldArchitectWorkflowId} workItemId={currentModel?.currentWorkCardId} browserPanel={architectBrowserColumn} onReturn={() => {void refreshCurrentModel(); setActiveWorkspaceId("phase-work-card-selection");}} /> : null}
           {activeWorkspaceId === "work-card-planning" && greenfieldArchitectWorkflowId && currentModel?.currentWorkCardId ? <WorkItemPlanningWorkspace workflowId={greenfieldArchitectWorkflowId} workItemId={currentModel.currentWorkCardId} browserPanel={architectBrowserColumn} onChanged={async () => {await refreshCurrentModel();}} onNext={async () => {setActiveWorkspaceId("work-card-building-review");}} /> : null}
           {isVisibleArchitectOutputWorkspace && activeWorkspaceId !== "work-card-planning" && !isPhaseMapFigmaWorkspace && activeWorkspaceId !== "architect-interview" && activeWorkspaceId !== "project-planning-review" && activeWorkspaceId !== "phase-interview" && activeWorkspaceId !== "phase-planning-bundle" ? (
@@ -4735,7 +4739,7 @@ export function App(): JSX.Element {
             />
           ) : null}
 
-          {!isStructuredGreenfieldExecution && !isVisibleArchitectOutputWorkspace && !isWorkCardClose && !isWorkCardPlanningPreparation && !isWorkCardBuildingReview && !isWorkCardReportReview && !isFigmaActionWorkspace && !isWorkCardRepair && !isWorkCardMap && !isSettingsWorkspace && activeWorkspaceId !== "project-intake-capture" && activeWorkspaceId !== "work-card-intake" && activeWorkspaceId !== "phase-planning-bundle" && activeWorkspaceId !== "phase-interview" ? (
+          {!isStructuredGreenfieldClose && !isStructuredGreenfieldExecution && !isVisibleArchitectOutputWorkspace && !isWorkCardClose && !isWorkCardPlanningPreparation && !isWorkCardBuildingReview && !isWorkCardReportReview && !isFigmaActionWorkspace && !isWorkCardRepair && !isWorkCardMap && !isSettingsWorkspace && activeWorkspaceId !== "project-intake-capture" && activeWorkspaceId !== "work-card-intake" && activeWorkspaceId !== "phase-planning-bundle" && activeWorkspaceId !== "phase-interview" ? (
           <section
             className={[
               isArchitectInterviewDualPaneWorkspace(activeWorkspaceId) || activeWorkspaceId === "phase-planning-bundle"
