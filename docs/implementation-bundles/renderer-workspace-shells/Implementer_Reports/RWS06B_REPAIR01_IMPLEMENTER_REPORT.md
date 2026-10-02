@@ -38,8 +38,27 @@ No schema, IPC, preload, or contract changes were needed. Greenfield and unrelat
 
 ## Safety, Git, and remaining evidence
 
-- Changed-path review was limited to the files listed above. Pre-existing worktree edits were left unstaged and untouched.
+- Repair edits were limited to the files listed above. The post-commit index-scope correction below records the pre-existing staged files that were also captured by the checkpoint.
 - No secrets or concrete machine paths were added to this durable report. No dependencies, generated artifacts, or schema changes were included.
-- Required checkpoint commit: `RWS06B-R01 persist exact planning workspace identity` (hash recorded after commit).
+- Required checkpoint commit: `RWS06B-R01 persist exact planning workspace identity` — `d209f60`.
 - The focused behavior is verified; composed repair-profile and production build receipts remain blocked by the unrelated catalog and TypeScript baseline issues described above.
 - Remaining operator validation: none for this bounded code path; return to the existing RWS06 bundle/J qualification workflow after this checkpoint.
+
+## Post-commit index-scope correction
+
+After `d209f60` was created, commit inspection showed that the Git index already contained staged RWS05 Architect-workspace changes before this repair's staging. The commit therefore also captured those pre-existing staged changes. This was discovered after commit creation; they were not reverted because they were already part of the user's index state. The extra committed paths were:
+
+- `docs/implementation-bundles/renderer-workspace-shells/Implementer_Reports/RWS05_REPAIR03_IMPLEMENTER_REPORT.md`
+- `src/main/architectOutputs/structuredArchitectWorkspaceService.ts`
+- `src/renderer/app/ArchitectWorkspaceShell.tsx`
+- `src/renderer/app/FigmaDocumentCard.tsx`
+- `src/renderer/app/PlanReviewShell.tsx`
+- `src/renderer/app/StructuredArchitectWorkspace.tsx`
+- `src/renderer/styles.css`
+- `src/shared/architectWorkspaceContracts.ts`
+- `src/shared/structuredArchitectReviewState.ts` (deleted)
+- `test/renderer/architect-interview-refresh-state.test.cjs` (deleted)
+- `test/renderer/figma-redesign-shell.test.cjs`
+- `test/renderer/project-rail-presentation.test.cjs`
+
+The remaining staged and unstaged worktree changes were preserved. Commit `a2ef184` for RWS06I used an explicit path-limited commit and contains only that repair's two sources and report.
