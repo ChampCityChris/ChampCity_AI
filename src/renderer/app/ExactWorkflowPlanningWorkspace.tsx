@@ -9,7 +9,8 @@ import {WorkflowPlanningMap} from "./WorkflowPlanningMap";
 export function ExactWorkflowPlanningWorkspace(props: {workflow: WorkflowInstanceSummary; onReturn: () => void; browserPanel: ReactNode}): JSX.Element {
   const id = props.workflow.workflowId;
   const [model, setModel] = useState<ExactWorkflowPlanningModel | null>(null), [error, setError] = useState(""), [busy, setBusy] = useState(false), [viewed, setViewed] = useState<string | null>(null);
-  const [planning, setPlanning] = useState(props.workflow.currentWorkspace.includes("planning") || props.workflow.currentWorkspace === "work-item-map");
+  const planningWorkspace = props.workflow.workflowType === "feature-capability" ? "feature-planning" : props.workflow.workflowType === "issue-resolution" ? "issue-planning" : "planning";
+  const [planning, setPlanning] = useState(props.workflow.currentWorkspace === planningWorkspace || props.workflow.currentWorkspace === "work-item-map");
   useEffect(() => {let active = true; if (planning) window.champcity.getExactWorkflowPlanning(id).then(next => {if (active) setModel(next);}).catch(reason => {if (active) setError(String(reason));}); return () => {active = false;};}, [id, planning]);
   async function action(work: () => Promise<void>) {setBusy(true); setError(""); try {await work();} catch (reason) {setError(reason instanceof Error ? reason.message : String(reason));} finally {setBusy(false);}}
   if (!planning) return <StructuredArchitectWorkspace workflowId={id} onReturn={props.onReturn} browserCompanion={props.browserPanel} browserVisible={!!props.browserPanel} onNext={async () => {const next = await window.champcity.prepareExactWorkflowPlanning(id); setModel(next); setPlanning(true);}} />;

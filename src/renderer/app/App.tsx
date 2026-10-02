@@ -4118,6 +4118,7 @@ export function App(): JSX.Element {
               : workflowInstance && workflowPlanningSurface(workflowInstance) === "execution" ? <WorkflowExecutionWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
               : workflowInstance && workflowPlanningSurface(workflowInstance) === "feature" ? <ExactWorkflowPlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
               : workflowInstance && workflowPlanningSurface(workflowInstance) === "issue" ? <ExactWorkflowPlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
+              : workflowInstance && workflowPlanningSurface(workflowInstance) === "planning" ? <ExactWorkflowPlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
               : workflowInstance && workflowPlanningSurface(workflowInstance) === "architect" ? <ExactWorkflowPlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
               : workflowInstance ? <WorkflowInstanceWorkspace workflow={workflowInstance} onReturn={returnToWorkflowType} />
               : <p role="status">Loading Workflow…</p>

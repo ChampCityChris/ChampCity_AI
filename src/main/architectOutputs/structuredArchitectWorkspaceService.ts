@@ -8,6 +8,7 @@ import { selectedCurrentProjectId } from "../projectState/currentProjectRegistra
 import { currentIntake, intakeOperator } from "../workflow/workflowIntakeMigration";
 import { selectProjectArchitectureContext } from "../../shared/projectState/projectArchitectureContext";
 import { architectReviewDocument, writeArchitectReviewProjection } from "./architectReviewProjectionWriter";
+import { intakeReviewDocument } from "../workflow/workflowIntakeProjectionWriter";
 
 export function createStructuredArchitectWorkspaceService() {
   const stages = ARCHITECT_WORKSPACE_BY_WORKFLOW;
@@ -27,13 +28,14 @@ export function createStructuredArchitectWorkspaceService() {
     const workflowType = workflow.body.workflowType, stageKind = ARCHITECT_STAGE_BY_WORKFLOW[workflowType]!;
     const stageLabel = workflowType === "project-creation" ? "Architect Interview" : workflowType === "issue-resolution" ? "Root Cause Analysis" : `Architect ${workflowType === "feature-capability" ? "Feature" : workflowType === "refactor-migration" ? "Migration" : workflowType === "integration-composition" ? "Integration" : workflowType === "infrastructure-platform" ? "Infrastructure" : "Research"} Assessment`;
     const intakeDisposition = intake ? await state.getWorkflowIntakeDisposition(projectId, intake.id) : null;
+    const intakeDocument = intake && intakeDisposition ? intakeReviewDocument(workflow, intake, intakeDisposition) : undefined;
     const intakeRailStatus = !intake ? "Open" : intakeDisposition?.state === "approved" ? "Completed" : "Awaiting Approval";
     const identity = {workflowId, workflowType, stageKind, stageLabel, title: workflow.body.title, browserCompanionEligible: true, intakeRailStatus} as const;
-    if (!intake || intakeDisposition?.state !== "approved") return {...identity, ready: false, railStatus: "Not Ready", nextStageReady: false, reason: "Approve current SQL Intake before Architect work."};
+    if (!intake || intakeDisposition?.state !== "approved") return {...identity, ready: false, railStatus: "Not Ready", nextStageReady: false, intakeId: intake?.id, intakeVersion: intake?.recordVersion, intakeDocument, intakeDocumentLabel: workflowType === "project-creation" ? "Project Intake" : "Intake", reason: "Approve current SQL Intake before Architect work."};
     const all = await store.listEntities(projectId), edges = await store.listRelationships(projectId);
     const findings = all.filter(record => record.entityType === "Finding" && record.lifecycleState === "active" && edges.some(edge => !edge.endedAt && edge.relationshipType === "workflow_member" && edge.fromEntityId === record.id && edge.toEntityId === workflowId));
     const supportRecords = [...(workflowType === "issue-resolution" ? findings : []), ...all.filter(record => record.entityType === "Evidence" && record.lifecycleState === "active" && record.body.evidenceType !== "architect-intake-source" && edges.some(edge => !edge.endedAt && edge.relationshipType === "supports" && edge.fromEntityId === record.id && (edge.toEntityId === workflowId || edge.toEntityId === intake.id || findings.some(finding => finding.id === edge.toEntityId))))];
-    const model: StructuredArchitectWorkspaceModel = {...identity, ready: true, railStatus: "Open", nextStageReady: false, supportRecords, intakeId: intake.id, intakeVersion: intake.recordVersion,
+    const model: StructuredArchitectWorkspaceModel = {...identity, ready: true, railStatus: "Open", nextStageReady: false, supportRecords, intakeId: intake.id, intakeVersion: intake.recordVersion, intakeDocument, intakeDocumentLabel: workflowType === "project-creation" ? "Project Intake" : "Intake",
       handoff: [`${stageLabel} — typed structured output`, `Project ${projectId}; Workflow ${workflowId} (${workflowType}); approved Intake ${intake.id}@${intake.recordVersion}`, `Routed provenance is context only: ${JSON.stringify(edges.filter(edge => !edge.endedAt && edge.relationshipType === "routes_to" && edge.toEntityId === workflowId))}`,
         ...architectCandidateHandoffContract(workflowType),
         "Supplied SQL context and Evidence:", JSON.stringify(supportRecords),

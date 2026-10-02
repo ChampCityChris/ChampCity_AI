@@ -95,5 +95,11 @@ export function createExactWorkflowPlanningService(dependencies: {openStore?: (d
     if (workflow.body.workflowType !== "research-prototype" || current.researchOutcome?.body.outcome !== "no-implementation-plan-required") throw Error("Research closure requires the exact approved typed no-Plan outcome.");
     return createProjectStateService(store, intakeOperator).closeResearchAfterAssessment(projectId, workflowId, current.architect.id, current.architect.recordVersion);
   });
-  return {get, prepare: get, save, review, closeResearch};
+  const prepare = async (root: string, workflowId: string) => withWorkflow(root, workflowId, async (store, projectId, workflow) => {
+    if (workflow.body.currentWorkspace === "work-item-map") return get(root, workflowId);
+    const current = await context(store, projectId, workflow);
+    await createProjectStateService(store, intakeOperator).prepareExactPlanningWorkspace(projectId, {workflowId, intakeId: current.intake.id, intakeVersion: current.intake.recordVersion});
+    return get(root, workflowId);
+  });
+  return {get, prepare, save, review, closeResearch};
 }

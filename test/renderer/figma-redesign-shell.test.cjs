@@ -280,14 +280,24 @@ test("updated Figma side panel renders real project and execution context with p
 
 const { IntakeWorkspaceShell } = loader.loadRendererSourceModule("src/renderer/app/IntakeWorkspaceShell.tsx");
 const { StructuredArchitectWorkspace } = loader.loadRendererSourceModule("src/renderer/app/StructuredArchitectWorkspace.tsx");
-test("structured Greenfield Architect renders shared left review and right ChatGPT companion with review disabled before SQL load", () => {
+test("structured Architect renders a document review column and real Browser Actions beside ChatGPT", () => {
   const markup = renderToStaticMarkup(React.createElement(StructuredArchitectWorkspace, {workflowId: "exact-workflow", browserVisible: true,
     browserCompanion: React.createElement("aside", {"data-testid": "chat-companion"}, "ChatGPT"), onRailStatus() {}}));
   assert.match(markup, /figma-doc-chat-workspace/);
   assert.ok(markup.indexOf("figma-doc-review-column") < markup.indexOf("chat-companion"));
   assert.match(markup, /Architect structured JSON/);
-  assert.match(markup, /disabled="">Approve/);
-  assert.match(markup, /Prepare \/ Refresh/);
+  assert.match(markup, /Browser Actions/);
+  assert.match(markup, /Reload ChatGPT/);
+  assert.match(markup, /Prepare \/ Refresh Handoff/);
+  assert.match(markup, /Copy Handoff/);
+  assert.doesNotMatch(markup, /I have reviewed this revision|Workflow &lt;code&gt;/);
+});
+test("shared plan disposition is immediately actionable for an exact current revision", () => {
+  const {PlanReviewShell} = loader.loadRendererSourceModule("src/renderer/app/PlanReviewShell.tsx");
+  const markup = renderToStaticMarkup(React.createElement(PlanReviewShell, {title: "Project Planning", workflowId: "exact-workflow", browserPanel: null, projection: "SQL plan", cycleId: "cycle", revision: 3, onPrepare: async () => {}, onSave: async () => {}, onReview: async () => {}}));
+  assert.match(markup, /Review Decision/); assert.match(markup, /<button class="apply-button">Approve<\/button>/); assert.match(markup, /<button class="apply-button" disabled="">Revision Requested/); assert.match(markup, /<button class="apply-button">Reject<\/button>/);
+  const source = require("node:fs").readFileSync(require("node:path").join(__dirname, "../../src/renderer/app/PlanReviewShell.tsx"), "utf8");
+  assert.match(source, /expectedRecordVersion: props\.revision!/); assert.doesNotMatch(source, /viewed|revisionKey/);
 });
 const { ProjectIntakeWorkspace } = loader.loadRendererSourceModule("src/renderer/app/ProjectIntakeWorkspace.tsx");
 
@@ -343,14 +353,14 @@ test("structured Intake disposition controls disable unsaved review and pending 
 });
 
 
-test("Architect shell keeps review and controls left and browser companion right", () => {
+test("Architect shell keeps review left and companion plus actions in the right browser column", () => {
   const { ArchitectWorkspaceShell } = loader.loadRendererSourceModule("src/renderer/app/ArchitectWorkspaceShell.tsx");
   const markup = renderToStaticMarkup(React.createElement(ArchitectWorkspaceShell, {
     browserVisible: true, label: "Architect Interview", reviewContent: React.createElement("article", null, "Review"),
     reviewControls: React.createElement("button", null, "Approve"), browserCompanion: React.createElement("aside", {className: "figma-browser-column"}, "ChatGPT"),
   }));
   assert.match(markup, /figma-doc-chat-workspace/);
-  assert.match(markup, /figma-doc-review-column[^]*Review[^]*Approve[^]*figma-browser-column[^]*ChatGPT/);
+  assert.match(markup, /figma-doc-review-column[^]*Review[^]*figma-browser-column[^]*ChatGPT/);
   assert.doesNotMatch(markup, /chat-hidden/);
 });
 

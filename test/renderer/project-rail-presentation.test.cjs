@@ -145,7 +145,7 @@ test("Architect Interview rail uses SQL model status independently of historical
 
 test("Architect disposition controls belong to the structured cycle component", () => {
   const source = require("node:fs").readFileSync(path.join(__dirname, "../../src/renderer/app/StructuredArchitectWorkspace.tsx"), "utf8");
-  assert.match(source, /canReviewArchitectRevision/); assert.match(source, /expectedRecordVersion: model!\.review!\.recordVersion/);
+  assert.doesNotMatch(source, /canReviewArchitectRevision/); assert.match(source, /expectedRecordVersion: model!\.review!\.recordVersion/);
 });
 
 test("embedded Architect workspaces use dual-pane mode without changing other workspaces", () => {

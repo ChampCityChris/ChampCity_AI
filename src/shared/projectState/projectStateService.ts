@@ -810,6 +810,32 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     });
   }
 
+  async function prepareExactPlanningWorkspace(projectId: ProjectId, input: {workflowId: EntityId; intakeId: EntityId; intakeVersion: number}) {
+    exactInput(input, ["workflowId", "intakeId", "intakeVersion"]);
+    return store.transaction(projectId, async unit => {
+      const workflow = await requiredRecord(unit, projectId, input.workflowId);
+      if (workflow.entityType !== "Workflow" || workflow.lifecycleState !== "active" || workflow.body.workflowState !== "active") fail("Exact active substantive Workflow is required.");
+      const destinations: Partial<Record<WorkflowType, string>> = {"feature-capability":"feature-planning", "issue-resolution":"issue-planning", "refactor-migration":"planning", "integration-composition":"planning", "infrastructure-platform":"planning", "research-prototype":"planning"};
+      const destination = destinations[workflow.body.workflowType], stageKind = ARCHITECT_STAGE_BY_WORKFLOW[workflow.body.workflowType];
+      if (!destination || !stageKind) fail("Exact Planning is unavailable for this Workflow.");
+      if (workflow.body.currentWorkspace === "work-item-map") fail("Accepted Plan Work Map cannot move backward into Planning.");
+      if (workflow.body.currentWorkspace === destination) return workflow;
+      if (workflow.body.currentWorkspace !== ARCHITECT_WORKSPACE_BY_WORKFLOW[workflow.body.workflowType]) fail("Workflow is not at its exact Architect assessment workspace.");
+      const intake = await requireCurrentWorkflowIntake(unit, projectId, input.intakeId);
+      if (intake.body.workflowId !== workflow.id || intake.body.workflowType !== workflow.body.workflowType || intake.recordVersion !== input.intakeVersion || workflowIntakeDisposition(intake, await unit.listEntities(projectId), await unit.listRelationships(projectId), await unit.listOutbox(projectId)).state !== "approved") fail("Exact approved current Intake is required before Planning.");
+      const {cycle} = await currentArchitectCycle(unit, projectId, workflow.id, stageKind);
+      if (!cycle) fail("Current Architect assessment must be approved before Planning.");
+      const snapshot = await architectCycleSnapshot(unit, projectId, cycle.id);
+      const disposition = exactVersionReviewDisposition(cycle, await unit.listEntities(projectId, "Decision"), await unit.listRelationships(projectId, "governs"), await unit.listOutbox(projectId), "architect-review", "architect-review");
+      if (!snapshot.current || disposition.state !== "approved") fail("Approve the current Architect assessment revision before Planning.");
+      if (workflow.body.workflowType === "research-prototype" && !snapshot.members.some(member => member.entityType === "ResearchOutcome")) fail("Research requires an explicit typed outcome before Planning.");
+      const next = validateProjectStateEntity({...workflow, recordVersion: workflow.recordVersion + 1, updatedAt: new Date().toISOString(), updatedBy: trustedPrincipal, body: {...workflow.body, currentWorkspace: destination}}) as ProjectStateRecord<"Workflow">;
+      await unit.saveEntity(next, workflow.recordVersion);
+      await recordMutation(unit, {projectId, entityId: workflow.id, fromVersion: workflow.recordVersion, toVersion: next.recordVersion, operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: next.updatedAt, changedFields: ["currentWorkspace"], defaultReason: "Prepare exact Planning from approved SQL Architect review"});
+      return next;
+    });
+  }
+
   /** Candidate records, source provenance and cycle membership commit atomically. */
   async function saveArchitectCandidate(projectId: ProjectId, input: ArchitectCandidateSaveInput & {workflowId: EntityId; workflowType: WorkflowType}) {
     exactInput(input, ["workflowId", "workflowType", "intakeId", "intakeVersion", "expectedCycleVersion", "output"]);
@@ -4203,7 +4229,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return pending.sort((a, b) => a.targetId.localeCompare(b.targetId) || a.criterionId.localeCompare(b.criterionId));
   }
 
-  return {saveWorkItemPlanningContract, getWorkItemPlanningReview, recordWorkItemPlanningReview, savePhaseLoopCandidate, getPhaseLoopReview, recordPhaseLoopReview, preparePhaseWorkItem, saveGreenfieldPhaseMap, getGreenfieldPhaseMap, recordGreenfieldPhaseMapReview, saveProjectPlanningCandidate, getProjectPlanningReview, recordProjectPlanningReview, closeResearchAfterAssessment, savePlanCandidate, getPlanReview, recordPlanReview, prepareArchitectWorkspace, adoptLegacyArchitectReview, saveArchitectCandidate, saveGreenfieldArchitectOutput, getArchitectReviewProjection, saveArchitectReviewCycle, getCurrentArchitectReviewCycle, getArchitectReviewDisposition, recordArchitectReview, saveWorkflowIntake, recordWorkflowIntakeDecision, getWorkflowIntakeDisposition, createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
+  return {saveWorkItemPlanningContract, getWorkItemPlanningReview, recordWorkItemPlanningReview, savePhaseLoopCandidate, getPhaseLoopReview, recordPhaseLoopReview, preparePhaseWorkItem, saveGreenfieldPhaseMap, getGreenfieldPhaseMap, recordGreenfieldPhaseMapReview, saveProjectPlanningCandidate, getProjectPlanningReview, recordProjectPlanningReview, closeResearchAfterAssessment, savePlanCandidate, getPlanReview, recordPlanReview, prepareArchitectWorkspace, prepareExactPlanningWorkspace, adoptLegacyArchitectReview, saveArchitectCandidate, saveGreenfieldArchitectOutput, getArchitectReviewProjection, saveArchitectReviewCycle, getCurrentArchitectReviewCycle, getArchitectReviewDisposition, recordArchitectReview, saveWorkflowIntake, recordWorkflowIntakeDecision, getWorkflowIntakeDisposition, createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
     createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, completeTesterResultCheckpoint, createIntegrationRecord, advanceIntegrationRecord, completeWorkflowExecution, closeIntegratedWorkflow,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, createTesterResult, createWorkflowRepair, createPhaseRepair, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, recordCriterionOperatorDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,

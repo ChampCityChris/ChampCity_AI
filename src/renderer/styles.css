@@ -7829,6 +7829,47 @@ body {
   padding: 10px 14px;
 }
 
+.architect-review-disposition > label {
+  display: grid;
+  gap: 6px;
+  padding: 10px 14px 0;
+}
+
+.architect-review-disposition textarea,
+.figma-disposition-panel > label textarea {
+  min-height: 72px;
+  padding: 8px 10px;
+  color: var(--foreground);
+  background: var(--input-background);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  resize: vertical;
+}
+
+.architect-review-disposition .figma-disposition-row button,
+.figma-disposition-panel .figma-disposition-row button {
+  min-height: 34px;
+  padding: 0 12px;
+  color: var(--foreground);
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.architect-review-disposition .figma-disposition-row button:hover:not(:disabled),
+.figma-disposition-panel .figma-disposition-row button:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: var(--accent);
+}
+
+.architect-review-disposition .figma-disposition-row button:disabled,
+.figma-disposition-panel .figma-disposition-row button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .figma-disposition-row label {
   display: flex;
   align-items: center;

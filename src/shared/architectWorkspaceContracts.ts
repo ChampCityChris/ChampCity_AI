@@ -123,6 +123,8 @@ export interface StructuredArchitectWorkspaceModel {
   reason?: string;
   intakeId?: string;
   intakeVersion?: number;
+  intakeDocument?: PlanningDocumentDetail;
+  intakeDocumentLabel?: string;
   cycleVersion?: number;
   handoff?: string;
   review?: ArchitectReviewProjection;

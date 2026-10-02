@@ -45,6 +45,8 @@ test("exact planning dispatch follows supported type and persisted currentWorksp
   assert.equal(workflowPlanningSurface({ workflowType: "issue-resolution", lifecycleState: "active", currentWorkspace: "work-item-map" }), "execution");
   assert.equal(workflowPlanningSurface({ workflowType: "issue-resolution", lifecycleState: "active", currentWorkspace: "feature-planning" }), "execution");
   assert.equal(workflowPlanningSurface({ workflowType: "refactor-migration", lifecycleState: "active", currentWorkspace: "feature-planning" }), "generic");
+  for (const workflowType of ["refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype"])
+    assert.equal(workflowPlanningSurface({ workflowType, lifecycleState: "active", currentWorkspace: "planning" }), "planning");
   assert.equal(workflowPlanningSurface({ workflowType: "feature-capability", lifecycleState: "closed", currentWorkspace: "work-item-map" }), "generic");
   assert.equal(shouldShowClosedWorkIntakeSummary({ workflowType: "work-intake-routing", lifecycleState: "closed", currentWorkspace: "work-intake" }), true);
   assert.equal(shouldShowClosedWorkIntakeSummary({ workflowType: "work-intake-routing", lifecycleState: "active", currentWorkspace: "work-intake" }), false);

@@ -1,5 +1,4 @@
 import { Clipboard, ExternalLink, FileText } from "lucide-react";
-import type { ArchitectOutputWorkspaceModel } from "../../shared/workspaceContracts";
 import type { PlanningDocumentDetail } from "../../shared/documents/planningDocument";
 import {
   PhaseMapDocumentPreview,
@@ -29,7 +28,7 @@ export function FigmaDocumentCard({
   onSelectSlot?: (slotId: string, logicalDocumentId?: string) => void;
   selectedDocument: PlanningDocumentDetail | null;
   selectedSlotId?: string | null;
-  slots?: ArchitectOutputWorkspaceModel["documentSlots"];
+  slots?: Array<{slotId: string; displayLabel: string; logicalDocumentId?: string}>;
 }): JSX.Element {
   const hasTabs = slots.length > 1 && Boolean(onSelectSlot);
   const selectedStatus = selectedDocument?.effectiveDisposition ?? "Pending";

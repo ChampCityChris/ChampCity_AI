@@ -239,6 +239,7 @@ for (const [type, workspace] of [["refactor-migration", "refactor-assessment"], 
         assert.equal((await architect.get(env.root, workflow.workflowId)).supportRecords.length, 1);
       }
       const output = Object.fromEntries(Object.keys(ASSESSMENT_SECTIONS[type]).map(key => [key, `${key} substantive direction`]));
+      if (type === "research-prototype") output.researchOutcome = {outcome: "no-implementation-plan-required", prototypeDisposition: "disposable", productionFollowUp: "none", evidence: ["Bounded research evidence"], decisionEnabled: "Select experiment", successFailureResult: "Observed result", closureCondition: "Question answered"};
       const input = {intakeId: savedIntake.intakeId, intakeVersion: 1, output};
       await assert.rejects(architect.save(env.root, workflow.workflowId, {...input, output: {...output, extra: "unbounded"}}), /bounded/);
       const candidate = await architect.save(env.root, workflow.workflowId, input);
@@ -253,8 +254,12 @@ for (const [type, workspace] of [["refactor-migration", "refactor-assessment"], 
       assert.ok(!fs.readFileSync(projection, "utf8").includes("Manual approval fiction"));
       await assert.rejects(architect.review(env.root, workflow.workflowId, candidate.review.cycleId, {expectedRecordVersion: 0, outcome: "approved"}));
       const approved = await architect.review(env.root, workflow.workflowId, candidate.review.cycleId, {expectedRecordVersion: 1, outcome: "approved"});
-      assert.equal(approved.railStatus, "Completed"); assert.equal(approved.nextStageReady, type !== "research-prototype");
+      assert.equal(approved.railStatus, "Completed"); assert.equal(approved.nextStageReady, true);
       fs.unlinkSync(projection); assert.equal((await architect.get(env.root, workflow.workflowId)).review.disposition.state, "approved");
+      const planning = require("../../dist/main/workPlanning/exactWorkflowPlanningService.js").createExactWorkflowPlanningService();
+      const planningModel = await planning.prepare(env.root, workflow.workflowId);
+      assert.equal((await env.store.getEntity(env.projectId, workflow.workflowId)).body.currentWorkspace, "planning");
+      if (type === "research-prototype") assert.equal(planningModel.researchOutcome.outcome, "no-implementation-plan-required");
       const revised = await architect.save(env.root, workflow.workflowId, {...input, expectedCycleVersion: 1, output: {...output, risks: "Revised material risks"}});
       assert.equal(revised.review.recordVersion, 2); assert.equal(revised.review.disposition.state, "none"); assert.equal(revised.nextStageReady, false);
       await assert.rejects(architect.review(env.root, workflow.workflowId, revised.review.cycleId, {expectedRecordVersion: 1, outcome: "approved"}));
