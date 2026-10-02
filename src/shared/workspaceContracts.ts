@@ -1399,6 +1399,11 @@ export interface WorkspaceMigrationResult {
 }
 
 export interface ChampCityApi {
+  getExactWorkflowPlanning(workflowId: string): Promise<import("./exactWorkflowPlanningContracts").ExactWorkflowPlanningModel>;
+  prepareExactWorkflowPlanning(workflowId: string): Promise<import("./exactWorkflowPlanningContracts").ExactWorkflowPlanningModel>;
+  saveExactWorkflowPlan(workflowId: string, candidate: import("./projectState/planReviewContracts").PlanCandidate & {expectedRecordVersion?: number}): Promise<import("./exactWorkflowPlanningContracts").ExactWorkflowPlanningModel>;
+  reviewExactWorkflowPlan(workflowId: string, cycleId: string, input: import("./projectState/architectReviewContracts").ArchitectReviewDecisionInput): Promise<import("./exactWorkflowPlanningContracts").ExactWorkflowPlanningModel>;
+  closeExactResearch(workflowId: string): Promise<{workflow: import("./projectState/domainContracts").ProjectStateRecord<"Workflow">; decision: import("./projectState/domainContracts").ProjectStateRecord<"Decision">}>;
   getWorkflowIntake(workflowId: string): Promise<import("./workflowIntakeContracts").WorkflowIntakeProjection>;
   getStructuredArchitectWorkspace(workflowId: string): Promise<import("./architectWorkspaceContracts").StructuredArchitectWorkspaceModel>;
   prepareStructuredArchitectWorkspace(workflowId: string): Promise<import("./architectWorkspaceContracts").StructuredArchitectWorkspaceModel>;

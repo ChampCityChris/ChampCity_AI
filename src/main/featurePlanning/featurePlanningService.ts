@@ -1,3 +1,5 @@
+import { architectCandidateHandoffContract } from "../../shared/architectWorkspaceContracts";
+import { createExactWorkflowPlanningService } from "../workPlanning/exactWorkflowPlanningService";
 import { createStructuredArchitectWorkspaceService } from "../architectOutputs/structuredArchitectWorkspaceService";
 import { createWorkflowIntakeService } from "../workflow/workflowIntakeService";
 import { WORKFLOW_INTAKE_DEFINITIONS, validateWorkflowIntakePayload } from "../../shared/workflowIntakeContracts";
@@ -68,8 +70,13 @@ export function createFeaturePlanningService(dependencies: { openStore?: (databa
     const workspace = stage === "assessment" ? "feature-assessment" : "feature-planning";
     await withState(root, workflowId, async (store, projectId, workflow) => { if (workflow.body.currentWorkspace !== workspace) await createProjectStateService(store, operator).reviseRecord(projectId, workflowId, { currentWorkspace: workspace }, workflow.recordVersion); });
     projection = await get(root, workflowId);
-    const sections = stage === "assessment" ? WORKFLOW_INTAKE_DEFINITIONS["feature-capability"].fields.map(field => String(field.label)).concat(["Excluded Future Work"]) : ["Baseline and Capability Delta", "Preservation and Regression Proof", "Affected Services State UI and Contracts", "Rollout and Compatibility", "Hard Dependencies and Excluded Work", "Feature Candidate Traceability"];
-    const instruction = [`# Feature ${stage} — exact Workflow ${workflowId}`, `Exact Project: ${projection.project.name} (${projection.project.projectId})`, `Exact Workflow: ${projection.workflow.title} (${workflowId})`, `Workflow type: feature-capability`, `SourceBaseline: ${projection.source ? `${projection.source.baselineId} at ${projection.source.revisionId}` : "non-source-backed"}`, stage === "plan" && !projection.source ? "Source-neutral validation policy: required deterministic ValidationCatalog proof is unavailable. Select a supported policy such as semantic_ai, visual_human, or operator_decision for every required Criterion; canonical Project State acceptance enforces this." : "", `Routed provenance (context only): ${projection.provenance === "routed" ? "routed handoff" : "direct start"}`, `Authoritative WorkflowIntake ${projection.intakeAuthority.intakeId}@${projection.intakeAuthority.recordVersion}: ${JSON.stringify(projection.intake)}`, stage === "plan" ? `Exact accepted Feature assessment from SPS: ${JSON.stringify(projection.acceptedAssessment)}` : "", `Current accepted Project architecture and Decisions from SPS: ${JSON.stringify(projection.acceptedArchitecture)}`, `Cover these sections: ${sections.join("; ")}.`, stage === "plan" ? `Return one JSON WorkflowPlanningGraph for WRB03-01, workflowId exactly ${workflowId}. WorkItems kind feature by default; choose direct vs phased with rationale in solution.assumptions/risks. No execution, session, Git, validation-run, or Work Card mechanics.` : "Return JSON keys currentProductBaseline, requestedCapabilityDelta, behaviorAndContractsToPreserve, affectedArchitectureAndIntegrationPoints, compatibilityAndRollout, regressionBoundary, excludedFutureWork. Do not choose a route."].filter(Boolean).join("\n\n");
+    if (stage === "plan") {
+      const plan = await createExactWorkflowPlanningService({openStore}).prepare(root, workflowId);
+      const draft = {stage, instruction: plan.handoff ?? "Approved Research outcome requires no Plan.", content: ""} satisfies Draft;
+      drafts.set(draftKey(root, workflowId), draft); return {...projection, draft};
+    }
+
+    const instruction = [`Exact Project: ${projection.project.name} (${projection.project.projectId}); Workflow ${workflowId} (feature-capability)`, `Approved WorkflowIntake ${projection.intakeAuthority.intakeId}@${projection.intakeAuthority.recordVersion}`, `Intake: ${JSON.stringify(projection.intake)}`, `SourceBaseline: ${JSON.stringify(projection.source)}`, `Accepted Project architecture: ${JSON.stringify(projection.acceptedArchitecture)}`, ...architectCandidateHandoffContract("feature-capability")].join("\n\n");
     const draft = { stage, instruction, content: "" } satisfies Draft;
     const key = draftKey(root, workflowId);
     drafts.set(key, draft);
@@ -78,21 +85,14 @@ export function createFeaturePlanningService(dependencies: { openStore?: (databa
   async function act(root: string, workflowId: string, action: { type: string; content?: string; stage?: "assessment" | "plan"; outcome?: "accept" | "revision" | "reject"; rationale?: string; assessment?: FeatureAssessmentCandidate; graph?: WorkflowPlanningGraph }) {
     const key = draftKey(root, workflowId); const model = await get(root, workflowId);
     if (action.type === "decide" && action.stage === "assessment" || action.type === "save-draft" && drafts.get(key)?.stage === "assessment") throw Error("Use the structured Architect candidate and exact-cycle review commands for Feature Assessment.");
+    if (action.type === "decide" && action.stage === "plan") throw Error("Use the persisted exact Plan candidate and SQL revision review commands.");
     if (action.type === "prepare") return prepare(root, workflowId, action.stage as "assessment" | "plan");
     if (action.type === "save-draft") { const draft = drafts.get(key); if (!draft) throw Error("Prepare the current Architect cycle first.");
       const expectedWorkspace = draft.stage === "assessment" ? "feature-assessment" : "feature-planning";
       if (model.workflow.currentWorkspace !== expectedWorkspace || (draft.stage === "plan" && model.assessmentState !== "accepted")) throw Error("The Feature Architect draft is stale for the current Workflow workspace and assessment state.");
       draft.content = String(action.content ?? "").slice(0, 200000); drafts.set(key, draft); return get(root, workflowId); }
-    if (action.type === "decide") {
-      const stage = action.stage!; const draft = drafts.get(key); if (!draft?.content.trim()) throw Error("Refresh and review a non-empty Architect draft before disposition.");
-      const expectedWorkspace = stage === "assessment" ? "feature-assessment" : "feature-planning";
-      if (draft.stage !== stage || model.workflow.currentWorkspace !== expectedWorkspace || (stage === "plan" && model.assessmentState !== "accepted")) throw Error("Feature disposition does not match the current Workflow workspace and assessment state.");
-      if (action.outcome === "accept" && stage === "plan") { if (!action.graph || action.graph.workflowId !== workflowId) throw Error("Accepted graph must name the exact Feature Workflow."); await workflowApp.acceptReviewedWorkflowPlanningGraph(root, action.graph); }
-      else await withState(root, workflowId, async (store, projectId) => { await createProjectStateService(store, operator).recordDecision(projectId, workflowId, { decisionType: `feature-${stage}-review`, outcome: action.outcome === "revision" ? "revision_requested" : "rejected", decisionScope: workflowId, rationale: (action.rationale ?? "").slice(0, 8000) }); });
-      drafts.delete(key);
-      if (action.outcome === "revision") return prepare(root, workflowId, stage);
-      return get(root, workflowId);
-    }
+    if (action.type === "decide") throw Error("Use structured Architect or Plan exact-revision review commands.");
+
     throw Error("Unsupported Feature planning action.");
   }
   return { get, saveIntake, prepare, act };

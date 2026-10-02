@@ -114,7 +114,7 @@ export const PROJECT_STATE_EVENT_TYPES = Object.freeze({
   relationshipEnd: "project-state.relationship-ended",
 });
 
-const restrictedGenericTypes = new Set<EntityType>(["Decision", "Validation", "Evidence", "TesterResult"]);
+const restrictedGenericTypes = new Set<EntityType>(["Decision", "Validation", "Evidence", "TesterResult", "ResearchOutcome"]);
 function fail(message: string): never { throw new ProjectStateDomainError(message); }
 const dispositionOutcomes = new Set<DispositionState>(["advisory", "proposed", "approved", "revision_requested", "accepted", "rejected", "revoked"]);
 const workRoutes = new Set<WorkRoute>(["greenfield", "feature-change", "refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype", "issue-resolution"]);
@@ -721,7 +721,8 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     const members = [] as ProjectStateEntity[];
     for (const id of ids) {
       const member = await requiredRecord(unit, projectId, id);
-      if (member.lifecycleState !== "active" || !["Finding", "RootCause", "BoundedSolution", "Criterion", "Evidence"].includes(member.entityType)) fail("Architect member must be an active semantic record.");
+      if (member.lifecycleState !== "active" || !["Finding", "RootCause", "BoundedSolution", "Criterion", "Evidence", "ResearchOutcome"].includes(member.entityType)) fail("Architect member must be an active semantic record.");
+      if (member.entityType === "ResearchOutcome" && member.body.workflowId !== workflowId) fail("Research outcome belongs to another Workflow.");
       members.push(member);
     }
     if (!architectMemberOwnershipIsValid(workflowId, members, await unit.listEntities(projectId), edges)) fail("Architect member belongs to a different Workflow or unavailable semantic owner.");
@@ -851,6 +852,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
           for (const id of candidate.evidenceIds) {await linkSemantic(unit, projectId, evidence.get(id)!, root, "supports"); if (!members.some(member => member.id === id)) members.push(evidence.get(id)!);}
         }
       } else if (Object.hasOwn(ASSESSMENT_SECTIONS, input.workflowType)) {
+        if (input.workflowType === "research-prototype" && "researchOutcome" in input.output && input.output.researchOutcome !== undefined) await add("ResearchOutcome", {...input.output.researchOutcome, workflowId: workflow.id});
         const type = input.workflowType as AssessmentWorkflowType, out = input.output as Record<string, string>, design = ASSESSMENT_DESIGNS[type];
         const solution = await add("BoundedSolution", {title: ASSESSMENT_SECTIONS[type][design.solution as keyof typeof ASSESSMENT_SECTIONS[typeof type]] ?? "Architect recommendation", objective: out[design.solution], scopeIn: [out[design.scope]], scopeOut: type === "refactor-migration" ? [out.scopeOut] : [], constraints: [out[design.constraints]], assumptions: [out.assumptions], risks: [out.risks], solutionState: "proposed"});
         await linkSemantic(unit, projectId, solution, workflow, "workflow_member");
@@ -3172,6 +3174,28 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     };
   }
 
+  async function closeResearchAfterAssessment(projectId: ProjectId, workflowId: EntityId, cycleId: EntityId, expectedRecordVersion: number) {
+    if (trustedPrincipal.principalType !== "human" || trustedPrincipal.role !== "Operator") fail("Research closure requires Operator.");
+    return store.transaction(projectId, async unit => {
+      const {cycle, members, current} = await architectCycleSnapshot(unit, projectId, cycleId);
+      if (!current || cycle.body.workflowId !== workflowId || cycle.body.workflowType !== "research-prototype" || cycle.recordVersion !== expectedRecordVersion || exactVersionReviewDisposition(cycle, await unit.listEntities(projectId, "Decision"), await unit.listRelationships(projectId), await unit.listOutbox(projectId), "architect-review", "architect-review").state !== "approved") fail("Research closure requires exact approved current Assessment.");
+      const outcomes = members.filter((record): record is ProjectStateRecord<"ResearchOutcome"> => record.entityType === "ResearchOutcome");
+      if (outcomes.length !== 1 || outcomes[0].body.outcome !== "no-implementation-plan-required") fail("Research closure requires typed evidence and no-Plan outcome.");
+      if ((await unit.listEntities(projectId, "PlanReviewCycle")).some(record => record.entityType === "PlanReviewCycle" && record.body.workflowId === workflowId)) fail("Research with a Plan candidate cannot use no-Plan closure.");
+      const workflow = await requiredRecord(unit, projectId, workflowId);
+      if (workflow.entityType !== "Workflow" || workflow.body.workflowState !== "active") fail("Current Research Workflow required.");
+      const now = new Date().toISOString();
+      const next = validateProjectStateEntity({...workflow, recordVersion: workflow.recordVersion + 1, lifecycleState: "closed", closedAt: now, updatedAt: now, updatedBy: trustedPrincipal, body: {...workflow.body, workflowState: "closed", currentWorkspace: "research-close"}}) as ProjectStateRecord<"Workflow">;
+      await unit.saveEntity(next, workflow.recordVersion);
+      await recordMutation(unit, {projectId, entityId: workflow.id, fromVersion: workflow.recordVersion, toVersion: next.recordVersion, operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now, changedFields: ["workflowState", "currentWorkspace", "lifecycleState", "closedAt"], defaultReason: "Close Research with approved evidence and no implementation Plan"});
+      const decision = createProjectStateEntity({entityType: "Decision", projectId, principal: trustedPrincipal, body: decisionBody({decisionType: "research-completion", outcome: "accepted", decisionScope: `research:${workflowId}:${cycle.id}@${cycle.recordVersion}`, rationale: outcomes[0].body.decisionEnabled}, trustedPrincipal, now)});
+      await unit.saveEntity(decision, null);
+      await recordMutation(unit, {projectId, entityId: decision.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: now, changedFields: Object.keys(decision.body), defaultReason: "Operator closes exact Research outcome"});
+      await linkSemantic(unit, projectId, decision, next, "governs");
+      return {workflow: next, decision};
+    });
+  }
+
   async function savePlanCandidate(projectId: ProjectId, input: PlanCandidate & { expectedRecordVersion?: number }, context?: MutationContext) {
     exactInput(input, ["workflowId", "workflowType", "solution", "solutionAddresses", "solutionCriteria", "phases", "workItems", "phaseDependencies", "boundaries", "sources", "expectedRecordVersion"]);
     const graph = resolvePlanTopology(input);
@@ -3201,7 +3225,9 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       };
       const criteria = async (items: WorkflowPlanningGraph["solutionCriteria"]) => {
         if (!Array.isArray(items) || items.length > 64) fail("Plan Criterion bound exceeded.");
-        return Promise.all(items.map(async item => (await create("Criterion", {...item, criterionState: "candidate"})).id));
+        const ids: EntityId[] = [];
+        for (const item of items) ids.push((await create("Criterion", {...item, criterionState: "candidate"})).id);
+        return ids;
       };
       const solution = await create("BoundedSolution", {...graph.solution, solutionState: "candidate"});
       const layout: PlanReviewLayout = { solutionId: solution.id, solutionAddresses: graph.solutionAddresses ?? [], solutionCriterionIds: await criteria(graph.solutionCriteria), phases: [], workItems: [], boundaries: structuredClone(input.boundaries ?? []), sources: structuredClone(sources) };
@@ -3233,7 +3259,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     for (const source of cycle.body.layout.sources) { const record = await requiredRecord(unit, projectId, source.entityId); if (!accepted && (record.recordVersion !== source.recordVersion || record.lifecycleState !== "active")) fail("Plan source revision is stale."); }
     const members: ProjectStateEntity[] = [];
     const get = async <T extends EntityType>(id: EntityId, type: T) => { const record = accepted ? await unit.getEntityVersion(projectId, id, 1) : await requiredRecord(unit, projectId, id); if (!record || record.entityType !== type || record.lifecycleState !== "active") fail("Plan semantic member identity changed."); members.push(record); return record as ProjectStateRecord<T>; };
-    const criteria = async (ids: EntityId[]) => Promise.all(ids.map(async id => { const {criterionState: _, ...body} = (await get(id, "Criterion")).body; return body; }));
+    const criteria = async (ids: EntityId[]) => { const result: WorkflowPlanningGraph["solutionCriteria"] = []; for (const id of ids) {const {criterionState: _, ...body} = (await get(id, "Criterion")).body; result.push(body);} return result; };
     const layout = cycle.body.layout;
     const {solutionState: _, ...solution} = (await get(layout.solutionId, "BoundedSolution")).body;
     const solutionCriteria = await criteria(layout.solutionCriterionIds);
@@ -3711,7 +3737,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return pending.sort((a, b) => a.targetId.localeCompare(b.targetId) || a.criterionId.localeCompare(b.criterionId));
   }
 
-  return { savePlanCandidate, getPlanReview, recordPlanReview, prepareArchitectWorkspace, adoptLegacyArchitectReview, saveArchitectCandidate, saveGreenfieldArchitectOutput, getArchitectReviewProjection, saveArchitectReviewCycle, getCurrentArchitectReviewCycle, getArchitectReviewDisposition, recordArchitectReview, saveWorkflowIntake, recordWorkflowIntakeDecision, getWorkflowIntakeDisposition, createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
+  return { closeResearchAfterAssessment, savePlanCandidate, getPlanReview, recordPlanReview, prepareArchitectWorkspace, adoptLegacyArchitectReview, saveArchitectCandidate, saveGreenfieldArchitectOutput, getArchitectReviewProjection, saveArchitectReviewCycle, getCurrentArchitectReviewCycle, getArchitectReviewDisposition, recordArchitectReview, saveWorkflowIntake, recordWorkflowIntakeDecision, getWorkflowIntakeDisposition, createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
     createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, completeTesterResultCheckpoint, createIntegrationRecord, advanceIntegrationRecord, completeWorkflowExecution, closeIntegratedWorkflow,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, createTesterResult, createWorkflowRepair, createPhaseRepair, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, recordCriterionOperatorDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,

@@ -33,6 +33,18 @@ async function setup(context, options = {}) {
   return { root, projectId: registration.project.id, store, state: createProjectStateService(store, operator) };
 }
 
+async function reviewSqlGraph(env, workflowId, graph, outcome = "approved", notes = "Review exact Plan") {
+  const service = require("../../dist/main/workPlanning/exactWorkflowPlanningService.js").createExactWorkflowPlanningService();
+  const model = await service.prepare(env.root, workflowId);
+  const sources = JSON.parse(model.handoff.split("Required exact sources: ").at(-1));
+  const type = model.workflowType;
+  const proposed = graph ?? {workflowId, solution:{title:"Proposed correction",objective:"Repair the evidenced Issue",scopeIn:["correction"],scopeOut:[],constraints:[],assumptions:[],risks:[]},solutionCriteria:[],workItems:[{key:"correction",kind:"fix",title:"Correct defect",objective:"Restore expected behavior",dependencyKeys:[],criteria:[]}]};
+  const {topology: _, ...semantic} = proposed;
+  const saved = await service.save(env.root, workflowId, {...semantic,workflowType:type,sources,expectedRecordVersion:model.review?.recordVersion ?? model.staleReview?.recordVersion});
+  await service.review(env.root, workflowId, saved.review.cycleId, {expectedRecordVersion:saved.review.recordVersion,outcome,notes});
+  return type === "issue-resolution" ? createIssuePlanningService().get(env.root, workflowId) : createFeaturePlanningService().get(env.root, workflowId);
+}
+
 async function approveIntake(root, id) {
   const service = require("../../dist/main/workflow/workflowIntakeService.js").createWorkflowIntakeService();
   const intake = await service.ensureWorkflowIntake(root, id);
@@ -205,7 +217,7 @@ test("legacy accepted Feature and Issue SQL sets adopt idempotently while confli
 });
 
 for (const [type, workspace] of [["refactor-migration", "refactor-assessment"], ["integration-composition", "integration-assessment"], ["infrastructure-platform", "infrastructure-assessment"], ["research-prototype", "research-assessment"]]) {
-  test(`${type} explicitly prepares its bounded SQL Architect assessment and leaves Planning Not Ready`, async context => {
+  test(`${type} explicitly prepares its bounded SQL Architect assessment and gates Planning on current approved semantics`, async context => {
     const env = await setup(context);
     const architect = require("../../dist/main/architectOutputs/structuredArchitectWorkspaceService.js").createStructuredArchitectWorkspaceService();
     const intake = require("../../dist/main/workflow/workflowIntakeService.js").createWorkflowIntakeService();
@@ -241,7 +253,7 @@ for (const [type, workspace] of [["refactor-migration", "refactor-assessment"], 
       assert.ok(!fs.readFileSync(projection, "utf8").includes("Manual approval fiction"));
       await assert.rejects(architect.review(env.root, workflow.workflowId, candidate.review.cycleId, {expectedRecordVersion: 0, outcome: "approved"}));
       const approved = await architect.review(env.root, workflow.workflowId, candidate.review.cycleId, {expectedRecordVersion: 1, outcome: "approved"});
-      assert.equal(approved.railStatus, "Completed"); assert.equal(approved.nextStageReady, false);
+      assert.equal(approved.railStatus, "Completed"); assert.equal(approved.nextStageReady, type !== "research-prototype");
       fs.unlinkSync(projection); assert.equal((await architect.get(env.root, workflow.workflowId)).review.disposition.state, "approved");
       const revised = await architect.save(env.root, workflow.workflowId, {...input, expectedCycleVersion: 1, output: {...output, risks: "Revised material risks"}});
       assert.equal(revised.review.recordVersion, 2); assert.equal(revised.review.disposition.state, "none"); assert.equal(revised.nextStageReady, false);
@@ -524,13 +536,15 @@ test("structured WIR promotes one Architect assessment and atomically opens an e
     const routedGraph = { workflowId: completed.targetWorkflowId, topology: "phased", solution: { title: "Routed capability", objective: "Deliver routed result", scopeIn: ["bounded addition"], scopeOut: ["unrelated changes"], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [{ statement: "Preserve existing behavior", criticality: "required", verificationIntent: "Run the preserved behavior suite", validationPolicy: "semantic_ai" }], phases: [{ key: "routed-phase", title: "Capability phase", objective: "Deliver capability", sequence: 1 }], workItems: [{ key: "routed-work", kind: "feature", title: "Implement routed addition", objective: "Deliver the addition", phaseKey: "routed-phase", dependencyKeys: [], criteria: [] }] };
     await targetPlanner.prepare(env.root, completed.targetWorkflowId, "plan");
     await targetPlanner.act(env.root, completed.targetWorkflowId, { type: "save-draft", content: "Reviewed routed Feature graph." });
-    const routedPlan = await targetPlanner.act(env.root, completed.targetWorkflowId, { type: "decide", stage: "plan", outcome: "accept", rationale: "Accept routed plan.", graph: routedGraph });
+    await assert.rejects(reviewSqlGraph(env, completed.targetWorkflowId, routedGraph), /single Phase/);
+    routedGraph.topology = "direct"; delete routedGraph.phases; delete routedGraph.workItems[0].phaseKey;
+    const routedPlan = await reviewSqlGraph(env, completed.targetWorkflowId, routedGraph);
     assert.equal(routedPlan.stage, "work-item-map");
     assert.equal(routedPlan.workflow.workflowId, completed.targetWorkflowId);
     assert.equal(routedPlan.workflow.currentWorkspace, "work-item-map");
     assert.equal(routedPlan.provenance, "routed");
     assert.equal(routedPlan.acceptedPlan.workflow.id, completed.targetWorkflowId);
-    assert.equal(routedPlan.acceptedPlan.phases[0].sequence, 1);
+    assert.equal(routedPlan.acceptedPlan.phases.length, 0); assert.equal(routedPlan.acceptedPlan.directWorkItems.length, 1);
     assert.equal(routedPlan.acceptedPlan.criteria.some(item => item.record.body.validationPolicy === "semantic_ai"), true);
     assert.equal((await targetPlanner.get(env.root, completed.targetWorkflowId)).stage, "work-item-map");
     assert.equal((await env.state.getRecord(env.projectId, captured.workflow.id)).lifecycleState, "closed");
@@ -701,7 +715,7 @@ test("Feature planning persists exact Workflow intake, keeps revision noncanonic
     assert.equal((await workflows.getCurrentProjectWorkflow(env.root, direct.workflow.workflowId)).workflow.currentWorkspace, "feature-assessment");
     assert.equal((await createFeaturePlanningService().get(env.root, direct.workflow.workflowId)).stage, "assessment");
     await reviewFeatureCandidate(env.root, direct.workflow.workflowId, "revision", "Clarify rollout.", acceptedAssessment);
-    assert.equal((await env.store.listEntities(env.projectId, "WorkItem")).length, 0);
+    assert.equal((await env.state.getWorkflowExecutionPlan(env.projectId, direct.workflow.workflowId)).directWorkItems.length, 0);
     assert.equal((await workflows.getCurrentProjectWorkflow(env.root, direct.workflow.workflowId)).workflow.currentWorkspace, "feature-assessment");
     assert.equal((await feature.get(env.root, direct.workflow.workflowId)).assessmentState, "revision-requested");
     await approveIntake(env.root, direct.workflow.workflowId);
@@ -714,12 +728,12 @@ test("Feature planning persists exact Workflow intake, keeps revision noncanonic
     const acceptedAssessmentOwnership = await env.store.listRelationships(env.projectId, "workflow_member");
     assert.ok(reopened.acceptedAssessment.every(record => acceptedAssessmentOwnership.some(edge => edge.fromEntityId === record.id && edge.toEntityId === direct.workflow.workflowId && !edge.endedAt)));
     const planningHandoff = await feature.prepare(env.root, direct.workflow.workflowId, "plan");
-    assert.match(planningHandoff.draft.instruction, /Exact accepted Feature assessment from SPS/);
+    assert.match(planningHandoff.draft.instruction, /Accepted semantic records/);
     assert.match(planningHandoff.draft.instruction, /Current Product Baseline/);
-    assert.match(planningHandoff.draft.instruction, /Source-neutral validation policy: required deterministic ValidationCatalog proof is unavailable/i);
+    assert.match(planningHandoff.draft.instruction, /Source-neutral: required deterministic validation is unavailable/i);
     await feature.act(env.root, direct.workflow.workflowId, { type: "save-draft", content: "plan draft placeholder" });
     const graph = { workflowId: direct.workflow.workflowId, topology: "direct", solution: { title: "CSV export", objective: "Export reports", scopeIn: ["CSV"], scopeOut: ["PDF"], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [], workItems: [{ key: "export", kind: "feature", title: "Implement CSV export", objective: "Deliver export", dependencyKeys: [], criteria: [] }] };
-    const accepted = await feature.act(env.root, direct.workflow.workflowId, { type: "decide", stage: "plan", outcome: "accept", rationale: "Accept feature graph", graph });
+    const accepted = await reviewSqlGraph(env, direct.workflow.workflowId, graph);
     assert.equal(accepted.stage, "work-item-map");
     assert.equal(accepted.acceptedPlan.directWorkItems.length, 1);
     assert.equal(accepted.acceptedPlan.directWorkItems[0].body.workItemKind, "feature");
@@ -730,7 +744,7 @@ test("Feature planning persists exact Workflow intake, keeps revision noncanonic
     assert.equal(routedFeature.workflow.workflowId, second.workflow.workflowId);
     assert.equal(routedFeature.provenance, "routed");
     assert.equal(routedFeature.intake, null);
-    await assert.rejects(feature.act(env.root, direct.workflow.workflowId, { type: "decide", stage: "plan", outcome: "accept", rationale: "Duplicate", graph }), /non-empty Architect draft|Workflow is already planned|unavailable/);
+    await assert.rejects(feature.act(env.root, direct.workflow.workflowId, { type: "decide", stage: "plan", outcome: "accept", rationale: "Duplicate", graph }), /persisted exact Plan|non-empty Architect draft|Workflow is already planned|unavailable/);
   } finally { env.store.close(); }
 });
 
@@ -747,7 +761,7 @@ test("concurrent same-title direct Features accept and reopen isolated canonical
       const graph = { workflowId: workflow.workflowId, topology: "direct", solution: { title: `${label} solution`, objective: `${label} outcome`, scopeIn: [`${label} scope`], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [{ statement: `${label} criterion`, criticality: "required", verificationIntent: `Verify ${label}`, validationPolicy: "semantic_ai" }], workItems: [{ key: `${label}-work`, kind: "feature", title: `${label} work`, objective: `${label} result`, dependencyKeys: [], criteria: [] }] };
       await planner.prepare(env.root, workflow.workflowId, "plan");
       await planner.act(env.root, workflow.workflowId, { type: "save-draft", content: `${label} reviewed graph` });
-      return planner.act(env.root, workflow.workflowId, { type: "decide", stage: "plan", outcome: "accept", rationale: `${label} plan accepted`, graph });
+      return reviewSqlGraph(env, workflow.workflowId, graph);
     };
     const a = await accept(first.workflow, "alpha"); const b = await accept(second.workflow, "beta");
     assert.equal(a.stage, "work-item-map"); assert.equal(b.stage, "work-item-map");
@@ -822,7 +836,7 @@ test("Issue Workflow persists evidence and accepted RCA, keeps revision canonica
     assert.equal((await workflows.getCurrentProjectWorkflow(env.root, first.workflow.workflowId)).workflow.currentWorkspace, "issue-rca");
     const afterRca = await reviewIssueCandidate(env.root, first.workflow.workflowId, {type: "decide-rca", outcome: "accept", rationale: "Evidence supports the cause.", rootCauses: [{ title: "Export state exception", statement: "Export crashes when search state is populated.", rationale: "The reproduced state transition omits the export data shape.", confidence: 0.9, findingIds: [finding.id], evidenceIds: [evidence.evidence[0].id] }] });
     assert.equal(afterRca.stage, "plan");
-    assert.match(afterRca.draft.instruction, /Source-neutral validation policy: required deterministic ValidationCatalog proof is unavailable/i);
+    assert.match(afterRca.draft.instruction, /Source-neutral: required deterministic validation is unavailable/i);
     assert.equal((await workflows.getCurrentProjectWorkflow(env.root, first.workflow.workflowId)).workflow.currentWorkspace, "issue-planning");
     assert.equal((await createIssuePlanningService().get(env.root, first.workflow.workflowId)).stage, "plan");
     assert.equal(afterRca.rootCauses.length, 1);
@@ -851,15 +865,15 @@ test("Issue Workflow persists evidence and accepted RCA, keeps revision canonica
     assert.equal((await issues.get(env.root, first.workflow.workflowId)).rootCauses[0].id, reviewedAgain.rootCauses[0].id);
     await issues.prepare(env.root, first.workflow.workflowId, "plan");
     await issues.act(env.root, first.workflow.workflowId, { type: "save-draft", content: "Proposed correction plan draft." });
-    await issues.act(env.root, first.workflow.workflowId, { type: "decide-plan", outcome: "revision", rationale: "Add deterministic regression coverage." });
-    assert.equal((await env.store.listEntities(env.projectId, "WorkItem")).length, 0);
+    await reviewSqlGraph(env, first.workflow.workflowId, undefined, "revision_requested", "Add deterministic regression coverage.");
+    assert.equal((await env.state.getWorkflowExecutionPlan(env.projectId, first.workflow.workflowId)).directWorkItems.length, 0);
     const lateEvidence = await issues.addEvidence(env.root, first.workflow.workflowId, [{ name: "late.txt", mediaType: "text/plain", base64: Buffer.from("new RCA evidence").toString("base64"), description: "Evidence added after RCA acceptance" }]);
     const latestEvidence = lateEvidence.evidence.find(record => record.body.description === "Evidence added after RCA acceptance");
     const reproductionEvidence = evidence.evidence.find(record => record.body.description === "Reproduction log");
     assert.ok(latestEvidence && reproductionEvidence);
     assert.equal((await issues.get(env.root, first.workflow.workflowId)).rcaState, "not-reviewed");
-    await assert.rejects(issues.act(env.root, first.workflow.workflowId, { type: "decide-plan", outcome: "accept" }), /current plan workspace and an accepted current RCA/);
-    assert.equal((await env.store.listEntities(env.projectId, "WorkItem")).length, 0);
+    await assert.rejects(issues.act(env.root, first.workflow.workflowId, { type: "decide-plan", outcome: "accept" }), /persisted exact Plan/);
+    assert.equal((await env.state.getWorkflowExecutionPlan(env.projectId, first.workflow.workflowId)).directWorkItems.length, 0);
     await approveIntake(env.root, first.workflow.workflowId);
     await issues.prepare(env.root, first.workflow.workflowId, "rca");
     const refreshedRca = await reviewIssueCandidate(env.root, first.workflow.workflowId, {type: "decide-rca", outcome: "accept", rationale: "Accept RCA with current evidence.", rootCauses: [{ title: "Search-dependent export mapping", statement: "Export crashes when search state is populated.", rationale: "The reproduction and newly added evidence confirm the missing state mapping.", findingIds: [finding.id], evidenceIds: [reproductionEvidence.id, latestEvidence.id] }] });
@@ -867,7 +881,7 @@ test("Issue Workflow persists evidence and accepted RCA, keeps revision canonica
     const graph = { workflowId: first.workflow.workflowId, topology: "direct", solution: { title: "Restore Export", objective: "Export from populated search state", scopeIn: ["export state shape"], scopeOut: ["new formats"], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [], workItems: [{ key: "correct", kind: "fix", title: "Correct export state mapping", objective: "Prevent crash", dependencyKeys: [], criteria: [] }] };
     await issues.prepare(env.root, first.workflow.workflowId, "plan");
     await issues.act(env.root, first.workflow.workflowId, { type: "save-draft", content: "Reviewed correction graph." });
-    const accepted = await issues.act(env.root, first.workflow.workflowId, { type: "decide-plan", outcome: "accept", rationale: "Accept correction graph.", graph });
+    const accepted = await reviewSqlGraph(env, first.workflow.workflowId, graph);
     assert.equal(accepted.stage, "work-item-map"); assert.equal(accepted.acceptedPlan.directWorkItems[0].body.workItemKind, "fix");
     const finalLinks = await env.store.listRelationships(env.projectId, "addresses");
     assert.ok(finalLinks.some(edge => edge.fromEntityId === accepted.acceptedPlan.solutions[0].id && edge.toEntityId === accepted.rootCauses[0].id));

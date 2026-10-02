@@ -49,7 +49,9 @@ export function createStructuredArchitectWorkspaceService() {
         const review = await state.getArchitectReviewProjection(projectId, cycle.id);
         model.review = review; model.reviewDocument = architectReviewDocument(review);
         model.railStatus = review.disposition.state === "approved" ? "Completed" : "Awaiting Approval";
-        model.nextStageReady = review.disposition.state === "approved" && ["project-creation", "feature-capability", "issue-resolution"].includes(workflowType);
+        const hasResearchOutcome = all.some(record => record.entityType === "ResearchOutcome" && review.sources.some(source => source.entityId === record.id));
+        model.nextStageReady = review.disposition.state === "approved" && (workflowType !== "research-prototype" || hasResearchOutcome);
+        if (workflowType === "research-prototype" && !hasResearchOutcome && review.disposition.state === "approved") model.reason = "Submit and review a typed Research outcome before Planning or no-Plan closure.";
         try { writeArchitectReviewProjection(root, review); } catch (error) { model.materializationError = `SQL is authoritative; projection write failed: ${error instanceof Error ? error.message : String(error)}`; }
       } catch (error) { model.reason = `Fresh Architect output required: ${error instanceof Error ? error.message : String(error)}`; }
     }

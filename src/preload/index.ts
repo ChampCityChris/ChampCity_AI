@@ -14,6 +14,11 @@ import type {
 } from "../shared/workspaceContracts";
 
 const api: ChampCityApi = {
+  getExactWorkflowPlanning: workflowId => ipcRenderer.invoke("workflow:planningGet", workflowId) as ReturnType<ChampCityApi["getExactWorkflowPlanning"]>,
+  prepareExactWorkflowPlanning: workflowId => ipcRenderer.invoke("workflow:planningPrepare", workflowId) as ReturnType<ChampCityApi["prepareExactWorkflowPlanning"]>,
+  saveExactWorkflowPlan: (workflowId, candidate) => ipcRenderer.invoke("workflow:planningSave", workflowId, candidate) as ReturnType<ChampCityApi["saveExactWorkflowPlan"]>,
+  reviewExactWorkflowPlan: (workflowId, cycleId, input) => ipcRenderer.invoke("workflow:planningReview", workflowId, cycleId, input) as ReturnType<ChampCityApi["reviewExactWorkflowPlan"]>,
+  closeExactResearch: workflowId => ipcRenderer.invoke("workflow:researchClose", workflowId) as ReturnType<ChampCityApi["closeExactResearch"]>,
   getIssueWorkflowPlanning: workflowId => ipcRenderer.invoke("issuePlanning:get", workflowId) as ReturnType<ChampCityApi["getIssueWorkflowPlanning"]>,
   addIssueWorkflowEvidence: (workflowId, files) => ipcRenderer.invoke("issuePlanning:addEvidence", workflowId, files) as ReturnType<ChampCityApi["addIssueWorkflowEvidence"]>,
   prepareIssueWorkflowPlanning: (workflowId, stage) => ipcRenderer.invoke("issuePlanning:prepare", workflowId, stage) as ReturnType<ChampCityApi["prepareIssueWorkflowPlanning"]>,

@@ -48,6 +48,7 @@ export interface RecordEnvelope<T extends EntityType = EntityType> {
 }
 
 export interface EntityBodyMap {
+  ResearchOutcome: import("../workPlanningContracts").WorkResearchOutcome & {workflowId: EntityId};
   PlanReviewCycle: { workflowId: EntityId; workflowType: WorkflowType; semanticDigest: string; layout: import("./planReviewContracts").PlanReviewLayout };
   Project: { name: string; description: string };
   ProjectResource: { resourceType: string; provider: string; logicalName: string; locator: string; role: string; sourceRevisionId?: string };

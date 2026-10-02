@@ -19,7 +19,7 @@ export type AssessmentOutput<T extends AssessmentWorkflowType> = {[K in keyof ty
 export type MigrationAssessmentOutput = AssessmentOutput<"refactor-migration">;
 export type IntegrationAssessmentOutput = AssessmentOutput<"integration-composition">;
 export type InfrastructureAssessmentOutput = AssessmentOutput<"infrastructure-platform">;
-export type ResearchAssessmentOutput = AssessmentOutput<"research-prototype">;
+export type ResearchAssessmentOutput = AssessmentOutput<"research-prototype"> & {researchOutcome?: import("./workPlanningContracts").WorkResearchOutcome};
 export const ASSESSMENT_DESIGNS = {
   "refactor-migration": {solution: "targetRecommendation", criteria: ["preservationObligations", "compatibilityRollback"], scope: "scopeIn", excluded: "scopeOut", constraints: "transitionConstraints"},
   "integration-composition": {solution: "integrationSolution", criteria: ["compatibilityLifecycle", "failureRecovery"], scope: "integrationSolution", excluded: "unresolvedOperatorDecisions", constraints: "accessSecurityConstraints"},
@@ -39,7 +39,9 @@ export function validateArchitectCandidateOutput(type: WorkflowType, output: unk
   }
   if (Object.hasOwn(ASSESSMENT_SECTIONS, type)) {
     const sections = ASSESSMENT_SECTIONS[type as AssessmentWorkflowType];
-    if (Object.keys(output).sort().join("|") !== Object.keys(sections).sort().join("|") || Object.values(output).some(value => typeof value !== "string" || !value.trim() || new TextEncoder().encode(value).length > ARCHITECT_LIMITS.textBytes || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value))) throw Error("Exact bounded workflow-specific assessment dimensions are required.");
+    const {researchOutcome, ...dimensions} = output as Record<string, unknown>;
+    if (researchOutcome !== undefined && type !== "research-prototype") throw Error("Research outcome requires a Research assessment.");
+    if (Object.keys(dimensions).sort().join("|") !== Object.keys(sections).sort().join("|") || Object.values(dimensions).some(value => typeof value !== "string" || !value.trim() || new TextEncoder().encode(value).length > ARCHITECT_LIMITS.textBytes || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value))) throw Error("Exact bounded workflow-specific assessment dimensions are required.");
     return;
   }
   if (type === "issue-resolution") {
@@ -101,8 +103,9 @@ export function architectCandidateHandoffContract(type: WorkflowType): string[] 
   const sections = type === "feature-capability" ? FEATURE_ARCHITECT_SECTIONS : Object.hasOwn(ASSESSMENT_SECTIONS, type) ? ASSESSMENT_SECTIONS[type as AssessmentWorkflowType] : undefined;
   if (!sections) throw Error("Architect output contract is unavailable for this Workflow type.");
   return [
-    `Return only one JSON object with exactly ${type === "feature-capability" ? "the seven FEATURE_ARCHITECT_SECTIONS" : "this workflow's ASSESSMENT_SECTIONS"} keys: ${Object.keys(sections).join(", ")}. Every value is one nonempty scalar string, not an array, at most ${type === "feature-capability" ? limits.featureBytes : limits.textBytes} bytes. All ${type === "feature-capability" ? "seven dimensions" : "workflow-specific dimensions"} are required. Total JSON transport must not exceed ${limits.transportBytes} UTF-8 bytes.`,
+    `Return only one JSON object with exactly ${type === "feature-capability" ? "the seven FEATURE_ARCHITECT_SECTIONS" : "this workflow's ASSESSMENT_SECTIONS"} keys: ${Object.keys(sections).join(", ")}${type === "research-prototype" ? "; researchOutcome is the additional typed lifecycle-outcome field" : ""}. Every assessment dimension is one nonempty scalar string, not an array, at most ${type === "feature-capability" ? limits.featureBytes : limits.textBytes} bytes. All ${type === "feature-capability" ? "seven dimensions" : "workflow-specific dimensions"} are required. Total JSON transport must not exceed ${limits.transportBytes} UTF-8 bytes.`,
     textRule, recommendationRule,
+    ...(type === "research-prototype" ? ["Also supply researchOutcome as a typed object: {outcome: no-implementation-plan-required or research-plan-required, prototypeDisposition: disposable or candidate-for-later-work, productionFollowUp: none or new-work-intake-required, evidence: nonempty bounded string array, decisionEnabled: string, successFailureResult: string, closureCondition: string}. Candidate-for-later-work requires new-work-intake-required. This outcome is reviewed within the same exact Architect cycle; prose recommendations cannot authorize closure."] : []),
     "Workflow-specific JSON template (authoritative field names):", JSON.stringify(Object.fromEntries(Object.keys(sections).map(key => [key, "Replace with substantive assessment or explicitly unresolved direction."])))
   ];
 }

@@ -14,6 +14,7 @@ const idList = "id-list" as const;
 
 /** One reviewed type registry owns field vocabulary and immutable-record policy. */
 export const ENTITY_TYPE_REGISTRY: Readonly<Record<EntityType, EntityDefinition>> = Object.freeze({
+  ResearchOutcome: {schemaVersion: 1, required: {workflowId: id, outcome: ["no-implementation-plan-required", "research-plan-required"], prototypeDisposition: ["disposable", "candidate-for-later-work"], productionFollowUp: ["none", "new-work-intake-required"], evidence: textList, decisionEnabled: text, successFailureResult: text, closureCondition: text}, immutableAfterCreation: false},
   PlanReviewCycle: { schemaVersion: 1, required: { workflowId: id, workflowType: WORKFLOW_TYPE_IDS, semanticDigest: "digest", layout: "plan-layout" }, immutableAfterCreation: false },
   Project: { schemaVersion: 1, required: { name: text, description: text }, immutableAfterCreation: false },
   ArchitectReviewCycle: { schemaVersion: 1, required: { workflowId: id, workflowType: WORKFLOW_TYPE_IDS, stageKind: ARCHITECT_STAGE_KINDS, semanticDigest: "digest" }, immutableAfterCreation: false },
@@ -156,6 +157,7 @@ export function validateProjectStateEntity(value: unknown): ProjectStateEntity {
     const cycle = body as unknown as EntityBodyMap["ArchitectReviewCycle"];
     if (ARCHITECT_STAGE_BY_WORKFLOW[cycle.workflowType] !== cycle.stageKind) fail("Architect cycle requires the matching substantive Workflow stage.");
   }
+  if (type === "ResearchOutcome" && (!(body.evidence as string[]).length || body.prototypeDisposition === "candidate-for-later-work" && body.productionFollowUp !== "new-work-intake-required")) fail("Research outcome requires evidence and explicit later-work disposition.");
   if (type === "TesterResult") {
     const tester = body as unknown as EntityBodyMap["TesterResult"];
     if (tester.sourceMode === "source-backed" && !tester.implementerRevisionId) fail("Source-backed Tester result requires its Implementer revision.");

@@ -1,3 +1,5 @@
+import { architectCandidateHandoffContract } from "../../shared/architectWorkspaceContracts";
+import { createExactWorkflowPlanningService } from "../workPlanning/exactWorkflowPlanningService";
 import { createStructuredArchitectWorkspaceService } from "../architectOutputs/structuredArchitectWorkspaceService";
 import { createWorkflowIntakeService } from "../workflow/workflowIntakeService";
 import { validateWorkflowIntakePayload } from "../../shared/workflowIntakeContracts";
@@ -95,7 +97,12 @@ export function createIssuePlanningService(dependencies: { openStore?: (database
     const workspace = stage === "rca" ? "issue-rca" : "issue-planning";
     await withIssue(root, workflowId, async (store, projectId, workflow) => { if (workflow.body.currentWorkspace !== workspace) await createProjectStateService(store, operator).reviseRecord(projectId, workflowId, { currentWorkspace: workspace }, workflow.recordVersion); });
     model = await get(root, workflowId);
-    const prompt = [`# Issue ${stage.toUpperCase()} — ${model.project.name} (${model.project.projectId})`, `Exact Issue Workflow: ${model.workflow.title} (${workflowId})`, `SourceBaseline: ${model.source ? `${model.source.baselineId} at ${model.source.revisionId}` : "non-source-backed"}`, stage === "plan" && !model.source ? "Source-neutral validation policy: required deterministic ValidationCatalog proof is unavailable. Select a supported policy such as semantic_ai, visual_human, or operator_decision for every required Criterion; canonical Project State acceptance enforces this." : "", `Routed provenance is historical context only: ${model.provenance}`, `Authoritative WorkflowIntake ${model.intakeAuthority.intakeId}@${model.intakeAuthority.recordVersion}: ${JSON.stringify(model.intake)}`, `Historical Intake Findings and current RCA observations: ${JSON.stringify(model.findings)}`, `Canonical Evidence metadata: ${JSON.stringify(model.evidence)}`, `Accepted Project architecture and Decisions from SPS: ${JSON.stringify(model.acceptedArchitecture)}`, `Accepted RootCause state: ${JSON.stringify(model.rootCauses)}`, stage === "rca" ? "Return JSON {rootCauses:[{title,statement,rationale,confidence,findingIds,evidenceIds}]}. Each findingId/evidenceId must come from the provided canonical IDs. Explain the evidenced observed defect; do not recommend routes." : `Return JSON WorkflowPlanningGraph with exact workflowId ${workflowId}, solution scope, assumptions, risks, criteria, dependencies and direct/phased topology. WorkItem kind fix by default. BoundedSolution should address the accepted RootCause/Finding. No execution, session, Git, Fix Card, validation, or repair mechanics.`].filter(Boolean).join("\n\n");
+    if (stage === "plan") {
+      const plan = await createExactWorkflowPlanningService({openStore}).prepare(root, workflowId);
+      const draft = {stage, instruction: plan.handoff ?? "", content: ""};
+      drafts.set(keyFor(root, workflowId), draft); return {...model, draft};
+    }
+    const prompt = [`Exact Project: ${model.project.name} (${model.project.projectId}); Workflow ${workflowId} (issue-resolution)`, `Approved WorkflowIntake ${model.intakeAuthority.intakeId}@${model.intakeAuthority.recordVersion}`, `Intake: ${JSON.stringify(model.intake)}`, `SourceBaseline: ${JSON.stringify(model.source)}`, `Accepted Project architecture: ${JSON.stringify(model.acceptedArchitecture)}`, ...architectCandidateHandoffContract("issue-resolution")].join("\n\n");
     const draft = { stage, instruction: prompt, content: "" } satisfies Draft; drafts.set(keyFor(root, workflowId), draft); return { ...model, stage, draft };
   }
   async function act(root: string, workflowId: string, action: { type: string; content?: string; outcome?: "accept" | "revision" | "reject"; rationale?: string; rootCauses?: RootCauseCandidate[]; graph?: WorkflowPlanningGraph }) {
@@ -105,13 +112,7 @@ export function createIssuePlanningService(dependencies: { openStore?: (database
       const expectedWorkspace = draft.stage === "rca" ? "issue-rca" : "issue-planning";
       if (model.workflow.currentWorkspace !== expectedWorkspace || (draft.stage === "plan" && model.rcaState !== "accepted")) throw Error("The Issue Architect draft is stale for the current Workflow workspace and RCA state.");
       draft.content = String(action.content ?? "").slice(0, 200000); drafts.set(key, draft); return get(root, workflowId); }
-    if (action.type === "decide-plan") {
-      if (model.workflow.currentWorkspace !== "issue-planning" || model.rcaState !== "accepted") throw Error("Correction planning requires the current plan workspace and an accepted current RCA.");
-      const draft = drafts.get(key); if (draft?.stage !== "plan" || !draft.content.trim()) throw Error("Refresh a non-empty current correction plan before disposition.");
-      if (action.outcome === "accept") { if (!action.graph || action.graph.workflowId !== workflowId) throw Error("Correction graph must name the exact Issue Workflow."); if (action.graph.workItems.some(item => item.kind !== "fix")) throw Error("Issue correction Work Items must use kind fix."); const graph = { ...action.graph, solutionAddresses: [...new Set([...model.rootCauses.map(item => item.id), ...model.findings.map(item => item.id)])] }; const plan = await workflowApp.acceptReviewedWorkflowPlanningGraph(root, graph); const stateResult = await get(root, workflowId); drafts.delete(key); return { ...stateResult, acceptedPlan: plan, stage: "work-item-map" as const }; }
-      await withIssue(root, workflowId, async (store, projectId) => createProjectStateService(store, operator).recordDecision(projectId, workflowId, { decisionType: "issue-planning-review", outcome: action.outcome === "revision" ? "revision_requested" : "rejected", decisionScope: workflowId, rationale: (action.rationale ?? "").slice(0, 8000) }));
-      drafts.delete(key); if (action.outcome === "revision") return prepare(root, workflowId, "plan"); return get(root, workflowId);
-    }
+    if (action.type === "decide-plan") throw Error("Use the persisted exact Plan candidate and SQL revision review commands.");
     throw Error("Unsupported Issue planning action.");
   }
   return { get, saveIntake, addEvidence, prepare, act };

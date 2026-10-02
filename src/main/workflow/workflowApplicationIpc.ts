@@ -5,6 +5,7 @@ import type { DirectWorkflowStartRequest } from "../../shared/workflowApplicatio
 import { createWorkflowApplicationService } from "./workflowApplicationService";
 import { createWorkflowExecutionApplicationService } from "./workflowExecutionApplicationService";
 import { createWorkflowIntegrationService } from "../sourceControl/workflowIntegrationService";
+import { createExactWorkflowPlanningService } from "../workPlanning/exactWorkflowPlanningService";
 
 export interface WorkflowApplicationIpcRegistry {
   handle(channel: string, listener: (event: unknown, ...args: unknown[]) => unknown): void;
@@ -15,12 +16,26 @@ export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcR
   service = createWorkflowApplicationService()): void {
   const intake = createWorkflowIntakeService();
   const architect = createStructuredArchitectWorkspaceService();
+  const planning = createExactWorkflowPlanningService();
   const intakeId = (args: unknown[], count: number) => {
     if (args.length !== count || typeof args[0] !== "string" || !args[0].trim() || args[0].length > 128)
       throw Error("Exact bounded Workflow intake arguments are required.");
     return args[0];
   };
   registry.handle("workflow:getIntake", (_event, ...args) => intake.ensureWorkflowIntake(getCurrentProjectRoot(), intakeId(args, 1)));
+  registry.handle("workflow:planningGet", (_event, ...args) => planning.get(getCurrentProjectRoot(), intakeId(args, 1)));
+  registry.handle("workflow:planningPrepare", (_event, ...args) => planning.prepare(getCurrentProjectRoot(), intakeId(args, 1)));
+  registry.handle("workflow:planningSave", (_event, ...args) => {
+    const id = intakeId(args, 2);
+    if (!args[1] || typeof args[1] !== "object" || Array.isArray(args[1]) || new TextEncoder().encode(JSON.stringify(args[1])).length > 200000) throw Error("Bounded typed Plan candidate required.");
+    return planning.save(getCurrentProjectRoot(), id, args[1] as Parameters<typeof planning.save>[2]);
+  });
+  registry.handle("workflow:planningReview", (_event, ...args) => {
+    const id = intakeId(args, 3);
+    if (typeof args[1] !== "string" || !args[1].trim() || args[1].length > 128) throw Error("Exact bounded Plan cycle ID required.");
+    return planning.review(getCurrentProjectRoot(), id, args[1], args[2] as Parameters<typeof planning.review>[3]);
+  });
+  registry.handle("workflow:researchClose", (_event, ...args) => planning.closeResearch(getCurrentProjectRoot(), intakeId(args, 1)));
   registry.handle("workflow:architectGet", (_event, ...args) => architect.get(getCurrentProjectRoot(), intakeId(args, 1)));
   registry.handle("workflow:architectPrepare", (_event, ...args) => architect.prepare(getCurrentProjectRoot(), intakeId(args, 1)));
   registry.handle("workflow:architectSave", (_event, ...args) => architect.save(getCurrentProjectRoot(), intakeId(args, 2), args[1] as Parameters<typeof architect.save>[2]));

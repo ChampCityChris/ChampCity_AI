@@ -4931,12 +4931,15 @@
         "src/main/featurePlanning/**",
         "src/main/issuePlanning/**",
         "src/main/sourceControl/workflowIntegrationService.ts",
+        "src/main/workPlanning/exactWorkflowPlanningService.ts",
         "src/main/workflow/**",
         "src/main/workflow/workflowExecutionApplicationService.ts",
+        "src/renderer/app/ExactWorkflowPlanningWorkspace.tsx",
         "src/renderer/app/FeaturePlanningWorkspace.tsx",
         "src/renderer/app/IssueWorkflowPlanningWorkspace.tsx",
         "src/renderer/app/WorkflowIntakeWorkspace.tsx",
         "src/renderer/app/planningDraftAction.ts",
+        "src/shared/exactWorkflowPlanningContracts.ts",
         "src/shared/featurePlanningContracts.ts",
         "src/shared/issuePlanningContracts.ts",
         "src/shared/projectState/projectArchitectureContext.ts",
@@ -4968,6 +4971,10 @@
         {
           "behaviorId": "exact-implementation-attempts-persist-the-trusted-agent-principal",
           "description": "Exact Implementer attempt mutations and immutable ImplementationRecords persist the trusted Implementer agent principal."
+        },
+        {
+          "behaviorId": "exact-substantive-planning-reviews-sql-candidates-and-research-no-plan-outcomes",
+          "description": "All six existing-project Workflow types prepare profile-driven Plans from exact approved SQL revisions, share direct/WIR target authority, review exact persisted candidates, and close typed no-Plan Research without WorkItems."
         },
         {
           "behaviorId": "exact-validator-and-completion-ipc-contracts-accept-only-bounded-identities",
@@ -21201,19 +21208,19 @@
     {
       "testPath": "test/workflow/workflow-planning-ipc.test.cjs",
       "currentTestCount": {
-        "value": 3,
-        "basis": "Three focused IPC and renderer guard scenarios added by WRB03-R01-01."
+        "value": 12,
+        "basis": "Observed RWS06B: three preserved IPC/renderer scenarios plus nine exact SQL Planning, Research and direct/WIR convergence scenarios."
       },
       "duration": {
         "kind": "estimated",
-        "milliseconds": 500,
-        "basis": "Initial estimate for stubbed listener and renderer guard proof; update from a supported Windows receipt."
+        "milliseconds": 2000,
+        "basis": "RWS06B normal Windows focused execution around 2 seconds; final profile receipt owns measured duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
       "dependencies": {
         "electron": false,
-        "filesystem": false,
+        "filesystem": true,
         "git": false,
         "network": false,
         "process": false,
@@ -21231,9 +21238,9 @@
         "platform": "any",
         "externalCapabilities": [],
         "scheduling": "parallel-safe",
-        "schedulingReason": "Uses captured in-memory IPC listeners and a pure renderer action guard; no shared mutable resources.",
+        "schedulingReason": "Captured IPC listeners and isolated temporary registered SQLite Project roots; no shared mutable resources.",
         "ownedResources": [
-          "pure-stateless"
+          "temp-filesystem-isolated"
         ]
       },
       "proofCharacteristics": [
@@ -21244,6 +21251,12 @@
         "current-proof-appropriate"
       ],
       "behaviorCoverage": [
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "exact-substantive-planning-reviews-sql-candidates-and-research-no-plan-outcomes",
+          "proofLocator": "Six exact Planning profile/acceptance scenarios plus Research no-Plan closure, ambiguous legacy/missing prerequisite rejection and direct/WIR target convergence.",
+          "proofRole": "primary"
+        },
         {
           "capabilityId": "workflow-application-service",
           "behaviorId": "feature-and-issue-planning-ipc-preserves-exact-workflow-argument-contracts",

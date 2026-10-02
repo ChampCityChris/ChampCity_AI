@@ -1,3 +1,4 @@
+import { ExactWorkflowPlanningWorkspace } from "./ExactWorkflowPlanningWorkspace";
 import { WorkflowIntakeWorkspace } from "./WorkflowIntakeWorkspace";
 import { CodexConnectionsPanel } from "./CodexConnectionsPanel";
 import { ProjectIntakeWorkspace } from "./ProjectIntakeWorkspace";
@@ -4106,9 +4107,9 @@ export function App(): JSX.Element {
           ) : isWorkflowInstanceForeground ? (
             workflowInstance && workflowPlanningSurface(workflowInstance) === "intake" ? <WorkflowIntakeWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} onPrepared={() => void openCurrentWorkflow(workflowInstance.workflowId)} />
               : workflowInstance && workflowPlanningSurface(workflowInstance) === "execution" ? <WorkflowExecutionWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
-              : workflowInstance && workflowPlanningSurface(workflowInstance) === "feature" ? <FeaturePlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
-              : workflowInstance && workflowPlanningSurface(workflowInstance) === "issue" ? <IssueWorkflowPlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
-              : workflowInstance && workflowPlanningSurface(workflowInstance) === "architect" ? <StructuredArchitectWorkspace key={workflowInstance.workflowId} workflowId={workflowInstance.workflowId} stageLabel="Architect Assessment" onReturn={returnToWorkflowType} browserCompanion={routedArchitectBrowserPanel} browserVisible={!!routedArchitectBrowserPanel} />
+              : workflowInstance && workflowPlanningSurface(workflowInstance) === "feature" ? <ExactWorkflowPlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
+              : workflowInstance && workflowPlanningSurface(workflowInstance) === "issue" ? <ExactWorkflowPlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
+              : workflowInstance && workflowPlanningSurface(workflowInstance) === "architect" ? <ExactWorkflowPlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
               : workflowInstance ? <WorkflowInstanceWorkspace workflow={workflowInstance} onReturn={returnToWorkflowType} />
               : <p role="status">Loading Workflow…</p>
           ) : isWorkflowTypeForeground && selectedWorkflowType ? (
