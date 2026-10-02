@@ -14,6 +14,7 @@ import type {
 } from "../shared/workspaceContracts";
 
 const api: ChampCityApi = {
+  exportMarkdownDocument: request => ipcRenderer.invoke("documents:exportMarkdown", request) as ReturnType<ChampCityApi["exportMarkdownDocument"]>,
   getStructuredWorkItemPlanning: (workflowId, workItemId) => ipcRenderer.invoke("workflow:workItemPlanningGet", workflowId, workItemId),
   saveStructuredWorkItemPlanning: (workflowId, workItemId, json) => ipcRenderer.invoke("workflow:workItemPlanningSave", workflowId, workItemId, json),
   reviewStructuredWorkItemPlanning: (workflowId, workItemId, input) => ipcRenderer.invoke("workflow:workItemPlanningReview", workflowId, workItemId, input),

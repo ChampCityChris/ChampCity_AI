@@ -1,4 +1,5 @@
-import { Clipboard, ExternalLink, FileText } from "lucide-react";
+import { Clipboard, FileText } from "lucide-react";
+import { useState } from "react";
 import type { PlanningDocumentDetail } from "../../shared/documents/planningDocument";
 import {
   PhaseMapDocumentPreview,
@@ -16,6 +17,7 @@ export function FigmaDocumentCard({
   feedback,
   neutralMessage = defaultNeutralMessage,
   onCopy,
+  onExport,
   onSelectSlot,
   selectedDocument,
   selectedSlotId,
@@ -25,13 +27,16 @@ export function FigmaDocumentCard({
   feedback: string;
   neutralMessage?: string;
   onCopy: () => void;
+  onExport?: (request: import("../../shared/workspaceContracts").MarkdownExportRequest) => void;
   onSelectSlot?: (slotId: string, logicalDocumentId?: string) => void;
   selectedDocument: PlanningDocumentDetail | null;
   selectedSlotId?: string | null;
   slots?: Array<{slotId: string; displayLabel: string; logicalDocumentId?: string}>;
 }): JSX.Element {
+  const [exportFeedback, setExportFeedback] = useState("");
   const hasTabs = slots.length > 1 && Boolean(onSelectSlot);
   const selectedStatus = selectedDocument?.effectiveDisposition ?? "Pending";
+  const displayMarkdown = selectedDocument?.bodyMarkdown ?? selectedDocument?.preview ?? "";
 
   return (
     <article className="figma-document-card" aria-label="Current document">
@@ -72,10 +77,11 @@ export function FigmaDocumentCard({
             <Clipboard aria-hidden="true" size={13} />
             Copy
           </button>
-          <button disabled title="Open document is not exposed through the current renderer API" type="button">
-            <ExternalLink aria-hidden="true" size={13} />
-            Open
-          </button>
+          {selectedDocument && (selectedDocument.bodyMarkdown !== undefined || selectedDocument.preview !== undefined) ? <button onClick={() => {
+            const request = {suggestedFilename: markdownFilename(selectedDocument.displayFilename), markdown: displayMarkdown};
+            if (onExport) onExport(request);
+            else void window.champcity.exportMarkdownDocument(request).then(result => setExportFeedback(result.status === "saved" ? `Markdown exported to ${result.path}` : "Markdown export cancelled.")).catch(reason => setExportFeedback(`Markdown export failed: ${reason instanceof Error ? reason.message : String(reason)}`));
+          }} type="button">Export Markdown…</button> : null}
         </div>
       </header>
 
@@ -90,7 +96,7 @@ export function FigmaDocumentCard({
         </div>
       ) : null}
 
-      {feedback ? <div className="document-feedback" role="status">{feedback}</div> : null}
+      {feedback || exportFeedback ? <div className="document-feedback" role="status">{exportFeedback || feedback}</div> : null}
 
       <div className="figma-document-card-body">
         {selectedDocument && shouldRenderPhaseMapDocumentPreview(selectedDocument) ? (
@@ -112,6 +118,11 @@ export function FigmaDocumentCard({
       </footer>
     </article>
   );
+}
+
+function markdownFilename(suggestion?: string): string {
+  const safe = (suggestion ?? "document.md").split(/[\\/]/).at(-1)!.replace(/[<>:"|?*\u0000-\u001f]/g, "_").replace(/[. ]+$/g, "").trim() || "document";
+  return `${safe.replace(/\.md$/i, "")}.md`;
 }
 
 export function FigmaMarkdownBody({ markdown }: { markdown: string }): JSX.Element {

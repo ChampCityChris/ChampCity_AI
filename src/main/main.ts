@@ -563,6 +563,21 @@ ipcMain.handle("documents:read", (_event, logicalDocumentId: string) => {
   return readPlanningDocument(getRequiredWorkspaceRoot(), logicalDocumentId);
 });
 
+ipcMain.handle("documents:exportMarkdown", async (_event, request: unknown): Promise<import("../shared/workspaceContracts").MarkdownExportResult> => {
+  if (!request || typeof request !== "object" || Array.isArray(request)) throw new Error("Markdown export request must be an object.");
+  const value = request as Record<string, unknown>;
+  if (Object.keys(value).sort().join("|") !== "markdown|suggestedFilename" || typeof value.markdown !== "string" || typeof value.suggestedFilename !== "string") throw new Error("Markdown export request fields are invalid.");
+  if (Buffer.byteLength(value.markdown, "utf8") > 1_000_000) throw new Error("Markdown export is limited to 1 MB.");
+  if (!value.suggestedFilename.trim() || value.suggestedFilename.length > 240 || /[\u0000-\u001f]/.test(value.suggestedFilename)) throw new Error("Markdown filename is invalid.");
+  const base = path.basename(value.suggestedFilename).replace(/[<>:"/\\|?*]/g, "_").replace(/[. ]+$/g, "").trim() || "document";
+  const suggestedFilename = `${base.replace(/\.md$/i, "")}.md`;
+  const options = {title: "Export Markdown", defaultPath: suggestedFilename, filters: [{name: "Markdown", extensions: ["md"]}]};
+  const result = mainWindow ? await dialog.showSaveDialog(mainWindow, options) : await dialog.showSaveDialog(options);
+  if (result.canceled || !result.filePath) return {status: "cancelled"};
+  fs.writeFileSync(result.filePath, value.markdown, {encoding: "utf8"});
+  return {status: "saved", path: result.filePath};
+});
+
 ipcMain.handle(
   "documents:setDisposition",
   (_event, logicalDocumentId: string, status: DocumentDispositionStatus): DocumentDispositionTransactionResult => {

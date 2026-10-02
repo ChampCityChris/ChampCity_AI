@@ -1917,6 +1917,16 @@ h1 {
   background: rgba(255, 255, 255, 0.1);
 }
 
+.figma-browser-toolbar-status {
+  min-width: 0;
+  margin-right: auto;
+  overflow: hidden;
+  color: #9aa0a6;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .figma-browser-address {
   display: flex;
   flex: 1;

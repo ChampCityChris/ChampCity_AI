@@ -18,20 +18,11 @@ export function FigmaBrowserPanel({
 
   return (
     <aside className="architect-surface-pane figma-browser-panel" aria-label="Embedded ChatGPT browser">
-      <div className="figma-browser-tabbar">
-        <div className="figma-browser-tab">
-          <span className="figma-browser-favicon" aria-hidden="true">G</span>
-          <strong>ChatGPT</strong>
-        </div>
-      </div>
       <div className="figma-browser-toolbar">
         <button onClick={onReload} title="Reload ChatGPT" type="button">
           <RefreshCw aria-hidden="true" size={12} />
         </button>
-        <div className="figma-browser-address" aria-label="Embedded browser destination">
-          <span aria-hidden="true">●</span>
-          <strong>chatgpt.com</strong>
-        </div>
+        <span className="figma-browser-toolbar-status">{statusLabel}</span>
         {retryVisible ? (
           <button onClick={onRetry} title="Retry browser attachment" type="button">
             <RotateCcw aria-hidden="true" size={12} />

@@ -1,5 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
+const React = require("react");
+const {renderToStaticMarkup} = require("react-dom/server");
 
 const {
   createArchitectAttachmentCoordinator,
@@ -12,6 +14,13 @@ const {
 const {
   reconcileArchitectBrowserBoundsAck,
 } = loadRendererSourceModule("src/renderer/app/architectBrowserBoundsOrchestration.ts");
+const {FigmaBrowserPanel} = loadRendererSourceModule("src/renderer/app/figma/FigmaBrowserPanel.tsx");
+
+test("shared browser panel keeps native host and real recovery controls without decorative browser chrome", () => {
+  const markup = renderToStaticMarkup(React.createElement(FigmaBrowserPanel, {hostRef: {current: null}, onReload() {}, onRetry() {}, retryVisible: true, statusLabel: "ChatGPT ready"}));
+  assert.match(markup, /architect-browser-host/); assert.match(markup, /Reload ChatGPT/); assert.match(markup, /Retry browser attachment/); assert.match(markup, /ChatGPT ready/);
+  assert.doesNotMatch(markup, /chatgpt\.com|figma-browser-tabbar|figma-browser-tab/);
+});
 
 test.beforeEach(() => {
   resetArchitectAttachmentGenerationForTest();

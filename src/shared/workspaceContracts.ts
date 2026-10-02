@@ -11,6 +11,9 @@ import type {
   PlanningDocumentSummary,
 } from "./documents/planningDocument";
 import type { DocumentDispositionStatus } from "./documents/documentDisposition";
+
+export interface MarkdownExportRequest { suggestedFilename: string; markdown: string }
+export type MarkdownExportResult = { status: "saved"; path: string } | { status: "cancelled" };
 import type {
   DevelopmentEnvironmentPreflightResult,
 } from "./developmentEnvironmentContracts";
@@ -1399,6 +1402,7 @@ export interface WorkspaceMigrationResult {
 }
 
 export interface ChampCityApi {
+  exportMarkdownDocument(request: MarkdownExportRequest): Promise<MarkdownExportResult>;
   getCloseAdvance(workflowId:string,scope:import("./closeAdvanceContracts").CloseAdvanceScope,entityId:string):Promise<import("./closeAdvanceContracts").CloseAdvanceProjection>;
   closeAndAdvance(input:import("./closeAdvanceContracts").CloseAdvanceRequest):Promise<import("./closeAdvanceContracts").CloseAdvanceProjection>;
   recordProjectCriterion(input:{workflowId:string;criterionId:string;expectedCriterionVersion:number;expectedWorkflowVersion:number;outcome:"approved"|"rejected"|"pass"|"fail";rationale:string}):Promise<import("./closeAdvanceContracts").CloseAdvanceProjection>;

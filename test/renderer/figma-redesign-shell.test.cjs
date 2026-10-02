@@ -193,7 +193,8 @@ test("Figma browser chrome hosts the production attachment surface and contains 
 
   assert.match(markup, /figma-browser-panel/);
   assert.match(markup, /architect-browser-host figma-browser-host/);
-  assert.match(markup, /chatgpt\.com/);
+  assert.doesNotMatch(markup, /chatgpt\.com/);
+  assert.doesNotMatch(markup, /figma-browser-tab|figma-browser-favicon|figma-browser-address/);
   assert.match(markup, /ChatGPT ready/);
   assert.doesNotMatch(markup, /Load context for current work card/);
   assert.doesNotMatch(markup, /Ready when you are/);
