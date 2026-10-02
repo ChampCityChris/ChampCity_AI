@@ -7,7 +7,7 @@ import { ARCHITECT_STAGE_BY_WORKFLOW, type ArchitectReviewDecisionInput } from "
 import { PLAN_BOUNDARY_REASONS, type PlanCandidate } from "../../shared/projectState/planReviewContracts";
 import { resolveWorkPlanningProfile } from "./workPlanningProfiles";
 import { selectProjectArchitectureContext } from "../../shared/projectState/projectArchitectureContext";
-import { currentIntake, intakeOperator } from "../workflow/workflowIntakeMigration";
+import { currentIntake, intakeOperator } from "../workflow/workflowIntakeState";
 import type { ProjectStateStore } from "../../shared/projectState/projectStateStore";
 import type { ProjectStateRecord } from "../../shared/projectState/domainContracts";
 

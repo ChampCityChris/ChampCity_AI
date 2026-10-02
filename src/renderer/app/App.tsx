@@ -68,8 +68,6 @@ import {
 import { WorkflowStageRail } from "./WorkflowStageRail";
 import { deriveWorkflowStageRailModel } from "./workflowStageRailModel";
 import { NestedWorkflowRail } from "./NestedWorkflowRail";
-import { IssueResolutionRail } from "./IssueResolutionRail";
-import { IssueResolutionWorkspace } from "./IssueResolutionWorkspace";
 import { IssueArchitectPlanningWorkspace } from "./IssueArchitectPlanningWorkspace";
 import { IssuePlanningWorkspace } from "./IssuePlanningWorkspace";
 import { IssueValidationWorkspace } from "./IssueValidationWorkspace";
@@ -150,13 +148,15 @@ import { WorkflowHubWorkspace } from "./WorkflowHubWorkspace";
 import { WorkflowTypeWorkspace } from "./WorkflowTypeWorkspace";
 import { WorkflowInstanceWorkspace } from "./WorkflowInstanceWorkspace";
 import { WorkflowExecutionWorkspace } from "./WorkflowExecutionWorkspace";
-import { FeaturePlanningWorkspace } from "./FeaturePlanningWorkspace";
-import { IssueWorkflowPlanningWorkspace } from "./IssueWorkflowPlanningWorkspace";
 import { SourceControlWorkspace } from "./SourceControlWorkspace";
 import { WorkIntakeWorkspace } from "./WorkIntakeWorkspace";
 import { StructuredWorkRoutingWorkspace } from "./StructuredWorkRoutingWorkspace";
 import { shouldAttachArchitectSurface } from "./architectSurfaceEligibility";
 import { shouldShowClosedWorkIntakeSummary, workflowPlanningSurface } from "./workflowPlanningDispatch";
+import { StructuredWorkflowWorkspace } from "./StructuredWorkflowWorkspace";
+import { ApplicationBrowserHost } from "./ApplicationBrowserHost";
+import { ApplicationSettingsController } from "./ApplicationSettingsController";
+import { OptionalWorkIntakeWorkspace } from "./OptionalWorkIntakeWorkspace";
 import type { WorkIntakeProjection } from "../../shared/workIntakeContracts";
 import { isWorkflowReviewDocument } from "./workflowReviewDocuments";
 import type { DirectWorkflowStartRequest, WorkflowInstanceSummary, WorkflowInventory } from "../../shared/workflowApplicationContracts";
@@ -227,7 +227,7 @@ const activeWorkCardResumeWorkspaceIds = new Set<WorkspaceId>([
 ]);
 export const settingsWorkspaceId = "settings" as WorkspaceId;
 
-type LegacyWorkflowForegroundId = "development" | "issue-resolution";
+type LegacyWorkflowForegroundId = "development";
 type ShellView = "landing" | "workflow-hub" | "workflow-type" | "workflow" | "workflow-instance" | "settings" | "work-intake" | "source-control";
 type SettingsReturnShellView = Exclude<ShellView, "landing" | "settings">;
 type ProjectEntryDestination = "workflow-hub" | "project-intake-capture";
@@ -292,18 +292,8 @@ export function App(): JSX.Element {
   const settingsReturnContext = useRef<SettingsReturnContext | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceSelection>(fallbackWorkspace);
   const [currentProject, setCurrentProject] = useState<CurrentProjectRuntimeContext | null>(null);
-  const [agentHarnessStatus, setAgentHarnessStatus] =
-    useState<AgentHarnessStatus | null>(null);
   const [agentHarnessServiceHostLifecycleStatus, setAgentHarnessServiceHostLifecycleStatus] =
     useState<AgentHarnessServiceHostLifecycleStatus | null>(null);
-  const [agentHarnessWorkspaceRegistry, setAgentHarnessWorkspaceRegistry] =
-    useState<AgentHarnessWorkspaceRegistrySnapshot | null>(null);
-  const [agentHarnessActionPending, setAgentHarnessActionPending] = useState<
-    "start" | "stop" | "restart" | "startBackgroundAgent" | "exitBackgroundAgent" | "restartServiceHost" | "importLegacyOAuthClients" | "registerWorkspace" | "unregisterWorkspace" | null
-  >(null);
-  const [agentHarnessSettingsPending, setAgentHarnessSettingsPending] = useState(false);
-  const [agentHarnessServiceHostSettingsPending, setAgentHarnessServiceHostSettingsPending] = useState(false);
-  const [agentHarnessActionFeedback, setAgentHarnessActionFeedback] = useState("");
   const [agentHarnessActionError, setAgentHarnessActionError] = useState("");
   const workflowInventoryRefreshRequestRef = useRef(0);
   const [documents, setDocuments] = useState<PlanningDocumentSummary[]>([]);
@@ -454,8 +444,8 @@ export function App(): JSX.Element {
   const isDevelopmentForeground =
     shellView === "workflow" && ((workflowInstance?.workflowType === "project-creation" &&
       selectedWorkflowId === workflowInstance.workflowId) || (!currentProject && activeWorkflowId === "development"));
-  const isIssueResolutionForeground =
-    shellView === "workflow" && activeWorkflowId === "issue-resolution";
+  // Issue Resolution now runs as an exact Structured Workflow through StructuredWorkflowWorkspace.
+  const isIssueResolutionForeground = false;
   const isIssueCodexExecutionForeground =
     isIssueResolutionForeground &&
     activeIssueStageId === "fix-cards" &&
@@ -469,11 +459,11 @@ export function App(): JSX.Element {
   const isWorkIntakeForeground = shellView === "work-intake";
   const isSourceControlForeground = shellView === "source-control";
   const shouldAttachEmbeddedArchitectSurface =
-    shouldAttachArchitectSurface({ intakeForeground: activeWorkspaceId === "project-intake-capture" || (isWorkflowInstanceForeground && workflowPlanningSurface(workflowInstance) === "intake"), paneVisible: isArchitectPaneVisible, developmentForeground: isDevelopmentForeground,
+    shouldAttachArchitectSurface({ intakeForeground: isDevelopmentForeground && activeWorkspaceId === "project-intake-capture", paneVisible: isArchitectPaneVisible, developmentForeground: isDevelopmentForeground,
       developmentBrowserAvailable: architectBrowserWorkspaceAvailable, workCardRepair: isWorkCardRepair,
       issueForeground: isIssueResolutionForeground, issueStageId: activeIssueStageId, issueFixCardStepId: activeIssueFixCardStepId,
-      workIntakeForeground: isWorkIntakeForeground, workIntakeStageId: selectedWorkIntakeId && selectedWorkflowId ? "routing" : "intake",
-      substantiveWorkflowForeground: isWorkflowInstanceForeground && !["generic", "intake"].includes(workflowPlanningSurface(workflowInstance)) });
+      workIntakeForeground: false, workIntakeStageId: selectedWorkIntakeId && selectedWorkflowId ? "routing" : "intake",
+      substantiveWorkflowForeground: false });
   const isSettingsWorkspace = shellView === "settings";
   const currentIssue = useMemo(
     () => issueInventory?.issues.find((issue) => issue.issueId === selectedIssueId) ?? null,
@@ -551,50 +541,6 @@ export function App(): JSX.Element {
     }).catch(() => { /* Retain the last current lifecycle projection. */ });
     return () => { disposed = true; };
   }, [shellView, activeWorkspaceId, activeIssueStageId, activeIssueFixCardStepId]);
-
-  useEffect(() => {
-    if (!isSettingsWorkspace) {
-      return;
-    }
-    let isDisposed = false;
-    const refresh = async (): Promise<void> => {
-      try {
-        const lifecycleStatus = await window.champcity.getAgentHarnessServiceHostLifecycleStatus();
-        if (!isDisposed) {
-          setAgentHarnessServiceHostLifecycleStatus(lifecycleStatus);
-        }
-        if (lifecycleStatus.explicitlyStopped) {
-          if (!isDisposed) {
-            setAgentHarnessStatus(null);
-          }
-          return;
-        }
-        const [status, workspaceRegistry] = await Promise.all([
-          window.champcity.getAgentHarnessStatus(),
-          window.champcity.listAgentHarnessRegisteredWorkspaces(),
-        ]);
-        if (!isDisposed) {
-          setAgentHarnessStatus(status);
-          setAgentHarnessWorkspaceRegistry(workspaceRegistry);
-        }
-      } catch {
-        if (!isDisposed) {
-          setAgentHarnessStatus(null);
-          // A failed refresh must not erase a known stale-host warning.
-          setAgentHarnessWorkspaceRegistry(null);
-        }
-      }
-    };
-    const stopPolling = startAgentHarnessSettingsPolling({
-      refresh,
-      setInterval: (callback, milliseconds) => window.setInterval(callback, milliseconds),
-      clearInterval: (handle) => window.clearInterval(handle),
-    });
-    return () => {
-      isDisposed = true;
-      stopPolling();
-    };
-  }, [isSettingsWorkspace]);
 
   useEffect(() => {
     return () => {
@@ -2475,7 +2421,7 @@ export function App(): JSX.Element {
         throw Error("Project Creation Workflow identity could not be verified.");
       setSelectedWorkflowId(opened.workflow.workflowId);
       setWorkflowInstance(opened.workflow);
-      setShellView("workflow");
+      setShellView("workflow-instance");
       setActiveWorkflowId(null);
       setActiveWorkspaceId("project-intake-capture");
       return;
@@ -2739,11 +2685,13 @@ export function App(): JSX.Element {
   async function openWorkIntakeForWorkflow(intakeId: string, routingWorkflowId: string): Promise<void> {
     const projection = await window.champcity.getWorkIntakeProjection();
     if (projection.authority !== "structured") throw Error("Current Project Work Intake routing is unavailable.");
-    const captured = projection.capturedIntakes?.find(item => item.intakeId === intakeId);
-    if (!captured) throw Error("The Work Intake for this Workflow is no longer available.");
-    setWorkIntakeProjection({ ...projection, currentCapturedIntake: captured });
+    const opened = await window.champcity.getWorkflow(routingWorkflowId);
+    if (opened.workflow.workflowType !== "work-intake-routing" || opened.workflow.workIntakeId !== intakeId)
+      throw Error("Exact Work Intake routing Workflow identity could not be verified.");
+    setWorkIntakeProjection(projection);
     setSelectedWorkIntakeId(intakeId);
     setSelectedWorkflowId(routingWorkflowId);
+    setWorkflowInstance(opened.workflow);
     setActiveWorkflowId(null);
     setShellView("work-intake");
   }
@@ -2766,8 +2714,7 @@ export function App(): JSX.Element {
       setWorkflowInstance(result.workflow);
       setActiveWorkflowId(null);
       if (result.workflow.workflowType === "project-creation") {
-        setActiveWorkspaceId("project-intake-capture");
-        setShellView("workflow");
+        setShellView("workflow-instance");
       } else setShellView("workflow-instance");
     } catch (failure) {
       setWorkflowHubError(failure instanceof Error ? failure.message : "Workflow could not be opened.");
@@ -3494,76 +3441,6 @@ export function App(): JSX.Element {
     }
   }
 
-  async function refreshAgentHarnessStatus(): Promise<AgentHarnessStatus | null> {
-    const lifecycle = await refreshAgentHarnessServiceHostLifecycleStatus();
-    if (lifecycle?.explicitlyStopped) {
-      setAgentHarnessStatus(null);
-      return null;
-    }
-    void refreshAgentHarnessWorkspaceRegistry();
-    try {
-      const status = await window.champcity.getAgentHarnessStatus();
-      setAgentHarnessStatus(status);
-      return status;
-    } catch (error) {
-      setAgentHarnessStatus(null);
-      setAgentHarnessActionError(error instanceof Error ? error.message : "Agent Harness status could not be loaded.");
-      return null;
-    }
-  }
-
-  async function refreshAgentHarnessWorkspaceRegistry(): Promise<AgentHarnessWorkspaceRegistrySnapshot | null> {
-    try {
-      const registry = await window.champcity.listAgentHarnessRegisteredWorkspaces();
-      setAgentHarnessWorkspaceRegistry(registry);
-      return registry;
-    } catch (error) {
-      setAgentHarnessWorkspaceRegistry(null);
-      setAgentHarnessActionError(
-        error instanceof Error ? error.message : "Registered MCP projects could not be loaded.",
-      );
-      return null;
-    }
-  }
-
-  async function addAgentHarnessWorkspace(): Promise<void> {
-    setAgentHarnessActionPending("registerWorkspace");
-    setAgentHarnessActionFeedback("");
-    setAgentHarnessActionError("");
-    try {
-      const result = await window.champcity.chooseAndRegisterAgentHarnessWorkspace();
-      setAgentHarnessWorkspaceRegistry(result.registry);
-      if (result.canceled) {
-        setAgentHarnessActionFeedback("MCP project registration canceled.");
-      } else {
-        setAgentHarnessActionFeedback(`Registered MCP project ${result.workspace.workspaceId}.`);
-      }
-      await refreshAgentHarnessStatus();
-    } catch (error) {
-      setAgentHarnessActionError(error instanceof Error ? error.message : "MCP project registration failed.");
-      await refreshAgentHarnessWorkspaceRegistry();
-    } finally {
-      setAgentHarnessActionPending(null);
-    }
-  }
-
-  async function removeAgentHarnessWorkspace(workspaceId: string): Promise<void> {
-    setAgentHarnessActionPending("unregisterWorkspace");
-    setAgentHarnessActionFeedback("");
-    setAgentHarnessActionError("");
-    try {
-      const registry = await window.champcity.unregisterAgentHarnessWorkspace(workspaceId);
-      setAgentHarnessWorkspaceRegistry(registry);
-      setAgentHarnessActionFeedback(`Unregistered MCP project ${workspaceId}.`);
-      await refreshAgentHarnessStatus();
-    } catch (error) {
-      setAgentHarnessActionError(error instanceof Error ? error.message : "MCP project removal failed.");
-      await refreshAgentHarnessWorkspaceRegistry();
-    } finally {
-      setAgentHarnessActionPending(null);
-    }
-  }
-
   async function preflightMcpHandoff(): Promise<boolean> {
     const status = await refreshAgentHarnessServiceHostLifecycleStatus();
     if (!status || status.restartRequired || status.explicitlyStopped) {
@@ -3594,142 +3471,6 @@ export function App(): JSX.Element {
         error instanceof Error ? error.message : "Background Agent lifecycle status could not be loaded.",
       );
       return null;
-    }
-  }
-
-  async function runAgentHarnessLifecycleAction(
-    action: "start" | "stop" | "restart",
-  ): Promise<void> {
-    setAgentHarnessActionPending(action);
-    setAgentHarnessActionFeedback("");
-    setAgentHarnessActionError("");
-    try {
-      const status = action === "start"
-        ? await window.champcity.startAgentHarness()
-        : action === "stop"
-        ? await window.champcity.stopAgentHarness()
-        : await window.champcity.restartAgentHarness();
-      setAgentHarnessStatus(status);
-      setAgentHarnessActionFeedback(`Agent Harness ${action} completed: ${status.state}.`);
-      await refreshAgentHarnessServiceHostLifecycleStatus();
-    } catch (error) {
-      setAgentHarnessActionError(error instanceof Error ? error.message : `Agent Harness ${action} failed.`);
-      await refreshAgentHarnessStatus();
-    } finally {
-      setAgentHarnessActionPending(null);
-    }
-  }
-
-  async function saveAgentHarnessServiceHostLifecycleSettings(
-    settings: AgentHarnessServiceHostLifecycleSettingsInput,
-  ): Promise<void> {
-    setAgentHarnessServiceHostSettingsPending(true);
-    setAgentHarnessActionFeedback("");
-    setAgentHarnessActionError("");
-    try {
-      const status = await window.champcity.saveAgentHarnessServiceHostLifecycleSettings(settings);
-      setAgentHarnessServiceHostLifecycleStatus(status);
-      setAgentHarnessActionFeedback(
-        `Background Agent Windows sign-in launch ${status.launchAtLogin ? "enabled" : "disabled"}.`,
-      );
-    } catch (error) {
-      setAgentHarnessActionError(
-        error instanceof Error ? error.message : "Background Agent lifecycle settings could not be saved.",
-      );
-      await refreshAgentHarnessServiceHostLifecycleStatus();
-    } finally {
-      setAgentHarnessServiceHostSettingsPending(false);
-    }
-  }
-
-  async function restartAgentHarnessServiceHost(): Promise<void> {
-    setAgentHarnessActionPending("restartServiceHost");
-    setAgentHarnessActionFeedback("");
-    setAgentHarnessActionError("");
-    try {
-      const lifecycle = await window.champcity.restartAgentHarnessServiceHost();
-      setAgentHarnessServiceHostLifecycleStatus(lifecycle);
-      setAgentHarnessActionFeedback("Background Agent restarted and confirmed the expected build generation.");
-      await refreshAgentHarnessStatus();
-    } catch (error) {
-      setAgentHarnessActionError(
-        error instanceof Error ? error.message : "Background Agent controlled restart failed.",
-      );
-      await refreshAgentHarnessServiceHostLifecycleStatus();
-    } finally {
-      setAgentHarnessActionPending(null);
-    }
-  }
-
-  async function startBackgroundAgent(): Promise<void> {
-    setAgentHarnessActionPending("startBackgroundAgent");
-    setAgentHarnessActionFeedback("");
-    setAgentHarnessActionError("");
-    try {
-      const lifecycle = await window.champcity.startBackgroundAgent();
-      setAgentHarnessServiceHostLifecycleStatus(lifecycle);
-      setAgentHarnessActionFeedback("Background Agent started.");
-      await refreshAgentHarnessStatus();
-    } catch (error) {
-      setAgentHarnessActionError(error instanceof Error ? error.message : "Background Agent could not be started.");
-      await refreshAgentHarnessServiceHostLifecycleStatus();
-    } finally {
-      setAgentHarnessActionPending(null);
-    }
-  }
-
-  async function exitBackgroundAgent(): Promise<void> {
-    setAgentHarnessActionPending("exitBackgroundAgent");
-    setAgentHarnessActionFeedback("");
-    setAgentHarnessActionError("");
-    try {
-      const lifecycle = await window.champcity.exitBackgroundAgent();
-      setAgentHarnessServiceHostLifecycleStatus(lifecycle);
-      setAgentHarnessStatus(null);
-      setAgentHarnessActionFeedback("Background Agent exited and will remain stopped for this login session.");
-    } catch (error) {
-      setAgentHarnessActionError(error instanceof Error ? error.message : "Background Agent could not be exited safely.");
-      await refreshAgentHarnessServiceHostLifecycleStatus();
-    } finally {
-      setAgentHarnessActionPending(null);
-    }
-  }
-
-  async function saveAgentHarnessSettings(settings: AgentHarnessSettingsInput): Promise<void> {
-    setAgentHarnessSettingsPending(true);
-    setAgentHarnessActionFeedback("");
-    setAgentHarnessActionError("");
-    try {
-      const status = await window.champcity.saveAgentHarnessSettings(settings);
-      setAgentHarnessStatus(status);
-      setAgentHarnessActionFeedback(`Agent Harness settings saved: ${status.state}.`);
-    } catch (error) {
-      setAgentHarnessActionError(error instanceof Error ? error.message : "Agent Harness settings could not be saved.");
-      await refreshAgentHarnessStatus();
-    } finally {
-      setAgentHarnessSettingsPending(false);
-    }
-  }
-
-  async function importLegacyOAuthClients(): Promise<void> {
-    setAgentHarnessActionPending("importLegacyOAuthClients");
-    setAgentHarnessActionFeedback("");
-    setAgentHarnessActionError("");
-    try {
-      const result = await window.champcity.importLegacyOAuthClients();
-      if (result.canceled) {
-        setAgentHarnessActionFeedback("Legacy OAuth client import canceled.");
-        return;
-      }
-      setAgentHarnessActionFeedback(
-        `Legacy OAuth clients imported: ${result.importedCount} new, ${result.alreadyPresentCount} already present.`,
-      );
-      await refreshAgentHarnessStatus();
-    } catch (error) {
-      setAgentHarnessActionError(error instanceof Error ? error.message : "Legacy OAuth client import failed.");
-      await refreshAgentHarnessStatus();
-    } finally {
-      setAgentHarnessActionPending(null);
     }
   }
 
@@ -3951,6 +3692,10 @@ export function App(): JSX.Element {
         retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
         statusLabel={architectBrowserPresentation(architectStatus).label}
       />
+  ) : null;
+  const architectBrowserColumn = isArchitectPaneVisible ? (
+    <div className="figma-browser-column">
+      {architectBrowserPanel}
       {activeWorkspaceId !== "architect-interview" && activeWorkspaceId !== "project-planning-review" && activeWorkspaceId !== "project-phase-map" && activeWorkspaceId !== "phase-interview" && activeWorkspaceId !== "phase-planning-bundle" ? <FigmaBrowserActionsPanel
         actionFeedback={architectActionFeedback}
         attachmentError={architectAttachmentError}
@@ -4008,45 +3753,22 @@ export function App(): JSX.Element {
       ) : substantiveIntakeStages ? (
         <WorkflowStageRail stages={substantiveIntakeStages} ariaLabel="Workflow pipeline" />
       ) : null}
-      {isIssueResolutionForeground ? (
-        <IssueResolutionRail
-          activeStageId={activeIssueStageId}
-          currentIssue={currentIssue}
-          activeFixCardStepId={activeIssueFixCardStepId}
-          fixCardProjection={issueFixCardProjection}
-          fixCardsAvailable={fixCardsAvailable}
-          issuePlanningAvailable={issuePlanningAvailable}
-          navigationProjection={issueNavigationProjection}
-          onFixCardStepChange={openIssueFixCardStep}
-          onStageChange={setActiveIssueStageId}
-        />
-      ) : null}
       <div className={isLandingForeground ? "app-body landing-app-body" : "app-body"}>
           {!isSettingsWorkspace && (agentHarnessServiceHostLifecycleStatus?.restartRequired || agentHarnessActionError) ? (
-            <div className="service-host-shell-notice">
-              <ServiceHostRemediation
-                lifecycleStatus={agentHarnessServiceHostLifecycleStatus}
-                isBusy={agentHarnessActionPending !== null}
-                onRestartServiceHost={() => void restartAgentHarnessServiceHost()}
-              />
-              {agentHarnessActionError ? (
-                <div className="agent-harness-message error" role="status">{agentHarnessActionError}</div>
-              ) : null}
+            <div className="service-host-shell-notice" role="status">
+              {agentHarnessServiceHostLifecycleStatus?.restartRequired ? <span>Restart the Background Agent from Settings before using MCP-dependent actions.</span> : null}
+              {agentHarnessActionError ? <span>{agentHarnessActionError}</span> : null}
+              <button type="button" onClick={openSettingsWorkspace}>Open Settings</button>
             </div>
           ) : null}
         {!isLandingForeground ? (
           <FigmaSidebar
             activeWorkspaceId={activeWorkspaceId}
             currentModel={currentModel}
-            currentIssue={currentIssue}
-            issueInventory={issueInventory}
-            issueWorkflowStatus={issueWorkflowStatus}
             isChoosing={isChoosing}
             mode={
               isDevelopmentForeground
                 ? "development"
-                : isIssueResolutionForeground
-                ? "issue-resolution"
                 : isSettingsWorkspace
                 ? "settings"
                 : isSourceControlForeground
@@ -4055,8 +3777,6 @@ export function App(): JSX.Element {
             }
             onChooseProject={chooseWorkspace}
             onClearProject={clearWorkspace}
-            onBrowseIssues={isIssueResolutionForeground ? browseIssuesFromSidebar : undefined}
-            onIssueSelect={isIssueResolutionForeground ? (issueId) => void selectIssueFromSidebar(issueId) : undefined}
             onOpenSettings={openSettingsWorkspace}
             onReturnToWorkflowHub={returnToWorkflowHub}
             onThemeChange={setThemeMode}
@@ -4073,7 +3793,6 @@ export function App(): JSX.Element {
             !isLandingForeground && usesFigmaWorkspaceBody ? "figma-workspace-surface" : "",
             isWorkflowHubForeground ? "workflow-hub-surface" : "",
             isSourceControlForeground ? "source-control-surface" : "",
-            isIssueResolutionForeground ? "issue-resolution-surface" : "",
             isSettingsWorkspace ? "settings-workspace-surface" : "",
             isVisibleArchitectOutputWorkspace ? "architect-interview-surface" : "",
             isWorkCardReportReview ? "review-validation-surface" : "",
@@ -4092,34 +3811,17 @@ export function App(): JSX.Element {
               onStartNewProject={() => void startNewProjectFromLanding()}
             />
           ) : isWorkIntakeForeground && workIntakeProjection?.authority === "structured" ? (
-            selectedWorkIntakeId && selectedWorkflowId ? (
-              <StructuredWorkRoutingWorkspace intakeId={selectedWorkIntakeId} routingWorkflowId={selectedWorkflowId}
-                browserPanel={routedArchitectBrowserPanel} onReloadBrowser={() => void reloadArchitectBrowser()}
-                onReturn={returnToWorkflowType} onRouted={workflowId => void openRoutedTargetWorkflow(workflowId)} />
-            ) : <WorkIntakeWorkspace key={`${workspace.workspaceRoot}-new`} projection={workIntakeProjection}
-              onReturn={returnToWorkflowType} onSaved={async (intakeId) => {
-                const refreshedProjection = await window.champcity.getWorkIntakeProjection();
-                const captured = refreshedProjection.capturedIntakes?.find(item => item.intakeId === intakeId);
-                const inventory = await refreshWorkflowInventory(null);
-                if (!inventory) throw Error("Workflow inventory could not be refreshed after saving Work Intake.");
-                const routing = inventory.groups.find(group => group.workflowType === "work-intake-routing")?.workflows.find(item => item.workIntakeId === intakeId);
-                if (!captured || !routing) throw Error("Saved Work Intake routing identity is unavailable.");
-                setWorkIntakeProjection({ ...refreshedProjection, currentCapturedIntake: captured });
-                setSelectedWorkIntakeId(intakeId);
-                setWorkflowInstance(null);
-                setSelectedWorkflowId(routing.workflowId);
-              }} />
+            <OptionalWorkIntakeWorkspace key={`${workspace.ok ? workspace.workspaceRoot : "none"}:${workflowInstance?.workflowId ?? "new"}`}
+              workflow={workflowInstance?.workflowType === "work-intake-routing" ? workflowInstance : null}
+              browserPanel={isArchitectPaneVisible ? <ApplicationBrowserHost /> : null}
+              onReturn={returnToWorkflowType} onRouted={workflowId => void openRoutedTargetWorkflow(workflowId)} />
           ) : isSourceControlForeground ? (
             <SourceControlWorkspace key={workspace.ok ? workspace.workspaceRoot : "none"}
               projectName={projectDisplayName(workspace)} onReturn={returnToWorkflowHub} />
           ) : isWorkflowInstanceForeground ? (
-            workflowInstance && workflowPlanningSurface(workflowInstance) === "intake" ? <WorkflowIntakeWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} onPrepared={() => void openCurrentWorkflow(workflowInstance.workflowId)} />
-              : workflowInstance && workflowPlanningSurface(workflowInstance) === "execution" ? <WorkflowExecutionWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
-              : workflowInstance && workflowPlanningSurface(workflowInstance) === "feature" ? <ExactWorkflowPlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
-              : workflowInstance && workflowPlanningSurface(workflowInstance) === "issue" ? <ExactWorkflowPlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
-              : workflowInstance && workflowPlanningSurface(workflowInstance) === "planning" ? <ExactWorkflowPlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
-              : workflowInstance && workflowPlanningSurface(workflowInstance) === "architect" ? <ExactWorkflowPlanningWorkspace key={workflowInstance.workflowId} workflow={workflowInstance} onReturn={returnToWorkflowType} browserPanel={routedArchitectBrowserPanel} />
-              : workflowInstance ? <WorkflowInstanceWorkspace workflow={workflowInstance} onReturn={returnToWorkflowType} />
+            workflowInstance ? <StructuredWorkflowWorkspace key={workflowInstance.workflowId} workflow={workflowInstance}
+              repositoryIdentity={workspace.ok ? workspace.workspaceRoot : ""} browserPanel={isArchitectPaneVisible ? <ApplicationBrowserHost /> : null}
+              onReturn={returnToWorkflowType} onOpen={workflowId => void openCurrentWorkflow(workflowId)} />
               : <p role="status">Loading Workflow…</p>
           ) : isWorkflowTypeForeground && selectedWorkflowType ? (
             <WorkflowTypeWorkspace key={selectedWorkflowType} workflowType={selectedWorkflowType}
@@ -4149,239 +3851,6 @@ export function App(): JSX.Element {
               />
               {documentError ? <p role="alert">{documentError}</p> : null}
             </>
-          ) : isIssueResolutionForeground && activeIssueStageId === "intake" ? (
-            <IssueResolutionWorkspace
-              currentIssue={currentIssue}
-              error={issueInventoryError}
-              inventory={issueInventory}
-              isCreating={isIssueCreating}
-              isLoading={isIssueInventoryLoading}
-              onCreateIssue={createIssue}
-              onRefresh={() => void refreshIssueInventory()}
-              onSelectIssue={setSelectedIssueId}
-              projectName={projectDisplayName(workspace)}
-            />
-          ) : isIssueResolutionForeground && activeIssueStageId === "architect-planning" ? (
-            <IssueArchitectPlanningWorkspace
-              actionError={issueArchitectActionError}
-              actionFeedback={issueArchitectActionFeedback}
-              browserPanel={
-                <FigmaBrowserPanel
-                  hostRef={architectHostRef}
-                  onReload={() => void reloadArchitectBrowser()}
-                  onRetry={() => void retryArchitectBrowser()}
-                  retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
-                  statusLabel={architectBrowserPresentation(architectStatus).label}
-                />
-              }
-              currentIssue={currentIssue}
-              isActionPending={isIssueArchitectActionPending}
-              onApplyReview={runIssueArchitectReview}
-              onCopyHandoff={() => void runMcpHandoff(() => runIssueArchitectAction(window.champcity.copyIssueArchitectPlanningHandoff))}
-              onPrepareHandoff={() => void runMcpHandoff(() => runIssueArchitectAction(window.champcity.prepareIssueArchitectPlanningHandoff))}
-              onRefresh={() => {
-                void refreshIssueInventory();
-                void refreshIssueArchitectPlanningProjection(currentIssue?.issueId);
-                void refreshArchitectStatus();
-              }}
-              onReloadBrowser={() => void reloadArchitectBrowser()}
-              projection={issueArchitectProjection}
-              projectName={projectDisplayName(workspace)}
-            />
-          ) : isIssueResolutionForeground && activeIssueStageId === "issue-planning" ? (
-            <IssuePlanningWorkspace
-              actionError={issuePlanningActionError}
-              actionFeedback={issuePlanningActionFeedback}
-              browserPanel={
-                <FigmaBrowserPanel
-                  hostRef={architectHostRef}
-                  onReload={() => void reloadArchitectBrowser()}
-                  onRetry={() => void retryArchitectBrowser()}
-                  retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
-                  statusLabel={architectBrowserPresentation(architectStatus).label}
-                />
-              }
-              currentIssue={currentIssue}
-              isActionPending={isIssuePlanningActionPending}
-              onApplyReview={runIssuePlanningReview}
-              onCopyHandoff={() => void runMcpHandoff(() => runIssuePlanningAction(window.champcity.copyIssuePlanningHandoff))}
-              onPrepareHandoff={() => void runMcpHandoff(() => runIssuePlanningAction(window.champcity.prepareIssuePlanningHandoff))}
-              onRefresh={() => {
-                void refreshIssueInventory();
-                void refreshIssuePlanningProjection(currentIssue?.issueId);
-                void refreshArchitectStatus();
-              }}
-              onReloadBrowser={() => void reloadArchitectBrowser()}
-              projection={issuePlanningProjection}
-              projectName={projectDisplayName(workspace)}
-            />
-          ) : isIssueResolutionForeground && activeIssueStageId === "fix-cards" && activeIssueFixCardStepId === "fix-card-map" ? (
-            <IssueFixCardMapWorkspace
-              actionError={issuePlanningActionError}
-              actionFeedback={issuePlanningActionFeedback}
-              actionPending={isIssuePlanningActionPending}
-              currentIssue={currentIssue}
-              fixCardProjection={issueFixCardProjection}
-              isLoading={issuePlanningProjectionRefreshInFlightRef.current !== null}
-              onRefresh={() => {
-                void refreshIssueInventory();
-                void refreshIssuePlanningProjection(currentIssue?.issueId);
-                void refreshIssueResolutionNavigationProjection(currentIssue?.issueId);
-                void refreshIssueFixCardProjection(currentIssue?.issueId, activeIssueFixCardStepId);
-              }}
-              onSelectCandidate={(fixCardId) => void selectIssueFixCardCandidate(fixCardId)}
-              projection={issuePlanningProjection}
-              projectName={projectDisplayName(workspace)}
-            />
-          ) : isIssueResolutionForeground && activeIssueStageId === "fix-cards" && activeIssueFixCardStepId === "planning" ? (
-            <IssueFixCardPlanningWorkspace
-              activeStepLabel={activeIssueFixCardStepLabel}
-              agentHarnessStatus={agentHarnessStatus}
-              actionError={issuePlanningActionError}
-              actionFeedback={issuePlanningActionFeedback}
-              actionPending={isIssuePlanningActionPending || isCodexExecutionActionRunning}
-              browserPanel={
-                <FigmaBrowserPanel
-                  hostRef={architectHostRef}
-                  onReload={() => void reloadArchitectBrowser()}
-                  onRetry={() => void retryArchitectBrowser()}
-                  retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
-                  statusLabel={architectBrowserPresentation(architectStatus).label}
-                />
-              }
-              currentIssue={currentIssue}
-              fixCardProjection={issueFixCardProjection}
-              onApplyContractReview={runIssueFixCardContractReview}
-              onCopyPlanningHandoff={() => void runMcpHandoff(() => runIssueFixCardAction(window.champcity.copyIssueFixCardPlanningHandoff))}
-              onPreparePlanningHandoff={() => void runMcpHandoff(() => runIssueFixCardAction(window.champcity.prepareIssueFixCardPlanningHandoff))}
-              onRefresh={() => {
-                void refreshIssueInventory();
-                void refreshIssuePlanningProjection(currentIssue?.issueId);
-                void refreshIssueFixCardProjection(currentIssue?.issueId, activeIssueFixCardStepId);
-                void refreshArchitectStatus();
-              }}
-              onReloadBrowser={() => void reloadArchitectBrowser()}
-              projectName={projectDisplayName(workspace)}
-            />
-          ) : isIssueResolutionForeground && activeIssueStageId === "fix-cards" && activeIssueFixCardStepId === "implement" ? (
-            <section className="issue-fix-card-step-workspace-body" aria-labelledby="workspace-heading">
-              <header className="issue-resolution-header">
-                <div>
-                  <span>Issue Resolution</span>
-                  <h1 id="workspace-heading">Fix Card Implement</h1>
-                  <p>{`Run the shared Codex Implementer against the selected Issue-owned Fix Card.`}</p>
-                </div>
-              </header>
-              <IssueFixCardContextStrip
-                activeStepLabel={activeIssueFixCardStepLabel}
-                currentIssue={currentIssue}
-                fixCardProjection={issueFixCardProjection}
-              />
-              <IssueFixCardImplementWorkspace
-                actionError={issuePlanningActionError}
-                actionFeedback={issuePlanningActionFeedback}
-                codexExecution={issueCodexExecution}
-                fixCardProjection={issueFixCardProjection}
-                isActionPending={isIssuePlanningActionPending || isCodexExecutionActionRunning}
-                onCancelCodex={() => void cancelCodexImplementerExecution()}
-                onRecoverImplementSetup={() => void runIssueFixCardAction(window.champcity.reserveIssueFixCardImplementerReport)}
-                onResolveEnvironment={() => void repairIssueDevelopmentEnvironment()}
-                onRespondToCodexMcpElicitation={(requestId, action, content) =>
-                  void respondToCodexMcpElicitation(requestId, action, content)}
-                onRespondToCodexApproval={(requestId, decision) => void respondToCodexApproval(requestId, decision)}
-                onRespondToCodexUserInput={(requestId, answers) => void respondToCodexUserInput(requestId, answers)}
-                onRunCodex={(selection) => void startIssueCodexImplementerExecution(selection)}
-              />
-            </section>
-          ) : isIssueResolutionForeground && activeIssueStageId === "fix-cards" && activeIssueFixCardStepId === "review-validation" ? (
-            <IssueFixCardReviewValidationWorkspace
-              key={`${currentIssue?.issueId ?? "none"}:${issueFixCardProjection?.currentImplementationId ?? "none"}`}
-              activeStepLabel={activeIssueFixCardStepLabel}
-              actionError={issuePlanningActionError}
-              actionFeedback={issuePlanningActionFeedback}
-              actionPending={isIssuePlanningActionPending}
-              browserPanel={
-                <FigmaBrowserPanel
-                  hostRef={architectHostRef}
-                  onReload={() => void reloadArchitectBrowser()}
-                  onRetry={() => void retryArchitectBrowser()}
-                  retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
-                  statusLabel={architectBrowserPresentation(architectStatus).label}
-                />
-              }
-              currentIssue={currentIssue}
-              fixCardProjection={issueFixCardProjection}
-              onApplyDecision={(input) => void runIssueFixCardValidationDecision(input)}
-              onCopyAdvisoryPrompt={() => void runIssueFixCardAction(window.champcity.copyIssueFixCardAdvisoryReviewPrompt)}
-              onRefresh={() => {
-                void refreshIssueInventory();
-                void refreshIssuePlanningProjection(currentIssue?.issueId);
-                void refreshIssueFixCardProjection(currentIssue?.issueId, activeIssueFixCardStepId);
-                void refreshArchitectStatus();
-              }}
-              onReloadBrowser={() => void reloadArchitectBrowser()}
-              projectName={projectDisplayName(workspace)}
-            />
-          ) : isIssueResolutionForeground && activeIssueStageId === "fix-cards" && activeIssueFixCardStepId === "repair" ? (
-            <IssueFixCardRepairWorkspace
-              key={`${currentIssue?.issueId ?? "none"}:${issueFixCardProjection?.currentImplementationId ?? "none"}`}
-              actionError={issuePlanningActionError}
-              actionFeedback={issuePlanningActionFeedback}
-              actionPending={isIssuePlanningActionPending}
-              browserPanel={
-                <FigmaBrowserPanel
-                  hostRef={architectHostRef}
-                  onReload={() => void reloadArchitectBrowser()}
-                  onRetry={() => void retryArchitectBrowser()}
-                  retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
-                  statusLabel={architectBrowserPresentation(architectStatus).label}
-                />
-              }
-              currentIssue={currentIssue}
-              fixCardProjection={issueFixCardProjection}
-              onApplyContractReview={runIssueFixCardContractReview}
-              onCopyRepairHandoff={() => void runMcpHandoff(() => runIssueFixCardAction(window.champcity.copyIssueFixCardRepairHandoff))}
-              onPrepareRepairHandoff={() => void runMcpHandoff(() => runIssueFixCardAction(window.champcity.prepareIssueFixCardRepairHandoff))}
-              onRefresh={() => {
-                void refreshIssueInventory();
-                void refreshIssuePlanningProjection(currentIssue?.issueId);
-                void refreshIssueFixCardProjection(currentIssue?.issueId, activeIssueFixCardStepId);
-                void refreshArchitectStatus();
-              }}
-              onReloadBrowser={() => void reloadArchitectBrowser()}
-            />
-          ) : isIssueResolutionForeground && activeIssueStageId === "fix-cards" && activeIssueFixCardStepId === "close-next" ? (
-            <IssueFixCardCloseWorkspace
-              actionError={issuePlanningActionError}
-              actionFeedback={issuePlanningActionFeedback}
-              actionPending={isIssuePlanningActionPending}
-              currentIssue={currentIssue}
-              fixCardProjection={issueFixCardProjection}
-              onClose={() => void runIssueFixCardClose()}
-            />
-          ) : isIssueResolutionForeground && activeIssueStageId === "issue-validation" ? (
-            <IssueValidationWorkspace
-              key={`${currentIssue?.issueId ?? "none"}:${issueValidationProjection?.currentAttemptNumber ?? "pending"}`}
-              actionError={issuePlanningActionError}
-              actionFeedback={issuePlanningActionFeedback}
-              actionPending={isIssuePlanningActionPending}
-              currentIssue={currentIssue}
-              onApplyDecision={(input) => void runIssueValidationDecision(input)}
-              onRefresh={() => void refreshIssueValidationProjection(currentIssue?.issueId, { synchronizeStage: true })}
-              projection={issueValidationProjection}
-            />
-          ) : isIssueResolutionForeground && activeIssueStageId === "issue-close" ? (
-            <IssueCloseWorkspace
-              key={`${currentIssue?.issueId ?? "none"}:${issueCloseProjection?.closeRecord.revision ?? "pending"}`}
-              actionError={issueCloseActionError}
-              actionFeedback={issueCloseActionFeedback}
-              actionPending={isIssueCloseActionPending}
-              currentIssue={currentIssue}
-              isLoading={isIssueCloseLoading}
-              onClose={(input) => void runIssueClose(input)}
-              onRefresh={() => void refreshIssueCloseProjection(currentIssue?.issueId, { synchronizeStage: true })}
-              projection={issueCloseProjection}
-            />
           ) : (
           <>
           {!isWorkCardMap && activeWorkspaceId !== "project-intake-capture" && activeWorkspaceId !== "work-card-intake" && activeWorkspaceId !== "phase-planning-bundle" && activeWorkspaceId !== "phase-interview" ? (
@@ -4401,9 +3870,7 @@ export function App(): JSX.Element {
                 />
                 <FigmaHeaderStatus
                   label="Harness"
-                  value={agentHarnessStatus
-                    ? `${agentHarnessStatus.state} / ${agentHarnessStatus.registeredWorkspaceCount} registered`
-                    : "Unavailable"}
+                  value="Settings"
                   mono
                 />
                 {selectedDocument ? (
@@ -4471,31 +3938,7 @@ export function App(): JSX.Element {
           ) : null}
 
           {isSettingsWorkspace ? (
-            <AgentHarnessSettingsWorkspace
-              actionError={agentHarnessActionError}
-              actionFeedback={agentHarnessActionFeedback}
-              actionPending={agentHarnessActionPending}
-              lifecycleSavePending={agentHarnessServiceHostSettingsPending}
-              lifecycleStatus={agentHarnessServiceHostLifecycleStatus}
-              onRefresh={() => void refreshAgentHarnessStatus()}
-              onExitBackgroundAgent={() => void exitBackgroundAgent()}
-              onImportLegacyOAuthClients={() => void importLegacyOAuthClients()}
-              onRegisterWorkspace={() => void addAgentHarnessWorkspace()}
-              onRestart={() => void runAgentHarnessLifecycleAction("restart")}
-              onRestartServiceHost={() => void restartAgentHarnessServiceHost()}
-              onReturn={returnFromSettingsWorkspace}
-              onSaveConfiguration={(settings) => void saveAgentHarnessSettings(settings)}
-              onSaveServiceHostLifecycleSettings={(settings) =>
-                void saveAgentHarnessServiceHostLifecycleSettings(settings)}
-              onStartBackgroundAgent={() => void startBackgroundAgent()}
-              onStart={() => void runAgentHarnessLifecycleAction("start")}
-              onStop={() => void runAgentHarnessLifecycleAction("stop")}
-              onUnregisterWorkspace={(workspaceId) => void removeAgentHarnessWorkspace(workspaceId)}
-              savePending={agentHarnessSettingsPending}
-              selectedProjectName={projectDisplayName(workspace)}
-              status={agentHarnessStatus}
-              workspaceRegistry={agentHarnessWorkspaceRegistry}
-            />
+            <ApplicationSettingsController projectName={projectDisplayName(workspace)} onReturn={returnFromSettingsWorkspace} />
           ) : null}
 
           {isPhaseMapFigmaWorkspace ? <StructuredPhaseMapWorkspace workflowId={greenfieldArchitectWorkflowId} browserPanel={architectBrowserPanel} onNext={async () => {await refreshCurrentModel(); setActiveWorkspaceId("phase-interview");}} /> : null}
@@ -5139,453 +4582,6 @@ export interface AgentHarnessSettingsForm {
   port: string;
   publicBaseUrl: string;
   localAuthenticationMode: AgentHarnessAuthenticationMode;
-}
-
-export function agentHarnessSettingsFormFromStatus(
-  status: AgentHarnessStatus | null,
-): AgentHarnessSettingsForm {
-  return {
-    enabled: status?.enabled ?? true,
-    host: status?.host ?? "127.0.0.1",
-    port: status?.configuredPort.toString() ?? "0",
-    publicBaseUrl: status?.publicBaseUrl ?? "",
-    localAuthenticationMode: status?.localAuthenticationMode ?? "oauth-required",
-  };
-}
-
-export function buildAgentHarnessSettingsInput(
-  form: AgentHarnessSettingsForm,
-): AgentHarnessSettingsInput {
-  return {
-    enabled: form.enabled,
-    host: form.host.trim(),
-    port: form.port.trim() === "" ? "0" : form.port.trim(),
-    publicBaseUrl: form.publicBaseUrl.trim() || null,
-    localAuthenticationMode: form.localAuthenticationMode,
-  };
-}
-
-export function ServiceHostRemediation({ lifecycleStatus, isBusy, onRestartServiceHost }: {
-  lifecycleStatus: AgentHarnessServiceHostLifecycleStatus | null;
-  isBusy: boolean;
-  onRestartServiceHost: () => void;
-}): JSX.Element | null {
-  if (!lifecycleStatus?.restartRequired) return null;
-  return (
-    <section className="agent-harness-message error service-host-remediation" role="status" aria-label="Background Agent update required">
-      <div className="service-host-remediation-message">
-        <strong>Background Agent update required</strong>
-        <p>The running Background Agent belongs to a different ChampCity build generation.</p>
-        <p>MCP-dependent work may fail or use stale loaded runtime state until the Background Agent is replaced.</p>
-      </div>
-      <div className="service-host-remediation-actions">
-        <button disabled={isBusy} onClick={onRestartServiceHost} type="button">Restart Background Agent</button>
-      </div>
-    </section>
-  );
-}
-
-export function AgentHarnessSettingsWorkspace({
-  actionError,
-  actionFeedback,
-  actionPending,
-  lifecycleSavePending,
-  lifecycleStatus,
-  onExitBackgroundAgent,
-  onImportLegacyOAuthClients,
-  onRegisterWorkspace,
-  onRefresh,
-  onRestart,
-  onRestartServiceHost,
-  onReturn,
-  onSaveConfiguration,
-  onSaveServiceHostLifecycleSettings,
-  onStartBackgroundAgent,
-  onStart,
-  onStop,
-  onUnregisterWorkspace,
-  savePending,
-  selectedProjectName,
-  status,
-  workspaceRegistry,
-}: {
-  actionError: string;
-  actionFeedback: string;
-  actionPending: "start" | "stop" | "restart" | "startBackgroundAgent" | "exitBackgroundAgent" | "restartServiceHost" | "importLegacyOAuthClients" | "registerWorkspace" | "unregisterWorkspace" | null;
-  lifecycleSavePending: boolean;
-  lifecycleStatus: AgentHarnessServiceHostLifecycleStatus | null;
-  onExitBackgroundAgent: () => void;
-  onImportLegacyOAuthClients: () => void;
-  onRegisterWorkspace: () => void;
-  onRefresh: () => void;
-  onRestart: () => void;
-  onRestartServiceHost: () => void;
-  onReturn: () => void;
-  onSaveConfiguration: (settings: AgentHarnessSettingsInput) => void;
-  onSaveServiceHostLifecycleSettings: (settings: AgentHarnessServiceHostLifecycleSettingsInput) => void;
-  onStartBackgroundAgent: () => void;
-  onStart: () => void;
-  onStop: () => void;
-  onUnregisterWorkspace: (workspaceId: string) => void;
-  savePending: boolean;
-  selectedProjectName: string;
-  status: AgentHarnessStatus | null;
-  workspaceRegistry: AgentHarnessWorkspaceRegistrySnapshot | null;
-}): JSX.Element {
-  const [settingsForm, setSettingsForm] = useState<AgentHarnessSettingsForm>(() =>
-    agentHarnessSettingsFormFromStatus(status),
-  );
-  const [settingsFormDirty, setSettingsFormDirty] = useState(false);
-  const configuredPort = status?.configuredPort === 0
-    ? "Auto"
-    : status?.configuredPort?.toString() ?? "Unavailable";
-  const isBusy = Boolean(actionPending) || savePending || lifecycleSavePending;
-  const backgroundAgentStopped = lifecycleStatus?.explicitlyStopped === true;
-
-  useEffect(() => {
-    if (!settingsFormDirty) {
-      setSettingsForm(agentHarnessSettingsFormFromStatus(status));
-    }
-  }, [
-    settingsFormDirty,
-    status?.configuredPort,
-    status?.enabled,
-    status?.host,
-    status?.localAuthenticationMode,
-    status?.publicBaseUrl,
-  ]);
-
-  function updateSettingsForm<K extends keyof AgentHarnessSettingsForm>(
-    key: K,
-    value: AgentHarnessSettingsForm[K],
-  ): void {
-    setSettingsFormDirty(true);
-    setSettingsForm((current) => ({
-      ...current,
-      [key]: value,
-    }));
-  }
-
-  function submitSettings(event: FormEvent<HTMLFormElement>): void {
-    event.preventDefault();
-    setSettingsFormDirty(false);
-    onSaveConfiguration(buildAgentHarnessSettingsInput(settingsForm));
-  }
-
-  return (
-    <section className="settings-workspace" aria-label="Settings workspace">
-      <header className="settings-workspace-header">
-        <div>
-          <span>Settings</span>
-          <h2>Agent Harness</h2>
-        </div>
-        <div className="settings-workspace-actions">
-          <button onClick={onReturn} type="button">
-            <RotateCcw aria-hidden="true" size={14} />
-            Return
-          </button>
-          <button onClick={onRefresh} type="button">
-            <RefreshCw aria-hidden="true" size={14} />
-            Refresh
-          </button>
-        </div>
-      </header>
-
-      <CodexConnectionsPanel />
-      <div className="agent-harness-control-strip" aria-label="Agent Harness controls">
-        <div className={`agent-harness-state ${status?.state ?? "unavailable"}`}>
-          <span>MCP Runtime</span>
-          <strong>{status?.state ?? "unavailable"}</strong>
-        </div>
-        <button disabled={isBusy || backgroundAgentStopped} onClick={onStart} type="button">
-          <Play aria-hidden="true" size={14} />
-          Start MCP Runtime
-        </button>
-        <button disabled={isBusy || backgroundAgentStopped} onClick={onStop} type="button">
-          <Square aria-hidden="true" size={13} />
-          Stop MCP Runtime
-        </button>
-        <button disabled={isBusy || backgroundAgentStopped} onClick={onRestart} type="button">
-          <RotateCcw aria-hidden="true" size={14} />
-          Restart MCP Runtime
-        </button>
-      </div>
-
-      {actionFeedback ? (
-        <div className="agent-harness-message success" role="status">{actionFeedback}</div>
-      ) : null}
-      {actionError || lifecycleStatus?.lastError || status?.lastError ? (
-        <div className="agent-harness-message error" role="status">
-          {actionError || lifecycleStatus?.lastError || status?.lastError}
-        </div>
-      ) : null}
-
-      <section className="settings-panel settings-panel-wide" aria-label="Background Agent lifecycle">
-        <header>
-          <span>Background Agent</span>
-          <strong>{backgroundAgentLifecycleLabel(lifecycleStatus)}</strong>
-        </header>
-        <div className="settings-workspace-actions">
-          {backgroundAgentStopped ? (
-            <button disabled={isBusy} onClick={onStartBackgroundAgent} type="button">Start Background Agent</button>
-          ) : (
-            <button disabled={isBusy || !lifecycleStatus?.serviceHostProcessId} onClick={onExitBackgroundAgent} type="button">Exit Background Agent</button>
-          )}
-        </div>
-        <label className="agent-harness-checkbox-row">
-          <input
-            checked={lifecycleStatus?.launchAtLogin ?? true}
-            disabled={isBusy || lifecycleStatus?.startupRegistrationSupported === false}
-            onChange={(event) => onSaveServiceHostLifecycleSettings({
-              launchAtLogin: event.currentTarget.checked,
-            })}
-            type="checkbox"
-          />
-          <span>Start Background Agent for my Windows user at sign-in</span>
-        </label>
-        <SettingsFacts
-          facts={[
-            ["Background Agent State", backgroundAgentLifecycleLabel(lifecycleStatus)],
-            ["Service Host PID", lifecycleStatus?.serviceHostProcessId?.toString() ?? "Unavailable"],
-            ["Worker PID", lifecycleStatus?.workerProcessId?.toString() ?? "Unavailable"],
-            ["Worker Recovery", lifecycleStatus?.workerRecoveryState ?? "idle"],
-            ["Power Epoch", lifecycleStatus?.powerEpoch?.toString() ?? "0"],
-            ["Recovery Reason", lifecycleStatus?.reason ?? "None"],
-            ["Heartbeat Misses", lifecycleStatus?.consecutiveHeartbeatMisses?.toString() ?? "0"],
-            ["Runtime Build", lifecycleStatus?.runtimeBuildIdentity?.slice(0, 23) ?? "Unavailable"],
-            ["Startup Trigger Scope", startupRegistrationScopeLabel(lifecycleStatus?.startupRegistrationScope)],
-            ["Login Registration", lifecycleStatus?.loginItemRegistered ? "Exact trigger detected" : "Exact trigger not detected"],
-            ["Executable Will Launch", yesNo(lifecycleStatus?.executableWillLaunchAtLogin)],
-            ["Windows Registration Supported", yesNo(lifecycleStatus?.startupRegistrationSupported)],
-          ]}
-        />
-        <ServiceHostRemediation
-          lifecycleStatus={lifecycleStatus}
-          isBusy={isBusy}
-          onRestartServiceHost={onRestartServiceHost}
-        />
-      </section>
-
-      <form className="agent-harness-settings-form" aria-label="Agent Harness configuration" onSubmit={submitSettings}>
-        <label className="agent-harness-checkbox-row">
-          <input
-            checked={settingsForm.enabled}
-            disabled={isBusy}
-            onChange={(event) => updateSettingsForm("enabled", event.currentTarget.checked)}
-            type="checkbox"
-          />
-          <span>Start MCP Runtime when Background Agent starts</span>
-        </label>
-        <label>
-          <span>Host</span>
-          <input
-            disabled={isBusy}
-            onChange={(event) => updateSettingsForm("host", event.currentTarget.value)}
-            value={settingsForm.host}
-          />
-        </label>
-        <label>
-          <span>Port</span>
-          <input
-            disabled={isBusy}
-            inputMode="numeric"
-            min="0"
-            max="65535"
-            onChange={(event) => updateSettingsForm("port", event.currentTarget.value)}
-            type="number"
-            value={settingsForm.port}
-          />
-        </label>
-        <label>
-          <span>Public Base URL</span>
-          <input
-            disabled={isBusy}
-            onChange={(event) => updateSettingsForm("publicBaseUrl", event.currentTarget.value)}
-            placeholder="https://connector.example.test/champcity"
-            value={settingsForm.publicBaseUrl}
-          />
-        </label>
-        <label>
-          <span>Authentication</span>
-          <select
-            disabled={isBusy}
-            onChange={(event) =>
-              updateSettingsForm(
-                "localAuthenticationMode",
-                event.currentTarget.value as AgentHarnessAuthenticationMode,
-              )}
-            value={settingsForm.localAuthenticationMode}
-          >
-            <option value="oauth-required">OAuth required</option>
-            <option value="local-unauthenticated">Local unauthenticated</option>
-          </select>
-        </label>
-        <button disabled={isBusy} type="submit">
-          Save Settings
-        </button>
-      </form>
-
-      <div className="settings-grid">
-        <GithubProviderSettings />
-        <section className="settings-panel settings-panel-wide" aria-label="Registered MCP Projects">
-          <header>
-            <span>Registered MCP Projects</span>
-            <strong>{workspaceRegistry?.workspaces.length ?? 0} projects</strong>
-          </header>
-          <SettingsFacts
-            facts={[
-              ["Registry", workspaceRegistry?.state ?? "unavailable"],
-              ["Desktop-selected project", selectedProjectName],
-              ["MCP routing", "Exact registered workspaceId"],
-            ]}
-          />
-          <button
-            className="settings-inline-action"
-            disabled={isBusy}
-            onClick={onRegisterWorkspace}
-            type="button"
-          >
-            <FolderOpen aria-hidden="true" size={14} />
-            Add Project
-          </button>
-          <ul className="settings-tool-list" aria-label="Registered MCP project list">
-            {(workspaceRegistry?.workspaces ?? []).map((registeredWorkspace) => (
-              <li key={registeredWorkspace.workspaceId}>
-                <span>
-                  {registeredWorkspace.repositoryName} / {registeredWorkspace.workspaceId} / {registeredWorkspace.availability}
-                </span>
-                <button
-                  disabled={isBusy}
-                  onClick={() => onUnregisterWorkspace(registeredWorkspace.workspaceId)}
-                  type="button"
-                >
-                  Remove
-                </button>
-              </li>
-            ))}
-            {workspaceRegistry?.state === "failed" ? <li>{workspaceRegistry.error}</li> : null}
-            {workspaceRegistry?.state === "ready" && workspaceRegistry.workspaces.length === 0
-              ? <li>No MCP projects registered</li>
-              : null}
-            {!workspaceRegistry ? <li>Registry unavailable</li> : null}
-          </ul>
-        </section>
-
-        <section className="settings-panel" aria-label="Local service">
-          <header>
-            <span>Local Service</span>
-          </header>
-          <SettingsFacts
-            facts={[
-              ["MCP Endpoint", status?.mcpEndpoint ?? "Not running"],
-              ["Health Endpoint", status?.healthEndpoint ?? "Not running"],
-              ["Host", status?.host ?? "Unavailable"],
-              ["Configured Port", configuredPort],
-              ["Active Port", status?.port?.toString() ?? "Not running"],
-            ]}
-          />
-        </section>
-
-        <section className="settings-panel" aria-label="Public connector">
-          <header>
-            <span>Public Connector</span>
-          </header>
-          <button
-            className="settings-inline-action"
-            disabled={isBusy}
-            onClick={onImportLegacyOAuthClients}
-            type="button"
-          >
-            <FileText aria-hidden="true" size={14} />
-            Import Legacy OAuth Clients
-          </button>
-          <SettingsFacts
-            facts={[
-              ["Public Base URL", status?.publicBaseUrl ?? "Not configured"],
-              ["Public URL Configured", yesNo(status?.publicBaseUrlConfigured)],
-              ["OAuth", status?.oauthConfigured ? "Configured" : "Not configured"],
-              ["Auth Mode", status?.localAuthenticationMode ?? "Unavailable"],
-              ["files.read Transport", accessGrantedLabel(status?.filesReadTransportAuthorized)],
-              ["files.write Transport", accessGrantedLabel(status?.filesWriteTransportAuthorized)],
-              ["Registered Clients", status?.registeredClientCount.toString() ?? "Unavailable"],
-              ["Active Tokens", status?.activeOAuthTokenCount.toString() ?? "Unavailable"],
-              ["Active files.read Grants", status?.activeFilesReadAuthorizationCount.toString() ?? "Unavailable"],
-              ["Active files.write Grants", status?.activeFilesWriteAuthorizationCount.toString() ?? "Unavailable"],
-            ]}
-          />
-        </section>
-
-        <section className="settings-panel" aria-label="Tool exposure">
-          <header>
-            <span>Tool Exposure</span>
-            <strong>{status?.publicToolCount ?? 0} tools</strong>
-          </header>
-          <ul className="settings-tool-list">
-            {(status?.publicToolNames ?? []).map((toolName) => (
-              <li key={toolName}>{toolName}</li>
-            ))}
-            {status && status.publicToolNames.length === 0 ? <li>No public tools exposed</li> : null}
-            {!status ? <li>Unavailable</li> : null}
-          </ul>
-        </section>
-
-        <section className="settings-panel settings-panel-wide" aria-label="Diagnostics">
-          <header>
-            <span>Diagnostics</span>
-          </header>
-          <ol className="settings-activity-list">
-            {(status?.recentActivity ?? []).map((entry) => (
-              <li key={entry}>{entry}</li>
-            ))}
-            {status && status.recentActivity.length === 0 ? <li>No lifecycle activity recorded</li> : null}
-            {!status ? <li>Status unavailable</li> : null}
-          </ol>
-        </section>
-      </div>
-    </section>
-  );
-}
-
-function SettingsFacts({
-  facts,
-}: {
-  facts: Array<[string, string]>;
-}): JSX.Element {
-  return (
-    <dl className="settings-facts">
-      {facts.map(([label, value]) => (
-        <div key={label}>
-          <dt>{label}</dt>
-          <dd>{value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-export function backgroundAgentLifecycleLabel(
-  lifecycleStatus: AgentHarnessServiceHostLifecycleStatus | null,
-): string {
-  if (lifecycleStatus?.explicitlyStopped) {
-    return "Stopped by user";
-  }
-  return lifecycleStatus?.state ?? "unavailable";
-}
-
-export function startupRegistrationScopeLabel(
-  scope: AgentHarnessServiceHostLifecycleStatus["startupRegistrationScope"] | undefined,
-): string {
-  if (scope === "machine") return "Machine managed for everyone";
-  if (scope === "user") return "Current Windows user";
-  return "Unavailable";
-}
-
-function yesNo(value: boolean | undefined): string {
-  return value ? "Yes" : "No";
-}
-
-function accessGrantedLabel(value: boolean | undefined): string {
-  return value ? "Access granted" : "No access grant";
 }
 
 export function FigmaActionWorkspace({

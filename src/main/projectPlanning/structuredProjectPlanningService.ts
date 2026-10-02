@@ -3,7 +3,7 @@ import path from "node:path";
 import {createSQLiteProjectStateStore} from "../projectState/sqliteProjectStateStore";
 import {selectedCurrentProjectId} from "../projectState/currentProjectRegistrationService";
 import {createProjectStateService} from "../../shared/projectState/projectStateService";
-import {intakeOperator} from "../workflow/workflowIntakeMigration";
+import {intakeOperator} from "../workflow/workflowIntakeState";
 import type {ProjectPlanningCandidate} from "../../shared/projectState/projectPlanningReviewContracts";
 import type {ArchitectReviewDecisionInput} from "../../shared/projectState/architectReviewContracts";
 

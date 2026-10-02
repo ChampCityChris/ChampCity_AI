@@ -5,11 +5,9 @@ import {createSQLiteProjectStateStore} from "../projectState/sqliteProjectStateS
 import {selectedCurrentProjectId} from "../projectState/currentProjectRegistrationService";
 import {createProjectStateService} from "../../shared/projectState/projectStateService";
 import {parseWorkItemPlanningJson} from "../../shared/projectState/workItemPlanningContracts";
-import {intakeOperator} from "../workflow/workflowIntakeMigration";
+import {intakeOperator} from "../workflow/workflowIntakeState";
 import {createWorkflowExecutionApplicationService} from "../workflow/workflowExecutionApplicationService";
 import type {ArchitectReviewDecisionInput} from "../../shared/projectState/architectReviewContracts";
-import {listPlanningDocuments, evaluateDocumentFreshness} from "../documents/planningDocumentService";
-import {createHash} from "node:crypto";
 
 export function createStructuredWorkItemPlanningService() {
   async function withState<T>(root: string, work: (state: ReturnType<typeof createProjectStateService>, projectId: string) => Promise<T>) {
@@ -22,19 +20,6 @@ export function createStructuredWorkItemPlanningService() {
     let plan = await state.getWorkflowExecutionPlan(projectId, workflowId);
     let item = [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].find(record => record.id === workItemId);
     if (!item || plan.workflow.lifecycleState !== "active" || plan.workflow.body.workflowState !== "active") throw Error("Exact current accepted Workflow WorkItem required.");
-    if (!item.body.contractRevision && !item.body.implementationBoundaries?.length) {
-      const documents = listPlanningDocuments(root).filter(document => document.metadata.artifactType === "formal-work-card" && document.metadata.canonical?.identity.workItemId === workItemId && document.documentReadState === "readable" && evaluateDocumentFreshness(root, document.logicalDocumentId).state === "fresh");
-      if (documents.length > 1) throw Error("Ambiguous exact Formal Work Card metadata; submit fresh typed output.");
-      const document = documents[0], supplied = document?.metadata.canonical?.workflowData.workItemContract;
-      if (supplied && typeof supplied === "object") {
-        const contract = parseWorkItemPlanningJson(JSON.stringify(supplied));
-        if (contract.workflowId !== workflowId || contract.workItemId !== workItemId || contract.expectedVersion !== item.recordVersion || contract.decomposition) throw Error("Legacy structured Formal Work Card identity/version is not exact; submit fresh output.");
-        item = await state.saveWorkItemPlanningContract(projectId, contract);
-        await state.recordEvidence(projectId, item.id, {evidenceType: "legacy-formal-contract-import", description: "Exact typed Formal Work Card metadata; free-form body retained as history", mediaType: "text/markdown", payloadRef: `repository:${encodeURIComponent(document.markdownPath)}`, digest: createHash("sha256").update(JSON.stringify(document.metadata.canonical)).digest("hex")});
-        if (document.effectiveDisposition === "Approved") await state.recordWorkItemPlanningReview(projectId, workflowId, item.id, {expectedRecordVersion: item.recordVersion, outcome: "approved", notes: "Adopt exact previously reviewed structured Formal Work Card contract."});
-        plan = await state.getWorkflowExecutionPlan(projectId, workflowId);
-      }
-    }
     const review = await state.getWorkItemPlanningReview(projectId, workItemId);
     const criteria = plan.criteria.filter(entry => entry.ownerId === workItemId);
     const phase = plan.phases.find(entry => entry.workItemIds.includes(workItemId));

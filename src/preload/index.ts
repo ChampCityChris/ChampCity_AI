@@ -14,6 +14,7 @@ import type {
 } from "../shared/workspaceContracts";
 
 const api: ChampCityApi = {
+  getGreenfieldNavigation: workflowId => ipcRenderer.invoke("workflow:greenfieldNavigation", workflowId) as ReturnType<ChampCityApi["getGreenfieldNavigation"]>,
   exportMarkdownDocument: request => ipcRenderer.invoke("documents:exportMarkdown", request) as ReturnType<ChampCityApi["exportMarkdownDocument"]>,
   getStructuredWorkItemPlanning: (workflowId, workItemId) => ipcRenderer.invoke("workflow:workItemPlanningGet", workflowId, workItemId),
   saveStructuredWorkItemPlanning: (workflowId, workItemId, json) => ipcRenderer.invoke("workflow:workItemPlanningSave", workflowId, workItemId, json),
@@ -63,7 +64,6 @@ const api: ChampCityApi = {
   closeAndAdvance:input=>ipcRenderer.invoke("closeAdvance:close",input),
   recordProjectCriterion:input=>ipcRenderer.invoke("closeAdvance:projectCriterion",input),
   getStructuredWorkItemReview: (workflowId,workItemId) => ipcRenderer.invoke("workReview:get",workflowId,workItemId),
-  migrateStructuredWorkItemReview: (workflowId,workItemId) => ipcRenderer.invoke("workReview:migrate",workflowId,workItemId),
   getWorkflowExecutionProjection: workflowId => ipcRenderer.invoke("workflow:executionProjection", workflowId) as ReturnType<ChampCityApi["getWorkflowExecutionProjection"]>,
   decomposeWorkflowWorkItem: input => ipcRenderer.invoke("workflow:decomposeWorkItem", input) as ReturnType<ChampCityApi["decomposeWorkflowWorkItem"]>,
   acceptWorkflowWorkItemExecutionPlan: input => ipcRenderer.invoke("workflow:acceptWorkItemExecutionPlan", input) as ReturnType<ChampCityApi["acceptWorkflowWorkItemExecutionPlan"]>,

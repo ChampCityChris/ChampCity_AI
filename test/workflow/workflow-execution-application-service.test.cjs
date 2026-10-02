@@ -1106,7 +1106,7 @@ test('exact WorkItem planning requires current Operator review and rejects unsup
   const result=await service.decompose(env.root,created.workflow.id,id,JSON.stringify(proposal)); assert.equal(result.result.replacements.length,2);
   const corrected=await env.state.getWorkflowExecutionPlan(env.projectId,created.workflow.id); assert.equal(corrected.phases.length,2); assert.equal(corrected.directWorkItems.length,0); assert.equal(corrected.criteria.filter(entry=>entry.record.body.criticality==='required').length,2);
 });
-test('exact typed legacy Formal metadata migrates once while free-form prose remains historical evidence', async context => {
+test('typed legacy Formal metadata and prose remain inert historical evidence', async context => {
   const env=await setup(context), created=await env.state.createSubstantiveWorkflow(env.projectId,{workflowType:'feature-capability',title:'Legacy typed work',entryWorkspace:'feature-intake'});
   await env.state.acceptWorkflowPlanningGraph(env.projectId,graph(created.workflow.id,'direct','feature',[{key:'legacy_work',kind:'feature',title:'Legacy work',objective:'Explicit bounded result',dependencyKeys:[],criteria:[]}]));
   const id=(await env.state.getWorkflowExecutionPlan(env.projectId,created.workflow.id)).directWorkItems[0].id;
@@ -1114,8 +1114,8 @@ test('exact typed legacy Formal metadata migrates once while free-form prose rem
   const contract={workflowId:created.workflow.id,workItemId:id,expectedVersion:1,implementationBoundaries:['Only typed scope'],affectedPaths:[],proofIntent:['Verify typed scope'],criteria:[{statement:'Imported exact obligation',criticality:'required',verificationIntent:'Review imported result',validationPolicy:'operator_decision'}]};
   writer({workspaceRoot:env.root,relativePath:file,metadata:{schemaVersion:1,artifactType:'formal-work-card',artifactRevision:1,participationRole:'gatingReview',identity:{workItemId:id},sourceRevisions:[],workflowData:{workItemContract:contract},documentDisposition:{status:'Approved',notes:'Previously reviewed exact typed semantics',reviewedAt:new Date().toISOString()}},bodyMarkdown:'# Historical prose\nInvented completion is not authoritative.'});
   const original=fs.readFileSync(path.join(env.root,file),'utf8'), service=require('../../dist/main/workCardPlanning/structuredWorkItemPlanningService.js').createStructuredWorkItemPlanningService();
-  let model=await service.get(env.root,created.workflow.id,id); assert.equal(model.review.disposition.state,'approved'); assert.match(model.markdown,/Imported exact obligation/); assert.doesNotMatch(model.markdown,/Invented completion/); assert.equal(model.workItem.recordVersion,2); assert.equal(fs.readFileSync(path.join(env.root,file),'utf8'),original);
-  fs.unlinkSync(path.join(env.root,file)); model=await service.get(env.root,created.workflow.id,id); assert.equal(model.workItem.recordVersion,2); assert.equal(model.review.disposition.state,'approved'); assert.equal((await env.store.listEntities(env.projectId,'WorkItem')).length,1);
+  let model=await service.get(env.root,created.workflow.id,id); assert.equal(model.review.disposition.state,'none'); assert.doesNotMatch(model.markdown,/Imported exact obligation/); assert.doesNotMatch(model.markdown,/Invented completion/); assert.equal(model.workItem.recordVersion,1); assert.equal(fs.readFileSync(path.join(env.root,file),'utf8'),original);
+  fs.unlinkSync(path.join(env.root,file)); model=await service.get(env.root,created.workflow.id,id); assert.equal(model.workItem.recordVersion,1); assert.equal(model.review.disposition.state,'none'); assert.equal((await env.store.listEntities(env.projectId,'WorkItem')).length,1);
 });
 test('all six exact Workflow types execute direct and phased SQL WorkItems without weakening family or source rules', async context => {
   const env=await setup(context), kernel=createWorkflowExecutionApplicationService(), registry=require('../../dist/shared/projectState/workflowTypeRegistry.js');

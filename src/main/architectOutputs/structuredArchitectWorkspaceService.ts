@@ -5,7 +5,7 @@ import { architectCandidateHandoffContract, type ArchitectCandidateSaveInput, ty
 import { ARCHITECT_STAGE_BY_WORKFLOW, ARCHITECT_WORKSPACE_BY_WORKFLOW, type ArchitectReviewDecisionInput } from "../../shared/projectState/architectReviewContracts";
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
 import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
-import { currentIntake, intakeOperator } from "../workflow/workflowIntakeMigration";
+import { currentIntake, intakeOperator } from "../workflow/workflowIntakeState";
 import { selectProjectArchitectureContext } from "../../shared/projectState/projectArchitectureContext";
 import { architectReviewDocument, writeArchitectReviewProjection } from "./architectReviewProjectionWriter";
 import { intakeReviewDocument } from "../workflow/workflowIntakeProjectionWriter";

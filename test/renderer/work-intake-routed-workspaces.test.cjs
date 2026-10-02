@@ -236,7 +236,7 @@ test("App routed handoff opens the exact target Workflow instance", async () => 
   const open = new Function("refreshWorkflowInventory", "window", "setSelectedWorkflowType", "setSelectedWorkflowId",
     "setWorkflowInstance", "setActiveWorkflowId", "setShellView", "setWorkflowHubError", `${js}; return openRoutedTargetWorkflow;`)(
     async id => { assert.equal(id, target); return { groups: [{ workflows: [{ workflowId: target }] }] }; },
-    { champcity: { getWorkflow: async id => { assert.equal(id, target); return { workflow: { workflowId: target, workflowType: "refactor-migration" } }; } } },
+    { champcity: { getWorkflow: async id => { assert.equal(id, target); return { workflow: { workflowId: target, workflowType: "refactor-migration" } }; }, selectStructuredWorkflowAuthority: async id => assert.equal(id, target) } },
     value => { state.type = value; }, value => { state.id = value; }, value => { state.instance = value; },
     value => { state.active = value; }, value => { state.view = value; }, value => { state.error = value; });
   await open(target);

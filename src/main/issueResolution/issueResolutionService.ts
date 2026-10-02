@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { assertLegacyCanonicalWriteAllowed } from "../documents/legacyCanonicalWriteFence";
+import { assertLegacyCanonicalReadAllowed, assertLegacyCanonicalWriteAllowed } from "../documents/legacyCanonicalWriteFence";
 import { readRoutedIssueExecutionPlan } from "../planExecution/issueExecutionPlan";
 import { acceptIssueExecutionPhase, issuePhaseAcceptancePath, projectIssueExecution } from "../planExecution/issueExecutionAdapter";
 import crypto from "node:crypto";
@@ -198,6 +198,7 @@ function createIssueProjectionReadContext(
   workspaceRoot: string,
   purpose: IssueProjectionReadContext["purpose"] = "read",
 ): IssueProjectionReadContext {
+  assertLegacyCanonicalReadAllowed(workspaceRoot);
   const context = {
     workspaceRoot: path.resolve(workspaceRoot),
     purpose,
@@ -431,6 +432,7 @@ export function createLightweightIssueRecord(
   afterCreate?: (created: { createdIssueId: string; createdRecordPath: string }) => void,
 ): CreateIssueResult {
   const resolvedRoot = path.resolve(workspaceRoot);
+  assertLegacyCanonicalWriteAllowed(resolvedRoot);
   const title = requiredInput(input.title, "Title is required.");
   const issue = requiredInput(input.issue, "Issue is required.");
   const currentConsequence = requiredInput(

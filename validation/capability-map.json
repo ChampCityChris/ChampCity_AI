@@ -567,8 +567,8 @@
           "description": "Architect refresh fingerprints distinguish repository, revision, and disposition changes"
         },
         {
-          "behaviorId": "architect-review-acknowledgment-binds-exact-workflow-cycle-revision",
-          "description": "Architect review acknowledgment binds exact Workflow cycle revision"
+          "behaviorId": "architect-review-disposition-is-direct-for-current-exact-revision",
+          "description": "Architect review disposition is directly available for the current exact revision"
         },
         {
           "behaviorId": "architect-review-marks-only-the-displayed-readable-current-revision-as-viewed",
@@ -653,10 +653,6 @@
         {
           "behaviorId": "missing-and-conflicting-repair-basis-are-non-mutating-and-cannot-redirect-unrelated-current-work",
           "description": "missing and conflicting Repair basis are non-mutating and cannot redirect unrelated current work"
-        },
-        {
-          "behaviorId": "missing-or-stale-architect-prerequisites-cannot-retain-review-eligibility",
-          "description": "missing or stale Architect prerequisites cannot retain review eligibility"
         },
         {
           "behaviorId": "missing-slot-revision-or-logical-document-does-not-mark-viewed",
@@ -753,6 +749,10 @@
         {
           "behaviorId": "superseded-submissions-do-not-promote-and-cleanup-removes-only-expected-drafts",
           "description": "superseded submissions do not promote and cleanup removes only expected drafts"
+        },
+        {
+          "behaviorId": "typed-architect-review-command-rejects-stale-expected-record-version",
+          "description": "typed Architect review commands reject stale expected record versions"
         },
         {
           "behaviorId": "work-card-planning-browser-actions-prepare-and-copy-a-formal-work-card-revision-request",
@@ -2289,20 +2289,8 @@
           "description": "aggregate Issue Validation is unavailable until every current Fix Card has valid close record"
         },
         {
-          "behaviorId": "aggregate-issue-validation-revision-renders-explicit-corrective-planning-basis-and-actions",
-          "description": "aggregate Issue Validation revision renders explicit corrective planning basis and actions"
-        },
-        {
-          "behaviorId": "aggregate-issue-validation-workspace-presents-exact-issue-plan-close-record-and-explicit-non-rep",
-          "description": "aggregate Issue Validation workspace presents exact Issue, plan, close record, and explicit non-Repair decisions"
-        },
-        {
           "behaviorId": "all-valid-close-records-derive-issue-validation-eligibility-without-implementing-that-workspace",
           "description": "all valid close records derive Issue Validation eligibility without implementing that workspace"
-        },
-        {
-          "behaviorId": "an-invalid-candidate-rejects-its-complete-paste-without-mutating-accepted-evidence",
-          "description": "an invalid candidate rejects its complete paste without mutating accepted evidence"
         },
         {
           "behaviorId": "approved-aggregate-validation-binds-the-exact-current-source-set-rejects-stale-renderer-evidence",
@@ -2311,22 +2299,6 @@
         {
           "behaviorId": "bounded-screenshot-evidence-policy",
           "description": "Issue screenshot evidence is admitted only within the approved format, count, size, dimension, and containment policy."
-        },
-        {
-          "behaviorId": "clipboard-decision-logic-leaves-text-only-paste-native-and-handles-unreadable-advertised-images",
-          "description": "clipboard decision logic leaves text-only paste native and handles unreadable advertised images"
-        },
-        {
-          "behaviorId": "clipboard-intake-modules-have-no-direct-native-filesystem-imports",
-          "description": "clipboard intake modules have no direct native filesystem imports"
-        },
-        {
-          "behaviorId": "closed-and-needs-attention-projections-never-expose-another-close-issue-action",
-          "description": "Closed and Needs Attention projections never expose another Close Issue action"
-        },
-        {
-          "behaviorId": "closed-routed-issue-offers-return-to-work-intake-integration",
-          "description": "Closed routed Issue offers return to originating Work Intake Integration"
         },
         {
           "behaviorId": "controlled-fix-card-dispositions-are-bound-to-the-exact-reviewed-body",
@@ -2343,10 +2315,6 @@
         {
           "behaviorId": "controlled-repair-survives-process-loss-preserves-invalid-bytes-and-promotes-the-corrected-same",
           "description": "controlled Repair survives process loss, preserves invalid bytes, and promotes the corrected same identity into shared disposition"
-        },
-        {
-          "behaviorId": "create-in-flight-image-paste-is-suppressed-before-screenshot-work-can-be-admitted",
-          "description": "create-in-flight image paste is suppressed before screenshot work can be admitted"
         },
         {
           "behaviorId": "current-nine-card-mixed-origin-approved-state-makes-issue-close-available-and-current",
@@ -2397,22 +2365,6 @@
           "description": "Fix Card planning handoff applies shared validation scope guidance without disturbing controlled context"
         },
         {
-          "behaviorId": "fix-card-planning-reports-published-mcp-readiness-without-inventing-remote-client-uptake",
-          "description": "Fix Card Planning reports published MCP readiness without inventing remote client uptake"
-        },
-        {
-          "behaviorId": "fix-cards-map-workspace-renders-approved-map-state-without-owning-nested-step-routing",
-          "description": "Fix Cards Map workspace renders approved map state without owning nested step routing"
-        },
-        {
-          "behaviorId": "fix-cards-map-workspace-renders-issue-owned-unavailable-state-instead-of-development-body",
-          "description": "Fix Cards Map workspace renders Issue-owned unavailable state instead of Development body"
-        },
-        {
-          "behaviorId": "image-bitmap-dimensions-are-read-once-and-the-decoded-resource-is-immediately-closed",
-          "description": "image bitmap dimensions are read once and the decoded resource is immediately closed"
-        },
-        {
           "behaviorId": "invalid-bootstrap-adoption-drafts-preserve-both-old-current-planning-files",
           "description": "invalid bootstrap adoption drafts preserve both old current planning files"
         },
@@ -2425,20 +2377,12 @@
           "description": "invalid screenshot evidence is rejected before any Issue artifact is created"
         },
         {
-          "behaviorId": "issue-close-adapter-reuses-the-work-card-close-presentation-with-exact-issue-evidence-and-explic",
-          "description": "Issue Close adapter reuses the Work Card Close presentation with exact Issue evidence and explicit return action"
-        },
-        {
           "behaviorId": "issue-close-exposes-exact-fc08-evidence-and-rejects-a-stale-reviewed-basis-hash-without-writing",
           "description": "Issue Close exposes exact FC08 evidence and rejects a stale reviewed basis hash without writing"
         },
         {
           "behaviorId": "issue-close-remains-unavailable-before-exact-current-approved-validateresolved-aggregate-basis",
           "description": "Issue Close remains unavailable before exact current Approved ValidateResolved aggregate basis"
-        },
-        {
-          "behaviorId": "issue-close-workspace-presents-exact-issue-ordered-fix-cards-approved-validation-and-one-final-a",
-          "description": "Issue Close workspace presents exact Issue, ordered Fix Cards, Approved validation, and one final action"
         },
         {
           "behaviorId": "issue-close-writes-one-canonical-issue-owned-terminal-record-and-reconstructs-closed-without-ove",
@@ -2453,36 +2397,8 @@
           "description": "Issue Fix Card close writes exact validation basis, returns to Map, and unlocks the next dependency"
         },
         {
-          "behaviorId": "issue-fix-card-combined-review-validation-owns-advisory-browser-controls-and-operator-decisions",
-          "description": "Issue Fix Card combined Review & Validation owns advisory browser controls and Operator decisions"
-        },
-        {
-          "behaviorId": "issue-fix-card-implement-exposes-issue-scoped-environment-resolution",
-          "description": "Issue Fix Card Implement exposes Issue-scoped environment resolution"
-        },
-        {
-          "behaviorId": "issue-fix-card-implement-is-a-sibling-workspace-that-owns-the-shared-codex-console",
-          "description": "Issue Fix Card Implement is a sibling workspace that owns the shared Codex console"
-        },
-        {
-          "behaviorId": "issue-fix-card-implement-presents-recovery-action-and-visible-action-and-codex-failures",
-          "description": "Issue Fix Card Implement presents recovery action and visible action and Codex failures"
-        },
-        {
-          "behaviorId": "issue-fix-card-map-is-a-map-only-workspace-with-explicit-candidate-selection",
-          "description": "Issue Fix Card Map is a map-only workspace with explicit candidate selection"
-        },
-        {
-          "behaviorId": "issue-fix-card-map-renders-candidate-selection-errors-in-the-map-workspace",
-          "description": "Issue Fix Card Map renders candidate selection errors in the map workspace"
-        },
-        {
           "behaviorId": "issue-fix-card-map-reports-noncanonical-lifecycle-artifacts-as-needs-attention-without-mutating",
           "description": "Issue Fix Card Map reports noncanonical lifecycle artifacts as Needs Attention without mutating the plan"
-        },
-        {
-          "behaviorId": "issue-fix-card-planning-reuses-shared-document-review-presentation-with-controlled-draft-browser",
-          "description": "Issue Fix Card Planning reuses shared document review presentation with controlled draft browser actions"
         },
         {
           "behaviorId": "issue-fix-card-projection-derives-the-current-workspace-from-repository-evidence-instead-of-requ",
@@ -2505,14 +2421,6 @@
           "description": "Issue Fix Card validation binds exact evidence and exposes Close without inferring completion"
         },
         {
-          "behaviorId": "issue-intake-always-renders-bounded-clipboard-screenshot-guidance-without-an-upload-surface",
-          "description": "Issue Intake always renders bounded clipboard screenshot guidance without an upload surface"
-        },
-        {
-          "behaviorId": "issue-intake-renders-selected-record-read-only-and-bounded-new-issue-fields",
-          "description": "Issue Intake renders selected record read-only and bounded New Issue fields"
-        },
-        {
           "behaviorId": "issue-navigation-is-generation-coherent-and-observes-external-edits-next-call",
           "description": "Issue navigation is generation-coherent and observes external edits next call"
         },
@@ -2529,28 +2437,12 @@
           "description": "Issue Planning eligibility follows approved Proceed Architect Planning only"
         },
         {
-          "behaviorId": "issue-planning-pre-promotion-surface-keeps-handoff-actions-and-no-disposition-panel",
-          "description": "Issue Planning pre-promotion surface keeps handoff actions and no disposition panel"
-        },
-        {
           "behaviorId": "issue-planning-reads-a-complete-approved-planning-evidence-set-once-per-path",
           "description": "Issue Planning reads a complete approved planning evidence set once per path"
         },
         {
           "behaviorId": "issue-planning-review-mutation-returns-a-fresh-post-write-projection",
           "description": "Issue Planning review mutation returns a fresh post-write projection"
-        },
-        {
-          "behaviorId": "issue-planning-workspace-presents-planning-documents-fix-card-map-disposition-and-browser-action",
-          "description": "Issue Planning workspace presents planning documents, Fix Card Map, disposition, and browser actions"
-        },
-        {
-          "behaviorId": "issue-rail-unlocks-issue-planning-from-eligibility-and-fix-cards-only-from-approved-planning",
-          "description": "Issue rail unlocks Issue Planning from eligibility and Fix Cards only from approved planning"
-        },
-        {
-          "behaviorId": "issue-rail-uses-repository-derived-navigation-projection-for-direct-later-stage-entry",
-          "description": "Issue rail uses repository-derived navigation projection for direct later-stage entry"
         },
         {
           "behaviorId": "issue-repair-allocation-reserves-exact-orphan-and-external-evidence-identities-without-substring",
@@ -2563,30 +2455,6 @@
         {
           "behaviorId": "issue-repair-derives-only-from-revisionrequested-validation-and-preserves-repeated-immediate-par",
           "description": "Issue Repair derives only from RevisionRequested validation and preserves repeated immediate-parent lineage"
-        },
-        {
-          "behaviorId": "issue-repair-reuses-the-work-card-repair-presentation-with-issue-owned-evidence-and-actions",
-          "description": "Issue Repair reuses the Work Card Repair presentation with Issue-owned evidence and actions"
-        },
-        {
-          "behaviorId": "issue-resolution-rail-exposes-parent-lifecycle-and-gates-architect-planning-on-a-readable-issue",
-          "description": "Issue Resolution rail exposes parent lifecycle and gates Architect Planning on a readable Issue"
-        },
-        {
-          "behaviorId": "issue-shell-renders-the-styled-second-row-fix-card-loop-rail-from-projection-availability",
-          "description": "Issue shell renders the styled second-row Fix Card loop rail from projection availability"
-        },
-        {
-          "behaviorId": "issue-sidebar-reports-stage-fix-cards-and-fix-card-map-ready-while-map-is-foregrounded",
-          "description": "Issue sidebar reports Stage: Fix Cards and Fix Card Map Ready while map is foregrounded"
-        },
-        {
-          "behaviorId": "issue-sidebar-reports-stage-issue-planning-and-fix-cards-eligibility-state",
-          "description": "Issue sidebar reports Stage: Issue Planning and Fix Cards eligibility state"
-        },
-        {
-          "behaviorId": "issue-sidebar-shows-workflow-return-project-current-issue-settings-and-no-development-state",
-          "description": "Issue sidebar shows workflow return, project, current Issue, Settings, and no Development state"
         },
         {
           "behaviorId": "issue-validation-rejects-stale-contract-report-binding-while-malformed-advisory-context-is-non-g",
@@ -2637,28 +2505,8 @@
           "description": "Operator RevisionRequested disposition makes additive planning revision eligible without falsifying Approved review or Development state"
         },
         {
-          "behaviorId": "ordinary-planning-review-revision-is-not-presented-as-aggregate-corrective-planning",
-          "description": "ordinary planning-review revision is not presented as aggregate corrective planning"
-        },
-        {
-          "behaviorId": "parent-issue-rail-exposes-repository-derived-issue-validation-eligibility-without-adding-it-to-t",
-          "description": "parent Issue rail exposes repository-derived Issue Validation eligibility without adding it to the Fix Card loop"
-        },
-        {
-          "behaviorId": "parent-issue-rail-foregrounds-repository-derived-issue-close-without-adding-a-nested-close-loop",
-          "description": "parent Issue rail foregrounds repository-derived Issue Close without adding a nested close loop"
-        },
-        {
-          "behaviorId": "parent-renderer-follows-repository-issue-destinations-after-corrective-decision-and-re-entry",
-          "description": "parent renderer follows repository Issue destinations after corrective decision and re-entry"
-        },
-        {
           "behaviorId": "partial-planning-bundle-waits-and-valid-exact-two-draft-submission-auto-promotes-atomically",
           "description": "partial planning bundle waits and valid exact two-draft submission auto-promotes atomically"
-        },
-        {
-          "behaviorId": "paste-order-removal-and-text-only-submission-remain-stable",
-          "description": "paste order, removal, and text-only submission remain stable"
         },
         {
           "behaviorId": "planning-review-approval-enables-fix-cards-and-revision-archives-prior-bundle-before-replacement",
@@ -2689,14 +2537,6 @@
           "description": "revision replacement rollback restores complete current bundle and review after swap failure"
         },
         {
-          "behaviorId": "screenshot-submission-executes-intake-app-preload-main-and-the-single-issue-writer",
-          "description": "screenshot submission executes intake, App, preload, main, and the single Issue writer"
-        },
-        {
-          "behaviorId": "service-create-rejection-preserves-intake-and-reopens-screenshot-admission",
-          "description": "service create rejection preserves intake and reopens screenshot admission"
-        },
-        {
           "behaviorId": "stale-unrelated-planning-drafts-are-ignored-without-active-submission-identity",
           "description": "stale unrelated planning drafts are ignored without active submission identity"
         },
@@ -2705,20 +2545,8 @@
           "description": "valid bootstrap adoption archives old finals, creates no fake review, and installs generated bundle"
         },
         {
-          "behaviorId": "valid-clipboard-evidence-converts-to-canonical-fc01-submission-shape",
-          "description": "valid clipboard evidence converts to canonical FC01 submission shape"
-        },
-        {
           "behaviorId": "valid-screenshot-evidence-is-byte-detected-ordered-persisted-and-linked-record-last",
           "description": "valid screenshot evidence is byte-detected, ordered, persisted, and linked record-last"
-        },
-        {
-          "behaviorId": "visible-fix-card-candidate-buttons-deliver-exact-identity-and-reflect-selection-and-busy-state",
-          "description": "visible Fix Card candidate buttons deliver exact identity and reflect selection and busy state"
-        },
-        {
-          "behaviorId": "workspace-paste-handler-blocks-create-in-flight-before-accounting-allocation-and-queue-work",
-          "description": "workspace paste handler blocks create-in-flight before accounting, allocation, and queue work"
         }
       ]
     },
@@ -4971,6 +4799,7 @@
         "src/shared/closeAdvanceContracts.ts",
         "src/shared/exactWorkflowPlanningContracts.ts",
         "src/shared/featurePlanningContracts.ts",
+        "src/shared/greenfieldNavigationContracts.ts",
         "src/shared/issuePlanningContracts.ts",
         "src/shared/projectState/greenfieldPhaseMapContracts.ts",
         "src/shared/projectState/phaseLoopContracts.ts",
@@ -15630,64 +15459,6 @@
       ]
     },
     {
-      "testPath": "test/renderer/architect-interview-refresh-state.test.cjs",
-      "currentTestCount": {
-        "value": 2,
-        "basis": "Observed RWS05F focused SQL revision-token tests."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 124,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
-      },
-      "proposedValidationLane": "affected-capability",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": false,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability"
-      ],
-      "execution": {
-        "requiresBuild": true,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: pure-stateless.",
-        "ownedResources": [
-          "pure-stateless"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral",
-        "rendered-output"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "architect-output-lifecycle",
-          "behaviorId": "architect-review-acknowledgment-binds-exact-workflow-cycle-revision",
-          "proofLocator": "Architect review acknowledgment binds exact Workflow cycle revision",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "architect-output-lifecycle",
-          "behaviorId": "missing-or-stale-architect-prerequisites-cannot-retain-review-eligibility",
-          "proofLocator": "missing or stale Architect prerequisites cannot retain review eligibility",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
       "testPath": "test/renderer/architect-output-viewed-revisions.test.cjs",
       "currentTestCount": {
         "value": 5,
@@ -16130,8 +15901,8 @@
     {
       "testPath": "test/renderer/figma-redesign-shell.test.cjs",
       "currentTestCount": {
-        "value": 6,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 13,
+        "basis": "Observed TAP summary during the RWS05-REPAIR03 normal Windows focused renderer run."
       },
       "duration": {
         "kind": "measured",
@@ -16172,6 +15943,12 @@
         "current-proof-appropriate"
       ],
       "behaviorCoverage": [
+        {
+          "capabilityId": "architect-output-lifecycle",
+          "behaviorId": "architect-review-disposition-is-direct-for-current-exact-revision",
+          "proofLocator": "shared plan disposition is immediately actionable for an exact current revision",
+          "proofRole": "primary"
+        },
         {
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "figma-application-strip-renders-the-bundle-titlebar-without-project-or-window-light-chrome",
@@ -16322,547 +16099,6 @@
           "capabilityId": "architect-output-lifecycle",
           "behaviorId": "awaiting-review-architect-investigation-renders-figma-disposition-below-the-document-pane",
           "proofLocator": "awaiting-review Architect Investigation renders Figma disposition below the document pane",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/renderer/issue-close-workspace.test.cjs",
-      "currentTestCount": {
-        "value": 4,
-        "basis": "Observed WIR-UX04B focused Windows run."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 255,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
-      },
-      "proposedValidationLane": "affected-capability",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability"
-      ],
-      "execution": {
-        "requiresBuild": false,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
-        "ownedResources": [
-          "repository-readonly"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral",
-        "rendered-output"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "closed-and-needs-attention-projections-never-expose-another-close-issue-action",
-          "proofLocator": "Closed and Needs Attention projections never expose another Close Issue action",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "closed-routed-issue-offers-return-to-work-intake-integration",
-          "proofLocator": "closed routed Issue offers return to Work Intake Integration",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "issue-close-workspace-presents-exact-issue-ordered-fix-cards-approved-validation-and-one-final-a",
-          "proofLocator": "Issue Close workspace presents exact Issue, ordered Fix Cards, Approved validation, and one final action",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "parent-issue-rail-foregrounds-repository-derived-issue-close-without-adding-a-nested-close-loop",
-          "proofLocator": "parent Issue rail foregrounds repository-derived Issue Close without adding a nested close loop",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/renderer/issue-fix-card-workspaces.test.cjs",
-      "currentTestCount": {
-        "value": 12,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 344,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
-      },
-      "proposedValidationLane": "affected-capability",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability"
-      ],
-      "execution": {
-        "requiresBuild": false,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
-        "ownedResources": [
-          "repository-readonly"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral",
-        "rendered-output"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "fix-card-planning-reports-published-mcp-readiness-without-inventing-remote-client-uptake",
-          "proofLocator": "Fix Card Planning reports published MCP readiness without inventing remote client uptake",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "issue-close-adapter-reuses-the-work-card-close-presentation-with-exact-issue-evidence-and-explic",
-          "proofLocator": "Issue Close adapter reuses the Work Card Close presentation with exact Issue evidence and explicit return action",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "issue-fix-card-combined-review-validation-owns-advisory-browser-controls-and-operator-decisions",
-          "proofLocator": "Issue Fix Card combined Review & Validation owns advisory browser controls and Operator decisions",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "issue-fix-card-implement-exposes-issue-scoped-environment-resolution",
-          "proofLocator": "Issue Fix Card Implement exposes Issue-scoped environment resolution",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "issue-fix-card-implement-is-a-sibling-workspace-that-owns-the-shared-codex-console",
-          "proofLocator": "Issue Fix Card Implement is a sibling workspace that owns the shared Codex console",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "issue-fix-card-implement-presents-recovery-action-and-visible-action-and-codex-failures",
-          "proofLocator": "Issue Fix Card Implement presents recovery action and visible action and Codex failures",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "issue-fix-card-map-is-a-map-only-workspace-with-explicit-candidate-selection",
-          "proofLocator": "Issue Fix Card Map is a map-only workspace with explicit candidate selection",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "issue-fix-card-map-renders-candidate-selection-errors-in-the-map-workspace",
-          "proofLocator": "Issue Fix Card Map renders candidate selection errors in the map workspace",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "issue-fix-card-planning-reuses-shared-document-review-presentation-with-controlled-draft-browser",
-          "proofLocator": "Issue Fix Card Planning reuses shared document review presentation with controlled draft browser actions",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "issue-repair-reuses-the-work-card-repair-presentation-with-issue-owned-evidence-and-actions",
-          "proofLocator": "Issue Repair reuses the Work Card Repair presentation with Issue-owned evidence and actions",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "issue-shell-renders-the-styled-second-row-fix-card-loop-rail-from-projection-availability",
-          "proofLocator": "Issue shell renders the styled second-row Fix Card loop rail from projection availability",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "visible-fix-card-candidate-buttons-deliver-exact-identity-and-reflect-selection-and-busy-state",
-          "proofLocator": "visible Fix Card candidate buttons deliver exact identity and reflect selection and busy state",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/renderer/issue-planning-workspace.test.cjs",
-      "currentTestCount": {
-        "value": 10,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 334,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
-      },
-      "proposedValidationLane": "affected-capability",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability"
-      ],
-      "execution": {
-        "requiresBuild": false,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
-        "ownedResources": [
-          "repository-readonly"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral",
-        "rendered-output"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "aggregate-issue-validation-revision-renders-explicit-corrective-planning-basis-and-actions",
-          "proofLocator": "aggregate Issue Validation revision renders explicit corrective planning basis and actions",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "fix-cards-map-workspace-renders-approved-map-state-without-owning-nested-step-routing",
-          "proofLocator": "Fix Cards Map workspace renders approved map state without owning nested step routing",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "fix-cards-map-workspace-renders-issue-owned-unavailable-state-instead-of-development-body",
-          "proofLocator": "Fix Cards Map workspace renders Issue-owned unavailable state instead of Development body",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "issue-planning-pre-promotion-surface-keeps-handoff-actions-and-no-disposition-panel",
-          "proofLocator": "Issue Planning pre-promotion surface keeps handoff actions and no disposition panel",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "issue-planning-workspace-presents-planning-documents-fix-card-map-disposition-and-browser-action",
-          "proofLocator": "Issue Planning workspace presents planning documents, Fix Card Map, disposition, and browser actions",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "issue-rail-unlocks-issue-planning-from-eligibility-and-fix-cards-only-from-approved-planning",
-          "proofLocator": "Issue rail unlocks Issue Planning from eligibility and Fix Cards only from approved planning",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "issue-rail-uses-repository-derived-navigation-projection-for-direct-later-stage-entry",
-          "proofLocator": "Issue rail uses repository-derived navigation projection for direct later-stage entry",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "issue-sidebar-reports-stage-fix-cards-and-fix-card-map-ready-while-map-is-foregrounded",
-          "proofLocator": "Issue sidebar reports Stage: Fix Cards and Fix Card Map Ready while map is foregrounded",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "issue-sidebar-reports-stage-issue-planning-and-fix-cards-eligibility-state",
-          "proofLocator": "Issue sidebar reports Stage: Issue Planning and Fix Cards eligibility state",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "ordinary-planning-review-revision-is-not-presented-as-aggregate-corrective-planning",
-          "proofLocator": "ordinary planning-review revision is not presented as aggregate corrective planning",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/renderer/issue-resolution-shell.test.cjs",
-      "currentTestCount": {
-        "value": 3,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 355,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
-      },
-      "proposedValidationLane": "affected-capability",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability"
-      ],
-      "execution": {
-        "requiresBuild": false,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
-        "ownedResources": [
-          "repository-readonly"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral",
-        "rendered-output"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "issue-intake-renders-selected-record-read-only-and-bounded-new-issue-fields",
-          "proofLocator": "Issue Intake renders selected record read-only and bounded New Issue fields",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "issue-resolution-rail-exposes-parent-lifecycle-and-gates-architect-planning-on-a-readable-issue",
-          "proofLocator": "Issue Resolution rail exposes parent lifecycle and gates Architect Planning on a readable Issue",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "issue-sidebar-shows-workflow-return-project-current-issue-settings-and-no-development-state",
-          "proofLocator": "Issue sidebar shows workflow return, project, current Issue, Settings, and no Development state",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/renderer/issue-screenshot-intake.test.cjs",
-      "currentTestCount": {
-        "value": 11,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 522,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
-      },
-      "proposedValidationLane": "affected-capability",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "ast-static-analysis",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability",
-        "source-structure"
-      ],
-      "execution": {
-        "requiresBuild": false,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
-        "ownedResources": [
-          "repository-readonly"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral",
-        "rendered-output",
-        "static-analysis"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "an-invalid-candidate-rejects-its-complete-paste-without-mutating-accepted-evidence",
-          "proofLocator": "an invalid candidate rejects its complete paste without mutating accepted evidence",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "bounded-screenshot-evidence-policy",
-          "proofLocator": "renderer policy rejects count, size, aggregate, decode, dimension, and pixel violations",
-          "proofRole": "supporting",
-          "relationshipToPrimary": "complementary",
-          "primaryProof": {
-            "testPath": "test/issue-resolution/issue-resolution-service.test.cjs",
-            "proofLocator": "screenshot evidence policy is bounded to the approved formats and limits"
-          }
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "clipboard-decision-logic-leaves-text-only-paste-native-and-handles-unreadable-advertised-images",
-          "proofLocator": "clipboard decision logic leaves text-only paste native and handles unreadable advertised images",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "clipboard-intake-modules-have-no-direct-native-filesystem-imports",
-          "proofLocator": "clipboard intake modules have no direct native filesystem imports",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "create-in-flight-image-paste-is-suppressed-before-screenshot-work-can-be-admitted",
-          "proofLocator": "create-in-flight image paste is suppressed before screenshot work can be admitted",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "image-bitmap-dimensions-are-read-once-and-the-decoded-resource-is-immediately-closed",
-          "proofLocator": "image bitmap dimensions are read once and the decoded resource is immediately closed",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "issue-intake-always-renders-bounded-clipboard-screenshot-guidance-without-an-upload-surface",
-          "proofLocator": "Issue Intake always renders bounded clipboard screenshot guidance without an upload surface",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "paste-order-removal-and-text-only-submission-remain-stable",
-          "proofLocator": "paste order, removal, and text-only submission remain stable",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "service-create-rejection-preserves-intake-and-reopens-screenshot-admission",
-          "proofLocator": "service create rejection preserves intake and reopens screenshot admission",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "valid-clipboard-evidence-converts-to-canonical-fc01-submission-shape",
-          "proofLocator": "valid clipboard evidence converts to canonical FC01 submission shape",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "workspace-paste-handler-blocks-create-in-flight-before-accounting-allocation-and-queue-work",
-          "proofLocator": "workspace paste handler blocks create-in-flight before accounting, allocation, and queue work",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/renderer/issue-validation-workspace.test.cjs",
-      "currentTestCount": {
-        "value": 3,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 592,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
-      },
-      "proposedValidationLane": "affected-capability",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability"
-      ],
-      "execution": {
-        "requiresBuild": false,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
-        "ownedResources": [
-          "repository-readonly"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral",
-        "rendered-output"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "aggregate-issue-validation-workspace-presents-exact-issue-plan-close-record-and-explicit-non-rep",
-          "proofLocator": "aggregate Issue Validation workspace presents exact Issue, plan, close record, and explicit non-Repair decisions",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "parent-issue-rail-exposes-repository-derived-issue-validation-eligibility-without-adding-it-to-t",
-          "proofLocator": "parent Issue rail exposes repository-derived Issue Validation eligibility without adding it to the Fix Card loop",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "parent-renderer-follows-repository-issue-destinations-after-corrective-decision-and-re-entry",
-          "proofLocator": "parent renderer follows repository Issue destinations after corrective decision and re-entry",
           "proofRole": "primary"
         }
       ]
@@ -18027,64 +17263,6 @@
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "workflow-hub-registry-exposes-only-the-functional-peer-workflows",
           "proofLocator": "Workflow Hub registry exposes only the functional peer workflows",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/repository/issue-screenshot-submission-wiring.test.cjs",
-      "currentTestCount": {
-        "value": 1,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 518,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
-      },
-      "proposedValidationLane": "static",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "ast-static-analysis",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability",
-        "contract",
-        "production-path",
-        "source-structure"
-      ],
-      "execution": {
-        "requiresBuild": true,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly, temp-filesystem-isolated.",
-        "ownedResources": [
-          "repository-readonly",
-          "temp-filesystem-isolated"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral",
-        "contract",
-        "production-path",
-        "static-analysis"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "issue-resolution-workflow",
-          "behaviorId": "screenshot-submission-executes-intake-app-preload-main-and-the-single-issue-writer",
-          "proofLocator": "screenshot submission executes intake, App, preload, main, and the single Issue writer",
           "proofRole": "primary"
         }
       ]
@@ -21161,6 +20339,12 @@
         "current-proof-appropriate"
       ],
       "behaviorCoverage": [
+        {
+          "capabilityId": "architect-output-lifecycle",
+          "behaviorId": "typed-architect-review-command-rejects-stale-expected-record-version",
+          "proofLocator": "workflow-specific structured Architect candidates reject stale expectedRecordVersion review commands",
+          "proofRole": "primary"
+        },
         {
           "capabilityId": "workflow-application-service",
           "behaviorId": "current-workflow-inventory-and-direct-start-use-exact-independent-instance-identity",

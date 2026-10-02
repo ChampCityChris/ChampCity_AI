@@ -15,7 +15,6 @@ const { WorkflowHubWorkspace } = loader.loadRendererSourceModule("src/renderer/a
 const { WorkflowTypeWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowTypeWorkspace.tsx");
 const { WorkflowInstanceWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowInstanceWorkspace.tsx");
 const { WorkflowExecutionWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowExecutionWorkspace.tsx");
-const { FeaturePlanningWorkspace } = loader.loadRendererSourceModule("src/renderer/app/FeaturePlanningWorkspace.tsx");
 const { CodexBoundedUserInputPanel, CodexBoundedMcpElicitationPanel } = loader.loadRendererSourceModule("src/renderer/app/CodexBoundedInteractionPanels.tsx");
 
 test("human execution actions expose outcomes and cannot submit derived identity", () => {
@@ -28,8 +27,8 @@ test("human execution actions expose outcomes and cannot submit derived identity
   assert.match(source, /Create Phase Repair/);
   assert.match(source, /createWorkflowPhaseRepair\(workflow\.workflowId, phase\.phaseId/);
 });
-const { IssueWorkflowPlanningWorkspace } = loader.loadRendererSourceModule("src/renderer/app/IssueWorkflowPlanningWorkspace.tsx");
 const { workflowPlanningSurface, shouldShowClosedWorkIntakeSummary } = loader.loadRendererSourceModule("src/renderer/app/workflowPlanningDispatch.ts");
+const { StructuredWorkflowWorkspace } = loader.loadRendererSourceModule("src/renderer/app/StructuredWorkflowWorkspace.tsx");
 const { WorkflowPlanningMap } = loader.loadRendererSourceModule("src/renderer/app/WorkflowPlanningMap.tsx");
 const { WORKFLOW_TYPE_REGISTRY } = loader.loadRendererSourceModule("src/shared/projectState/workflowTypeRegistry.ts");
 
@@ -207,25 +206,17 @@ test("Existing Project entry controller applies before one registration and gate
   assert.deepEqual(calls, [["apply", consent.planId], ["register", "existing"]]);
 });
 
-test("Feature workspace is keyed by exact Workflow identity and exposes only its planning front half", () => {
-  const workflow = { workflowId: "feature-exact-123", lineageId: "lineage", workflowType: "feature-capability", title: "Same title", workflowState: "active", lifecycleState: "active", currentWorkspace: "feature-assessment", createdAt: "now", updatedAt: "now" };
-  const markup = renderToStaticMarkup(React.createElement(FeaturePlanningWorkspace, { workflow, onReturn: () => undefined, browserPanel: React.createElement("div", null, "Architect browser") }));
-  assert.match(markup, /feature-exact-123/);
-  assert.match(markup, /Architect Feature Assessment/);
-  assert.match(markup, /Architect browser/);
-  assert.match(markup, /figma-doc-chat-workspace/);
-  assert.doesNotMatch(markup, /Implement|Create Work Card|Checkpoint|Integrate|Close Workflow/);
-});
-
-test("Issue Workflow workspace uses exact Workflow identity and keeps execution actions out of the front half", () => {
-  const workflow = { workflowId: "issue-exact-987", lineageId: "lineage", workflowType: "issue-resolution", title: "Same incident", workflowState: "active", lifecycleState: "active", currentWorkspace: "issue-rca", createdAt: "now", updatedAt: "now" };
-  const markup = renderToStaticMarkup(React.createElement(IssueWorkflowPlanningWorkspace, { workflow, onReturn: () => undefined, browserPanel: React.createElement("div", null, "Architect browser") }));
-  assert.match(markup, /issue-exact-987/);
-  assert.match(markup, /Root Cause Analysis/);
-  assert.match(markup, /figma-doc-chat-workspace/);
-  assert.match(markup, /Save Evidence to Project/);
-  assert.match(markup, /Architect browser/);
-  assert.doesNotMatch(markup, /Create Fix Card|Implement|Checkpoint|Integrate|Close Issue/);
+test("Feature and Issue route through one exact Structured Workflow planning shell", () => {
+  for (const [workflowType, currentWorkspace, workflowId] of [
+    ["feature-capability", "feature-assessment", "feature-exact-123"],
+    ["issue-resolution", "issue-rca", "issue-exact-987"],
+  ]) {
+    const workflow = { workflowId, lineageId: "lineage", workflowType, title: "Exact Workflow", workflowState: "active", lifecycleState: "active", currentWorkspace, createdAt: "now", updatedAt: "now" };
+    const element = StructuredWorkflowWorkspace({workflow, repositoryIdentity: "", onReturn: () => undefined, onOpen: () => undefined, browserPanel: React.createElement("div", null, "Architect browser")});
+    assert.equal(element.type.name, "ExactWorkflowPlanningWorkspace");
+    assert.equal(element.props.workflow.workflowId, workflowId);
+    assert.equal(element.props.browserPanel.props.children, "Architect browser");
+  }
 });
 
 test("landing selection feedback remains bounded to the landing surface", () => {
@@ -397,7 +388,8 @@ test("Hub actions preserve exact Workflow identity and route WIR rows to their e
   assert.match(declarations.get("activateWorkspaceSelection"), /projectCreationWorkflowId/);
   assert.match(declarations.get("activateWorkspaceSelection"), /setSelectedWorkflowId\(opened\.workflow\.workflowId\)/);
   assert.match(declarations.get("openCurrentWorkflow"), /openWorkIntakeForWorkflow\(result\.workflow\.workIntakeId, result\.workflow\.workflowId\)/);
-  assert.match(declarations.get("openWorkIntakeForWorkflow"), /item\.intakeId === intakeId/);
+  assert.match(declarations.get("openWorkIntakeForWorkflow"), /workflowType !== "work-intake-routing" \|\| opened\.workflow\.workIntakeId !== intakeId/);
+  assert.doesNotMatch(source, /selectStructuredWorkflowAuthority/);
   assert.match(declarations.get("openWorkIntakeForWorkflow"), /setShellView\("work-intake"\)/);
   assert.match(source, /onSelectType=\{workflowType => \{ setSelectedWorkflowType\(workflowType\)/);
   assert.match(source, /onOpenGreenfield=\{workflowId => void openCurrentWorkflow\(workflowId\)\}/);
@@ -405,7 +397,7 @@ test("Hub actions preserve exact Workflow identity and route WIR rows to their e
   assert.match(source, /onStartWorkIntake=\{\(\) => void openWorkIntake\(\)\}/);
   assert.match(declarations.get("returnToWorkflowType"), /setShellView\(selectedWorkflowType \? "workflow-type" : "workflow-hub"\)/);
   assert.match(source, /onReturn=\{returnToWorkflowType\}/);
-  assert.match(source, /setSelectedWorkflowId\(routing\.workflowId\)/);
+  assert.match(declarations.get("openWorkIntakeForWorkflow"), /setSelectedWorkflowId\(routingWorkflowId\)/);
   assert.doesNotMatch(declarations.get("startDirectWorkflow"), /startWorkIntake|createWorkIntake|submitWorkIntake/);
 });
 

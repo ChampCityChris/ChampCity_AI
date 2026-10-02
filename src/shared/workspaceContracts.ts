@@ -1402,12 +1402,12 @@ export interface WorkspaceMigrationResult {
 }
 
 export interface ChampCityApi {
+  getGreenfieldNavigation(workflowId: string): Promise<import("./greenfieldNavigationContracts").GreenfieldNavigationProjection>;
   exportMarkdownDocument(request: MarkdownExportRequest): Promise<MarkdownExportResult>;
   getCloseAdvance(workflowId:string,scope:import("./closeAdvanceContracts").CloseAdvanceScope,entityId:string):Promise<import("./closeAdvanceContracts").CloseAdvanceProjection>;
   closeAndAdvance(input:import("./closeAdvanceContracts").CloseAdvanceRequest):Promise<import("./closeAdvanceContracts").CloseAdvanceProjection>;
   recordProjectCriterion(input:{workflowId:string;criterionId:string;expectedCriterionVersion:number;expectedWorkflowVersion:number;outcome:"approved"|"rejected"|"pass"|"fail";rationale:string}):Promise<import("./closeAdvanceContracts").CloseAdvanceProjection>;
   getStructuredWorkItemReview(workflowId:string,workItemId:string):Promise<import("./structuredWorkItemReviewContracts").StructuredWorkItemReview>;
-  migrateStructuredWorkItemReview(workflowId:string,workItemId:string):Promise<import("./structuredWorkItemReviewContracts").StructuredWorkItemReview>;
 
   getStructuredWorkItemPlanning(workflowId: string, workItemId: string): ReturnType<ReturnType<typeof import("../main/workCardPlanning/structuredWorkItemPlanningService").createStructuredWorkItemPlanningService>["get"]>;
   saveStructuredWorkItemPlanning(workflowId: string, workItemId: string, json: string): ReturnType<ChampCityApi["getStructuredWorkItemPlanning"]>;

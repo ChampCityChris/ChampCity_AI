@@ -8,7 +8,7 @@ import type { ProjectStateStore } from "../../shared/projectState/projectStateSt
 import type { ProjectStateRecord } from "../../shared/projectState/domainContracts";
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
 import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
-import { currentIntake, ensureIntake, previewIntakeMigration, intakeOperator } from "./workflowIntakeMigration";
+import { currentIntake, intakeOperator } from "./workflowIntakeState";
 import type { ProjectIntakeSubmission } from "../../shared/workspaceContracts";
 
 export function createWorkflowIntakeService(dependencies: { openStore?: (databasePath: string) => ProjectStateStore & { close(): void } } = {}) {
@@ -36,20 +36,19 @@ export function createWorkflowIntakeService(dependencies: { openStore?: (databas
       recordVersion: record.recordVersion, updatedAt: record.updatedAt, disposition, reviewDocument, materializationError} as unknown as WorkflowIntakeProjection;
   }
   const getWorkflowIntake = (root: string, id: string) => withWorkflow(root, id, async (store, projectId, workflow) => projection(root, store, projectId, workflow, await currentIntake(store, projectId, workflow)));
-  const ensureWorkflowIntake = (root: string, id: string) => withWorkflow(root, id, async (store, projectId, workflow) => projection(root, store, projectId, workflow, await ensureIntake(root, store, projectId, workflow)));
-  const previewWorkflowIntakeMigration = (root: string, id: string) => withWorkflow(root, id, (store, projectId, workflow) => previewIntakeMigration(root, store, projectId, workflow));
+  const ensureWorkflowIntake = (root: string, id: string) => withWorkflow(root, id, async (store, projectId, workflow) => projection(root, store, projectId, workflow, await currentIntake(store, projectId, workflow)));
   async function saveWorkflowIntake(root: string, id: string, payload: WorkflowIntakePayload, expectedIntakeRecordVersion?: number) {
     validateWorkflowIntakePayload(payload);
     return withWorkflow(root, id, async (store, projectId, workflow) => {
       if (workflow.body.workflowType !== payload.workflowType || payload.workflowType !== "project-creation" && workflow.body.currentWorkspace !== WORKFLOW_TYPE_REGISTRY[payload.workflowType].entryWorkspace) throw Error("Intake requires the exact Workflow type and entry workspace.");
-      const current = await ensureIntake(root, store, projectId, workflow);
+      const current = await currentIntake(store, projectId, workflow);
       const record = await createProjectStateService(store, intakeOperator).saveWorkflowIntake(projectId, {workflowId: id, workflowType: payload.workflowType, values: Object.fromEntries(Object.entries(payload.workflowType === "project-creation" ? {...payload.values, projectRepository: fs.realpathSync(root)} : payload.values).filter(([, value]) => typeof value !== "string" || value.trim()).map(([key, value]) => [key, typeof value === "string" ? value.trim() : value])), expectedIntakeRecordVersion: expectedIntakeRecordVersion ?? current?.recordVersion});
       return projection(root, store, projectId, workflow, record);
     });
   }
   async function reviewWorkflowIntake(root: string, id: string, input: WorkflowIntakeDecisionInput) {
     return withWorkflow(root, id, async (store, projectId, workflow) => {
-      const record = await ensureIntake(root, store, projectId, workflow); if (!record) throw Error("Save Intake before review.");
+      const record = await currentIntake(store, projectId, workflow); if (!record) throw Error("Save Intake before review.");
       await createProjectStateService(store, intakeOperator).recordWorkflowIntakeDecision(projectId, record.id, input);
       return projection(root, store, projectId, workflow, record);
     });
@@ -58,5 +57,5 @@ export function createWorkflowIntakeService(dependencies: { openStore?: (databas
     const canonical = fs.realpathSync(root); fs.accessSync(canonical, fs.constants.R_OK | fs.constants.W_OK);
     return saveWorkflowIntake(canonical, id, {workflowType: "project-creation", values: {...submission, projectRepository: canonical}}, expectedIntakeRecordVersion);
   }
-  return {getWorkflowIntake, saveWorkflowIntake, ensureWorkflowIntake, previewWorkflowIntakeMigration, applyWorkflowIntakeMigration: ensureWorkflowIntake, reviewWorkflowIntake, saveProjectCreationIntake};
+  return {getWorkflowIntake, saveWorkflowIntake, ensureWorkflowIntake, reviewWorkflowIntake, saveProjectCreationIntake};
 }

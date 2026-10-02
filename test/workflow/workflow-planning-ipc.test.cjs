@@ -150,12 +150,12 @@ for (const type of ['feature-capability','issue-resolution','refactor-migration'
     require('../../dist/main/workflow/workflowApplicationIpc.js').registerWorkflowApplicationIpc({handle:(channel,listener)=>handlers.set(channel,listener)},()=>f.root);
     assert.throws(()=>handlers.get('workflow:planningGet')({}),/Exact bounded/);
     assert.equal((await handlers.get('workflow:planningGet')({},f.workflow.id)).review.cycleId,saved.review.cycleId);
-    const accepted=await handlers.get('workflow:planningReview')({},f.workflow.id,saved.review.cycleId,{expectedRecordVersion:1,outcome:'approved'});
-    assert.equal(accepted.acceptedPlan.directWorkItems.length,1); assert.equal(accepted.acceptedPlan.directWorkItems[0].body.workItemKind,candidate.workItems[0].kind);
-    assert.equal((await f.store.getEntity(f.projectId,f.workflow.id)).body.currentWorkspace,'work-item-map');
-    assert.ok((await f.app.prepare(f.root,f.workflow.id)).acceptedPlan);
-    assert.equal((await f.store.getEntity(f.projectId,f.workflow.id)).body.currentWorkspace,'work-item-map');
-    assert.equal((await f.app.get(f.root,f.workflow.id)).acceptedPlan.directWorkItems[0].id,accepted.acceptedPlan.directWorkItems[0].id);
+  const accepted=await handlers.get('workflow:planningReview')({},f.workflow.id,saved.review.cycleId,{expectedRecordVersion:1,outcome:'approved'});
+  assert.equal(accepted.acceptedPlan.directWorkItems.length,1); assert.equal(accepted.acceptedPlan.directWorkItems[0].body.workItemKind,candidate.workItems[0].kind);
+  assert.equal((await f.store.getEntity(f.projectId,f.workflow.id)).body.currentWorkspace,'work-item-map');
+  assert.ok((await f.app.prepare(f.root,f.workflow.id)).acceptedPlan);
+  assert.equal((await f.store.getEntity(f.projectId,f.workflow.id)).body.currentWorkspace,'work-item-map');
+  assert.equal((await f.app.get(f.root,f.workflow.id)).acceptedPlan.directWorkItems[0].id,accepted.acceptedPlan.directWorkItems[0].id);
   });
 }
 test('Research exact approved typed no-Plan outcome reopens Planning and closes with SQL evidence and Decision',async context=>{

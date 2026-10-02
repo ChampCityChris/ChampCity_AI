@@ -13,6 +13,7 @@ import { createWorkflowApplicationService } from "./workflowApplicationService";
 import { createWorkflowExecutionApplicationService } from "./workflowExecutionApplicationService";
 import { createWorkflowIntegrationService } from "../sourceControl/workflowIntegrationService";
 import { createExactWorkflowPlanningService } from "../workPlanning/exactWorkflowPlanningService";
+import { createGreenfieldNavigationService } from "./greenfieldNavigationService";
 
 export interface WorkflowApplicationIpcRegistry {
   handle(channel: string, listener: (event: unknown, ...args: unknown[]) => unknown): void;
@@ -22,6 +23,8 @@ export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcR
   getCurrentProjectRoot: () => string,
   service = createWorkflowApplicationService()): void {
   const closeAdvance=createStructuredCloseAdvanceService();
+  const greenfieldNavigation=createGreenfieldNavigationService();
+  registry.handle("workflow:greenfieldNavigation",(_event,...args)=>{if(args.length!==1||typeof args[0]!=="string"||!args[0].trim()||args[0].length>128)throw Error("Exact Project Creation Workflow ID required.");return greenfieldNavigation.get(getCurrentProjectRoot(),args[0]);});
   registry.handle("closeAdvance:get",(_event,workflowId,scope,entityId)=>{if([workflowId,entityId].some(value=>typeof value!=="string"||!value.trim()||value.length>128)||!["work-item","phase","workflow"].includes(String(scope)))throw Error("Bounded exact close identities required.");return closeAdvance.get(getCurrentProjectRoot(),workflowId as string,scope as import("../../shared/closeAdvanceContracts").CloseAdvanceScope,entityId as string);});
   registry.handle("closeAdvance:close",(_event,input)=>closeAdvance.close(getCurrentProjectRoot(),input as import("../../shared/closeAdvanceContracts").CloseAdvanceRequest));
   registry.handle("closeAdvance:projectCriterion",(_event,input)=>closeAdvance.projectCriterion(getCurrentProjectRoot(),input as Parameters<typeof closeAdvance.projectCriterion>[1]));
@@ -131,7 +134,7 @@ export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcR
       title: request.title as string,
     });
   });
-  for (const [channel,method] of [["workReview:get","get"],["workReview:migrate","migrate"]] as const) registry.handle(channel,async(_event,...args)=>{if(args.length!==2||args.some(value=>typeof value!=="string"||!value.trim()||value.length>128))throw Error("Exact Workflow and WorkItem IDs required.");return createStructuredWorkItemReviewService()[method](getCurrentProjectRoot(),args[0] as string,args[1] as string);});
+  registry.handle("workReview:get",async(_event,...args)=>{if(args.length!==2||args.some(value=>typeof value!=="string"||!value.trim()||value.length>128))throw Error("Exact Workflow and WorkItem IDs required.");return createStructuredWorkItemReviewService().get(getCurrentProjectRoot(),args[0] as string,args[1] as string);});
   registry.handle("workflow:get", async (_event, ...args) => {
     if (args.length !== 1 || typeof args[0] !== "string" || !args[0].trim() || args[0].length > 128)
       throw Error("Exact Workflow ID is required.");

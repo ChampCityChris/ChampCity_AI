@@ -523,21 +523,22 @@ async function structuredMapFixture(context) {
   return {root,store,state,projectId,workflow,service:require('../../dist/main/phaseMap/structuredPhaseMapService.js').createStructuredPhaseMapService()};
 }
 const typedMapPhases=[{phaseId:'phase_one',title:'First outcome',order:1,purpose:'Deliver first independently useful outcome',dependsOn:[],sourceReferences:['planning/project/PROJECT_PROFILE.md']},{phaseId:'phase_two',title:'Second outcome',order:2,purpose:'Consume first accepted outcome',dependsOn:['phase_one'],sourceReferences:['planning/project/PROJECT_PROFILE.md']}];
-test('SQL Greenfield Phase Map imports exact typed legacy metadata once, preserves dependencies and rebuilds projection',async context=>{
+test('Historical Phase Map metadata is inert and fresh structured review is required',async context=>{
   const f=await structuredMapFixture(context), relative='planning/project/Phase_Map/PHASE_MAP_map_fixture.md';
   require('../../dist/main/documents/canonicalMarkdownDocumentWriter.js').writeCanonicalMarkdownDocument({workspaceRoot:f.root,relativePath:relative,metadata:{schemaVersion:1,artifactType:'phase-map',artifactRevision:1,participationRole:'gatingReview',identity:{projectSlug:'map_fixture'},sourceRevisions:[],workflowData:{phases:typedMapPhases},documentDisposition:{status:'Approved',notes:'Reviewed',reviewedAt:new Date().toISOString()}},bodyMarkdown:'# Phase Map\n\n```champcity-phase-map\n'+JSON.stringify({phases:typedMapPhases})+'\n```'});
-  const bytes=fs.readFileSync(path.join(f.root,relative),'utf8'), imported=await f.service.get(f.root,f.workflow.id);
-  assert.equal(imported.review.disposition.state,'approved'); assert.equal(imported.plan.phases.length,2); assert.equal(imported.plan.dependencyIds.length,1);
+  const bytes=fs.readFileSync(path.join(f.root,relative),'utf8'), empty=await f.service.get(f.root,f.workflow.id);
+  assert.equal(empty.review,null); assert.equal(empty.plan,null); assert.equal((await f.store.listEntities(f.projectId,'Phase')).length,0);
   assert.equal(fs.readFileSync(path.join(f.root,relative),'utf8'),bytes);
-  await assert.rejects(f.state.reviseRecord(f.projectId,imported.plan.phases[0].phaseId,{objective:'Unreviewed change'},1),/typed revision boundary/);
-  const second=await f.service.get(f.root,f.workflow.id); assert.equal(second.review.cycle.id,imported.review.cycle.id); assert.equal((await f.store.listEntities(f.projectId,'Phase')).length,2);
-  const repeated=await f.service.save(f.root,f.workflow.id,{workflowId:f.workflow.id,phases:typedMapPhases,sources:imported.sources}); assert.equal(repeated.review.cycle.id,imported.review.cycle.id);
-  fs.writeFileSync(path.join(f.root,relative),'Manual completion and scope edits'); assert.equal((await f.service.get(f.root,f.workflow.id)).review.markdown,imported.review.markdown);
-  fs.unlinkSync(path.join(f.root,relative)); assert.equal((await f.service.get(f.root,f.workflow.id)).review.markdown,imported.review.markdown);
+  const fresh=await f.service.save(f.root,f.workflow.id,{workflowId:f.workflow.id,phases:typedMapPhases,sources:empty.sources});
+  assert.equal(fresh.plan,null); assert.equal(fresh.review.disposition.state,'none');
+  const second=await f.service.get(f.root,f.workflow.id); assert.equal(second.review.cycle.id,fresh.review.cycle.id); assert.equal((await f.store.listEntities(f.projectId,'Phase')).length,2);
+  fs.writeFileSync(path.join(f.root,relative),'Manual completion and scope edits'); assert.equal((await f.service.get(f.root,f.workflow.id)).review.markdown,fresh.review.markdown);
+  fs.unlinkSync(path.join(f.root,relative)); assert.equal((await f.service.get(f.root,f.workflow.id)).review.markdown,fresh.review.markdown);
+  await f.service.review(f.root,f.workflow.id,fresh.review.cycle.id,{expectedRecordVersion:fresh.review.cycle.recordVersion,outcome:'approved'});
   assert.equal(getPhaseMapProjection(f.root).phase.phaseId,'phase_one');
-  const phase=imported.plan.phases[0].record;
+  const phase=await f.store.getEntity(f.projectId,fresh.review.cycle.body.layout.memberIds[0]);
   await f.store.transaction(f.projectId,unit => unit.saveEntity({...phase,recordVersion:phase.recordVersion+1,updatedAt:new Date().toISOString(),body:{...phase.body,phaseState:'closed'}},phase.recordVersion));
-  assert.equal(getPhaseMapProjection(f.root).phase.phaseId,'phase_two'); assert.equal((await f.service.get(f.root,f.workflow.id)).review.markdown,imported.review.markdown);
+  assert.equal(getPhaseMapProjection(f.root).phase.phaseId,'phase_two'); assert.equal((await f.service.get(f.root,f.workflow.id)).review.markdown,fresh.review.markdown);
   assert.throws(()=>setPhaseMapDisposition(f.root,'Rejected'),/exact SQL/);
 });
 test('Fresh SQL Greenfield Phase Map reviews exact revisions, preserves supplied criteria and rejects invalid dependencies',async context=>{

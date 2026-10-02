@@ -16,6 +16,18 @@ const {
 } = loadRendererSourceModule("src/renderer/app/architectBrowserBoundsOrchestration.ts");
 const {FigmaBrowserPanel} = loadRendererSourceModule("src/renderer/app/figma/FigmaBrowserPanel.tsx");
 
+test("application browser host owns one native attachment and sequences measured resize and detach", () => {
+  const source = require("node:fs").readFileSync(require("node:path").resolve(__dirname, "../../src/renderer/app/ApplicationBrowserHost.tsx"), "utf8");
+  assert.match(source, /createArchitectAttachmentCoordinator/);
+  assert.match(source, /void attachment\.attach\(\)/);
+  assert.match(source, /const observer = new ResizeObserver\(sync\)/);
+  assert.match(source, /setArchitectBrowserBounds\(\{\.\.\.bounds, sequence: \+\+sequence\.current/);
+  assert.match(source, /void attachment\.detach\(\)/);
+  assert.match(source, /observer\.disconnect\(\)/);
+  assert.doesNotMatch(source, /figma-browser-column/);
+  assert.match(source, /FigmaBrowserPanel hostRef/);
+});
+
 test("shared browser panel keeps native host and real recovery controls without decorative browser chrome", () => {
   const markup = renderToStaticMarkup(React.createElement(FigmaBrowserPanel, {hostRef: {current: null}, onReload() {}, onRetry() {}, retryVisible: true, statusLabel: "ChatGPT ready"}));
   assert.match(markup, /architect-browser-host/); assert.match(markup, /Reload ChatGPT/); assert.match(markup, /Retry browser attachment/); assert.match(markup, /ChatGPT ready/);
