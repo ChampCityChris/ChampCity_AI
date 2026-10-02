@@ -14,6 +14,9 @@ import type {
 } from "../shared/workspaceContracts";
 
 const api: ChampCityApi = {
+  getStructuredProjectPlanning: (workflowId) => ipcRenderer.invoke("workflow:projectPlanningGet", workflowId),
+  saveStructuredProjectPlanning: (workflowId, candidate) => ipcRenderer.invoke("workflow:projectPlanningSave", workflowId, candidate),
+  reviewStructuredProjectPlanning: (workflowId, cycleId, input) => ipcRenderer.invoke("workflow:projectPlanningReview", workflowId, cycleId, input),
   getExactWorkflowPlanning: workflowId => ipcRenderer.invoke("workflow:planningGet", workflowId) as ReturnType<ChampCityApi["getExactWorkflowPlanning"]>,
   prepareExactWorkflowPlanning: workflowId => ipcRenderer.invoke("workflow:planningPrepare", workflowId) as ReturnType<ChampCityApi["prepareExactWorkflowPlanning"]>,
   saveExactWorkflowPlan: (workflowId, candidate) => ipcRenderer.invoke("workflow:planningSave", workflowId, candidate) as ReturnType<ChampCityApi["saveExactWorkflowPlan"]>,

@@ -38,6 +38,7 @@ export function StructuredArchitectWorkspace(props: {workflowId: string | null; 
       <button disabled={!model?.handoff} onClick={() => void action(async () => {await navigator.clipboard.writeText(model!.handoff!); setFeedback("Architect handoff copied.");})}>Copy handoff</button></div>}
     reviewContent={<><FigmaDocumentCard selectedDocument={model?.reviewDocument ?? null} documentError="" feedback="" onCopy={() => void action(async () => {await navigator.clipboard.writeText(model?.reviewDocument?.bodyMarkdown ?? "");})} />
       {revision ? <button onClick={() => setViewed(revision)}>I have reviewed this revision</button> : null}
+      {!props.onReturn && props.onNext ? <button disabled={busy || !model?.nextStageReady} onClick={() => void action(props.onNext!)}>Continue to Project Planning</button> : null}
       {props.supportControls}
       {model?.supportRecords?.length ? <details><summary>Workflow supporting records</summary><ul>{model.supportRecords.map(record => <li key={record.id}><code>{record.id}</code> · {record.entityType === "Evidence" ? record.body.description : record.entityType === "Finding" ? record.body.title : record.entityType}</li>)}</ul></details> : null}
       <label>Architect structured JSON<textarea aria-label="Architect structured JSON" value={output} onChange={event => setOutput(event.target.value)} maxLength={100000} /></label>

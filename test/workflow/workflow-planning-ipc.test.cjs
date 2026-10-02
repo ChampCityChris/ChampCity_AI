@@ -166,3 +166,10 @@ test('Direct and WIR-linked exact target Workflows share the same Planning autho
   assert.equal(routed.handoff,direct.handoff); assert.equal(routed.workflowId,direct.workflowId);
   await assert.rejects(f.app.prepare(f.root,routing.workflow.id),/existing-project substantive Workflow/);
 });
+
+test('Shared Plan Review shell renders generated projection and keeps browser and exact revision controls', () => {
+  const React = require('react'), {renderToStaticMarkup} = require('react-dom/server');
+  const {PlanReviewShell} = require('../renderer/renderer-source-loader.cjs').loadRendererSourceModule('src/renderer/app/PlanReviewShell.tsx');
+  const markup = renderToStaticMarkup(React.createElement(PlanReviewShell,{title:'Project Planning',workflowId:'exact-workflow',browserPanel:React.createElement('aside',null,'Architect companion'),handoff:'SQL handoff',projection:'Generated SQL Profile and Roadmap',cycleId:'exact-cycle',revision:2,disposition:'revision_requested',onPrepare:async()=>{},onSave:async()=>{},onReview:async()=>{}}));
+  assert.match(markup,/Generated SQL Profile and Roadmap/); assert.match(markup,/Architect companion/); assert.match(markup,/Revision requested/); assert.match(markup,/I have reviewed this revision/); assert.match(markup,/disabled=""[^>]*>Approve/);
+});

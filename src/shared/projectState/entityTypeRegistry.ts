@@ -2,7 +2,7 @@ import { ARCHITECT_STAGE_BY_WORKFLOW } from "./architectReviewContracts";
 import { ARCHITECT_STAGE_KINDS, PROJECT_STATE_SCHEMA_VERSION, type EntityBodyMap, type EntityType, type PrincipalRef, type ProjectId, type ProjectStateEntity, type ProjectStateRecord, type Provenance, type RecordEnvelope } from "./domainContracts";
 import { WORKFLOW_TYPE_IDS } from "./workflowTypeRegistry";
 
-type FieldKind = "text" | "source-ref" | "id" | "instant" | "number" | "boolean" | "version" | "text-list" | "id-list" | "principal" | "digest" | "scalar-map" | "plan-layout";
+type FieldKind = "text" | "source-ref" | "id" | "instant" | "number" | "boolean" | "version" | "text-list" | "id-list" | "principal" | "digest" | "scalar-map" | "plan-layout" | "review-layout";
 type FieldRule = FieldKind | readonly string[];
 interface EntityDefinition { schemaVersion: typeof PROJECT_STATE_SCHEMA_VERSION; required: Readonly<Record<string, FieldRule>>; optional?: Readonly<Record<string, FieldRule>>; immutableAfterCreation: boolean }
 
@@ -15,6 +15,7 @@ const idList = "id-list" as const;
 /** One reviewed type registry owns field vocabulary and immutable-record policy. */
 export const ENTITY_TYPE_REGISTRY: Readonly<Record<EntityType, EntityDefinition>> = Object.freeze({
   ResearchOutcome: {schemaVersion: 1, required: {workflowId: id, outcome: ["no-implementation-plan-required", "research-plan-required"], prototypeDisposition: ["disposable", "candidate-for-later-work"], productionFollowUp: ["none", "new-work-intake-required"], evidence: textList, decisionEnabled: text, successFailureResult: text, closureCondition: text}, immutableAfterCreation: false},
+  ProjectPlanningReviewCycle: {schemaVersion: 1, required: {workflowId: id, semanticDigest: "digest", layout: "review-layout"}, immutableAfterCreation: false},
   PlanReviewCycle: { schemaVersion: 1, required: { workflowId: id, workflowType: WORKFLOW_TYPE_IDS, semanticDigest: "digest", layout: "plan-layout" }, immutableAfterCreation: false },
   Project: { schemaVersion: 1, required: { name: text, description: text }, immutableAfterCreation: false },
   ArchitectReviewCycle: { schemaVersion: 1, required: { workflowId: id, workflowType: WORKFLOW_TYPE_IDS, stageKind: ARCHITECT_STAGE_KINDS, semanticDigest: "digest" }, immutableAfterCreation: false },
@@ -80,6 +81,14 @@ function principal(value: unknown, label: string) {
 function checkField(value: unknown, rule: FieldRule, label: string) {
   if (Array.isArray(rule)) { if (!rule.includes(value as string)) fail(`${label} is unsupported.`); return; }
   switch (rule) {
+    case "review-layout": {
+      const layout = object(value, label);
+      exactFields(layout, ["memberIds", "sources"], new Set(["memberIds", "sources"]), label);
+      checkField(layout.memberIds, "id-list", label);
+      if (!Array.isArray(layout.sources) || layout.sources.length > 128) fail("Review sources exceed bounds.");
+      for (const source of layout.sources) {const item = object(source, label); exactFields(item, ["entityId", "recordVersion"], new Set(["entityId", "recordVersion"]), label); canonicalId(item.entityId, label); checkField(item.recordVersion, "version", label);}
+      return;
+    }
     case "plan-layout": {
       const layout = object(value, label);
       exactFields(layout, ["solutionId", "solutionAddresses", "solutionCriterionIds", "phases", "workItems", "boundaries", "sources"], new Set(["solutionId", "solutionAddresses", "solutionCriterionIds", "phases", "workItems", "boundaries", "sources"]), label);

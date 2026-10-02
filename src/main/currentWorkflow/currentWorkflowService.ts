@@ -1,3 +1,4 @@
+import {readStructuredProjectPlanning} from "../projectPlanning/structuredProjectPlanningReadProjection";
 import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
 import { readApprovedGreenfieldArchitectProjection } from "../architectOutputs/structuredArchitectReadProjection";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
@@ -482,6 +483,7 @@ function isWorkCardLoopDocument(document: {
 }
 
 function missingProjectPlanningModel(workspaceRoot: string, planningContext: PlanningProjectionContext): CurrentWorkspaceCoreModel | null {
+  if (selectedCurrentProjectId(workspaceRoot) && readStructuredProjectPlanning(workspaceRoot)?.disposition.state === "approved") return null;
   const documents = listPlanningDocuments(planningContext);
   const approvedSqlInterview = readApprovedGreenfieldArchitectProjection(workspaceRoot);
   const approvedInterview = selectedCurrentProjectId(workspaceRoot) ? undefined : documents

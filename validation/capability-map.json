@@ -4930,6 +4930,8 @@
       "sourcePatterns": [
         "src/main/featurePlanning/**",
         "src/main/issuePlanning/**",
+        "src/main/projectPlanning/structuredProjectPlanningReadProjection.ts",
+        "src/main/projectPlanning/structuredProjectPlanningService.ts",
         "src/main/sourceControl/workflowIntegrationService.ts",
         "src/main/workPlanning/exactWorkflowPlanningService.ts",
         "src/main/workflow/**",
@@ -4937,12 +4939,15 @@
         "src/renderer/app/ExactWorkflowPlanningWorkspace.tsx",
         "src/renderer/app/FeaturePlanningWorkspace.tsx",
         "src/renderer/app/IssueWorkflowPlanningWorkspace.tsx",
+        "src/renderer/app/PlanReviewShell.tsx",
+        "src/renderer/app/StructuredProjectPlanningWorkspace.tsx",
         "src/renderer/app/WorkflowIntakeWorkspace.tsx",
         "src/renderer/app/planningDraftAction.ts",
         "src/shared/exactWorkflowPlanningContracts.ts",
         "src/shared/featurePlanningContracts.ts",
         "src/shared/issuePlanningContracts.ts",
         "src/shared/projectState/projectArchitectureContext.ts",
+        "src/shared/projectState/projectPlanningReviewContracts.ts",
         "src/shared/projectState/projectStateService.ts",
         "src/shared/projectState/workflowTypeRegistry.ts",
         "src/shared/structuredWorkRoutingContracts.ts",
@@ -21208,8 +21213,8 @@
     {
       "testPath": "test/workflow/workflow-planning-ipc.test.cjs",
       "currentTestCount": {
-        "value": 12,
-        "basis": "Observed RWS06B: three preserved IPC/renderer scenarios plus nine exact SQL Planning, Research and direct/WIR convergence scenarios."
+        "value": 13,
+        "basis": "RWS06C adds shared Plan Review Shell rendering to the existing exact Planning IPC owner."
       },
       "duration": {
         "kind": "estimated",

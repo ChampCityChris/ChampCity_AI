@@ -1399,6 +1399,9 @@ export interface WorkspaceMigrationResult {
 }
 
 export interface ChampCityApi {
+  getStructuredProjectPlanning(workflowId: string): ReturnType<ReturnType<typeof import("../main/projectPlanning/structuredProjectPlanningService").createStructuredProjectPlanningService>["get"]>;
+  saveStructuredProjectPlanning(workflowId: string, candidate: import("./projectState/projectPlanningReviewContracts").ProjectPlanningCandidate): ReturnType<ChampCityApi["getStructuredProjectPlanning"]>;
+  reviewStructuredProjectPlanning(workflowId: string, cycleId: string, input: import("./projectState/architectReviewContracts").ArchitectReviewDecisionInput): ReturnType<ChampCityApi["getStructuredProjectPlanning"]>;
   getExactWorkflowPlanning(workflowId: string): Promise<import("./exactWorkflowPlanningContracts").ExactWorkflowPlanningModel>;
   prepareExactWorkflowPlanning(workflowId: string): Promise<import("./exactWorkflowPlanningContracts").ExactWorkflowPlanningModel>;
   saveExactWorkflowPlan(workflowId: string, candidate: import("./projectState/planReviewContracts").PlanCandidate & {expectedRecordVersion?: number}): Promise<import("./exactWorkflowPlanningContracts").ExactWorkflowPlanningModel>;

@@ -1,3 +1,4 @@
+import {StructuredProjectPlanningWorkspace} from "./StructuredProjectPlanningWorkspace";
 import { ExactWorkflowPlanningWorkspace } from "./ExactWorkflowPlanningWorkspace";
 import { WorkflowIntakeWorkspace } from "./WorkflowIntakeWorkspace";
 import { CodexConnectionsPanel } from "./CodexConnectionsPanel";
@@ -3943,7 +3944,7 @@ export function App(): JSX.Element {
         retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
         statusLabel={architectBrowserPresentation(architectStatus).label}
       />
-      {activeWorkspaceId !== "architect-interview" ? <FigmaBrowserActionsPanel
+      {activeWorkspaceId !== "architect-interview" && activeWorkspaceId !== "project-planning-review" ? <FigmaBrowserActionsPanel
         actionFeedback={architectActionFeedback}
         attachmentError={architectAttachmentError}
         browserStatus={architectStatus}
@@ -4527,10 +4528,12 @@ export function App(): JSX.Element {
             </section>
           ) : null}
 
-          {isVisibleArchitectOutputWorkspace && activeWorkspaceId === "architect-interview" ? <StructuredArchitectWorkspace
-            workflowId={greenfieldArchitectWorkflowId} browserVisible={isArchitectPaneVisible} browserCompanion={architectBrowserColumn} onRailStatus={setArchitectInterviewRailStatus} /> : null}
+          {activeWorkspaceId === "project-planning-review" ? <StructuredProjectPlanningWorkspace workflowId={greenfieldArchitectWorkflowId} browserPanel={architectBrowserColumn} onNext={() => setActiveWorkspaceId("project-phase-map")} onRailStatus={status => setProjectPlanningModel(current => current ? {...current, railStatus: status} : current)} /> : null}
 
-          {isVisibleArchitectOutputWorkspace && !isPhaseMapFigmaWorkspace && activeWorkspaceId !== "architect-interview" ? (
+          {isVisibleArchitectOutputWorkspace && activeWorkspaceId === "architect-interview" ? <StructuredArchitectWorkspace
+            workflowId={greenfieldArchitectWorkflowId} browserVisible={isArchitectPaneVisible} browserCompanion={architectBrowserColumn} onRailStatus={setArchitectInterviewRailStatus} onNext={async () => {setActiveWorkspaceId("project-planning-review");}} /> : null}
+
+          {isVisibleArchitectOutputWorkspace && !isPhaseMapFigmaWorkspace && activeWorkspaceId !== "architect-interview" && activeWorkspaceId !== "project-planning-review" ? (
             <LegacyArchitectOutputWorkspace
               browserVisible={isArchitectPaneVisible}
               label={`${activeWorkspace.label} Figma document workspace`}

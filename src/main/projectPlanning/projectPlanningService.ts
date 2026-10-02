@@ -1,3 +1,6 @@
+import {readApprovedGreenfieldArchitectProjection} from "../architectOutputs/structuredArchitectReadProjection";
+import {selectedCurrentProjectId} from "../projectState/currentProjectRegistrationService";
+import {readStructuredProjectPlanning} from "./structuredProjectPlanningReadProjection";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -91,6 +94,12 @@ export function getProjectPlanningWorkspaceModel(
   workspaceRoot: string,
   planningContext?: PlanningProjectionContext,
 ): ProjectPlanningWorkspaceModel {
+  if (selectedCurrentProjectId(workspaceRoot)) {
+    const review = readStructuredProjectPlanning(workspaceRoot);
+    const ready = !!readApprovedGreenfieldArchitectProjection(workspaceRoot);
+    const approved = review?.disposition.state === "approved";
+    return {state: approved ? "completed" : review ? "ready-for-review" : ready ? "ready-for-handoff" : "not-ready", railStatus: approved ? "Completed" : review ? "Awaiting Approval" : ready ? "Open" : "Not Ready", requiredAction: "Open exact structured Project Planning review.", reason: "SQL owns Profile/Roadmap semantics; historical Markdown is evidence only.", evidencePaths: [], handoffState: "handoff-unavailable", canPrepareHandoff: false, canCopyHandoff: false, canApplyBundleDisposition: false, selectedPlanningDocumentRole: "profile", bundleSynchronizationState: review ? "synchronized" : "missing"};
+  }
   const draftStatus = getProjectPlanningDraftBundleStatus(workspaceRoot);
   const contextSnapshot = resolvePlanningProjectionContext(workspaceRoot, planningContext);
   const context = resolveProjectPlanningContext(workspaceRoot, contextSnapshot);
@@ -199,6 +208,7 @@ export function setProjectPlanningBundleDisposition(
   status: DocumentDispositionStatus,
   options: RollbackWriteOptions & { operatorReviewNotes?: string } = {},
 ): void {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Project Planning requires exact structured SQL review; historical Markdown disposition is unavailable.");
   const notes = (options.operatorReviewNotes ?? "").trim();
   if (status === "RevisionRequested" && !notes) {
     throw new Error("RevisionRequested requires Operator revision instructions.");
@@ -242,6 +252,10 @@ export function getProjectPlanningCompletion(
   workspaceRoot: string,
   planningContext?: PlanningProjectionContext,
 ): ProjectPlanningCompletion {
+  if (selectedCurrentProjectId(workspaceRoot)) {
+    const review = readStructuredProjectPlanning(workspaceRoot);
+    return {complete: review?.disposition.state === "approved", reason: review?.disposition.state === "approved" ? "Current structured SQL Project Planning is approved." : "Approve a fresh structured Project Planning cycle. Historical Profile/Roadmap Markdown is evidence only."};
+  }
   const contextSnapshot = resolvePlanningProjectionContext(workspaceRoot, planningContext);
   const context = resolveProjectPlanningContext(workspaceRoot, contextSnapshot);
   if (context.status !== "ready" || !context.profile || !context.roadmap) {
