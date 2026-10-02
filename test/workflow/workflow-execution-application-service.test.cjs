@@ -1117,3 +1117,30 @@ test('exact typed legacy Formal metadata migrates once while free-form prose rem
   let model=await service.get(env.root,created.workflow.id,id); assert.equal(model.review.disposition.state,'approved'); assert.match(model.markdown,/Imported exact obligation/); assert.doesNotMatch(model.markdown,/Invented completion/); assert.equal(model.workItem.recordVersion,2); assert.equal(fs.readFileSync(path.join(env.root,file),'utf8'),original);
   fs.unlinkSync(path.join(env.root,file)); model=await service.get(env.root,created.workflow.id,id); assert.equal(model.workItem.recordVersion,2); assert.equal(model.review.disposition.state,'approved'); assert.equal((await env.store.listEntities(env.projectId,'WorkItem')).length,1);
 });
+test('all six exact Workflow types execute direct and phased SQL WorkItems without weakening family or source rules', async context => {
+  const env=await setup(context), kernel=createWorkflowExecutionApplicationService(), registry=require('../../dist/shared/projectState/workflowTypeRegistry.js');
+  const tester=createProjectStateService(env.store,{principalId:'six-type-tester',principalType:'agent',role:'Tester'});
+  for (const type of registry.EXACT_EXECUTION_WORKFLOW_TYPES) for (const topology of ['direct','phased']) {
+    const created=await env.state.createSubstantiveWorkflow(env.projectId,{workflowType:type,title:`${type} ${topology}`,entryWorkspace:registry.WORKFLOW_TYPE_REGISTRY[type].entryWorkspace});
+    const kind=type==='refactor-migration'?'migration':type==='issue-resolution'?'fix':'feature';
+    const works=topology==='direct'?[{key:'first',kind,title:'Direct outcome',objective:'Deliver one exact outcome',dependencyKeys:[],criteria:[]}]:[{key:'first',kind,title:'Foundation',objective:'Deliver foundation',phaseKey:'foundation',dependencyKeys:[],criteria:[]},{key:'second',kind,title:'Cutover',objective:'Deliver independently accepted cutover',phaseKey:'cutover',dependencyKeys:['first'],criteria:[]}];
+    const phases=topology==='direct'?[]:[{key:'foundation',title:'Foundation',objective:'Accept foundation',sequence:1,criteria:[]},{key:'cutover',title:'Cutover',objective:'Accept cutover',sequence:2,criteria:[]}];
+    if(type==='refactor-migration') {const before=(await env.store.listEntities(env.projectId,'WorkItem')).length; await assert.rejects(env.state.acceptWorkflowPlanningGraph(env.projectId,graph(created.workflow.id,'direct','feature',[{...works[0],phaseKey:undefined,kind:'feature'}])),/kind/); assert.equal((await env.store.listEntities(env.projectId,'WorkItem')).length,before);}
+    const plan=await env.state.acceptWorkflowPlanningGraph(env.projectId,graph(created.workflow.id,topology,kind,works,phases)), items=[...plan.directWorkItems,...Object.values(plan.workItemsByPhase).flat()];
+    const view=await kernel.getExecutionProjection(env.root,created.workflow.id); assert.equal(view.source.state,'non-source'); assert.equal(view.items.find(item=>item.record.id===items[0].id).eligibility.eligible,true,type);
+    if(topology==='phased') assert.equal(view.items.find(item=>item.record.id===items[1].id).eligibility.eligible,false);
+    assert.equal((await kernel.prepareExecution(env.root,created.workflow.id,{sourceMutating:true})).failureCode,'SOURCE_CAPABILITY_UNAVAILABLE');
+    for(const item of items) {
+      const current=await env.store.getEntity(env.projectId,item.id), accepted=await kernel.acceptWorkItemExecutionPlan(env.root,{workflowId:created.workflow.id,workItemId:item.id,expectedVersion:current.recordVersion,plan:{implementationBoundaries:['Only exact accepted outcome'],affectedPaths:[],proofIntent:['Verify exact outcome']}});
+      const contract=await kernel.createSourceNeutralWorkItemExecutionContract(env.root,created.workflow.id,item.id,{affectedPaths:[],proofIntent:["Verify exact outcome"]}); assert.equal(contract.workflowId,created.workflow.id); assert.equal(contract.workItemId,item.id);
+      const attempt=await kernel.beginWorkItemAttempt(env.root,created.workflow.id,item.id,accepted.recordVersion,`six-${type}-${topology}-${items.indexOf(item)}`);
+      const implementation=await kernel.finishWorkItemAttempt(env.root,created.workflow.id,item.id,attempt.executionRef,{summary:'Verified exact outcome',deviations:[],blockers:[],residualRisks:[],outcome:'implemented'});
+      await tester.createTesterResult(env.projectId,created.workflow.id,item.id,implementation.id,{sourceMode:'source-neutral',recommendation:'reuse-existing-proof',affectedCapabilityIds:[],permanentTestPaths:[],determinationEvidence:['Bounded semantic outcome verified'],unknowns:[],rationale:'No source mutation or Git identity required'});
+      await kernel.completeWorkItem(env.root,created.workflow.id,item.id,(await env.store.getEntity(env.projectId,item.id)).recordVersion);
+      const phase=plan.phases.find(phase=>phase.workItemIds.includes(item.id)); if(phase) await kernel.completePhase(env.root,created.workflow.id,phase.phaseId,(await env.store.getEntity(env.projectId,phase.phaseId)).recordVersion);
+    }
+    const completion=await kernel.getWorkflowExecutionCompletionProjection(env.root,created.workflow.id); assert.equal(completion.eligible,true,completion.blockers.join(','));
+    await kernel.completeWorkflowExecution(env.root,created.workflow.id,completion.workflowVersion); assert.equal((await env.store.getEntity(env.projectId,created.workflow.id)).body.workflowState,'closed');
+  }
+  assert.equal((await env.store.listEntities(env.projectId,'SourceBinding')).length,0); assert.equal((await env.store.listEntities(env.projectId,'SourceCheckpoint')).length,0); assert.equal((await env.store.listEntities(env.projectId,'IntegrationRecord')).length,0); assert.equal(fs.existsSync(path.join(env.root,'.git')),false);
+});

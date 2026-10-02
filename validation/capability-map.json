@@ -4029,6 +4029,10 @@
           "description": "execution context dashboard renders empty project state without stale phase or Work Card values"
         },
         {
+          "behaviorId": "execution-shell-exact-readiness-and-recovery",
+          "description": "Execution Shell preserves phased readiness, exact source identity and bounded recovery actions"
+        },
+        {
           "behaviorId": "figma-application-strip-renders-the-bundle-titlebar-without-project-or-window-light-chrome",
           "description": "Figma application strip renders the bundle titlebar without project or window-light chrome"
         },
@@ -4942,6 +4946,7 @@
         "src/main/workflow/**",
         "src/main/workflow/workflowExecutionApplicationService.ts",
         "src/renderer/app/ExactWorkflowPlanningWorkspace.tsx",
+        "src/renderer/app/ExecutionShell.tsx",
         "src/renderer/app/FeaturePlanningWorkspace.tsx",
         "src/renderer/app/IssueWorkflowPlanningWorkspace.tsx",
         "src/renderer/app/PlanReviewShell.tsx",
@@ -5028,6 +5033,10 @@
         {
           "behaviorId": "semantic-validator-is-independent-readonly-and-network-disabled",
           "description": "Independent semantic validation uses a distinct Validator principal, exact current evidence, and a read-only network-disabled App Server turn."
+        },
+        {
+          "behaviorId": "six-exact-types-execute-direct-and-phased",
+          "description": "all six exact Workflow types execute direct and phased SQL WorkItems without weakening family or source rules"
         },
         {
           "behaviorId": "source-backed-direct-workflow-captures-exact-dev-baseline-with-lazy-binding",
@@ -17882,8 +17891,8 @@
     {
       "testPath": "test/renderer/workflow-hub-shell.test.cjs",
       "currentTestCount": {
-        "value": 23,
-        "basis": "Existing renderer navigation proof plus the EPGA-R01 single forced-conversion warning and controller apply-before-register consent gating scenarios."
+        "value": 24,
+        "basis": "Existing renderer navigation proof plus the EPGA-R01 single forced-conversion warning and controller apply-before-register consent gating scenarios. RWS06G adds exact shared execution proof."
       },
       "duration": {
         "kind": "measured",
@@ -17935,6 +17944,12 @@
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "exact-issue-workflow-hub-navigation-renders-sps-front-half",
           "proofLocator": "Issue Workflow workspace uses exact Workflow identity and keeps execution actions out of the front half",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "execution-shell-exact-readiness-and-recovery",
+          "proofLocator": "Execution Shell preserves phased readiness, exact source identity and bounded recovery actions",
           "proofRole": "primary"
         },
         {
@@ -21158,8 +21173,8 @@
     {
       "testPath": "test/workflow/workflow-execution-application-service.test.cjs",
       "currentTestCount": {
-        "value": 12,
-        "basis": "Ten focused service and IPC scenarios cover exact shared execution, current Criteria, source-neutral semantic evidence and close, peer-Workflow Phase isolation, bounded product APIs, system completion attribution, and canonical Repair re-entry."
+        "value": 13,
+        "basis": "Ten focused service and IPC scenarios cover exact shared execution, current Criteria, source-neutral semantic evidence and close, peer-Workflow Phase isolation, bounded product APIs, system completion attribution, and canonical Repair re-entry. RWS06G adds exact shared execution proof."
       },
       "duration": {
         "kind": "measured",
@@ -21241,6 +21256,12 @@
             "testPath": "test/workflow/semantic-work-item-validator.test.cjs",
             "proofLocator": "semantic Validator is read-only, network-disabled, and persists only a bounded semantic result"
           }
+        },
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "six-exact-types-execute-direct-and-phased",
+          "proofLocator": "all six exact Workflow types execute direct and phased SQL WorkItems without weakening family or source rules",
+          "proofRole": "primary"
         },
         {
           "capabilityId": "workflow-application-service",

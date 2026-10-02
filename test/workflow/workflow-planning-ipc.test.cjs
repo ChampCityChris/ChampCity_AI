@@ -148,8 +148,13 @@ for (const type of ['feature-capability','issue-resolution','refactor-migration'
 test('Research exact approved typed no-Plan outcome closes with SQL evidence and Decision',async context=>{
   const f=await exactPlanningFixture(context,'research-prototype',true), model=await f.app.get(f.root,f.workflow.id);
   assert.equal(model.handoff,null); assert.equal(model.researchOutcome.outcome,'no-implementation-plan-required');
+  const execution=require('../../dist/main/workflow/workflowExecutionApplicationService.js').createWorkflowExecutionApplicationService();
+  await assert.rejects(execution.getExecutionProjection(f.root,f.workflow.id),/Research requires an accepted implementation Plan/);
   const closed=await f.app.closeResearch(f.root,f.workflow.id); assert.equal(closed.workflow.body.workflowState,'closed'); assert.equal(closed.decision.body.decisionType,'research-completion');
   assert.equal((await f.store.listEntities(f.projectId,'WorkItem')).length,0);
+  await assert.rejects(execution.getExecutionProjection(f.root,f.workflow.id),/current supported implementation Workflow/);
+  await assert.rejects(execution.prepareExecution(f.root,f.workflow.id,{sourceMutating:true}),/current supported implementation Workflow/);
+  assert.equal((await f.store.listEntities(f.projectId,'SourceCheckpoint')).length,0);
 });
 test('Exact Planning refuses ambiguous legacy Markdown and missing approved Assessment',async context=>{
   const f=await exactPlanningFixture(context,'feature-capability');

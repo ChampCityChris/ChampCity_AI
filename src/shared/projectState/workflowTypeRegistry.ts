@@ -9,6 +9,11 @@ export const WORKFLOW_TYPE_IDS = Object.freeze([
   "work-intake-routing",
 ] as const);
 
+/** Exact existing-project workflows that can execute an accepted implementation Plan. */
+export const EXACT_EXECUTION_WORKFLOW_TYPES = Object.freeze(["feature-capability", "issue-resolution", "refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype"] as const);
+const exactExecutionTypes: ReadonlySet<string> = new Set(EXACT_EXECUTION_WORKFLOW_TYPES);
+export function isExactExecutionWorkflowType(value: unknown): boolean {return typeof value === "string" && exactExecutionTypes.has(value);}
+
 export type WorkflowType = (typeof WORKFLOW_TYPE_IDS)[number];
 
 export interface WorkflowTypeDefinition {

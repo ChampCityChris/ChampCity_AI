@@ -1,5 +1,5 @@
 import { isIntakeWorkflowType } from "../../shared/workflowIntakeContracts";
-import { WORKFLOW_TYPE_REGISTRY } from "../../shared/projectState/workflowTypeRegistry";
+import { WORKFLOW_TYPE_REGISTRY, isExactExecutionWorkflowType } from "../../shared/projectState/workflowTypeRegistry";
 type PlanningWorkflow = { workflowType: string; lifecycleState: string; currentWorkspace: string };
 export function workflowPlanningSurface(workflow: PlanningWorkflow | null | undefined): "intake" | "feature" | "issue" | "execution" | "architect" | "generic" {
   if (!workflow || workflow.lifecycleState !== "active") return "generic";
@@ -7,6 +7,7 @@ export function workflowPlanningSurface(workflow: PlanningWorkflow | null | unde
   if (workflow.workflowType === "feature-capability") return ["feature-assessment", "feature-planning"].includes(workflow.currentWorkspace) ? "feature" : "execution";
   if (workflow.workflowType === "issue-resolution") return ["issue-rca", "issue-planning"].includes(workflow.currentWorkspace) ? "issue" : "execution";
   if (["refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype"].includes(workflow.workflowType) && ["refactor-assessment", "integration-assessment", "infrastructure-assessment", "research-assessment"].includes(workflow.currentWorkspace)) return "architect";
+  if (isExactExecutionWorkflowType(workflow.workflowType) && ["work-item-map", "implementation", "execution-complete", "integration-ready", "validation"].includes(workflow.currentWorkspace)) return "execution";
   return "generic";
 }
 export function shouldShowClosedWorkIntakeSummary(workflow: PlanningWorkflow | null | undefined): boolean {

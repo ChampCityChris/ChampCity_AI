@@ -50,8 +50,8 @@ test("exact planning dispatch follows supported type and persisted currentWorksp
   assert.equal(shouldShowClosedWorkIntakeSummary({ workflowType: "work-intake-routing", lifecycleState: "active", currentWorkspace: "work-intake" }), false);
 });
 
-test("shared execution Workspace is the exact Feature and Issue post-plan surface with return navigation", () => {
-  for (const workflowType of ["feature-capability", "issue-resolution"]) {
+test("shared execution Workspace is the six exact post-plan surfaces with return navigation", () => {
+  for (const workflowType of Object.keys(WORKFLOW_TYPE_REGISTRY).filter(type => !["project-creation","work-intake-routing"].includes(type))) {
     const markup = renderToStaticMarkup(React.createElement(WorkflowExecutionWorkspace, { workflow: {
       workflowId: `${workflowType}-exact-id`, workflowType, title: "Same-title concurrent Workflow", lifecycleState: "active",
       currentWorkspace: "work-item-map", workflowState: "active", lineageId: `${workflowType}-lineage`, createdAt: "now", updatedAt: "now",
@@ -67,28 +67,28 @@ test("shared execution Workspace is the exact Feature and Issue post-plan surfac
 test("shared execution Workspace binds pending Implementer and Tester interactions to exact execution identities", () => {
   const fs = require("node:fs");
   const source = fs.readFileSync(require("node:path").resolve(__dirname, "../../src/renderer/app/WorkflowExecutionWorkspace.tsx"), "utf8");
-  for (const label of ["Implementer approval request", "Tester approval request"])
-    assert.ok(source.includes(label), `visible Workspace section is present: ${label}`);
-  assert.match(source, /CodexBoundedUserInputPanel/);
-  assert.match(source, /CodexBoundedMcpElicitationPanel/);
+  const shell = fs.readFileSync(path.join(repoRoot, "src/renderer/app/ExecutionShell.tsx"), "utf8");
+  assert.match(shell, /approval request/);
+  assert.match(shell, /CodexBoundedUserInputPanel/);
+  assert.match(shell, /CodexBoundedMcpElicitationPanel/);
+  assert.doesNotMatch(shell, /window\.champcity|JSON\.parse/);
   assert.match(source, /respondToCodexApproval\(\{[^}]*workflowId: workflow\.workflowId, workItemId: item\.record\.id/s);
   assert.match(source, /respondToCodexUserInput\(\{[^}]*workflowId: workflow\.workflowId, workItemId: item\.record\.id/s);
   assert.match(source, /respondToCodexMcpElicitation\(\{[^}]*workflowId: workflow\.workflowId, workItemId: item\.record\.id/s);
   assert.match(source, /cancelCodexImplementerExecution\(\{ workflowId: workflow\.workflowId, workItemId: item\.record\.id \}/);
-  assert.match(source, /respondToWorkflowWorkItemTesterApproval\(workflow\.workflowId, item\.record\.id, latest!\.id/);
-  assert.match(source, /respondToWorkflowWorkItemTesterInput\(workflow\.workflowId, item\.record\.id, latest!\.id/);
+  assert.match(source, /respondToWorkflowWorkItemTesterApproval\(workflow\.workflowId, item\.record\.id, latest\.id/);
+  assert.match(source, /respondToWorkflowWorkItemTesterInput\(workflow\.workflowId, item\.record\.id, latest\.id/);
   assert.match(source, /cancelWorkflowWorkItemTester\(workflow\.workflowId, item\.record\.id, latest\.id/);
-  assert.match(source, /Architect WorkItem execution planning/);
-  assert.match(source, /acceptWorkflowWorkItemExecutionPlan/);
-  assert.match(source, /Prepare Architect handoff/);
-  assert.match(source, /Import bounded Architect result/);
-  assert.match(source, /JSON\.parse\(architectDraft\)/);
-  assert.match(source, /setDecompositionJson\(typedDecomposition\)/);
+  assert.match(source, /WorkItemPlanningWorkspace/);
+  const planning=fs.readFileSync(path.join(repoRoot,"src/renderer/app/WorkItemPlanningWorkspace.tsx"),"utf8");
+  assert.match(planning,/saveStructuredWorkItemPlanning/);
+  assert.match(planning,/decomposeStructuredWorkItemPlanning/);
+  assert.doesNotMatch(planning,/JSON\.parse/);
   assert.match(source, /Execution could not start\./);
   assert.match(source, /item\.record\.body\.implementationBoundaries\?\.length/);
   assert.doesNotMatch(source, /runtime\?\.busy/);
   assert.match(source, /respondToCodexMcpElicitation\(\{[^}]*requestId, action, content, workflowId: workflow\.workflowId, workItemId: item\.record\.id/s);
-  assert.match(source, /getWorkflowWorkItemTesterStatus\(workflow\.workflowId, selected\.record\.id, last\.id\)/);
+  assert.match(source, /getWorkflowWorkItemTesterStatus\(workflow\.workflowId, selected\.record\.id, selected\.implementationAttempts\.at\(-1\)!\.id\)/);
   const pending = { requestId: "request-exact", threadId: "thread", turnId: "turn", itemId: "item", questions: [
     { id: "choice-id", header: "Choice", question: "Pick one", options: [{ label: "A", description: "First" }] },
     { id: "free-id", header: "Details", question: "Describe it", options: [] },
@@ -753,4 +753,21 @@ test("four remaining Architect stages route through the shared shell with a righ
     assert.match(html, /figma-doc-review-column/); assert.match(html, /figma-doc-chat-workspace/); assert.match(html, /assessment-browser/); assert.match(html, /Architect Workflow pipeline/); assert.match(html, /Not Ready/);
     for (const label of ["Work Item Map", "Execution", "Validation", "Close"]) assert.ok(html.includes(label));
   }
+});
+
+
+test("Execution Shell preserves phased readiness, exact source identity and bounded recovery actions", () => {
+  const {ExecutionWorkMapPanel,ExecutionCheckpointPanel,ExecutionInteractionsPanel}=loader.loadRendererSourceModule("src/renderer/app/ExecutionShell.tsx");
+  const record=(id,body)=>({id,body}), calls=[];
+  const plan={phases:[{phaseId:"phase-exact",sequence:1,record:record("phase-exact",{title:"Foundation",objective:"Acceptance boundary",phaseState:"active"})}],criteria:[],dependencyIds:[{from:"work-next",to:"work-exact"}]};
+  const items=[{record:record("work-exact",{title:"Current outcome",objective:"Deliver exact scope",workState:"ready"}),phaseId:"phase-exact",eligibility:{eligible:true,blockers:[]}},{record:record("work-next",{title:"Next outcome",objective:"Wait for proof",workState:"ready"}),phaseId:"phase-exact",eligibility:{eligible:false,blockers:["dependency-not-closed"]}}];
+  const projection={plan,items,activeWorkItemIds:[],source:{state:"prepared",baselineId:"baseline-exact",currentRevisionId:"revision-exact",workSourceLineId:"line-exact",repositoryCheckoutId:"checkout-exact"}};
+  const markup=renderToStaticMarkup(React.createElement(ExecutionWorkMapPanel,{projection,selectedId:"work-exact",onSelect:id=>calls.push(id)}));
+  for(const text of ["Foundation","Current outcome","Next outcome","dependency-not-closed","baseline-exact","revision-exact","line-exact","checkout-exact"]) assert.ok(markup.includes(text),text);
+  const panel=ExecutionCheckpointPanel({projection:{sourceMode:"source-backed",implementation:{state:"failed",retryable:true,implementationRecordId:"implementation-exact"},tester:{state:"pending",retryable:false}},onRetryImplementation:id=>calls.push(id),onRetryTester:()=>assert.fail("Tester retry is unavailable")});
+  function buttons(node){if(Array.isArray(node))return node.flatMap(buttons);if(!React.isValidElement(node))return [];return [...(node.type==="button"?[node]:[]),...buttons(node.props.children)];}
+  const actions=buttons(panel);assert.equal(actions.length,1);actions[0].props.onClick();assert.deepEqual(calls,["implementation-exact"]);
+  const neutral=renderToStaticMarkup(React.createElement(ExecutionCheckpointPanel,{projection:{sourceMode:"source-neutral"},onRetryImplementation(){},onRetryTester(){}}));assert.match(neutral,/not required/);assert.doesNotMatch(neutral,/<button/);
+  const approval=ExecutionInteractionsPanel({role:"Tester",approval:{requestId:"approval-exact",impactSummary:"Bounded proof"},onApproval:(id,decision)=>calls.push([id,decision]),onInput(){}});
+  buttons(approval)[0].props.onClick();assert.deepEqual(calls.at(-1),["approval-exact","approve"]);
 });

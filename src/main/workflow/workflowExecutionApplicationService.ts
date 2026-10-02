@@ -1,3 +1,4 @@
+import {EXACT_EXECUTION_WORKFLOW_TYPES} from "../../shared/projectState/workflowTypeRegistry";
 import fs from "node:fs";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
@@ -19,7 +20,7 @@ const operator = { principalId: "local-operator", principalType: "human" as cons
 const workflowApplication = { principalId: "workflow-execution-application", principalType: "system" as const, role: "System" };
 const workflowCompletionApplication = { principalId: "workflow-execution-completion", principalType: "system" as const, role: "WorkflowExecution" };
 type WorkflowRecord = ProjectStateRecord<"Workflow">;
-const implementationWorkflowTypes = new Set(["feature-capability", "issue-resolution"]);
+const implementationWorkflowTypes: ReadonlySet<string> = new Set(EXACT_EXECUTION_WORKFLOW_TYPES);
 
 function isCurrentWorkflow(record: WorkflowRecord): boolean {
   return record.lifecycleState === "active" && record.body.workflowState !== "closed" && record.body.workflowState !== "cancelled";
@@ -54,12 +55,14 @@ export function createWorkflowExecutionApplicationService(dependencies: {
   async function exactPlan(store: ProjectStateStore, projectId: ProjectId, workflowId: EntityId): Promise<WorkflowExecutionPlanView> {
     const workflow = await store.getEntity(projectId, workflowId);
     if (workflow?.entityType !== "Workflow" || workflow.projectId !== projectId || !isCurrentWorkflow(workflow) || !implementationWorkflowTypes.has(workflow.body.workflowType))
-      throw Error("Execution requires a current Feature or Issue Workflow in this Project.");
+      throw Error("Execution requires a current supported implementation Workflow in this Project.");
     const lineage = (await store.listEntities(projectId, "Workflow"))
       .filter((record): record is WorkflowRecord => record.entityType === "Workflow" && record.lineageId === workflow.lineageId);
     const current = lineage.filter(isCurrentWorkflow);
     if (current.length !== 1 || current[0].id !== workflowId) throw Error("Execution Workflow ID is not the unique current Workflow in its lineage.");
-    return createProjectStateService(store, operator).getWorkflowExecutionPlan(projectId, workflowId);
+    const plan = await createProjectStateService(store, operator).getWorkflowExecutionPlan(projectId, workflowId);
+    if (workflow.body.workflowType === "research-prototype" && (plan.solutions.length !== 1 || ![...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].length)) throw Error("Research requires an accepted implementation Plan before execution; no-Plan outcomes cannot enter execution.");
+    return plan;
   }
 
   async function currentPhaseTesterIds(store: ProjectStateStore, projectId: ProjectId, plan: WorkflowExecutionPlanView, workItemIds: EntityId[], sourceRevisionId: string | null) {
@@ -350,7 +353,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
     if (new Set(affectedPaths).size !== affectedPaths.length) throw Error("Affected paths must be unique.");
     return withCurrentProject(projectRoot, async (store, projectId) => {
       const workflow = await exactPlan(store, projectId, input.workflowId);
-      if (!implementationWorkflowTypes.has(workflow.workflow.body.workflowType)) throw Error("Execution planning requires the exact current Feature/Issue Workflow.");
+      if (!implementationWorkflowTypes.has(workflow.workflow.body.workflowType)) throw Error("Execution planning requires the exact current supported Workflow.");
       const projection = await project(store, projectId, workflow);
       const item = projection.items.find(candidate => candidate.record.id === input.workItemId);
       if (!item || !["planned", "ready"].includes(item.record.body.workState) || item.record.recordVersion !== input.expectedVersion) throw Error("Execution planning requires the exact current planned/ready WorkItem.");
@@ -825,6 +828,10 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       }
       const disposition = await state.getEffectiveDisposition(projectId, record.id);
       if (["proposed", "revision_requested", "rejected", "revoked"].includes(disposition.state)) blockers.add("blocking-decision");
+      if (["planned", "ready"].includes(record.body.workState)) {
+        const contractReview = await state.getWorkItemPlanningReview(projectId, record.id);
+        if (contractReview.required && contractReview.disposition.state !== "approved") blockers.add("work-item-contract-review-required");
+      }
       for (const edge of edges.filter(edge => edge.relationshipType === "blocks" && edge.toEntityId === record.id)) {
         const blocker = await store.getEntity(projectId, edge.fromEntityId);
         if (blocker?.lifecycleState === "active") blockers.add(`blocking-record:${blocker.id}`);

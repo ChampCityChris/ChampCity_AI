@@ -1,3 +1,4 @@
+import {isExactExecutionWorkflowType} from "../../shared/projectState/workflowTypeRegistry";
 import fs from "node:fs";
 import path from "node:path";
 import {createSQLiteProjectStateStore} from "../projectState/sqliteProjectStateStore";
@@ -47,7 +48,7 @@ export function createStructuredWorkItemPlanningService() {
     const input = parseWorkItemPlanningJson(json);
     if (input.workflowId !== workflowId || input.workItemId !== workItemId) throw Error("Architect output targets another exact WorkItem.");
     const current = await get(root, workflowId, workItemId);
-    if (["feature-capability", "issue-resolution"].includes(current.workflowType)) {
+    if (isExactExecutionWorkflowType(current.workflowType)) {
       if (input.decomposition) throw Error("Decomposition requires the separate explicit Operator action.");
       await createWorkflowExecutionApplicationService().acceptWorkItemExecutionPlan(root, {workflowId, workItemId, expectedVersion: input.expectedVersion, plan: input}, false, input.criteria);
     } else await withState(root, (state, projectId) => state.saveWorkItemPlanningContract(projectId, input));

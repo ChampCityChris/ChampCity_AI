@@ -7,7 +7,7 @@ import { ARCHITECT_WORKSPACE_BY_WORKFLOW, ARCHITECT_STAGE_BY_WORKFLOW, architect
 import { GREENFIELD_ARCHITECT_SECTIONS, FEATURE_ARCHITECT_SECTIONS, ASSESSMENT_SECTIONS, ASSESSMENT_DESIGNS, type AssessmentWorkflowType, validateArchitectCandidateOutput, type ArchitectCandidateSaveInput, type GreenfieldArchitectOutput } from "../architectWorkspaceContracts";
 import { workflowIntakeDisposition, exactVersionReviewDisposition } from "./workflowIntakeDisposition";
 import type { DispositionState, EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef, ProjectId, ProjectStateEntity, ProjectStateRecord, TestLifecycleAssessmentStatus, ValidationMode, WorkflowState, WorkIntakeState, WorkRoute } from "./domainContracts";
-import { getWorkflowTypeDefinition, workflowTypeForWorkRoute, type ExistingProjectWorkRoute, type WorkflowType } from "./workflowTypeRegistry";
+import { isExactExecutionWorkflowType, getWorkflowTypeDefinition, workflowTypeForWorkRoute, type ExistingProjectWorkRoute, type WorkflowType } from "./workflowTypeRegistry";
 import { assertSupersession } from "./domainInvariants";
 import { isTesterOwnedPath } from "./testerOwnedPathPolicy";
 import { createProjectStateEntity, ENTITY_TYPE_REGISTRY, ProjectStateDomainError, validateProjectStateEntity } from "./entityTypeRegistry";
@@ -1550,7 +1550,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (!executionRef || executionRef.length > 128 || !Number.isSafeInteger(expectedWorkItemVersion) || expectedWorkItemVersion < 1) fail("Exact Work Item attempt identity is required.");
     return store.transaction(projectId, async unit => {
       const workflow = await requiredRecord(unit, projectId, workflowId);
-      if (workflow.entityType !== "Workflow" || workflow.lifecycleState !== "active" || ["closed", "cancelled"].includes(workflow.body.workflowState) || !["feature-capability", "issue-resolution"].includes(workflow.body.workflowType)) fail("A current Feature or Issue Workflow is required.");
+      if (workflow.entityType !== "Workflow" || workflow.lifecycleState !== "active" || ["closed", "cancelled"].includes(workflow.body.workflowState) || !isExactExecutionWorkflowType(workflow.body.workflowType)) fail("A current supported implementation Workflow is required.");
       const currentOwners = (await unit.listEntities(projectId, "Workflow")).filter(record => record.entityType === "Workflow" && record.lineageId === workflow.lineageId && record.lifecycleState === "active" && !["closed", "cancelled"].includes(record.body.workflowState));
       if (currentOwners.length !== 1 || currentOwners[0].id !== workflowId) fail("Exact Workflow is not the unique current owner.");
       const item = await requiredRecord(unit, projectId, workItemId);
@@ -1615,7 +1615,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return store.transaction(projectId, async unit => {
       const workflow = await requiredRecord(unit, projectId, workflowId);
       const item = await requiredRecord(unit, projectId, workItemId);
-      if (workflow.entityType !== "Workflow" || item.entityType !== "WorkItem" || item.body.workState !== "in_progress" || !["feature-capability", "issue-resolution"].includes(workflow.body.workflowType)) fail("Exact active Workflow attempt is unavailable.");
+      if (workflow.entityType !== "Workflow" || item.entityType !== "WorkItem" || item.body.workState !== "in_progress" || !isExactExecutionWorkflowType(workflow.body.workflowType)) fail("Exact active Workflow attempt is unavailable.");
       const currentOwners = (await unit.listEntities(projectId, "Workflow")).filter(record => record.entityType === "Workflow" && record.lineageId === workflow.lineageId && record.lifecycleState === "active" && !["closed", "cancelled"].includes(record.body.workflowState));
       if (currentOwners.length !== 1 || currentOwners[0].id !== workflowId) fail("Exact Workflow is not the unique current owner.");
       const memberships = (await unit.listRelationships(projectId, "part_of")).filter(edge => !edge.endedAt);
@@ -1653,7 +1653,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const workflow = await requiredRecord(unit, projectId, input.workflowId);
       const parent = await requiredRecord(unit, projectId, input.workItemId);
       if (workflow.entityType !== "Workflow" || workflow.lifecycleState !== "active" || workflow.body.workflowState !== "active" ||
-        !["feature-capability", "issue-resolution"].includes(workflow.body.workflowType) || parent.entityType !== "WorkItem" ||
+        !isExactExecutionWorkflowType(workflow.body.workflowType) || parent.entityType !== "WorkItem" ||
         parent.lifecycleState !== "active" || parent.body.workState === "closed") fail("Repair requires an exact active Workflow and open WorkItem.");
       const plan = await getWorkflowExecutionPlan(projectId, workflow.id);
       const members = [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()];
@@ -1760,7 +1760,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     exactInput(input, ["workflowId", "phaseId", "failureEvidenceId"]);
     return store.transaction(projectId, async unit => {
       const workflow = await requiredRecord(unit, projectId, input.workflowId), phaseRecord = await requiredRecord(unit, projectId, input.phaseId);
-      if (workflow.entityType !== "Workflow" || workflow.lifecycleState !== "active" || workflow.body.workflowState !== "active" || !["feature-capability", "issue-resolution"].includes(workflow.body.workflowType) ||
+      if (workflow.entityType !== "Workflow" || workflow.lifecycleState !== "active" || workflow.body.workflowState !== "active" || !isExactExecutionWorkflowType(workflow.body.workflowType) ||
         phaseRecord.entityType !== "Phase" || phaseRecord.lifecycleState !== "active" || ["closed", "cancelled"].includes(phaseRecord.body.phaseState)) fail("Phase Repair requires the exact current open Workflow Phase.");
       const currentWorkflows = (await unit.listEntities(projectId, "Workflow")).filter(record => record.entityType === "Workflow" && record.lineageId === workflow.lineageId && record.lifecycleState === "active" && !["closed", "cancelled"].includes(record.body.workflowState));
       if (currentWorkflows.length !== 1 || currentWorkflows[0].id !== workflow.id) fail("Phase Repair requires the unique current Workflow in its lineage.");
@@ -1850,7 +1850,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return store.transaction(projectId, async unit => {
       const workflow = await requiredRecord(unit, projectId, input.workflowId);
       if (workflow.entityType !== "Workflow" || workflow.lifecycleState !== "active" || workflow.body.workflowState !== "active" ||
-        !["feature-capability", "issue-resolution", "project-creation"].includes(workflow.body.workflowType)) fail("Decomposition requires the exact current executable Workflow.");
+        !(isExactExecutionWorkflowType(workflow.body.workflowType) || workflow.body.workflowType === "project-creation")) fail("Decomposition requires the exact current executable Workflow.");
       const currentOwners = (await unit.listEntities(projectId, "Workflow")).filter(record => record.entityType === "Workflow" && record.lineageId === workflow.lineageId && record.lifecycleState === "active" && record.body.workflowState === "active");
       if (currentOwners.length !== 1 || currentOwners[0].id !== workflow.id) fail("Workflow is not the unique current owner.");
       const source = await requiredRecord(unit, projectId, input.workItemId);
@@ -1867,7 +1867,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const sourceOwner = await requiredRecord(unit, projectId, sourceParent.toEntityId);
       if (!(sourceOwner.entityType === "Workflow" && sourceOwner.id === workflow.id || sourceOwner.entityType === "Phase" && plan.phases.some(phase => phase.phaseId === sourceOwner.id))) fail("Decomposition source belongs to a different Workflow.");
       if (workflow.body.workflowType === "project-creation") await workItemPlanningContext(unit, projectId, workflow.id, source.id);
-      const familyKinds: Record<string, readonly string[]> = { "feature-capability": ["feature", "fix", "maintenance"], "issue-resolution": ["fix", "repair"], "project-creation": ["feature", "fix", "maintenance", "repair"] };
+      const familyKinds: Record<string, readonly string[]> = { "feature-capability": ["feature", "fix", "maintenance"], "issue-resolution": ["fix", "repair"], "refactor-migration": ["migration", "maintenance", "repair"], "integration-composition": ["feature", "fix", "maintenance", "repair"], "infrastructure-platform": ["feature", "fix", "maintenance", "repair"], "research-prototype": ["feature", "maintenance", "repair"], "project-creation": ["feature", "fix", "maintenance", "repair"] };
       if (input.replacements.some(candidate => !familyKinds[workflow.body.workflowType].includes(candidate.kind))) fail("Replacement WorkItem kind is invalid for this Workflow family.");
       const sourceDependencies = allEdges.filter(edge => edge.relationshipType === "depends_on" && edge.fromEntityId === source.id);
       const incoming = allEdges.filter(edge => edge.relationshipType === "depends_on" && edge.toEntityId === source.id && edge.fromEntityId !== source.id);
@@ -2550,7 +2550,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return store.transaction(projectId, async unit => {
       const workflow = await requiredRecord(unit, projectId, workflowId);
       if (workflow.entityType !== "Workflow" || workflow.recordVersion !== expectedRevision || workflow.lifecycleState !== "active" ||
-        !["feature-capability", "issue-resolution"].includes(workflow.body.workflowType) || ["closed", "cancelled"].includes(workflow.body.workflowState)) fail("Exact current substantive Workflow is unavailable or stale.");
+        !isExactExecutionWorkflowType(workflow.body.workflowType) || ["closed", "cancelled"].includes(workflow.body.workflowState)) fail("Exact current substantive Workflow is unavailable or stale.");
       if (plan.solutions.length !== 1 || plan.decisions.length !== 1) fail("Workflow execution completion requires one accepted canonical plan.");
       const accepted = await requiredRecord(unit, projectId, plan.decisions[0].id);
       const solution = await requiredRecord(unit, projectId, plan.solutions[0].id);
@@ -3343,7 +3343,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const {workItem, workflow} = await workItemPlanningContext(unit, projectId, input.workflowId, input.workItemId);
       if (workItem.recordVersion !== input.expectedVersion || !["planned", "ready"].includes(workItem.body.workState)) fail("WorkItem contract revision is stale or has left planning.");
       const history = (await unit.listRelationships(projectId)).filter(edge => !edge.endedAt);
-      if (!["feature-capability", "issue-resolution"].includes(workflow.body.workflowType) && history.some(edge => edge.relationshipType === "implements_work_item" && edge.toEntityId === workItem.id)) fail("WorkItem detailed planning has implementation history.");
+      if (!isExactExecutionWorkflowType(workflow.body.workflowType) && history.some(edge => edge.relationshipType === "implements_work_item" && edge.toEntityId === workItem.id)) fail("WorkItem detailed planning has implementation history.");
       const contractTargets = new Set([workItem.id, ...history.filter(edge => edge.relationshipType === "defines_criterion" && edge.fromEntityId === workItem.id).map(edge => edge.toEntityId)]);
       if (history.some(edge => ["evaluates", "checkpoints", "repairs", "blocks"].includes(edge.relationshipType) && contractTargets.has(edge.toEntityId))) fail("Detailed planning cannot change after validation, checkpoint, repair or blocker evidence.");
       const baselines = (await unit.listRelationships(projectId, "baselines_source")).filter(edge => !edge.endedAt && edge.toEntityId === input.workflowId);
@@ -3888,7 +3888,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   async function getExactWorkflowOwnerForWorkItem(projectId: ProjectId, workItemId: EntityId): Promise<ProjectStateRecord<"Workflow"> | null> {
     const workflows = (await store.listEntities(projectId, "Workflow"))
       .filter((record): record is ProjectStateRecord<"Workflow"> => record.entityType === "Workflow" && record.lifecycleState === "active" &&
-        record.body.workflowState !== "closed" && record.body.workflowState !== "cancelled" && ["feature-capability", "issue-resolution"].includes(record.body.workflowType));
+        record.body.workflowState !== "closed" && record.body.workflowState !== "cancelled" && isExactExecutionWorkflowType(record.body.workflowType));
     const memberships = (await store.listRelationships(projectId, "part_of")).filter(edge => !edge.endedAt);
     const owners: ProjectStateRecord<"Workflow">[] = [];
     for (const workflow of workflows) {
@@ -3919,7 +3919,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     let workflowPlan: WorkflowExecutionPlanView | null = null;
     if (phaseParents.length === 1) {
       const workflow = await requiredRecord(store, projectId, phaseParents[0].toEntityId);
-      if (workflow.entityType === "Workflow" && ["feature-capability", "issue-resolution"].includes(workflow.body.workflowType)) {
+      if (workflow.entityType === "Workflow" && isExactExecutionWorkflowType(workflow.body.workflowType)) {
         workflowPlan = await getWorkflowExecutionPlan(projectId, workflow.id);
         membership = workflowPlan.phases.find(item => item.phaseId === phaseId);
         if (!membership) fail("Phase is not part of the exact owning Workflow plan.");
