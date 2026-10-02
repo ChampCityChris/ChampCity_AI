@@ -56,6 +56,7 @@ All seven families flow through `createStructuredArchitectWorkspaceService().get
 - `src/renderer/app/FigmaDocumentCard.tsx`
 - `src/renderer/styles.css`
 - `src/shared/structuredArchitectReviewState.ts` (deleted as dead renderer-only state)
+- `validation/capability-map.json` (retired the acknowledgement-only test owner and mapped direct current-revision proof)
 - `test/renderer/architect-interview-refresh-state.test.cjs` (deleted with the orphaned state proof)
 - `test/renderer/figma-redesign-shell.test.cjs`
 - `test/renderer/project-rail-presentation.test.cjs`
@@ -76,7 +77,7 @@ No canonical Markdown was created to populate tabs. No SQL/domain contracts, Int
 | `node --test test/renderer/figma-redesign-shell.test.cjs test/renderer/project-rail-presentation.test.cjs test/workflow/workflow-planning-ipc.test.cjs test/renderer/document-review-surface-source.test.cjs` | Normal Windows | Passed, 47 tests, 0 failures. |
 | `git diff --check` | Local source check | Passed; Git printed line-ending normalization notices for existing Windows CRLF files. |
 
-The exact-path repair profile and a final build/typecheck are run after the sequential REPAIR04 checkpoint is completed. No unrelated test failure was observed.
+The exact-path repair profile ran after REPAIR04 implementation and failed in broader selected owners. It reported failures in source-control suites and `runtime-wiring-source.test.cjs`; renderer output also exposed one stale browser-chrome assertion (updated under REPAIR04) and two Workflow Hub identity expectations associated with concurrent workflow changes. The focused REPAIR03 suite and direct-current-revision behavior remain green. A normal Windows typecheck and production build passed after both cards' source changes; the build emitted the existing chunk-size advisory.
 
 ## Safety and remaining validation
 
