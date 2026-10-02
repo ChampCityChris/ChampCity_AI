@@ -43,7 +43,7 @@ function planValidation({ root = ROOT, catalog, profiles, lane, profile, testPat
   const lanes = profile ? profiles.profiles[profile].lanes : lane === 'full-regression' ? LANES : [lane];
   assert.ok(changedPaths === undefined || profile, 'Affected selection requires a profile');
   assert.ok(changedPaths !== undefined || capabilityIds.length === 0, 'Explicit scope requires a changed-path set');
-  const affected = changedPaths === undefined ? null : selectAffected(catalog, { ...profiles.profiles[profile], name: profile }, { changedPaths, capabilityIds });
+  const affected = changedPaths === undefined ? null : selectAffected(catalog, { ...profiles.profiles[profile], name: profile }, { changedPaths, capabilityIds, root });
   const selected = catalog.tests.filter(t => affected ? affected.selected.has(t.testPath) : testPaths ? testPaths.includes(t.testPath) : lanes.includes(t.proposedValidationLane) && (!profile || !t.execution.profileRestriction || t.execution.profileRestriction.includes(profile)));
   const tests = selected.map(record => ({
     testPath: record.testPath,

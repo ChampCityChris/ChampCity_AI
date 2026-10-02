@@ -12,7 +12,34 @@ function matchesPattern(file, pattern) {
   }
   return new RegExp(expression + '$').test(file);
 }
-function selectAffected(catalog, profile, { changedPaths, capabilityIds = [] }) {
+const fs = require('node:fs');
+const {execFileSync} = require('node:child_process');
+const path = require('node:path');
+function removedPathOwners(catalog, root, file) {
+  if (fs.existsSync(path.join(root,file))) return [];
+  const git = args => execFileSync('git',args,{cwd:root,encoding:'utf8',windowsHide:true,timeout:5000,maxBuffer:8*1024*1024,stdio:['ignore','pipe','ignore']}).trim();
+  let deletion;
+  try {git(['cat-file','-e',`HEAD:${file}`]);}
+  catch {
+    try {deletion=git(['log','-1','--diff-filter=D','--format=%H','--',file]);if(!/^[a-f0-9]{40}$/.test(deletion))return [];} catch {return [];}
+  }
+  // Catalog ownership can move to a successor capability in the deletion checkpoint.
+  // Read bounded committed ownership history; never resurrect retired tests or behaviors.
+  let refs=['HEAD'];
+  try {refs.push(...git(['log','-32','--format=%H','--','validation/capability-map.json']).split('\n'));} catch {return [];}
+  const known=new Set(catalog.capabilities.map(cap=>cap.capabilityId));
+  for(const ref of [...new Set(refs)]) {
+    try {
+      const previous=JSON.parse(git(['show',`${ref}:validation/capability-map.json`]));
+      const ids=new Set(previous.capabilities.filter(cap=>cap.sourcePatterns.some(pattern=>matchesPattern(file,pattern))).map(cap=>cap.capabilityId));
+      for(const proof of previous.tests.find(test=>test.testPath===file)?.behaviorCoverage??[])ids.add(proof.capabilityId);
+      const owners=[...ids].filter(id=>known.has(id)).sort().map(capabilityId=>({capabilityId,ref}));
+      if(owners.length)return owners;
+    } catch { /* A historical revision without a catalog has no ownership evidence. */ }
+  }
+  return [];
+}
+function selectAffected(catalog, profile, { changedPaths, capabilityIds = [], root = require('./catalog.cjs').ROOT }) {
   assert.ok(Array.isArray(changedPaths) && Array.isArray(capabilityIds), 'Changed paths and explicit capability scope must be arrays');
   const paths = [...new Set(changedPaths.map(relativePath))].sort();
   const capabilities = new Map(catalog.capabilities.map(c => [c.capabilityId, c]));
@@ -23,7 +50,11 @@ function selectAffected(catalog, profile, { changedPaths, capabilityIds = [] }) 
     for (const owner of owners) add(owner.capabilityId, 'changed-path:' + file);
     const testRecord = catalog.tests.find(t => t.testPath === file);
     for (const proof of testRecord?.behaviorCoverage ?? []) add(proof.capabilityId, 'changed-owned-test:' + file);
-    if (!owners.length && !testRecord) unknown.push(file);
+    if (!owners.length && !testRecord) {
+      const previous = removedPathOwners(catalog, root, file);
+      for (const owner of previous) add(owner.capabilityId, `removed-path:${file}@${owner.ref}`);
+      if (!previous.length) unknown.push(file);
+    }
   }
   assert.equal(unknown.length, 0, 'Unclassified changed paths; add reviewed sourcePatterns to validation/capability-map.json: ' + unknown.join(', '));
   for (const id of [...new Set(capabilityIds)].sort()) add(id, 'explicit-work-item-scope');

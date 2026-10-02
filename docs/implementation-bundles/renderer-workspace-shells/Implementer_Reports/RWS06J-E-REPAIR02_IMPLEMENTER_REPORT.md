@@ -1,0 +1,11 @@
+# RWS06J-E-REPAIR02 Implementer Report
+
+Approved Dev root verified; `dev`, `origin` configured; no push. Bounded qualification repair RWS06J-E-REPAIR02, triggered by the final exact A–E planner preview. E-REPAIR01 checkpoint: `a1aa474`.
+
+The planner could not classify four committed deletions after obsolete explicit source patterns were retired. Updated affected selection to require Git evidence for an absent unclassified path and consult at most 32 committed catalog revisions for the most recent owner still present in the current catalog. This includes successor ownership recorded at cutover. Current proof is selected; no old behavior/test/catalog entries are restored. Receipt reasons record removed path and catalog revision. Git calls are read-only, bounded in time/output, and shell-free. Existing unowned files and never-owned missing paths still fail closed. Non-Git repositories retain ordinary fail-closed classification. Production workflow authority unchanged.
+
+Modified scripts/validation/affected.cjs, scripts/validation/planner.cjs and existing affected-selection test in test/validation/validation-runner.test.cjs. Also corrected that retained test's obsolete issue-resolution-workflow capability reference to workflow-application-service. Synthetic Git proof exercises unstaged and committed deletion, deterministic current-proof selection and absent/existing unknown-path rejection. No dependencies, migration, arbitrary historical document import or production compatibility APIs created.
+
+Normal Windows `node --test test/validation/validation-runner.test.cjs` passed 8/8. `npm run validate:plan -- --profile work-item --changes tmp/rws06j-final-changes.json` passed using all A–E changed paths; current final qualification regenerates the manifest to include this repair/report and performs the affected profile. Initial focused failure revealed the obsolete capability ID; corrected. `git diff --check` passes. Staged diff reviewed and bounded secret/local-path/generated-artifact scan clean.
+
+Checkpoint pending at report creation: `RWS06J-E-R02 classify retired paths from Git ownership`. No external blocker. Continue directly to final E qualification; wider unrelated failures remain separately attributed.

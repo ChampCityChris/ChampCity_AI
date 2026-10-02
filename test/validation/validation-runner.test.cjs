@@ -183,7 +183,7 @@ test('bounded resource scheduler overlaps compatible work enforces barriers cont
 });
 
 
-test('affected proof selection is deterministic complete within profile scope and rejects unknown paths and cycles', () => {
+test('affected proof selection is deterministic complete within profile scope and rejects unknown paths and cycles', context => {
   const fixtures=require('../fixtures/validation/affected-changes.json');
   const {matchesPattern}=require('../../scripts/validation/affected.cjs');
   assert.equal(matchesPattern('aXts','a.ts'),false);assert.equal(matchesPattern('test/x.test.cjs','test/**/*.test.cjs'),true);assert.equal(matchesPattern('test/a/x.test.cjs','test/**/*.test.cjs'),true);
@@ -198,9 +198,27 @@ test('affected proof selection is deterministic complete within profile scope an
   assert.ok(plans.shared.selection.capabilities.some(c=>c.capabilityId==='release-and-git-operations'));
   assert.ok(plans.shared.selection.capabilities.some(c=>c.capabilityId==='agent-harness-repository-operations'));
   assert.equal(plans.documentation.requiresBuild,false);assert.ok(plans.documentation.tests.length&&plans.documentation.tests.every(t=>t.lane==='static'));
-  const wider=planValidation({profile:'integration-gate',changedPaths:fixtures.single,capabilityIds:['issue-resolution-workflow']});
-  assert.ok(plans.single.tests.every(t=>wider.tests.some(w=>w.testPath===t.testPath)));assert.ok(wider.selection.capabilities.some(c=>c.capabilityId==='issue-resolution-workflow'));
+  const wider=planValidation({profile:'integration-gate',changedPaths:fixtures.single,capabilityIds:['workflow-application-service']});
+  assert.ok(plans.single.tests.every(t=>wider.tests.some(w=>w.testPath===t.testPath)));assert.ok(wider.selection.capabilities.some(c=>c.capabilityId==='workflow-application-service'));
   assert.throws(()=>planValidation({profile:'integration-gate',changedPaths:fixtures.single,capabilityIds:['unknown']}),/Unknown explicit/);
+  // Deletions retain attributable current proof without obsolete current source patterns.
+  const {selectAffected}=require('../../scripts/validation/affected.cjs'),{execFileSync}=require('node:child_process');
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'champcity-deleted-ownership-'));
+  context.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+  const git=args=>execFileSync('git',args,{cwd:root,encoding:'utf8',windowsHide:true,stdio:['ignore','pipe','pipe']});
+  git(['init']);git(['config','user.name','Validation Fixture']);git(['config','user.email','fixture@example.invalid']);
+  fs.mkdirSync(path.join(root,'src'));fs.mkdirSync(path.join(root,'validation'));
+  fs.writeFileSync(path.join(root,'src/retired.ts'),'export {};');
+  const owner={capabilityId:'fixture',description:'Current fixture capability',sourcePatterns:['src/retired.ts'],dependsOn:[],behaviors:[{behaviorId:'current',description:'Current proof'}]};
+  const catalog={capabilities:[owner],tests:[{testPath:'test/current.test.cjs',proposedValidationLane:'fast',execution:{},behaviorCoverage:[{capabilityId:'fixture',behaviorId:'current',proofRole:'primary',proofLocator:'current'}]}]};
+  fs.writeFileSync(path.join(root,'validation/capability-map.json'),JSON.stringify(catalog));git(['add','.']);git(['commit','-m','Original ownership']);
+  fs.unlinkSync(path.join(root,'src/retired.ts'));const current=structuredClone(catalog);current.capabilities[0].sourcePatterns=['src/current.ts'];
+  const profile={name:'repair',lanes:['fast']};const select=()=>selectAffected(current,profile,{root,changedPaths:['src/retired.ts']});
+  const unstaged=select();assert.ok(unstaged.selected.has('test/current.test.cjs'));assert.match(unstaged.capabilities[0].reasons[0],/@HEAD$/);
+  fs.writeFileSync(path.join(root,'validation/capability-map.json'),JSON.stringify(current));git(['add','-A']);git(['commit','-m','Retire source and current ownership']);
+  const committed=select();assert.ok(committed.selected.has('test/current.test.cjs'));assert.match(committed.capabilities[0].reasons[0],/@[a-f0-9]{40}$/);assert.deepEqual(committed,select());
+  assert.throws(()=>selectAffected(current,profile,{root,changedPaths:['src/never-owned.ts']}),/Unclassified/);
+  fs.writeFileSync(path.join(root,'src/retired.ts'),'unowned replacement');assert.throws(select,/Unclassified/);
   const cyclic=loadCatalog();cyclic.capabilities.find(c=>c.capabilityId==='workspace-registry').dependsOn=['agent-harness-mcp-runtime'];assert.throws(()=>validateCatalog(cyclic,ROOT),/cycle/);
   assert.deepEqual(main(['preview','--profile','integration-gate','--changes','test/fixtures/validation/renderer-change.json']),plans.renderer);
 });
