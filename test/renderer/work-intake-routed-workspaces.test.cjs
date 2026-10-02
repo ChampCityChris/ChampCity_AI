@@ -224,24 +224,24 @@ test("App routed handoff opens the exact target Workflow instance", async () => 
   const ast = ts.createSourceFile("App.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   let declaration;
   function visit(node) {
-    if (ts.isFunctionDeclaration(node) && node.name?.text === "openRoutedTargetWorkflow") declaration = node;
+    if (ts.isFunctionDeclaration(node) && node.name?.text === "openRoutedWorkflow") declaration = node;
     ts.forEachChild(node, visit);
   }
   visit(ast);
   assert.ok(declaration);
-  assert.match(source, /onRouted=\{workflowId => void openRoutedTargetWorkflow\(workflowId\)\}/);
+  assert.match(source, /onRouted=\{id => void openRoutedWorkflow\(id\)\}/);
   const js = ts.transpileModule(declaration.getText(ast), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
   const state = {};
   const target = "exact-routed-workflow";
-  const open = new Function("refreshWorkflowInventory", "window", "setSelectedWorkflowType", "setSelectedWorkflowId",
-    "setWorkflowInstance", "setActiveWorkflowId", "setShellView", "setWorkflowHubError", `${js}; return openRoutedTargetWorkflow;`)(
+  const open = new Function("refreshWorkflowInventory", "window", "setWorkflowType", "setWorkflowId",
+    "setWorkflow", "setView", "setWorkflowError", `${js}; return openRoutedWorkflow;`)(
     async id => { assert.equal(id, target); return { groups: [{ workflows: [{ workflowId: target }] }] }; },
-    { champcity: { getWorkflow: async id => { assert.equal(id, target); return { workflow: { workflowId: target, workflowType: "refactor-migration" } }; }, selectStructuredWorkflowAuthority: async id => assert.equal(id, target) } },
+    { champcity: { getWorkflow: async id => { assert.equal(id, target); return { workflow: { workflowId: target, workflowType: "refactor-migration" } }; } } },
     value => { state.type = value; }, value => { state.id = value; }, value => { state.instance = value; },
-    value => { state.active = value; }, value => { state.view = value; }, value => { state.error = value; });
+    value => { state.view = value; }, value => { state.error = value; });
   await open(target);
   assert.deepEqual(state, { type: "refactor-migration", id: target,
-    instance: { workflowId: target, workflowType: "refactor-migration" }, active: null, view: "workflow-instance" });
+    instance: { workflowId: target, workflowType: "refactor-migration" }, view: "workflow-instance" });
 });
 
 test("structured WIR polling promotes in place without overlap and stops at all terminal boundaries", async () => {

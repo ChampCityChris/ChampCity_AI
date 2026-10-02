@@ -380,25 +380,25 @@ test("Hub actions preserve exact Workflow identity and route WIR rows to their e
     ts.forEachChild(node, visit);
   }
   visit(ast);
-  assert.match(declarations.get("startDirectWorkflow"), /startWorkflow\(request\)/);
-  assert.match(declarations.get("startDirectWorkflow"), /getWorkflow\(created\.workflow\.workflowId\)/);
-  assert.match(declarations.get("startDirectWorkflow"), /setSelectedWorkflowId\(opened\.workflow\.workflowId\)/);
-  assert.match(declarations.get("openCurrentWorkflow"), /getWorkflow\(workflowId\)/);
-  assert.match(declarations.get("openCurrentWorkflow"), /workflowType === "project-creation"/);
-  assert.match(declarations.get("activateWorkspaceSelection"), /projectCreationWorkflowId/);
-  assert.match(declarations.get("activateWorkspaceSelection"), /setSelectedWorkflowId\(opened\.workflow\.workflowId\)/);
-  assert.match(declarations.get("openCurrentWorkflow"), /openWorkIntakeForWorkflow\(result\.workflow\.workIntakeId, result\.workflow\.workflowId\)/);
+  assert.match(declarations.get("startWorkflow"), /startWorkflow\(request\)/);
+  assert.match(declarations.get("startWorkflow"), /getWorkflow\(created\.workflow\.workflowId\)/);
+  assert.match(declarations.get("startWorkflow"), /setWorkflowId\(opened\.workflow\.workflowId\)/);
+  assert.match(declarations.get("openWorkflow"), /getWorkflow\(id\)/);
+  assert.match(declarations.get("openWorkflow"), /workflowType === "project-creation"/);
+  assert.match(declarations.get("activateProject"), /projectCreationWorkflowId/);
+  assert.match(declarations.get("activateProject"), /setWorkflowId\(id\)/);
+  assert.match(declarations.get("openWorkflow"), /openWorkIntakeForWorkflow\(opened\.workflow\.workIntakeId, opened\.workflow\.workflowId\)/);
   assert.match(declarations.get("openWorkIntakeForWorkflow"), /workflowType !== "work-intake-routing" \|\| opened\.workflow\.workIntakeId !== intakeId/);
   assert.doesNotMatch(source, /selectStructuredWorkflowAuthority/);
-  assert.match(declarations.get("openWorkIntakeForWorkflow"), /setShellView\("work-intake"\)/);
-  assert.match(source, /onSelectType=\{workflowType => \{ setSelectedWorkflowType\(workflowType\)/);
-  assert.match(source, /onOpenGreenfield=\{workflowId => void openCurrentWorkflow\(workflowId\)\}/);
-  assert.match(source, /onOpenWorkflow=\{workflowId => void openCurrentWorkflow\(workflowId\)\}/);
+  assert.match(declarations.get("openWorkIntakeForWorkflow"), /setView\("work-intake"\)/);
+  assert.match(source, /onSelectType=\{type => \{ setWorkflowType\(type\)/);
+  assert.match(source, /onOpenGreenfield=\{id => void openWorkflow\(id\)\}/);
+  assert.match(source, /onOpenWorkflow=\{id => void openWorkflow\(id\)\}/);
   assert.match(source, /onStartWorkIntake=\{\(\) => void openWorkIntake\(\)\}/);
-  assert.match(declarations.get("returnToWorkflowType"), /setShellView\(selectedWorkflowType \? "workflow-type" : "workflow-hub"\)/);
+  assert.match(declarations.get("returnToWorkflowType"), /setView\(workflowType \? "workflow-type" : "workflow-hub"\)/);
   assert.match(source, /onReturn=\{returnToWorkflowType\}/);
-  assert.match(declarations.get("openWorkIntakeForWorkflow"), /setSelectedWorkflowId\(routingWorkflowId\)/);
-  assert.doesNotMatch(declarations.get("startDirectWorkflow"), /startWorkIntake|createWorkIntake|submitWorkIntake/);
+  assert.match(declarations.get("openWorkIntakeForWorkflow"), /setWorkflowId\(routingWorkflowId\)/);
+  assert.doesNotMatch(declarations.get("startWorkflow"), /startWorkIntake|createWorkIntake|submitWorkIntake/);
 });
 
 test("non-source Current Project Hub omits Source Control", () => {
@@ -459,11 +459,9 @@ test("Workflow IPC accepts exact bounded arguments and binds calls to the main-s
   ]);
 });
 
-test("Hub sidebar omits Development lifecycle fields while Development sidebar owns them", () => {
-  const currentModel = sampleCurrentModel();
+test("Hub sidebar has no legacy Development lifecycle fields", () => {
   const hubMarkup = renderToStaticMarkup(React.createElement(FigmaSidebar, {
     activeWorkspaceId: "work-card-report-review",
-    currentModel,
     isChoosing: false,
     mode: "hub",
     onChooseProject: () => undefined,
@@ -474,30 +472,11 @@ test("Hub sidebar omits Development lifecycle fields while Development sidebar o
     themeMode: "light",
     workspace: { ok: true, workspaceRoot: "<PROJECT_REPO>" },
   }));
-  const developmentMarkup = renderToStaticMarkup(React.createElement(FigmaSidebar, {
-    activeWorkspaceId: "work-card-report-review",
-    currentModel,
-    isChoosing: false,
-    mode: "development",
-    onChooseProject: () => undefined,
-    onClearProject: () => undefined,
-    onOpenSettings: () => undefined,
-    onReturnToWorkflowHub: () => undefined,
-    onThemeChange: () => undefined,
-    projectName: "ChampCity_AI",
-    themeMode: "light",
-    workspace: { ok: true, workspaceRoot: "<PROJECT_REPO>" },
-  }));
-
   assert.match(hubMarkup, /ChampCity_AI/);
   assert.match(hubMarkup, /Change Project/);
   assert.match(hubMarkup, /Clear Project/);
   assert.doesNotMatch(hubMarkup, /Current Phase|Current Work Card|phase-00|WC01|Workflows/);
-  assert.match(developmentMarkup, /Workflows/);
-  assert.match(developmentMarkup, /Current Phase/);
-  assert.match(developmentMarkup, /phase-00/);
-  assert.match(developmentMarkup, /Current Work Card/);
-  assert.match(developmentMarkup, /WC01/);
+  assert.doesNotMatch(hubMarkup, /Current Phase|Current Work Card|phase-00|WC01/);
 });
 
 test("Development rail renders workflow, phase, and Work Card navigation", () => {
@@ -552,69 +531,9 @@ function sampleCurrentModel() {
 }
 
 
-test("MCP handoff preflight preserves drafts while stale or unavailable and permits retry only on current refresh", async () => {
-  const source = fs.readFileSync(path.join(repoRoot, "src/renderer/app/App.tsx"), "utf8");
-  // Select declarations structurally; whitespace and neighboring function order are irrelevant.
-  const ts = require("typescript");
-  const ast = ts.createSourceFile("App.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const declarations = new Map();
-  function visit(node) {
-    if (ts.isFunctionDeclaration(node) && node.name) declarations.set(node.name.text, node);
-    ts.forEachChild(node, visit);
-  }
-  visit(ast);
-  function handler(name) {
-    assert.ok(declarations.has(name), "Missing production handler: " + name);
-    return declarations.get(name).getText(ast);
-  }
-  const body = ts.transpileModule([
-    handler("refreshAgentHarnessServiceHostLifecycleStatus"),
-    handler("preflightMcpHandoff"),
-    handler("runMcpHandoff"),
-    handler("copyArchitectHandoff"),
-    handler("prepareArchitectOutputFromAction"),
-  ].join("\n"), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  let current = { restartRequired: true };
-  let projected = current;
-  let copies = 0, prepares = 0, issueActions = 0;
-  const draft = { id: "existing-controlled-draft", body: "preserved" };
-  const api = {
-    getAgentHarnessServiceHostLifecycleStatus: async () => {
-      if (!current) throw Error("status unavailable");
-      return current;
-    },
-    copyArchitectOutputHandoff: async () => { copies++; },
-    prepareArchitectOutputHandoff: async () => { prepares++; return draft; },
-  };
-  const noop = () => {};
-  const handlers = new Function("window", "setAgentHarnessServiceHostLifecycleStatus", "setAgentHarnessActionError", "setDocumentError", "setArchitectFeedback", "setArchitectOutputModel", "refreshArchitectStatus", "refreshArchitectOutputWorkspace", "refreshDocuments", `
-    const activeWorkspaceId = "work-card-repair";
-    const architectOutputCopiedFeedback = "copied", architectOutputPreparedFeedback = "prepared";
-    ${body}
-    return { copyArchitectHandoff, prepareArchitectOutputFromAction, runMcpHandoff };
-  `)({ champcity: api }, status => { projected = status; }, noop, noop, noop, noop, noop, noop, noop);
-  for (const status of [{ restartRequired: true }, null]) {
-    current = status;
-    await handlers.copyArchitectHandoff();
-    await handlers.prepareArchitectOutputFromAction();
-    await handlers.runMcpHandoff(async () => { issueActions++; });
-    assert.equal(projected.restartRequired, true);
-    assert.deepEqual([copies, prepares, issueActions], [0, 0, 0]);
-  }
-  current = { restartRequired: false };
-  await handlers.copyArchitectHandoff();
-  await handlers.prepareArchitectOutputFromAction();
-  await handlers.runMcpHandoff(async () => { issueActions++; });
-  assert.deepEqual([copies, prepares, issueActions], [1, 1, 1]);
-  assert.equal(projected.restartRequired, false);
-  assert.deepEqual(draft, { id: "existing-controlled-draft", body: "preserved" });
-});
-
-
 test("all six intake entry workspaces share ordered fields and generated Markdown review", () => {
   const { WorkflowIntakeWorkspace } = loader.loadRendererSourceModule("src/renderer/app/WorkflowIntakeWorkspace.tsx");
   const { WORKFLOW_INTAKE_DEFINITIONS } = loader.loadRendererSourceModule("src/shared/workflowIntakeContracts.ts");
-  const { shouldAttachArchitectSurface } = loader.loadRendererSourceModule("src/renderer/app/architectSurfaceEligibility.ts");
   for (const [workflowType, definition] of Object.entries(WORKFLOW_INTAKE_DEFINITIONS).filter(([type]) => type !== "project-creation")) {
     const workflow = { workflowId: "private-exact-id", workflowType, lifecycleState: "active", currentWorkspace: WORKFLOW_TYPE_REGISTRY[workflowType].entryWorkspace };
     assert.equal(workflowPlanningSurface(workflow), "intake");
@@ -630,7 +549,6 @@ test("all six intake entry workspaces share ordered fields and generated Markdow
       const index = markup.indexOf(escaped); assert.ok(index > previous); previous = index;
       assert.ok(markup.includes(`<span>${escaped}${field.required ? " *" : ""}</span>`));
     }
-    assert.equal(shouldAttachArchitectSurface({ paneVisible: true, substantiveWorkflowForeground: true, intakeForeground: true }), false);
   }
 });
 const { WorkflowStageRail } = loader.loadRendererSourceModule("src/renderer/app/WorkflowStageRail.tsx");
@@ -671,7 +589,7 @@ test("six exact substantive Intake rails share seven stages and disable future n
   assert.equal(deriveWorkflowStageRailModel(null), null);
 });
 
-test("Greenfield delegates pipeline presentation and preserves loops and navigation", () => {
+test("legacy nested workflow composition is not mounted by the structured app shell", () => {
   const calls = [];
   const tree = NestedWorkflowRail({ activeWorkspaceId: "work-card-planning", onWorkspaceChange: id => calls.push(id) });
   assert.equal(tree.type.name, "WorkflowStageRail");
@@ -683,17 +601,9 @@ test("Greenfield delegates pipeline presentation and preserves loops and navigat
   assert.match(markup, /aria-label="Phase loop"/);
   assert.match(markup, /aria-label="Work Card loop"/);
   const source = fs.readFileSync(path.join(repoRoot, "src/renderer/app/App.tsx"), "utf8");
-  const ts = require("typescript");
-  const ast = ts.createSourceFile("App.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  let exclusive = false;
-  function visit(node) {
-    if (ts.isConditionalExpression(node) && node.condition.getText(ast) === "isDevelopmentForeground" && node.whenTrue.getText(ast).includes("<NestedWorkflowRail")) {
-      exclusive = ts.isConditionalExpression(node.whenFalse) && node.whenFalse.whenTrue.getText(ast).includes("<WorkflowStageRail");
-    }
-    ts.forEachChild(node, visit);
-  }
-  visit(ast);
-  assert.equal(exclusive, true);
+  assert.match(source, /<WorkflowStageRail stages=\{workflowStages\}/);
+  assert.doesNotMatch(source, /<NestedWorkflowRail/);
+  assert.match(source, /deriveWorkflowStageRailModel\(workflow\)/);
   const intake = fs.readFileSync(path.join(repoRoot, "src/renderer/app/WorkflowIntakeWorkspace.tsx"), "utf8");
   assert.match(intake, /<IntakeWorkspaceShell/);
   assert.doesNotMatch(intake, /WorkflowStageRail|figma-pipeline/);
@@ -773,7 +683,10 @@ test("SQL Review Validation shell shows exact evidence and leaves human actions 
   for(const identity of ["work-exact","implementation-exact","tester-exact","validation-exact","criterion-exact","repair-exact"])assert.ok(markup.includes(identity),identity);assert.match(markup,/Record exact visual evidence/);
   const shell=fs.readFileSync(path.join(repoRoot,"src/renderer/app/ReviewValidationShell.tsx"),"utf8");assert.doesNotMatch(shell,/window\.champcity|JSON\.parse|onClick/);
   const adapter=fs.readFileSync(path.join(repoRoot,"src/renderer/app/GreenfieldExecutionWorkspace.tsx"),"utf8");assert.match(adapter,/workflowType!=="project-creation"/);assert.match(adapter,/initialWorkItemId=\{props\.workItemId\}/);
-  const app=fs.readFileSync(path.join(repoRoot,"src/renderer/app/App.tsx"),"utf8");assert.match(app,/isStructuredGreenfieldExecution.*GreenfieldExecutionWorkspace/);assert.match(app,/isWorkCardReportReview && !isStructuredGreenfieldExecution/);
+  const app=fs.readFileSync(path.join(repoRoot,"src/renderer/app/App.tsx"),"utf8");
+  assert.match(app,/<StructuredWorkflowWorkspace/);
+  assert.doesNotMatch(app,/activeIssueStageId|IssueResolutionWorkspace|isStructuredGreenfieldExecution|GreenfieldExecutionWorkspace|StructuredPhaseMapWorkspace|StructuredPhaseLoopWorkspace|WorkItemPlanningWorkspace|CloseAdvanceWorkspace/);
+  const router=fs.readFileSync(path.join(repoRoot,"src/renderer/app/StructuredWorkflowWorkspace.tsx"),"utf8");assert.match(router,/<GreenfieldWorkspace/);
 });
 
 

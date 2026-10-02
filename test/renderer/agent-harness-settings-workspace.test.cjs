@@ -135,44 +135,31 @@ function navigationHarness(seed, getWorkflow) {
   return { render, find, state: name => values[names.indexOf(name)], set: (name, value) => { values[names.indexOf(name)] = value; } };
 }
 
-for (const foreground of ["workflow", "workflow-instance", "work-intake", "workflow-hub", "workflow-type", "source-control"]) {
+for (const foreground of ["workflow-instance", "work-intake", "workflow-hub", "workflow-type", "source-control"]) {
   test(`App Settings restores exact ${foreground} foreground without reopening Project`, async () => {
-    const workflow = { workflowId: foreground === "workflow-instance" ? "feature-exact" : "creation-exact", workflowType: foreground === "workflow-instance" ? "feature" : "project-creation" };
+    const workflow = { workflowId: "exact-workflow", workflowType: "feature-capability" };
     const seed = {
-      shellView: foreground === "issue-resolution" ? "workflow" : foreground,
-      activeWorkspaceId: "work-card-building-review",
-      activeWorkflowId: foreground === "issue-resolution" ? "issue-resolution" : null,
-      selectedWorkflowId: workflow.workflowId, selectedWorkflowType: workflow.workflowType,
-      selectedWorkIntakeId: "intake-exact", workflowInstance: workflow,
-      workspace: { ok: true, workspaceRoot: "fixture", projectName: "Signal_Forge" },
-      currentProject: { projectCreationWorkflowId: workflow.workflowId },
+      view: foreground,
+      workflowId: workflow.workflowId, workflowType: workflow.workflowType,
+      workIntakeId: "intake-exact", workflow,
+      workspace: { ok: true, workspaceRoot: "fixture" },
+      project: { projectId: "project-exact" },
     };
     const calls = [];
     const harness = navigationHarness(seed, async id => { calls.push(id); return { workflow }; });
     let tree = harness.render();
-    if (foreground === "workflow" || foreground === "workflow-instance") {
-      harness.set("shellView", "workflow-type");
-      tree = harness.render();
-      const { WorkflowTypeWorkspace } = require(path.join(root, "src/renderer/app/WorkflowTypeWorkspace.tsx"));
-      harness.find(tree, WorkflowTypeWorkspace).props.onOpenWorkflow(workflow.workflowId);
-      await new Promise(resolve => setImmediate(resolve));
-      // The Greenfield owner normally foregrounds Intake on open; reproduce
-      // the reported Implement step before entering Settings.
-      harness.set("activeWorkspaceId", "work-card-building-review");
-      seed.selectedWorkflowType = foreground === "workflow" ? null : workflow.workflowType;
-      tree = harness.render();
-    }
+    tree = harness.render();
     harness.find(tree, FigmaSidebar).props.onOpenSettings();
     tree = harness.render();
-    assert.equal(harness.state("workflowInstance"), workflow);
-    assert.equal(harness.state("selectedWorkflowId"), workflow.workflowId);
+    assert.equal(harness.state("workflow"), workflow);
+    assert.equal(harness.state("workflowId"), workflow.workflowId);
     // Clicking Settings again must not replace the saved target.
     harness.find(tree, FigmaSidebar).props.onOpenSettings();
     await harness.find(tree, ApplicationSettingsController).props.onReturn();
     harness.render();
-    for (const name of ["shellView", "activeWorkspaceId", "activeWorkflowId", "selectedWorkflowId", "selectedWorkflowType", "selectedWorkIntakeId", "workflowInstance", "currentProject", "workspace"])
-      assert.equal(harness.state(name), name === "shellView" && foreground === "workflow" ? "workflow-instance" : seed[name], name);
-    assert.deepEqual(calls, Array(foreground === "workflow" || foreground === "workflow-instance" ? 2 : 1).fill(workflow.workflowId));
+    for (const name of ["view", "workflowId", "workflowType", "workIntakeId", "workflow", "project", "workspace"])
+      assert.equal(harness.state(name), seed[name], name);
+    assert.deepEqual(calls, seed.workflowId ? [workflow.workflowId] : []);
     delete global.window;
   });
 }
@@ -181,7 +168,7 @@ test("App Settings Workflows escape preserves Project and cancels stale Return",
   let resolve;
   const workflow = { workflowId: "exact", workflowType: "feature" };
   const workspace = { ok: true, workspaceRoot: "fixture" };
-  const harness = navigationHarness({ shellView: "workflow-instance", workspace, selectedWorkflowId: "exact", workflowInstance: workflow },
+  const harness = navigationHarness({ view: "workflow-instance", workspace, workflowId: "exact", workflow },
     () => new Promise(done => { resolve = done; }));
   harness.find(harness.render(), FigmaSidebar).props.onOpenSettings();
   const tree = harness.render();
@@ -191,19 +178,19 @@ test("App Settings Workflows escape preserves Project and cancels stale Return",
   sidebar.props.onReturnToWorkflowHub();
   resolve({ workflow }); await returning;
   harness.render();
-  assert.equal(harness.state("shellView"), "workflow-hub");
+  assert.equal(harness.state("view"), "workflow-hub");
   assert.equal(harness.state("workspace"), workspace);
   delete global.window;
 });
 
 test("App Settings unavailable exact Workflow falls back with bounded error", async () => {
-  const harness = navigationHarness({ shellView: "workflow-instance", workspace: { ok: true, workspaceRoot: "fixture" }, selectedWorkflowId: "deleted" },
+  const harness = navigationHarness({ view: "workflow-instance", workspace: { ok: true, workspaceRoot: "fixture" }, workflowId: "deleted" },
     async () => { throw Error("unavailable"); });
   harness.find(harness.render(), FigmaSidebar).props.onOpenSettings();
   await harness.find(harness.render(), ApplicationSettingsController).props.onReturn();
   harness.render();
-  assert.equal(harness.state("shellView"), "workflow-hub");
-  assert.match(harness.state("workflowHubError"), /previous Workflow is no longer available/);
+  assert.equal(harness.state("view"), "workflow-hub");
+  assert.match(harness.state("workflowError"), /previous Workflow is no longer available/);
   delete global.window;
 });
 
