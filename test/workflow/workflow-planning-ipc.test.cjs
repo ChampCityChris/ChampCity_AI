@@ -173,3 +173,13 @@ test('Shared Plan Review shell renders generated projection and keeps browser an
   const markup = renderToStaticMarkup(React.createElement(PlanReviewShell,{title:'Project Planning',workflowId:'exact-workflow',browserPanel:React.createElement('aside',null,'Architect companion'),handoff:'SQL handoff',projection:'Generated SQL Profile and Roadmap',cycleId:'exact-cycle',revision:2,disposition:'revision_requested',onPrepare:async()=>{},onSave:async()=>{},onReview:async()=>{}}));
   assert.match(markup,/Generated SQL Profile and Roadmap/); assert.match(markup,/Architect companion/); assert.match(markup,/Revision requested/); assert.match(markup,/I have reviewed this revision/); assert.match(markup,/disabled=""[^>]*>Approve/);
 });
+
+test('Shared Work Map shell renders direct and phased scopes with dependencies, readiness and no planning disposition',()=>{
+  const React=require('react'),{renderToStaticMarkup}=require('react-dom/server'),{WorkMapShell}=require('../renderer/renderer-source-loader.cjs').loadRendererSourceModule('src/renderer/app/WorkMapShell.tsx');
+  const work={id:'work-one',title:'Ready outcome',objective:'Deliver outcome',kind:'work-item',sequence:1,state:'ready',complete:false,criteria:['Observable acceptance']};
+  const direct=renderToStaticMarkup(React.createElement(WorkMapShell,{label:'Direct Work Map',nodes:[work],dependencies:[],accepted:true}));
+  assert.match(direct,/Direct/); assert.match(direct,/Next executable scope: Ready outcome/); assert.doesNotMatch(direct,/Phase:|Approve|Revision Requested/);
+  const phases=[{id:'phase-one',title:'First Phase',objective:'First outcome',kind:'phase',sequence:1,state:'closed',complete:true,criteria:[]},{id:'phase-two',title:'Second Phase',objective:'Second outcome',kind:'phase',sequence:2,state:'planned',complete:false,criteria:['Phase acceptance']}];
+  const phased=renderToStaticMarkup(React.createElement(WorkMapShell,{label:'Phased Work Map',nodes:[...phases,{...work,parentId:'phase-two'}],dependencies:[{from:'phase-two',to:'phase-one'}],accepted:true}));
+  assert.match(phased,/Phased/); assert.match(phased,/Depends on: First Phase/); assert.match(phased,/Phase acceptance/); assert.match(phased,/Next executable scope: Ready outcome/); assert.doesNotMatch(phased,/Approve|Revision Requested/);
+});

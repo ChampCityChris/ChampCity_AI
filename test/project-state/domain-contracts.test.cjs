@@ -11,6 +11,7 @@ const linkedId = randomUUID();
 const common = { title: "Title", statement: "Statement" };
 const bodies = {
   ResearchOutcome: {workflowId: linkedId, outcome: "no-implementation-plan-required", prototypeDisposition: "disposable", productionFollowUp: "none", evidence: ["Observed"], decisionEnabled: "Decision", successFailureResult: "Result", closureCondition: "Complete"},
+  PhaseMapReviewCycle: {workflowId: linkedId, semanticDigest: "a".repeat(64), layout: {memberIds: [], sources: []}},
   ProjectPlanningReviewCycle: {workflowId: linkedId, semanticDigest: "a".repeat(64), layout: {memberIds: [], sources: []}},
   PlanReviewCycle: {workflowId: linkedId, workflowType: "feature-capability", semanticDigest: "a".repeat(64), layout: {solutionId: linkedId, solutionAddresses: [], solutionCriterionIds: [], phases: [], workItems: [], boundaries: [], sources: []}},
   Project: { name: "Project", description: "Description" },

@@ -14,6 +14,9 @@ import type {
 } from "../shared/workspaceContracts";
 
 const api: ChampCityApi = {
+  getStructuredPhaseMap: (workflowId) => ipcRenderer.invoke("workflow:phaseMapGet", workflowId),
+  saveStructuredPhaseMap: (workflowId, candidate) => ipcRenderer.invoke("workflow:phaseMapSave", workflowId, candidate),
+  reviewStructuredPhaseMap: (workflowId, cycleId, input) => ipcRenderer.invoke("workflow:phaseMapReview", workflowId, cycleId, input),
   getStructuredProjectPlanning: (workflowId) => ipcRenderer.invoke("workflow:projectPlanningGet", workflowId),
   saveStructuredProjectPlanning: (workflowId, candidate) => ipcRenderer.invoke("workflow:projectPlanningSave", workflowId, candidate),
   reviewStructuredProjectPlanning: (workflowId, cycleId, input) => ipcRenderer.invoke("workflow:projectPlanningReview", workflowId, cycleId, input),

@@ -4930,6 +4930,8 @@
       "sourcePatterns": [
         "src/main/featurePlanning/**",
         "src/main/issuePlanning/**",
+        "src/main/phaseMap/structuredPhaseMapReadProjection.ts",
+        "src/main/phaseMap/structuredPhaseMapService.ts",
         "src/main/projectPlanning/structuredProjectPlanningReadProjection.ts",
         "src/main/projectPlanning/structuredProjectPlanningService.ts",
         "src/main/sourceControl/workflowIntegrationService.ts",
@@ -4940,12 +4942,15 @@
         "src/renderer/app/FeaturePlanningWorkspace.tsx",
         "src/renderer/app/IssueWorkflowPlanningWorkspace.tsx",
         "src/renderer/app/PlanReviewShell.tsx",
+        "src/renderer/app/StructuredPhaseMapWorkspace.tsx",
         "src/renderer/app/StructuredProjectPlanningWorkspace.tsx",
+        "src/renderer/app/WorkMapShell.tsx",
         "src/renderer/app/WorkflowIntakeWorkspace.tsx",
         "src/renderer/app/planningDraftAction.ts",
         "src/shared/exactWorkflowPlanningContracts.ts",
         "src/shared/featurePlanningContracts.ts",
         "src/shared/issuePlanningContracts.ts",
+        "src/shared/projectState/greenfieldPhaseMapContracts.ts",
         "src/shared/projectState/projectArchitectureContext.ts",
         "src/shared/projectState/projectPlanningReviewContracts.ts",
         "src/shared/projectState/projectStateService.ts",
@@ -13066,8 +13071,8 @@
     {
       "testPath": "test/phase-map/phase-map-service.test.cjs",
       "currentTestCount": {
-        "value": 14,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 16,
+        "basis": "RWS06D adds exact SQL Greenfield Phase Map import and fresh review proofs to the existing Phase Map owner."
       },
       "duration": {
         "kind": "measured",
@@ -21213,8 +21218,8 @@
     {
       "testPath": "test/workflow/workflow-planning-ipc.test.cjs",
       "currentTestCount": {
-        "value": 13,
-        "basis": "RWS06C adds shared Plan Review Shell rendering to the existing exact Planning IPC owner."
+        "value": 14,
+        "basis": "RWS06D adds shared direct/phased Work Map rendering to the exact Planning and shared shell owner."
       },
       "duration": {
         "kind": "estimated",

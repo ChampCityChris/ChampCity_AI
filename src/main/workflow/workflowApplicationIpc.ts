@@ -1,3 +1,4 @@
+import {createStructuredPhaseMapService} from "../phaseMap/structuredPhaseMapService";
 import {createStructuredProjectPlanningService} from "../projectPlanning/structuredProjectPlanningService";
 import { createWorkflowIntakeService } from "./workflowIntakeService";
 import { createStructuredArchitectWorkspaceService } from "../architectOutputs/structuredArchitectWorkspaceService";
@@ -24,6 +25,18 @@ export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcR
     return args[0];
   };
   registry.handle("workflow:getIntake", (_event, ...args) => intake.ensureWorkflowIntake(getCurrentProjectRoot(), intakeId(args, 1)));
+  const phaseMap = createStructuredPhaseMapService();
+  registry.handle("workflow:phaseMapGet", (_event, ...args) => phaseMap.get(getCurrentProjectRoot(), intakeId(args, 1)));
+  registry.handle("workflow:phaseMapSave", (_event, ...args) => {
+    const id = intakeId(args, 2);
+    if (!args[1] || typeof args[1] !== "object" || Array.isArray(args[1]) || new TextEncoder().encode(JSON.stringify(args[1])).length > 200000) throw Error("Bounded Phase Map candidate required.");
+    return phaseMap.save(getCurrentProjectRoot(), id, args[1] as Parameters<typeof phaseMap.save>[2]);
+  });
+  registry.handle("workflow:phaseMapReview", (_event, ...args) => {
+    const id = intakeId(args, 3);
+    if (typeof args[1] !== "string" || !args[1].trim() || args[1].length > 128) throw Error("Exact Phase Map cycle required.");
+    return phaseMap.review(getCurrentProjectRoot(), id, args[1], args[2] as Parameters<typeof phaseMap.review>[3]);
+  });
   const projectPlanning = createStructuredProjectPlanningService();
   registry.handle("workflow:projectPlanningGet", (_event, ...args) => projectPlanning.get(getCurrentProjectRoot(), intakeId(args, 1)));
   registry.handle("workflow:projectPlanningSave", (_event, ...args) => {

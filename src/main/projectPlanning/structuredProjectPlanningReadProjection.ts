@@ -18,7 +18,7 @@ export function readStructuredProjectPlanning(root: string) {
   const cycles = records.filter((item): item is ProjectStateRecord<"ProjectPlanningReviewCycle"> => item.entityType === "ProjectPlanningReviewCycle" && item.lifecycleState === "active" && item.body.workflowId === workflows[0].id);
   if (cycles.length !== 1) return null;
   const cycle = cycles[0], owners = relationships.filter(edge => !edge.endedAt && edge.relationshipType === "project_planning_review_for" && edge.fromEntityId === cycle.id);
-  if (owners.length !== 1 || owners[0].toEntityId !== workflows[0].id || cycle.body.layout.sources.some(source => !records.some(record => record.id === source.entityId && record.recordVersion === source.recordVersion && record.lifecycleState === "active"))) return null;
+  if (owners.length !== 1 || owners[0].toEntityId !== workflows[0].id || cycle.body.layout.sources.some(source => !records.some(record => record.id === source.entityId && (record.entityType === "Workflow" || record.recordVersion === source.recordVersion) && record.lifecycleState === "active"))) return null;
   const members = cycle.body.layout.memberIds.map(id => records.find(record => record.id === id));
   if (members.some(member => !member || member.lifecycleState !== "active")) return null;
   const current = members.filter(member => !!member);

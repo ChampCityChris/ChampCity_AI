@@ -1,3 +1,4 @@
+import {readStructuredPhaseMap} from "../phaseMap/structuredPhaseMapReadProjection";
 import {readStructuredProjectPlanning} from "../projectPlanning/structuredProjectPlanningReadProjection";
 import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
 import { readApprovedGreenfieldArchitectProjection } from "../architectOutputs/structuredArchitectReadProjection";
@@ -156,7 +157,7 @@ function resolveVisibleWorkCardBuildingReviewProjection(
 
 function resolveCurrentWorkspaceModel(workspaceRoot: string, planningContext: PlanningProjectionContext): CurrentWorkspaceCoreModel {
   const phaseMapArchitectOutput = getArchitectOutputWorkspaceModel(workspaceRoot, "project-phase-map", planningContext);
-  if (phaseMapArchitectOutput.state === "promotion-failed") {
+  if (!selectedCurrentProjectId(workspaceRoot) && phaseMapArchitectOutput.state === "promotion-failed") {
     return currentModelFromArchitectOutput(workspaceRoot, "project-phase-map", {
       level: "project",
       stage: "building",
@@ -483,7 +484,10 @@ function isWorkCardLoopDocument(document: {
 }
 
 function missingProjectPlanningModel(workspaceRoot: string, planningContext: PlanningProjectionContext): CurrentWorkspaceCoreModel | null {
-  if (selectedCurrentProjectId(workspaceRoot) && readStructuredProjectPlanning(workspaceRoot)?.disposition.state === "approved") return null;
+  if (selectedCurrentProjectId(workspaceRoot) && readApprovedGreenfieldArchitectProjection(workspaceRoot)) {
+    if (readStructuredProjectPlanning(workspaceRoot)?.disposition.state === "approved") return null;
+    return {activeWorkspaceId: "project-planning-review", level: "project", stage: "planning", currentTarget: "Project Planning", sourceEvidence: [readApprovedGreenfieldArchitectProjection(workspaceRoot)!.markdownPath], requiredAction: "Review exact structured Project Planning.", expectedOutput: "Generated SQL Profile and Roadmap.", eligibility: "Approved SQL Architect Interview", expectedNextState: "Approved Project Planning enables the separate Phase Map stage."};
+  }
   const documents = listPlanningDocuments(planningContext);
   const approvedSqlInterview = readApprovedGreenfieldArchitectProjection(workspaceRoot);
   const approvedInterview = selectedCurrentProjectId(workspaceRoot) ? undefined : documents
@@ -509,6 +513,10 @@ function missingProjectPlanningModel(workspaceRoot: string, planningContext: Pla
 }
 
 function missingPhaseMapModel(workspaceRoot: string, planningContext: PlanningProjectionContext): CurrentWorkspaceCoreModel | null {
+  if (selectedCurrentProjectId(workspaceRoot) && readStructuredProjectPlanning(workspaceRoot)?.disposition.state === "approved") {
+    if (readStructuredPhaseMap(workspaceRoot)?.disposition.state === "approved") return null;
+    return {activeWorkspaceId: "project-phase-map", level: "project", stage: "building", currentTarget: "Phase Map", sourceEvidence: [], requiredAction: "Review the exact SQL Greenfield Phase Map.", expectedOutput: "SQL Phases and dependencies with generated projection.", eligibility: "Approved SQL Project Planning", expectedNextState: "Approved Phase Map selects the next dependency-eligible Phase."};
+  }
   const projectPlanning = getProjectPlanningCompletion(workspaceRoot, planningContext);
   if (!projectPlanning.complete) {
     return null;
@@ -1308,6 +1316,7 @@ function workCardLoopStepForWorkspace(workspaceId: WorkspaceId): WorkCardLoopSte
 }
 
 function phaseMapPhasesFromCanonicalMetadata(planningContext: PlanningProjectionContext) {
+  if (selectedCurrentProjectId(planningContext.workspaceRoot)) return readStructuredPhaseMap(planningContext.workspaceRoot)?.phases ?? [];
   const phaseMap = listPlanningDocuments(planningContext)
     .filter((document) => document.markdownPath.startsWith("planning/project/Phase_Map/PHASE_MAP"))
     .filter((document) => document.effectiveDisposition === "Approved")

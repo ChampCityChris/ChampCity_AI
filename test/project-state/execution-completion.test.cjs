@@ -565,7 +565,8 @@ for (const [name, factory] of [["memory", () => createInMemoryProjectStateStore(
     const accepted = await service.getWorkflowExecutionPlan(project.id, workflow.id);
     assert.equal(accepted.solutions[0].id, second.body.layout.solutionId);
     assert.deepEqual(accepted.phases.map(phase => phase.phaseId), second.body.layout.phases.map(phase => phase.entityId));
-    assert.equal(accepted.dependencyIds.length, 1);
+    assert.equal(accepted.dependencyIds.length, 2);
+    assert.ok(accepted.dependencyIds.some(edge => edge.from === second.body.layout.phases[1].entityId && edge.to === second.body.layout.phases[0].entityId));
     assert.equal((await service.getPlanReview(project.id, second.id)).disposition.state, "approved");
     await assert.rejects(service.savePlanCandidate(project.id, {...phasedCandidate(workflow), expectedRecordVersion: 2}), /approved Plan/);
   });

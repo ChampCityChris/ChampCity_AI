@@ -1,3 +1,5 @@
+import {readStructuredPhaseMap} from "./structuredPhaseMapReadProjection";
+import {selectedCurrentProjectId} from "../projectState/currentProjectRegistrationService";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -238,6 +240,7 @@ export function setPhaseMapDisposition(
   workspaceRoot: string,
   status: DocumentDispositionStatus,
 ): void {
+  if (selectedCurrentProjectId(workspaceRoot)) throw Error("Phase Map disposition requires exact SQL review; historical Markdown is evidence only.");
   const phaseMap = requiredAny(workspaceRoot, "planning/project/Phase_Map/PHASE_MAP", ".md");
   setDocumentDisposition(workspaceRoot, phaseMap.logicalDocumentId, status);
 }
@@ -250,6 +253,12 @@ export function getPhaseMapProjection(
   workspaceRoot: string,
   planningContext?: PlanningProjectionContext,
 ): PhaseMapProjection {
+  if (selectedCurrentProjectId(workspaceRoot)) {
+    const map = readStructuredPhaseMap(workspaceRoot);
+    if (!map) return {state: "missing", reason: "Fresh exact SQL Greenfield Phase Map required; historical Markdown is evidence only."};
+    if (map.disposition.state !== "approved") return {state: "not-approved", reason: "Approve the exact SQL Phase Map revision."};
+    return selectNextPhaseByDependencies(map.phases, map.completedPhaseIds);
+  }
   const context = planningContext
     ? assertPlanningProjectionContextRoot(planningContext, workspaceRoot)
     : createPlanningProjectionContext(workspaceRoot);

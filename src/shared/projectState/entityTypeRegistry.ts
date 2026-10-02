@@ -15,6 +15,7 @@ const idList = "id-list" as const;
 /** One reviewed type registry owns field vocabulary and immutable-record policy. */
 export const ENTITY_TYPE_REGISTRY: Readonly<Record<EntityType, EntityDefinition>> = Object.freeze({
   ResearchOutcome: {schemaVersion: 1, required: {workflowId: id, outcome: ["no-implementation-plan-required", "research-plan-required"], prototypeDisposition: ["disposable", "candidate-for-later-work"], productionFollowUp: ["none", "new-work-intake-required"], evidence: textList, decisionEnabled: text, successFailureResult: text, closureCondition: text}, immutableAfterCreation: false},
+  PhaseMapReviewCycle: {schemaVersion: 1, required: {workflowId: id, semanticDigest: "digest", layout: "review-layout"}, immutableAfterCreation: false},
   ProjectPlanningReviewCycle: {schemaVersion: 1, required: {workflowId: id, semanticDigest: "digest", layout: "review-layout"}, immutableAfterCreation: false},
   PlanReviewCycle: { schemaVersion: 1, required: { workflowId: id, workflowType: WORKFLOW_TYPE_IDS, semanticDigest: "digest", layout: "plan-layout" }, immutableAfterCreation: false },
   Project: { schemaVersion: 1, required: { name: text, description: text }, immutableAfterCreation: false },
@@ -25,7 +26,7 @@ export const ENTITY_TYPE_REGISTRY: Readonly<Record<EntityType, EntityDefinition>
   RouteAssessment: { schemaVersion: 1, required: { workIntakeId: id, recommendation: ["greenfield", "feature-change", "refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype", "issue-resolution"], traits: textList, rationale: text, evidenceIds: idList }, optional: { alternate: ["greenfield", "feature-change", "refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype", "issue-resolution"] }, immutableAfterCreation: true },
   Workflow: { schemaVersion: 1, required: { workflowType: WORKFLOW_TYPE_IDS, title: text, currentWorkspace: text, workflowState: ["planned", "active", "blocked", "closed", "cancelled"] }, immutableAfterCreation: false },
   SourceBaseline: { schemaVersion: 1, required: { workflowId: id, repositoryId: "source-ref", integrationTargetSourceLineId: "source-ref", baseRevisionId: "source-ref" }, immutableAfterCreation: true },
-  Phase: { schemaVersion: 1, required: { title: text, objective: text, phaseState: ["planned", "active", "blocked", "closed", "cancelled"], sequence: "version" }, immutableAfterCreation: false },
+  Phase: { schemaVersion: 1, required: { title: text, objective: text, phaseState: ["planned", "active", "blocked", "closed", "cancelled"], sequence: "version" }, optional: {phaseKey: text, sourceReferences: textList}, immutableAfterCreation: false },
   Finding: { schemaVersion: 1, required: { title: text, statement: text, category: text, impact: text, observedAt: instant, findingState: text }, optional: { confidence: "number" }, immutableAfterCreation: false },
   RootCause: { schemaVersion: 1, required: { title: text, statement: text, rationale: text, rootCauseState: text }, optional: { confidence: "number" }, immutableAfterCreation: false },
   BoundedSolution: { schemaVersion: 1, required: { title: text, objective: text, scopeIn: textList, scopeOut: textList, constraints: textList, assumptions: textList, risks: textList, solutionState: text }, immutableAfterCreation: false },

@@ -1,3 +1,4 @@
+import {WorkMapShell} from "./WorkMapShell";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, CheckCircle2, CircleAlert, Clipboard, ExternalLink, FileText, Play } from "lucide-react";
 
@@ -94,32 +95,9 @@ export function WorkCardMapWorkspace({
             </div>
           ) : null}
 
-          <ol className="figma-work-card-map-list" aria-label="Work Card candidates">
-            {candidates.map((candidate) => {
-              const isSelected = candidate.candidateId === selectedCandidate?.candidateId;
-              return (
-                <li key={candidate.candidateId}>
-                  <button
-                    aria-pressed={isSelected}
-                    className={isSelected ? "figma-work-card-map-list-item selected" : "figma-work-card-map-list-item"}
-                    onClick={() => setSelectedCandidateId(candidate.candidateId)}
-                    type="button"
-                  >
-                    <span className="figma-work-card-map-index">{String(candidate.order).padStart(2, "0")}</span>
-                    <span className="figma-work-card-map-copy">
-                      <span className="figma-work-card-map-meta-row">
-                        <span>{candidate.candidateId}</span>
-                        {candidate.isActive ? <em>Active Work Card</em> : null}
-                      </span>
-                      <strong>{candidate.title}</strong>
-                      {isSelected ? <p>{candidate.purpose}</p> : null}
-                    </span>
-                    <StatusBadge candidate={candidate} />
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
+          <WorkMapShell label="Work Card candidates" accepted={projection?.state !== "needs-attention"} selectedId={selectedCandidate?.candidateId} onSelect={setSelectedCandidateId}
+            nodes={candidates.map(candidate => ({id: candidate.candidateId, title: candidate.title, objective: candidate.purpose, kind: "work-item", sequence: candidate.order, state: candidate.status ?? "Pending", complete: candidate.status === "Complete", active: candidate.isActive, readiness: candidate.isActive ? `Active Work Card; ${candidate.reason}` : candidate.reason, eligible: candidate.status === "Eligible", criteria: []}))}
+            dependencies={candidates.flatMap(candidate => candidate.dependsOn.map(id => ({from: candidate.candidateId, to: id})))} />
 
           {projection?.state === "all-complete" ? (
             <div className="figma-work-card-map-complete-callout" role="status">

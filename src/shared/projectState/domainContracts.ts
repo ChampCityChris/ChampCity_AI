@@ -49,6 +49,7 @@ export interface RecordEnvelope<T extends EntityType = EntityType> {
 
 export interface EntityBodyMap {
   ResearchOutcome: import("../workPlanningContracts").WorkResearchOutcome & {workflowId: EntityId};
+  PhaseMapReviewCycle: {workflowId: EntityId; semanticDigest: string; layout: {memberIds: EntityId[]; sources: {entityId: EntityId; recordVersion: number}[]}};
   ProjectPlanningReviewCycle: { workflowId: EntityId; semanticDigest: string; layout: {memberIds: EntityId[]; sources: {entityId: EntityId; recordVersion: number}[]} };
   PlanReviewCycle: { workflowId: EntityId; workflowType: WorkflowType; semanticDigest: string; layout: import("./planReviewContracts").PlanReviewLayout };
   Project: { name: string; description: string };
@@ -59,7 +60,7 @@ export interface EntityBodyMap {
   ArchitectReviewCycle: { workflowId: EntityId; workflowType: WorkflowType; stageKind: ArchitectStageKind; semanticDigest: string };
   WorkflowIntake: { workflowId: EntityId; workflowType: WorkflowType; values: Record<string, string | boolean> };
   SourceBaseline: { workflowId: EntityId; repositoryId: string; integrationTargetSourceLineId: string; baseRevisionId: string };
-  Phase: { title: string; objective: string; phaseState: PhaseState; sequence: number };
+  Phase: { title: string; objective: string; phaseState: PhaseState; sequence: number; phaseKey?: string; sourceReferences?: string[] };
   Finding: { title: string; statement: string; category: string; impact: string; observedAt: string; findingState: string; confidence?: number };
   RootCause: { title: string; statement: string; rationale: string; confidence?: number; rootCauseState: string };
   BoundedSolution: { title: string; objective: string; scopeIn: string[]; scopeOut: string[]; constraints: string[]; assumptions: string[]; risks: string[]; solutionState: string };

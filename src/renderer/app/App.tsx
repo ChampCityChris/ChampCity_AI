@@ -1,3 +1,4 @@
+import {StructuredPhaseMapWorkspace} from "./StructuredPhaseMapWorkspace";
 import {StructuredProjectPlanningWorkspace} from "./StructuredProjectPlanningWorkspace";
 import { ExactWorkflowPlanningWorkspace } from "./ExactWorkflowPlanningWorkspace";
 import { WorkflowIntakeWorkspace } from "./WorkflowIntakeWorkspace";
@@ -3944,7 +3945,7 @@ export function App(): JSX.Element {
         retryVisible={shouldShowArchitectBrowserRetry(architectStatus, architectAttachmentError)}
         statusLabel={architectBrowserPresentation(architectStatus).label}
       />
-      {activeWorkspaceId !== "architect-interview" && activeWorkspaceId !== "project-planning-review" ? <FigmaBrowserActionsPanel
+      {activeWorkspaceId !== "architect-interview" && activeWorkspaceId !== "project-planning-review" && activeWorkspaceId !== "project-phase-map" ? <FigmaBrowserActionsPanel
         actionFeedback={architectActionFeedback}
         attachmentError={architectAttachmentError}
         browserStatus={architectStatus}
@@ -4490,43 +4491,7 @@ export function App(): JSX.Element {
             />
           ) : null}
 
-          {isPhaseMapFigmaWorkspace ? (
-            <section
-              className={[
-                "figma-phase-map-workspace",
-                !isArchitectPaneVisible ? "chat-hidden" : "",
-              ].filter(Boolean).join(" ")}
-              aria-label="Phase Map Figma workspace"
-              ref={documentReviewSurfaceRef}
-              tabIndex={-1}
-            >
-              <div className="figma-phase-map-column">
-                <FigmaPhaseMapWorkspace
-                  currentPhaseId={currentModel?.currentPhaseId}
-                  documentError={documentError}
-                  documents={documents}
-                  feedback={feedback}
-                  onCopy={copySelectedDocumentBody}
-                  selectedDocument={selectedDocument}
-                />
-                {architectOutputModel?.canApplyDisposition ? (
-                  <FigmaArchitectReviewPanel
-                    allCurrentRevisionsViewed={allCurrentArchitectRevisionsViewed}
-                    canApply={canApplyArchitectReview}
-                    isApplying={isApplying}
-                    model={architectOutputModel}
-                    notes={architectOutputReviewNotes}
-                    onNotesChange={setArchitectOutputReviewNotes}
-                    onReview={applyArchitectOutputReview}
-                    onStatusChange={setArchitectOutputReviewStatus}
-                    status={architectOutputReviewStatus}
-                    selectedDocument={selectedDocument}
-                  />
-                ) : null}
-              </div>
-              {architectBrowserColumn}
-            </section>
-          ) : null}
+          {isPhaseMapFigmaWorkspace ? <StructuredPhaseMapWorkspace workflowId={greenfieldArchitectWorkflowId} browserPanel={architectBrowserColumn} onNext={async () => {await refreshCurrentModel(); setActiveWorkspaceId("phase-interview");}} /> : null}
 
           {activeWorkspaceId === "project-planning-review" ? <StructuredProjectPlanningWorkspace workflowId={greenfieldArchitectWorkflowId} browserPanel={architectBrowserColumn} onNext={() => setActiveWorkspaceId("project-phase-map")} onRailStatus={status => setProjectPlanningModel(current => current ? {...current, railStatus: status} : current)} /> : null}
 

@@ -1399,6 +1399,9 @@ export interface WorkspaceMigrationResult {
 }
 
 export interface ChampCityApi {
+  getStructuredPhaseMap(workflowId: string): ReturnType<ReturnType<typeof import("../main/phaseMap/structuredPhaseMapService").createStructuredPhaseMapService>["get"]>;
+  saveStructuredPhaseMap(workflowId: string, candidate: import("./projectState/greenfieldPhaseMapContracts").GreenfieldPhaseMapCandidate): ReturnType<ChampCityApi["getStructuredPhaseMap"]>;
+  reviewStructuredPhaseMap(workflowId: string, cycleId: string, input: import("./projectState/architectReviewContracts").ArchitectReviewDecisionInput): ReturnType<ChampCityApi["getStructuredPhaseMap"]>;
   getStructuredProjectPlanning(workflowId: string): ReturnType<ReturnType<typeof import("../main/projectPlanning/structuredProjectPlanningService").createStructuredProjectPlanningService>["get"]>;
   saveStructuredProjectPlanning(workflowId: string, candidate: import("./projectState/projectPlanningReviewContracts").ProjectPlanningCandidate): ReturnType<ChampCityApi["getStructuredProjectPlanning"]>;
   reviewStructuredProjectPlanning(workflowId: string, cycleId: string, input: import("./projectState/architectReviewContracts").ArchitectReviewDecisionInput): ReturnType<ChampCityApi["getStructuredProjectPlanning"]>;
