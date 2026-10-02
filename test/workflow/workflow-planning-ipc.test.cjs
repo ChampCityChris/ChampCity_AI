@@ -196,7 +196,7 @@ test('Shared Plan Review shell renders generated projection and keeps browser an
   const React = require('react'), {renderToStaticMarkup} = require('react-dom/server');
   const {PlanReviewShell} = require('../renderer/renderer-source-loader.cjs').loadRendererSourceModule('src/renderer/app/PlanReviewShell.tsx');
   const markup = renderToStaticMarkup(React.createElement(PlanReviewShell,{title:'Project Planning',workflowId:'exact-workflow',browserPanel:React.createElement('aside',null,'Architect companion'),handoff:'SQL handoff',projection:'Generated SQL Profile and Roadmap',cycleId:'exact-cycle',revision:2,disposition:'revision_requested',onPrepare:async()=>{},onSave:async()=>{},onReview:async()=>{}}));
-  assert.match(markup,/Generated SQL Profile and Roadmap/); assert.match(markup,/Architect companion/); assert.match(markup,/Revision requested/); assert.match(markup,/I have reviewed this revision/); assert.match(markup,/disabled=""[^>]*>Approve/);
+  assert.match(markup,/Generated SQL Profile and Roadmap/); assert.match(markup,/Architect companion/); assert.match(markup,/Revision requested/); assert.match(markup,/Review Decision/); assert.match(markup,/Revision Requested/); assert.match(markup,/Reject/); assert.doesNotMatch(markup,/I have reviewed this revision/); assert.match(markup,/class="apply-button">Approve/);
 });
 
 test('Shared Work Map shell renders direct and phased scopes with dependencies, readiness and no planning disposition',()=>{

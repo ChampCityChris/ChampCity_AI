@@ -11,8 +11,9 @@ The renderer no longer gates Architect or planning dispositions on a separate vi
 - Approved repository root verified: `<PROJECT_REPO>` (`Dev` source checkout).
 - Card type and identifier: Repair Card `RWS05-REPAIR03`.
 - Branch: `dev`; configured origin remote exists. This branch has no configured upstream in the local branch listing.
-- The worktree contains substantial unrelated pre-existing changes, including RWS06J and workflow/runtime work. Those changes were preserved and excluded from this checkpoint.
-- Checkpoint commit: pending at report creation; record the resulting commit hash in the completion message.
+- The worktree contained substantial unrelated pre-existing changes, including RWS06J and workflow/runtime work.
+- During implementation, a concurrent change advanced `dev` with commit `d209f6099616def2c9fcf2a1aea9a460e351646e` (`RWS06B-R01 persist exact planning workspace identity`). That commit includes the RWS05-REPAIR03 implementation/report together with the RWS06B change set. It was not rewritten.
+- This report correction is committed separately as the RWS05-REPAIR03 checkpoint follow-up; the implementation remains in `d209f60`.
 
 ## Root cause and implementation
 
@@ -75,7 +76,7 @@ No canonical Markdown was created to populate tabs. No SQL/domain contracts, Int
 | `node --test test/renderer/figma-redesign-shell.test.cjs test/renderer/project-rail-presentation.test.cjs test/workflow/workflow-planning-ipc.test.cjs test/renderer/document-review-surface-source.test.cjs` | Normal Windows | Passed, 47 tests, 0 failures. |
 | `git diff --check` | Local source check | Passed; Git printed line-ending normalization notices for existing Windows CRLF files. |
 
-The final production build/typecheck and exact-path repair profile are run after the sequential REPAIR04 checkpoint is completed. No unrelated test failure was observed.
+The exact-path repair profile and a final build/typecheck are run after the sequential REPAIR04 checkpoint is completed. No unrelated test failure was observed.
 
 ## Safety and remaining validation
 
