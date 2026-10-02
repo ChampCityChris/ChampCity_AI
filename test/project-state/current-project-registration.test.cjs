@@ -28,7 +28,10 @@ test("fresh Current Project registration is idempotent, local, and ignores legac
     assert.equal(resources.filter(record => record.body.resourceType === "source-repository").length, 0);
     assert.equal((await store.listEntities(first.project.id, "WorkIntake")).length, 0);
     assert.equal((await store.listEntities(first.project.id, "Workflow")).length, 0);
-    assert.equal(await store.getProviderGeneration(first.project.id), null);
+    const generation = await store.getProviderGeneration(first.project.id);
+    assert.equal(generation.projectId, first.project.id);
+    assert.equal(generation.generation, 1);
+    assert.equal(generation.authority, "structured");
   } finally { store.close(); }
 });
 

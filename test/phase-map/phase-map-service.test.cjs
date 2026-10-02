@@ -474,7 +474,7 @@ async function structuredMapFixture(context) {
 const typedMapPhases=[{phaseId:'phase_one',title:'First outcome',order:1,purpose:'Deliver first independently useful outcome',dependsOn:[],sourceReferences:['planning/project/PROJECT_PROFILE.md']},{phaseId:'phase_two',title:'Second outcome',order:2,purpose:'Consume first accepted outcome',dependsOn:['phase_one'],sourceReferences:['planning/project/PROJECT_PROFILE.md']}];
 test('Historical Phase Map metadata is inert and fresh structured review is required',async context=>{
   const f=await structuredMapFixture(context), relative='planning/project/Phase_Map/PHASE_MAP_map_fixture.md';
-  require('../../dist/main/documents/canonicalMarkdownDocumentWriter.js').writeCanonicalMarkdownDocument({workspaceRoot:f.root,relativePath:relative,metadata:{schemaVersion:1,artifactType:'phase-map',artifactRevision:1,participationRole:'gatingReview',identity:{projectSlug:'map_fixture'},sourceRevisions:[],workflowData:{phases:typedMapPhases},documentDisposition:{status:'Approved',notes:'Reviewed',reviewedAt:new Date().toISOString()}},bodyMarkdown:'# Phase Map\n\n```champcity-phase-map\n'+JSON.stringify({phases:typedMapPhases})+'\n```'});
+  seedHistoricalPhaseMap(f.root, {relativePath:relative,metadata:{schemaVersion:1,artifactType:'phase-map',artifactRevision:1,participationRole:'gatingReview',identity:{projectSlug:'map_fixture'},sourceRevisions:[],workflowData:{phases:typedMapPhases},documentDisposition:{status:'Approved',notes:'Reviewed',reviewedAt:new Date().toISOString()}},bodyMarkdown:'# Phase Map\n\n```champcity-phase-map\n'+JSON.stringify({phases:typedMapPhases})+'\n```'});
   const bytes=fs.readFileSync(path.join(f.root,relative),'utf8'), empty=await f.service.get(f.root,f.workflow.id);
   assert.equal(empty.review,null); assert.equal(empty.plan,null); assert.equal((await f.store.listEntities(f.projectId,'Phase')).length,0);
   assert.equal(fs.readFileSync(path.join(f.root,relative),'utf8'),bytes);
@@ -493,7 +493,7 @@ test('Historical Phase Map metadata is inert and fresh structured review is requ
 test('Fresh SQL Greenfield Phase Map reviews exact revisions, preserves supplied criteria and rejects invalid dependencies',async context=>{
   const f=await structuredMapFixture(context), model=await f.service.get(f.root,f.workflow.id), phases=typedMapPhases.map((phase,index)=>({...phase,criteria:index?[]:[{statement:'Explicit Phase obligation',criticality:'required',verificationIntent:'Review first outcome',validationPolicy:'operator_decision'}]}));
   const stalePath='planning/project/Phase_Map/PHASE_MAP_map_fixture.md';
-  require('../../dist/main/documents/canonicalMarkdownDocumentWriter.js').writeCanonicalMarkdownDocument({workspaceRoot:f.root,relativePath:stalePath,metadata:{schemaVersion:1,artifactType:'phase-map',artifactRevision:1,participationRole:'gatingReview',identity:{projectSlug:'map_fixture'},sourceRevisions:[{path:'planning/project/missing-current-source.md',revision:1}],workflowData:{phases:typedMapPhases},documentDisposition:{status:'Approved',notes:'Historical approval',reviewedAt:new Date().toISOString()}},bodyMarkdown:'# Phase Map\n\n```champcity-phase-map\n'+JSON.stringify({phases:typedMapPhases})+'\n```'});
+  seedHistoricalPhaseMap(f.root, {relativePath:stalePath,metadata:{schemaVersion:1,artifactType:'phase-map',artifactRevision:1,participationRole:'gatingReview',identity:{projectSlug:'map_fixture'},sourceRevisions:[{path:'planning/project/missing-current-source.md',revision:1}],workflowData:{phases:typedMapPhases},documentDisposition:{status:'Approved',notes:'Historical approval',reviewedAt:new Date().toISOString()}},bodyMarkdown:'# Phase Map\n\n```champcity-phase-map\n'+JSON.stringify({phases:typedMapPhases})+'\n```'});
   assert.equal((await f.service.get(f.root,f.workflow.id)).review,null); assert.equal((await f.store.listEntities(f.projectId,'Phase')).length,0);
   await assert.rejects(f.service.save(f.root,f.workflow.id,{workflowId:f.workflow.id,phases:[{...phases[0],dependsOn:['phase_two']},phases[1]],sources:model.sources}),/dependency/);
   const saved=await f.service.save(f.root,f.workflow.id,{workflowId:f.workflow.id,phases,sources:model.sources}); assert.equal(saved.plan,null); assert.match(saved.review.markdown,/Explicit Phase obligation/);
@@ -505,3 +505,10 @@ test('Fresh SQL Greenfield Phase Map reviews exact revisions, preserves supplied
   await assert.rejects(f.service.get(f.root,exact.id),/accepted graph/);
   assert.equal((await f.store.listEntities(f.projectId,'PlanReviewCycle')).length,0);
 });
+
+// Historical fixture bytes bypass canonical writers; the product fence remains enforced.
+function seedHistoricalPhaseMap(root, input) {
+  const file=path.join(root,input.relativePath);fs.mkdirSync(path.dirname(file),{recursive:true});
+  fs.writeFileSync(file,require('../../dist/shared/documents/canonicalMarkdown.js').serializeCanonicalMarkdownDocument(input.metadata,input.bodyMarkdown));
+  assert.throws(()=>require('../../dist/main/documents/canonicalMarkdownDocumentWriter.js').writeCanonicalMarkdownDocument({workspaceRoot:root,...input}),/structured|SQL|authority/i);
+}

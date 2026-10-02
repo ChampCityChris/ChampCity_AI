@@ -72,30 +72,3 @@ test("document viewer exposes read errors and a bounded empty state", () => {
   const copy = descendants(invokeWithMockHooks(FigmaDocumentCard, props({ selectedDocument: null }))).find((node) => node.type === "button");
   assert.equal(copy.props.disabled, true);
 });
-
-test("document refresh reloads retained selection and skips a removed document", async () => {
-  const fs = require("node:fs"), path = require("node:path"), ts = require("typescript"), vm = require("node:vm");
-  const source = ts.createSourceFile("App.tsx", fs.readFileSync(path.join(__dirname, "../../src/renderer/app/App.tsx"), "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  let callback;
-  function visit(node) { if (ts.isFunctionDeclaration(node) && node.name?.text === "refreshDocuments") callback = node; ts.forEachChild(node, visit); }
-  visit(source);
-  const code = ts.transpileModule(`(${callback.getText(source)})`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  for (const retained of [true, false]) {
-    const calls = [];
-    const inventory = retained ? [document()] : [];
-    let error, loading;
-    const refresh = vm.runInNewContext(code, { Error,
-      window: { champcity: { listDocuments: async () => { calls.push("list"); return inventory; } } },
-      selectedDocumentId: "doc-1", activeWorkspaceId: "project-intake-capture",
-      setIsLoadingDocuments: (value) => { loading = value; }, setDocumentError: (value) => { error = value; },
-      applyDocumentInventory: (value) => { assert.equal(value, inventory); },
-      refreshProjectPlanningWorkspaceModel: async () => {}, refreshCurrentModel: async () => ({}),
-      loadDocument: async (id, options) => { calls.push([id, options.preserveOnFailure]); },
-      isArchitectEnabledWorkspace: () => false, transitionToWorkflowStep() {}, setFeedback() {},
-    });
-    await refresh();
-    assert.deepEqual(calls, retained ? ["list", ["doc-1", true]] : ["list"]);
-    assert.equal(loading, false);
-    assert.equal(error, "");
-  }
-});

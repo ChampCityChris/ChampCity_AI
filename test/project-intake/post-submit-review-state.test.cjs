@@ -120,26 +120,23 @@ test("repository change clears Project Intake confirmation without inventing nav
   });
 });
 
-test("Work Intake capture asks for bounded work and a base branch without route selection", () => {
+test("Work Intake capture asks for bounded work in the selected Project without route selection", () => {
   const { WorkIntakeWorkspace } = loadRendererSourceModule("src/renderer/app/WorkIntakeWorkspace.tsx");
   const markup = renderToStaticMarkup(React.createElement(WorkIntakeWorkspace, {
     projection: {
-      project: null, suggestedProjectName: "New Product", branches: [
+      project: {projectId: "selected-project", projectName: "New Product"}, suggestedProjectName: "New Product", branches: [
         { name: "work-intake/current", commit: "a".repeat(40) },
         { name: "integration-target", commit: "b".repeat(40) },
       ],
       currentBranch: "work-intake/current", suggestedBase: { name: "integration-target", commit: "b".repeat(40) },
       currentIntake: null, intakes: [], blockedReason: null,
     },
-    onReturn() {}, onRefresh: async () => {},
+    onReturn() {}, onSaved: async () => {},
   }));
   assert.match(markup, /Work request, problem, or change/);
   assert.match(markup, /Desired outcome/);
   assert.match(markup, /Non-negotiable constraints/);
-  assert.match(markup, /Integrate into branch/);
-  assert.match(markup, /integration-target/);
-  assert.match(markup, /<option value="integration-target" selected="">integration-target<\/option>/);
-  assert.doesNotMatch(markup, /<option value="work-intake\/current" selected="">/);
+  assert.doesNotMatch(markup, /Integrate into branch/);
   assert.match(markup, /Save Work Intake/);
   assert.doesNotMatch(markup, /Project Type|Select.*route|greenfield|refactor-migration|Submit Project Intake/);
 });

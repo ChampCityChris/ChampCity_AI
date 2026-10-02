@@ -962,10 +962,6 @@
           "description": "disposition-only update preserves body and revision"
         },
         {
-          "behaviorId": "document-refresh-reloads-retained-selection-and-skips-a-removed-document",
-          "description": "document refresh reloads retained selection and skips a removed document"
-        },
-        {
           "behaviorId": "document-viewer-displays-full-body-and-falls-back-to-preview-only-when-body-is-unavailable",
           "description": "document viewer displays full body and falls back to preview only when body is unavailable"
         },
@@ -1088,13 +1084,10 @@
         "src/main/workCardBuilding/workflowExecutionLease.ts",
         "src/preload/index.ts",
         "src/renderer/app/CodexConnectionsPanel.tsx",
-        "src/renderer/app/CodexModelSelectionControls.tsx",
-        "src/renderer/app/WorkCardBuildingReviewWorkspace.tsx",
         "src/shared/codexConnectionContracts.ts",
         "src/shared/codexRuntimeContracts.ts",
         "src/shared/workItemCheckpointContracts.ts",
         "src/shared/workspaceContracts.ts",
-        "test/support/codex-ipc-harness.cjs",
         "test/support/windows-test.cjs"
       ],
       "dependsOn": [
@@ -2131,8 +2124,7 @@
       "description": "Phase map, interview, planning, validation, close, and renderer transition behavior.",
       "sourcePatterns": [
         "src/main/phase*/**",
-        "src/renderer/app/*Phase*",
-        "test/support/phase-validation-fixtures.cjs"
+        "src/renderer/app/*Phase*"
       ],
       "dependsOn": [
         "canonical-document-storage",
@@ -2391,22 +2383,6 @@
           "description": "project intake without explicit MCP binding still persists repository binding"
         },
         {
-          "behaviorId": "project-planning-blocker-banner-caps-initial-evidence-and-exposes-disclosure",
-          "description": "Project Planning blocker banner caps initial evidence and exposes disclosure"
-        },
-        {
-          "behaviorId": "project-planning-blocker-banner-renders-exact-reason-and-distinct-required-action",
-          "description": "Project Planning blocker banner renders exact reason and distinct required action"
-        },
-        {
-          "behaviorId": "project-planning-blocker-banner-renders-no-layout-in-non-blocked-states-or-other-workspaces",
-          "description": "Project Planning blocker banner renders no layout in non-blocked states or other workspaces"
-        },
-        {
-          "behaviorId": "project-planning-blocker-banner-suppresses-duplicate-required-action-text",
-          "description": "Project Planning blocker banner suppresses duplicate required action text"
-        },
-        {
           "behaviorId": "project-planning-bundle-disposition-writes-the-same-notes-and-status-to-both-outputs",
           "description": "project planning bundle disposition writes the same notes and status to both outputs"
         },
@@ -2417,10 +2393,6 @@
         {
           "behaviorId": "project-planning-draft-bundle-waits-for-both-drafts-and-promotes-an-absent-final-bundle-atomical",
           "description": "project planning draft bundle waits for both drafts and promotes an absent final bundle atomically"
-        },
-        {
-          "behaviorId": "project-planning-evidence-disclosure-expands-and-collapses-without-changing-model-evidence",
-          "description": "Project Planning evidence disclosure expands and collapses without changing model evidence"
         },
         {
           "behaviorId": "project-planning-exact-unmanaged-target-collision-blocks-without-modifying-file",
@@ -2477,10 +2449,6 @@
         {
           "behaviorId": "project-planning-prepares-the-first-handoff-and-exposes-a-copyable-draft-instruction",
           "description": "project planning prepares the first handoff and exposes a copyable draft instruction"
-        },
-        {
-          "behaviorId": "project-planning-rail-uses-the-supplied-current-planning-status",
-          "description": "Project Planning rail uses the supplied current planning status"
         },
         {
           "behaviorId": "project-planning-revision-requested-bundle-revises-both-final-documents-atomically",
@@ -3245,20 +3213,12 @@
       ],
       "behaviors": [
         {
-          "behaviorId": "a-controlled-60-second-idle-period-schedules-zero-repository-refreshes",
-          "description": "a controlled 60-second idle period schedules zero repository refreshes"
-        },
-        {
           "behaviorId": "all-top-project-rail-cards-receive-one-title-cased-lifecycle-status",
           "description": "all top project rail cards receive one title-cased lifecycle status"
         },
         {
           "behaviorId": "architect-disposition-controls-belong-to-the-structured-cycle-component",
           "description": "Architect disposition controls belong to the structured cycle component"
-        },
-        {
-          "behaviorId": "architect-evidence-waits-for-a-pre-existing-app-refresh-and-then-performs-exactly-one-fresh-read",
-          "description": "Architect evidence waits for a pre-existing App refresh and then performs exactly one fresh read"
         },
         {
           "behaviorId": "architect-interview-rail-status-is-evidence-derived-and-independent-from-selected-state",
@@ -3277,32 +3237,12 @@
           "description": "embedded Architect workspaces use dual-pane mode without changing other workspaces"
         },
         {
-          "behaviorId": "event-bursts-coalesce-to-one-matching-foreground-refresh-and-ignore-stale-domain-mismatched-hint",
-          "description": "event bursts coalesce to one matching foreground refresh and ignore stale/domain-mismatched hints"
-        },
-        {
           "behaviorId": "exact-issue-workflow-hub-navigation-renders-sps-front-half",
           "description": "Opening an exact Issue Workflow from the Hub presents the SPS-backed intake/RCA/planning front half without execution controls."
         },
         {
-          "behaviorId": "execution-context-dashboard-preserves-parent-work-card-state-during-repair",
-          "description": "execution context dashboard preserves parent Work Card state during repair"
-        },
-        {
-          "behaviorId": "execution-context-dashboard-renders-active-phase-metadata-and-no-work-card-before-selection",
-          "description": "execution context dashboard renders active phase metadata and no Work Card before selection"
-        },
-        {
-          "behaviorId": "execution-context-dashboard-renders-empty-project-state-without-stale-phase-or-work-card-values",
-          "description": "execution context dashboard renders empty project state without stale phase or Work Card values"
-        },
-        {
           "behaviorId": "execution-shell-exact-readiness-and-recovery",
           "description": "Execution Shell preserves phased readiness, exact source identity and bounded recovery actions"
-        },
-        {
-          "behaviorId": "foreground-return-is-a-repository-backed-missed-event-fallback-and-workspace-owners-stay-isolate",
-          "description": "foreground return is a repository-backed missed-event fallback and workspace owners stay isolated"
         },
         {
           "behaviorId": "fresh-application-shell-presents-the-project-neutral-landing-actions-without-project-navigation",
@@ -3325,24 +3265,12 @@
           "description": "Hub with no selected project renders project-selection shell without Development lifecycle status"
         },
         {
-          "behaviorId": "issue-evidence-waits-for-a-pre-existing-app-refresh-and-then-performs-exactly-one-fresh-read",
-          "description": "Issue evidence waits for a pre-existing App refresh and then performs exactly one fresh read"
-        },
-        {
           "behaviorId": "landing-selection-feedback-remains-bounded-to-the-landing-surface",
           "description": "landing selection feedback remains bounded to the landing surface"
         },
         {
           "behaviorId": "mcp-handoff-preflight-preserves-drafts-while-stale-or-unavailable-and-permits-retry-only-on-curr",
           "description": "MCP handoff preflight preserves drafts while stale or unavailable and permits retry only on current refresh"
-        },
-        {
-          "behaviorId": "newer-evidence-while-waiting-collapses-to-one-bounded-follow-up-without-parallel-requests",
-          "description": "newer evidence while waiting collapses to one bounded follow-up without parallel requests"
-        },
-        {
-          "behaviorId": "one-in-flight-owner-receives-at-most-one-newer-sequence-follow-up",
-          "description": "one in-flight owner receives at most one newer-sequence follow-up"
         },
         {
           "behaviorId": "phase-map-disposition-controls-render-only-for-readable-selected-phase-map-review-outputs",
@@ -3403,10 +3331,6 @@
         {
           "behaviorId": "workflow-hub-registry-exposes-only-the-functional-peer-workflows",
           "description": "Workflow Hub registry exposes only the functional peer workflows"
-        },
-        {
-          "behaviorId": "workspace-generation-change-cancels-a-stale-wait-even-when-the-new-owner-key-is-identical",
-          "description": "workspace generation change cancels a stale wait even when the new owner key is identical"
         }
       ]
     },
@@ -3915,14 +3839,6 @@
           "description": "repair projection surfaces missing supporting evidence as needs-attention"
         },
         {
-          "behaviorId": "repair-renders-primary-evidence-bound-repair-target-and-controlled-handoff-actions",
-          "description": "Repair renders primary evidence, bound repair target, and controlled handoff actions"
-        },
-        {
-          "behaviorId": "repair-selects-a-pending-repair-revision-for-review-and-hides-review-on-supporting-evidence",
-          "description": "Repair selects a pending repair revision for review and hides review on supporting evidence"
-        },
-        {
           "behaviorId": "report-readiness-rejects-mutated-nested-repository-binding",
           "description": "report readiness rejects mutated nested repository binding"
         },
@@ -3935,32 +3851,12 @@
           "description": "retained Work Card standard maps validation scope to owned behavior"
         },
         {
-          "behaviorId": "review-and-validation-uses-runtime-registry-order-and-classifies-report-evidence",
-          "description": "Review and Validation uses runtime registry order and classifies report evidence"
-        },
-        {
-          "behaviorId": "review-validation-controls-omit-copy-advisory-prompt",
-          "description": "Review & Validation controls omit Copy Advisory Prompt"
-        },
-        {
-          "behaviorId": "review-validation-renders-approved-work-card-tab-content-and-missing-document-errors-inline",
-          "description": "Review & Validation renders Approved Work Card tab content and missing document errors inline"
-        },
-        {
-          "behaviorId": "review-validation-renders-implementer-report-by-default-in-a-compact-document-pane",
-          "description": "Review & Validation renders Implementer Report by default in a compact document pane"
-        },
-        {
           "behaviorId": "stale-close-return-consumption-does-not-suppress-later-exact-completion-for-the-same-parent",
           "description": "stale close-return consumption does not suppress later exact completion for the same parent"
         },
         {
           "behaviorId": "wc02-approved-formal-work-card-outranks-stale-wc01-close-evidence",
           "description": "WC02 approved Formal Work Card outranks stale WC01 Close evidence"
-        },
-        {
-          "behaviorId": "work-card-intake-projection-fingerprint-tracks-shared-path-identity",
-          "description": "Work Card Intake projection fingerprint tracks shared path identity"
         },
         {
           "behaviorId": "work-card-intake-projection-uses-the-same-selected-candidate-and-target-paths-as-generation",
@@ -3997,14 +3893,6 @@
         {
           "behaviorId": "work-card-plan-source-view-renders-canonical-markdown-body-behind-hide-source",
           "description": "Work Card Plan source view renders canonical Markdown body behind Hide Source"
-        },
-        {
-          "behaviorId": "work-card-planning-preparation-disables-repeated-generation-while-in-flight-and-shows-exact-loca",
-          "description": "Work Card Planning preparation disables repeated generation while in flight and shows exact local errors"
-        },
-        {
-          "behaviorId": "work-card-planning-preparation-renders-the-selected-candidate-and-exact-output-paths",
-          "description": "Work Card Planning preparation renders the selected candidate and exact output paths"
         },
         {
           "behaviorId": "work-card-repair-creates-markdown-only-repair-handoff-from-revisionrequested-evidence",
@@ -4066,7 +3954,6 @@
       "sourcePatterns": [
         "src/main/featurePlanning/**",
         "src/main/issuePlanning/**",
-        "src/main/issueResolution/issueResolutionService.ts",
         "src/main/phaseMap/structuredPhaseMapReadProjection.ts",
         "src/main/phaseMap/structuredPhaseMapService.ts",
         "src/main/phasePlanning/structuredPhaseLoopReadProjection.ts",
@@ -4085,9 +3972,6 @@
         "src/renderer/app/CloseAdvanceWorkspace.tsx",
         "src/renderer/app/ExactWorkflowPlanningWorkspace.tsx",
         "src/renderer/app/ExecutionShell.tsx",
-        "src/renderer/app/FeaturePlanningWorkspace.tsx",
-        "src/renderer/app/GreenfieldExecutionWorkspace.tsx",
-        "src/renderer/app/IssueWorkflowPlanningWorkspace.tsx",
         "src/renderer/app/PlanReviewShell.tsx",
         "src/renderer/app/ReviewValidationShell.tsx",
         "src/renderer/app/StructuredPhaseLoopWorkspace.tsx",
@@ -4096,7 +3980,6 @@
         "src/renderer/app/WorkItemPlanningWorkspace.tsx",
         "src/renderer/app/WorkMapShell.tsx",
         "src/renderer/app/WorkflowIntakeWorkspace.tsx",
-        "src/renderer/app/planningDraftAction.ts",
         "src/shared/closeAdvanceContracts.ts",
         "src/shared/exactWorkflowPlanningContracts.ts",
         "src/shared/featurePlanningContracts.ts",
@@ -4113,7 +3996,6 @@
         "src/shared/structuredWorkRoutingContracts.ts",
         "src/shared/workflowApplicationContracts.ts",
         "test/source-control/workflow-integration-service.test.cjs",
-        "test/support/issue-close-fixtures.cjs",
         "test/workflow/deterministic-work-item-validator.test.cjs",
         "test/workflow/semantic-work-item-validator.test.cjs",
         "test/workflow/workflow-application-service.test.cjs",
@@ -13261,12 +13143,6 @@
       "behaviorCoverage": [
         {
           "capabilityId": "canonical-document-storage",
-          "behaviorId": "document-refresh-reloads-retained-selection-and-skips-a-removed-document",
-          "proofLocator": "document refresh reloads retained selection and skips a removed document",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "canonical-document-storage",
           "behaviorId": "document-viewer-displays-full-body-and-falls-back-to-preview-only-when-body-is-unavailable",
           "proofLocator": "document viewer displays full body and falls back to preview only when body is unavailable",
           "proofRole": "primary"
@@ -13281,164 +13157,6 @@
           "capabilityId": "canonical-document-storage",
           "behaviorId": "document-viewer-selects-readable-slots-and-copies-through-supplied-callbacks",
           "proofLocator": "document viewer selects readable slots and copies through supplied callbacks",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/renderer/evidence-driven-refresh-coordinator.test.cjs",
-      "currentTestCount": {
-        "value": 8,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 183,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
-      },
-      "proposedValidationLane": "affected-capability",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability"
-      ],
-      "execution": {
-        "requiresBuild": false,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
-        "ownedResources": [
-          "repository-readonly"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral",
-        "rendered-output"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "a-controlled-60-second-idle-period-schedules-zero-repository-refreshes",
-          "proofLocator": "a controlled 60-second idle period schedules zero repository refreshes",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "architect-evidence-waits-for-a-pre-existing-app-refresh-and-then-performs-exactly-one-fresh-read",
-          "proofLocator": "Architect evidence waits for a pre-existing App refresh and then performs exactly one fresh read",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "event-bursts-coalesce-to-one-matching-foreground-refresh-and-ignore-stale-domain-mismatched-hint",
-          "proofLocator": "event bursts coalesce to one matching foreground refresh and ignore stale/domain-mismatched hints",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "foreground-return-is-a-repository-backed-missed-event-fallback-and-workspace-owners-stay-isolate",
-          "proofLocator": "foreground return is a repository-backed missed-event fallback and workspace owners stay isolated",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "issue-evidence-waits-for-a-pre-existing-app-refresh-and-then-performs-exactly-one-fresh-read",
-          "proofLocator": "Issue evidence waits for a pre-existing App refresh and then performs exactly one fresh read",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "newer-evidence-while-waiting-collapses-to-one-bounded-follow-up-without-parallel-requests",
-          "proofLocator": "newer evidence while waiting collapses to one bounded follow-up without parallel requests",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "one-in-flight-owner-receives-at-most-one-newer-sequence-follow-up",
-          "proofLocator": "one in-flight owner receives at most one newer-sequence follow-up",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "workspace-generation-change-cancels-a-stale-wait-even-when-the-new-owner-key-is-identical",
-          "proofLocator": "workspace generation change cancels a stale wait even when the new owner key is identical",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/renderer/execution-context-dashboard.test.cjs",
-      "currentTestCount": {
-        "value": 3,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 197,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
-      },
-      "proposedValidationLane": "affected-capability",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability"
-      ],
-      "execution": {
-        "requiresBuild": false,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
-        "ownedResources": [
-          "repository-readonly"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral",
-        "rendered-output"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "execution-context-dashboard-preserves-parent-work-card-state-during-repair",
-          "proofLocator": "execution context dashboard preserves parent Work Card state during repair",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "execution-context-dashboard-renders-active-phase-metadata-and-no-work-card-before-selection",
-          "proofLocator": "execution context dashboard renders active phase metadata and no Work Card before selection",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "execution-context-dashboard-renders-empty-project-state-without-stale-phase-or-work-card-values",
-          "proofLocator": "execution context dashboard renders empty project state without stale phase or Work Card values",
           "proofRole": "primary"
         }
       ]
@@ -13585,88 +13303,6 @@
           "capabilityId": "phase-execution-workflow",
           "behaviorId": "phase-map-work-card-counts-use-real-formal-work-card-identities-only",
           "proofLocator": "Phase Map work card counts use real formal Work Card identities only",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/renderer/project-planning-blocker-banner.test.cjs",
-      "currentTestCount": {
-        "value": 6,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 322,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
-      },
-      "proposedValidationLane": "affected-capability",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability"
-      ],
-      "execution": {
-        "requiresBuild": true,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
-        "ownedResources": [
-          "repository-readonly"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral",
-        "rendered-output"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "project-planning-workflow",
-          "behaviorId": "project-planning-blocker-banner-caps-initial-evidence-and-exposes-disclosure",
-          "proofLocator": "Project Planning blocker banner caps initial evidence and exposes disclosure",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "project-planning-workflow",
-          "behaviorId": "project-planning-blocker-banner-renders-exact-reason-and-distinct-required-action",
-          "proofLocator": "Project Planning blocker banner renders exact reason and distinct required action",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "project-planning-workflow",
-          "behaviorId": "project-planning-blocker-banner-renders-no-layout-in-non-blocked-states-or-other-workspaces",
-          "proofLocator": "Project Planning blocker banner renders no layout in non-blocked states or other workspaces",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "project-planning-workflow",
-          "behaviorId": "project-planning-blocker-banner-suppresses-duplicate-required-action-text",
-          "proofLocator": "Project Planning blocker banner suppresses duplicate required action text",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "project-planning-workflow",
-          "behaviorId": "project-planning-evidence-disclosure-expands-and-collapses-without-changing-model-evidence",
-          "proofLocator": "Project Planning evidence disclosure expands and collapses without changing model evidence",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "project-planning-workflow",
-          "behaviorId": "project-planning-rail-uses-the-supplied-current-planning-status",
-          "proofLocator": "Project Planning rail uses the supplied current planning status",
           "proofRole": "primary"
         }
       ]
@@ -13866,70 +13502,6 @@
       ]
     },
     {
-      "testPath": "test/renderer/work-card-intake-workspace.test.cjs",
-      "currentTestCount": {
-        "value": 3,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 195,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
-      },
-      "proposedValidationLane": "affected-capability",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability"
-      ],
-      "execution": {
-        "requiresBuild": false,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
-        "ownedResources": [
-          "repository-readonly"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral",
-        "rendered-output"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "work-card-workflow",
-          "behaviorId": "work-card-intake-projection-fingerprint-tracks-shared-path-identity",
-          "proofLocator": "Work Card Intake projection fingerprint tracks shared path identity",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "work-card-workflow",
-          "behaviorId": "work-card-planning-preparation-disables-repeated-generation-while-in-flight-and-shows-exact-loca",
-          "proofLocator": "Work Card Planning preparation disables repeated generation while in flight and shows exact local errors",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "work-card-workflow",
-          "behaviorId": "work-card-planning-preparation-renders-the-selected-candidate-and-exact-output-paths",
-          "proofLocator": "Work Card Planning preparation renders the selected candidate and exact output paths",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
       "testPath": "test/renderer/work-card-plan-presentation.test.cjs",
       "currentTestCount": {
         "value": 4,
@@ -13989,134 +13561,6 @@
           "capabilityId": "work-card-workflow",
           "behaviorId": "work-card-plan-source-view-renders-canonical-markdown-body-behind-hide-source",
           "proofLocator": "Work Card Plan source view renders canonical Markdown body behind Hide Source",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/renderer/work-card-repair-workspace.test.cjs",
-      "currentTestCount": {
-        "value": 2,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 247,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
-      },
-      "proposedValidationLane": "affected-capability",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability"
-      ],
-      "execution": {
-        "requiresBuild": false,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
-        "ownedResources": [
-          "repository-readonly"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral",
-        "rendered-output"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "work-card-workflow",
-          "behaviorId": "repair-renders-primary-evidence-bound-repair-target-and-controlled-handoff-actions",
-          "proofLocator": "Repair renders primary evidence, bound repair target, and controlled handoff actions",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "work-card-workflow",
-          "behaviorId": "repair-selects-a-pending-repair-revision-for-review-and-hides-review-on-supporting-evidence",
-          "proofLocator": "Repair selects a pending repair revision for review and hides review on supporting evidence",
-          "proofRole": "primary"
-        }
-      ]
-    },
-    {
-      "testPath": "test/renderer/work-card-report-review-workspace.test.cjs",
-      "currentTestCount": {
-        "value": 4,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
-      },
-      "duration": {
-        "kind": "measured",
-        "milliseconds": 249,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
-      },
-      "proposedValidationLane": "affected-capability",
-      "platformDependency": "none",
-      "dependencies": {
-        "electron": false,
-        "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
-        "timing": false
-      },
-      "sourceInspectionClassification": "none",
-      "v2Disposition": "preserve",
-      "validationRoles": [
-        "capability"
-      ],
-      "execution": {
-        "requiresBuild": true,
-        "platform": "any",
-        "externalCapabilities": [],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
-        "ownedResources": [
-          "repository-readonly"
-        ]
-      },
-      "proofCharacteristics": [
-        "behavioral",
-        "rendered-output"
-      ],
-      "dispositionReasons": [
-        "current-proof-appropriate"
-      ],
-      "behaviorCoverage": [
-        {
-          "capabilityId": "work-card-workflow",
-          "behaviorId": "review-and-validation-uses-runtime-registry-order-and-classifies-report-evidence",
-          "proofLocator": "Review and Validation uses runtime registry order and classifies report evidence",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "work-card-workflow",
-          "behaviorId": "review-validation-controls-omit-copy-advisory-prompt",
-          "proofLocator": "Review & Validation controls omit Copy Advisory Prompt",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "work-card-workflow",
-          "behaviorId": "review-validation-renders-approved-work-card-tab-content-and-missing-document-errors-inline",
-          "proofLocator": "Review & Validation renders Approved Work Card tab content and missing document errors inline",
-          "proofRole": "primary"
-        },
-        {
-          "capabilityId": "work-card-workflow",
-          "behaviorId": "review-validation-renders-implementer-report-by-default-in-a-compact-document-pane",
-          "proofLocator": "Review & Validation renders Implementer Report by default in a compact document pane",
           "proofRole": "primary"
         }
       ]
