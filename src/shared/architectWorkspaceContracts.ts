@@ -88,7 +88,6 @@ export function architectCandidateHandoffContract(type: WorkflowType): string[] 
     `Return only one JSON object with exactly the fifteen GREENFIELD_ARCHITECT_SECTIONS keys: ${Object.keys(GREENFIELD_ARCHITECT_SECTIONS).join(", ")}. Every value is an array of 1-${limits.sectionItems} nonempty strings, each at most ${limits.textBytes} bytes.`,
     `Maximum ${limits.totalItems} total items; the sum of UTF-8 bytes of JSON-serialized section arrays must not exceed ${limits.transportBytes} bytes. projectPlanningDirection joined with newline must not exceed ${limits.directionBytes} bytes.`,
     textRule, recommendationRule,
-    "Project ground zero is the selected repository plus the local development machine. Distinguish verified installed, verified missing and unverified capabilities, repository bootstrap mechanisms and explicitly externally managed capabilities. Missing required capabilities are Project work unless approved evidence establishes external ownership.",
     "Project Planning Direction must cover the full adopted Project scope, governing architecture, product capabilities, dependencies and acceptance obligations. Identify unresolved Operator decisions explicitly.",
     "Workflow-specific JSON template (authoritative field names):", JSON.stringify(Object.fromEntries(Object.keys(GREENFIELD_ARCHITECT_SECTIONS).map(key => [key, ["Replace with substantive direction or an explicit unresolved item."]])))
   ];

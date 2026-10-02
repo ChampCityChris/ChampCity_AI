@@ -62,6 +62,9 @@ function assertArchitectHandoff(model, type) {
   const output = JSON.parse(blocks[templateIndex + 1]);
   assert.ok(handoff.includes("100000"));
   assert.ok(handoff.includes("UTF-8"));
+  const groundZero = "Project ground zero is the selected repository plus the local development machine. Distinguish verified installed, verified missing and unverified capabilities, repository bootstrap mechanisms and explicitly externally managed capabilities. Missing required capabilities are Project work unless approved evidence establishes external ownership.";
+  assert.equal(blocks.filter(block => block === groundZero).length, 1);
+  assert.equal(handoff.includes("Project Planning Direction must"), type === "project-creation");
   assert.ok(handoff.includes("never Operator Decisions"));
   if (type === "issue-resolution") {
     assert.deepEqual(Object.keys(output), ["rootCauses"]);
@@ -101,7 +104,6 @@ function assertArchitectHandoff(model, type) {
   if (type !== "project-creation") {
     assert.ok(!handoff.includes("Project Planning Direction must"));
     assert.ok(!handoff.includes("GREENFIELD_ARCHITECT_SECTIONS"));
-    assert.ok(!handoff.includes("Project ground zero"));
   }
   assert.doesNotThrow(() => validateArchitectCandidateOutput(type, output));
   const other = type === "feature-capability" ? Object.fromEntries(Object.keys(GREENFIELD_ARCHITECT_SECTIONS).map(key => [key, ["Direction"]])) : acceptedAssessment;

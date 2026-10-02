@@ -38,6 +38,7 @@ export function createStructuredArchitectWorkspaceService() {
         ...architectCandidateHandoffContract(workflowType),
         "Supplied SQL context and Evidence:", JSON.stringify(supportRecords),
         "Inspect materially relevant repository evidence before questions or recommendations. Distinguish verified implementation, approved architecture, historical evidence, and unresolved assumptions. Preserve governing architecture unless the Operator explicitly revises it. Cover both architecture boundaries and consuming product capabilities.",
+        "Project ground zero is the selected repository plus the local development machine. Distinguish verified installed, verified missing and unverified capabilities, repository bootstrap mechanisms and explicitly externally managed capabilities. Missing required capabilities are Project work unless approved evidence establishes external ownership.",
         "Approved SQL Intake:", JSON.stringify(intake.body.values, null, 2),
         "Approved Project architecture:", JSON.stringify(selectProjectArchitectureContext(projectId, await store.listEntities(projectId), await store.listRelationships(projectId))),
         "Exact SourceBaseline evidence:", JSON.stringify((await store.listEntities(projectId, "SourceBaseline")).filter(record => record.entityType === "SourceBaseline" && record.body.workflowId === workflowId && record.lifecycleState === "active"))].join("\n\n")};
