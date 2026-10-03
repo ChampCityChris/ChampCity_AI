@@ -7,7 +7,7 @@ import { WorkflowIntakeReviewCard, WorkflowIntakeDisposition } from "./WorkflowI
 import { IntakeWorkspaceShell } from "./IntakeWorkspaceShell";
 
 export function WorkflowIntakeWorkspace({ workflow, onReturn, onPrepared }: {
-  workflow: WorkflowInstanceSummary; onReturn: () => void; onPrepared: () => void;
+  workflow: WorkflowInstanceSummary; onReturn: () => void; onPrepared: () => void | Promise<void>;
 }): JSX.Element {
   const [values, setValues] = useState<Record<string, string>>({});
   const state = useWorkflowIntake(workflow.workflowId);
@@ -24,7 +24,7 @@ export function WorkflowIntakeWorkspace({ workflow, onReturn, onPrepared }: {
     setPreparing(true); setPrepareError("");
     try {
       if (workflowType !== "project-creation") await window.champcity.prepareStructuredArchitectWorkspace(workflow.workflowId);
-      onPrepared();
+      await onPrepared();
     } catch (e) { setPrepareError(String(e).slice(0, 1000)); } finally { setPreparing(false); }
   };
   return <IntakeWorkspaceShell heading={`${WORKFLOW_TYPE_REGISTRY[workflowType].label} Intake`}

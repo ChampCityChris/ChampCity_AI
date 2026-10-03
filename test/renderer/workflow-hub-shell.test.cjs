@@ -41,7 +41,7 @@ test("exact planning dispatch follows supported type and persisted currentWorksp
   for (const currentWorkspace of ["work-item-map", "execution-complete", "integration-ready"])
     assert.equal(workflowPlanningSurface({ workflowType: "feature-capability", lifecycleState: "active", currentWorkspace }), "execution");
   assert.equal(workflowPlanningSurface({ workflowType: "issue-resolution", lifecycleState: "active", currentWorkspace: "work-item-map" }), "execution");
-  assert.equal(workflowPlanningSurface({ workflowType: "issue-resolution", lifecycleState: "active", currentWorkspace: "feature-planning" }), "execution");
+  assert.equal(workflowPlanningSurface({ workflowType: "issue-resolution", lifecycleState: "active", currentWorkspace: "feature-planning" }), "generic");
   assert.equal(workflowPlanningSurface({ workflowType: "refactor-migration", lifecycleState: "active", currentWorkspace: "feature-planning" }), "generic");
   for (const workflowType of ["refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype"])
     assert.equal(workflowPlanningSurface({ workflowType, lifecycleState: "active", currentWorkspace: "planning" }), "planning");
@@ -644,4 +644,134 @@ test("Close Advance shell renders exact SQL eligibility and dispatches typed clo
  const node=CloseAdvanceShell({projection:{...projection,eligible:true,blockers:[]},rationale:"Exact proof",onRationale(){},onClose:()=>calls.push("close"),onKeepOpen:()=>calls.push("keep"),onNext:()=>calls.push("next")});
  function buttons(node){if(Array.isArray(node))return node.flatMap(buttons);if(!React.isValidElement(node))return [];return [...(node.type==="button"?[node]:[]),...buttons(node.props.children)];}buttons(node)[0].props.onClick();assert.deepEqual(calls,["close"]);
  const source=fs.readFileSync(path.join(repoRoot,"src/renderer/app/CloseAdvanceShell.tsx"),"utf8");assert.doesNotMatch(source,/window.champcity|MarkdownPath|JSON.parse/);
+});
+
+
+function progressionRender(component, props, slots) {
+  const originals = [React.useState, React.useEffect, React.useRef];
+  let index = 0;
+  React.useState = initial => {const slot = index++; return [slot < slots.length ? slots[slot] : initial, value => {slots[slot] = typeof value === 'function' ? value(slots[slot]) : value;}];};
+  React.useEffect = () => {};
+  React.useRef = initial => ({current: initial});
+  try {return component(props);} finally {[React.useState, React.useEffect, React.useRef] = originals;}
+}
+function progressionFind(element, predicate) {
+  if (!element || typeof element !== 'object') return null;
+  if (predicate(element)) return element;
+  for (const value of Object.values(element.props ?? {})) {
+    for (const child of Array.isArray(value) ? value : [value]) {
+      const found = progressionFind(child, predicate);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+test('six existing-project renderer pipelines await exact application re-resolution at Intake, Architect and Plan transitions', async () => {
+  const previousWindow = global.window;
+  const architectWorkspaces = {'feature-capability':'feature-assessment','issue-resolution':'issue-rca','refactor-migration':'refactor-assessment','integration-composition':'integration-assessment','infrastructure-platform':'infrastructure-assessment','research-prototype':'research-assessment'};
+  try {
+    for (const [workflowType, assessment] of Object.entries(architectWorkspaces)) for (const routed of [false,true]) {
+      const id = `exact-${workflowType}`;
+      let persisted = {workflowId:id,workflowType,lifecycleState:'active',currentWorkspace:WORKFLOW_TYPE_REGISTRY[workflowType].entryWorkspace,...(routed ? {routedSourceWorkflowId:'routing-exact'} : {})};
+      let resolved = {...persisted};
+      const reads = [];
+      global.window = {champcity:{
+        prepareStructuredArchitectWorkspace: async actual => {assert.equal(actual,id); persisted = {...persisted,currentWorkspace:assessment};},
+        prepareExactWorkflowPlanning: async actual => {assert.equal(actual,id); persisted = {...persisted,currentWorkspace:workflowType === 'feature-capability' ? 'feature-planning' : workflowType === 'issue-resolution' ? 'issue-planning' : 'planning'}; return {workflowId:id};},
+        reviewExactWorkflowPlan: async actual => {assert.equal(actual,id); persisted = {...persisted,currentWorkspace:'work-item-map'}; return {acceptedPlan:{}};},
+        getWorkflow: async actual => {assert.equal(actual,id); reads.push(actual); return {workflow:{...persisted}};},
+      }};
+      const appSlots = ['dark','workflow-instance',{ok:true,workspaceRoot:'fixture'},null,false,'',null,null,null,false,'',workflowType,id,resolved,null,null];
+      const shell = () => {
+        resolved = appSlots[13];
+        const mounted = progressionFind(progressionRender(App,{},appSlots),node => node.type?.name === 'StructuredWorkflowWorkspace');
+        assert.ok(mounted);
+        return mounted.type(mounted.props);
+      };
+      let child = shell();
+      const intake = progressionRender(child.type, child.props, [{},{disposition:{state:'approved'},values:{}},false,true,false,'','','',false,'']);
+      const prepare = progressionFind(intake, node => node.type === 'button' && String(node.props.children).startsWith('Prepare '));
+      assert.ok(prepare); assert.equal(prepare.props.disabled,false);
+      prepare.props.onClick();
+      await new Promise(resolve => setImmediate(resolve));
+      assert.equal(appSlots[13].currentWorkspace,assessment); assert.equal(reads.length,1);
+      child = shell();
+      const architectSlots = [null,'',false,null,false];
+      const architect = progressionRender(child.type,child.props,architectSlots);
+      await architect.props.onNext();
+      assert.equal(architectSlots[4],false,'local state must not impersonate persisted Planning');
+      assert.equal(reads.length,2);
+      child = shell();
+      const planningSlots = [{review:{cycleId:'cycle-exact',disposition:{state:'awaiting_review'}}},'',false,null,true];
+      const planning = progressionRender(child.type,child.props,planningSlots);
+      const review = progressionFind(planning,node => node.type?.name === 'PlanReviewShell');
+      assert.ok(review);
+      await review.props.onReview({outcome:'approved',expectedRecordVersion:1});
+      assert.equal(reads.length,3);
+      assert.equal(planningSlots[0].acceptedPlan,undefined,'accepted topology must leave Planning through the shell');
+      assert.equal(appSlots[13].currentWorkspace,'work-item-map');
+      assert.equal(shell().type.name,'WorkflowExecutionWorkspace');
+      assert.equal(typeof shell().props.onProgressed,'function');
+    }
+  } finally {global.window = previousWindow;}
+});
+
+test('all six families fail closed for unknown and mismatched Architect stages', () => {
+  for (const workflowType of ['feature-capability','issue-resolution','refactor-migration','integration-composition','infrastructure-platform','research-prototype']) {
+    for (const currentWorkspace of ['work-item-map','implementation','execution-complete','integration-ready','validation']) assert.equal(workflowPlanningSurface({workflowType,currentWorkspace,lifecycleState:'active'}),'execution');
+    for (const currentWorkspace of ['unknown-active-stage','architect-interview','wrong-assessment']) assert.equal(workflowPlanningSurface({workflowType,currentWorkspace,lifecycleState:'active'}),'generic');
+    for (const currentWorkspace of ['feature-assessment','issue-rca','refactor-assessment','integration-assessment','infrastructure-assessment','research-assessment']) {
+      const own = {'feature-capability':'feature-assessment','issue-resolution':'issue-rca','refactor-migration':'refactor-assessment','integration-composition':'integration-assessment','infrastructure-platform':'infrastructure-assessment','research-prototype':'research-assessment'}[workflowType];
+      if (currentWorkspace !== own) assert.equal(workflowPlanningSurface({workflowType,currentWorkspace,lifecycleState:'active'}),'generic');
+    }
+  }
+});
+
+
+test('application progression rejects mismatched exact identity and returns terminal Research to its Workflow list', async () => {
+  const previousWindow = global.window;
+  const workflow = {workflowId:'research-exact',workflowType:'research-prototype',workflowState:'active',lifecycleState:'active',currentWorkspace:'planning'};
+  const slots = ['dark','workflow-instance',{ok:true,workspaceRoot:'fixture'},null,false,'',null,null,null,false,'','research-prototype',workflow.workflowId,workflow,null,null];
+  let persisted = {...workflow};
+  const mounted = () => progressionFind(progressionRender(App,{},slots),node => node.type?.name === 'StructuredWorkflowWorkspace');
+  try {
+    global.window = {champcity:{getWorkflow:async () => ({workflow:{...persisted,workflowId:'wrong-exact-id'}})}};
+    await assert.rejects(mounted().props.onProgressed(workflow.workflowId),/Exact Workflow progression identity/);
+    assert.equal(slots[13],workflow); assert.equal(slots[1],'workflow-instance');
+    window.champcity.getWorkflow = async id => {assert.equal(id,workflow.workflowId); return {workflow:persisted};};
+    window.champcity.closeExactResearch = async id => {assert.equal(id,workflow.workflowId); persisted = {...persisted,lifecycleState:'closed',workflowState:'closed'};};
+    const appShell = mounted();
+    const child = appShell.type(appShell.props);
+    const planning = progressionRender(child.type,child.props,[{researchOutcome:{outcome:'no-implementation-plan-required'}},'',false,null,true]);
+    const close = progressionFind(planning,node => node.type === 'button' && node.props.children === 'Close Research with approved outcome');
+    assert.ok(close); close.props.onClick(); await new Promise(resolve => setImmediate(resolve));
+    assert.equal(slots[1],'workflow-type'); assert.equal(slots[13],null); assert.equal(slots[12],null);
+  } finally {global.window = previousWindow;}
+});
+
+test('Execution reroutes changed SQL stages and terminal closure while within-stage refresh stays local', async () => {
+  const previousWindow = global.window;
+  const workflow = {workflowId:'execution-exact',workflowType:'feature-capability',workflowState:'active',lifecycleState:'active',currentWorkspace:'work-item-map'};
+  const appSlots = ['dark','workflow-instance',{ok:true,workspaceRoot:'fixture'},null,false,'',null,null,null,false,'','feature-capability',workflow.workflowId,workflow,null,null];
+  let persisted = {...workflow}, reads = 0, closed = false;
+  const projection = () => ({items:[],plan:{workflow:{lifecycleState:persisted.lifecycleState,body:{currentWorkspace:persisted.currentWorkspace}},phases:[]},source:{state:'non-source'}});
+  const mountExecution = () => {
+    const appShell = progressionFind(progressionRender(App,{},appSlots),node => node.type?.name === 'StructuredWorkflowWorkspace');
+    const child = appShell.type(appShell.props);
+    return progressionRender(child.type,child.props,[projection(),null,null,{catalog:[]},null,null,null,'','','',null,null,'[]','','','pass','approved',{}]);
+  };
+  try {
+    global.window = {champcity:{getWorkflowExecutionProjection:async () => {if (closed) throw Error('Workflow is closed');return projection();},getCodexManagedRuntimeStatus:async () => ({catalog:[]}),getWorkflowIntegration:async () => null,getWorkflow:async id => {assert.equal(id,workflow.workflowId);reads++;return {workflow:{...persisted}};}}};
+    let execution = mountExecution();
+    let close = progressionFind(execution,node => node.type?.name === 'CloseAdvanceWorkspace' && node.props.scope === 'workflow');
+    close.props.onNext({workspaceId:'implementation'}); await new Promise(resolve => setImmediate(resolve));
+    assert.equal(reads,0,'within-stage refresh does not reroute the parent');
+    persisted = {...persisted,currentWorkspace:'execution-complete'};
+    close.props.onNext({workspaceId:'integration-ready'}); await new Promise(resolve => setImmediate(resolve));
+    assert.equal(reads,1); assert.equal(appSlots[13].currentWorkspace,'execution-complete');
+    execution = mountExecution(); close = progressionFind(execution,node => node.type?.name === 'CloseAdvanceWorkspace' && node.props.scope === 'workflow');
+    closed = true; persisted = {...persisted,lifecycleState:'closed',workflowState:'closed'};
+    close.props.onNext({workspaceId:'workflow-hub'}); await new Promise(resolve => setImmediate(resolve));
+    assert.equal(appSlots[1],'workflow-type'); assert.equal(appSlots[13],null);
+  } finally {global.window = previousWindow;}
 });

@@ -244,6 +244,13 @@ export function App(): JSX.Element {
     } catch (failure) { setWorkflowError(failure instanceof Error ? failure.message : "Workflow could not be opened."); }
   }
 
+  async function refreshWorkflowStage(id: string): Promise<void> {
+    const opened = await window.champcity.getWorkflow(id);
+    if (opened.workflow.workflowId !== id) throw new Error("Exact Workflow progression identity could not be verified.");
+    setWorkflow(opened.workflow);
+    if (opened.workflow.lifecycleState !== "active" || ["closed", "cancelled"].includes(opened.workflow.workflowState)) returnToWorkflowType();
+  }
+
   async function startWorkflow(request: DirectWorkflowStartRequest): Promise<void> {
     setWorkflowError("");
     const created = await window.champcity.startWorkflow(request);
@@ -303,7 +310,7 @@ export function App(): JSX.Element {
             onReturn={returnToWorkflowType} onRouted={id => void openRoutedWorkflow(id)} />
           : view === "source-control" ? <SourceControlWorkspace key={workspace.ok ? workspace.workspaceRoot : "none"} projectName={projectName} onReturn={returnToWorkflowHub} />
           : view === "workflow-instance" ? workflow ? <StructuredWorkflowWorkspace key={workflow.workflowId} workflow={workflow}
-            repositoryIdentity={workspace.ok ? workspace.workspaceRoot : ""} browserPanel={browserPanel} onReturn={returnToWorkflowType} onOpen={id => void openWorkflow(id)} /> : <p role="status">Loading Workflow…</p>
+            repositoryIdentity={workspace.ok ? workspace.workspaceRoot : ""} browserPanel={browserPanel} onReturn={returnToWorkflowType} onOpen={id => void openWorkflow(id)} onProgressed={refreshWorkflowStage} /> : <p role="status">Loading Workflow…</p>
           : view === "workflow-type" && workflowType ? <WorkflowTypeWorkspace key={workflowType} workflowType={workflowType}
             workflows={inventory?.groups.find(group => group.workflowType === workflowType)?.workflows ?? []}
             loading={isInventoryLoading} error={workflowError} onOpenWorkflow={id => void openWorkflow(id)}

@@ -93,7 +93,7 @@ const {WORKFLOW_INTAKE_DEFINITIONS} = require('../../dist/shared/workflowIntakeC
 const {FEATURE_ARCHITECT_SECTIONS, ASSESSMENT_SECTIONS} = require('../../dist/shared/architectWorkspaceContracts.js');
 const {resolveWorkPlanningProfile} = require('../../dist/main/workPlanning/workPlanningProfiles.js');
 const operator = {principalId:'operator', principalType:'human', role:'Operator'};
-async function exactPlanningFixture(context, type, noPlan = false) {
+async function exactPlanningFixture(context, type, noPlan = false, routed = false, sourceBacked = false) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'champcity-exact-plan-'));
   const registration = await registerCurrentProject(root, 'existing', {projectName:'Exact planning fixture'});
   const store = createSQLiteProjectStateStore(path.join(root,'.champcity','project-state.sqlite'));
@@ -101,10 +101,27 @@ async function exactPlanningFixture(context, type, noPlan = false) {
   const projectId = registration.project.id, state = createProjectStateService(store,operator), app = createExactWorkflowPlanningService();
   const started = await createWorkflowApplicationService().startDirectWorkflow(root,{workflowType:type,title:type});
   const workflow = await store.getEntity(projectId,started.workflow.workflowId);
+  const workflowApp = createWorkflowApplicationService();
+  const {workflowPlanningSurface} = require('../renderer/renderer-source-loader.cjs').loadRendererSourceModule('src/renderer/app/workflowPlanningDispatch.ts');
+  const resolve = async () => (await workflowApp.getCurrentProjectWorkflow(root, workflow.id)).workflow;
+  assert.equal(workflowPlanningSurface(await resolve()), 'intake');
+  if (routed) {
+    const routing = await state.createWorkIntake(projectId,{request:'Route request',desiredOutcome:'Outcome',constraints:[],evidenceContext:[],requestedIntegrationTarget:'dev'});
+    await state.linkWorkflowRouteTarget(projectId,routing.workflow.id,workflow.id);
+  }
+
+  if (sourceBacked) {
+    const baseline = await state.createWorkflowSourceBaseline(projectId, workflow.id, {repositoryId:'fixture-repository',integrationTargetSourceLineId:'dev',baseRevisionId:'fixture-base'});
+    await state.createWorkflowSourceBinding(projectId, workflow.id, baseline.id);
+  }
   const values = Object.fromEntries(WORKFLOW_INTAKE_DEFINITIONS[type].fields.filter(field => field.required).map(field => [field.key,`${field.key} scope`]));
   const intake = await state.saveWorkflowIntake(projectId,{workflowId:workflow.id,workflowType:type,values});
   await state.recordWorkflowIntakeDecision(projectId,intake.id,{expectedIntakeRecordVersion:intake.recordVersion,outcome:'approved'});
-  await state.prepareArchitectWorkspace(projectId,{workflowId:workflow.id,intakeId:intake.id,intakeVersion:intake.recordVersion});
+  await require('../../dist/main/architectOutputs/structuredArchitectWorkspaceService.js').createStructuredArchitectWorkspaceService().prepare(root, workflow.id);
+  const refreshed = await resolve();
+  assert.equal(refreshed.currentWorkspace, require('../../dist/shared/projectState/architectReviewContracts.js').ARCHITECT_WORKSPACE_BY_WORKFLOW[type]);
+  assert.equal(workflowPlanningSurface(refreshed), type === 'feature-capability' ? 'feature' : type === 'issue-resolution' ? 'issue' : 'architect');
+
   let output;
   if (type==='issue-resolution') {
     const finding = await state.createRecord(projectId,'Finding',{title:'Failure',statement:'Wrong output',category:'issue-intake',impact:'Broken',observedAt:new Date().toISOString(),findingState:'current'});
@@ -117,13 +134,15 @@ async function exactPlanningFixture(context, type, noPlan = false) {
   }
   const cycle = await state.saveArchitectCandidate(projectId,{workflowId:workflow.id,workflowType:type,intakeId:intake.id,intakeVersion:intake.recordVersion,output});
   await state.recordArchitectReview(projectId,cycle.id,{expectedRecordVersion:cycle.recordVersion,outcome:'approved'});
-  return {root,projectId,store,state,app,workflow,cycle};
+  return {root,projectId,store,state,app,workflow,cycle,resolve,workflowPlanningSurface};
 }
 for (const type of ['feature-capability','issue-resolution','refactor-migration','integration-composition','infrastructure-platform','research-prototype']) {
-  test(`${type}: exact Planning uses profile evidence and approved SQL revisions through acceptance`, async context => {
-    const f=await exactPlanningFixture(context,type), prepared=await f.app.prepare(f.root,f.workflow.id);
+  for (const routed of [false, true]) test(`${type} ${routed ? 'WIR-linked' : 'direct'}: exact Planning uses profile evidence and approved SQL revisions through acceptance`, async context => {
+    const f=await exactPlanningFixture(context,type,false,routed), prepared=await f.app.prepare(f.root,f.workflow.id);
     const planningWorkspace = {'feature-capability':'feature-planning','issue-resolution':'issue-planning','refactor-migration':'planning','integration-composition':'planning','infrastructure-platform':'planning','research-prototype':'planning'}[type];
     assert.equal((await f.store.getEntity(f.projectId,f.workflow.id)).body.currentWorkspace,planningWorkspace);
+    assert.equal(f.workflowPlanningSurface(await f.resolve()), type === 'feature-capability' ? 'feature' : type === 'issue-resolution' ? 'issue' : 'planning');
+    for (const currentWorkspace of ['unknown', 'architect-interview', 'other-family-assessment']) assert.equal(f.workflowPlanningSurface({...await f.resolve(),currentWorkspace}), 'generic');
     const changes = (await f.store.listStateChanges(f.projectId)).filter(item=>item.entityId===f.workflow.id&&item.changedFields.includes('currentWorkspace'));
     assert.ok(changes.length, 'Prepare Planning records the durable Workflow stage change');
     const preparedVersion = (await f.store.getEntity(f.projectId,f.workflow.id)).recordVersion;
@@ -133,7 +152,7 @@ for (const type of ['feature-capability','issue-resolution','refactor-migration'
     for (const text of [...profile.requiredEvidence,...profile.discoveryQuestions,...profile.planSections]) assert.ok(prepared.handoff.includes(text));
     assert.ok(prepared.handoff.includes(f.workflow.id)); assert.ok(prepared.handoff.includes(f.cycle.id));
     assert.ok(prepared.handoff.includes('Do not supply topology'));
-    const all=await f.store.listEntities(f.projectId), sources=all.filter(record=>record.entityType!=='Project' && record.entityType!=='Decision').map(record=>({entityId:record.id,recordVersion:record.recordVersion}));
+    const all=await f.store.listEntities(f.projectId), sources=all.filter(record=>record.entityType!=='Project' && record.entityType!=='Decision' && record.entityType!=='WorkIntake' && (record.entityType!=='Workflow' || record.id===f.workflow.id)).map(record=>({entityId:record.id,recordVersion:record.recordVersion}));
     const candidate={workflowId:f.workflow.id,workflowType:type,solution:{title:'Plan',objective:'Deliver outcome',scopeIn:['bounded outcome'],scopeOut:[],constraints:[],assumptions:[],risks:[]},solutionCriteria:[],sources,workItems:[{key:'first',kind:type==='issue-resolution'?'fix':type==='refactor-migration'?'migration':'feature',title:'Work',objective:'Complete outcome',dependencyKeys:[],criteria:[]}]};
     await assert.rejects(f.app.save(f.root,f.workflow.id,{...candidate,workflowId:'different'}),/exact Workflow/);
     const saved=await f.app.save(f.root,f.workflow.id,candidate); assert.equal(saved.review.graph.topology,'direct');
@@ -145,8 +164,15 @@ for (const type of ['feature-capability','issue-resolution','refactor-migration'
   const accepted=await handlers.get('workflow:planningReview')({},f.workflow.id,saved.review.cycleId,{expectedRecordVersion:1,outcome:'approved'});
   assert.equal(accepted.acceptedPlan.directWorkItems.length,1); assert.equal(accepted.acceptedPlan.directWorkItems[0].body.workItemKind,candidate.workItems[0].kind);
   assert.equal((await f.store.getEntity(f.projectId,f.workflow.id)).body.currentWorkspace,'work-item-map');
+  assert.equal(f.workflowPlanningSurface(await f.resolve()), 'execution');
+  const execution = await require('../../dist/main/workflow/workflowExecutionApplicationService.js').createWorkflowExecutionApplicationService().getExecutionProjection(f.root,f.workflow.id);
+  assert.equal(execution.items[0].record.id,accepted.acceptedPlan.directWorkItems[0].id);
+  assert.equal(execution.plan.solutions.length,1,'Architect output must not masquerade as an accepted execution Plan');
+  assert.equal(execution.plan.decisions.length,1);
+  assert.ok(!execution.items[0].eligibility.blockers.includes('accepted-plan-missing-or-ambiguous'));
   assert.ok((await f.app.prepare(f.root,f.workflow.id)).acceptedPlan);
   assert.equal((await f.store.getEntity(f.projectId,f.workflow.id)).body.currentWorkspace,'work-item-map');
+  assert.equal(f.workflowPlanningSurface(await f.resolve()), 'execution');
   assert.equal((await f.app.get(f.root,f.workflow.id)).acceptedPlan.directWorkItems[0].id,accepted.acceptedPlan.directWorkItems[0].id);
   });
 }
@@ -199,4 +225,17 @@ test('Shared Work Map shell renders direct and phased scopes with dependencies, 
   const phases=[{id:'phase-one',title:'First Phase',objective:'First outcome',kind:'phase',sequence:1,state:'closed',complete:true,criteria:[]},{id:'phase-two',title:'Second Phase',objective:'Second outcome',kind:'phase',sequence:2,state:'planned',complete:false,criteria:['Phase acceptance']}];
   const phased=renderToStaticMarkup(React.createElement(WorkMapShell,{label:'Phased Work Map',nodes:[...phases,{...work,parentId:'phase-two'}],dependencies:[{from:'phase-two',to:'phase-one'}],accepted:true}));
   assert.match(phased,/Phased/); assert.match(phased,/Depends on: First Phase/); assert.match(phased,/Phase acceptance/); assert.match(phased,/Next executable scope: Ready outcome/); assert.doesNotMatch(phased,/Approve|Revision Requested/);
+});
+
+
+test('SQL-native Migration approved Intake prepares Architect with an unprepared SourceBinding without recreating identities', async context => {
+  const f = await exactPlanningFixture(context,'refactor-migration',false,false,true);
+  const intake = (await f.store.listEntities(f.projectId,'WorkflowIntake'))[0];
+  assert.equal(intake.recordVersion,1);
+  assert.equal((await f.store.listEntities(f.projectId,'SourceBinding'))[0].body.preparationState,'unprepared');
+  assert.equal((await f.resolve()).currentWorkspace,'refactor-assessment');
+  const model = await require('../../dist/main/architectOutputs/structuredArchitectWorkspaceService.js').createStructuredArchitectWorkspaceService().prepare(f.root,f.workflow.id);
+  assert.equal(model.intakeId,intake.id); assert.equal(model.intakeVersion,1);
+  assert.equal((await f.store.listEntities(f.projectId,'WorkflowIntake')).length,1);
+  assert.equal((await f.store.listEntities(f.projectId,'Workflow')).length,1);
 });

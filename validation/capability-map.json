@@ -3249,6 +3249,10 @@
           "description": "Execution Shell preserves phased readiness, exact source identity and bounded recovery actions"
         },
         {
+          "behaviorId": "existing-workflows-reresolve-persisted-stages",
+          "description": "All six substantive existing-project families select renderer stages from exact re-resolved SQL state after successful stage commands and reject unknown or mismatched workspaces."
+        },
+        {
           "behaviorId": "fresh-application-shell-presents-the-project-neutral-landing-actions-without-project-navigation",
           "description": "fresh application shell presents the project-neutral landing actions without project navigation"
         },
@@ -4043,6 +4047,10 @@
         {
           "behaviorId": "exact-workitem-validation-projection-derives-current-source-and-completion-authority",
           "description": "Exact Workflow validation projections bind current WorkItem criteria, implementation and Tester evidence to source-neutral or current source-backed state; typed WorkItem and Phase completion rechecks eligibility."
+        },
+        {
+          "behaviorId": "existing-workflows-reresolve-persisted-stages",
+          "description": "All six substantive existing-project families select renderer stages from exact re-resolved SQL state after successful stage commands and reject unknown or mismatched workspaces."
         },
         {
           "behaviorId": "feature-and-issue-planning-ipc-preserves-exact-workflow-argument-contracts",
@@ -13668,8 +13676,8 @@
     {
       "testPath": "test/renderer/workflow-hub-shell.test.cjs",
       "currentTestCount": {
-        "value": 26,
-        "basis": "Existing renderer navigation proof plus the EPGA-R01 single forced-conversion warning and controller apply-before-register consent gating scenarios. RWS06G adds exact shared execution proof. RWS06H adds SQL review/repair convergence proof. RWS06I adds structured close/advance lifecycle proof."
+        "value": 34,
+        "basis": "RWS06-R01 adds six-family direct/routed application progression, fail-closed dispatch, exact identity, and terminal closure proof."
       },
       "duration": {
         "kind": "measured",
@@ -13727,6 +13735,12 @@
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "execution-shell-exact-readiness-and-recovery",
           "proofLocator": "Execution Shell preserves phased readiness, exact source identity and bounded recovery actions",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "existing-workflows-reresolve-persisted-stages",
+          "proofLocator": "six existing-project renderer pipelines await exact application re-resolution at Intake, Architect and Plan transitions",
           "proofRole": "primary"
         },
         {
@@ -16470,8 +16484,8 @@
     {
       "testPath": "test/workflow/workflow-planning-ipc.test.cjs",
       "currentTestCount": {
-        "value": 13,
-        "basis": "RWS06D adds shared direct/phased Work Map rendering to the exact Planning and shared shell owner."
+        "value": 20,
+        "basis": "RWS06-R01 extends the six-family matrix to direct and WIR-linked progression and approved source-backed Migration Intake."
       },
       "duration": {
         "kind": "estimated",
@@ -16517,6 +16531,12 @@
           "capabilityId": "workflow-application-service",
           "behaviorId": "exact-substantive-planning-reviews-sql-candidates-and-research-no-plan-outcomes",
           "proofLocator": "Six exact Planning profile/acceptance scenarios plus Research no-Plan closure, ambiguous legacy/missing prerequisite rejection and direct/WIR target convergence.",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "existing-workflows-reresolve-persisted-stages",
+          "proofLocator": "Parameterized direct/WIR-linked SQL progression matrix and SQL-native Migration with unprepared SourceBinding.",
           "proofRole": "primary"
         },
         {

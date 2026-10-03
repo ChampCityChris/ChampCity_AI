@@ -12,7 +12,7 @@ import type { IntegrationRepairAttempt, IntegrationRepairPatch } from "../../sha
 import type { WorkflowCheckpointRecoveryProjection } from "../../shared/workflowApplicationContracts";
 import {ExecutionShell, ExecutionSelectedWorkItemPanel, ExecutionRuntimePanel, ExecutionInteractionsPanel, ExecutionCheckpointPanel, ExecutionIntegrationPanel} from "./ExecutionShell";
 
-type Props = { workflow: WorkflowInstanceSummary; onReturn: () => void; browserPanel: ReactNode; initialWorkItemId?: string; onProjectionChanged?: () => Promise<void> };
+type Props = { workflow: WorkflowInstanceSummary; onReturn: () => void; browserPanel: ReactNode; initialWorkItemId?: string; onProjectionChanged?: () => Promise<void>; onProgressed?: () => Promise<void> };
 
 /** Preserve explicit selection; otherwise prefer execution or unblocked contract planning. */
 export function selectExecutionWorkItem(items: WorkflowExecutionProjection["items"], selectedId: string) {
@@ -23,7 +23,7 @@ export function selectExecutionWorkItem(items: WorkflowExecutionProjection["item
     ?? open[0] ?? items[0];
 }
 
-export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel, initialWorkItemId, onProjectionChanged }: Props): JSX.Element {
+export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel, initialWorkItemId, onProjectionChanged, onProgressed }: Props): JSX.Element {
   const loadGeneration = useRef(0), selectedIdentity = useRef(initialWorkItemId ?? "");
   const [projection, setProjection] = useState<WorkflowExecutionProjection | null>(null);
   const [review,setReview]=useState<StructuredWorkItemReview|null>(null);
@@ -63,9 +63,10 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel, i
       setPhaseValidation(Object.fromEntries(phaseEntries.filter((entry): entry is NonNullable<typeof entry> => entry !== null))); setIntegration(nextIntegration);
       if (!preserveOperationFeedback) setError("");
       await onProjectionChanged?.();
+      if (next.plan.workflow.body.currentWorkspace !== workflow.currentWorkspace || next.plan.workflow.lifecycleState !== workflow.lifecycleState) await onProgressed?.();
     } catch (reason) {
       if (request !== loadGeneration.current) return;
-      try {const current = await window.champcity.getWorkflow(workflow.workflowId); if (request !== loadGeneration.current) return; if (current.workflow.lifecycleState === "closed" || current.workflow.workflowState === "closed") {setProjection(null); setError(""); setFeedback("Workflow is closed. Its final state is available from the Workflows Hub."); return;}} catch { /* Retain the exact Workflow service error. */ }
+      try {const current = await window.champcity.getWorkflow(workflow.workflowId); if (request !== loadGeneration.current) return; if (current.workflow.lifecycleState === "closed" || current.workflow.workflowState === "closed") {setProjection(null); setError(""); setFeedback("Workflow is closed. Its final state is available from the Workflows Hub."); await onProgressed?.(); return;}} catch { /* Retain the exact Workflow service error. */ }
       if (!preserveOperationFeedback && request === loadGeneration.current) setError(String(reason));
     }
   };
@@ -110,7 +111,7 @@ export function WorkflowExecutionWorkspace({ workflow, onReturn, browserPanel, i
     ]); if (request !== loadGeneration.current) return; setReview(nextValidation); setValidation(nextValidation?.validation ?? null); setCheckpointRecovery(nextRecovery); setImplementer(nextImplementer); setTester(nextTester);} catch (reason) {if (request === loadGeneration.current) setError(String(reason));}
   };
   return <ExecutionShell workflow={workflow} projection={projection} selectedId={selectedId} error={error} feedback={feedback} onReturn={onReturn} onSelect={id => void selectWorkItem(id)} browserPanel={browserPanel}>
-    {projection && <><CloseAdvanceWorkspace key={workflow.workflowId+projection.plan.workflow.recordVersion} workflowId={workflow.workflowId} scope="workflow" entityId={workflow.workflowId} onNext={next=>{if(next.workspaceId==="workflow-hub")onReturn();else void refresh();}} />{item && <ExecutionSelectedWorkItemPanel item={item}>
+    {projection && <><CloseAdvanceWorkspace key={workflow.workflowId+projection.plan.workflow.recordVersion} workflowId={workflow.workflowId} scope="workflow" entityId={workflow.workflowId} onNext={next=>{if(next.workspaceId==="workflow-hub" && !onProgressed)onReturn();else void refresh();}} />{item && <ExecutionSelectedWorkItemPanel item={item}>
         {["planned", "ready"].includes(item.record.body.workState) && <WorkItemPlanningWorkspace workflowId={workflow.workflowId} workItemId={item.record.id} browserPanel={null} onChanged={refresh} />}
         <details><summary>Execution contract</summary><p>Scope in: {projection.plan.solutions[0]?.body.scopeIn.join("; ")}</p><p>Scope out: {projection.plan.solutions[0]?.body.scopeOut.join("; ")}</p><p>Constraints: {projection.plan.solutions[0]?.body.constraints.join("; ")}</p><p>Contract digest is generated from exact Workflow, WorkItem, accepted solution, phase, dependencies, Criteria, and source revision when execution starts.</p></details>
         <ExecutionRuntimePanel role="Implementer" model={implementer}><p>{latest ? `Implementation ${latest.id}: ${latest.body.outcome} · ${latest.body.summary}` : "No implementation attempt yet."}{implementer?.executionContractDigest && <> · contract <code>{implementer.executionContractDigest}</code></>}</p>

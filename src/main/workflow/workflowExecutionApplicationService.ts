@@ -60,7 +60,18 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       .filter((record): record is WorkflowRecord => record.entityType === "Workflow" && record.lineageId === workflow.lineageId);
     const current = lineage.filter(isCurrentWorkflow);
     if (current.length !== 1 || current[0].id !== workflowId) throw Error("Execution Workflow ID is not the unique current Workflow in its lineage.");
-    const plan = await createProjectStateService(store, operator).getWorkflowExecutionPlan(projectId, workflowId);
+    const fullPlan = await createProjectStateService(store, operator).getWorkflowExecutionPlan(projectId, workflowId);
+    // Architect solutions are review context, not accepted execution directions.
+    // Preserve Greenfield's Phase-owned directions; existing-project execution uses
+    // only solutions governed by the exact planning-acceptance Decisions.
+    const acceptedIds = new Set((await store.listRelationships(projectId, "governs"))
+      .filter(edge => !edge.endedAt && fullPlan.decisions.some(decision => decision.id === edge.fromEntityId))
+      .map(edge => edge.toEntityId));
+    const plan = workflow.body.workflowType === "project-creation" ? fullPlan : {
+      ...fullPlan,
+      solutions: fullPlan.solutions.filter(solution => acceptedIds.has(solution.id)),
+      criteria: fullPlan.criteria.filter(entry => !fullPlan.solutions.some(solution => solution.id === entry.ownerId) || acceptedIds.has(entry.ownerId)),
+    };
     if (workflow.body.workflowType === "research-prototype" && (plan.solutions.length !== 1 || ![...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].length)) throw Error("Research requires an accepted implementation Plan before execution; no-Plan outcomes cannot enter execution.");
     return plan;
   }
