@@ -3317,6 +3317,14 @@
           "description": "project rail reports duplicate current Project Closeouts as Needs Attention"
         },
         {
+          "behaviorId": "project-validation-adapter-uses-exact-sql-candidate-and-review-ports-without-direct-closure",
+          "description": "Project Validation adapter uses exact SQL candidate and review ports without direct closure"
+        },
+        {
+          "behaviorId": "project-validation-shell-preserves-recovered-evidence-geometry-and-ordered-independent-controls",
+          "description": "Project Validation shell preserves recovered evidence geometry and ordered independent controls"
+        },
+        {
           "behaviorId": "required-state-does-not-alter-project-intake-lifecycle-status-text",
           "description": "required state does not alter Project Intake lifecycle status text"
         },
@@ -13539,6 +13547,65 @@
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "top-rail-separates-viewed-workspace-from-current-required-workspace",
           "proofLocator": "top rail separates viewed workspace from current required workspace",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/renderer/project-validation-workspace.test.cjs",
+      "currentTestCount": {
+        "value": 2,
+        "basis": "WSF06 recovered shell and adapter scenarios."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 1000,
+        "basis": "Initial bounded renderer characterization estimate."
+      },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": true,
+        "timing": true
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": false,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Renderer characterization and SQL fixtures own isolated temporary directories and per-process React hook state.",
+        "ownedResources": [
+          "bounded-child-process",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "rendered-output"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "project-validation-adapter-uses-exact-sql-candidate-and-review-ports-without-direct-closure",
+          "proofLocator": "Project Validation adapter uses exact SQL candidate and review ports without direct closure",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "project-validation-shell-preserves-recovered-evidence-geometry-and-ordered-independent-controls",
+          "proofLocator": "Project Validation shell preserves recovered evidence geometry and ordered independent controls",
           "proofRole": "primary"
         }
       ]

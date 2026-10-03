@@ -1,0 +1,23 @@
+# WSF06 Implementer Report
+
+Work Card WSF06. Verified approved Dev root and dev branch at WSF05A checkpoint fb92da9; configured origin retained, no fetch/push/release. The prior untracked STOP report is superseded by this completed implementation: WSF05A supplies the missing SQL candidate/review boundary.
+
+Inspected App.tsx at 965536de265a4d494503f2173daddc5e81982a88: FigmaActionWorkspace, FigmaCloseControls, information cards/grid, document selection and bounded preview. Created ProjectValidationShell.tsx and ProjectValidationWorkspace.tsx. The shell owns the original geometry, control order, labels, status/error surfaces, scroll constraints and navigation/evidence/action slots. It receives only typed presentation values and callbacks. Existing CSS suffices; no CSS, SQL/domain, other-family renderer, workflow composition or legacy source changed.
+
+The Greenfield adapter reads exact SQL Project eligibility and Closeout projection sequentially, creates/revises a candidate independently of review, and applies disposition to the exact cycle/version. It never calls direct closeAndAdvance. Stale/closed/foreign identities disable mutations. Existing explicit Criterion actions remain separate from Closeout disposition. Source-backed integration precedes candidate review, as the Operator specified during WSF05A. Viewing only reads state. Continue is a supplied callback, reserved for WSF20 composition.
+
+Eight historical rendered markup comparisons passed exactly after normalizing only newly added accessible names on Disposition, Closure Decision and Rationale. The historical Approve/Reject/Request Revision order, Close/Do Not Close selector, rationale, Create Current Project Closeout label, evidence grid, action context, document selector and max-height preview are preserved. Adapter-specific SQL prerequisites/Refresh/export/Continue occupy supplied action slots; disabled states come from current SQL rather than historical Markdown. Generated document identifiers are project-state references.
+
+Validation:
+- npm run typecheck: restricted Windows lane, exit 0.
+- node --test test/validation/capability-map.test.cjs: restricted lane failed with spawn EPERM; normal Windows rerun performed. Initial normal combined run had 6 passes/1 metadata failure (duration vocabulary); corrected to estimated. Initial exact plan then rejected unsorted behaviorCoverage before execution; corrected deterministic ordering.
+- node --test test/validation/capability-map.test.cjs test/renderer/project-validation-workspace.test.cjs: new shell/adapter 2/2 passed in the initial normal run. Final metadata proof passed in the affected run below.
+- npm run validate:plan -- --profile work-item --changes tmp/wsf06-changes.json: final exit 0, exact four changed production/test/catalog paths, 40 selected files.
+- npm run test:affected -- --changes tmp/wsf06-changes.json: normal Windows, exit 1; receipt 21a18f98-85e1-4d9d-b777-2877f865b723, 187760 ms. Owned production build passed; 309 passing/1 failing test. The sole failure is the previously reported StructuredArchitectWorkspace source-regex assertion in project-rail-presentation.test.cjs, which expects an obsolete direct review expression in an unchanged file. No broad green receipt claimed and no unrelated source/test correction made. New Project Validation proof and capability-map static proof pass.
+- node tmp/wsf06-parity.cjs: normal Windows, exit 0, eight exact historical markup comparisons across document presence, closure decision and feedback. This temporary Git-history diagnostic is not committed.
+
+New permanent test file justification: no existing test owned this absent standalone Project Validation shell and its newly enabled exact Closeout adapter. Two behavioral tests guard presentation order/geometry, independent controls, exact candidate/review versions, sequential refresh, stale/closed/foreign identity rejection and direct-close prohibition. Existing SQL lifecycle/service proof from WSF05A remains the authority layer; mocked renderer interaction proof is not native UI acceptance.
+
+Changed/created: the two renderer files, test/renderer/project-validation-workspace.test.cjs, validation/capability-map.json and this report. No files deleted; no dependency, migration, generated authority, JSON editor or other-family implementation added. Existing unrelated untracked bundle inputs remain preserved.
+
+Checkpoint pending: WSF06 recover project validation shell. Exact staged diff and bounded secret/local-path/generated-artifact scan are performed before commit. Operator visual/scroll/responsive and native end-to-end acceptance remain WSF20. No explicit bundle stop condition remains; continue WSF07 immediately.
