@@ -9500,3 +9500,7 @@ body {
 
 .intake-help-text { color: var(--muted-foreground); font-size: 0.85rem; line-height: 1.4; }
 .intake-workspace-shell-companion > .figma-browser-panel { flex: 1; min-height: 0; }
+
+/* WSF15: optional SQL report/export and navigation slots follow the recovered two-column Implement row. */
+.work-card-implement-report,
+.work-card-implement-navigation { grid-column: 1 / -1; min-width: 0; }

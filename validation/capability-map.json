@@ -3245,12 +3245,28 @@
           "description": "Architect Interview rail uses SQL model status independently of historical files"
         },
         {
+          "behaviorId": "build-workspace-availability-distinguishes-unavailable-preflight-retry-from-codex-readiness",
+          "description": "Build workspace availability distinguishes unavailable preflight retry from Codex readiness"
+        },
+        {
+          "behaviorId": "build-workspace-renders-implementation-context-and-codex-controls-without-document-review-actions",
+          "description": "Build workspace renders implementation context and Codex controls without document-review actions"
+        },
+        {
           "behaviorId": "development-rail-renders-workflow-phase-and-work-card-navigation",
           "description": "Development rail renders workflow, phase, and Work Card navigation"
         },
         {
           "behaviorId": "embedded-architect-workspaces-use-dual-pane-mode-without-changing-other-workspaces",
           "description": "embedded Architect workspaces use dual-pane mode without changing other workspaces"
+        },
+        {
+          "behaviorId": "environment-resolution-terminal-feedback-and-last-run-summary-match-deterministic-readiness",
+          "description": "Environment Resolution terminal feedback and Last Run summary match deterministic readiness"
+        },
+        {
+          "behaviorId": "environment-status-renders-typed-permission-and-restart-requirements",
+          "description": "environment status renders typed permission and restart requirements"
         },
         {
           "behaviorId": "exact-issue-workflow-hub-navigation-renders-sps-front-half",
@@ -3283,6 +3299,10 @@
         {
           "behaviorId": "hub-with-no-selected-project-renders-project-selection-shell-without-development-lifecycle-statu",
           "description": "Hub with no selected project renders project-selection shell without Development lifecycle status"
+        },
+        {
+          "behaviorId": "implement-adapter-creates-durable-report-separately-from-run-and-preserves-exact-execution-identities",
+          "description": "Implement adapter creates durable report separately from Run and preserves exact execution identities"
         },
         {
           "behaviorId": "landing-selection-feedback-remains-bounded-to-the-landing-surface",
@@ -3371,6 +3391,10 @@
         {
           "behaviorId": "selected-project-hub-exposes-source-control-and-work-intake-without-legacy-workflow-recovery",
           "description": "Selected-project Hub exposes Source Control only when the Current Project has optional source backing, and keeps Work Intake without legacy workflow recovery"
+        },
+        {
+          "behaviorId": "shared-controls-load-sol-high-preserve-arbitrary-catalog-effort-order-and-send-the-click-snapshot",
+          "description": "shared controls load Sol High, preserve arbitrary catalog effort order, and send the click snapshot"
         },
         {
           "behaviorId": "source-control-workspace-renders-read-only-graph-navigation-and-integration-geometry",
@@ -14041,6 +14065,89 @@
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "source-control-workspace-renders-read-only-graph-navigation-and-integration-geometry",
           "proofLocator": "five source lines, two integration edges, native navigation and loading shell",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/renderer/work-card-implement-workspace.test.cjs",
+      "currentTestCount": {
+        "value": 6,
+        "basis": "WSF15 five recovered historical scenarios plus exact SQL adapter preparation/run proof."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 1000,
+        "basis": "Initial bounded renderer characterization estimate."
+      },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": true,
+        "timing": true
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Renderer characterization and SQL fixtures own isolated temporary directories and per-process React hook state.",
+        "ownedResources": [
+          "bounded-child-process",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "rendered-output"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "build-workspace-availability-distinguishes-unavailable-preflight-retry-from-codex-readiness",
+          "proofLocator": "Build workspace availability distinguishes unavailable preflight retry from Codex readiness",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "build-workspace-renders-implementation-context-and-codex-controls-without-document-review-actions",
+          "proofLocator": "Build workspace renders implementation context and Codex controls without document-review actions",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "environment-resolution-terminal-feedback-and-last-run-summary-match-deterministic-readiness",
+          "proofLocator": "Environment Resolution terminal feedback and Last Run summary match deterministic readiness",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "environment-status-renders-typed-permission-and-restart-requirements",
+          "proofLocator": "environment status renders typed permission and restart requirements",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "implement-adapter-creates-durable-report-separately-from-run-and-preserves-exact-execution-identities",
+          "proofLocator": "Implement adapter creates durable report separately from Run and preserves exact execution identities",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "shared-controls-load-sol-high-preserve-arbitrary-catalog-effort-order-and-send-the-click-snapshot",
+          "proofLocator": "shared controls load Sol High, preserve arbitrary catalog effort order, and send the click snapshot",
           "proofRole": "primary"
         }
       ]
