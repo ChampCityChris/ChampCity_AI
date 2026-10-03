@@ -3293,6 +3293,14 @@
           "description": "MCP handoff preflight preserves drafts while stale or unavailable and permits retry only on current refresh"
         },
         {
+          "behaviorId": "phase-close-adapter-requires-reviewed-exact-closure-and-returns-authoritative-next-context",
+          "description": "Phase Close adapter requires reviewed exact closure and returns authoritative next context"
+        },
+        {
+          "behaviorId": "phase-close-preserves-historical-completion-evidence-without-retained-validation-mutation-controls",
+          "description": "Phase Close preserves historical completion evidence without retained validation mutation controls"
+        },
+        {
           "behaviorId": "phase-interview-adapter-binds-repeated-exact-phase-reviews-and-typed-handoffs-without-candidate-editors",
           "description": "Phase Interview adapter binds repeated exact Phase reviews and typed handoffs without candidate editors"
         },
@@ -13354,6 +13362,65 @@
           "capabilityId": "external-provider-integration",
           "behaviorId": "typed-preload-executes-only-fixed-github-ipc-channels-and-forwards-constrained-reads",
           "proofLocator": "typed preload executes only fixed GitHub IPC channels and forwards constrained reads",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/renderer/phase-close-workspace.test.cjs",
+      "currentTestCount": {
+        "value": 2,
+        "basis": "WSF12 recovered shell and adapter scenarios."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 1000,
+        "basis": "Initial bounded renderer characterization estimate."
+      },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": true,
+        "timing": true
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": false,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Renderer characterization and SQL fixtures own isolated temporary directories and per-process React hook state.",
+        "ownedResources": [
+          "bounded-child-process",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "rendered-output"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "phase-close-adapter-requires-reviewed-exact-closure-and-returns-authoritative-next-context",
+          "proofLocator": "Phase Close adapter requires reviewed exact closure and returns authoritative next context",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "phase-close-preserves-historical-completion-evidence-without-retained-validation-mutation-controls",
+          "proofLocator": "Phase Close preserves historical completion evidence without retained validation mutation controls",
           "proofRole": "primary"
         }
       ]
