@@ -3381,6 +3381,30 @@
           "description": "top rail separates viewed workspace from current required workspace"
         },
         {
+          "behaviorId": "work-card-map-all-complete-state-routes-toward-phase-validation",
+          "description": "Work Card Map all-complete state routes toward Phase Validation"
+        },
+        {
+          "behaviorId": "work-card-map-labels-active-candidate-action-as-continuation",
+          "description": "Work Card Map labels active candidate action as continuation"
+        },
+        {
+          "behaviorId": "work-card-map-needs-attention-presentation-cannot-start-a-successor-intake",
+          "description": "Work Card Map needs-attention presentation cannot start a successor intake"
+        },
+        {
+          "behaviorId": "work-card-map-renders-plan-candidates-without-generic-document-controls",
+          "description": "Work Card Map renders plan candidates without generic document controls"
+        },
+        {
+          "behaviorId": "work-card-map-renders-the-active-work-card-indication",
+          "description": "Work Card Map renders the active Work Card indication"
+        },
+        {
+          "behaviorId": "work-card-map-sql-adapter-keeps-exact-phase-dependencies-active-selection-and-completion-navigation",
+          "description": "Work Card Map SQL adapter keeps exact Phase dependencies active selection and completion navigation"
+        },
+        {
           "behaviorId": "workflow-hub-registry-exposes-only-the-functional-peer-workflows",
           "description": "Workflow Hub registry exposes only the functional peer workflows"
         },
@@ -13859,6 +13883,89 @@
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "source-control-workspace-renders-read-only-graph-navigation-and-integration-geometry",
           "proofLocator": "five source lines, two integration edges, native navigation and loading shell",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/renderer/work-card-map-workspace.test.cjs",
+      "currentTestCount": {
+        "value": 6,
+        "basis": "WSF10 recovered shell and adapter scenarios."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 1000,
+        "basis": "Initial bounded renderer characterization estimate."
+      },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": true,
+        "timing": true
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": false,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Renderer characterization and SQL fixtures own isolated temporary directories and per-process React hook state.",
+        "ownedResources": [
+          "bounded-child-process",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "rendered-output"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "work-card-map-all-complete-state-routes-toward-phase-validation",
+          "proofLocator": "Work Card Map all-complete state routes toward Phase Validation",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "work-card-map-labels-active-candidate-action-as-continuation",
+          "proofLocator": "Work Card Map labels active candidate action as continuation",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "work-card-map-needs-attention-presentation-cannot-start-a-successor-intake",
+          "proofLocator": "Work Card Map needs-attention presentation cannot start a successor intake",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "work-card-map-renders-plan-candidates-without-generic-document-controls",
+          "proofLocator": "Work Card Map renders plan candidates without generic document controls",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "work-card-map-renders-the-active-work-card-indication",
+          "proofLocator": "Work Card Map renders the active Work Card indication",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "work-card-map-sql-adapter-keeps-exact-phase-dependencies-active-selection-and-completion-navigation",
+          "proofLocator": "Work Card Map SQL adapter keeps exact Phase dependencies active selection and completion navigation",
           "proofRole": "primary"
         }
       ]
