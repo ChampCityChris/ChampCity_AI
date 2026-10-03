@@ -30,6 +30,102 @@ const {
   StreamableHTTPClientTransport,
 } = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
 
+test("public MCP test execution consumes exact checkout routing before the strict child adapter", { timeout: 30_000 }, async (t) => {
+  const { validationFixture } = require("../support/validation-fixture.cjs");
+  const testPath = "test/checkout-routing.test.cjs";
+  const fixture = validationFixture(t, { [testPath]: { source:
+    "require('node:test')('checkout proof', () => require('node:assert/strict').equal(require('node:path').basename(process.cwd()), 'Dev'));" } });
+  const project = fixture.root;
+  const checkoutRoot = path.join(project, "Dev");
+  fs.mkdirSync(checkoutRoot);
+  for (const name of ["test", "validation"]) fs.renameSync(path.join(project, name), path.join(checkoutRoot, name));
+  fs.cpSync(path.join(root, "scripts/validation"), path.join(checkoutRoot, "scripts/validation"), { recursive: true });
+  const observedRequest = path.join(project, "child-request.json");
+  // Observe the actual stdin bytes in the child, without changing the strict runner.
+  // Evidence lives outside the checkout so the source-stability check stays meaningful.
+  fs.appendFileSync(path.join(checkoutRoot, "scripts/validation/child-cleanup.cjs"),
+    `\nif (require('node:path').basename(process.argv[1] ?? '') === 'toolbox-runner.cjs') {\n` +
+    `let routingProofBody = ''; process.stdin.on('data', chunk => { routingProofBody += chunk; });\n` +
+    `process.stdin.on('end', () => require('node:fs').writeFileSync(${JSON.stringify(observedRequest)}, JSON.stringify({ cwd: process.cwd(), request: JSON.parse(routingProofBody) }))); }\n`);
+  const git = (...args) => execFileSync("git", args, { cwd: checkoutRoot, encoding: "utf8", windowsHide: true, stdio: ["ignore", "pipe", "pipe"] }).trim();
+  git("init", "-b", "dev");
+  git("-c", "user.name=MCP Test", "-c", "user.email=mcp-test@example.invalid", "add", ".");
+  git("-c", "user.name=MCP Test", "-c", "user.email=mcp-test@example.invalid", "commit", "-m", "checkout routing fixture");
+  const revision = git("rev-parse", "HEAD");
+  const userDataRoot = path.join(project, "user-data");
+  const workspaces = new RegisteredWorkspaceRegistry({ userDataRoot });
+  const workspaceId = (await workspaces.register(project)).workspaceId;
+  const repositoryCheckoutId = "routing-dev";
+  await workspaces.registerRepositoryCheckout(workspaceId, { repositoryCheckoutId, repositoryId: "routing-repo",
+    sourceLineId: "dev", role: "dev", projectRelativePath: "Dev" });
+  let resolutions = 0, releases = 0;
+  const registry = createAgentHarnessToolRegistry({ userDataRoot, workspaceAccess: createRegisteredWorkspaceAccessProvider({
+    resolveWorkspaceContext: (id) => workspaces.resolve(id),
+    listWorkspaceSummaries: () => workspaces.snapshot().workspaces,
+    listRepositoryCheckoutSummaries: (id) => workspaces.listRepositoryCheckoutSummaries(id),
+    resolveRepositoryCheckoutContext: async (id, checkoutId) => {
+      resolutions += 1;
+      const context = await workspaces.resolveRepositoryCheckoutContext(id, checkoutId);
+      assert.equal(context.root, fs.realpathSync(checkoutRoot));
+      return { ...context, release: () => { releases += 1; context.release(); } };
+    },
+  }) });
+  const runtime = await startAgentHarnessHttpRuntime({ host: "127.0.0.1", port: 0, userDataRoot, registry, allowUnauthenticatedLocal: true });
+  let client;
+  t.after(async () => { await client?.close(); await runtime.close(); });
+  ({ client } = await connectMcpClient(runtime.url));
+  const invoke = async (action, params) => {
+    const response = await client.callTool({ name: "test_toolbox", arguments: { workspaceId, action, params } });
+    return response.structuredContent ?? response;
+  };
+  const missing = await invoke("run_test_file", { testPath });
+  assert.equal(missing.isError, true, "MCP schema rejects a missing selector");
+  const missingDispatch = await registry.callTool({ name: "test_toolbox", scope: "files.write",
+    arguments: { workspaceId, action: "run_test_file", params: { testPath } } });
+  assert.equal(missingDispatch.error.code, "REPOSITORY_CHECKOUT_REQUIRED");
+  assert.equal(resolutions, 0);
+  const unknown = await invoke("run_test_file", { repositoryCheckoutId: "unregistered", testPath });
+  assert.equal(unknown.ok, false);
+  assert.equal(unknown.error.code, "REPOSITORY_CHECKOUT_REQUIRED");
+  assert.equal(resolutions, 1);
+  const extra = await invoke("run_test_file", { repositoryCheckoutId, testPath, command: "node --test" });
+  assert.equal(extra.isError, true, "MCP schema rejects arbitrary execution fields");
+  const extraDispatch = await registry.callTool({ name: "test_toolbox", scope: "files.write",
+    arguments: { workspaceId, action: "run_test_file", params: { repositoryCheckoutId, testPath, command: "node --test" } } });
+  assert.equal(extraDispatch.error.code, "INVALID_INPUT");
+  assert.equal(resolutions, 1);
+  assert.equal(fs.existsSync(observedRequest), false, "invalid calls never start the adapter");
+  for (const [action, executionParams] of [
+    ["run_test_file", { testPath }],
+    ["run_test_pattern", { testPath, testNamePattern: "checkout proof" }],
+  ]) {
+    const result = await invoke(action, { repositoryCheckoutId, ...executionParams });
+    assert.equal(result.ok, true, JSON.stringify(result));
+    const payload = result.payload;
+    assert.equal(payload.status, "passed", JSON.stringify(payload));
+    assert.equal(payload.executionFailed, false);
+    assert.equal(payload.failureReason, null);
+    assert.deepEqual(payload.selectedFiles, [testPath]);
+    assert.equal(payload.sourceContext.revision, revision);
+    assert.equal(payload.records[0].counts.pass, 1);
+    assert.equal(payload.receipt.sourceStable, true);
+    const observed = JSON.parse(fs.readFileSync(observedRequest, "utf8"));
+    assert.equal(observed.cwd, fs.realpathSync(checkoutRoot));
+    assert.deepEqual(observed.request, { action, params: executionParams });
+    assert.equal(Object.hasOwn(observed.request.params, "repositoryCheckoutId"), false);
+    t.diagnostic(JSON.stringify({ action, status: payload.status, selectedFiles: payload.selectedFiles, pass: payload.records[0].counts.pass }));
+  }
+  assert.equal(resolutions, 3);
+  assert.equal(releases, 2, "both checkout leases are released");
+  // The actual fixed child still rejects selectors and arbitrary execution fields.
+  const runner = path.join(checkoutRoot, "scripts/validation/toolbox-runner.cjs");
+  for (const field of [{ repositoryCheckoutId }, { command: "node --test" }]) {
+    assert.throws(() => execFileSync(process.execPath, [runner], { cwd: checkoutRoot, encoding: "utf8", windowsHide: true,
+      input: JSON.stringify({ action: "run_test_file", params: { testPath, ...field } }), stdio: ["pipe", "pipe", "pipe"] }),
+    error => error.status === 1 && JSON.parse(error.stdout).message === "Unsupported toolbox request fields");
+  }
+});
+
 test("one runtime contract generation remains constant across 32 sessions and one simulated idle hour", { timeout: 30_000 }, async (t) => {
   const fixture = createWorkspace("Contract_Generation_Project");
   let runtime;

@@ -266,11 +266,19 @@ test("HOTFIX10 placeholders are strict read-only registered-Workspace status act
   ]);
   assert.equal(testWrite?.readOnly, false);
   const testSchema = registry.listTools("files.read files.write").find((tool) => tool.name === "test_toolbox").inputZodSchema;
-  assert.equal(testSchema.safeParse({ workspaceId: fixture.workspaceId, action: "run_test_file", params: { testPath: "test/validation/capability-map.test.cjs" } }).success, true);
-  assert.equal(testSchema.safeParse({ workspaceId: fixture.workspaceId, action: "run_test_pattern", params: { testPath: "test/validation/capability-map.test.cjs", testNamePattern: "one owner" } }).success, true);
-  assert.equal(testSchema.safeParse({ workspaceId: fixture.workspaceId, action: "run_validation_profile", params: { profile: "work-item", changedPaths: ["src/main/example.ts"], capabilityIds: ["fixture"] } }).success, true);
-  assert.equal(testSchema.safeParse({ workspaceId: fixture.workspaceId, action: "run_validation_lane", params: { lane: "integration" } }).success, true);
-  assert.equal(testSchema.safeParse({ workspaceId: fixture.workspaceId, action: "audit_test_corpus", params: {} }).success, true);
+  assert.equal(testSchema.safeParse({ workspaceId: fixture.workspaceId, action: "status", params: {} }).success, true);
+  for (const [action, executionParams] of [
+    ["run_test_file", { testPath: "test/validation/capability-map.test.cjs" }],
+    ["run_test_pattern", { testPath: "test/validation/capability-map.test.cjs", testNamePattern: "one owner" }],
+    ["run_validation_profile", { profile: "work-item", changedPaths: ["src/main/example.ts"], capabilityIds: ["fixture"] }],
+    ["run_validation_lane", { lane: "integration" }],
+    ["audit_test_corpus", {}],
+  ]) {
+    const input = { workspaceId: fixture.workspaceId, action, params: { repositoryCheckoutId: "checkout-1", ...executionParams } };
+    assert.equal(testSchema.safeParse(input).success, true, action);
+    assert.equal(testSchema.safeParse({ ...input, params: executionParams }).success, false, action);
+    assert.equal(testSchema.safeParse({ ...input, params: { ...input.params, command: "node --test" } }).success, false, action);
+  }
   for (const invalid of [
     { workspaceId: fixture.workspaceId, action: "run_test_file", params: {} },
     { workspaceId: fixture.workspaceId, action: "run_validation_lane", params: { lane: "unknown" } },

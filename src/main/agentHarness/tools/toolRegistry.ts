@@ -917,7 +917,10 @@ function zodParamSchema(spec: ParamSpec): z.ZodType<unknown> {
 
 function testExecutionAction(name: TestToolboxAction, params: Record<string, ParamSpec>): ToolActionContract {
   return { name, kind: "test-execution", requiredScope: "files.write", params: withRepositoryCheckoutId(params),
-    dispatch: ({ context, params: values, signal }) => executeTestToolbox(context, name, values, signal) };
+    dispatch: ({ context, params: values, signal }) => {
+      const { repositoryCheckoutId: _resolvedCheckout, ...executionParams } = values;
+      return executeTestToolbox(context, name, executionParams, signal);
+    } };
 }
 
 function readAction(name: string, params: Record<string, ParamSpec>, dispatch: ToolActionContract["dispatch"]): ToolActionContract {
