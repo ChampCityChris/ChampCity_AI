@@ -25,7 +25,6 @@ const RESERVED_TOOLBOX_NAMES = [
   "project_toolbox",
   "intake_toolbox",
   "planning_toolbox",
-  "workflow_toolbox",
   "issue_toolbox",
   "agent_toolbox",
   "model_toolbox",
@@ -48,6 +47,7 @@ const RESERVED_TOOLBOX_NAMES = [
 ];
 
 const EXISTING_TOOL_ACTIONS = {
+  workflow_toolbox: ["status", "submit_stage_candidate"],
   repo_toolbox: [
     "status",
     "list_files",
@@ -160,7 +160,7 @@ test("HOTFIX10 publishes the exact stable top-level namespace and preserves exis
 
   assert.equal(fullTools.length, 35);
   assert.deepEqual([...toolsByName.keys()].sort(), EXPECTED_TOOL_NAMES);
-  assert.equal(RESERVED_TOOLBOX_NAMES.length, 24);
+  assert.equal(RESERVED_TOOLBOX_NAMES.length, 23);
   for (const [name, actions] of Object.entries(EXISTING_TOOL_ACTIONS)) {
     assert.deepEqual(toolsByName.get(name)?.actions, actions, name);
   }
@@ -182,7 +182,7 @@ test("HOTFIX10 publishes the exact stable top-level namespace and preserves exis
     assert.equal(gitSchema.safeParse({ ...input, params: { ...params, force: true } }).success, false, action);
     for (const key of Object.keys(params)) {
       const missing = { ...params }; delete missing[key];
-      assert.equal(gitSchema.safeParse({ ...input, params: missing }).success, key === "repositoryCheckoutId", action + ":" + key);
+      assert.equal(gitSchema.safeParse({ ...input, params: missing }).success, false, action + ":" + key);
     }
   }
   const push = { workspaceId: fixture.workspaceId, action: "push", params: { repositoryCheckoutId: "checkout-1", remoteBranch: "other", setUpstream: true, expectedCommit: "a".repeat(40) } };
@@ -190,7 +190,7 @@ test("HOTFIX10 publishes the exact stable top-level namespace and preserves exis
   assert.equal(gitSchema.safeParse({ ...push, params: { setUpstream: "true" } }).success, false);
   assert.equal(gitSchema.safeParse({ ...push, params: { repositoryCheckoutId: "checkout-1" } }).success, true);
   assert.equal(gitSchema.safeParse({ ...push, params: { repositoryCheckoutId: "checkout-1", repositoryCheckoutPath: "Dev" } }).success, false);
-  assert.equal(gitSchema.safeParse({ workspaceId: fixture.workspaceId, action: "status", params: {} }).success, true);
+  assert.equal(gitSchema.safeParse({ workspaceId: fixture.workspaceId, action: "status", params: {repositoryCheckoutId: "checkout-1"} }).success, true);
   assert.equal(gitSchema.safeParse({ workspaceId: fixture.workspaceId, action: "status", params: { repositoryCheckoutId: "checkout-1", checkoutRoot: "Dev" } }).success, false);
   assert.equal(gitSchema.safeParse({ workspaceId: fixture.workspaceId, action: "list_repository_checkouts" }).success, true);
   const firstCapture = captureAgentHarnessPublicToolContract(registry, "files.read files.write");
@@ -323,7 +323,8 @@ test("HOTFIX10 placeholders are strict read-only registered-Workspace status act
   assert.equal(foreignWorkspace.ok, false);
   assert.equal(foreignWorkspace.error.code, "WORKSPACE_ACCESS_DENIED");
   assert.deepEqual(snapshotDirectory(fixture.root), beforeWorkspace);
-  assert.deepEqual(snapshotDirectory(fixture.userDataRoot), beforeUserData);
+  // Shared source leases may leave empty coordinator directories, never persisted leases.
+  assert.deepEqual(snapshotDirectory(fixture.userDataRoot).filter(entry => entry.type === "file"), beforeUserData.filter(entry => entry.type === "file"));
 });
 
 function createWorkspace(name) {
@@ -374,3 +375,73 @@ function snapshotDirectory(root) {
   visit(root);
   return entries;
 }
+
+test("workflow candidate ingress routes every Greenfield semantic stage through production SQL without Operator disposition", async t => {
+  const f = await require('../support/structured-architect-fixture.cjs').structuredArchitectFixture(t,{save:false});
+  const workspaceId=path.basename(f.root).toLowerCase(), registry=createRegistry({...f,workspaceId,userDataRoot:path.join(f.root,'harness-data')});
+  const call=(stage,candidate,scopeEntityId,scope='files.read files.write')=>registry.callTool({name:'workflow_toolbox',scope,arguments:{workspaceId,action:'submit_stage_candidate',params:{workflowId:f.workflow.id,stage,candidateJson:JSON.stringify(candidate),...(scopeEntityId?{scopeEntityId}:{})}}});
+  const submit=async(stage,candidate,scopeEntityId)=>{
+    const decisions=JSON.stringify(await f.store.listEntities(f.projectId,'Decision'));
+    const result=await call(stage,candidate,scopeEntityId);assert.equal(result.ok,true,JSON.stringify(result.error));
+    assert.equal(result.payload.workflowId,f.workflow.id);assert.ok(result.payload.reviewId);assert.ok(result.payload.recordVersion);
+    assert.notEqual(result.payload.disposition,'approved');assert.equal(JSON.stringify(await f.store.listEntities(f.projectId,'Decision')),decisions);
+    return result.payload;
+  };
+  const readTools=registry.listTools('files.read').find(tool=>tool.name==='workflow_toolbox');assert.deepEqual(readTools.actions,['status']);
+  assert.deepEqual(registry.listTools().find(tool=>tool.name==='workflow_toolbox').actions,['status','submit_stage_candidate']);
+  const denied=await call('architect-interview',f.output,undefined,'files.read');assert.equal(denied.ok,false);assert.equal(denied.error.code,'OAUTH_SCOPE_DENIED');
+  const before=JSON.stringify(await f.store.listEntities(f.projectId));
+  for(const output of [{...f.output,scope:[]},{...f.output,workflowId:'peer-workflow'}])assert.equal((await call('architect-interview',output)).ok,false);
+  assert.equal(JSON.stringify(await f.store.listEntities(f.projectId)),before);
+  const first=await submit('architect-interview',f.output);let architect=await f.architect.get(f.root,f.workflow.id);assert.equal(architect.review.cycleId,first.reviewId);assert.ok(architect.reviewDocument.bodyMarkdown.includes('Project Understanding'));
+  assert.match(architect.handoff,/workflow_toolbox.submit_stage_candidate/);assert.match(architect.handoff,/Bound workspaceId:/);
+  const React=require('react'), originals={useState:React.useState,useEffect:React.useEffect,useMemo:React.useMemo},oldWindow=global.window;
+  const {GreenfieldArchitectWorkspace}=require('../renderer/renderer-source-loader.cjs').loadRendererSourceModule('src/renderer/app/GreenfieldArchitectWorkspace.tsx');
+  const values=[f.prepared,'','','','','',false,'intake'];let index=0,refreshed;
+  React.useState=initial=>{const position=index++;return [position<values.length?values[position]:initial,value=>{if(position===0)refreshed=value;}];};React.useEffect=()=>{};React.useMemo=fn=>fn();
+  global.window={champcity:{getStructuredArchitectWorkspace:id=>f.architect.get(f.root,id)}};
+  try {
+    const element=GreenfieldArchitectWorkspace({workflowId:f.workflow.id,browserVisible:true,browserCompanion:null});
+    element.props.browserCompanion.props.children[1].props.onRefresh();
+    for(let retry=0;retry<100&&!refreshed;retry++)await new Promise(resolve=>setTimeout(resolve,10));
+    assert.equal(refreshed.review.cycleId,first.reviewId);assert.ok(refreshed.reviewDocument.bodyMarkdown.includes('Project Understanding'));
+    values[0]=refreshed;values[7]='architect-review';index=0;
+    const next=GreenfieldArchitectWorkspace({workflowId:f.workflow.id,browserVisible:true,browserCompanion:null});
+    assert.equal(next.props.document.selectedDocument.logicalDocumentId,refreshed.reviewDocument.logicalDocumentId);
+    assert.doesNotMatch(require('node:fs').readFileSync(require('node:path').resolve(__dirname,'../../src/renderer/app/GreenfieldArchitectWorkspace.tsx'),'utf8'),/candidateJson|<textarea/);
+  } finally {Object.assign(React,originals);global.window=oldWindow;}
+  await f.architect.review(f.root,f.workflow.id,first.reviewId,{expectedRecordVersion:first.recordVersion,outcome:'approved'});
+  const direction={title:'Bounded outcome',objective:'Deliver useful first outcome',scopeIn:['First'],scopeOut:['Later'],constraints:[],assumptions:[],risks:[]};
+  const semantic={facts:[{title:'Verified scope',statement:'Useful first outcome',impact:'Bounded execution'}],direction,criteria:[{statement:'Outcome is useful',criticality:'required',verificationIntent:'Operator confirms useful scope',validationPolicy:'operator_decision'}]};
+  const planning=require('../../dist/main/projectPlanning/structuredProjectPlanningService.js').createStructuredProjectPlanningService();
+  const stale=JSON.stringify(await f.store.listEntities(f.projectId));assert.equal((await call('project-planning',{...semantic,expectedRecordVersion:42})).ok,false);assert.equal((await call('project-planning',{...semantic,workflowId:'peer'})).ok,false);assert.equal(JSON.stringify(await f.store.listEntities(f.projectId)),stale);
+  const plan=await submit('project-planning',semantic),pm=await planning.get(f.root,f.workflow.id);assert.ok(pm.review.profileMarkdown.includes('Verified scope'));assert.match(pm.handoff,/submit_stage_candidate/);
+  await planning.review(f.root,f.workflow.id,plan.reviewId,{expectedRecordVersion:plan.recordVersion,outcome:'approved'});
+  const map=require('../../dist/main/phaseMap/structuredPhaseMapService.js').createStructuredPhaseMapService();
+  const mapped=await submit('phase-map',{phases:[{phaseId:'first',title:'Useful outcome',order:1,purpose:'Deliver useful result',dependsOn:[],sourceReferences:[]}]});let mm=await map.get(f.root,f.workflow.id);assert.match(mm.handoff,/submit_stage_candidate/);
+  await map.review(f.root,f.workflow.id,mapped.reviewId,{expectedRecordVersion:mapped.recordVersion,outcome:'approved'});
+  mm=await map.get(f.root,f.workflow.id);const phaseId=mm.review.livePhases[0].id;
+  assert.equal((await call('phase-interview',semantic,'first')).ok,false,'Display Phase alias is not an exact entity ID');
+  const loop=require('../../dist/main/phasePlanning/structuredPhaseLoopService.js').createStructuredPhaseLoopService();
+  const interviewed=await submit('phase-interview',semantic,phaseId);let lm=await loop.get(f.root,f.workflow.id,phaseId,'interview');assert.equal(lm.review.cycle.id,interviewed.reviewId);assert.match(lm.handoff,/submit_stage_candidate/);
+  await loop.review(f.root,f.workflow.id,phaseId,'interview',interviewed.reviewId,{expectedRecordVersion:interviewed.recordVersion,outcome:'approved'});
+  const planned=await submit('phase-planning',{...semantic,candidates:[{candidateId:'first_work',order:1,title:'Implement first outcome',purpose:'Useful semantic result',dependsOn:[],resolutionStatus:'planned',resolutionReason:'',evidencePaths:[],criteria:[{statement:'Outcome holds',criticality:'required',verificationIntent:'Independent check',validationPolicy:'semantic_ai'}]}]},phaseId);
+  lm=await loop.get(f.root,f.workflow.id,phaseId,'planning');assert.match(lm.handoff,/submit_stage_candidate/);
+  await loop.review(f.root,f.workflow.id,phaseId,'planning',planned.reviewId,{expectedRecordVersion:planned.recordVersion,outcome:'approved'});
+  lm=await loop.get(f.root,f.workflow.id,phaseId,'planning');const workId=lm.review.workItems[0].id;
+  const contract={implementationBoundaries:['Implement only first outcome'],affectedPaths:[],proofIntent:['Independent semantic proof']};
+  const work=await submit('work-item-planning',contract,workId),workService=require('../../dist/main/workCardPlanning/structuredWorkItemPlanningService.js').createStructuredWorkItemPlanningService();
+  let wm=await workService.get(f.root,f.workflow.id,workId);assert.equal(wm.workItem.recordVersion,work.recordVersion);assert.match(wm.handoff,/submit_stage_candidate/);
+  const stable=JSON.stringify(await f.store.listEntities(f.projectId));assert.equal((await call('work-item-planning',{...contract,expectedVersion:1},workId)).ok,false);assert.equal((await call('work-item-planning',{...contract,disposition:'approved'},workId)).ok,false);assert.equal(JSON.stringify(await f.store.listEntities(f.projectId)),stable);
+  await workService.review(f.root,f.workflow.id,workId,{expectedRecordVersion:wm.workItem.recordVersion,outcome:'approved'});
+  const kernel=require('../../dist/main/workflow/workflowExecutionApplicationService.js').createWorkflowExecutionApplicationService();
+  wm=await workService.get(f.root,f.workflow.id,workId);await kernel.beginWorkItemAttempt(f.root,f.workflow.id,workId,wm.workItem.recordVersion,'candidate-repair-proof');
+  const implementation=await kernel.finishWorkItemAttempt(f.root,f.workflow.id,workId,'candidate-repair-proof',{summary:'Implemented result with discovered defect',deviations:[],blockers:[],residualRisks:[],outcome:'implemented'});
+  const testerState=require('../../dist/shared/projectState/projectStateService.js').createProjectStateService(f.store,{principalId:'fixture-tester',principalType:'agent',role:'Tester'});
+  const failure=await testerState.createTesterResult(f.projectId,f.workflow.id,workId,implementation.id,{sourceMode:'source-neutral',recommendation:'production-defect-suspected',affectedCapabilityIds:[],permanentTestPaths:[],determinationEvidence:['Independent defect reproduction'],unknowns:[],rationale:'Current result fails its objective'});
+  const repair=await kernel.createWorkflowRepair(f.root,f.workflow.id,workId,failure.id);assert.match(repair.repair.body.title,/Repair/);
+  await submit('work-item-planning',contract,repair.repair.id);
+  assert.ok((await workService.get(f.root,f.workflow.id,repair.repair.id)).review);
+  const invalid=await registry.callTool({name:'workflow_toolbox',scope:'files.read files.write',arguments:{workspaceId,action:'submit_stage_candidate',params:{workflowId:f.workflow.id,stage:'unsupported',candidateJson:'{}'}}});assert.equal(invalid.ok,false);
+  const oversized=await registry.callTool({name:'workflow_toolbox',scope:'files.read files.write',arguments:{workspaceId,action:'submit_stage_candidate',params:{workflowId:f.workflow.id,stage:'work-item-planning',scopeEntityId:repair.repair.id,candidateJson:'x'.repeat(200001)}}});assert.equal(oversized.ok,false);
+});

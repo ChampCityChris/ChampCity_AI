@@ -3969,6 +3969,7 @@
       "description": "Current Project exact Workflow instance inventory, direct start, source baseline capture, and route provenance.",
       "sourcePatterns": [
         "src/main/featurePlanning/**",
+        "src/main/integrations/workflowCandidateHandoff.ts",
         "src/main/issuePlanning/**",
         "src/main/phaseMap/structuredPhaseMapReadProjection.ts",
         "src/main/phaseMap/structuredPhaseMapService.ts",
@@ -4011,6 +4012,7 @@
         "src/shared/structuredWorkItemReviewContracts.ts",
         "src/shared/structuredWorkRoutingContracts.ts",
         "src/shared/workflowApplicationContracts.ts",
+        "src/shared/workflowCandidateContracts.ts",
         "test/source-control/workflow-integration-service.test.cjs",
         "test/workflow/deterministic-work-item-validator.test.cjs",
         "test/workflow/semantic-work-item-validator.test.cjs",

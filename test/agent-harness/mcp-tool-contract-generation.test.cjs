@@ -364,7 +364,7 @@ test("public MCP Git contract requires exact registered checkout targeting", { t
         tool.name === "release_toolbox" || (tool.name === "test_toolbox" && action.title !== "status");
       assert.equal(params.required.includes("repositoryCheckoutId"), checkoutBound, `${tool.name}.${action.title} checkout boundary`);
       for (const identity of ["checkoutId", "projectId", "workflowId", "workIntakeId", "sourceBaselineId", "sourceBindingId", "sourceLineId", "workItemId"]) {
-        assert.equal(params.required.includes(identity), false, `${tool.name}.${action.title} requires ${identity}`);
+        assert.equal(params.required.includes(identity), tool.name === "workflow_toolbox" && action.title === "submit_stage_candidate" && identity === "workflowId", `${tool.name}.${action.title} requires ${identity}`);
       }
       if (checkoutBound) {
         assert.deepEqual(params.properties.repositoryCheckoutId, { type: "string", minLength: 1, maxLength: 128 });

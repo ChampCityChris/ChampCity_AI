@@ -1,3 +1,4 @@
+import {workflowCandidateHandoff} from "../integrations/workflowCandidateHandoff";
 import fs from "node:fs";
 import path from "node:path";
 import { createProjectStateService } from "../../shared/projectState/projectStateService";
@@ -38,6 +39,7 @@ export function createStructuredArchitectWorkspaceService() {
     const model: StructuredArchitectWorkspaceModel = {...identity, ready: true, railStatus: "Open", nextStageReady: false, supportRecords, intakeId: intake.id, intakeVersion: intake.recordVersion, intakeDocument, intakeDocumentLabel: workflowType === "project-creation" ? "Project Intake" : "Intake",
       handoff: [`${stageLabel} — typed structured output`, `Project ${projectId}; Workflow ${workflowId} (${workflowType}); approved Intake ${intake.id}@${intake.recordVersion}`, `Routed provenance is context only: ${JSON.stringify(edges.filter(edge => !edge.endedAt && edge.relationshipType === "routes_to" && edge.toEntityId === workflowId))}`,
         ...architectCandidateHandoffContract(workflowType),
+        ...workflowType === "project-creation" ? workflowCandidateHandoff(root, workflowId, "architect-interview") : [],
         "Supplied SQL context and Evidence:", JSON.stringify(supportRecords),
         "Inspect materially relevant repository evidence before questions or recommendations. Distinguish verified implementation, approved architecture, historical evidence, and unresolved assumptions. Preserve governing architecture unless the Operator explicitly revises it. Cover both architecture boundaries and consuming product capabilities.",
         "Project ground zero is the selected repository plus the local development machine. Distinguish verified installed, verified missing and unverified capabilities, repository bootstrap mechanisms and explicitly externally managed capabilities. Missing required capabilities are Project work unless approved evidence establishes external ownership.",

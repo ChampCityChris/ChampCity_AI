@@ -1,3 +1,5 @@
+import {createWorkflowCandidateIngressService} from "../../workflow/workflowCandidateIngressService";
+import {WORKFLOW_CANDIDATE_STAGES, WORKFLOW_CANDIDATE_MAX_BYTES} from "../../../shared/workflowCandidateContracts";
 import { skipIsolatedOperationStep, beginIsolatedOperation, inspectIsolatedOperation, continueIsolatedOperation, abortIsolatedOperation, advanceIsolatedOperation, type IsolatedOperationKind } from "../../repository/isolatedGitOperations";
 import { discardManagedWorktree, createManagedWorktree, listManagedWorktrees, inspectManagedWorktree, removeManagedWorktree, type ManagedWorkspaceStore } from "../../repository/managedWorktrees";
 import { AgentHarnessError, toBoundedError } from "../../core/applicationErrors";
@@ -113,7 +115,6 @@ const HOTFIX10_RESERVED_TOOLBOX_NAMES = [
   "project_toolbox",
   "intake_toolbox",
   "planning_toolbox",
-  "workflow_toolbox",
   "issue_toolbox",
   "agent_toolbox",
   "model_toolbox",
@@ -782,6 +783,21 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
     statusOnlyProvider("integration_toolbox"),
     statusOnlyProvider("browser_toolbox"),
     statusOnlyProvider("knowledge_toolbox"),
+    {
+      name:"workflow_toolbox", title:"workflow_toolbox", description:"Bounded Greenfield semantic candidate ingress; Operator disposition is separate.",
+      actions:[
+        readAction("status", {}, () => ({implemented:true, stages:WORKFLOW_CANDIDATE_STAGES, candidateMaxBytes:WORKFLOW_CANDIDATE_MAX_BYTES, operatorDisposition:false})),
+        writeAction("submit_stage_candidate", "workflow-write", {
+          workflowId:{type:"string",required:true,minLength:1,maxLength:128},
+          stage:{type:"string",required:true,allowedValues:WORKFLOW_CANDIDATE_STAGES},
+          scopeEntityId:{type:"string",minLength:1,maxLength:128},
+          candidateJson:{type:"string",required:true,minLength:2,maxLength:WORKFLOW_CANDIDATE_MAX_BYTES},
+        }, ({context,params}) => createWorkflowCandidateIngressService().submit(context.root, {
+          workflowId:requiredString(params.workflowId,"workflowId"), stage:params.stage as typeof WORKFLOW_CANDIDATE_STAGES[number],
+          ...(params.scopeEntityId ? {scopeEntityId:requiredString(params.scopeEntityId,"scopeEntityId")} : {}), candidateJson:requiredString(params.candidateJson,"candidateJson"),
+        })),
+      ],
+    },
     ...HOTFIX10_RESERVED_TOOLBOX_NAMES.map(reservedToolboxProvider),
     {
       name: "workspace_write_attached_image",
@@ -959,7 +975,7 @@ function isCheckoutBoundAction(kind: HarnessActionKind): boolean {
 
 function writeAction(
   name: string,
-  kind: Extract<HarnessActionKind, "artifact-write" | "patch-write">,
+  kind: Extract<HarnessActionKind, "artifact-write" | "patch-write" | "workflow-write">,
   params: Record<string, ParamSpec>,
   dispatch: ToolActionContract["dispatch"],
 ): ToolActionContract {

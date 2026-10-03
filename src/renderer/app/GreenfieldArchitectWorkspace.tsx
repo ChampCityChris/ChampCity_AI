@@ -38,7 +38,7 @@ export function GreenfieldArchitectWorkspace(props: {workflowId: string | null; 
   const browserActions = <ArchitectInterviewBrowserActions canPrepareHandoff={!busy && !!model?.ready} canCopyHandoff={!busy && !!model?.handoff}
     canRegeneratePrompt={!busy && !!model?.ready} onRegeneratePrompt={prepare}
     canPrepareFinalDraftHandoff={!busy && !!model?.handoff} canCopyFinalDraftHandoff={!busy && !!finalDraftHandoff}
-    onPrepareFinalDraftHandoff={() => {setFinalDraftHandoff(model?.handoff ? `${model.handoff}\nProduce the final Architect Interview output using the current structured JSON contract and exact SQL identities above.` : "");}}
+    onPrepareFinalDraftHandoff={() => {setFinalDraftHandoff(model?.handoff ? `${model.handoff}\nSubmit the final semantic Architect Interview candidate through workflow_toolbox.submit_stage_candidate using the stage and workspace binding above.` : "");}}
     onCopyFinalDraftHandoff={() => void action(async () => {await navigator.clipboard.writeText(finalDraftHandoff);})}
     onPrepareHandoff={prepare} onCopyHandoff={() => void action(async () => {await navigator.clipboard.writeText(model!.handoff!);})}
     onRefresh={refresh} onReloadBrowser={() => void action(async () => {await window.champcity.reloadArchitectBrowser();})}
@@ -61,4 +61,3 @@ export function GreenfieldArchitectWorkspace(props: {workflowId: string | null; 
       </>}
     />;
 }
-

@@ -14,6 +14,7 @@ export interface AgentHarnessRepositoryCheckoutContext {
 
 export type HarnessActionKind =
   | "read"
+  | "workflow-write"
   | "artifact-write"
   | "patch-write"
   | "git-inspection"
