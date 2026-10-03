@@ -3293,6 +3293,14 @@
           "description": "MCP handoff preflight preserves drafts while stale or unavailable and permits retry only on current refresh"
         },
         {
+          "behaviorId": "phase-interview-adapter-binds-repeated-exact-phase-reviews-and-typed-handoffs-without-candidate-editors",
+          "description": "Phase Interview adapter binds repeated exact Phase reviews and typed handoffs without candidate editors"
+        },
+        {
+          "behaviorId": "phase-interview-shell-preserves-historical-document-review-browser-composition-and-handoff-order",
+          "description": "Phase Interview shell preserves historical document review browser composition and handoff order"
+        },
+        {
           "behaviorId": "phase-map-disposition-controls-render-only-for-readable-selected-phase-map-review-outputs",
           "description": "Phase Map disposition controls render only for readable selected Phase Map review outputs"
         },
@@ -13306,6 +13314,65 @@
           "capabilityId": "external-provider-integration",
           "behaviorId": "typed-preload-executes-only-fixed-github-ipc-channels-and-forwards-constrained-reads",
           "proofLocator": "typed preload executes only fixed GitHub IPC channels and forwards constrained reads",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/renderer/phase-interview-workspace.test.cjs",
+      "currentTestCount": {
+        "value": 2,
+        "basis": "WSF08 recovered shell and adapter scenarios."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 1000,
+        "basis": "Initial bounded renderer characterization estimate."
+      },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": true,
+        "timing": true
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": false,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Renderer characterization and SQL fixtures own isolated temporary directories and per-process React hook state.",
+        "ownedResources": [
+          "bounded-child-process",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "rendered-output"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "phase-interview-adapter-binds-repeated-exact-phase-reviews-and-typed-handoffs-without-candidate-editors",
+          "proofLocator": "Phase Interview adapter binds repeated exact Phase reviews and typed handoffs without candidate editors",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "phase-interview-shell-preserves-historical-document-review-browser-composition-and-handoff-order",
+          "proofLocator": "Phase Interview shell preserves historical document review browser composition and handoff order",
           "proofRole": "primary"
         }
       ]
