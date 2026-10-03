@@ -229,7 +229,7 @@ for (const [type, workspace] of [["refactor-migration", "refactor-assessment"], 
       const values = Object.fromEntries(WORKFLOW_INTAKE_DEFINITIONS[type].fields.filter(field => field.required).map(field => [field.key, `${field.key} fixture`]));
       const savedIntake = await intake.saveWorkflowIntake(env.root, workflow.workflowId, {workflowType: type, values});
       await approveIntake(env.root, workflow.workflowId);
-      assert.equal((await env.store.getEntity(env.projectId, workflow.workflowId)).body.currentWorkspace, workflow.currentWorkspace);
+      assert.equal((await env.store.getEntity(env.projectId, workflow.workflowId)).body.currentWorkspace, workspace);
       const prepared = await architect.prepare(env.root, workflow.workflowId);
       assert.equal((await env.store.getEntity(env.projectId, workflow.workflowId)).body.currentWorkspace, workspace);
       assertArchitectHandoff(prepared, type);
@@ -239,7 +239,7 @@ for (const [type, workspace] of [["refactor-migration", "refactor-assessment"], 
         assert.equal((await architect.get(env.root, workflow.workflowId)).supportRecords.length, 1);
       }
       const output = Object.fromEntries(Object.keys(ASSESSMENT_SECTIONS[type]).map(key => [key, `${key} substantive direction`]));
-      if (type === "research-prototype") output.researchOutcome = {outcome: "no-implementation-plan-required", prototypeDisposition: "disposable", productionFollowUp: "none", evidence: ["Bounded research evidence"], decisionEnabled: "Select experiment", successFailureResult: "Observed result", closureCondition: "Question answered"};
+      if (type === "research-prototype") output.researchOutcome = {outcome: "research-plan-required", prototypeDisposition: "disposable", productionFollowUp: "none", evidence: ["Bounded research evidence"], decisionEnabled: "Select experiment", successFailureResult: "Observed result", closureCondition: "Question answered"};
       const input = {intakeId: savedIntake.intakeId, intakeVersion: 1, output};
       await assert.rejects(architect.save(env.root, workflow.workflowId, {...input, output: {...output, extra: "unbounded"}}), /bounded/);
       const candidate = await architect.save(env.root, workflow.workflowId, input);
@@ -259,7 +259,7 @@ for (const [type, workspace] of [["refactor-migration", "refactor-assessment"], 
       const planning = require("../../dist/main/workPlanning/exactWorkflowPlanningService.js").createExactWorkflowPlanningService();
       const planningModel = await planning.prepare(env.root, workflow.workflowId);
       assert.equal((await env.store.getEntity(env.projectId, workflow.workflowId)).body.currentWorkspace, "planning");
-      if (type === "research-prototype") assert.equal(planningModel.researchOutcome.outcome, "no-implementation-plan-required");
+      if (type === "research-prototype") assert.equal(planningModel.researchOutcome.outcome, "research-plan-required");
       const revised = await architect.save(env.root, workflow.workflowId, {...input, expectedCycleVersion: 1, output: {...output, risks: "Revised material risks"}});
       assert.equal(revised.review.recordVersion, 2); assert.equal(revised.review.disposition.state, "none"); assert.equal(revised.nextStageReady, false);
       await assert.rejects(architect.review(env.root, workflow.workflowId, revised.review.cycleId, {expectedRecordVersion: 1, outcome: "approved"}));
@@ -1102,9 +1102,6 @@ test("SQL Intake projection rebuild, manual edits, exact review, failure isolati
     fs.writeFileSync(file, "Manual text is never an Intake mutation.");
     assert.deepEqual((await env.store.getEntity(env.projectId, saved.intakeId)).body.values, payload.values);
     assert.deepEqual(await service.ensureWorkflowIntake(env.root, id), saved);
-    const approved = await handlers.get("workflow:reviewIntake")({}, id, {expectedIntakeRecordVersion: 1, outcome: "approved", notes: "Reviewed"});
-    assert.equal(approved.reviewDocument.effectiveDisposition, "Approved");
-    assert.match(fs.readFileSync(file, "utf8"), /"disposition":"Approved"/);
     await assert.rejects(Promise.resolve().then(() => handlers.get("workflow:reviewIntake")({}, id, {expectedIntakeRecordVersion: 1, outcome: "approved", legacyReviewedAt: "2000-01-01"})), /Bounded/);
     const revised = await handlers.get("workflow:saveIntake")({}, id, {...payload, values: {...payload.values, transformationObjective: "New objective"}}, 1);
     assert.equal(revised.recordVersion, 2); assert.equal(revised.reviewDocument.effectiveDisposition, "Pending");
@@ -1116,6 +1113,11 @@ test("SQL Intake projection rebuild, manual edits, exact review, failure isolati
     fs.rmdirSync(file);
     const structured = await service.ensureWorkflowIntake(env.root, id);
     assert.equal(structured.materializationError, undefined); assert.equal(fs.readFileSync(file, "utf8"), structured.reviewDocument.bodyMarkdown);
+    const approved = await handlers.get("workflow:reviewIntake")({}, id, {expectedIntakeRecordVersion: 3, outcome: "approved", notes: "Reviewed"});
+    assert.equal(approved.reviewDocument.effectiveDisposition, "Approved");
+    assert.match(fs.readFileSync(file, "utf8"), /"disposition":"Approved"/);
+    assert.equal((await env.store.getEntity(env.projectId,id)).body.currentWorkspace,"refactor-assessment");
+    await assert.rejects(service.saveWorkflowIntake(env.root,id,payload,3),/entry workspace/);
     assert.throws(() => writeCanonicalMarkdownDocument({workspaceRoot: env.root, relativePath: "planning/unrelated.md", metadata: {}, bodyMarkdown: "Legacy authority"}), /structured|legacy|authority/i);
   } finally {env.store.close();}
 });

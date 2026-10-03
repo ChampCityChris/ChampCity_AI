@@ -7,7 +7,7 @@ import { ARCHITECT_WORKSPACE_BY_WORKFLOW, ARCHITECT_STAGE_BY_WORKFLOW, architect
 import { GREENFIELD_ARCHITECT_SECTIONS, FEATURE_ARCHITECT_SECTIONS, ASSESSMENT_SECTIONS, ASSESSMENT_DESIGNS, type AssessmentWorkflowType, validateArchitectCandidateOutput, type ArchitectCandidateSaveInput, type GreenfieldArchitectOutput } from "../architectWorkspaceContracts";
 import { workflowIntakeDisposition, exactVersionReviewDisposition } from "./workflowIntakeDisposition";
 import type { DispositionState, EntityBodyMap, EntityId, EntityType, LifecycleState, PrincipalRef, ProjectId, ProjectStateEntity, ProjectStateRecord, TestLifecycleAssessmentStatus, ValidationMode, WorkflowState, WorkIntakeState, WorkRoute } from "./domainContracts";
-import { isStructuredExecutionWorkflowType, isExactExecutionWorkflowType, getWorkflowTypeDefinition, workflowTypeForWorkRoute, type ExistingProjectWorkRoute, type WorkflowType } from "./workflowTypeRegistry";
+import { WORKFLOW_TYPE_REGISTRY, isStructuredExecutionWorkflowType, isExactExecutionWorkflowType, getWorkflowTypeDefinition, workflowTypeForWorkRoute, type ExistingProjectWorkRoute, type WorkflowType } from "./workflowTypeRegistry";
 import { assertSupersession } from "./domainInvariants";
 import { isTesterOwnedPath } from "./testerOwnedPathPolicy";
 import { createProjectStateEntity, ENTITY_TYPE_REGISTRY, ProjectStateDomainError, validateProjectStateEntity } from "./entityTypeRegistry";
@@ -793,6 +793,16 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return store.transaction(projectId, async unit => (await currentArchitectCycle(unit, projectId, workflowId, stageKind)).cycle);
   }
 
+  async function advanceCompletedWorkspace(unit: ProjectStateUnitOfWork, projectId: ProjectId, workflowId: EntityId, from: string, to: string, context?: MutationContext) {
+    const workflow = await requiredRecord(unit, projectId, workflowId);
+    if (workflow.entityType !== "Workflow" || workflow.lifecycleState !== "active" || workflow.body.workflowState !== "active") fail("Exact active Workflow required for stage completion.");
+    // Repeated review cannot regress a Workflow already beyond this stage.
+    if (workflow.body.currentWorkspace !== from) return;
+    const next = validateProjectStateEntity({...workflow, recordVersion: workflow.recordVersion + 1, updatedAt: new Date().toISOString(), updatedBy: trustedPrincipal, body: {...workflow.body, currentWorkspace: to}}) as ProjectStateRecord<"Workflow">;
+    await unit.saveEntity(next, workflow.recordVersion);
+    await recordMutation(unit, {projectId, entityId: workflow.id, fromVersion: workflow.recordVersion, toVersion: next.recordVersion, operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: next.updatedAt, changedFields: ["currentWorkspace"], defaultReason: "Advance exact approved stage", context});
+  }
+
   async function prepareArchitectWorkspace(projectId: ProjectId, input: {workflowId: EntityId; intakeId: EntityId; intakeVersion: number}) {
     exactInput(input, ["workflowId", "intakeId", "intakeVersion"]);
     return store.transaction(projectId, async unit => {
@@ -802,7 +812,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       if (!workspace) fail("Architect workspace is unavailable.");
       const intake = await requireCurrentWorkflowIntake(unit, projectId, input.intakeId);
       if (intake.body.workflowId !== workflow.id || intake.recordVersion !== input.intakeVersion || workflowIntakeDisposition(intake, await unit.listEntities(projectId), await unit.listRelationships(projectId), await unit.listOutbox(projectId)).state !== "approved") fail("Exact approved current Intake is required before transition.");
-      if (workflow.body.currentWorkspace === workspace) return workflow;
+      if (workflow.body.currentWorkspace !== WORKFLOW_TYPE_REGISTRY[workflow.body.workflowType].entryWorkspace) return workflow;
       const next = validateProjectStateEntity({...workflow, recordVersion: workflow.recordVersion + 1, updatedAt: new Date().toISOString(), updatedBy: trustedPrincipal, body: {...workflow.body, currentWorkspace: workspace}}) as ProjectStateRecord<"Workflow">;
       await unit.saveEntity(next, workflow.recordVersion);
       await recordMutation(unit, {projectId, entityId: workflow.id, fromVersion: workflow.recordVersion, toVersion: next.recordVersion, operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: next.updatedAt, changedFields: ["currentWorkspace"], defaultReason: "Prepare Architect from exact approved SQL Intake"});
@@ -1013,13 +1023,25 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (input.notes !== undefined && (typeof input.notes !== "string" || new TextEncoder().encode(input.notes).length > 4096)) fail("Architect review notes must be bounded.");
     if (input.outcome === "revision_requested" && !input.notes?.trim()) fail("Revision Requested requires notes.");
     return store.transaction(projectId, async unit => {
-      const {cycle, current} = await architectCycleSnapshot(unit, projectId, cycleId);
+      const {cycle, members, current} = await architectCycleSnapshot(unit, projectId, cycleId);
       if (!current || cycle.recordVersion !== input.expectedRecordVersion) fail("Architect cycle revision is stale.");
       const now = new Date().toISOString();
       const decision = createProjectStateEntity({entityType: "Decision", projectId, principal: trustedPrincipal, body: decisionBody({decisionType: "architect-review", outcome: input.outcome, decisionScope: `architect-review:${cycle.id}@${cycle.recordVersion}`, rationale: input.notes?.trim() ?? ""}, trustedPrincipal, now)});
       await unit.saveEntity(decision, null);
       await recordMutation(unit, {projectId, entityId: decision.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: now, changedFields: Object.keys(decision.body), defaultReason: "Review exact Architect cycle", context});
       await linkSemantic(unit, projectId, decision, cycle, "governs", context);
+      if (input.outcome === "approved" && cycle.body.workflowType !== "project-creation") {
+        const type = cycle.body.workflowType;
+        if (type === "research-prototype") {
+          const outcomes = members.filter((member): member is ProjectStateRecord<"ResearchOutcome"> => member.entityType === "ResearchOutcome");
+          if (outcomes.length !== 1) fail("Research approval requires one exact typed outcome.");
+          if (outcomes[0].body.outcome === "no-implementation-plan-required") {
+            await closeResearchInUnit(unit, projectId, cycle.body.workflowId, cycle.id, cycle.recordVersion);
+            return decision;
+          }
+        }
+        await advanceCompletedWorkspace(unit, projectId, cycle.body.workflowId, ARCHITECT_WORKSPACE_BY_WORKFLOW[type]!, type === "feature-capability" ? "feature-planning" : type === "issue-resolution" ? "issue-planning" : "planning", context);
+      }
       return decision;
     });
   }
@@ -1072,6 +1094,10 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       await recordMutation(unit, { projectId, entityId: record.id, fromVersion: null, toVersion: 1, operation: "create",
         eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: now, changedFields: Object.keys(record.body), defaultReason: "Review Workflow Intake", context });
       await linkSemantic(unit, projectId, record, intake, "governs", context);
+      if (input.outcome === "approved" && intake.body.workflowType !== "project-creation") {
+        const type = intake.body.workflowType;
+        await advanceCompletedWorkspace(unit, projectId, intake.body.workflowId, WORKFLOW_TYPE_REGISTRY[type].entryWorkspace, ARCHITECT_WORKSPACE_BY_WORKFLOW[type]!, context);
+      }
       return record;
     });
   }
@@ -3308,9 +3334,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     };
   }
 
-  async function closeResearchAfterAssessment(projectId: ProjectId, workflowId: EntityId, cycleId: EntityId, expectedRecordVersion: number) {
-    if (trustedPrincipal.principalType !== "human" || trustedPrincipal.role !== "Operator") fail("Research closure requires Operator.");
-    return store.transaction(projectId, async unit => {
+  async function closeResearchInUnit(unit: ProjectStateUnitOfWork, projectId: ProjectId, workflowId: EntityId, cycleId: EntityId, expectedRecordVersion: number) {
       const {cycle, members, current} = await architectCycleSnapshot(unit, projectId, cycleId);
       if (!current || cycle.body.workflowId !== workflowId || cycle.body.workflowType !== "research-prototype" || cycle.recordVersion !== expectedRecordVersion || exactVersionReviewDisposition(cycle, await unit.listEntities(projectId, "Decision"), await unit.listRelationships(projectId), await unit.listOutbox(projectId), "architect-review", "architect-review").state !== "approved") fail("Research closure requires exact approved current Assessment.");
       const outcomes = members.filter((record): record is ProjectStateRecord<"ResearchOutcome"> => record.entityType === "ResearchOutcome");
@@ -3327,6 +3351,12 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       await recordMutation(unit, {projectId, entityId: decision.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: now, changedFields: Object.keys(decision.body), defaultReason: "Operator closes exact Research outcome"});
       await linkSemantic(unit, projectId, decision, next, "governs");
       return {workflow: next, decision};
+  }
+
+  async function closeResearchAfterAssessment(projectId: ProjectId, workflowId: EntityId, cycleId: EntityId, expectedRecordVersion: number) {
+    if (trustedPrincipal.principalType !== "human" || trustedPrincipal.role !== "Operator") fail("Research closure requires Operator.");
+    return store.transaction(projectId, async unit => {
+      return closeResearchInUnit(unit, projectId, workflowId, cycleId, expectedRecordVersion);
     });
   }
 

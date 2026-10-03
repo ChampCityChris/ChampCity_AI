@@ -6,7 +6,7 @@ import { WorkflowStageRail } from "./WorkflowStageRail";
 import { ReviewDecisionPanel } from "./ReviewDecisionPanel";
 
 export function StructuredArchitectWorkspace(props: {workflowId: string | null; browserCompanion: ReactNode; browserVisible: boolean; onRailStatus?: (status: StructuredArchitectWorkspaceModel["railStatus"]) => void;
-  stageLabel?: string; onReturn?: () => void; onNext?: () => Promise<void>; supportControls?: ReactNode; refreshToken?: number}): JSX.Element {
+  stageLabel?: string; onReturn?: () => void; onNext?: () => Promise<void>; onApproved?: () => Promise<void>; supportControls?: ReactNode; refreshToken?: number}): JSX.Element {
   const [model, setModel] = useState<StructuredArchitectWorkspaceModel | null>(null);
   const [output, setOutput] = useState("");
   const [notes, setNotes] = useState("");
@@ -50,7 +50,7 @@ export function StructuredArchitectWorkspace(props: {workflowId: string | null; 
     feedback={<>{error ? <p role="alert">{error}</p> : null}{feedback ? <p role="status">{feedback}</p> : null}{model?.materializationError ? <p role="alert">{model.materializationError}</p> : null}</>}
     reviewContent={<><FigmaDocumentCard selectedDocument={selectedDocument} documentError="" feedback="" slots={slots} selectedSlotId={selectedSlotId} onSelectSlot={slotId => setSelectedSlotId(slotId)} onCopy={() => void action(async () => {await navigator.clipboard.writeText(selectedDocument?.bodyMarkdown ?? selectedDocument?.preview ?? "");})} />
       {showingReview && model?.review ? <ReviewDecisionPanel label="Review Decision" notes={notes} onNotesChange={setNotes} hasCurrentRevision={!!revision} busy={busy}
-        expectedRecordVersion={model.review.recordVersion} onReview={input => action(async () => {accept(await window.champcity.reviewStructuredArchitectOutput(props.workflowId!, model!.review!.cycleId, input)); setFeedback("Operator review recorded.");})} /> : null}
+        expectedRecordVersion={model.review.recordVersion} onReview={input => action(async () => {const next = await window.champcity.reviewStructuredArchitectOutput(props.workflowId!, model!.review!.cycleId, input); if (input.outcome === "approved" && props.onApproved) await props.onApproved(); else accept(next); setFeedback("Operator review recorded.");})} /> : null}
       {!props.onReturn && props.onNext ? <section className="architect-workflow-action-panel" aria-label="Workflow action"><header>Next stage</header><button className="apply-button" disabled={busy || !model?.nextStageReady} onClick={() => void action(props.onNext!)}>Continue to Project Planning</button></section> : null}
       {props.supportControls}
       {model?.supportRecords?.length ? <details><summary>Workflow supporting records</summary><ul>{model.supportRecords.map(record => <li key={record.id}><code>{record.id}</code> · {record.entityType === "Evidence" ? record.body.description : record.entityType === "Finding" ? record.body.title : record.entityType}</li>)}</ul></details> : null}

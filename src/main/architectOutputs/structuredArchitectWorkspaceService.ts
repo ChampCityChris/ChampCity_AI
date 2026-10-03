@@ -76,11 +76,14 @@ export function createStructuredArchitectWorkspaceService() {
     return get(root, workflowId);
   };
   const review = async (root: string, workflowId: string, cycleId: string, input: ArchitectReviewDecisionInput) => {
-    await withWorkflow(root, workflowId, async (store, projectId, workflow) => {
+    const previous = await get(root, workflowId);
+    const terminal = await withWorkflow(root, workflowId, async (store, projectId, workflow) => {
       const state = createProjectStateService(store, intakeOperator), cycle = await state.getCurrentArchitectReviewCycle(projectId, workflowId, ARCHITECT_STAGE_BY_WORKFLOW[workflow.body.workflowType]!);
       if (cycle?.id !== cycleId) throw Error("Exact current Workflow review cycle is required.");
       await state.recordArchitectReview(projectId, cycleId, input);
+      return (await store.getEntity(projectId, workflowId))?.lifecycleState === "closed";
     });
+    if (terminal) return {...previous, ready: false, railStatus: "Completed" as const, nextStageReady: false, reason: "Research closed with approved no-Plan outcome."};
     return get(root, workflowId);
   };
   return {get, prepare, save, review};

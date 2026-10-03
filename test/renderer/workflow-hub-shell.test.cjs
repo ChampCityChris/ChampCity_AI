@@ -648,12 +648,13 @@ test("Close Advance shell renders exact SQL eligibility and dispatches typed clo
 
 
 function progressionRender(component, props, slots) {
-  const originals = [React.useState, React.useEffect, React.useRef];
+  const originals = [React.useState, React.useEffect, React.useRef, React.useMemo];
   let index = 0;
   React.useState = initial => {const slot = index++; return [slot < slots.length ? slots[slot] : initial, value => {slots[slot] = typeof value === 'function' ? value(slots[slot]) : value;}];};
   React.useEffect = () => {};
+  React.useMemo = factory => factory();
   React.useRef = initial => ({current: initial});
-  try {return component(props);} finally {[React.useState, React.useEffect, React.useRef] = originals;}
+  try {return component(props);} finally {[React.useState, React.useEffect, React.useRef, React.useMemo] = originals;}
 }
 function progressionFind(element, predicate) {
   if (!element || typeof element !== 'object') return null;
@@ -676,8 +677,8 @@ test('six existing-project renderer pipelines await exact application re-resolut
       let resolved = {...persisted};
       const reads = [];
       global.window = {champcity:{
-        prepareStructuredArchitectWorkspace: async actual => {assert.equal(actual,id); persisted = {...persisted,currentWorkspace:assessment};},
-        prepareExactWorkflowPlanning: async actual => {assert.equal(actual,id); persisted = {...persisted,currentWorkspace:workflowType === 'feature-capability' ? 'feature-planning' : workflowType === 'issue-resolution' ? 'issue-planning' : 'planning'}; return {workflowId:id};},
+        reviewWorkflowIntake: async actual => {assert.equal(actual,id); persisted = {...persisted,currentWorkspace:assessment}; return {disposition:{state:'approved'}};},
+        reviewStructuredArchitectOutput: async actual => {assert.equal(actual,id); persisted = {...persisted,currentWorkspace:workflowType === 'feature-capability' ? 'feature-planning' : workflowType === 'issue-resolution' ? 'issue-planning' : 'planning'}; return {workflowId:id};},
         reviewExactWorkflowPlan: async actual => {assert.equal(actual,id); persisted = {...persisted,currentWorkspace:'work-item-map'}; return {acceptedPlan:{}};},
         getWorkflow: async actual => {assert.equal(actual,id); reads.push(actual); return {workflow:{...persisted}};},
       }};
@@ -689,17 +690,16 @@ test('six existing-project renderer pipelines await exact application re-resolut
         return mounted.type(mounted.props);
       };
       let child = shell();
-      const intake = progressionRender(child.type, child.props, [{},{disposition:{state:'approved'},values:{}},false,true,false,'','','',false,'']);
-      const prepare = progressionFind(intake, node => node.type === 'button' && String(node.props.children).startsWith('Prepare '));
-      assert.ok(prepare); assert.equal(prepare.props.disabled,false);
-      prepare.props.onClick();
-      await new Promise(resolve => setImmediate(resolve));
+      const intake = progressionRender(child.type, child.props, [{},{recordVersion:1,reviewDocument:{displayFilename:'Intake'},disposition:{state:'none'},values:{}},false,true,false,'','','Approved',false,'']);
+      const disposition = progressionFind(intake,node => node.type?.name === 'WorkflowIntakeDisposition');
+      await disposition.props.state.review();
       assert.equal(appSlots[13].currentWorkspace,assessment); assert.equal(reads.length,1);
       child = shell();
-      const architectSlots = [null,'',false,null,false];
-      const architect = progressionRender(child.type,child.props,architectSlots);
-      await architect.props.onNext();
-      assert.equal(architectSlots[4],false,'local state must not impersonate persisted Planning');
+      const architect = progressionRender(child.type,child.props,[null,'',false,null,false]);
+      const architectSurface = progressionRender(architect.type,architect.props,[{review:{cycleId:'cycle',recordVersion:1},reviewDocument:{logicalDocumentId:'review'},workflowType},'','','','',false,'architect-review']);
+      const architectReview = progressionFind(architectSurface,node=>node.type?.name === 'ReviewDecisionPanel');
+      assert.ok(architectReview);
+      await architectReview.props.onReview({expectedRecordVersion:1,outcome:'approved'});
       assert.equal(reads.length,2);
       child = shell();
       const planningSlots = [{review:{cycleId:'cycle-exact',disposition:{state:'awaiting_review'}}},'',false,null,true];

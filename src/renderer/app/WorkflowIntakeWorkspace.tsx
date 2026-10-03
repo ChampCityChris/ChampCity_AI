@@ -10,7 +10,7 @@ export function WorkflowIntakeWorkspace({ workflow, onReturn, onPrepared }: {
   workflow: WorkflowInstanceSummary; onReturn: () => void; onPrepared: () => void | Promise<void>;
 }): JSX.Element {
   const [values, setValues] = useState<Record<string, string>>({});
-  const state = useWorkflowIntake(workflow.workflowId);
+  const state = useWorkflowIntake(workflow.workflowId, onPrepared);
   const {busy, loaded, error} = state;
   const [preparing, setPreparing] = useState(false), [prepareError, setPrepareError] = useState("");
   useEffect(() => {

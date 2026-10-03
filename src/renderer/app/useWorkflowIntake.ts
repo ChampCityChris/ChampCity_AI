@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { WorkflowIntakePayload, WorkflowIntakeProjection } from "../../shared/workflowIntakeContracts";
 import type { DocumentDispositionStatus } from "../../shared/documents/documentDisposition";
 
-export function useWorkflowIntake(workflowId: string | undefined) {
+export function useWorkflowIntake(workflowId: string | undefined, onApproved?: () => void | Promise<void>) {
   const [model, setModel] = useState<WorkflowIntakeProjection | null>(null);
   const [busy, setBusy] = useState(false), [loaded, setLoaded] = useState(false), [dirty, setDirty] = useState(false);
   const [error, setError] = useState(""), [notes, setNotes] = useState("");
@@ -29,9 +29,9 @@ export function useWorkflowIntake(workflowId: string | undefined) {
   return { model, busy, loaded, dirty, error, notes, status, setNotes, setStatus, markDirty: () => setDirty(true),
     approved: loaded && !dirty && model?.disposition?.state === "approved",
     save: (payload: WorkflowIntakePayload) => mutate(() => window.champcity.saveWorkflowIntake(workflowId!, payload, model?.recordVersion)),
-    review: () => mutate(() => window.champcity.reviewWorkflowIntake(workflowId!, {
+    review: () => mutate(async () => {const next = await window.champcity.reviewWorkflowIntake(workflowId!, {
       expectedIntakeRecordVersion: model!.recordVersion!, notes,
       outcome: status === "Approved" ? "approved" : status === "RevisionRequested" ? "revision_requested" : "rejected",
-    })),
+    }); if (next.disposition?.state === "approved") await onApproved?.(); return next;}),
   };
 }
