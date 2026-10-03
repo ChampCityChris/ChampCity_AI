@@ -415,3 +415,152 @@ test("recovered shell presents supplied not-ready loop actions as disabled", () 
   const html = renderToStaticMarkup(React.createElement(NestedWorkflowRailShell, model));
   assert.match(html, /aria-disabled="true"/); assert.match(html, /disabled=""/); assert.match(html, /SQL readiness blocker/);
 });
+
+const {ProjectPlanningBlockerBanner,ProjectPlanningReviewShell,ProjectPlanningBrowserActions}=require('./renderer-source-loader.cjs').loadRendererSourceModule('src/renderer/app/ProjectPlanningReviewShell.tsx');
+function asPlanningBlocker(model, workspace='project-planning-review'){return model && workspace==='project-planning-review' && ['not-ready','needs-attention'].includes(model.state) ? {reason:model.reason,requiredAction:model.requiredAction,evidencePaths:model.evidencePaths} : null;}
+function historicalPlanningBlockedModel(overrides = {}) {
+  return {
+    state: "needs-attention",
+    railStatus: "Needs Attention",
+    requiredAction: "Correct the Project Planning source mismatch.",
+    reason: "Project Planning source revisions do not match the approved Architect Interview.",
+    evidencePaths: [
+      "planning/project/PROJECT_PROFILE.md",
+      "planning/project/Project_Roadmap/PROJECT_ROADMAP_demo.md",
+      "planning/project/Project_Planning_Documents/PROJECT_PLANNING_DOCUMENTS_demo.md",
+      "planning/project/Project_Architect_Interviews/INTERVIEW_demo.md",
+      "planning/project/Project_Intake/PROJECT_INTAKE_demo.md",
+    ],
+    handoffState: "not-prepared",
+    canPrepareHandoff: false,
+    canCopyHandoff: false,
+    canApplyBundleDisposition: false,
+    selectedPlanningDocumentRole: "profile",
+    bundleSynchronizationState: "invalid",
+    ...overrides,
+  };
+}
+
+function renderPlanningBanner(props) {
+  return renderToStaticMarkup(
+    React.createElement(ProjectPlanningBlockerBanner, {blocker: asPlanningBlocker(props?.projectPlanningModel === undefined ? historicalPlanningBlockedModel() : props.projectPlanningModel, props?.activeWorkspaceId)}),
+  );
+}
+
+test("Project Planning blocker banner renders exact reason and distinct required action", () => {
+  const reason = "Exact current blocker reason from Project Planning.";
+  const requiredAction = "Regenerate the Project Planning draft bundle from the approved interview.";
+  const markup = renderPlanningBanner({
+    projectPlanningModel: historicalPlanningBlockedModel({
+      reason,
+      requiredAction,
+      evidencePaths: [],
+    }),
+  });
+
+  assert.match(markup, /role="status"/);
+  assert.match(markup, /Project Planning Needs Attention/);
+  assert.match(markup, new RegExp(reason));
+  assert.match(markup, new RegExp(`Required action:</strong> ${requiredAction}`));
+});
+
+test("Project Planning blocker banner suppresses duplicate required action text", () => {
+  const reason = "The Project Planning blocker is already explained.";
+  const markup = renderPlanningBanner({
+    projectPlanningModel: historicalPlanningBlockedModel({
+      reason,
+      requiredAction: ` ${reason} `,
+      evidencePaths: [],
+    }),
+  });
+
+  assert.equal(markup.match(new RegExp(reason, "g"))?.length, 1);
+  assert.doesNotMatch(markup, /Required action:/);
+});
+
+test("Project Planning blocker banner caps initial evidence and exposes disclosure", () => {
+  const markup = renderPlanningBanner();
+
+  assert.match(markup, /Evidence/);
+  assert.match(markup, /planning\/project\/PROJECT_PROFILE\.md/);
+  assert.match(markup, /planning\/project\/Project_Roadmap\/PROJECT_ROADMAP_demo\.md/);
+  assert.match(markup, /planning\/project\/Project_Planning_Documents\/PROJECT_PLANNING_DOCUMENTS_demo\.md/);
+  assert.doesNotMatch(markup, /planning\/project\/Project_Architect_Interviews\/INTERVIEW_demo\.md/);
+  assert.doesNotMatch(markup, /planning\/project\/Project_Intake\/PROJECT_INTAKE_demo\.md/);
+  assert.match(markup, /Show 2 more/);
+});
+
+test("Project Planning blocker banner renders no layout in non-blocked states or other workspaces", () => {
+  assert.equal(
+    renderPlanningBanner({
+      projectPlanningModel: historicalPlanningBlockedModel({ state: "ready-for-handoff", railStatus: "Ready" }),
+    }),
+    "",
+  );
+  assert.equal(renderPlanningBanner({ activeWorkspaceId: "architect-interview" }), "");
+  assert.equal(renderPlanningBanner({ projectPlanningModel: null }), "");
+  assert.match(renderPlanningBanner({ projectPlanningModel: historicalPlanningBlockedModel({ state: "not-ready" }) }), /Project Planning Needs Attention/);
+});
+
+test("Project Planning evidence disclosure expands and collapses without changing model evidence", () => {
+  const model = historicalPlanningBlockedModel();
+  const snapshot = structuredClone(model);
+  let expanded;
+  const render = () => {
+    const original = React.useState;
+    React.useState = (initial) => {
+      expanded ??= initial;
+      return [expanded, (value) => { expanded = typeof value === "function" ? value(expanded) : value; }];
+    };
+    try { return ProjectPlanningBlockerBanner({blocker: asPlanningBlocker(model)}); }
+    finally { React.useState = original; }
+  };
+  function nodes(element) {
+    if (!element || typeof element !== "object") return [];
+    return [element, ...React.Children.toArray(element.props?.children).flatMap(nodes)];
+  }
+  const initial = render();
+  assert.equal(nodes(initial).filter((node) => node.type === "li").length, 3);
+  const expand = nodes(initial).find((node) => node.type === "button");
+  assert.equal(expand.props.children, "Show 2 more");
+  expand.props.onClick();
+  const opened = render();
+  assert.deepEqual(nodes(opened).filter((node) => node.type === "li").map((node) => node.props.children), model.evidencePaths);
+  const collapse = nodes(opened).find((node) => node.type === "button");
+  assert.equal(collapse.props.children, "Show less");
+  collapse.props.onClick();
+  assert.equal(nodes(render()).filter((node) => node.type === "li").length, 3);
+  assert.deepEqual(model, snapshot);
+});
+
+
+test('recovered Project Planning shell preserves document review before browser and revision actions',()=>{
+  for(const browserVisible of [true,false]){
+    const markup=renderToStaticMarkup(React.createElement(ProjectPlanningReviewShell,{label:'Project Planning Review Figma document workspace',browserVisible,blocker:null,document:{selectedDocument:null,documentError:'',feedback:'',onCopy(){}},review:{canApply:false,isApplying:true,notes:'',status:'',onNotesChange(){},onStatusChange(){},onApply(){},workflowStep:'Review & Validation'},browserCompanion:React.createElement('div',{className:'figma-browser-column'},'Architect')}));
+    assert.match(markup,/figma-doc-chat-workspace/);assert.match(markup,/tabindex="-1"/);assert.equal(markup.includes('chat-hidden'),!browserVisible);assert.ok(markup.indexOf('figma-doc-review-column')<markup.indexOf('figma-browser-column'));assert.match(markup,/disabled=""/);
+  }
+  const markup=renderToStaticMarkup(React.createElement(ProjectPlanningBrowserActions,{canPrepareHandoff:true,canCopyHandoff:true,isRevisionRequest:true,onPrepareHandoff(){},onCopyHandoff(){},onReloadBrowser(){},onRefresh(){},onRetryBrowser(){}}));
+  let last=-1;for(const label of ['Reload ChatGPT','Prepare Revision Request','Copy Revision Request','Refresh']){let index=markup.indexOf(label);assert.ok(index>last);last=index;}
+});
+
+test('recovered Project Planning adapter Refresh exposes both SQL documents and reviews the exact cycle',async t=>{
+  const f=await require('../support/structured-architect-fixture.cjs').structuredArchitectFixture(t);
+  await f.architect.review(f.root,f.workflow.id,f.candidate.review.cycleId,{expectedRecordVersion:f.candidate.review.recordVersion,outcome:'approved'});
+  const service=require('../../dist/main/projectPlanning/structuredProjectPlanningService.js').createStructuredProjectPlanningService();
+  const input={facts:[{title:'Verified',statement:'Current understanding',impact:'Bounded outcome'}],direction:{title:'Direction',objective:'Useful outcome',scopeIn:['First'],scopeOut:['Later'],constraints:[],assumptions:[],risks:[]},criteria:[{statement:'Useful',criticality:'required',verificationIntent:'Operator confirms',validationPolicy:'operator_decision'}]};
+  await require('../../dist/main/workflow/workflowCandidateIngressService.js').createWorkflowCandidateIngressService().submit(f.root,{workflowId:f.workflow.id,stage:'project-planning',candidateJson:JSON.stringify(input)});
+  const sql=await service.get(f.root,f.workflow.id),cycle=sql.review.cycleId,version=sql.review.recordVersion;
+  const {StructuredProjectPlanningWorkspace}=require('./renderer-source-loader.cjs').loadRendererSourceModule('src/renderer/app/StructuredProjectPlanningWorkspace.tsx');
+  const originals={useState:React.useState,useEffect:React.useEffect},oldWindow=global.window;const values=[sql,'','notes','Approved',false,'','profile',[`${cycle}@${version}:profile`]];let index=0;const calls=[];
+  React.useState=initial=>{const position=index++;return [position<values.length?values[position]:initial,value=>{values[position]=typeof value==='function'?value(values[position]):value;}];};React.useEffect=()=>{};
+  global.window={champcity:{getStructuredProjectPlanning:async id=>{calls.push(['get',id]);return service.get(f.root,id);},reviewStructuredProjectPlanning:async(...args)=>{calls.push(['review',...args]);return service.review(f.root,...args);}}};
+  const render=()=>{index=0;return StructuredProjectPlanningWorkspace({workflowId:f.workflow.id,browserPanel:null,onNext(){}});};
+  try{
+    let element=render();assert.equal(element.type.name,'ProjectPlanningReviewShell');assert.match(element.props.document.selectedDocument.bodyMarkdown,/Current understanding/);assert.equal(element.props.review.canApply,false);assert.match(element.props.review.warning,/Open every/);
+    element.props.document.onSelectSlot('roadmap');element=render();assert.match(element.props.document.selectedDocument.bodyMarkdown,/Useful outcome/);assert.equal(element.props.review.canApply,true);
+    element.props.browserCompanion.props.children[1].props.onRefresh();for(let n=0;n<100&&values[4];n++)await new Promise(resolve=>setTimeout(resolve,10));assert.deepEqual(calls[0],['get',f.workflow.id]);
+    element=render();element.props.review.onApply();for(let n=0;n<100&&values[4];n++)await new Promise(resolve=>setTimeout(resolve,10));
+    assert.deepEqual(calls[1],['review',f.workflow.id,cycle,{expectedRecordVersion:version,outcome:'approved',notes:'notes'}]);assert.equal(values[0].review.disposition.state,'approved');
+    values[1]='SQL readiness blocker';element=render();assert.equal(element.props.blocker.reason,'SQL readiness blocker');
+  }finally{Object.assign(React,originals);global.window=oldWindow;}
+});
