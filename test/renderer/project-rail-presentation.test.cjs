@@ -364,3 +364,54 @@ function seedPhaseMapHandoff(root) {
     workflowData: { handoffKind: "phase-map" },
   });
 }
+
+const React = require("react");
+const {renderToStaticMarkup} = require("react-dom/server");
+const {loadRendererSourceModule} = require("./renderer-source-loader.cjs");
+const recoveredRail = loadRendererSourceModule("src/renderer/app/GreenfieldNestedWorkflowRail.tsx");
+const {NestedWorkflowRailShell} = loadRendererSourceModule("src/renderer/app/NestedWorkflowRailShell.tsx");
+
+test("recovered nested rail preserves project, phase and Work Card hierarchy and exact navigation", () => {
+  const calls = [];
+  const model = recoveredRail.greenfieldNestedRailModel({activeWorkspaceId: "work-card-building-review", requiredWorkspaceId: "work-card-report-review", onWorkspaceChange: id => calls.push(id), projectIntakeStatus: "Completed"});
+  const html = renderToStaticMarkup(React.createElement(NestedWorkflowRailShell, model));
+  assert.match(html, /aria-label="Project pipeline"/);
+  assert.match(html, /aria-label="Phase loop"/);
+  assert.match(html, /aria-label="Work Card loop"/);
+  assert.match(html, /01 Project Intake: Completed/);
+  assert.match(html, /Phases: In Progress\. Current required step/);
+  assert.match(html, /Implement: Current/);
+  assert.match(html, /class="figma-sub-pill repair/);
+  model.projectSteps[0].onClick();
+  model.phaseLoop.onDestinationChange(model.phaseLoop.items[2].destination);
+  model.workCardLoop.onDestinationChange(model.workCardLoop.items[3].destination);
+  assert.deepEqual(calls, ["project-intake-capture", "phase-work-card-selection", "work-card-report-review"]);
+});
+
+test("recovered rail project-only inspection retains distinct selected and required steps", () => {
+  const model = recoveredRail.greenfieldNestedRailModel({activeWorkspaceId: "project-intake-capture", requiredWorkspaceId: "architect-interview", onWorkspaceChange() {}, projectIntakeStatus: "Completed", architectInterviewStatus: "Waiting for Output"});
+  assert.equal(model.phaseLoop, undefined); assert.equal(model.workCardLoop, undefined);
+  assert.equal(model.projectSteps[0].state, "exact");
+  assert.equal(model.projectSteps[0].presentation.isRequired, false);
+  assert.equal(model.projectSteps[1].presentation.isRequired, true);
+  const html = renderToStaticMarkup(React.createElement(NestedWorkflowRailShell, model));
+  assert.match(html, /aria-current="page"/);
+  assert.match(html, /Architect Interview: Waiting for Output\. Current required step/);
+});
+
+test("Greenfield recovered rail harness binds exact SQL navigation without advancing authority", async () => {
+  const calls = [];
+  const model = await recoveredRail.loadGreenfieldNestedRail({getGreenfieldNavigation: async id => {calls.push(id); return {workflowId:id, currentWorkspace:"phase-interview", currentPhaseId:"sql-phase", currentWorkItemId:null, closed:false, nextEligibleWorkspace:"phase-interview", reason:null};}}, "sql-workflow", {activeWorkspaceId:"phase-planning-bundle", onWorkspaceChange() {}});
+  assert.deepEqual(calls, ["sql-workflow"]);
+  assert.equal(model.phaseLoop.context.id, "sql-phase");
+  assert.equal(model.phaseLoop.activeStepId, "phase-intake");
+  assert.equal(model.projectSteps[4].presentation.isRequired, true);
+  await assert.rejects(recoveredRail.loadGreenfieldNestedRail({getGreenfieldNavigation: async () => ({workflowId:"wrong"})}, "sql-workflow", {activeWorkspaceId:"project-intake-capture", onWorkspaceChange() {}}), /Exact Greenfield/);
+});
+
+test("recovered shell presents supplied not-ready loop actions as disabled", () => {
+  const model = recoveredRail.greenfieldNestedRailModel({activeWorkspaceId:"phase-interview", onWorkspaceChange() {}});
+  model.phaseLoop.items = model.phaseLoop.items.map(item => ({...item, available:false, reason:"SQL readiness blocker"}));
+  const html = renderToStaticMarkup(React.createElement(NestedWorkflowRailShell, model));
+  assert.match(html, /aria-disabled="true"/); assert.match(html, /disabled=""/); assert.match(html, /SQL readiness blocker/);
+});
