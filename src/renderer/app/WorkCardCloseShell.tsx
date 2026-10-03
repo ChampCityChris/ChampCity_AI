@@ -1,0 +1,119 @@
+import type {ReactNode} from "react";
+import {FileText,CheckCircle2,ArrowRight} from "lucide-react";
+export interface WorkCardClosePresentationEvidence {path:string;displayName:string;disposition:string;readState:string}
+export function WorkCardCloseShell({
+  actionError,
+  actionFeedback,
+  actionLabel,
+  actingLabel,
+  ariaLabel,
+  canAct,
+  evidence,
+  evidenceDetail,
+  fields,
+  identityLine,
+  isActing,
+  nextWorkspace,
+  onAction,
+  projectionAction,
+  reason,
+  stateLabel,
+  title,
+}: {
+  actionError: string;
+  actionFeedback: string;
+  actionLabel: string;
+  actingLabel: string;
+  ariaLabel: string;
+  canAct: boolean;
+  evidence: WorkCardClosePresentationEvidence[];
+  evidenceDetail?: ReactNode;
+  fields: Array<{ label: string; value: string }>;
+  identityLine: string;
+  isActing: boolean;
+  nextWorkspace: string;
+  onAction: () => void;
+  projectionAction: string;
+  reason: string;
+  stateLabel: string;
+  title: string;
+}): JSX.Element {
+  return (
+    <section className="flex h-full min-h-0 flex-col overflow-hidden" aria-label={ariaLabel}>
+      <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <div className="max-w-3xl space-y-3">
+          <section className="rounded-lg border border-border bg-card p-3.5 text-card-foreground" aria-label="Close projection">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
+              <div className="min-w-0">
+                <p className="mb-0.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Close / Next</p>
+                <h2 className="m-0 break-words text-[18px] font-semibold text-foreground">{title}</h2>
+                <p className="mt-1 break-all font-mono text-[12px] text-muted-foreground">{identityLine}</p>
+              </div>
+              <div className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1.5 text-[12px] font-medium text-emerald-500">{stateLabel}</div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
+              {fields.map((field) => <CloseField key={field.label} label={field.label} value={field.value} />)}
+              <CloseField label="Projection Action" value={projectionAction} />
+            </div>
+            <div className="mt-3 border-t border-border pt-3">
+              <p className="mb-0.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Reason</p>
+              <p className="break-words text-[13px] text-foreground">{reason}</p>
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-border bg-card p-3.5 text-card-foreground" aria-label="Close evidence">
+            <div className="mb-3 flex items-center gap-2">
+              <FileText aria-hidden="true" size={16} />
+              <h3 className="m-0 text-[14px] font-semibold text-foreground">Close Evidence</h3>
+            </div>
+            {evidence.length > 0 ? (
+              <div className="space-y-2">
+                {evidence.map((entry) => (
+                  <div className="rounded border border-border bg-muted px-3 py-2" key={entry.path}>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <strong className="break-words font-mono text-[12px] text-foreground">{entry.displayName}</strong>
+                      <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">{entry.disposition} / {entry.readState}</span>
+                    </div>
+                    <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">{entry.path}</p>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="text-[13px] text-muted-foreground">No source evidence is available for the current close projection.</p>}
+          </section>
+
+          {evidenceDetail}
+        <section className="rounded-lg border border-border bg-card p-3.5 text-card-foreground" aria-label="Close return action">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="mb-0.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Next Workspace</p>
+                <p className="break-words text-[13px] text-foreground">{nextWorkspace}</p>
+              </div>
+              <button
+                className="inline-flex min-h-9 items-center gap-2 rounded border border-emerald-500/20 bg-emerald-500/10 px-3 text-[13px] font-medium text-emerald-500 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!canAct || isActing}
+                onClick={onAction}
+                type="button"
+              >
+                {isActing ? <CheckCircle2 aria-hidden="true" size={16} /> : <ArrowRight aria-hidden="true" size={16} />}
+                {isActing ? actingLabel : actionLabel}
+              </button>
+            </div>
+          </section>
+
+          {actionFeedback ? <div className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[12px] text-emerald-500" role="status">{actionFeedback}</div> : null}
+          {actionError ? <div className="rounded border border-red-500/20 bg-red-500/10 px-3 py-2 text-[12px] text-red-400" role="status">{actionError}</div> : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CloseField({ label, value }: { label: string; value: string }): JSX.Element {
+  return (
+    <div className="min-w-0">
+      <p className="mb-0.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">{label}</p>
+      <p className="break-words font-mono text-[12px] text-foreground">{value}</p>
+    </div>
+  );
+}

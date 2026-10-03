@@ -3445,6 +3445,14 @@
           "description": "Structured Work Intake omits branch ownership controls, while the WIR workspace presents the embedded Architect and six Existing-Project route choices."
         },
         {
+          "behaviorId": "terminal-adapter-renders-only-exact-sql-closed-card-and-forwards-navigation-without-mutation",
+          "description": "terminal adapter renders only exact SQL closed card and forwards navigation without mutation"
+        },
+        {
+          "behaviorId": "terminal-work-card-close-preserves-closed-evidence-and-return-selection-without-second-decision",
+          "description": "terminal Work Card Close preserves closed evidence and return selection without second decision"
+        },
+        {
           "behaviorId": "top-rail-allows-the-viewed-workspace-to-also-be-required",
           "description": "top rail allows the viewed workspace to also be required"
         },
@@ -14103,6 +14111,65 @@
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "source-control-workspace-renders-read-only-graph-navigation-and-integration-geometry",
           "proofLocator": "five source lines, two integration edges, native navigation and loading shell",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/renderer/work-card-close-shell.test.cjs",
+      "currentTestCount": {
+        "value": 2,
+        "basis": "Recovered historical characterization plus exact SQL application adapter proof."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 1000,
+        "basis": "Initial bounded renderer characterization estimate."
+      },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": true,
+        "timing": true
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": false,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Renderer characterization and SQL fixtures own isolated temporary directories and per-process React hook state.",
+        "ownedResources": [
+          "bounded-child-process",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "rendered-output"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "terminal-adapter-renders-only-exact-sql-closed-card-and-forwards-navigation-without-mutation",
+          "proofLocator": "terminal adapter renders only exact SQL closed card and forwards navigation without mutation",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "terminal-work-card-close-preserves-closed-evidence-and-return-selection-without-second-decision",
+          "proofLocator": "terminal Work Card Close preserves closed evidence and return selection without second decision",
           "proofRole": "primary"
         }
       ]
