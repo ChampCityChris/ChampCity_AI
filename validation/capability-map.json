@@ -3297,6 +3297,14 @@
           "description": "Phase Map disposition controls render only for readable selected Phase Map review outputs"
         },
         {
+          "behaviorId": "project-close-adapter-uses-exact-sql-candidate-and-review-ports-without-direct-closure",
+          "description": "Project Close adapter uses exact SQL candidate and review ports without direct closure"
+        },
+        {
+          "behaviorId": "project-close-shell-preserves-recovered-evidence-geometry-and-ordered-independent-controls",
+          "description": "Project Close shell preserves recovered evidence geometry and ordered independent controls"
+        },
+        {
           "behaviorId": "project-intake-disposition-controls-render-inline-only-for-the-selected-intake-document",
           "description": "Project Intake disposition controls render inline only for the selected intake document"
         },
@@ -13405,6 +13413,65 @@
           "capabilityId": "phase-execution-workflow",
           "behaviorId": "recovered-project-phase-map-typed-cards-preserve-historical-markup",
           "proofLocator": "recovered Project Phase Map cards match surviving historical markup with typed projections",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/renderer/project-close-workspace.test.cjs",
+      "currentTestCount": {
+        "value": 2,
+        "basis": "WSF07 recovered shell and adapter scenarios."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 1000,
+        "basis": "Initial bounded renderer characterization estimate."
+      },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": true,
+        "timing": true
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": false,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Renderer characterization and SQL fixtures own isolated temporary directories and per-process React hook state.",
+        "ownedResources": [
+          "bounded-child-process",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "rendered-output"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "project-close-adapter-uses-exact-sql-candidate-and-review-ports-without-direct-closure",
+          "proofLocator": "Project Close adapter uses exact SQL candidate and review ports without direct closure",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "project-close-shell-preserves-recovered-evidence-geometry-and-ordered-independent-controls",
+          "proofLocator": "Project Close shell preserves recovered evidence geometry and ordered independent controls",
           "proofRole": "primary"
         }
       ]
