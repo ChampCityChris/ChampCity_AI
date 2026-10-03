@@ -3305,6 +3305,14 @@
           "description": "Phase Map disposition controls render only for readable selected Phase Map review outputs"
         },
         {
+          "behaviorId": "phase-planning-adapter-binds-repeated-exact-phase-reviews-and-current-output-tab-approval-and-exact-versions",
+          "description": "Phase Planning adapter binds repeated exact Phase reviews and current output tab approval and exact versions"
+        },
+        {
+          "behaviorId": "phase-planning-shell-preserves-historical-document-review-browser-composition-and-handoff-order",
+          "description": "Phase Planning shell preserves historical document review browser composition and handoff order"
+        },
+        {
           "behaviorId": "project-close-adapter-uses-exact-sql-candidate-and-review-ports-without-direct-closure",
           "description": "Project Close adapter uses exact SQL candidate and review ports without direct closure"
         },
@@ -13480,6 +13488,65 @@
           "capabilityId": "phase-execution-workflow",
           "behaviorId": "recovered-project-phase-map-typed-cards-preserve-historical-markup",
           "proofLocator": "recovered Project Phase Map cards match surviving historical markup with typed projections",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/renderer/phase-planning-workspace.test.cjs",
+      "currentTestCount": {
+        "value": 2,
+        "basis": "WSF09 recovered shell and adapter scenarios."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 1000,
+        "basis": "Initial bounded renderer characterization estimate."
+      },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": true,
+        "timing": true
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": false,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Renderer characterization and SQL fixtures own isolated temporary directories and per-process React hook state.",
+        "ownedResources": [
+          "bounded-child-process",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "rendered-output"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "phase-planning-adapter-binds-repeated-exact-phase-reviews-and-current-output-tab-approval-and-exact-versions",
+          "proofLocator": "Phase Planning adapter binds repeated exact Phase reviews and current output tab approval and exact versions",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "phase-planning-shell-preserves-historical-document-review-browser-composition-and-handoff-order",
+          "proofLocator": "Phase Planning shell preserves historical document review browser composition and handoff order",
           "proofRole": "primary"
         }
       ]
