@@ -23,6 +23,9 @@ export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcR
   getCurrentProjectRoot: () => string,
   service = createWorkflowApplicationService()): void {
   const closeAdvance=createStructuredCloseAdvanceService();
+  registry.handle("closeout:get",(_event,workflowId,scope,targetId)=>closeAdvance.getCloseout(getCurrentProjectRoot(),workflowId as string,scope as "project"|"phase",targetId as string));
+  registry.handle("closeout:save",(_event,input)=>closeAdvance.saveCloseout(getCurrentProjectRoot(),input as Parameters<typeof closeAdvance.saveCloseout>[1]));
+  registry.handle("closeout:review",(_event,workflowId,cycleId,input)=>closeAdvance.reviewCloseout(getCurrentProjectRoot(),workflowId as string,cycleId as string,input as Parameters<typeof closeAdvance.reviewCloseout>[3]));
   const greenfieldNavigation=createGreenfieldNavigationService();
   registry.handle("workflow:greenfieldNavigation",(_event,...args)=>{if(args.length!==1||typeof args[0]!=="string"||!args[0].trim()||args[0].length>128)throw Error("Exact Project Creation Workflow ID required.");return greenfieldNavigation.get(getCurrentProjectRoot(),args[0]);});
   registry.handle("closeAdvance:get",(_event,workflowId,scope,entityId)=>{if([workflowId,entityId].some(value=>typeof value!=="string"||!value.trim()||value.length>128)||!["work-item","phase","workflow"].includes(String(scope)))throw Error("Bounded exact close identities required.");return closeAdvance.get(getCurrentProjectRoot(),workflowId as string,scope as import("../../shared/closeAdvanceContracts").CloseAdvanceScope,entityId as string);});

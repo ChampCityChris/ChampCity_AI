@@ -387,6 +387,43 @@ test('SQL Close Advance traverses WorkItems, dependent Phases and Project Creati
 async function qualifyProjectCreationCompletion(context,sourceBacked){
  const f=await structuredPhaseLoopFixture(context,sourceBacked),loop=require('../../dist/main/phasePlanning/structuredPhaseLoopService.js').createStructuredPhaseLoopService(),close=require('../../dist/main/workflow/structuredCloseAdvanceService.js').createStructuredCloseAdvanceService(),kernel=require('../../dist/main/workflow/workflowExecutionApplicationService.js').createWorkflowExecutionApplicationService();
  const originalProject=await f.store.getProject(f.projectId);
+ async function reviewedClose(scope,targetEntityId,expectedTargetVersion){
+   const input={workflowId:f.workflow.id,scope,targetEntityId,expectedTargetVersion,closureDecision:'DoNotClose',rationale:'Review the exact completed outcome'};
+   let review=await close.saveCloseout(f.root,input);
+   assert.equal((await f.store.getEntity(f.projectId,targetEntityId)).lifecycleState,'active');
+   assert.equal(review.document.authoritative,false);assert.equal(review.document.bodyMarkdown,review.markdown);assert.equal(review.document.documentReadState,'readable');assert.match(review.document.displayFilename,/CLOSEOUT.md$/);assert.match(review.markdown,/Reviewed source revisions/);assert.match(review.markdown,new RegExp(targetEntityId+'@'+expectedTargetVersion));
+   await assert.rejects(close.close(f.root,{workflowId:f.workflow.id,scope:scope==='project'?'workflow':'phase',entityId:targetEntityId,expectedVersion:expectedTargetVersion,outcome:'Close',rationale:'Bypass'}),/Closeout review/);
+   if(scope==='phase')await assert.rejects(kernel.completePhase(f.root,f.workflow.id,targetEntityId,expectedTargetVersion),/Closeout review/);
+   else if(!sourceBacked)await assert.rejects(kernel.completeWorkflowExecution(f.root,f.workflow.id,expectedTargetVersion),/Closeout review/);
+   for(const outcome of ['approved','revision_requested','rejected']){
+     review=await close.reviewCloseout(f.root,f.workflow.id,review.cycleId,{expectedRecordVersion:review.recordVersion,outcome,notes:'Explicit fixture Operator review'});
+     assert.equal(review.disposition.state,outcome);assert.equal((await f.store.getEntity(f.projectId,targetEntityId)).lifecycleState,'active');
+   }
+   const oldVersion=review.recordVersion;
+   review=await close.saveCloseout(f.root,{...input,expectedRecordVersion:oldVersion,closureDecision:'Close'});
+   assert.equal(review.disposition.state,'none');assert.equal(review.recordVersion,oldVersion+1);
+   await assert.rejects(close.reviewCloseout(f.root,f.workflow.id,review.cycleId,{expectedRecordVersion:oldVersion,outcome:'approved'}),/stale/);
+   const currentTarget=await f.store.getEntity(f.projectId,targetEntityId);
+   await f.state.reviseRecord(f.projectId,targetEntityId,scope==='project'?{title:currentTarget.body.title+' reviewed'}:{phaseState:currentTarget.body.phaseState},expectedTargetVersion);
+   await assert.rejects(close.reviewCloseout(f.root,f.workflow.id,review.cycleId,{expectedRecordVersion:review.recordVersion,outcome:'approved'}),/stale/);
+   input.expectedTargetVersion=++expectedTargetVersion;
+   review=await close.saveCloseout(f.root,{...input,expectedRecordVersion:review.recordVersion,closureDecision:'Close'});
+   await assert.rejects(f.state.recordDecision(f.projectId,review.cycleId,{decisionType:'closeout-review',outcome:'approved',decisionScope:'forged',rationale:'Bypass'}),/typed decision/);
+   await assert.rejects(require('../../dist/shared/projectState/projectStateService.js').createProjectStateService(f.store,{principalId:'agent',principalType:'agent',role:'Operator'}).recordCloseoutReview(f.projectId,review.cycleId,{expectedRecordVersion:review.recordVersion,outcome:'approved'}),/human Operator/);
+   await f.state.recordDecision(f.projectId,targetEntityId,{decisionType:'closeout-evidence-observation',outcome:'advisory',decisionScope:'fixture',rationale:'New evidence after candidate'});
+   assert.equal((await close.getCloseout(f.root,f.workflow.id,scope,targetEntityId)).current,false);
+   await assert.rejects(close.reviewCloseout(f.root,f.workflow.id,review.cycleId,{expectedRecordVersion:review.recordVersion,outcome:'approved'}),/stale/);
+   review=await close.saveCloseout(f.root,{...input,expectedRecordVersion:review.recordVersion,closureDecision:'Close'});
+   const peers=(await f.store.listEntities(f.projectId)).filter(record=>['Workflow','Phase'].includes(record.entityType)&&record.id!==targetEntityId);
+   await assert.rejects(close.reviewCloseout(f.root,require('node:crypto').randomUUID(),review.cycleId,{expectedRecordVersion:review.recordVersion,outcome:'approved'}),/Workflow/);
+   const before=(await f.store.listEntities(f.projectId)).length;
+   const failingStore=new Proxy(f.store,{get(target,key){if(key==='transaction')return (projectId,action)=>target.transaction(projectId,unit=>action(new Proxy(unit,{get(u,k){if(k==='saveEntity')return (record,...args)=>{if(record.id===targetEntityId&&record.lifecycleState==='closed')throw Error('injected close failure');return u.saveEntity(record,...args);};return typeof u[k]==='function'?u[k].bind(u):u[k];}})));return typeof target[key]==='function'?target[key].bind(target):target[key];}});
+   await assert.rejects(require('../../dist/shared/projectState/projectStateService.js').createProjectStateService(failingStore,{principalId:'fixture-operator',principalType:'human',role:'Operator'}).recordCloseoutReview(f.projectId,review.cycleId,{expectedRecordVersion:review.recordVersion,outcome:'approved'}),/injected close failure/);
+   assert.equal((await f.store.listEntities(f.projectId)).length,before);assert.equal((await f.store.getEntity(f.projectId,targetEntityId)).lifecycleState,'active');
+   review=await close.reviewCloseout(f.root,f.workflow.id,review.cycleId,{expectedRecordVersion:review.recordVersion,outcome:'approved'});
+   assert.equal(review.closed,true);assert.equal(review.current,true);assert.equal(review.disposition.state,'approved');
+   for(const peer of peers)assert.deepEqual(await f.store.getEntity(f.projectId,peer.id),peer);
+ }
  let materialized;
  if(sourceBacked){
    const revision=require('node:child_process').execFileSync('git',['rev-parse','dev'],{cwd:path.join(f.root,'Dev'),encoding:'utf8'}).trim();
@@ -434,20 +471,25 @@ async function qualifyProjectCreationCompletion(context,sourceBacked){
      await kernel.completeWorkItem(f.root,f.workflow.id,repairId,(await f.store.getEntity(f.projectId,repairId)).recordVersion);
      boundary=await kernel.getPhaseValidationProjection(f.root,f.workflow.id,planning.phase.id);await kernel.recordPhaseVisualCriterion(f.root,{workflowId:f.workflow.id,phaseId:planning.phase.id,criterionId:criterion.id,expectedCriterionVersion:criterion.recordVersion,expectedPhaseVersion:boundary.phaseVersion,outcome:'pass',summary:'Operator observed usable current Phase including Repair'});
    }
-   const phase=await close.get(f.root,f.workflow.id,'phase',key);assert.equal(phase.eligible,true,phase.blockers.join(','));const done=await close.close(f.root,{workflowId:f.workflow.id,scope:'phase',entityId:phase.entityId,expectedVersion:phase.expectedVersion,outcome:'Close',rationale:'All exact members and Criteria complete'});assert.equal(done.closed,true);assert.equal(done.next.workspaceId,index===0&&!sourceBacked?'phase-interview':'workflow-execution');
+   const phase=await close.get(f.root,f.workflow.id,'phase',key);assert.equal(phase.eligible,true,phase.blockers.join(','));await reviewedClose('phase',phase.entityId,phase.expectedVersion);const done=await close.get(f.root,f.workflow.id,'phase',phase.entityId);assert.equal(done.closed,true);assert.equal(done.next.workspaceId,index===0&&!sourceBacked?'phase-interview':'workflow-execution');
    assert.equal((await navigation.get(f.root,f.workflow.id)).currentWorkspace,index===0&&!sourceBacked?'phase-interview':'workflow-execution');
    assert.equal(require('../../dist/main/phaseClose/phaseCloseService.js').getPhaseCloseProjection(f.root,key).complete,true);assert.ok((await kernel.getExecutionProjection(f.root,f.workflow.id)).items.filter(item=>item.phaseId===planning.phase.id).every(item=>item.record.body.workState==='closed'));
  }
  let project=await close.get(f.root,f.workflow.id,'workflow',f.workflow.id);assert.equal(project.eligible,false);const criterion=project.criteria[0];assert.equal(criterion.policy,'operator_decision');
  await assert.rejects(close.projectCriterion(f.root,{workflowId:f.workflow.id,criterionId:criterion.id,expectedCriterionVersion:99,expectedWorkflowVersion:project.expectedVersion,outcome:'approved',rationale:'Wrong revision'}),/current/);
- project=await close.projectCriterion(f.root,{workflowId:f.workflow.id,criterionId:criterion.id,expectedCriterionVersion:criterion.recordVersion,expectedWorkflowVersion:project.expectedVersion,outcome:'approved',rationale:'Operator accepts the complete Project outcome'});assert.equal(project.eligible,true,project.blockers.join(','));
- await close.close(f.root,{workflowId:f.workflow.id,scope:'workflow',entityId:f.workflow.id,expectedVersion:project.expectedVersion,outcome:'Close',rationale:'Close completed Project Creation'});
+ project=await close.projectCriterion(f.root,{workflowId:f.workflow.id,criterionId:criterion.id,expectedCriterionVersion:criterion.recordVersion,expectedWorkflowVersion:project.expectedVersion,outcome:'approved',rationale:'Operator accepts the complete Project outcome'});assert.equal(project.eligible,!sourceBacked,project.blockers.join(','));
  if(sourceBacked){
+   await assert.rejects(close.saveCloseout(f.root,{workflowId:f.workflow.id,scope:'project',targetEntityId:f.workflow.id,expectedTargetVersion:project.expectedVersion,closureDecision:'Close',rationale:'Premature'}),/integration-required/);
+   await kernel.completeWorkflowExecution(f.root,f.workflow.id,project.expectedVersion);
    assert.equal((await f.store.getProject(f.projectId)).lifecycleState,'active');
    assert.equal((await f.store.getEntity(f.projectId,f.workflow.id)).body.currentWorkspace,'integration-ready');
    const integrated=await require('../../dist/main/sourceControl/workflowIntegrationService.js').createWorkflowIntegrationService(f.root,f.workflow.id).integrate();
    assert.equal(integrated.candidate.status,'integrated',JSON.stringify(integrated.candidate));assert.equal(integrated.integration.body.workflowId,f.workflow.id);
+   assert.equal((await f.store.getEntity(f.projectId,f.workflow.id)).lifecycleState,'active');
+   assert.equal((await f.store.getEntity(f.projectId,f.workflow.id)).body.currentWorkspace,'project-validation');
  }
+ project=await close.get(f.root,f.workflow.id,'workflow',f.workflow.id);assert.equal(project.eligible,true,project.blockers.join(','));
+ await reviewedClose('project',f.workflow.id,project.expectedVersion);
  assert.equal((await navigation.get(f.root,f.workflow.id)).currentWorkspace,'workflow-hub');
  assert.equal((await f.store.getProject(f.projectId)).lifecycleState,'active');assert.equal((await f.store.getEntity(f.projectId,f.workflow.id)).lifecycleState,'closed');assert.equal(require('../../dist/main/projectClose/projectCloseService.js').getProjectCloseProjection(f.root).complete,true);
  if(!sourceBacked)for(const type of ['SourceBinding','SourceCheckpoint','IntegrationRecord'])assert.equal((await f.store.listEntities(f.projectId,type)).length,0);

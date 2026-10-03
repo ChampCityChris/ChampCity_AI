@@ -48,6 +48,7 @@ export interface RecordEnvelope<T extends EntityType = EntityType> {
 }
 
 export interface EntityBodyMap {
+  CloseoutReviewCycle: {workflowId: EntityId; targetEntityId: EntityId; scope: "project" | "phase"; closureDecision: "Close" | "DoNotClose"; rationale: string; semanticDigest: string; layout: {memberIds: EntityId[]; sources: {entityId: EntityId; recordVersion: number}[]}};
   ResearchOutcome: import("../workPlanningContracts").WorkResearchOutcome & {workflowId: EntityId};
   PhaseReviewCycle: {workflowId: EntityId; phaseId: EntityId; stageKind: "interview" | "planning"; semanticDigest: string; layout: {memberIds: EntityId[]; sources: {entityId: EntityId; recordVersion: number}[]}};
   PhaseMapReviewCycle: {workflowId: EntityId; semanticDigest: string; layout: {memberIds: EntityId[]; sources: {entityId: EntityId; recordVersion: number}[]}};

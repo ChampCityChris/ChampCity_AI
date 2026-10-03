@@ -1405,6 +1405,9 @@ export interface ChampCityApi {
   getGreenfieldNavigation(workflowId: string): Promise<import("./greenfieldNavigationContracts").GreenfieldNavigationProjection>;
   exportMarkdownDocument(request: MarkdownExportRequest): Promise<MarkdownExportResult>;
   getCloseAdvance(workflowId:string,scope:import("./closeAdvanceContracts").CloseAdvanceScope,entityId:string):Promise<import("./closeAdvanceContracts").CloseAdvanceProjection>;
+  getCloseoutReview(workflowId:string,scope:"project"|"phase",targetId:string):Promise<import("./projectState/closeoutReviewContracts").CloseoutReviewProjection|null>;
+  saveCloseoutCandidate(input:import("./projectState/closeoutReviewContracts").CloseoutCandidateInput):Promise<import("./projectState/closeoutReviewContracts").CloseoutReviewProjection|null>;
+  recordCloseoutReview(workflowId:string,cycleId:string,input:import("./projectState/architectReviewContracts").ArchitectReviewDecisionInput):Promise<import("./projectState/closeoutReviewContracts").CloseoutReviewProjection>;
   closeAndAdvance(input:import("./closeAdvanceContracts").CloseAdvanceRequest):Promise<import("./closeAdvanceContracts").CloseAdvanceProjection>;
   recordProjectCriterion(input:{workflowId:string;criterionId:string;expectedCriterionVersion:number;expectedWorkflowVersion:number;outcome:"approved"|"rejected"|"pass"|"fail";rationale:string}):Promise<import("./closeAdvanceContracts").CloseAdvanceProjection>;
   getStructuredWorkItemReview(workflowId:string,workItemId:string):Promise<import("./structuredWorkItemReviewContracts").StructuredWorkItemReview>;

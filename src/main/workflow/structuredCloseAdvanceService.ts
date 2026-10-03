@@ -5,6 +5,8 @@ import {createProjectStateService} from "../../shared/projectState/projectStateS
 import {createSQLiteProjectStateStore} from "../projectState/sqliteProjectStateStore";
 import {selectedCurrentProjectId} from "../projectState/currentProjectRegistrationService";
 import {createWorkflowExecutionApplicationService} from "./workflowExecutionApplicationService";
+import type {CloseoutCandidateInput} from "../../shared/projectState/closeoutReviewContracts";
+import type {ArchitectReviewDecisionInput} from "../../shared/projectState/architectReviewContracts";
 const operator = {principalId:"local-operator", principalType:"human" as const, role:"Operator"};
 export function createStructuredCloseAdvanceService() {
   const execution = createWorkflowExecutionApplicationService();
@@ -31,6 +33,7 @@ export function createStructuredCloseAdvanceService() {
       let blockers:string[]=[],next:CloseAdvanceProjection["next"]={workspaceId:"workflow-hub",label:"Workflows Hub"};
       if(!closed){
         if(scope==="work-item")blockers=(await execution.getWorkItemValidationProjection(root,workflowId,entityId)).completion.blockers;
+        else if(projectCreation)blockers=(await state.getCloseoutEligibility(projectId,workflowId,scope==="phase"?"phase":"project",entityId)).blockers;
         else if(scope==="phase")blockers=(await execution.getPhaseValidationProjection(root,workflowId,entityId)).completion.blockers;
         else blockers=(await execution.getWorkflowExecutionCompletionProjection(root,workflowId)).blockers;
       }
@@ -63,6 +66,7 @@ export function createStructuredCloseAdvanceService() {
   async function close(root:string,input:CloseAdvanceRequest) {
     if(!input||!["Close","DoNotClose"].includes(input.outcome)||typeof input.rationale!=="string"||!input.rationale.trim()||input.rationale.length>4000)throw Error("Explicit close disposition and bounded rationale required.");
     const view=await get(root,input.workflowId,input.scope,input.entityId);
+    if(input.scope!=="work-item")await withState(root,async(store,projectId)=>{const workflow=await store.getEntity(projectId,input.workflowId);if(workflow?.entityType==="Workflow"&&workflow.body.workflowType==="project-creation")throw Error("Project/Phase closure requires an approved current Closeout review.");});
     if(view.closed||view.expectedVersion!==input.expectedVersion)throw Error("Close target revision is stale or already closed.");
     if(input.outcome==="Close"){
       if(!view.eligible)throw Error(`Close is blocked: ${view.blockers.join(", ")}.`);
@@ -82,5 +86,27 @@ export function createStructuredCloseAdvanceService() {
       throw Error("Project Criterion policy requires independent validation rather than this Operator action.");
     });return get(root,input.workflowId,"workflow",input.workflowId);
   }
-  return {get,close,projectCriterion};
+  async function getCloseout(root:string,workflowId:string,scope:"project"|"phase",targetEntityId:string){
+    return withState(root,async(store,projectId,state)=>{
+      const workflow=await store.getEntity(projectId,workflowId),target=await store.getEntity(projectId,targetEntityId);
+      if(workflow?.entityType!=="Workflow"||workflow.body.workflowType!=="project-creation"||!target||!["project","phase"].includes(scope))throw Error("Exact Project Creation Closeout scope required.");
+      if(scope==="project"?target.id!==workflow.id:target.entityType!=="Phase"||!(await store.listRelationships(projectId,"part_of")).some(edge=>!edge.endedAt&&edge.fromEntityId===target.id&&edge.toEntityId===workflow.id))throw Error("Exact Closeout ownership required.");
+      const cycles=(await store.listEntities(projectId,"CloseoutReviewCycle")).filter(record=>record.entityType==="CloseoutReviewCycle"&&record.body.workflowId===workflowId&&record.body.targetEntityId===targetEntityId&&record.body.scope===scope&&record.lifecycleState==="active");
+      if(cycles.length>1)throw Error("Ambiguous Closeout review identity.");
+      return cycles.length?state.getCloseoutReview(projectId,cycles[0].id):null;
+    });
+  }
+  async function saveCloseout(root:string,input:CloseoutCandidateInput){
+    await withState(root,(_store,projectId,state)=>state.saveCloseoutCandidate(projectId,input));
+    return getCloseout(root,input.workflowId,input.scope,input.targetEntityId);
+  }
+  async function reviewCloseout(root:string,workflowId:string,cycleId:string,input:ArchitectReviewDecisionInput){
+    return withState(root,async(store,projectId,state)=>{
+      const cycle=await store.getEntity(projectId,cycleId);
+      if(cycle?.entityType!=="CloseoutReviewCycle"||cycle.body.workflowId!==workflowId)throw Error("Exact Closeout Workflow required.");
+      await state.recordCloseoutReview(projectId,cycleId,input);
+      return state.getCloseoutReview(projectId,cycleId);
+    });
+  }
+  return {get,close,projectCriterion,getCloseout,saveCloseout,reviewCloseout};
 }
