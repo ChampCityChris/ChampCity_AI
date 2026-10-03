@@ -140,3 +140,41 @@ test("Work Intake capture asks for bounded work in the selected Project without 
   assert.match(markup, /Save Work Intake/);
   assert.doesNotMatch(markup, /Project Type|Select.*route|greenfield|refactor-migration|Submit Project Intake/);
 });
+
+const {ProjectIntakeShell} = loadRendererSourceModule("src/renderer/app/ProjectIntakeShell.tsx");
+const {ProjectIntakeWorkspace} = loadRendererSourceModule("src/renderer/app/ProjectIntakeWorkspace.tsx");
+const recoveredIntakeValue = {projectName:"Recovered", projectPurpose:"Create", desiredOutcome:"Use", projectType:"Desktop application", projectRepository:"<PROJECT_REPO>", hasExistingSourceOrPlanning:false, knownConstraints:"", repositoryReviewContext:""};
+
+test("recovered Project Intake preserves question order, conditional context and document geometry", () => {
+  const props = {value:recoveredIntakeValue,onChange(){},onChooseProjectRepository(){},onSubmit(){},isChoosingProjectRepository:false,isSubmittingIntake:false,postSubmitConfirmation:null,document:{selectedDocument:null,documentError:"",feedback:"",onCopy(){}},disposition:null};
+  const html = renderToStaticMarkup(React.createElement(ProjectIntakeShell,props));
+  let last=-1;
+  for(const label of ["Project Name","Project Purpose","Desired Outcome","Project Type","Does this repository","Constraints / Non-Negotiables","Project Repository","Submit Project Intake"]) {const position=html.indexOf(label); assert.ok(position>last,label);last=position;}
+  assert.match(html,/intake-workspace-shell-intake/); assert.match(html,/intake-workspace-shell-companion/);
+  assert.doesNotMatch(html,/What should the Architect know/);
+  const existing = renderToStaticMarkup(React.createElement(ProjectIntakeShell,{...props,value:{...props.value,hasExistingSourceOrPlanning:true},isChoosingProjectRepository:true,isSubmittingIntake:true}));
+  assert.match(existing,/What should the Architect know/); assert.match(existing,/Choosing\.\.\./); assert.match(existing,/Saving\.\.\./);
+});
+
+test("recovered Project Intake confirmation and disposition retain historical placement", () => {
+  const html=renderToStaticMarkup(React.createElement(ProjectIntakeShell,{value:recoveredIntakeValue,onChange(){},onChooseProjectRepository(){},onSubmit(){},isChoosingProjectRepository:false,isSubmittingIntake:false,
+    postSubmitConfirmation:{summary:"Created supplied artifacts",entries:[{label:"Project Intake Markdown",value:"planning/intake.md"}]},
+    document:{selectedDocument:null,documentError:"",feedback:"",onCopy(){}},disposition:{canApply:false,isApplying:false,notes:"",onApply(){},onNotesChange(){},onStatusChange(){},status:"",workflowStep:"Review & Validation"}}));
+  assert.ok(html.indexOf("Submit Project Intake")<html.indexOf("Project Intake submission confirmation"));
+  assert.ok(html.indexOf("Project Intake submission confirmation")<html.indexOf("Document disposition"));
+  assert.match(html,/planning\/intake.md/); assert.match(html,/Apply Review/); assert.match(html,/disabled=""/);
+});
+
+test("recovered Greenfield Intake adapter retains current SQL save identity and approved handoff gating", async () => {
+  const originalState=React.useState, originalEffect=React.useEffect, originalRef=React.useRef, oldWindow=global.window;
+  const calls=[]; const values=[null,false,true,false,"","","",false,""]; let index=0;
+  React.useState=initial=>[index<values.length?values[index++]:initial,()=>{}]; React.useEffect=()=>{}; React.useRef=initial=>({current:initial});
+  global.window={champcity:{saveWorkflowIntake:async(...args)=>{calls.push(args);return {values:recoveredIntakeValue};}}};
+  try {
+    const element=ProjectIntakeWorkspace({workflowId:"exact-sql-workflow",value:recoveredIntakeValue,repositoryIdentity:"<PROJECT_REPO>",onChange(){},onChooseProjectRepository(){},onPrepared(){},onRailStatus(){},isChoosingProjectRepository:false});
+    assert.equal(element.type.name,"ProjectIntakeShell"); assert.equal(element.props.captureDisabled,false);
+    element.props.onSubmit(); await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(calls[0][0],"exact-sql-workflow"); assert.equal(calls[0][1].workflowType,"project-creation"); assert.equal(calls[0][1].values.projectRepository,"<PROJECT_REPO>");
+    assert.equal(element.props.supportControls.props.children[1].props.disabled,true);
+  } finally {React.useState=originalState;React.useEffect=originalEffect;React.useRef=originalRef;global.window=oldWindow;}
+});
