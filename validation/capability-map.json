@@ -3313,6 +3313,14 @@
           "description": "Phase Planning shell preserves historical document review browser composition and handoff order"
         },
         {
+          "behaviorId": "phase-validation-adapter-sequences-exact-candidate-review-and-evidence-refresh-without-direct-phase-closure",
+          "description": "Phase Validation adapter sequences exact candidate review and evidence refresh without direct Phase closure"
+        },
+        {
+          "behaviorId": "phase-validation-shell-restores-separate-create-review-and-completed-action-states",
+          "description": "Phase Validation shell restores separate create review and completed action states"
+        },
+        {
           "behaviorId": "project-close-adapter-uses-exact-sql-candidate-and-review-ports-without-direct-closure",
           "description": "Project Close adapter uses exact SQL candidate and review ports without direct closure"
         },
@@ -13571,6 +13579,65 @@
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "phase-planning-shell-preserves-historical-document-review-browser-composition-and-handoff-order",
           "proofLocator": "Phase Planning shell preserves historical document review browser composition and handoff order",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/renderer/phase-validation-renderer-sequencing.test.cjs",
+      "currentTestCount": {
+        "value": 2,
+        "basis": "WSF11 recovered shell and adapter scenarios."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 1000,
+        "basis": "Initial bounded renderer characterization estimate."
+      },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": true,
+        "timing": true
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": false,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Renderer characterization and SQL fixtures own isolated temporary directories and per-process React hook state.",
+        "ownedResources": [
+          "bounded-child-process",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "rendered-output"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "phase-validation-adapter-sequences-exact-candidate-review-and-evidence-refresh-without-direct-phase-closure",
+          "proofLocator": "Phase Validation adapter sequences exact candidate review and evidence refresh without direct Phase closure",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "phase-validation-shell-restores-separate-create-review-and-completed-action-states",
+          "proofLocator": "Phase Validation shell restores separate create review and completed action states",
           "proofRole": "primary"
         }
       ]

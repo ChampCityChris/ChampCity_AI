@@ -1,0 +1,43 @@
+import {useEffect,useRef,useState,type ReactNode} from "react";
+import {PhaseValidationShell,type PhaseValidationShellProps} from "./PhaseValidationShell";
+import type {CloseAdvanceProjection} from "../../shared/closeAdvanceContracts";
+import type {CloseoutReviewProjection} from "../../shared/projectState/closeoutReviewContracts";
+import type {PhaseValidationProjection} from "../../shared/workflowApplicationContracts";
+
+export function PhaseValidationWorkspace(props:{workflowId:string;phaseId:string;navigation?:ReactNode;onNext:()=>void;onRepair?:(id:string)=>void}):JSX.Element {
+ const [view,setView]=useState<(CloseAdvanceProjection & {requestPhaseId:string})|null>(null),[review,setReview]=useState<CloseoutReviewProjection|null>(null),[validation,setValidation]=useState<PhaseValidationProjection|null>(null);
+ const [inputs,setInputs]=useState<PhaseValidationShellProps["inputs"]>({closureDecision:"Close",rationale:"",status:"Approved"});
+ const [selectedId,setSelectedId]=useState<string|null>(null),[error,setError]=useState(""),[feedback,setFeedback]=useState(""),[busy,setBusy]=useState(false),[humanOutcome,setHumanOutcome]=useState<"pass"|"fail"|"inconclusive">("pass");
+ const generation=useRef(0);
+ async function load(token=generation.current){
+  const next=await window.champcity.getCloseAdvance(props.workflowId,"phase",props.phaseId);
+  const candidate=await window.champcity.getCloseoutReview(props.workflowId,"phase",next.entityId);
+  const evidence=await window.champcity.getWorkflowPhaseValidation(props.workflowId,next.entityId);
+  if(token!==generation.current)return;setView({...next,requestPhaseId:props.phaseId});setReview(candidate);setValidation(evidence);setSelectedId(candidate?.cycleId??null);
+ }
+ useEffect(()=>{const token=++generation.current;setView(null);setReview(null);setValidation(null);setSelectedId(null);setInputs({closureDecision:"Close",rationale:"",status:"Approved"});setError("");setFeedback("");setBusy(false);
+  void load(token).catch(reason=>{if(token===generation.current)setError(String(reason));});return()=>{generation.current++;};},[props.workflowId,props.phaseId]);
+ async function run(action:()=>Promise<unknown>,message:string){const token=generation.current;setBusy(true);setError("");setFeedback("");try{await action();await load(token);if(token===generation.current)setFeedback(message);}catch(reason){if(token===generation.current)setError(String(reason));}finally{if(token===generation.current)setBusy(false);}}
+ const exact=view?.workflowId===props.workflowId&&view.requestPhaseId===props.phaseId;
+ const currentReview=exact&&review?.workflowId===props.workflowId&&review.targetEntityId===view.entityId?review:null;
+ const selectedDocument=currentReview&&selectedId===currentReview.cycleId?currentReview.document:null;
+ const showReview=!!currentReview?.current&&!currentReview.closed;
+ const showCreate=exact&&!view.closed&&(!currentReview?.current||currentReview.disposition.state!=="none");
+ const canCreate=showCreate&&!!view?.eligible&&!busy&&!!inputs.rationale.trim();
+ const canReview=showReview&&!busy&&inputs.status!=="Pending"&&(inputs.status!=="RevisionRequested"||!!inputs.rationale.trim());
+ const evidence=exact&&validation?.workflowId===props.workflowId&&validation.phaseId===view.entityId?validation:null;
+ const canValidate=!!evidence?.workItemsClosed&&!view?.closed&&!busy;
+ return <PhaseValidationShell navigation={props.navigation} inputs={inputs} onChange={setInputs} documentStep="phase-validation"
+  presentation={{currentRequiredWorkflowStep:"Phase Validation",currentTarget:"Current phase "+props.phaseId,eligibility:exact?view.closed?"Phase Close complete":view.blockers.join("; ")||"Current Phase evidence permits Closeout":"Phase mutation controls remain disabled until SQL binding is loaded.",requiredAction:view?.closed?"Continue to Phase Close":showReview?"Apply disposition to the current Phase Closeout":"Create the current Phase Closeout",expectedOutput:"Reviewed current Phase Closeout",expectedNextState:"Phase Close after approval of current Close",actionContext:"Phase Validation — "+props.phaseId,actionPath:"phase / validation / "+props.phaseId}}
+  showCreate={showCreate} showReview={showReview} canCreate={canCreate} canReview={canReview} selectedDocument={selectedDocument} selectedDocumentId={selectedId} onSelectDocument={setSelectedId}
+  workspaceGroups={currentReview?[{group:"Phase Closeout",documents:[currentReview.document]}]:[]} emptyMessage="No documents in this workflow step." feedback={feedback} documentError={error||(currentReview&&!currentReview.current?"Closeout evidence changed. Create a revised candidate before review.":"")}
+  onCreateCloseout={()=>{if(canCreate&&view)void run(()=>window.champcity.saveCloseoutCandidate({workflowId:props.workflowId,targetEntityId:view.entityId,scope:"phase",expectedTargetVersion:view.expectedVersion,...(currentReview?{expectedRecordVersion:currentReview.recordVersion}:{}),closureDecision:inputs.closureDecision,rationale:inputs.rationale}),"Phase Closeout candidate created for review.");}}
+  onApplyDisposition={()=>{if(canReview&&currentReview)void run(()=>window.champcity.recordCloseoutReview(props.workflowId,currentReview.cycleId,{expectedRecordVersion:currentReview.recordVersion,outcome:inputs.status==="Approved"?"approved":inputs.status==="RevisionRequested"?"revision_requested":"rejected",notes:inputs.rationale}),"Phase Closeout disposition recorded.");}}
+  evidenceActions={<>{evidence?.criteria.length||showReview?<label>Evidence / review rationale<input value={inputs.rationale} onChange={event=>setInputs({...inputs,rationale:event.target.value})}/></label>:null}
+   {evidence?.criteria.map(entry=><div key={entry.criterion.id}><p>{entry.criterion.body.statement} — {entry.outcome} · {entry.reason}{entry.validationId?` · Validation ${entry.validationId}`:""}{entry.decisionId?` · Decision ${entry.decisionId}`:""}</p>
+    {canValidate&&["visual_human","deferred_visual_phase"].includes(entry.policy)?<><select aria-label="Phase visual outcome" value={humanOutcome} onChange={event=>setHumanOutcome(event.target.value as typeof humanOutcome)}><option value="pass">Pass</option><option value="fail">Fail</option><option value="inconclusive">Inconclusive</option></select><button disabled={!inputs.rationale.trim()} onClick={()=>void run(()=>window.champcity.recordWorkflowPhaseVisualCriterion({workflowId:props.workflowId,phaseId:evidence.phaseId,criterionId:entry.criterion.id,expectedCriterionVersion:entry.criterion.recordVersion,expectedPhaseVersion:evidence.phaseVersion,outcome:humanOutcome,summary:inputs.rationale}),"Phase visual evidence recorded.")} type="button">Record Phase visual Validation</button></>:null}
+    {canValidate&&entry.policy==="operator_decision"?["approved","rejected"].map(outcome=><button key={outcome} disabled={!inputs.rationale.trim()} onClick={()=>void run(()=>window.champcity.recordWorkflowPhaseCriterionDecision({workflowId:props.workflowId,phaseId:evidence.phaseId,criterionId:entry.criterion.id,expectedCriterionVersion:entry.criterion.recordVersion,expectedPhaseVersion:evidence.phaseVersion,outcome:outcome as "approved"|"rejected",rationale:inputs.rationale}),"Phase Criterion decision recorded.")} type="button">{outcome==="approved"?"Approve":"Reject"} Phase Criterion</button>):null}
+    {canValidate&&["deterministic","semantic_ai"].includes(entry.policy)?<button onClick={()=>void run(async()=>{if(entry.policy==="deterministic")return window.champcity.validateWorkflowPhaseDeterministicCriterion(props.workflowId,evidence.phaseId,entry.criterion.id);const runtime=await window.champcity.getCodexManagedRuntimeStatus();if(!runtime.selection)throw Error("Select a Validator model in runtime settings.");return window.champcity.validateWorkflowPhaseSemanticCriterion(props.workflowId,evidence.phaseId,entry.criterion.id,runtime.selection);},"Phase Validator result recorded.")} type="button">Run Phase {entry.policy==="deterministic"?"deterministic":"semantic"} Validator</button>:null}
+    {canValidate&&entry.outcome==="fail"&&(entry.decisionId||entry.validationId)?<button onClick={()=>void run(async()=>{const result=await window.champcity.createWorkflowPhaseRepair(props.workflowId,evidence.phaseId,(entry.decisionId??entry.validationId)!);props.onRepair?.(result.repair.id);},"Phase Repair created.")} type="button">Create Phase Repair</button>:null}</div>)}</>}
+  contextualActions={<><button disabled={busy} onClick={()=>void run(async()=>{},"Current SQL evidence refreshed.")} type="button">Refresh</button><button disabled={!exact||!view.closed||busy} onClick={props.onNext} type="button">Continue to Phase Close</button></>}/ >;
+}
