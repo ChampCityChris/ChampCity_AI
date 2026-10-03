@@ -3309,6 +3309,14 @@
           "description": "landing selection feedback remains bounded to the landing surface"
         },
         {
+          "behaviorId": "manual-validation-adapter-shares-exact-aggregate-preparation-and-completion-callbacks-without-mandatory-navigation",
+          "description": "manual validation adapter shares exact aggregate preparation and completion callbacks without mandatory navigation"
+        },
+        {
+          "behaviorId": "manual-work-card-validation-retains-historical-info-document-and-explicit-attempt-action-geometry",
+          "description": "manual Work Card Validation retains historical info document and explicit attempt action geometry"
+        },
+        {
           "behaviorId": "mcp-handoff-preflight-preserves-drafts-while-stale-or-unavailable-and-permits-retry-only-on-curr",
           "description": "MCP handoff preflight preserves drafts while stale or unavailable and permits retry only on current refresh"
         },
@@ -14591,6 +14599,65 @@
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "review-validation-renders-implementer-report-by-default-in-a-compact-document-pane",
           "proofLocator": "Review & Validation renders Implementer Report by default in a compact document pane",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/renderer/work-card-validation-shell.test.cjs",
+      "currentTestCount": {
+        "value": 2,
+        "basis": "Recovered historical characterization plus exact SQL application adapter proof."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 1000,
+        "basis": "Initial bounded renderer characterization estimate."
+      },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": true,
+        "timing": true
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": false,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Renderer characterization and SQL fixtures own isolated temporary directories and per-process React hook state.",
+        "ownedResources": [
+          "bounded-child-process",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "rendered-output"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "manual-validation-adapter-shares-exact-aggregate-preparation-and-completion-callbacks-without-mandatory-navigation",
+          "proofLocator": "manual validation adapter shares exact aggregate preparation and completion callbacks without mandatory navigation",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "manual-work-card-validation-retains-historical-info-document-and-explicit-attempt-action-geometry",
+          "proofLocator": "manual Work Card Validation retains historical info document and explicit attempt action geometry",
           "proofRole": "primary"
         }
       ]
