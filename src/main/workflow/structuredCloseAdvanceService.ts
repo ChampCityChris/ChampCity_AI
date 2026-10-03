@@ -19,8 +19,6 @@ export function createStructuredCloseAdvanceService() {
     return withState(root,async(store,projectId,state)=>{
       const terminal=await store.getEntity(projectId,workflowId);
       if(scope==="workflow"&&terminal?.entityType==="Workflow"&&terminal.lifecycleState==="closed"&&entityId===workflowId){
-        const project=await store.getProject(projectId);
-        if(terminal.body.workflowType==="project-creation"&&project?.lifecycleState!=="closed")throw Error("Project lifecycle closure is missing.");
         return {workflowId,entityId,expectedVersion:terminal.recordVersion,scope,label:terminal.body.workflowType==="project-creation"?"Project":"Workflow",closed:true,eligible:false,blockers:[],sourceMode:(await store.listEntities(projectId,"SourceBinding")).some(binding=>binding.entityType==="SourceBinding"&&binding.body.workflowId===workflowId)?"source-backed":"source-neutral",next:{workspaceId:"workflow-hub",label:"Workflows Hub"},criteria:[]};
       }
       const plan=await state.getWorkflowExecutionPlan(projectId,workflowId),workflow=plan.workflow;
@@ -28,7 +26,6 @@ export function createStructuredCloseAdvanceService() {
       if(!record||scope!=="phase"&&record.id!==entityId)throw Error("Exact SQL close target is not owned by this Workflow.");
       entityId=record.id;
       const closed=record.lifecycleState==="closed",projectCreation=workflow.body.workflowType==="project-creation";
-      const project=await store.getProject(projectId);
       const bindings=(await store.listEntities(projectId,"SourceBinding")).filter(binding=>binding.entityType==="SourceBinding"&&binding.lifecycleState==="active"&&binding.body.workflowId===workflowId);
       const sourceMode=bindings.length?"source-backed" as const:"source-neutral" as const;
       let blockers:string[]=[],next:CloseAdvanceProjection["next"]={workspaceId:"workflow-hub",label:"Workflows Hub"};
@@ -60,7 +57,6 @@ export function createStructuredCloseAdvanceService() {
           criteria.push({id:criterion.id,recordVersion:criterion.recordVersion,statement:criterion.body.statement,policy:criterion.body.validationPolicy,satisfied});
         }
       }
-      if(scope==="workflow"&&projectCreation&&closed&&project?.lifecycleState!=="closed")throw Error("Project lifecycle closure is missing.");
       return {workflowId,entityId,expectedVersion:record.recordVersion,scope,advanceReady:closed||scope==="workflow"&&workflow.body.currentWorkspace==="integration-ready",label:scope==="workflow"&&projectCreation?"Project":scope==="work-item"?"WorkItem":scope==="phase"?"Phase":"Workflow",closed,eligible:!closed&&blockers.length===0,blockers,sourceMode,next,criteria};
     });
   }

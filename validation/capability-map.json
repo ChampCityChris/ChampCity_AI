@@ -10774,8 +10774,8 @@
     {
       "testPath": "test/phase-planning/phase-planning-service.test.cjs",
       "currentTestCount": {
-        "value": 8,
-        "basis": "RWS06E adds exact SQL Phase stage review and deterministic typed Phase Planning migration proofs. RWS06H adds SQL review/repair convergence proof. RWS06I adds structured close/advance lifecycle proof."
+        "value": 9,
+        "basis": "RWS06E adds exact SQL Phase stage review and deterministic typed Phase Planning migration proofs. RWS06H adds SQL review/repair convergence proof. RWS06I adds structured close/advance lifecycle proof. RWS06I-R02 extends the existing lifecycle proof through real integration and same active Current Project continuation."
       },
       "duration": {
         "kind": "measured",
@@ -10787,9 +10787,9 @@
       "dependencies": {
         "electron": false,
         "filesystem": true,
-        "git": false,
+        "git": true,
         "network": false,
-        "process": false,
+        "process": true,
         "timing": false
       },
       "sourceInspectionClassification": "none",
@@ -10803,8 +10803,10 @@
         "platform": "any",
         "externalCapabilities": [],
         "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "schedulingReason": "Each fixture owns isolated temporary Git, SQLite and child-process resources.",
         "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
           "temp-filesystem-isolated"
         ]
       },
@@ -10832,6 +10834,39 @@
           "behaviorId": "phase-planning-revisionrequested-bundle-revises-both-documents-once-and-resets-review-state",
           "proofLocator": "phase planning RevisionRequested bundle revises both documents once and resets review state",
           "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "current-workflow-inventory-and-direct-start-use-exact-independent-instance-identity",
+          "proofLocator": "SQL Close Advance traverses WorkItems, dependent Phases and Project Creation closure while preserving the active Project",
+          "proofRole": "supporting",
+          "relationshipToPrimary": "complementary",
+          "primaryProof": {
+            "testPath": "test/workflow/workflow-application-service.test.cjs",
+            "proofLocator": "direct service calls create same-title concurrent Workflows, reject ineligible direct starts, list active and closed exact identities, and open by Workflow ID"
+          }
+        },
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "exact-workflow-completion-enforces-execution-obligations-and-source-neutral-close",
+          "proofLocator": "SQL Close Advance traverses WorkItems, dependent Phases and Project Creation closure while preserving the active Project",
+          "proofRole": "supporting",
+          "relationshipToPrimary": "complementary",
+          "primaryProof": {
+            "testPath": "test/workflow/workflow-execution-application-service.test.cjs",
+            "proofLocator": "typed source-neutral Workflow completion closes only after exact WorkItem and Phase completion"
+          }
+        },
+        {
+          "capabilityId": "workflow-application-service",
+          "behaviorId": "exact-workflow-integration-syncs-attributed-idempotent-validation-and-closes-after-dev-advance",
+          "proofLocator": "SQL Close Advance traverses WorkItems, dependent Phases and Project Creation closure while preserving the active Project",
+          "proofRole": "supporting",
+          "relationshipToPrimary": "complementary",
+          "primaryProof": {
+            "testPath": "test/source-control/workflow-integration-service.test.cjs",
+            "proofLocator": "Feature and Issue exact Workflows complete from accepted plans, synchronize one system-attributed validation, advance linked Dev, and close their exact Workflow"
+          }
         },
         {
           "capabilityId": "workflow-application-service",

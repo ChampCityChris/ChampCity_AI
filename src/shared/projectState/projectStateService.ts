@@ -2609,15 +2609,6 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return {entityId: projectId, eligible: blockers.length === 0, blockers: [...new Set(blockers)].sort()};
   }
 
-  async function closeProjectLifecycle(unit: ProjectStateUnitOfWork, projectId: ProjectId, context?: MutationContext) {
-    const project = await unit.getProject(projectId);
-    if (!project || project.lifecycleState !== "active") fail("Exact active Project required for lifecycle closure.");
-    const now = new Date().toISOString();
-    const next = validateProjectStateEntity({...project, recordVersion: project.recordVersion + 1, lifecycleState: "closed", closedAt: now, updatedAt: now, updatedBy: trustedPrincipal});
-    await unit.saveEntity(next, project.recordVersion);
-    await recordMutation(unit, {projectId, entityId: project.id, fromVersion: project.recordVersion, toVersion: next.recordVersion, operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now, changedFields: ["lifecycleState", "closedAt"], defaultReason: "Close Project after exact Project Creation completion", context});
-  }
-
   async function completeWorkflowExecution(projectId: ProjectId, workflowId: EntityId, expectedRevision: number,
     sourceMode: "source-backed" | "source-neutral", expectedSourceRevision: string | null, context?: MutationContext) {
     if (principal.role !== "WorkflowExecution") fail("Workflow execution completion requires its application principal.");
@@ -2661,7 +2652,6 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         ...(closed ? { lifecycleState: "closed" as const, closedAt: now } : {}), updatedAt: now, updatedBy: trustedPrincipal,
         body: { ...workflow.body, workflowState: closed ? "closed" as const : "active" as const, currentWorkspace: closed ? "execution-complete" : "integration-ready" } });
       await unit.saveEntity(next, expectedRevision);
-      if (closed && workflow.body.workflowType === "project-creation") await closeProjectLifecycle(unit, projectId, context);
       await recordMutation(unit, { projectId, entityId: workflowId, fromVersion: expectedRevision, toVersion: next.recordVersion,
         operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now,
         changedFields: ["workflowState", "currentWorkspace", ...(closed ? ["lifecycleState", "closedAt"] : [])],
@@ -2690,7 +2680,6 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const next = validateProjectStateEntity({ ...workflow, recordVersion: expectedRevision + 1, lifecycleState: "closed", closedAt: now,
         updatedAt: now, updatedBy: trustedPrincipal, body: { ...workflow.body, workflowState: "closed", currentWorkspace: "integrated" } });
       await unit.saveEntity(next, expectedRevision);
-      if (workflow.body.workflowType === "project-creation") await closeProjectLifecycle(unit, projectId, context);
       await recordMutation(unit, { projectId, entityId: workflowId, fromVersion: expectedRevision, toVersion: next.recordVersion, operation: "revise",
         eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now, changedFields: ["workflowState", "lifecycleState", "closedAt", "currentWorkspace"],
         defaultReason: "Close Workflow after exact Dev integration", context });
