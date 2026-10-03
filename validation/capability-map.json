@@ -3397,6 +3397,14 @@
           "description": "top rail separates viewed workspace from current required workspace"
         },
         {
+          "behaviorId": "work-card-intake-adapter-prepares-a-non-review-handoff-for-the-exact-sql-candidate-only",
+          "description": "Work Card Intake adapter prepares a non-review handoff for the exact SQL candidate only"
+        },
+        {
+          "behaviorId": "work-card-intake-projection-fingerprint-tracks-shared-path-identity",
+          "description": "Work Card Intake projection fingerprint tracks shared path identity"
+        },
+        {
           "behaviorId": "work-card-map-all-complete-state-routes-toward-phase-validation",
           "description": "Work Card Map all-complete state routes toward Phase Validation"
         },
@@ -3419,6 +3427,14 @@
         {
           "behaviorId": "work-card-map-sql-adapter-keeps-exact-phase-dependencies-active-selection-and-completion-navigation",
           "description": "Work Card Map SQL adapter keeps exact Phase dependencies active selection and completion navigation"
+        },
+        {
+          "behaviorId": "work-card-planning-preparation-disables-repeated-generation-while-in-flight-and-shows-exact-local-errors",
+          "description": "Work Card Planning preparation disables repeated generation while in flight and shows exact local errors"
+        },
+        {
+          "behaviorId": "work-card-planning-preparation-renders-the-selected-candidate-and-exact-output-paths",
+          "description": "Work Card Planning preparation renders the selected candidate and exact output paths"
         },
         {
           "behaviorId": "workflow-hub-registry-exposes-only-the-functional-peer-workflows",
@@ -14017,6 +14033,77 @@
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "source-control-workspace-renders-read-only-graph-navigation-and-integration-geometry",
           "proofLocator": "five source lines, two integration edges, native navigation and loading shell",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/renderer/work-card-intake-workspace.test.cjs",
+      "currentTestCount": {
+        "value": 4,
+        "basis": "WSF13 recovered shell and adapter scenarios."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 1000,
+        "basis": "Initial bounded renderer characterization estimate."
+      },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": true,
+        "timing": true
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": false,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Renderer characterization and SQL fixtures own isolated temporary directories and per-process React hook state.",
+        "ownedResources": [
+          "bounded-child-process",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "rendered-output"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "work-card-intake-adapter-prepares-a-non-review-handoff-for-the-exact-sql-candidate-only",
+          "proofLocator": "Work Card Intake adapter prepares a non-review handoff for the exact SQL candidate only",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "work-card-intake-projection-fingerprint-tracks-shared-path-identity",
+          "proofLocator": "Work Card Intake projection fingerprint tracks shared path identity",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "work-card-planning-preparation-disables-repeated-generation-while-in-flight-and-shows-exact-local-errors",
+          "proofLocator": "Work Card Planning preparation disables repeated generation while in flight and shows exact local errors",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "work-card-planning-preparation-renders-the-selected-candidate-and-exact-output-paths",
+          "proofLocator": "Work Card Planning preparation renders the selected candidate and exact output paths",
           "proofRole": "primary"
         }
       ]
