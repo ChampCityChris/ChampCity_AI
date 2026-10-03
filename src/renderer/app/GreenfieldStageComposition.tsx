@@ -2,7 +2,7 @@ import type {ReactNode} from "react";
 import type {ProjectIntakeSubmission} from "../../shared/workspaceContracts";
 import type {GreenfieldStage} from "../../shared/greenfieldNavigationContracts";
 import {ProjectIntakeWorkspace} from "./ProjectIntakeWorkspace";
-import {StructuredArchitectWorkspace} from "./StructuredArchitectWorkspace";
+import {GreenfieldArchitectWorkspace} from "./GreenfieldArchitectWorkspace";
 import {StructuredProjectPlanningWorkspace} from "./StructuredProjectPlanningWorkspace";
 import {StructuredPhaseMapWorkspace} from "./StructuredPhaseMapWorkspace";
 import {PhaseInterviewWorkspace} from "./PhaseInterviewWorkspace";
@@ -34,7 +34,7 @@ export function composeGreenfieldStage(props:GreenfieldStageCompositionProps):Re
  const missing=<p role="status">Select an exact SQL Phase / Work Card to inspect this workspace.</p>;
  switch(stage){
  case "project-intake-capture":return <ProjectIntakeWorkspace workflowId={workflowId} value={props.intake} onChange={props.onIntakeChange} repositoryIdentity={props.repositoryIdentity} isChoosingProjectRepository={false} onChooseProjectRepository={props.onRepositoryChange} onRailStatus={()=>{}} onPrepared={resume}/>;
- case "architect-interview":return <StructuredArchitectWorkspace workflowId={workflowId} browserVisible={!!browserPanel} browserCompanion={browserPanel} onNext={async()=>resume()}/>;
+ case "architect-interview":return <GreenfieldArchitectWorkspace workflowId={workflowId} browserVisible={!!browserPanel} browserCompanion={browserPanel} onNext={async()=>resume()}/>;
  case "project-planning-review":return <StructuredProjectPlanningWorkspace workflowId={workflowId} browserPanel={browserPanel} onNext={async()=>resume()}/>;
  case "project-phase-map":return <StructuredPhaseMapWorkspace workflowId={workflowId} browserPanel={browserPanel} onNext={async()=>resume()}/>;
  case "phase-interview":return phaseId?<PhaseInterviewWorkspace workflowId={workflowId} phaseId={phaseId} browserPanel={browserPanel} browserVisible={!!browserPanel} onNext={resume}/>:missing;

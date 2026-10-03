@@ -471,7 +471,8 @@
       "description": "Embedded Architect browser attachment, handoff, and recovery behavior.",
       "sourcePatterns": [
         "src/main/browser/**",
-        "src/renderer/app/architectBrowserAttachmentCoordinator.ts"
+        "src/renderer/app/architectBrowserAttachmentCoordinator.ts",
+        "src/shared/architectInterview/architectBrowserAttachmentCoordinator.ts"
       ],
       "dependsOn": [
         "desktop-application-shell"

@@ -44,9 +44,12 @@ export function ApplicationBrowserHost() {
       void attachment.detach().catch(() => undefined);
     };
   }, []);
-  const reload = async () => {try {setStatus(await window.champcity.reloadArchitectBrowser());} catch (reason) {setError(String(reason));}};
-  const label = status?.browserState === "loading" ? "Loading ChatGPT..." : status?.attachment.state === "attached-visible" ? "ChatGPT ready" : error ? "Browser unavailable" : "Starting browser...";
+  const reload = async () => {try {setError(""); setStatus(await window.champcity.reloadArchitectBrowser());} catch (reason) {setError(String(reason));}};
+  const failedLoad = status?.browserState === "load-failed";
+  const diagnostic = failedLoad ? status.navigationDiagnostics.slice().reverse().find(item => item.frame === "main-frame" && item.eventType === "did-fail-load" && item.loadResult?.success === false) : undefined;
+  const failureDetail = diagnostic ? `${diagnostic.destinationHost ?? "unknown host"} / ${diagnostic.eventType} / error ${diagnostic.loadResult?.code ?? "unknown"}`.slice(0, 240) : "";
+  const label = failedLoad || error ? "Browser unavailable" : status?.browserState === "loading" ? "Loading ChatGPT..." : status?.attachment.state === "attached-visible" ? "ChatGPT ready" : "Starting browser...";
   return <><FigmaBrowserPanel hostRef={hostRef} statusLabel={label}
-    onReload={() => void reload()} onRetry={() => void coordinator.current?.retry()}
-    retryVisible={shouldShowArchitectBrowserRetry(status, error)} />{error ? <p role="status">{error}</p> : null}</>;
+    onReload={() => void reload()} onRetry={() => {void (async () => {await coordinator.current?.retry(); await reload();})();}}
+    retryVisible={shouldShowArchitectBrowserRetry(status, error)} />{failureDetail || error ? <p role="status">{failureDetail || error}</p> : null}</>;
 }

@@ -454,3 +454,19 @@ test("recovered Greenfield Architect binds SQL handoff callbacks and current rev
     const actions=element.props.browserCompanion.props.children[1];assert.equal(actions.props.canCopyHandoff,true);actions.props.onPrepareHandoff();await new Promise(resolve=>setImmediate(resolve));assert.deepEqual(calls[1],['exact-workflow']);
   } finally {Object.assign(React,originals);global.window=oldWindow;}
 });
+test('attached load failure presents unavailable, bounded redacted diagnostics and Retry',()=>{
+  const {ApplicationBrowserHost}=loadRendererSourceModule('src/renderer/app/ApplicationBrowserHost.tsx');
+  const original={useState:React.useState,useEffect:React.useEffect,useRef:React.useRef};let i=0;
+  const status={...visibleStatus(),browserState:'load-failed',navigationDiagnostics:[{frame:'main-frame',eventType:'did-fail-load',destinationHost:'chatgpt.com',loadResult:{success:false,code:-105}}]};
+  React.useState=initial=>[i++===0?status:'',()=>{}];React.useEffect=()=>{};React.useRef=initial=>({current:initial});
+  try {const html=renderToStaticMarkup(React.createElement(ApplicationBrowserHost));assert.match(html,/Browser unavailable/);assert.doesNotMatch(html,/ChatGPT ready/);assert.match(html,/chatgpt.com.*did-fail-load.*-105/);assert.match(html,/Retry browser attachment/);assert.equal(shouldShowArchitectBrowserRetry(status),true);} finally {Object.assign(React,original);}
+});
+test('Greenfield Architect refresh reveals and selects current review slots without JSON entry',async()=>{
+ const originals={useState:React.useState,useEffect:React.useEffect,useMemo:React.useMemo},old=global.window;let index=0;
+ const intake={logicalDocumentId:'intake'},review={logicalDocumentId:'review'},model={intakeDocument:intake,ready:true};
+ const values=[model,'','','','','',false,'intake'];React.useState=initial=>{const i=index++;return[values[i]??initial,v=>{values[i]=typeof v==='function'?v(values[i]):v;}];};React.useEffect=()=>{};React.useMemo=f=>f();
+ global.window={champcity:{getStructuredArchitectWorkspace:async()=>({...model,reviewDocument:review,review:{cycleId:'current',recordVersion:2,disposition:{state:'none'}}})}};
+ try {let element=GreenfieldArchitectWorkspace({workflowId:'wf',browserVisible:true,browserCompanion:null});assert.deepEqual(element.props.document.slots.map(x=>x.displayLabel),['Project Intake']);element.props.browserCompanion.props.children[1].props.onRefresh();await new Promise(setImmediate);index=0;element=GreenfieldArchitectWorkspace({workflowId:'wf',browserVisible:true,browserCompanion:null});assert.deepEqual(element.props.document.slots.map(x=>x.displayLabel),['Project Intake','Architect Review']);assert.equal(element.props.document.selectedSlotId,'architect-review');assert.equal(element.props.document.selectedDocument,review);
+ const source=require('node:fs').readFileSync('src/renderer/app/GreenfieldArchitectWorkspace.tsx','utf8');assert.doesNotMatch(source,/<textarea|saveStructuredArchitectOutput|Save Architect output/);assert.match(source,/workflow_toolbox.submit_stage_candidate/);
+ }finally{Object.assign(React,originals);global.window=old;}
+});

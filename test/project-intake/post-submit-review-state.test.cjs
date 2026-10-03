@@ -175,6 +175,20 @@ test("recovered Greenfield Intake adapter retains current SQL save identity and 
     assert.equal(element.type.name,"ProjectIntakeShell"); assert.equal(element.props.captureDisabled,false);
     element.props.onSubmit(); await new Promise(resolve=>setImmediate(resolve));
     assert.equal(calls[0][0],"exact-sql-workflow"); assert.equal(calls[0][1].workflowType,"project-creation"); assert.equal(calls[0][1].values.projectRepository,"<PROJECT_REPO>");
-    assert.equal(element.props.supportControls.props.children[1].props.disabled,true);
+    assert.equal(element.props.supportControls,undefined);
   } finally {React.useState=originalState;React.useEffect=originalEffect;React.useRef=originalRef;global.window=oldWindow;}
+});
+
+for (const outcome of ['approved','rejected','revision_requested']) test(`Intake ${outcome} progresses only on approval, once`, async () => {
+  const original={useState:React.useState,useEffect:React.useEffect,useRef:React.useRef}, old=global.window;
+  let index=0, progressed=0, input;
+  const values=[{recordVersion:7,reviewDocument:{displayFilename:'Intake'}},false,true,false,'','','Approved'];
+  React.useState=initial=>[values[index++]??initial,()=>{}];React.useEffect=()=>{};React.useRef=initial=>({current:initial});
+  global.window={champcity:{reviewWorkflowIntake:async(id,request)=>{input=[id,request];return {disposition:{state:outcome}};}}};
+  try {
+    const element=ProjectIntakeWorkspace({workflowId:'exact',value:recoveredIntakeValue,onPrepared:()=>{progressed++;},onRailStatus(){}});
+    element.props.disposition.onApply();await new Promise(setImmediate);
+    assert.equal(progressed,outcome==='approved'?1:0);assert.equal(input[0],'exact');assert.equal(input[1].expectedIntakeRecordVersion,7);
+    assert.equal(element.props.supportControls,undefined);
+  } finally {Object.assign(React,original);global.window=old;}
 });

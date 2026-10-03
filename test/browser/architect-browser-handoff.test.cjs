@@ -207,3 +207,14 @@ function fakeBrowserBoundary() {
   window.focus = () => undefined;
   return { view, window };
 }
+const service = require('../../dist/main/browser/architectBrowserService.js');
+for (const url of ['', 'about:blank', 'https://example.com/private?secret=hidden', 'https://chatgpt.com/']) test(`browser recovery selects navigation for ${url.split('?')[0] || 'empty'}`, () => {
+  const {view,window}=fakeBrowserBoundary();configureArchitectBrowserServiceForTest({createView:()=>view});attachArchitectBrowserSurface(window,1);
+  let loads=[],reloads=0;view.webContents.url=url;view.webContents.loadURL=async value=>{loads.push(value);};view.webContents.reload=()=>{reloads++;};
+  service.reloadArchitectBrowserSurface();assert.equal(reloads,url==='https://chatgpt.com/'?1:0);assert.deepEqual(loads,url==='https://chatgpt.com/'?[]:[getArchitectSurfaceUrl()]);
+});
+test('failed allowed browser surface explicitly returns to configured ChatGPT URL',()=>{
+  const {view,window}=fakeBrowserBoundary();configureArchitectBrowserServiceForTest({createView:()=>view});attachArchitectBrowserSurface(window,1);
+  view.webContents.emit('did-fail-load',{},-105,'NAME_NOT_RESOLVED','https://chatgpt.com/',true);let target;view.webContents.loadURL=async url=>{target=url;};view.webContents.reload=()=>assert.fail('failed surface must navigate');
+  assert.equal(service.reloadArchitectBrowserSurface().browserState,'loading');assert.equal(target,getArchitectSurfaceUrl());
+});

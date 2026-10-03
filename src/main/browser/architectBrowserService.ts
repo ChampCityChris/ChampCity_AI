@@ -125,9 +125,15 @@ export function reloadArchitectBrowserSurface(): ArchitectBrowserFoundationStatu
     throw new Error("Embedded ChatGPT browser is not available to reload.");
   }
 
+  const currentUrl = architectView.webContents.getURL();
+  const recover = currentBrowserState === "load-failed" || !currentUrl || !isAllowedEmbeddedArchitectNavigationUrl(currentUrl);
   didFailLastLoad = false;
   currentBrowserState = "loading";
-  architectView.webContents.reload();
+  if (recover) {
+    void architectView.webContents.loadURL(getArchitectSurfaceUrl()).catch(() => undefined);
+  } else {
+    architectView.webContents.reload();
+  }
   emitArchitectBrowserFoundationStatusIfChanged();
   return getArchitectBrowserFoundationStatus();
 }

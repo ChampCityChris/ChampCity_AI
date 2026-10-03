@@ -60,7 +60,7 @@ export function shouldShowArchitectBrowserRetry(
   attachmentError = "",
 ): boolean {
   const state = status?.attachment.state ?? "detached";
-  return state === "attach-failed" || Boolean(attachmentError);
+  return status?.browserState === "load-failed" || state === "attach-failed" || Boolean(attachmentError);
 }
 
 export function createArchitectAttachmentCoordinator(
