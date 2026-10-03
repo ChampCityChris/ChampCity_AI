@@ -421,3 +421,36 @@ test("Architect browser retry visibility is derived from attachment failure stat
   assert.equal(shouldShowArchitectBrowserRetry(visibleStatus(), "zero layout"), true);
   assert.equal(shouldShowArchitectBrowserRetry(visibleStatus()), false);
 });
+
+const recoveredArchitect = loadRendererSourceModule("src/renderer/app/ArchitectInterviewShell.tsx");
+const {GreenfieldArchitectWorkspace} = loadRendererSourceModule("src/renderer/app/GreenfieldArchitectWorkspace.tsx");
+test("recovered Architect Interview keeps faithful independent panes and browser visibility", () => {
+  for(const browserVisible of [true,false]) {
+    const markup=renderToStaticMarkup(React.createElement(recoveredArchitect.ArchitectInterviewShell,{label:"Architect Interview",browserVisible,document:{selectedDocument:null,documentError:"",feedback:"",onCopy(){}},reviewControls:React.createElement('button',null,'Apply Review'),browserCompanion:React.createElement('div',{className:'figma-browser-column'},'Browser')}));
+    assert.match(markup,/figma-doc-chat-workspace/);assert.match(markup,/figma-doc-review-column/);assert.match(markup,/figma-browser-column/);assert.match(markup,/tabindex="-1"/);
+    assert.equal(markup.includes('chat-hidden'),!browserVisible);
+    assert.ok(markup.indexOf('Apply Review')<markup.indexOf('figma-browser-column'));
+  }
+});
+test("recovered Architect Browser Actions retain historical order, revision labels and supplied readiness", () => {
+  const props={canPrepareHandoff:false,canCopyHandoff:false,canRegeneratePrompt:true,canPrepareFinalDraftHandoff:false,canCopyFinalDraftHandoff:false,onReloadBrowser(){},onPrepareHandoff(){},onCopyHandoff(){},onRefresh(){},onRetryBrowser(){},onRegeneratePrompt(){},onPrepareFinalDraftHandoff(){},onCopyFinalDraftHandoff(){},showRetryButton:true};
+  const markup=renderToStaticMarkup(React.createElement(recoveredArchitect.ArchitectInterviewBrowserActions,props));
+  let last=-1;for(const label of ['Reload ChatGPT','Regenerate Interview Prompt','Prepare Handoff','Copy Handoff','Prepare Final Draft Handoff','Copy Final Draft Handoff','Refresh','Retry Browser']) {const pos=markup.indexOf(label);assert.ok(pos>last,label);last=pos;}
+  assert.match(markup,/disabled=""/);
+  const revision=renderToStaticMarkup(React.createElement(recoveredArchitect.ArchitectInterviewBrowserActions,{...props,isRevisionRequest:true}));assert.match(revision,/Prepare Revision Request/);assert.match(revision,/Copy Revision Request/);
+});
+test("recovered Greenfield Architect binds SQL handoff callbacks and current review version", async () => {
+  const originals={useState:React.useState,useEffect:React.useEffect,useMemo:React.useMemo};const oldWindow=global.window;let index=0;const calls=[];
+  const model={workflowId:'exact-workflow',workflowType:'project-creation',ready:true,railStatus:'Awaiting Approval',handoff:'SQL handoff',review:{cycleId:'sql-cycle',recordVersion:4,disposition:{state:'proposed'}},reviewDocument:{logicalDocumentId:'sql-doc',displayFilename:'ARCHITECT.md',effectiveDisposition:'Pending'},nextStageReady:false};
+  const values=[model,'','notes','Approved','','',false,'architect-review'];
+  React.useState=initial=>[index<values.length?values[index++]:initial,()=>{}];React.useEffect=()=>{};React.useMemo=f=>f();
+  global.window={champcity:{reviewStructuredArchitectOutput:async(...args)=>{calls.push(args);return model;},prepareStructuredArchitectWorkspace:async(...args)=>{calls.push(args);return model;}}};
+  try {
+    const element=GreenfieldArchitectWorkspace({workflowId:'exact-workflow',browserVisible:true,browserCompanion:null});
+    assert.equal(element.type.name,'ArchitectInterviewShell');
+    const review=React.Children.toArray(element.props.reviewControls.props.children).find(node=>node.type?.name==='FigmaDocumentDispositionPanel');
+    assert.ok(review);review.props.onApply();await new Promise(resolve=>setImmediate(resolve));
+    assert.deepEqual(calls[0],['exact-workflow','sql-cycle',{expectedRecordVersion:4,outcome:'approved',notes:'notes'}]);
+    const actions=element.props.browserCompanion.props.children[1];assert.equal(actions.props.canCopyHandoff,true);actions.props.onPrepareHandoff();await new Promise(resolve=>setImmediate(resolve));assert.deepEqual(calls[1],['exact-workflow']);
+  } finally {Object.assign(React,originals);global.window=oldWindow;}
+});
