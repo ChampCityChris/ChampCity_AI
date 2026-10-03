@@ -919,12 +919,14 @@ export function createWorkflowExecutionApplicationService(dependencies: {
         const attempts = await createProjectStateService(store, operator).getImplementationAttempts(projectId, workItemId);
         if (attempts.at(-1)?.body.outcome !== "implemented") throw Error("Tester contract requires the latest successful implementation attempt.");
       }
-      if (plan.solutions.length !== 1) throw Error("Accepted BoundedSolution is missing or ambiguous.");
+      const solutionIds = (await store.listRelationships(projectId, "implements")).filter(edge => !edge.endedAt && edge.fromEntityId === workItemId).map(edge => edge.toEntityId);
+      const solutions = plan.solutions.filter(solution => solutionIds.includes(solution.id));
+      if (solutions.length !== 1) throw Error("Exact WorkItem BoundedSolution is missing or ambiguous.");
       const phase = item.phaseId ? plan.phases.find(candidate => candidate.phaseId === item.phaseId)?.record ?? null : null;
       if (!item.record.body.implementationBoundaries?.length || !item.record.body.proofIntent?.length || !item.record.body.affectedPaths) throw Error("Architect execution planning is required before Implementer execution.");
       if (projection.source.state === "non-source" && item.record.body.affectedPaths.length) throw Error("Source-neutral execution plan contains repository paths.");
-      const criteria = plan.criteria.filter(candidate => candidate.ownerId === workItemId || candidate.ownerId === plan.solutions[0]?.id).map(candidate => candidate.record).sort((a, b) => a.id.localeCompare(b.id));
-      const solution = plan.solutions[0];
+      const criteria = plan.criteria.filter(candidate => candidate.ownerId === workItemId || candidate.ownerId === solutions[0]?.id).map(candidate => candidate.record).sort((a, b) => a.id.localeCompare(b.id));
+      const solution = solutions[0];
       const body = {
         projectId, workflowId, workItemId, workItemVersion: item.record.recordVersion, objective: item.record.body.objective,
         solution, phase, criteria, dependencyIds: item.dependencyIds, scopeIn: [...solution.body.scopeIn], scopeOut: [...solution.body.scopeOut],
@@ -966,12 +968,14 @@ export function createWorkflowExecutionApplicationService(dependencies: {
         const attempts = await createProjectStateService(store, operator).getImplementationAttempts(projectId, workItemId);
         if (attempts.at(-1)?.body.outcome !== "implemented") throw Error("Tester contract requires the latest successful implementation attempt.");
       }
-      if (plan.solutions.length !== 1) throw Error("Accepted BoundedSolution is missing or ambiguous.");
+      const solutionIds = (await store.listRelationships(projectId, "implements")).filter(edge => !edge.endedAt && edge.fromEntityId === workItemId).map(edge => edge.toEntityId);
+      const solutions = plan.solutions.filter(solution => solutionIds.includes(solution.id));
+      if (solutions.length !== 1) throw Error("Exact WorkItem BoundedSolution is missing or ambiguous.");
       const phase = item.phaseId ? plan.phases.find(candidate => candidate.phaseId === item.phaseId)?.record ?? null : null;
       if (!item.record.body.implementationBoundaries?.length || !item.record.body.proofIntent?.length || !item.record.body.affectedPaths) throw Error("Architect execution planning is required before Implementer execution.");
       if (item.record.body.affectedPaths.length) throw Error("Source-neutral execution plan contains repository paths.");
-      const criteria = plan.criteria.filter(candidate => candidate.ownerId === workItemId || candidate.ownerId === plan.solutions[0]?.id).map(candidate => candidate.record).sort((a, b) => a.id.localeCompare(b.id));
-      const solution = plan.solutions[0];
+      const criteria = plan.criteria.filter(candidate => candidate.ownerId === workItemId || candidate.ownerId === solutions[0]?.id).map(candidate => candidate.record).sort((a, b) => a.id.localeCompare(b.id));
+      const solution = solutions[0];
       const body = { projectId, workflowId, workItemId, workItemVersion: item.record.recordVersion, objective: item.record.body.objective,
         solution, phase, criteria, dependencyIds: item.dependencyIds, scopeIn: [...solution.body.scopeIn], scopeOut: [...solution.body.scopeOut],
         constraints: [...solution.body.constraints], implementationBoundaries: [...item.record.body.implementationBoundaries], affectedPaths: [], proofIntent: [...item.record.body.proofIntent],
@@ -981,10 +985,30 @@ export function createWorkflowExecutionApplicationService(dependencies: {
     });
   }
 
+  async function prepareImplementationAttempt(projectRoot: string, workflowId: EntityId, workItemId: EntityId) {
+    return withCurrentProject(projectRoot, (store, projectId) => createProjectStateService(store, operator).prepareImplementationAttempt(projectId, workflowId, workItemId));
+  }
+  async function getImplementationAttempt(projectRoot: string, workflowId: EntityId, workItemId: EntityId) {
+    return withCurrentProject(projectRoot, async (store, projectId) => {
+      const state = createProjectStateService(store, operator);
+      const plan = await state.getWorkflowExecutionPlan(projectId, workflowId);
+      if (![...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].some(item => item.id === workItemId)) throw Error("Exact owned WorkItem required.");
+      const attempt = await state.getImplementationAttempt(projectId, workflowId, workItemId);
+      return attempt ? state.getImplementationAttemptReport(projectId, attempt.id) : null;
+    });
+  }
+
+  async function assertImplementationAttemptCurrent(projectRoot: string, attemptId: EntityId) {
+    return withCurrentProject(projectRoot, (store, projectId) => createProjectStateService(store, operator).assertImplementationAttemptCurrent(projectId, attemptId));
+  }
   async function beginWorkItemAttempt(projectRoot: string, workflowId: EntityId, workItemId: EntityId, expectedVersion: number, executionRef: string) {
+    // Older direct Run callers may omit preparation; the durable identity still owns execution.
+    const report = await getImplementationAttempt(projectRoot, workflowId, workItemId);
+    const attempt = report?.attempt.body.attemptState === "prepared" ? report.attempt : await prepareImplementationAttempt(projectRoot, workflowId, workItemId);
+    if (executionRef && /^[0-9a-f-]{36}$/i.test(executionRef) && executionRef !== attempt.id) throw Error("Prepared attempt identity mismatch.");
     return withCurrentProject(projectRoot, (store, projectId) => createProjectStateService(store,
-      { principalId: `codex-implementer:${executionRef}`, principalType: "agent", role: "Implementer" })
-      .beginWorkItemAttempt(projectId, workflowId, workItemId, expectedVersion, executionRef));
+      { principalId: `codex-implementer:${attempt.id}`, principalType: "agent", role: "Implementer" })
+      .beginWorkItemAttempt(projectId, workflowId, workItemId, expectedVersion, attempt.id));
   }
 
   async function finishWorkItemAttempt(projectRoot: string, workflowId: EntityId, workItemId: EntityId, executionRef: string,
@@ -999,5 +1023,5 @@ export function createWorkflowExecutionApplicationService(dependencies: {
     recordWorkItemVisualCriterion, recordWorkItemCriterionDecision, getPhaseValidationProjection, recordPhaseVisualCriterion,
     recordPhaseCriterionDecision, validateDeterministicPhaseCriterion, validateSemanticPhaseCriterion,
     completeWorkItem, completePhase, createWorkflowRepair, createPhaseRepair, validateSemanticWorkItemCriterion, validateDeterministicWorkItemCriterion, prepareExecution, createWorkItemExecutionContract, createTesterWorkItemExecutionContract,
-    createSourceNeutralWorkItemExecutionContract, beginWorkItemAttempt, finishWorkItemAttempt };
+    prepareImplementationAttempt, getImplementationAttempt, assertImplementationAttemptCurrent, createSourceNeutralWorkItemExecutionContract, beginWorkItemAttempt, finishWorkItemAttempt };
 }

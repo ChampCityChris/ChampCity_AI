@@ -310,37 +310,59 @@ test("typed exact Workflow attempt commands enforce dependencies and retain immu
       { key: "second", kind: "feature", title: "Duplicate", objective: "Second objective", dependencyKeys: ["first"], criteria: [] },
       { key: "third", kind: "feature", title: "Independent", objective: "Third objective", dependencyKeys: [], criteria: [] },
     ] });
+  for (const item of plan.directWorkItems) {
+    const saved = await service.saveWorkItemPlanningContract(project.id, {workflowId: workflow.id, workItemId: item.id, expectedVersion: item.recordVersion, implementationBoundaries: ["Bounded"], affectedPaths: [], proofIntent: ["Inspect semantic result"]});
+    await service.recordWorkItemPlanningReview(project.id, workflow.id, item.id, {expectedRecordVersion: saved.recordVersion, outcome: "approved", notes: "Approved"});
+    Object.assign(item, saved);
+  }
   const first = plan.directWorkItems.find(item => item.body.objective === "First objective");
   const second = plan.directWorkItems.find(item => item.body.objective === "Second objective");
   await assert.rejects(implementerService.beginWorkItemAttempt(project.id, workflow.id, second.id, second.recordVersion, "attempt:blocked"), /dependencies/);
-  const begun = await implementerService.beginWorkItemAttempt(project.id, workflow.id, first.id, first.recordVersion, "attempt:one");
+  const firstAttempt = await service.prepareImplementationAttempt(project.id, workflow.id, first.id);
+  assert.equal((await service.prepareImplementationAttempt(project.id, workflow.id, first.id)).id, firstAttempt.id);
+  assert.equal((await service.getRecord(project.id, first.id)).body.workState, "planned");
+  assert.equal((await service.getImplementationAttempts(project.id, first.id)).length, 0);
+  const recoveredService = createProjectStateService(store, operator);
+  assert.equal((await recoveredService.getImplementationAttempt(project.id, workflow.id, first.id)).id, firstAttempt.id);
+  const pendingReport = await recoveredService.renderView(project.id, {projectionType: "implementation-report", sourceEntityId: firstAttempt.id});
+  assert.match(pendingReport.markdown, /Status: Pending/);
+  assert.deepEqual(await service.renderView(project.id, {projectionType: "implementation-report", sourceEntityId: firstAttempt.id}), pendingReport);
+  const begun = await implementerService.beginWorkItemAttempt(project.id, workflow.id, first.id, first.recordVersion, firstAttempt.id);
   assert.equal(begun.workItemId, first.id);
-  const implementation = await implementerService.finishWorkItemAttempt(project.id, workflow.id, first.id, "attempt:one",
+  const implementation = await implementerService.finishWorkItemAttempt(project.id, workflow.id, first.id, firstAttempt.id,
     { summary: "Implemented first", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
   assert.equal(implementation.body.workItemId, first.id);
-  assert.equal(implementation.body.executionRef, "attempt:one");
+  assert.equal(implementation.body.executionRef, firstAttempt.id);
   assert.deepEqual(implementation.createdBy, { principalId: "codex-implementer:test-runtime", principalType: "agent", role: "Implementer" });
   assert.deepEqual((await service.getRecord(project.id, first.id)).updatedBy,
     { principalId: "codex-implementer:test-runtime", principalType: "agent", role: "Implementer" });
   assert.equal((await service.getRecord(project.id, first.id)).body.workState, "validation_pending");
   await assert.rejects(implementerService.beginWorkItemAttempt(project.id, workflow.id, second.id, second.recordVersion, "attempt:two"), /stale|unavailable|dependencies/);
-  await assert.rejects(implementerService.finishWorkItemAttempt(project.id, workflow.id, first.id, "attempt:one",
+  await assert.rejects(implementerService.finishWorkItemAttempt(project.id, workflow.id, first.id, firstAttempt.id,
     { summary: "Conflicting result", deviations: [], blockers: [], residualRisks: [], outcome: "failed" }), /unavailable|conflicts/);
   assert.equal((await service.getImplementationAttempts(project.id, first.id)).length, 1);
+  assert.equal((await service.getImplementationAttempt(project.id, workflow.id, first.id)).body.attemptState, "completed");
+  assert.equal((await store.listRelationships(project.id, "attempt_result")).filter(edge => edge.toEntityId === firstAttempt.id).length, 1);
+  assert.equal((await implementerService.finishWorkItemAttempt(project.id, workflow.id, first.id, firstAttempt.id, {summary: "Implemented first", deviations: [], blockers: [], residualRisks: [], outcome: "implemented"})).id, implementation.id);
+  assert.match((await recoveredService.getImplementationAttemptReport(project.id, firstAttempt.id)).markdown, /Implemented first/);
   const third = plan.directWorkItems.find(item => item.body.objective === "Third objective");
-  await implementerService.beginWorkItemAttempt(project.id, workflow.id, third.id, third.recordVersion, "attempt:partial");
-  const partial = await implementerService.finishWorkItemAttempt(project.id, workflow.id, third.id, "attempt:partial",
+  const thirdAttempt = await service.prepareImplementationAttempt(project.id, workflow.id, third.id);
+  await implementerService.beginWorkItemAttempt(project.id, workflow.id, third.id, third.recordVersion, thirdAttempt.id);
+  await assert.rejects(service.prepareImplementationAttempt(project.id, workflow.id, third.id), /recovery\/inspection/);
+  const partial = await implementerService.finishWorkItemAttempt(project.id, workflow.id, third.id, thirdAttempt.id,
     { summary: "Partial progress", deviations: [], blockers: [], residualRisks: ["Incomplete"], outcome: "partial" });
   assert.equal(partial.body.outcome, "partial");
   assert.equal((await service.getRecord(project.id, third.id)).body.workState, "ready");
   const readyThird = await service.getRecord(project.id, third.id);
-  await implementerService.beginWorkItemAttempt(project.id, workflow.id, third.id, readyThird.recordVersion, "attempt:failed");
-  await implementerService.finishWorkItemAttempt(project.id, workflow.id, third.id, "attempt:failed",
+  const retryAttempt = await service.prepareImplementationAttempt(project.id, workflow.id, third.id);
+  assert.notEqual(retryAttempt.id, thirdAttempt.id);
+  await implementerService.beginWorkItemAttempt(project.id, workflow.id, third.id, readyThird.recordVersion, retryAttempt.id);
+  await implementerService.finishWorkItemAttempt(project.id, workflow.id, third.id, retryAttempt.id,
     { summary: "Retryable failure", deviations: [], blockers: [], residualRisks: [], outcome: "failed" });
   assert.equal((await service.getImplementationAttempts(project.id, third.id)).length, 2);
   assert.equal((await service.getRecord(project.id, third.id)).body.workState, "ready");
   await assert.rejects(implementerService.beginWorkItemAttempt(project.id, workflow.id, third.id,
-    (await service.getRecord(project.id, third.id)).recordVersion, "attempt:partial"), /already been used/);
+    (await service.getRecord(project.id, third.id)).recordVersion, thirdAttempt.id), /already been used/);
 });
 
 test("typed WorkItem decomposition preserves exact ownership, criteria, dependencies, and rollback", async context => {

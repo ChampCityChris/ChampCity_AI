@@ -562,6 +562,16 @@ export class CodexImplementerExecutionService {
         ? "Semantic implementation attempt is complete; recover its exact durable SourceCheckpoint instead of rerunning Implementer."
         : canRunAgain ? null : "Refresh the exact WorkItem state before another implementation attempt." });
     }
+    const durable = await this.workflowExecutionServiceFactory().getImplementationAttempt(workspaceRoot, selector.workflowId, selector.workItemId).catch(() => null);
+    if (durable?.attempt.body.attemptState === "running") return unavailableFromPreflight(Error("Running ImplementationAttempt has no live Codex session; recovery/inspection required."));
+    if (durable?.attempt.body.attemptState === "prepared") {
+      try {
+        await this.workflowExecutionServiceFactory().assertImplementationAttemptCurrent(workspaceRoot, durable.attempt.id);
+        // Source materialization belongs to Run; Pending status is a pure reservation read.
+        return {...baseModel(path.resolve(workspaceRoot)), state: "ready", canRunAgain: true, executionKind: "workflow-work-item-implementation", workflowId: selector.workflowId, workItemId: selector.workItemId,
+          workItemVersion: durable.attempt.body.workItemVersion, executionContractDigest: durable.attempt.body.contractDigest, sourceMode: durable.attempt.body.sourceMode};
+      } catch (error) {return unavailableFromPreflight(error instanceof Error ? error : Error(String(error)));}
+    }
     const context = await this.resolveWorkflowWorkItemContext(workspaceRoot, selector);
     if (context instanceof Error) {
       const recovery = await this.workflowExecutionServiceFactory().getCheckpointRecoveryProjection(workspaceRoot, selector.workflowId, selector.workItemId).catch(() => null);
@@ -584,10 +594,18 @@ export class CodexImplementerExecutionService {
       const requested = await this.resolveWorkflowWorkItemContext(workspaceRoot, selector);
       return requested instanceof Error ? unavailableFromPreflight(requested) : busyModelForDifferentContext(requested, active);
     }
+    const attemptKernel = this.workflowExecutionServiceFactory();
+    let preparedAttempt: import("../../shared/projectState/domainContracts").ProjectStateRecord<"ImplementationAttempt">;
+    try {
+      const report = await attemptKernel.getImplementationAttempt(workspaceRoot, selector.workflowId, selector.workItemId);
+      preparedAttempt = report?.attempt.body.attemptState === "prepared" ? report.attempt : await attemptKernel.prepareImplementationAttempt(workspaceRoot, selector.workflowId, selector.workItemId);
+      // Validate reservation before source checkout materialization.
+      await attemptKernel.assertImplementationAttemptCurrent(workspaceRoot, preparedAttempt.id);
+    } catch (error) { return unavailableFromPreflight(error instanceof Error ? error : Error(String(error))); }
     const context = await this.resolveWorkflowWorkItemContext(workspaceRoot, selector, true);
     if (context instanceof Error) return unavailableFromPreflight(context);
     const exact = context.workflowWorkItem!;
-    const executionRef = crypto.randomUUID();
+    const executionRef = preparedAttempt.id;
     const runtimeDirectory = path.join(context.projectRoot, ".champcity", "runtime");
     const workerDirectory = exact.sourceBacked?.checkoutRoot ?? path.join(runtimeDirectory, "work-item-workers", executionRef);
     const leaseResource = workflowExecutionLeaseKey(exact.sourceBacked ? "source-backed" : "source-neutral", exact.sourceBacked?.checkoutRoot ?? workerDirectory);

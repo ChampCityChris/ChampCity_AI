@@ -69,7 +69,8 @@ async function qualifyExactWorkflowIntegration(context, workflowType) {
   const materialized = await materializer.materialize(created.workflow.id);
   const checkout = path.join(root, materialized.checkout.projectRelativePath);
   const kernel = createWorkflowExecutionApplicationService();
-  const attempt = await kernel.beginWorkItemAttempt(root, created.workflow.id, workItem.id, workItem.recordVersion, `integration-implementation-${workflowType}`);
+  const approvedContract = await kernel.acceptWorkItemExecutionPlan(root, {workflowId: created.workflow.id, workItemId: workItem.id, expectedVersion: workItem.recordVersion, plan: {implementationBoundaries: ["Change feature.txt only"], affectedPaths: ["feature.txt"], proofIntent: ["Inspect integration candidate"]}});
+  const attempt = await kernel.beginWorkItemAttempt(root, created.workflow.id, workItem.id, approvedContract.recordVersion, `integration-implementation-${workflowType}`);
   const implementation = await kernel.finishWorkItemAttempt(root, created.workflow.id, workItem.id, attempt.executionRef,
     { summary: "Updated feature source", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
   fs.writeFileSync(path.join(checkout, "feature.txt"), "accepted workflow change\n");

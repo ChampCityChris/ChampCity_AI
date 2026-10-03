@@ -30,6 +30,7 @@ const bodies = {
   BoundedSolution: { title: "Solution", objective: "Objective", scopeIn: [], scopeOut: [], constraints: [], assumptions: [], risks: [], solutionState: "proposed" },
   Criterion: { statement: "Observable", criticality: "required", verificationIntent: "Prove the result", validationPolicy: "deterministic", criterionState: "active" },
   WorkItem: { workItemKind: "feature", title: "Work", objective: "Objective", workState: "ready" },
+  ImplementationAttempt: {workflowId: linkedId, workItemId: linkedId, workItemVersion: 1, contractId: "contract", contractDigest: "a".repeat(64), attemptState: "prepared", sourceMode: "source-neutral", layout: {memberIds: [linkedId], sources: [{entityId: linkedId, recordVersion: 1}]}},
   ImplementationRecord: { workItemId: linkedId, summary: "Done", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" },
   TesterResult: { workflowId: linkedId, workItemId: linkedId, implementationRecordId: linkedId, sourceMode: "source-backed", implementerRevisionId: "revision",
     recommendation: "reuse-existing-proof", affectedCapabilityIds: [], permanentTestPaths: [], determinationEvidence: ["Catalog proof reviewed"],

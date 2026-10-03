@@ -1410,6 +1410,8 @@ export interface ChampCityApi {
   recordCloseoutReview(workflowId:string,cycleId:string,input:import("./projectState/architectReviewContracts").ArchitectReviewDecisionInput):Promise<import("./projectState/closeoutReviewContracts").CloseoutReviewProjection>;
   closeAndAdvance(input:import("./closeAdvanceContracts").CloseAdvanceRequest):Promise<import("./closeAdvanceContracts").CloseAdvanceProjection>;
   recordProjectCriterion(input:{workflowId:string;criterionId:string;expectedCriterionVersion:number;expectedWorkflowVersion:number;outcome:"approved"|"rejected"|"pass"|"fail";rationale:string}):Promise<import("./closeAdvanceContracts").CloseAdvanceProjection>;
+  prepareImplementationAttempt(workflowId: string, workItemId: string): ReturnType<ReturnType<typeof import("../main/workflow/workflowExecutionApplicationService").createWorkflowExecutionApplicationService>["prepareImplementationAttempt"]>;
+  getImplementationAttempt(workflowId: string, workItemId: string): ReturnType<ReturnType<typeof import("../main/workflow/workflowExecutionApplicationService").createWorkflowExecutionApplicationService>["getImplementationAttempt"]>;
   getStructuredWorkItemReview(workflowId:string,workItemId:string):Promise<import("./structuredWorkItemReviewContracts").StructuredWorkItemReview>;
 
   getStructuredWorkItemPlanning(workflowId: string, workItemId: string): ReturnType<ReturnType<typeof import("../main/workCardPlanning/structuredWorkItemPlanningService").createStructuredWorkItemPlanningService>["get"]>;

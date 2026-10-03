@@ -343,7 +343,7 @@ test("exact source-backed and source-neutral WorkItems use the bounded Tester li
   const neutralExecutionPlan = await createWorkflowExecutionApplicationService().acceptWorkItemExecutionPlan(root, { workflowId: sourceNeutral.workflow.id, workItemId: neutralWork.id,
     expectedVersion: neutralWork.recordVersion, plan: { implementationBoundaries: ["Keep the WorkItem source-neutral"], affectedPaths: [], proofIntent: ["Review source-neutral semantic completion"] } });
   const neutralImplementer = createProjectStateService(store, { principalId: "neutral-implementer", principalType: "agent", role: "Implementer" });
-  const neutralRef = "neutral-execution";
+  const neutralRef = (await state.prepareImplementationAttempt(project.project.id, sourceNeutral.workflow.id, neutralWork.id)).id;
   await neutralImplementer.beginWorkItemAttempt(project.project.id, sourceNeutral.workflow.id, neutralWork.id, neutralExecutionPlan.recordVersion, neutralRef);
   const neutralImplementation = await neutralImplementer.finishWorkItemAttempt(project.project.id, sourceNeutral.workflow.id, neutralWork.id, neutralRef,
     { summary: "Implementation complete", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
@@ -438,6 +438,6 @@ test("exact source-backed and source-neutral WorkItems use the bounded Tester li
   assert.equal(restoreFailure.checkpoint.status, "blocked");
   assert.match(restoreFailure.checkpoint.message, /recovery|restore|outside/i);
   assert.equal((await state.getRecord(project.project.id, unsafeRestoreItem.id)).body.workState, "blocked");
-  assert.equal(checkoutRegistrations, 4);
+  assert.equal(checkoutRegistrations, 3, "Only actual Runs materialize source; durable report/status reads do not prepare another checkout");
   assert.equal(appServerCalls, 3);
 });

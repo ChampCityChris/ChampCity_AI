@@ -266,7 +266,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   async function createRecord<T extends EntityType>(projectId: ProjectId | null, entityType: T, content: EntityBodyMap[T], context?: MutationContext) {
     if ((entityType === "WorkflowIntake" || entityType === "ArchitectReviewCycle" || entityType === "PlanReviewCycle")) fail("WorkflowIntake requires the typed save command.");
     if (restrictedGenericTypes.has(entityType)) fail("Decision, Validation, Evidence and TesterResult require typed commands.");
-    if (entityType === "ImplementationRecord" || entityType === "Workflow") fail("ImplementationRecord and Workflow require typed commands.");
+    if (entityType === "ImplementationAttempt" || entityType === "ImplementationRecord" || entityType === "Workflow") fail("ImplementationRecord and Workflow require typed commands.");
     if (entityType === "WorkIntake" || entityType === "RouteAssessment") fail("Work Intake and Route Assessment require typed commands.");
     if (["SourceBaseline", "SourceBinding", "SourceCheckpoint", "IntegrationRecord"].includes(entityType)) fail("Source semantic records require typed commands.");
     if (entityType === "RegressionObligation" || (entityType === "ProjectResource" && (content as EntityBodyMap["ProjectResource"]).resourceType === "permanent-test-reference")) fail("Tester semantic records require typed commands.");
@@ -470,7 +470,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) fail("An exact expected revision is required.");
     return store.transaction(projectId, async unit => {
       const current = await requiredRecord(unit, projectId, entityId);
-      if (["CloseoutReviewCycle", "WorkflowIntake", "ArchitectReviewCycle", "PlanReviewCycle", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle"].includes(current.entityType)) fail("WorkflowIntake requires the typed save command.");
+      if (["ImplementationAttempt", "CloseoutReviewCycle", "WorkflowIntake", "ArchitectReviewCycle", "PlanReviewCycle", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle"].includes(current.entityType)) fail("WorkflowIntake requires the typed save command.");
       if (restrictedGenericTypes.has(current.entityType)) fail("Immutable semantic records require typed correction or supersession.");
       if (current.entityType === "WorkIntake") fail("Work Intake revision requires a typed command.");
       if (current.entityType === "Phase" && Object.keys(patch).some(key => key !== "phaseState")) {
@@ -503,10 +503,11 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) fail("An exact expected revision is required.");
     return store.transaction(projectId, async unit => {
       const previous = await requiredRecord(unit, projectId, entityId);
-      if (["CloseoutReviewCycle", "WorkflowIntake", "ArchitectReviewCycle", "PlanReviewCycle", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle"].includes(previous.entityType)) fail("WorkflowIntake retains its identity through the typed save command.");
+      if (["ImplementationAttempt", "CloseoutReviewCycle", "WorkflowIntake", "ArchitectReviewCycle", "PlanReviewCycle", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle"].includes(previous.entityType)) fail("WorkflowIntake retains its identity through the typed save command.");
       if (previous.entityType === "Project" || previous.recordVersion !== expectedRevision) fail("Supersession target is unavailable or stale.");
       if (previous.lifecycleState !== "active" && previous.lifecycleState !== "closed") fail("Only a current active or closed record can be superseded.");
       if (restrictedGenericTypes.has(previous.entityType)) fail("Issued Decision, Validation, Evidence and TesterResult require a typed correction policy.");
+      if (previous.entityType === "ImplementationAttempt") fail("ImplementationAttempt requires typed lifecycle commands.");
       if (previous.entityType === "ImplementationRecord") fail("Implementation attempts are immutable; record a new attempt.");
       if (previous.entityType === "WorkIntake" || previous.entityType === "RouteAssessment") fail("Work Intake retains identity and Route Assessments remain historical records.");
       if (["SourceBaseline", "SourceBinding", "SourceCheckpoint", "IntegrationRecord"].includes(previous.entityType)) fail("Source semantic records retain their identity and revision history.");
@@ -549,7 +550,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (["intake_for", "architect_review_for", "review_member"].includes(relationshipType)) fail("Intake ownership requires the typed save command.");
     if (relationshipType === "routes_to") fail("Workflow route provenance requires the typed linkWorkflowRouteTarget command.");
     if (relationshipType === "governs") fail("Decision governance requires a typed Decision command.");
-    if (relationshipType === "implements_work_item") fail("Implementation attempts require a typed command.");
+    if (["implements_work_item", "implementation_attempt_for", "attempt_result"].includes(relationshipType)) fail("Implementation attempts require a typed command.");
     if (relationshipType === "initiates" || relationshipType === "assesses_route") fail("Work Intake ownership and route assessment require typed commands.");
     if (["binds_source", "checkpoints", "integrates"].includes(relationshipType)) fail("Source semantic relationships require typed commands.");
     if (relationshipType === "closeout_review_for") fail("Closeout linkage requires its typed command.");
@@ -1115,7 +1116,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   async function recordDecision(projectId: ProjectId, targetId: EntityId, input: DecisionInput, context?: MutationContext) {
-    if (["closeout-review", "workflow-intake-review", "architect-review", "plan-review", "project-planning-review", "phase-map-review", "phase-loop-review", "work-item-planning-review"].includes(input.decisionType) || ["CloseoutReviewCycle", "WorkflowIntake", "ArchitectReviewCycle", "PlanReviewCycle", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle"].includes((await requiredRecord(store, projectId, targetId)).entityType)) fail("Workflow review requires the typed decision command.");
+    if (["closeout-review", "workflow-intake-review", "architect-review", "plan-review", "project-planning-review", "phase-map-review", "phase-loop-review", "work-item-planning-review"].includes(input.decisionType) || ["ImplementationAttempt", "CloseoutReviewCycle", "WorkflowIntake", "ArchitectReviewCycle", "PlanReviewCycle", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle"].includes((await requiredRecord(store, projectId, targetId)).entityType)) fail("Workflow review requires the typed decision command.");
     const now = new Date().toISOString();
     return recordLinked(projectId, targetId, "Decision", decisionBody(input, trustedPrincipal, now), "governs", context);
   }
@@ -1602,13 +1603,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     }, "implements_work_item", context);
   }
 
-  /** Begin a canonical Work Item attempt under one exact current Workflow owner. */
-  async function beginWorkItemAttempt(projectId: ProjectId, workflowId: EntityId, workItemId: EntityId,
-    expectedWorkItemVersion: number, executionRef: string, context?: MutationContext) {
-    if (trustedPrincipal.principalType !== "agent" || trustedPrincipal.role !== "Implementer") fail("Exact implementation attempts require the trusted Implementer agent principal.");
-    exactInput({ workflowId, workItemId, expectedWorkItemVersion, executionRef }, ["workflowId", "workItemId", "expectedWorkItemVersion", "executionRef"]);
-    if (!executionRef || executionRef.length > 128 || !Number.isSafeInteger(expectedWorkItemVersion) || expectedWorkItemVersion < 1) fail("Exact Work Item attempt identity is required.");
-    return store.transaction(projectId, async unit => {
+  async function implementationEligibility(unit: ProjectStateUnitOfWork, projectId: ProjectId, workflowId: EntityId, workItemId: EntityId, expectedWorkItemVersion: number) {
       const workflow = await requiredRecord(unit, projectId, workflowId);
       if (workflow.entityType !== "Workflow" || workflow.lifecycleState !== "active" || ["closed", "cancelled"].includes(workflow.body.workflowState) || !isStructuredExecutionWorkflowType(workflow.body.workflowType)) fail("A current supported implementation Workflow is required.");
       const currentOwners = (await unit.listEntities(projectId, "Workflow")).filter(record => record.entityType === "Workflow" && record.lineageId === workflow.lineageId && record.lifecycleState === "active" && !["closed", "cancelled"].includes(record.body.workflowState));
@@ -1653,6 +1648,113 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         const dependency = await requiredRecord(unit, projectId, edge.toEntityId);
         if (dependency.entityType !== "WorkItem" || dependency.body.workState !== "closed") fail("Work Item dependencies are not complete.");
       }
+      return {workflow, item, plan, edges};
+  }
+  async function implementationReservation(unit: ProjectStateUnitOfWork, projectId: ProjectId, workflowId: EntityId, workItemId: EntityId) {
+    const item = await requiredRecord(unit, projectId, workItemId);
+    const eligible = await implementationEligibility(unit, projectId, workflowId, workItemId, item.recordVersion);
+    const {plan, workflow, edges} = eligible;
+    if (item.entityType !== "WorkItem" || !item.body.implementationBoundaries?.length || !item.body.proofIntent?.length || !item.body.affectedPaths) fail("Approved execution planning is required.");
+    const solutionIds = edges.filter(edge => edge.relationshipType === "implements" && edge.fromEntityId === workItemId).map(edge => edge.toEntityId);
+    const solutions = plan.solutions.filter(solution => solutionIds.includes(solution.id));
+    if (solutions.length !== 1) fail("Exact WorkItem BoundedSolution required.");
+    const ids = new Set([workflowId, workItemId, solutions[0].id, ...plan.criteria.filter(entry => entry.ownerId === workItemId || entry.ownerId === solutions[0].id).map(entry => entry.record.id)]);
+    const phase = plan.phases.find(phase => phase.workItemIds.includes(workItemId));
+    if (phase) ids.add(phase.phaseId);
+    for (const edge of edges.filter(edge => edge.relationshipType === "depends_on" && edge.fromEntityId === workItemId)) ids.add(edge.toEntityId);
+    for (const edge of edges.filter(edge => edge.relationshipType === "governs" && ids.has(edge.toEntityId))) ids.add(edge.fromEntityId);
+    const baselines = (await unit.listEntities(projectId, "SourceBaseline")).filter((record): record is ProjectStateRecord<"SourceBaseline"> => record.entityType === "SourceBaseline" && record.body.workflowId === workflowId && record.lifecycleState === "active");
+    const bindings = (await unit.listEntities(projectId, "SourceBinding")).filter((record): record is ProjectStateRecord<"SourceBinding"> => record.entityType === "SourceBinding" && record.body.workflowId === workflowId && record.lifecycleState === "active");
+    if (baselines.length > 1 || bindings.length > 1 || bindings.length && (!baselines.length || bindings[0].body.sourceBaselineId !== baselines[0].id)) fail("Ambiguous source reservation.");
+    baselines.forEach(record => ids.add(record.id));
+    const members = await Promise.all([...ids].sort().map(id => requiredRecord(unit, projectId, id)));
+    const sourceRevisionId = bindings[0]?.body.currentRevisionId ?? baselines[0]?.body.baseRevisionId;
+    const sourceIdentity = [baselines[0]?.id ?? null, bindings[0]?.id ?? null, sourceRevisionId ?? null];
+    // Checkout preparation changes binding lifecycle/version, but cannot change the reserved source identity/revision.
+    const serialized = JSON.stringify([members.map(record => [record.id, record.recordVersion]), sourceIdentity]);
+    const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized))), byte => byte.toString(16).padStart(2, "0")).join("");
+    const sources = [...members, ...bindings].map(record => ({entityId: record.id, recordVersion: record.recordVersion}));
+    return {workflowId, workItemId, workItemVersion: item.recordVersion, contractId: `work-item-reservation:${digest}`, contractDigest: digest,
+      sourceMode: baselines.length ? "source-backed" as const : "source-neutral" as const, layout: {memberIds: sources.map(source => source.entityId), sources}, ...(sourceRevisionId ? {sourceRevisionId} : {})};
+  }
+  async function getImplementationAttempt(projectId: ProjectId, workflowId: EntityId, workItemId: EntityId) {
+    const attempts = (await store.listEntities(projectId, "ImplementationAttempt")).filter((record): record is ProjectStateRecord<"ImplementationAttempt"> => record.entityType === "ImplementationAttempt" && record.body.workflowId === workflowId && record.body.workItemId === workItemId && record.body.attemptState !== "abandoned");
+    const live = attempts.filter(record => ["prepared", "running"].includes(record.body.attemptState));
+    if (live.length > 1) fail("Ambiguous current ImplementationAttempt.");
+    return live[0] ?? attempts.sort((a,b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)).at(-1) ?? null;
+  }
+  async function reviseImplementationAttempt(unit: ProjectStateUnitOfWork, previous: ProjectStateRecord<"ImplementationAttempt">, body: EntityBodyMap["ImplementationAttempt"], context?: MutationContext) {
+    const now = new Date().toISOString();
+    const next = validateProjectStateEntity({...previous, body, recordVersion: previous.recordVersion + 1, updatedAt: now, updatedBy: trustedPrincipal});
+    await unit.saveEntity(next, previous.recordVersion);
+    await recordMutation(unit, {projectId: previous.projectId, entityId: previous.id, fromVersion: previous.recordVersion, toVersion: next.recordVersion, operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now, changedFields: ["attemptState", "implementationRecordId"], defaultReason: "Transition exact ImplementationAttempt", context});
+    return next;
+  }
+  async function prepareImplementationAttempt(projectId: ProjectId, workflowId: EntityId, workItemId: EntityId, context?: MutationContext) {
+    return store.transaction(projectId, async unit => {
+      const previous = await getImplementationAttempt(projectId, workflowId, workItemId);
+      if (previous?.body.attemptState === "running") fail("Running attempt requires recovery/inspection; no second execution may start.");
+      const reservation = await implementationReservation(unit, projectId, workflowId, workItemId);
+      if (previous?.body.attemptState === "prepared") {
+        if (previous.body.contractDigest === reservation.contractDigest) { await verifyImplementationReservation(unit, previous); return previous; }
+        await reviseImplementationAttempt(unit, previous, {...previous.body, attemptState: "abandoned"}, context);
+      }
+      const attempt = createProjectStateEntity({entityType: "ImplementationAttempt", projectId, principal: trustedPrincipal, body: {...reservation, attemptState: "prepared"}});
+      await unit.saveEntity(attempt, null);
+      await recordMutation(unit, {projectId, entityId: attempt.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: attempt.createdAt, changedFields: Object.keys(attempt.body), defaultReason: "Prepare durable Pending Implementer report", context});
+      await linkSemantic(unit, projectId, attempt, await requiredRecord(unit, projectId, workItemId), "implementation_attempt_for", context);
+      return attempt;
+    });
+  }
+  async function verifyImplementationReservation(unit: ProjectStateUnitOfWork, attempt: ProjectStateRecord<"ImplementationAttempt">) {
+    const reservation = await implementationReservation(unit, attempt.projectId, attempt.body.workflowId, attempt.body.workItemId);
+    if (reservation.contractDigest !== attempt.body.contractDigest) fail("Prepared ImplementationAttempt is stale; prepare a new report.");
+    for (const source of attempt.body.layout.sources) {
+      const previous = await unit.getEntityVersion(attempt.projectId, source.entityId, source.recordVersion);
+      if (previous?.entityType !== "SourceBinding") continue;
+      const current = await requiredRecord(unit, attempt.projectId, source.entityId);
+      if (current.entityType !== "SourceBinding" || previous.body.workSourceLineId && previous.body.workSourceLineId !== current.body.workSourceLineId || previous.body.repositoryCheckoutId && previous.body.repositoryCheckoutId !== current.body.repositoryCheckoutId) fail("Prepared attempt source binding context is stale.");
+    }
+  }
+  async function assertImplementationAttemptCurrent(projectId: ProjectId, attemptId: EntityId) {
+    return store.transaction(projectId, async unit => {
+      const attempt = await requiredRecord(unit, projectId, attemptId);
+      if (attempt.entityType !== "ImplementationAttempt" || attempt.body.attemptState !== "prepared") fail("Exact prepared ImplementationAttempt required; recovery/inspection may be required.");
+      await verifyImplementationReservation(unit, attempt);
+      return attempt;
+    });
+  }
+  async function getImplementationAttemptReport(projectId: ProjectId, attemptId: EntityId) {
+    const attempt = await requiredRecord(store, projectId, attemptId);
+    if (attempt.entityType !== "ImplementationAttempt") fail("Exact ImplementationAttempt required.");
+    const sections = ["# Implementer Report", "", "> Generated from SQL Project State. Markdown edits do not change authority.", "", `Status: ${attempt.body.attemptState === "prepared" ? "Pending" : attempt.body.attemptState}`, `Attempt: ${attempt.id}@${attempt.recordVersion}`, `Workflow: ${attempt.body.workflowId}`, `WorkItem: ${attempt.body.workItemId}`, `Contract: ${attempt.body.contractId}`, `Source mode: ${attempt.body.sourceMode}`, `Reserved revision: ${attempt.body.sourceRevisionId ?? "not required"}`, ""];
+    for (const source of attempt.body.layout.sources) {
+      const record = await store.getEntityVersion(projectId, source.entityId, source.recordVersion);
+      if (!record) fail("Reserved report context is unavailable.");
+      sections.push(markdownRecord(record));
+    }
+    if (attempt.body.implementationRecordId) {
+      const result = await requiredRecord(store, projectId, attempt.body.implementationRecordId);
+      if (result.entityType !== "ImplementationRecord" || result.body.executionRef !== attempt.id) fail("Attempt result identity mismatch.");
+      sections.push(markdownRecord(result));
+      const edges = await store.listRelationships(projectId, "checkpoints");
+      for (const edge of edges.filter(edge => !edge.endedAt && edge.toEntityId === result.id).sort((a,b) => a.id.localeCompare(b.id))) sections.push(markdownRecord(await requiredRecord(store, projectId, edge.fromEntityId)));
+    }
+    return {attempt, filename: `IMPLEMENTER_REPORT_${attempt.id}.md`, markdown: sections.join("\n\n")};
+  }
+
+  /** Begin a canonical Work Item attempt under one exact current Workflow owner. */
+  async function beginWorkItemAttempt(projectId: ProjectId, workflowId: EntityId, workItemId: EntityId,
+    expectedWorkItemVersion: number, executionRef: string, context?: MutationContext) {
+    if (trustedPrincipal.principalType !== "agent" || trustedPrincipal.role !== "Implementer") fail("Exact implementation attempts require the trusted Implementer agent principal.");
+    exactInput({ workflowId, workItemId, expectedWorkItemVersion, executionRef }, ["workflowId", "workItemId", "expectedWorkItemVersion", "executionRef"]);
+    if (!executionRef || executionRef.length > 128 || !Number.isSafeInteger(expectedWorkItemVersion) || expectedWorkItemVersion < 1) fail("Exact Work Item attempt identity is required.");
+    return store.transaction(projectId, async unit => {
+      const {item} = await implementationEligibility(unit, projectId, workflowId, workItemId, expectedWorkItemVersion);
+      const attempt = await requiredRecord(unit, projectId, executionRef);
+      if (attempt.entityType !== "ImplementationAttempt" || attempt.body.workflowId !== workflowId || attempt.body.workItemId !== workItemId || attempt.body.attemptState !== "prepared") fail("Exact prepared attempt is unavailable or already been used.");
+      await verifyImplementationReservation(unit, attempt);
+      await reviseImplementationAttempt(unit, attempt, {...attempt.body, attemptState: "running"}, context);
       const prior = (await unit.listEntities(projectId, "ImplementationRecord")).filter(record => record.entityType === "ImplementationRecord" && record.body.executionRef === executionRef);
       if (prior.length) fail("Execution identity has already been used.");
       const now = new Date().toISOString();
@@ -1676,6 +1778,14 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     return store.transaction(projectId, async unit => {
       const workflow = await requiredRecord(unit, projectId, workflowId);
       const item = await requiredRecord(unit, projectId, workItemId);
+      const attempt = await requiredRecord(unit, projectId, executionRef);
+      if (attempt.entityType !== "ImplementationAttempt" || attempt.body.workflowId !== workflowId || attempt.body.workItemId !== workItemId) fail("Exact attempt identity is unavailable.");
+      if (attempt.body.attemptState === "completed" && attempt.body.implementationRecordId) {
+        const result = await requiredRecord(unit, projectId, attempt.body.implementationRecordId);
+        if (result.entityType === "ImplementationRecord" && result.body.executionRef === attempt.id && ["summary", "deviations", "blockers", "residualRisks", "outcome"].every(key => JSON.stringify((result.body as unknown as Record<string, unknown>)[key]) === JSON.stringify((input as unknown as Record<string, unknown>)[key]))) return result;
+        fail("Execution identity conflicts with immutable implementation evidence.");
+      }
+      if (attempt.body.attemptState !== "running") fail("Exact running attempt required.");
       if (workflow.entityType !== "Workflow" || item.entityType !== "WorkItem" || item.body.workState !== "in_progress" || !isStructuredExecutionWorkflowType(workflow.body.workflowType)) fail("Exact active Workflow attempt is unavailable.");
       const currentOwners = (await unit.listEntities(projectId, "Workflow")).filter(record => record.entityType === "Workflow" && record.lineageId === workflow.lineageId && record.lifecycleState === "active" && !["closed", "cancelled"].includes(record.body.workflowState));
       if (currentOwners.length !== 1 || currentOwners[0].id !== workflowId) fail("Exact Workflow is not the unique current owner.");
@@ -1686,7 +1796,6 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       if (parent !== workflowId) fail("Work Item is not owned by the exact Workflow.");
       const existing = (await unit.listEntities(projectId, "ImplementationRecord")).filter((record): record is ProjectStateRecord<"ImplementationRecord"> => record.entityType === "ImplementationRecord" && record.body.executionRef === executionRef);
       if (existing.length) {
-        if (existing.length === 1 && existing[0].body.workItemId === workItemId && JSON.stringify({ ...existing[0].body, executionRef: undefined }) === JSON.stringify({ ...input, workItemId, executionRef: undefined })) return existing[0];
         fail("Execution identity conflicts with immutable implementation evidence.");
       }
       const record = createProjectStateEntity({ entityType: "ImplementationRecord", projectId,
@@ -1695,6 +1804,8 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       await recordMutation(unit, { projectId, entityId: record.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create,
         occurredAt: record.createdAt, changedFields: Object.keys(record.body), defaultReason: "Record exact Work Item implementation attempt", context });
       await linkSemantic(unit, projectId, record, item, "implements_work_item", context);
+      await linkSemantic(unit, projectId, record, attempt, "attempt_result", context);
+      await reviseImplementationAttempt(unit, attempt, {...attempt.body, attemptState: "completed", implementationRecordId: record.id}, context);
       const state = input.outcome === "implemented" ? "validation_pending" : input.outcome === "blocked" ? "blocked" : "ready";
       const now = new Date().toISOString();
       const next = validateProjectStateEntity({ ...item, recordVersion: item.recordVersion + 1, updatedAt: now, updatedBy: trustedPrincipal,
@@ -2996,6 +3107,10 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (request.projectionType === "project-state-summary" && request.sourceEntityId && request.sourceEntityId !== projectId) fail("Project summary must target the Project.");
     if (request.projectionType !== "project-state-summary" && !request.sourceEntityId) fail("Projection source entity is required.");
     const target = request.projectionType === "project-state-summary" ? project : await requiredRecord(store, projectId, request.sourceEntityId as EntityId);
+    if (request.projectionType === "implementation-report" && target.entityType === "ImplementationAttempt") {
+      const report = await getImplementationAttemptReport(projectId, target.id);
+      return {metadata: {projectionType: "implementation-report", projectionVersion: 1, projectId, sourceEntityIds: [target.id, ...target.body.layout.memberIds, ...(target.body.implementationRecordId ? [target.body.implementationRecordId] : [])].sort(), generatedAt: target.updatedAt, authoritative: false}, markdown: report.markdown};
+    }
     const expected: Partial<Record<ProjectionType, EntityType>> = {
       "work-intake": "WorkIntake", "route-history": "WorkIntake", "work-item": "WorkItem", repair: "WorkItem", fix: "WorkItem",
       validation: "Validation", "implementation-report": "ImplementationRecord",
@@ -4335,7 +4450,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   return {getCloseoutEligibility, saveCloseoutCandidate, getCloseoutReview, recordCloseoutReview, saveWorkItemPlanningContract, getWorkItemPlanningReview, recordWorkItemPlanningReview, savePhaseLoopCandidate, getPhaseLoopReview, recordPhaseLoopReview, saveGreenfieldPhaseMap, getGreenfieldPhaseMap, recordGreenfieldPhaseMapReview, saveProjectPlanningCandidate, getProjectPlanningReview, recordProjectPlanningReview, closeResearchAfterAssessment, savePlanCandidate, getPlanReview, recordPlanReview, prepareArchitectWorkspace, prepareExactPlanningWorkspace, adoptLegacyArchitectReview, saveArchitectCandidate, saveGreenfieldArchitectOutput, getArchitectReviewProjection, saveArchitectReviewCycle, getCurrentArchitectReviewCycle, getArchitectReviewDisposition, recordArchitectReview, saveWorkflowIntake, recordWorkflowIntakeDecision, getWorkflowIntakeDisposition, createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
     createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, completeTesterResultCheckpoint, createIntegrationRecord, advanceIntegrationRecord, completeWorkflowExecution, closeIntegratedWorkflow,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, createTesterResult, createWorkflowRepair, createPhaseRepair, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
-    reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, recordCriterionOperatorDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,
+    reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, recordCriterionOperatorDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, prepareImplementationAttempt, getImplementationAttempt, assertImplementationAttemptCurrent, getImplementationAttemptReport, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,
     getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, renderView, exportStructuredProjectState, getAuthoritativeContext, getCommittedEventFeed, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
     getEffectiveDisposition, getCriterionOperatorDecisionStatus, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus, linkPhaseValidationEvidence,
     getImplementationAttempts, getExecutionPlan, getWorkflowExecutionPlan, getProjectCompletionEligibility, getWorkflowSourceRevisionChain: (projectId: ProjectId, workflowId: EntityId) => workflowSourceRevisionChain(projectId, workflowId), acceptWorkflowPlanningGraph, acceptFeatureAssessment, acceptIssueRca, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,

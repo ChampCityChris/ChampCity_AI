@@ -18,7 +18,7 @@ interface RelationshipDefinition {
   immutableProvenance: boolean;
 }
 
-const all: readonly EntityType[] = ["Project", "ProjectResource", "WorkIntake", "RouteAssessment", "WorkflowIntake", "ArchitectReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle", "ProjectPlanningReviewCycle", "Workflow", "SourceBaseline", "Phase", "Finding", "RootCause", "BoundedSolution", "Criterion", "WorkItem", "ImplementationRecord", "TesterResult", "Validation", "Evidence", "Decision", "RegressionObligation", "SourceBinding", "SourceCheckpoint", "IntegrationRecord"];
+const all: readonly EntityType[] = ["Project", "ProjectResource", "WorkIntake", "RouteAssessment", "WorkflowIntake", "ArchitectReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle", "ProjectPlanningReviewCycle", "Workflow", "SourceBaseline", "Phase", "Finding", "RootCause", "BoundedSolution", "Criterion", "WorkItem", "ImplementationAttempt", "ImplementationRecord", "TesterResult", "Validation", "Evidence", "Decision", "RegressionObligation", "SourceBinding", "SourceCheckpoint", "IntegrationRecord"];
 const nonProject = [...all, "CloseoutReviewCycle" as const, "PlanReviewCycle" as const, "ResearchOutcome" as const].filter(type => type !== "Project");
 const rule = (from: readonly EntityType[], to: readonly EntityType[], immutableProvenance = false): RelationshipDefinition => ({ from, to, immutableProvenance });
 
@@ -47,6 +47,8 @@ export const RELATIONSHIP_REGISTRY = Object.freeze({
   plan_review_for: rule(["PlanReviewCycle"], ["Workflow"], true),
   intake_for: rule(["WorkflowIntake"], ["Workflow"], true),
   implements: rule(["WorkItem"], ["BoundedSolution"]),
+  implementation_attempt_for: rule(["ImplementationAttempt"], ["WorkItem"], true),
+  attempt_result: rule(["ImplementationRecord"], ["ImplementationAttempt"], true),
   implements_work_item: rule(["ImplementationRecord"], ["WorkItem"], true),
   initiates: rule(["WorkIntake"], ["Workflow"], true),
   integrates: rule(["IntegrationRecord"], ["Workflow", "SourceBinding", "WorkItem", "ImplementationRecord"], true),
