@@ -1006,7 +1006,8 @@ test("canonical Repair accepts failing Criteria owned by the WorkItem or its acc
     const result = await kernel.createWorkflowRepair(env.root, created.workflow.id, parent.id, validation.id);
     assert.equal(result.repair.body.workState, "planned");
     assert.equal(result.failureIdentity, `validation:${validation.id}:criterion:${criterion.id}:version:${criterion.recordVersion}`);
-    await assert.rejects(kernel.createWorkflowRepair(env.root, created.workflow.id, parent.id, validation.id), /already exists/);
+    const recovered = await kernel.createWorkflowRepair(env.root, created.workflow.id, parent.id, validation.id);
+    assert.equal(recovered.repair.id, result.repair.id);
     const projection = await kernel.getExecutionProjection(env.root, created.workflow.id);
     assert.ok(projection.items.some(item => item.record.id === parent.id && item.repairIds.includes(result.repair.id)));
   }
@@ -1273,4 +1274,27 @@ test("Architect aggregate advice persists exact SQL candidate without Operator a
   assert.equal((await env.store.listEntities(env.projectId,"Decision")).filter(record=>record.body.decisionType==="work-item-validation-review").length,0);
   await assert.rejects(env.state.recordDecision(env.projectId,cycle.id,{decisionType:"work-item-validation-review",outcome:"approved",decisionScope:"forged"}),/typed/);
   await assert.rejects(env.state.reviseRecord(env.projectId,cycle.id,{operatorNotes:"Forged"},cycle.recordVersion),/typed/);
+});
+
+test("structured Repair adapter resolves all exact failure sources, recovers idempotently and rejects peer identities", async context => {
+  const adapter=require("../../dist/main/workCardRepair/structuredRepairWorkspaceService.js").createStructuredRepairWorkspaceService();
+  for(const kind of ["review","tester","validation","operator"]){
+    const criteria=kind==="validation"||kind==="operator"?[{statement:"Required proof",criticality:"required",verificationIntent:"Inspect",validationPolicy:kind==="operator"?"operator_decision":"semantic_ai"}]:[];
+    const env=await validationCycleFixture(context,criteria);let failure;
+    if(kind==="review"){
+      const cycle=await env.state.prepareWorkItemValidationCycle(env.projectId,env.workflow.id,env.item.id);
+      failure=await env.state.reviewWorkItemValidationCycle(env.projectId,env.workflow.id,env.item.id,{cycleId:cycle.id,expectedRecordVersion:cycle.recordVersion,outcome:"RequestRepair",repairDefectText:"Exact human defect"});
+    }else if(kind==="tester"){
+      failure=await createProjectStateService(env.store,{principalId:"tester",principalType:"agent",role:"Tester"}).createTesterResult(env.projectId,env.workflow.id,env.item.id,env.result.id,{sourceMode:"source-neutral",recommendation:"production-defect-suspected",affectedCapabilityIds:[],permanentTestPaths:[],determinationEvidence:["Defect inspected"],unknowns:[],rationale:"Production defect"});
+    }else {
+      await cycleTester(env);const criterion=(await env.kernel.getWorkItemValidationProjection(env.root,env.workflow.id,env.item.id)).criteria[0].criterion;
+      failure=kind==="operator"?await env.state.recordCriterionOperatorDecision(env.projectId,criterion.id,{expectedCriterionVersion:criterion.recordVersion,outcome:"rejected",rationale:"Criterion rejected"},{workflowId:env.workflow.id,workItemId:env.item.id}):await createProjectStateService(env.store,{principalId:"validator",principalType:"agent",role:"Validator"}).recordValidation(env.projectId,criterion.id,{validationType:"work-item-criterion",method:"Independent inspection",validationMode:"semantic_ai",outcome:"fail",summary:"Defect",targetRecordVersion:criterion.recordVersion,implementationRecordId:env.result.id});
+    }
+    if(kind==="operator")failure=failure.decision;
+    const first=await adapter.createOrRecover(env.root,env.workflow.id,env.item.id,failure.id),second=await adapter.createOrRecover(env.root,env.workflow.id,env.item.id,failure.id);
+    assert.equal(first.repair.id,second.repair.id);assert.equal(first.parent.id,env.item.id);assert.equal(first.failure.id,failure.id);assert.equal(first.criterion.id,second.criterion.id);assert.equal(first.sourceMode,"source-neutral");assert.match(first.handoff,/Exact Repair provenance/);assert.match(first.markdown,/Fresh parent Implementer/);
+    if(kind==="review")assert.equal(first.parentCycle.body.repairDefectText,"Exact human defect");
+    await assert.rejects(adapter.get(env.root,env.workflow.id,env.item.id),/Exact Repair/);
+    await assert.rejects(adapter.get(env.root,crypto.randomUUID(),first.repair.id),/Workflow|workflow|Exact|record does not exist/);
+  }
 });

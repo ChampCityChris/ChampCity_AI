@@ -662,6 +662,16 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       const plan = await exactPlan(store, projectId, workflowId);
       if (![...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].some(record => record.id === workItemId))
         throw Error("Repair parent is not part of the selected current Workflow.");
+      // Recover only a same-Workflow active Repair with exact Criterion failure provenance.
+      const members=[...plan.directWorkItems,...Object.values(plan.workItemsByPhase).flat()],edges=(await store.listRelationships(projectId)).filter(edge=>!edge.endedAt);
+      const failure=await store.getEntity(projectId,failureEvidenceId);
+      const supported=failure?.entityType === "Validation" && failure.body.outcome === "fail" || failure?.entityType === "TesterResult" && failure.body.recommendation === "production-defect-suspected" || failure?.entityType === "Decision" && (failure.body.decisionType === "criterion-operator-decision" && failure.body.outcome === "rejected" || failure.body.decisionType === "work-item-validation-review" && failure.body.outcome === "revision_requested");
+      if(supported) for(const edge of edges.filter(edge=>edge.relationshipType==="repairs"&&edge.toEntityId===workItemId)) {
+        const repair=members.find(item=>item.id===edge.fromEntityId&&item.lifecycleState==="active"&&!["closed","cancelled"].includes(item.body.workState));if(!repair)continue;
+        const criterionIds=edges.filter(candidate=>candidate.relationshipType==="defines_criterion"&&candidate.fromEntityId===repair.id).map(candidate=>candidate.toEntityId);
+        const provenance=edges.filter(candidate=>candidate.relationshipType==="derived_from"&&criterionIds.includes(candidate.fromEntityId)&&candidate.toEntityId===failureEvidenceId);
+        if(provenance.length===1) {const criterion=await store.getEntity(projectId,provenance[0].fromEntityId);if(criterion?.entityType==="Criterion")return {repair,criterion,failureIdentity:repair.body.objective.match(/\[([^\]]+)\]$/)?.[1]??failureEvidenceId};}
+      }
       return createProjectStateService(store, workflowApplication).createWorkflowRepair(projectId, { workflowId, workItemId, failureEvidenceId });
     });
   }

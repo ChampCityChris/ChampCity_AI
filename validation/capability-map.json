@@ -4127,6 +4127,7 @@
         "src/main/projectPlanning/structuredProjectPlanningService.ts",
         "src/main/sourceControl/workflowIntegrationService.ts",
         "src/main/workCardPlanning/structuredWorkItemPlanningService.ts",
+        "src/main/workCardRepair/**",
         "src/main/workCardValidation/structuredWorkItemReviewService.ts",
         "src/main/workPlanning/exactWorkflowPlanningService.ts",
         "src/main/workflow/**",
@@ -4157,6 +4158,7 @@
         "src/shared/projectState/projectStateService.ts",
         "src/shared/projectState/workItemPlanningContracts.ts",
         "src/shared/projectState/workflowTypeRegistry.ts",
+        "src/shared/structuredRepairWorkspaceContracts.ts",
         "src/shared/structuredWorkItemReviewContracts.ts",
         "src/shared/structuredWorkRoutingContracts.ts",
         "src/shared/workflowApplicationContracts.ts",
@@ -17281,8 +17283,8 @@
     {
       "testPath": "test/workflow/workflow-execution-application-service.test.cjs",
       "currentTestCount": {
-        "value": 16,
-        "basis": "Ten focused service and IPC scenarios cover exact shared execution, current Criteria, source-neutral semantic evidence and close, peer-Workflow Phase isolation, bounded product APIs, system completion attribution, and canonical Repair re-entry. RWS06G adds exact shared execution proof. WSF15A extends this owner with exact aggregate cycle freshness, human review completion and Repair recovery, and non-authoritative Architect advice."
+        "value": 17,
+        "basis": "Ten focused service and IPC scenarios cover exact shared execution, current Criteria, source-neutral semantic evidence and close, peer-Workflow Phase isolation, bounded product APIs, system completion attribution, and canonical Repair re-entry. RWS06G adds exact shared execution proof. WSF15A extends this owner with exact aggregate cycle freshness, human review completion and Repair recovery, and non-authoritative Architect advice. WSF16A adds four-source exact Repair adapter and idempotent application recovery."
       },
       "duration": {
         "kind": "measured",

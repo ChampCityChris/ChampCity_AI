@@ -1,3 +1,4 @@
+import {createStructuredRepairWorkspaceService} from "../workCardRepair/structuredRepairWorkspaceService";
 import {createStructuredCloseAdvanceService} from "./structuredCloseAdvanceService";
 import {createStructuredWorkItemReviewService} from "../workCardValidation/structuredWorkItemReviewService";
 import {createStructuredWorkItemPlanningService} from "../workCardPlanning/structuredWorkItemPlanningService";
@@ -149,6 +150,8 @@ export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcR
     const review = createStructuredWorkItemReviewService();
     return action === "prepare" ? review.prepare(getCurrentProjectRoot(),args[0] as string,args[1] as string) : review.review(getCurrentProjectRoot(),args[0] as string,args[1] as string,args[2] as import("../../shared/structuredWorkItemReviewContracts").WorkItemReviewDecisionInput);
   });
+  registry.handle("repairWorkspace:get",async(_event,...args)=>{if(args.length!==2||args.some(value=>typeof value!=="string"||!value.trim()||value.length>128))throw Error("Exact Workflow and Repair IDs required.");return createStructuredRepairWorkspaceService().get(getCurrentProjectRoot(),args[0] as string,args[1] as string);});
+  registry.handle("repairWorkspace:createOrRecover",async(_event,...args)=>{if(args.length!==3||args.some(value=>typeof value!=="string"||!value.trim()||value.length>128))throw Error("Exact Workflow, parent and failure IDs required.");return createStructuredRepairWorkspaceService().createOrRecover(getCurrentProjectRoot(),args[0] as string,args[1] as string,args[2] as string);});
   registry.handle("workReview:get",async(_event,...args)=>{if(args.length!==2||args.some(value=>typeof value!=="string"||!value.trim()||value.length>128))throw Error("Exact Workflow and WorkItem IDs required.");return createStructuredWorkItemReviewService().get(getCurrentProjectRoot(),args[0] as string,args[1] as string);});
   registry.handle("workflow:get", async (_event, ...args) => {
     if (args.length !== 1 || typeof args[0] !== "string" || !args[0].trim() || args[0].length > 128)

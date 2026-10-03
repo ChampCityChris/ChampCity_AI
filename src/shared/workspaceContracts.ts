@@ -1414,6 +1414,8 @@ export interface ChampCityApi {
   getImplementationAttempt(workflowId: string, workItemId: string): ReturnType<ReturnType<typeof import("../main/workflow/workflowExecutionApplicationService").createWorkflowExecutionApplicationService>["getImplementationAttempt"]>;
   prepareWorkItemValidationCycle(workflowId:string,workItemId:string):Promise<import("./structuredWorkItemReviewContracts").StructuredWorkItemReview>;
   reviewWorkItemValidationCycle(workflowId:string,workItemId:string,input:import("./structuredWorkItemReviewContracts").WorkItemReviewDecisionInput):Promise<import("./projectState/domainContracts").ProjectStateRecord<"Decision">>;
+  getStructuredRepairWorkspace(workflowId:string,repairId:string):Promise<import("./structuredRepairWorkspaceContracts").StructuredRepairWorkspace>;
+  createOrRecoverStructuredRepair(workflowId:string,parentId:string,failureId:string):Promise<import("./structuredRepairWorkspaceContracts").StructuredRepairWorkspace>;
   getStructuredWorkItemReview(workflowId:string,workItemId:string):Promise<import("./structuredWorkItemReviewContracts").StructuredWorkItemReview>;
 
   getStructuredWorkItemPlanning(workflowId: string, workItemId: string): ReturnType<ReturnType<typeof import("../main/workCardPlanning/structuredWorkItemPlanningService").createStructuredWorkItemPlanningService>["get"]>;
