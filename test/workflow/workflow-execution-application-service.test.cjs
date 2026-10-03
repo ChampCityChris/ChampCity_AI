@@ -1218,3 +1218,59 @@ test("durable report preparation, stale reservation rejection and completed repo
   assert.equal((await env.store.listRelationships(env.projectId, "attempt_result"))[0].toEntityId, current.id);
   assert.equal(preparations, 0);
 });
+
+async function validationCycleFixture(context, criteria = []) {
+  const env = await setup(context), kernel = createWorkflowExecutionApplicationService();
+  const {workflow} = await env.state.createSubstantiveWorkflow(env.projectId,{workflowType:"feature-capability",title:"Review cycle fixture",entryWorkspace:"feature-intake"});
+  const plan = await env.state.acceptWorkflowPlanningGraph(env.projectId,graph(workflow.id,"direct","feature",[{key:"review",kind:"feature",title:"Review",objective:"Review result",dependencyKeys:[],criteria}]));
+  const item = plan.directWorkItems[0];
+  const accepted = await kernel.acceptWorkItemExecutionPlan(env.root,{workflowId:workflow.id,workItemId:item.id,expectedVersion:item.recordVersion,plan:{implementationBoundaries:["Exact review scope"],affectedPaths:[],proofIntent:["Inspect result"]}});
+  const attempt = await kernel.prepareImplementationAttempt(env.root,workflow.id,item.id);
+  await kernel.beginWorkItemAttempt(env.root,workflow.id,item.id,accepted.recordVersion,attempt.id);
+  const result = await kernel.finishWorkItemAttempt(env.root,workflow.id,item.id,attempt.id,{summary:"Current implementation",deviations:[],blockers:[],residualRisks:[],outcome:"implemented"});
+  return Object.assign(env,{workflow,item,attempt,result,kernel});
+}
+async function cycleTester(env) {
+  return createProjectStateService(env.store,{principalId:"independent-cycle-tester",principalType:"agent",role:"Tester"}).createTesterResult(env.projectId,env.workflow.id,env.item.id,env.result.id,{sourceMode:"source-neutral",recommendation:"reuse-existing-proof",affectedCapabilityIds:[],permanentTestPaths:[],determinationEvidence:["Exact result inspected"],unknowns:[],rationale:"Existing proof adequate"});
+}
+test("aggregate WorkItem cycle is durable, exact, idempotent and stale after new Tester or criterion evidence", async context => {
+  const env = await validationCycleFixture(context,[{statement:"Semantic proof",criticality:"required",verificationIntent:"Inspect",validationPolicy:"semantic_ai"}]);
+  const prepare = () => env.state.prepareWorkItemValidationCycle(env.projectId,env.workflow.id,env.item.id);
+  const first = await prepare(); assert.equal((await prepare()).id,first.id); assert.equal((await prepare()).recordVersion,1);
+  assert.equal(first.body.implementationAttemptId,env.attempt.id); assert.equal(first.body.implementationRecordId,env.result.id);
+  reopenProject(env); assert.equal((await env.state.getWorkItemValidationCycle(env.projectId,env.workflow.id,env.item.id)).current,true);
+  await cycleTester(env); assert.equal((await env.state.getWorkItemValidationCycle(env.projectId,env.workflow.id,env.item.id)).current,false);
+  const current = await prepare(); assert.equal(current.id,first.id); assert.equal(current.recordVersion,2);
+  await assert.rejects(env.state.reviewWorkItemValidationCycle(env.projectId,env.workflow.id,env.item.id,{cycleId:current.id,expectedRecordVersion:2,outcome:"ValidatePassed"}),/blocked/);
+  const criterion = (await env.kernel.getWorkItemValidationProjection(env.root,env.workflow.id,env.item.id)).criteria[0].criterion;
+  await createProjectStateService(env.store,{principalId:"validator",principalType:"agent",role:"Validator"}).recordValidation(env.projectId,criterion.id,{validationType:"work-item-criterion",method:"Independent semantic inspection",validationMode:"semantic_ai",outcome:"pass",summary:"Satisfied",targetRecordVersion:criterion.recordVersion,implementationRecordId:env.result.id});
+  assert.equal((await env.state.getWorkItemValidationCycle(env.projectId,env.workflow.id,env.item.id)).current,false);
+  const final = await prepare();
+  await env.state.reviewWorkItemValidationCycle(env.projectId,env.workflow.id,env.item.id,{cycleId:final.id,expectedRecordVersion:final.recordVersion,outcome:"ValidatePassed",operatorNotes:"Reviewed exact proof"});
+  assert.equal((await env.store.getEntity(env.projectId,env.item.id)).body.workState,"closed");
+  assert.equal((await env.state.getWorkItemValidationCycle(env.projectId,env.workflow.id,env.item.id)).disposition.state,"approved");
+});
+test("aggregate review rejects absent Tester and requires human defect text, preserves parent and recovers exact Repair", async context => {
+  const env = await validationCycleFixture(context), cycle = await env.state.prepareWorkItemValidationCycle(env.projectId,env.workflow.id,env.item.id);
+  const input = {cycleId:cycle.id,expectedRecordVersion:cycle.recordVersion,outcome:"ValidatePassed"};
+  await assert.rejects(env.state.reviewWorkItemValidationCycle(env.projectId,env.workflow.id,env.item.id,input),/blocked/);
+  await assert.rejects(env.state.reviewWorkItemValidationCycle(env.projectId,env.workflow.id,env.item.id,{...input,outcome:"RequestRepair"}),/defect/);
+  await assert.rejects(createProjectStateService(env.store,{principalId:"agent",principalType:"agent",role:"Architect"}).reviewWorkItemValidationCycle(env.projectId,env.workflow.id,env.item.id,{...input,outcome:"RequestRepair",repairDefectText:"Broken result"}),/Human/);
+  const decision = await env.state.reviewWorkItemValidationCycle(env.projectId,env.workflow.id,env.item.id,{...input,outcome:"RequestRepair",repairDefectText:"Observed concrete defect"});
+  assert.equal((await env.store.getEntity(env.projectId,env.item.id)).body.workState,"validation_pending");
+  const {repair} = await env.kernel.createWorkflowRepair(env.root,env.workflow.id,env.item.id,decision.id);
+  assert.equal((await env.kernel.createWorkflowRepair(env.root,env.workflow.id,env.item.id,decision.id)).repair.id,repair.id);
+  const criterionIds = (await env.store.listRelationships(env.projectId,"defines_criterion")).filter(edge=>edge.fromEntityId===repair.id).map(edge=>edge.toEntityId);
+  assert.ok((await env.store.listRelationships(env.projectId,"derived_from")).some(edge=>criterionIds.includes(edge.fromEntityId)&&edge.toEntityId===decision.id));
+  await assert.rejects(env.kernel.createWorkflowRepair(env.root,env.workflow.id,repair.id,decision.id),/exact|Exact/);
+  const report = await require("../../dist/main/workCardValidation/structuredWorkItemReviewService.js").createStructuredWorkItemReviewService().get(env.root,env.workflow.id,env.item.id);
+  assert.match(report.markdown,/Work Card Validation Record/); assert.match(report.markdown,/Observed concrete defect/);
+});
+test("Architect aggregate advice persists exact SQL candidate without Operator authority", async context => {
+  const env = await validationCycleFixture(context);
+  const cycle = await createProjectStateService(env.store,{principalId:"architect",principalType:"agent",role:"Architect"}).prepareWorkItemValidationCycle(env.projectId,env.workflow.id,env.item.id,{advisorySummary:"Inspect exact output",advisoryBlockingFindings:["Potential defect"],advisoryRecommendation:"RequestRepair",advisoryRepairDefectText:"Suggested defect"});
+  reopenProject(env); assert.equal((await env.state.getWorkItemValidationCycle(env.projectId,env.workflow.id,env.item.id)).cycle.body.advisorySummary,"Inspect exact output");
+  assert.equal((await env.store.listEntities(env.projectId,"Decision")).filter(record=>record.body.decisionType==="work-item-validation-review").length,0);
+  await assert.rejects(env.state.recordDecision(env.projectId,cycle.id,{decisionType:"work-item-validation-review",outcome:"approved",decisionScope:"forged"}),/typed/);
+  await assert.rejects(env.state.reviseRecord(env.projectId,cycle.id,{operatorNotes:"Forged"},cycle.recordVersion),/typed/);
+});

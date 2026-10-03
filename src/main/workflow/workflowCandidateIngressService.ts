@@ -1,3 +1,4 @@
+import {createStructuredWorkItemReviewService} from "../workCardValidation/structuredWorkItemReviewService";
 import fs from "node:fs";
 import path from "node:path";
 import {createSQLiteProjectStateStore} from "../projectState/sqliteProjectStateStore";
@@ -21,7 +22,7 @@ export function createWorkflowCandidateIngressService() {
     if (!request || Object.keys(request).some(key => !["workflowId", "stage", "scopeEntityId", "candidateJson"].includes(key)) ||
         !boundedId(request.workflowId) || !WORKFLOW_CANDIDATE_STAGES.includes(request.stage) ||
         typeof request.candidateJson !== "string" || Buffer.byteLength(request.candidateJson, "utf8") > WORKFLOW_CANDIDATE_MAX_BYTES) throw Error("Exact bounded stage candidate required.");
-    const scoped = ["phase-interview", "phase-planning", "work-item-planning"].includes(request.stage);
+    const scoped = ["phase-interview", "phase-planning", "work-item-planning", "work-item-review-advisory"].includes(request.stage);
     if (scoped ? !boundedId(request.scopeEntityId) : request.scopeEntityId !== undefined) throw Error("Exact stage scope required; Project stages do not accept a scope entity.");
     const parsed: unknown = JSON.parse(request.candidateJson);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw Error("Semantic candidate must be a JSON object.");
@@ -35,14 +36,14 @@ export function createWorkflowCandidateIngressService() {
       if (workflow?.entityType !== "Workflow" || workflow.body.workflowType !== "project-creation" || workflow.lifecycleState !== "active" || workflow.body.workflowState !== "active") throw Error("Exact active Greenfield Workflow required.");
       if (scoped) {
         const entity = await store.getEntity(projectId, request.scopeEntityId!);
-        if (request.stage === "work-item-planning") scopePhaseIds = (await store.listRelationships(projectId, "part_of")).filter(edge => !edge.endedAt && edge.fromEntityId === entity?.id).map(edge => edge.toEntityId);
-        if (!entity || entity.entityType !== (request.stage === "work-item-planning" ? "WorkItem" : "Phase") || entity.lifecycleState !== "active") throw Error("Exact active scope entity required.");
+        if (["work-item-planning", "work-item-review-advisory"].includes(request.stage)) scopePhaseIds = (await store.listRelationships(projectId, "part_of")).filter(edge => !edge.endedAt && edge.fromEntityId === entity?.id).map(edge => edge.toEntityId);
+        if (!entity || entity.entityType !== (["work-item-planning", "work-item-review-advisory"].includes(request.stage) ? "WorkItem" : "Phase") || entity.lifecycleState !== "active") throw Error("Exact active scope entity required.");
       }
     } finally {store.close();}
     const navigation = await createGreenfieldNavigationService().get(canonical, request.workflowId);
-    const workspace = {"architect-interview":"architect-interview", "project-planning":"project-planning-review", "phase-map":"project-phase-map", "phase-interview":"phase-interview", "phase-planning":"phase-planning-bundle", "work-item-planning":"workflow-execution"} as const;
-    if (navigation.closed || navigation.currentWorkspace !== workspace[request.stage] || scoped && request.stage !== "work-item-planning" && navigation.currentPhaseId !== request.scopeEntityId) throw Error("Candidate does not target the current exact Greenfield stage/scope.");
-    if (request.stage === "work-item-planning" && (!navigation.currentPhaseId || scopePhaseIds.length !== 1 || scopePhaseIds[0] !== navigation.currentPhaseId)) throw Error("WorkItem belongs to another exact Phase scope.");
+    const workspace = {"architect-interview":"architect-interview", "project-planning":"project-planning-review", "phase-map":"project-phase-map", "phase-interview":"phase-interview", "phase-planning":"phase-planning-bundle", "work-item-planning":"workflow-execution", "work-item-review-advisory":"workflow-execution"} as const;
+    if (navigation.closed || navigation.currentWorkspace !== workspace[request.stage] || scoped && !["work-item-planning", "work-item-review-advisory"].includes(request.stage) && navigation.currentPhaseId !== request.scopeEntityId) throw Error("Candidate does not target the current exact Greenfield stage/scope.");
+    if (["work-item-planning", "work-item-review-advisory"].includes(request.stage) && (!navigation.currentPhaseId || scopePhaseIds.length !== 1 || scopePhaseIds[0] !== navigation.currentPhaseId)) throw Error("WorkItem belongs to another exact Phase scope.");
     const bind = (semanticKeys: string[], mechanics: Record<string, unknown>) => {
       if (Object.keys(candidate).some(key => !semanticKeys.includes(key) && !Object.hasOwn(mechanics, key))) throw Error("Unsupported semantic candidate field.");
       for (const [key, value] of Object.entries(mechanics)) {
@@ -75,6 +76,10 @@ export function createWorkflowCandidateIngressService() {
       const input = bind(["facts", "direction", "criteria", ...(stageKind === "planning" ? ["candidates"] : [])], {workflowId:request.workflowId, phaseId:current.phase.id, stageKind, sources:current.sources, expectedRecordVersion:current.review?.cycle.recordVersion ?? current.staleReview?.recordVersion});
       const result = await service.save(canonical, request.workflowId, current.phase.id, stageKind, input as unknown as PhaseLoopCandidate);
       return receipt(result.review!.cycle.id, result.review!.cycle.recordVersion, result.review!.disposition.state);
+    }
+    if (request.stage === "work-item-review-advisory") {
+      const result = await createStructuredWorkItemReviewService().advisory(canonical,request.workflowId,request.scopeEntityId!,candidate as unknown as import("../../shared/structuredWorkItemReviewContracts").WorkItemReviewAdvisory);
+      return receipt(result.id,result.recordVersion,"none");
     }
     const service = createStructuredWorkItemPlanningService(), current = await service.get(canonical, request.workflowId, request.scopeEntityId!);
     if (["closed", "cancelled", "in_progress", "implemented", "validation_pending"].includes(current.workItem.body.workState)) throw Error("Current WorkItem cannot accept a planning candidate.");

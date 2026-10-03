@@ -1,3 +1,4 @@
+import {workItemValidationSnapshot} from "./workItemValidationSnapshot";
 import {validateWorkItemPlanningContract, type WorkItemPlanningContract} from "./workItemPlanningContracts";
 import {renderCloseoutReview, type CloseoutCandidateInput} from "./closeoutReviewContracts";
 import {closeoutEvidence, closeoutDigest} from "./closeoutReviewSnapshot";
@@ -121,7 +122,7 @@ export const PROJECT_STATE_EVENT_TYPES = Object.freeze({
   relationshipEnd: "project-state.relationship-ended",
 });
 
-const restrictedGenericTypes = new Set<EntityType>(["CloseoutReviewCycle", "Decision", "Validation", "Evidence", "TesterResult", "ResearchOutcome", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle"]);
+const restrictedGenericTypes = new Set<EntityType>(["WorkItemValidationCycle", "CloseoutReviewCycle", "Decision", "Validation", "Evidence", "TesterResult", "ResearchOutcome", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle"]);
 function fail(message: string): never { throw new ProjectStateDomainError(message); }
 const dispositionOutcomes = new Set<DispositionState>(["advisory", "proposed", "approved", "revision_requested", "accepted", "rejected", "revoked"]);
 const workRoutes = new Set<WorkRoute>(["greenfield", "feature-change", "refactor-migration", "integration-composition", "infrastructure-platform", "research-prototype", "issue-resolution"]);
@@ -470,7 +471,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) fail("An exact expected revision is required.");
     return store.transaction(projectId, async unit => {
       const current = await requiredRecord(unit, projectId, entityId);
-      if (["ImplementationAttempt", "CloseoutReviewCycle", "WorkflowIntake", "ArchitectReviewCycle", "PlanReviewCycle", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle"].includes(current.entityType)) fail("WorkflowIntake requires the typed save command.");
+      if (["WorkItemValidationCycle", "ImplementationAttempt", "CloseoutReviewCycle", "WorkflowIntake", "ArchitectReviewCycle", "PlanReviewCycle", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle"].includes(current.entityType)) fail("WorkflowIntake requires the typed save command.");
       if (restrictedGenericTypes.has(current.entityType)) fail("Immutable semantic records require typed correction or supersession.");
       if (current.entityType === "WorkIntake") fail("Work Intake revision requires a typed command.");
       if (current.entityType === "Phase" && Object.keys(patch).some(key => key !== "phaseState")) {
@@ -503,7 +504,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) fail("An exact expected revision is required.");
     return store.transaction(projectId, async unit => {
       const previous = await requiredRecord(unit, projectId, entityId);
-      if (["ImplementationAttempt", "CloseoutReviewCycle", "WorkflowIntake", "ArchitectReviewCycle", "PlanReviewCycle", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle"].includes(previous.entityType)) fail("WorkflowIntake retains its identity through the typed save command.");
+      if (["WorkItemValidationCycle", "ImplementationAttempt", "CloseoutReviewCycle", "WorkflowIntake", "ArchitectReviewCycle", "PlanReviewCycle", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle"].includes(previous.entityType)) fail("WorkflowIntake retains its identity through the typed save command.");
       if (previous.entityType === "Project" || previous.recordVersion !== expectedRevision) fail("Supersession target is unavailable or stale.");
       if (previous.lifecycleState !== "active" && previous.lifecycleState !== "closed") fail("Only a current active or closed record can be superseded.");
       if (restrictedGenericTypes.has(previous.entityType)) fail("Issued Decision, Validation, Evidence and TesterResult require a typed correction policy.");
@@ -1116,7 +1117,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   async function recordDecision(projectId: ProjectId, targetId: EntityId, input: DecisionInput, context?: MutationContext) {
-    if (["closeout-review", "workflow-intake-review", "architect-review", "plan-review", "project-planning-review", "phase-map-review", "phase-loop-review", "work-item-planning-review"].includes(input.decisionType) || ["ImplementationAttempt", "CloseoutReviewCycle", "WorkflowIntake", "ArchitectReviewCycle", "PlanReviewCycle", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle"].includes((await requiredRecord(store, projectId, targetId)).entityType)) fail("Workflow review requires the typed decision command.");
+    if (["work-item-validation-review", "closeout-review", "workflow-intake-review", "architect-review", "plan-review", "project-planning-review", "phase-map-review", "phase-loop-review", "work-item-planning-review"].includes(input.decisionType) || ["WorkItemValidationCycle", "ImplementationAttempt", "CloseoutReviewCycle", "WorkflowIntake", "ArchitectReviewCycle", "PlanReviewCycle", "ProjectPlanningReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle"].includes((await requiredRecord(store, projectId, targetId)).entityType)) fail("Workflow review requires the typed decision command.");
     const now = new Date().toISOString();
     return recordLinked(projectId, targetId, "Decision", decisionBody(input, trustedPrincipal, now), "governs", context);
   }
@@ -1325,7 +1326,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (expectedRevision !== 1) fail("An exact issued Decision revision is required.");
     return store.transaction(projectId, async unit => {
       const prior = await requiredRecord(unit, projectId, decisionId);
-      if (prior.entityType === "Decision" && (prior.body.decisionType === "closeout-review" || input.decisionType === "closeout-review" || prior.body.decisionType === "workflow-intake-review" || input.decisionType === "workflow-intake-review")) fail("WorkflowIntake review requires the typed decision command; issued reviews remain immutable.");
+      if (prior.entityType === "Decision" && (prior.body.decisionType === "work-item-validation-review" || input.decisionType === "work-item-validation-review" || prior.body.decisionType === "closeout-review" || input.decisionType === "closeout-review" || prior.body.decisionType === "workflow-intake-review" || input.decisionType === "workflow-intake-review")) fail("WorkflowIntake review requires the typed decision command; issued reviews remain immutable.");
       if (prior.entityType !== "Decision" || prior.recordVersion !== expectedRevision || prior.lifecycleState !== "active") fail("Decision correction target is unavailable or stale.");
       const family = (await unit.listEntities(projectId, "Decision")).filter(candidate => candidate.lineageId === prior.lineageId && candidate.lifecycleState !== "superseded");
       if (family.length !== 1 || family[0].id !== prior.id) fail("Decision is not the current member of its correction lineage.");
@@ -1819,6 +1820,71 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   /** Create a canonical same-Workflow Repair in one Project State transaction from exact failure evidence. */
+  async function getWorkItemValidationCycle(projectId: ProjectId, workflowId: EntityId, workItemId: EntityId) {
+    const cycles = (await store.listEntities(projectId, "WorkItemValidationCycle")).filter((record): record is ProjectStateRecord<"WorkItemValidationCycle"> => record.entityType === "WorkItemValidationCycle" && record.body.workflowId === workflowId && record.body.workItemId === workItemId && record.lifecycleState === "active");
+    if (cycles.length > 1) fail("Ambiguous current WorkItem validation cycle.");
+    const cycle = cycles[0]; if (!cycle) return null;
+    let current = false;
+    try {current = (await workItemValidationSnapshot(store, projectId, workflowId, workItemId)).digest === cycle.body.semanticDigest;} catch { /* Old evidence remains inspectable. */ }
+    const disposition = exactVersionReviewDisposition(cycle, await store.listEntities(projectId), await store.listRelationships(projectId), await store.listOutbox(projectId), "work-item-validation-review", "work-item-validation-review");
+    return {cycle, current, disposition};
+  }
+  async function prepareWorkItemValidationCycle(projectId: ProjectId, workflowId: EntityId, workItemId: EntityId, advisory?: import("../structuredWorkItemReviewContracts").WorkItemReviewAdvisory) {
+    if (advisory) {
+      exactInput(advisory, ["advisorySummary", "advisoryBlockingFindings", "advisoryRecommendation", "advisoryRepairDefectText"]);
+      if (!advisory.advisorySummary?.trim() || !Array.isArray(advisory.advisoryBlockingFindings) || !["ValidatePassed", "RequestRepair", "Inconclusive"].includes(advisory.advisoryRecommendation)) fail("Complete bounded advisory candidate required.");
+    }
+    return store.transaction(projectId, async unit => {
+      const snapshot = await workItemValidationSnapshot(unit, projectId, workflowId, workItemId);
+      const item = await requiredRecord(unit, projectId, workItemId);
+      if (item.lifecycleState !== "active") fail("Open exact WorkItem required.");
+      const cycles = (await unit.listEntities(projectId, "WorkItemValidationCycle")).filter((record): record is ProjectStateRecord<"WorkItemValidationCycle"> => record.entityType === "WorkItemValidationCycle" && record.body.workflowId === workflowId && record.body.workItemId === workItemId && record.lifecycleState === "active");
+      if (cycles.length > 1) fail("Ambiguous WorkItem validation cycle.");
+      const previous = cycles[0];
+      if (previous?.body.semanticDigest === snapshot.digest && !advisory) return previous;
+      const body: EntityBodyMap["WorkItemValidationCycle"] = {workflowId, workItemId, implementationAttemptId: snapshot.attempt.id, implementationRecordId: snapshot.result.id, semanticDigest: snapshot.digest,
+        layout: {memberIds: snapshot.records.map(record => record.id), sources: snapshot.records.map(record => ({entityId: record.id, recordVersion: record.recordVersion}))},
+        ...(previous?.body.semanticDigest === snapshot.digest ? previous.body : {}), ...(advisory ?? {})};
+      if (previous && JSON.stringify(previous.body) === JSON.stringify(body)) return previous;
+      const now = new Date().toISOString();
+      const cycle = previous ? validateProjectStateEntity({...previous, body, recordVersion: previous.recordVersion + 1, updatedAt: now, updatedBy: trustedPrincipal}) as ProjectStateRecord<"WorkItemValidationCycle"> : createProjectStateEntity({entityType: "WorkItemValidationCycle", projectId, principal: trustedPrincipal, body});
+      await unit.saveEntity(cycle, previous?.recordVersion ?? null);
+      if (!previous) await linkSemantic(unit, projectId, cycle, item, "work_item_validation_for");
+      await recordMutation(unit, {projectId, entityId: cycle.id, fromVersion: previous?.recordVersion ?? null, toVersion: cycle.recordVersion, operation: previous ? "revise" : "create", eventType: previous ? PROJECT_STATE_EVENT_TYPES.revise : PROJECT_STATE_EVENT_TYPES.create, occurredAt: now, changedFields: ["layout", "semanticDigest"], defaultReason: "Prepare exact WorkItem validation review"});
+      return cycle;
+    });
+  }
+  async function reviewWorkItemValidationCycle(projectId: ProjectId, workflowId: EntityId, workItemId: EntityId, input: import("../structuredWorkItemReviewContracts").WorkItemReviewDecisionInput) {
+    exactInput(input, ["cycleId", "expectedRecordVersion", "outcome", "operatorNotes", "repairDefectText"]);
+    if (trustedPrincipal.principalType !== "human" || trustedPrincipal.role !== "Operator" || !["ValidatePassed", "RequestRepair"].includes(input.outcome)) fail("Human Operator report review required.");
+    if (input.outcome === "RequestRepair" && !input.repairDefectText?.trim()) fail("RequestRepair requires explicit defect text.");
+    return store.transaction(projectId, async unit => {
+      const previous = await requiredRecord(unit, projectId, input.cycleId);
+      const snapshot = await workItemValidationSnapshot(unit, projectId, workflowId, workItemId);
+      if (previous.entityType !== "WorkItemValidationCycle" || previous.body.workflowId !== workflowId || previous.body.workItemId !== workItemId || previous.recordVersion !== input.expectedRecordVersion || previous.body.semanticDigest !== snapshot.digest) fail("Exact current validation review revision required.");
+      const scoped = createProjectStateService({...store, ...unit, transaction: async (_projectId, work) => work(unit)}, trustedPrincipal);
+      const binding = (await unit.listEntities(projectId, "SourceBinding")).filter((record): record is ProjectStateRecord<"SourceBinding"> => record.entityType === "SourceBinding" && record.body.workflowId === workflowId && record.lifecycleState === "active");
+      if (binding.length > 1 || binding.some(record => record.body.preparationState !== "ready")) fail("Current prepared source required.");
+      const sourceRef = binding[0]?.body.currentRevisionId;
+      if (input.outcome === "ValidatePassed") {
+        const eligibility = await scoped.getWorkItemCompletionEligibility(projectId, workItemId, sourceRef);
+        if (!eligibility.eligible) fail(`WorkItem review blocked: ${eligibility.blockers.join(", ")}`);
+      }
+      const now = new Date().toISOString(), body = {...previous.body};
+      if (input.operatorNotes?.trim()) body.operatorNotes = input.operatorNotes.trim(); else delete body.operatorNotes;
+      if (input.outcome === "RequestRepair") body.repairDefectText = input.repairDefectText!.trim(); else delete body.repairDefectText;
+      const cycle = validateProjectStateEntity({...previous, body, recordVersion: previous.recordVersion + 1, updatedAt: now, updatedBy: trustedPrincipal}) as ProjectStateRecord<"WorkItemValidationCycle">;
+      await unit.saveEntity(cycle, previous.recordVersion);
+      await recordMutation(unit, {projectId, entityId: cycle.id, fromVersion: previous.recordVersion, toVersion: cycle.recordVersion, operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now, changedFields: ["operatorNotes", "repairDefectText"], defaultReason: "Preserve exact Operator report review"});
+      const decision = createProjectStateEntity({entityType: "Decision", projectId, principal: trustedPrincipal, body: decisionBody({decisionType: "work-item-validation-review", outcome: input.outcome === "ValidatePassed" ? "approved" : "revision_requested", decisionScope: `work-item-validation-review:${cycle.id}@${cycle.recordVersion}`, rationale: input.operatorNotes?.trim() || input.repairDefectText?.trim() || "Implementation result accepted"}, trustedPrincipal, now)});
+      await unit.saveEntity(decision, null);
+      await linkSemantic(unit, projectId, decision, cycle, "governs");
+      await recordMutation(unit, {projectId, entityId: decision.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: now, changedFields: ["body"], defaultReason: "Human Operator implementation review"});
+      if (input.outcome === "ValidatePassed") {const item = await requiredRecord(unit, projectId, workItemId); await scoped.completeWorkItem(projectId, workItemId, item.recordVersion, sourceRef);}
+      return decision;
+    });
+  }
+
   async function createWorkflowRepair(projectId: ProjectId, input: WorkflowRepairInput, context?: MutationContext) {
     exactInput(input, ["workflowId", "workItemId", "failureEvidenceId"]);
     return store.transaction(projectId, async unit => {
@@ -1879,6 +1945,20 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         criterion = criterionRecord as ProjectStateRecord<"Criterion">;
         identity = `decision:${evidence.id}:criterion:${criterion.id}:version:${criterion.recordVersion}`;
         failureSummary = evidence.body.rationale;
+      } else if (evidence.entityType === "Decision" && evidence.body.decisionType === "work-item-validation-review" && evidence.body.outcome === "revision_requested") {
+        const governed = (await unit.listRelationships(projectId, "governs")).filter(edge => !edge.endedAt && edge.fromEntityId === evidence.id);
+        const cycle = governed.length === 1 ? await unit.getEntity(projectId, governed[0].toEntityId) : null;
+        if (cycle?.entityType !== "WorkItemValidationCycle" || evidence.lifecycleState !== "active" || evidence.body.decidedBy.principalType !== "human" || evidence.body.decisionRole !== "Operator" || cycle.body.workflowId !== workflow.id || cycle.body.workItemId !== parent.id || !cycle.body.repairDefectText?.trim() || evidence.body.decisionScope !== `work-item-validation-review:${cycle.id}@${cycle.recordVersion}`) fail("Exact human report-review Repair source required.");
+        identity = `review:${evidence.id}:cycle:${cycle.id}:version:${cycle.recordVersion}`;
+        const existingEdges = (await unit.listRelationships(projectId, "repairs")).filter(edge => !edge.endedAt && edge.toEntityId === parent.id);
+        for (const edge of existingEdges) {const repair = await unit.getEntity(projectId, edge.fromEntityId); if (repair?.entityType === "WorkItem" && repair.lifecycleState === "active" && !["closed", "cancelled"].includes(repair.body.workState) && repair.body.objective.includes(`[${identity}]`)) {
+          const criterionEdges = (await unit.listRelationships(projectId, "defines_criterion")).filter(candidate => !candidate.endedAt && candidate.fromEntityId === repair.id);
+          const criterion = criterionEdges.length === 1 ? await unit.getEntity(projectId, criterionEdges[0].toEntityId) : null;
+          if (criterion?.entityType !== "Criterion") fail("Exact recovered Repair Criterion required.");
+          return {repair, criterion, failureIdentity: identity};
+        }}
+        if ((await workItemValidationSnapshot(unit, projectId, workflow.id, parent.id)).digest !== cycle.body.semanticDigest) fail("Report-review Repair source is stale.");
+        failureSummary = cycle.body.repairDefectText;
       } else if (evidence.entityType === "TesterResult" && evidence.body.recommendation === "production-defect-suspected" &&
         evidence.body.workflowId === workflow.id && evidence.body.workItemId === parent.id) {
         const latest = (await getImplementationAttempts(projectId, parent.id)).at(-1);
@@ -4449,6 +4529,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
 
   return {getCloseoutEligibility, saveCloseoutCandidate, getCloseoutReview, recordCloseoutReview, saveWorkItemPlanningContract, getWorkItemPlanningReview, recordWorkItemPlanningReview, savePhaseLoopCandidate, getPhaseLoopReview, recordPhaseLoopReview, saveGreenfieldPhaseMap, getGreenfieldPhaseMap, recordGreenfieldPhaseMapReview, saveProjectPlanningCandidate, getProjectPlanningReview, recordProjectPlanningReview, closeResearchAfterAssessment, savePlanCandidate, getPlanReview, recordPlanReview, prepareArchitectWorkspace, prepareExactPlanningWorkspace, adoptLegacyArchitectReview, saveArchitectCandidate, saveGreenfieldArchitectOutput, getArchitectReviewProjection, saveArchitectReviewCycle, getCurrentArchitectReviewCycle, getArchitectReviewDisposition, recordArchitectReview, saveWorkflowIntake, recordWorkflowIntakeDecision, getWorkflowIntakeDisposition, createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
     createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, completeTesterResultCheckpoint, createIntegrationRecord, advanceIntegrationRecord, completeWorkflowExecution, closeIntegratedWorkflow,
+    prepareWorkItemValidationCycle, getWorkItemValidationCycle, reviewWorkItemValidationCycle,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, createTesterResult, createWorkflowRepair, createPhaseRepair, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, recordCriterionOperatorDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, prepareImplementationAttempt, getImplementationAttempt, assertImplementationAttemptCurrent, getImplementationAttemptReport, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,
     getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, renderView, exportStructuredProjectState, getAuthoritativeContext, getCommittedEventFeed, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,

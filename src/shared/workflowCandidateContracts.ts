@@ -1,5 +1,5 @@
 export const WORKFLOW_CANDIDATE_STAGES = [
-  "architect-interview", "project-planning", "phase-map", "phase-interview", "phase-planning", "work-item-planning",
+  "architect-interview", "project-planning", "phase-map", "phase-interview", "phase-planning", "work-item-planning", "work-item-review-advisory",
 ] as const;
 export type WorkflowCandidateStage = typeof WORKFLOW_CANDIDATE_STAGES[number];
 export const WORKFLOW_CANDIDATE_MAX_BYTES = 200_000;

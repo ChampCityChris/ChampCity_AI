@@ -18,12 +18,13 @@ interface RelationshipDefinition {
   immutableProvenance: boolean;
 }
 
-const all: readonly EntityType[] = ["Project", "ProjectResource", "WorkIntake", "RouteAssessment", "WorkflowIntake", "ArchitectReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle", "ProjectPlanningReviewCycle", "Workflow", "SourceBaseline", "Phase", "Finding", "RootCause", "BoundedSolution", "Criterion", "WorkItem", "ImplementationAttempt", "ImplementationRecord", "TesterResult", "Validation", "Evidence", "Decision", "RegressionObligation", "SourceBinding", "SourceCheckpoint", "IntegrationRecord"];
+const all: readonly EntityType[] = ["WorkItemValidationCycle", "Project", "ProjectResource", "WorkIntake", "RouteAssessment", "WorkflowIntake", "ArchitectReviewCycle", "PhaseMapReviewCycle", "PhaseReviewCycle", "ProjectPlanningReviewCycle", "Workflow", "SourceBaseline", "Phase", "Finding", "RootCause", "BoundedSolution", "Criterion", "WorkItem", "ImplementationAttempt", "ImplementationRecord", "TesterResult", "Validation", "Evidence", "Decision", "RegressionObligation", "SourceBinding", "SourceCheckpoint", "IntegrationRecord"];
 const nonProject = [...all, "CloseoutReviewCycle" as const, "PlanReviewCycle" as const, "ResearchOutcome" as const].filter(type => type !== "Project");
 const rule = (from: readonly EntityType[], to: readonly EntityType[], immutableProvenance = false): RelationshipDefinition => ({ from, to, immutableProvenance });
 
 /** Direction and endpoint type are explicit; no runtime predicate registration exists. */
 export const RELATIONSHIP_REGISTRY = Object.freeze({
+  work_item_validation_for: rule(["WorkItemValidationCycle"], ["WorkItem"], true),
   closeout_review_for: rule(["CloseoutReviewCycle"], ["Workflow", "Phase"], true),
   architect_review_for: rule(["ArchitectReviewCycle"], ["Workflow"], true),
   review_member: rule(["Finding", "RootCause", "BoundedSolution", "Criterion", "Evidence", "ResearchOutcome"], ["ArchitectReviewCycle"]),
@@ -89,6 +90,7 @@ export function validateRelationship(
   if (from.projectId !== relationship.projectId || to.projectId !== relationship.projectId) fail("Relationship endpoints must belong to one Project.");
   if (!definition.from.includes(from.entityType) || !definition.to.includes(to.entityType)) fail("Relationship direction or endpoint type is invalid.");
   if (relationship.relationshipType === "depends_on" && from.entityType !== to.entityType) fail("Dependency endpoints must have the same scope type.");
+  if (relationship.relationshipType === "work_item_validation_for" && (from.entityType !== "WorkItemValidationCycle" || from.body.workItemId !== to.id)) fail("Validation cycle requires its exact WorkItem.");
   if (relationship.relationshipType === "closeout_review_for" && (from.entityType !== "CloseoutReviewCycle" || from.body.targetEntityId !== to.id || (from.body.scope === "project" ? to.entityType !== "Workflow" || to.body.workflowType !== "project-creation" || from.body.workflowId !== to.id : to.entityType !== "Phase"))) fail("Closeout review requires its exact typed target.");
   if (relationship.relationshipType === "phase_review_for" && (from.entityType !== "PhaseReviewCycle" || to.entityType !== "Phase" || from.body.phaseId !== to.id)) fail("Phase review requires its exact Phase owner.");
   if (relationship.relationshipType === "phase_map_review_for" && (from.entityType !== "PhaseMapReviewCycle" || to.entityType !== "Workflow" || from.body.workflowId !== to.id || to.body.workflowType !== "project-creation" || from.lifecycleState !== "active" || to.lifecycleState !== "active" || to.body.workflowState !== "active")) fail("Phase Map requires its exact active Project Creation Workflow.");

@@ -10,6 +10,7 @@ const now = new Date().toISOString();
 const linkedId = randomUUID();
 const common = { title: "Title", statement: "Statement" };
 const bodies = {
+  WorkItemValidationCycle: {workflowId: linkedId, workItemId: linkedId, implementationAttemptId: linkedId, implementationRecordId: linkedId, semanticDigest: "a".repeat(64), layout: {memberIds: [], sources: []}},
   CloseoutReviewCycle: {workflowId: linkedId, targetEntityId: linkedId, scope: "project", closureDecision: "Close", rationale: "Complete", semanticDigest: "a".repeat(64), layout: {memberIds: [linkedId], sources: [{entityId: linkedId, recordVersion: 1}]}},
   ResearchOutcome: {workflowId: linkedId, outcome: "no-implementation-plan-required", prototypeDisposition: "disposable", productionFollowUp: "none", evidence: ["Observed"], decisionEnabled: "Decision", successFailureResult: "Result", closureCondition: "Complete"},
   PhaseReviewCycle: {workflowId: linkedId, phaseId: linkedId, stageKind: "interview", semanticDigest: "a".repeat(64), layout: {memberIds: [], sources: []}},

@@ -11,5 +11,21 @@ export interface StructuredWorkItemReview {
   checkpoints: ProjectStateRecord<"SourceCheckpoint">[];
   repairs: Array<{repairId: string; parentId: string}>;
   validation: WorkItemValidationProjection;
+  cycle?: {cycle: ProjectStateRecord<"WorkItemValidationCycle">; current: boolean; disposition: import("./projectState/projectStateService").EffectiveDisposition} | null;
+  handoff?: string;
   markdown: string;
+}
+
+export interface WorkItemReviewAdvisory {
+  advisorySummary: string;
+  advisoryBlockingFindings: string[];
+  advisoryRecommendation: "ValidatePassed" | "RequestRepair" | "Inconclusive";
+  advisoryRepairDefectText?: string;
+}
+export interface WorkItemReviewDecisionInput {
+  cycleId: string;
+  expectedRecordVersion: number;
+  outcome: "ValidatePassed" | "RequestRepair";
+  operatorNotes?: string;
+  repairDefectText?: string;
 }

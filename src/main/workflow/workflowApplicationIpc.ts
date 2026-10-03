@@ -144,6 +144,11 @@ export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcR
       return createWorkflowExecutionApplicationService()[command](getCurrentProjectRoot(), args[0] as string, args[1] as string);
     });
   }
+  for (const action of ["prepare", "review"] as const) registry.handle(`workReview:${action}`,async(_event,...args)=>{
+    if(args.length !== (action === "prepare" ? 2 : 3) || args.slice(0,2).some(value=>typeof value!=="string"||!value.trim()||value.length>128)) throw Error("Exact Workflow and WorkItem IDs required.");
+    const review = createStructuredWorkItemReviewService();
+    return action === "prepare" ? review.prepare(getCurrentProjectRoot(),args[0] as string,args[1] as string) : review.review(getCurrentProjectRoot(),args[0] as string,args[1] as string,args[2] as import("../../shared/structuredWorkItemReviewContracts").WorkItemReviewDecisionInput);
+  });
   registry.handle("workReview:get",async(_event,...args)=>{if(args.length!==2||args.some(value=>typeof value!=="string"||!value.trim()||value.length>128))throw Error("Exact Workflow and WorkItem IDs required.");return createStructuredWorkItemReviewService().get(getCurrentProjectRoot(),args[0] as string,args[1] as string);});
   registry.handle("workflow:get", async (_event, ...args) => {
     if (args.length !== 1 || typeof args[0] !== "string" || !args[0].trim() || args[0].length > 128)

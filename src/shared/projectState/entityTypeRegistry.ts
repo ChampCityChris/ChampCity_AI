@@ -14,6 +14,7 @@ const idList = "id-list" as const;
 
 /** One reviewed type registry owns field vocabulary and immutable-record policy. */
 export const ENTITY_TYPE_REGISTRY: Readonly<Record<EntityType, EntityDefinition>> = Object.freeze({
+  WorkItemValidationCycle: {schemaVersion: 1, required: {workflowId: id, workItemId: id, implementationAttemptId: id, implementationRecordId: id, semanticDigest: "digest", layout: "review-layout"}, optional: {advisorySummary: text, advisoryBlockingFindings: textList, advisoryRecommendation: ["ValidatePassed", "RequestRepair", "Inconclusive"], advisoryRepairDefectText: text, operatorNotes: text, repairDefectText: text}, immutableAfterCreation: false},
   CloseoutReviewCycle: {schemaVersion: 1, required: {workflowId: id, targetEntityId: id, scope: ["project", "phase"], closureDecision: ["Close", "DoNotClose"], rationale: text, semanticDigest: "digest", layout: "review-layout"}, immutableAfterCreation: false},
   ResearchOutcome: {schemaVersion: 1, required: {workflowId: id, outcome: ["no-implementation-plan-required", "research-plan-required"], prototypeDisposition: ["disposable", "candidate-for-later-work"], productionFollowUp: ["none", "new-work-intake-required"], evidence: textList, decisionEnabled: text, successFailureResult: text, closureCondition: text}, immutableAfterCreation: false},
   PhaseReviewCycle: {schemaVersion: 1, required: {workflowId: id, phaseId: id, stageKind: ["interview", "planning"], semanticDigest: "digest", layout: "review-layout"}, immutableAfterCreation: false},

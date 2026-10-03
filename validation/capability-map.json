@@ -17194,8 +17194,8 @@
     {
       "testPath": "test/workflow/workflow-execution-application-service.test.cjs",
       "currentTestCount": {
-        "value": 13,
-        "basis": "Ten focused service and IPC scenarios cover exact shared execution, current Criteria, source-neutral semantic evidence and close, peer-Workflow Phase isolation, bounded product APIs, system completion attribution, and canonical Repair re-entry. RWS06G adds exact shared execution proof."
+        "value": 16,
+        "basis": "Ten focused service and IPC scenarios cover exact shared execution, current Criteria, source-neutral semantic evidence and close, peer-Workflow Phase isolation, bounded product APIs, system completion attribution, and canonical Repair re-entry. RWS06G adds exact shared execution proof. WSF15A extends this owner with exact aggregate cycle freshness, human review completion and Repair recovery, and non-authoritative Architect advice."
       },
       "duration": {
         "kind": "measured",
