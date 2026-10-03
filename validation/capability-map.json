@@ -3385,6 +3385,18 @@
           "description": "Project Validation shell preserves recovered evidence geometry and ordered independent controls"
         },
         {
+          "behaviorId": "repair-adapter-binds-exact-sql-identity-candidate-review-and-shared-implementation-navigation",
+          "description": "Repair adapter binds exact SQL identity candidate review and shared implementation navigation"
+        },
+        {
+          "behaviorId": "repair-preserves-review-slot-browser-hiding-and-repeated-loop-presentation-without-authority",
+          "description": "Repair preserves review slot browser hiding and repeated loop presentation without authority"
+        },
+        {
+          "behaviorId": "repair-renders-primary-evidence-bound-repair-target-and-controlled-handoff-actions",
+          "description": "Repair renders primary evidence bound repair target and controlled handoff actions"
+        },
+        {
           "behaviorId": "required-state-does-not-alter-project-intake-lifecycle-status-text",
           "description": "required state does not alter Project Intake lifecycle status text"
         },
@@ -14443,6 +14455,71 @@
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "work-card-planning-shell-preserves-historical-document-review-browser-composition-and-handoff-order",
           "proofLocator": "Work Card Planning shell preserves historical document review browser composition and handoff order",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/renderer/work-card-repair-workspace.test.cjs",
+      "currentTestCount": {
+        "value": 3,
+        "basis": "Recovered historical characterization plus exact SQL application adapter proof."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 1000,
+        "basis": "Initial bounded renderer characterization estimate."
+      },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": true,
+        "timing": true
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": false,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Renderer characterization and SQL fixtures own isolated temporary directories and per-process React hook state.",
+        "ownedResources": [
+          "bounded-child-process",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "rendered-output"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "repair-adapter-binds-exact-sql-identity-candidate-review-and-shared-implementation-navigation",
+          "proofLocator": "Repair adapter binds exact SQL identity candidate review and shared implementation navigation",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "repair-preserves-review-slot-browser-hiding-and-repeated-loop-presentation-without-authority",
+          "proofLocator": "Repair preserves review slot browser hiding and repeated loop presentation without authority",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "repair-renders-primary-evidence-bound-repair-target-and-controlled-handoff-actions",
+          "proofLocator": "Repair renders primary evidence bound repair target and controlled handoff actions",
           "proofRole": "primary"
         }
       ]
