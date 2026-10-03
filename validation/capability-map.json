@@ -3389,6 +3389,22 @@
           "description": "required state does not alter Project Intake lifecycle status text"
         },
         {
+          "behaviorId": "review-adapter-prepares-exact-cycle-then-records-sql-review-and-routes-exact-repair-without-criterion-substitution",
+          "description": "Review adapter prepares exact cycle then records SQL review and routes exact Repair without criterion substitution"
+        },
+        {
+          "behaviorId": "review-validation-controls-preserve-advisory-read-only-and-browser-proof-slot-placement",
+          "description": "Review & Validation controls preserve advisory read-only and browser proof slot placement"
+        },
+        {
+          "behaviorId": "review-validation-renders-approved-work-card-tab-content-and-missing-document-errors-inline",
+          "description": "Review & Validation renders Approved Work Card tab content and missing document errors inline"
+        },
+        {
+          "behaviorId": "review-validation-renders-implementer-report-by-default-in-a-compact-document-pane",
+          "description": "Review & Validation renders Implementer Report by default in a compact document pane"
+        },
+        {
           "behaviorId": "selected-project-hub-exposes-source-control-and-work-intake-without-legacy-workflow-recovery",
           "description": "Selected-project Hub exposes Source Control only when the Current Project has optional source backing, and keeps Work Intake without legacy workflow recovery"
         },
@@ -14425,6 +14441,77 @@
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "work-card-planning-shell-preserves-historical-document-review-browser-composition-and-handoff-order",
           "proofLocator": "Work Card Planning shell preserves historical document review browser composition and handoff order",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/renderer/work-card-report-review-workspace.test.cjs",
+      "currentTestCount": {
+        "value": 4,
+        "basis": "Recovered historical characterization plus exact SQL application adapter proof."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 1000,
+        "basis": "Initial bounded renderer characterization estimate."
+      },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": true,
+        "timing": true
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": false,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Renderer characterization and SQL fixtures own isolated temporary directories and per-process React hook state.",
+        "ownedResources": [
+          "bounded-child-process",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "rendered-output"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "review-adapter-prepares-exact-cycle-then-records-sql-review-and-routes-exact-repair-without-criterion-substitution",
+          "proofLocator": "Review adapter prepares exact cycle then records SQL review and routes exact Repair without criterion substitution",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "review-validation-controls-preserve-advisory-read-only-and-browser-proof-slot-placement",
+          "proofLocator": "Review & Validation controls preserve advisory read-only and browser proof slot placement",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "review-validation-renders-approved-work-card-tab-content-and-missing-document-errors-inline",
+          "proofLocator": "Review & Validation renders Approved Work Card tab content and missing document errors inline",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "review-validation-renders-implementer-report-by-default-in-a-compact-document-pane",
+          "proofLocator": "Review & Validation renders Implementer Report by default in a compact document pane",
           "proofRole": "primary"
         }
       ]
