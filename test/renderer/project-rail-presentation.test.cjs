@@ -401,7 +401,7 @@ test("recovered rail project-only inspection retains distinct selected and requi
 
 test("Greenfield recovered rail harness binds exact SQL navigation without advancing authority", async () => {
   const calls = [];
-  const model = await recoveredRail.loadGreenfieldNestedRail({getGreenfieldNavigation: async id => {calls.push(id); return {workflowId:id, currentWorkspace:"phase-interview", currentPhaseId:"sql-phase", currentWorkItemId:null, closed:false, nextEligibleWorkspace:"phase-interview", reason:null};}}, "sql-workflow", {activeWorkspaceId:"phase-planning-bundle", onWorkspaceChange() {}});
+  const model = await recoveredRail.loadGreenfieldNestedRail({getGreenfieldNavigation: async id => {calls.push(id); return {workflowId:id, currentWorkspace:"phase-interview", currentPhaseId:"sql-phase", currentWorkItemId:null, closed:false, nextEligibleWorkspace:"phase-interview", reason:null,executionContext:{phase:{state:"active",phaseId:"sql-phase",dependsOn:[],loopStep:"Phase Intake",reason:""},workCard:{state:"none",dispositionOrState:"",reason:""}}};}}, "sql-workflow", {activeWorkspaceId:"phase-planning-bundle", onWorkspaceChange() {}});
   assert.deepEqual(calls, ["sql-workflow"]);
   assert.equal(model.phaseLoop.context.id, "sql-phase");
   assert.equal(model.phaseLoop.activeStepId, "phase-intake");

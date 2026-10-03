@@ -41,9 +41,15 @@ export function createWorkflowCandidateIngressService() {
       }
     } finally {store.close();}
     const navigation = await createGreenfieldNavigationService().get(canonical, request.workflowId);
-    const workspace = {"architect-interview":"architect-interview", "project-planning":"project-planning-review", "phase-map":"project-phase-map", "phase-interview":"phase-interview", "phase-planning":"phase-planning-bundle", "work-item-planning":"workflow-execution", "work-item-review-advisory":"workflow-execution"} as const;
-    if (navigation.closed || navigation.currentWorkspace !== workspace[request.stage] || scoped && !["work-item-planning", "work-item-review-advisory"].includes(request.stage) && navigation.currentPhaseId !== request.scopeEntityId) throw Error("Candidate does not target the current exact Greenfield stage/scope.");
-    if (["work-item-planning", "work-item-review-advisory"].includes(request.stage) && (!navigation.currentPhaseId || scopePhaseIds.length !== 1 || scopePhaseIds[0] !== navigation.currentPhaseId)) throw Error("WorkItem belongs to another exact Phase scope.");
+    const workspace = {"architect-interview":"architect-interview", "project-planning":"project-planning-review", "phase-map":"project-phase-map", "phase-interview":"phase-interview", "phase-planning":"phase-planning-bundle"} as const;
+    const workStage=request.stage==="work-item-planning"||request.stage==="work-item-review-advisory";
+    if(navigation.closed||!workStage&&(navigation.currentWorkspace!==workspace[request.stage as keyof typeof workspace]||scoped&&navigation.currentPhaseId!==request.scopeEntityId))throw Error("Candidate does not target the current exact Greenfield stage/scope.");
+    if(workStage){
+      if(!navigation.currentPhaseId||scopePhaseIds.length!==1||scopePhaseIds[0]!==navigation.currentPhaseId)throw Error("WorkItem belongs to another exact Phase scope.");
+      const allowed=request.stage==="work-item-planning"?["phase-work-card-selection","work-card-planning","work-card-repair"]:["work-card-report-review","work-card-validation"];
+      if(request.stage==="work-item-planning"&&navigation.currentWorkspace==="phase-work-card-selection"&&!navigation.workItemStates.some(item=>item.workItemId===request.scopeEntityId&&item.planningEligible))throw Error("Select a currently eligible exact SQL WorkItem candidate.");
+      if(!allowed.includes(navigation.currentWorkspace)||navigation.currentWorkItemId&&navigation.currentWorkItemId!==request.scopeEntityId)throw Error("Candidate does not target the current exact Greenfield WorkItem stage/scope.");
+    }
     const bind = (semanticKeys: string[], mechanics: Record<string, unknown>) => {
       if (Object.keys(candidate).some(key => !semanticKeys.includes(key) && !Object.hasOwn(mechanics, key))) throw Error("Unsupported semantic candidate field.");
       for (const [key, value] of Object.entries(mechanics)) {

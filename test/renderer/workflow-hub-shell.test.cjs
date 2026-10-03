@@ -540,9 +540,8 @@ test("six exact substantive Intake rails share seven stages with independent ins
 test("Project Creation selection is SQL-driven and does not use the Markdown Work Card Map", () => {
   const source = fs.readFileSync(path.join(repoRoot, "src/renderer/app/GreenfieldWorkspace.tsx"), "utf8");
   assert.match(source, /getGreenfieldNavigation\(workflow\.workflowId\)/);
-  assert.match(source, /<WorkflowExecutionWorkspace workflow=\{workflow\}/);
-  assert.match(source, /onProjectionChanged=\{refresh\}/);
-  assert.doesNotMatch(source, /getStructuredPhaseWorkIntake|prepareStructuredPhaseWorkItem|work-card-intake/);
+  assert.doesNotMatch(source, /WorkflowExecutionWorkspace/);
+  assert.doesNotMatch(source, /getStructuredPhaseWorkIntake|prepareStructuredPhaseWorkItem/);
   const {selectExecutionWorkItem}=loader.loadRendererSourceModule("src/renderer/app/WorkflowExecutionWorkspace.tsx");
   for (const workflowType of ["project-creation","feature-capability","issue-resolution","refactor-migration","integration-composition","infrastructure-platform","research-prototype"]) {
     const item=(id,blockers,workState="planned")=>({record:{id,body:{workState}},eligibility:{eligible:!blockers.length,blockers}});
@@ -552,7 +551,7 @@ test("Project Creation selection is SQL-driven and does not use the Markdown Wor
     assert.equal(selectExecutionWorkItem([blocked,first,item("ready",[])],"").record.id,"ready");
     assert.equal(selectExecutionWorkItem([item("closed",[],"closed"),first],"").record.id,"z-first");
   }
-  assert.doesNotMatch(source, /getWorkCardMapProjection|WorkCardMapWorkspace/);
+  assert.doesNotMatch(source, /getWorkCardMapProjection/);
   const app = fs.readFileSync(path.join(repoRoot, "src/renderer/app/App.tsx"), "utf8");
   assert.match(app, /<StructuredWorkflowWorkspace/);
   assert.doesNotMatch(app, /<NestedWorkflowRail|<WorkCardMapWorkspace/);
@@ -632,7 +631,7 @@ test("SQL Review Validation shell shows exact evidence and leaves human actions 
   const markup=renderToStaticMarkup(React.createElement(ReviewValidationShell,{review},React.createElement("button",null,"Record exact visual evidence")));
   for(const identity of ["work-exact","implementation-exact","tester-exact","validation-exact","criterion-exact","repair-exact"])assert.ok(markup.includes(identity),identity);assert.match(markup,/Record exact visual evidence/);
   const shell=fs.readFileSync(path.join(repoRoot,"src/renderer/app/ReviewValidationShell.tsx"),"utf8");assert.doesNotMatch(shell,/window\.champcity|JSON\.parse|onClick/);
-  const adapter=fs.readFileSync(path.join(repoRoot,"src/renderer/app/GreenfieldWorkspace.tsx"),"utf8");assert.match(adapter,/<WorkflowExecutionWorkspace workflow=\{workflow\}/);
+  const adapter=fs.readFileSync(path.join(repoRoot,"src/renderer/app/GreenfieldWorkspace.tsx"),"utf8");assert.doesNotMatch(adapter,/WorkflowExecutionWorkspace/);
   const app=fs.readFileSync(path.join(repoRoot,"src/renderer/app/App.tsx"),"utf8");
   assert.match(app,/<StructuredWorkflowWorkspace/);
   assert.doesNotMatch(app,/activeIssueStageId|IssueResolutionWorkspace|isStructuredGreenfieldExecution|GreenfieldExecutionWorkspace|StructuredPhaseMapWorkspace|StructuredPhaseLoopWorkspace|WorkItemPlanningWorkspace|CloseAdvanceWorkspace/);

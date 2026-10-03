@@ -7,7 +7,6 @@ import {StructuredArchitectWorkspace} from "./StructuredArchitectWorkspace";
 import {StructuredProjectPlanningWorkspace} from "./StructuredProjectPlanningWorkspace";
 import {StructuredPhaseMapWorkspace} from "./StructuredPhaseMapWorkspace";
 import {StructuredPhaseLoopWorkspace} from "./StructuredPhaseLoopWorkspace";
-import {WorkflowExecutionWorkspace} from "./WorkflowExecutionWorkspace";
 
 const emptyIntake: ProjectIntakeSubmission = {projectName: "", projectPurpose: "", desiredOutcome: "", projectType: "Desktop application", projectRepository: "", hasExistingSourceOrPlanning: false, knownConstraints: "", repositoryReviewContext: ""};
 
@@ -43,9 +42,7 @@ export function GreenfieldWorkspace({workflow, repositoryIdentity, browserPanel,
       content = <StructuredPhaseMapWorkspace workflowId={workflow.workflowId} browserPanel={browserPanel} onNext={() => go("phase-interview")} />; break;
     case "phase-interview": case "phase-planning-bundle":
       content = <StructuredPhaseLoopWorkspace workflowId={workflow.workflowId} phaseId={phaseId ?? undefined} stageKind={stage === "phase-interview" ? "interview" : "planning"}
-        browserPanel={browserPanel} onNext={() => go(stage === "phase-interview" ? "phase-planning-bundle" : "workflow-execution")} />; break;
-    case "workflow-execution":
-      content = <WorkflowExecutionWorkspace workflow={workflow} browserPanel={browserPanel} onReturn={onReturn} onProjectionChanged={refresh} />; break;
+        browserPanel={browserPanel} onNext={() => go(stage === "phase-interview" ? "phase-planning-bundle" : "phase-work-card-selection")} />; break;
     case "workflow-hub":
       content = <p role="status">Project Creation is complete. <button onClick={onReturn}>Return to Workflows</button></p>; break;
     default: content = <p role="status">The current SQL stage is {stage}. Refresh to resolve its current destination.</p>;

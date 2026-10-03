@@ -202,7 +202,7 @@ test("phase planning RevisionRequested bundle revises both documents once and re
   assert.equal(workCardPlan.metadata.documentDisposition.reviewedAt, null);
 });
 
-async function structuredPhaseLoopFixture(context, sourceBacked = false) {
+async function structuredPhaseLoopFixture(context, sourceBacked = false, observe = async()=>{}) {
   const os = require('node:os');
   const root = fs.mkdtempSync(path.join(os.tmpdir(),sourceBacked?'cc-r02-':'champcity-sql-phase-map-'));
   const registration = await require('../../dist/main/projectState/currentProjectRegistrationService.js').registerCurrentProject(root,'existing',{projectName:'Map fixture',...(sourceBacked?{sourceRepositoryId:'selected-project-source'}:{})});
@@ -219,20 +219,25 @@ async function structuredPhaseLoopFixture(context, sourceBacked = false) {
   context.after(()=>{store.close();fs.rmSync(root,{recursive:true,force:true});});
   const state = require('../../dist/shared/projectState/projectStateService.js').createProjectStateService(store,{principalId:'operator',principalType:'human',role:'Operator'}), projectId=registration.project.id;
   const workflow = (await state.createProjectCreationWorkflow(projectId,{title:'Map Greenfield'})).workflow;
+  await observe({root,store,state,projectId,workflow},'project-intake-capture');
   const {WORKFLOW_INTAKE_DEFINITIONS}=require('../../dist/shared/workflowIntakeContracts.js');
   const values=Object.fromEntries(WORKFLOW_INTAKE_DEFINITIONS['project-creation'].fields.filter(field=>field.required).map(field=>[field.key,field.key==='hasExistingSourceOrPlanning'?false:field.key==='projectRepository'?root:field.key==='projectName'?'map_fixture':field.key+' scope']));
   const intake=await state.saveWorkflowIntake(projectId,{workflowId:workflow.id,workflowType:'project-creation',values});
   await state.recordWorkflowIntakeDecision(projectId,intake.id,{expectedIntakeRecordVersion:1,outcome:'approved'});
+  await observe({root,store,state,projectId,workflow},'architect-interview');
   const {GREENFIELD_ARCHITECT_SECTIONS}=require('../../dist/shared/architectWorkspaceContracts.js');
   const interview=await state.saveArchitectCandidate(projectId,{workflowId:workflow.id,workflowType:'project-creation',intakeId:intake.id,intakeVersion:1,output:Object.fromEntries(Object.keys(GREENFIELD_ARCHITECT_SECTIONS).map(key=>[key,[key+' direction']]))});
   await state.recordArchitectReview(projectId,interview.id,{expectedRecordVersion:1,outcome:'approved'});
+  await observe({root,store,state,projectId,workflow},'project-planning-review');
   const planning=require('../../dist/main/projectPlanning/structuredProjectPlanningService.js').createStructuredProjectPlanningService(), model=await planning.get(root,workflow.id);
   const candidate=await planning.save(root,workflow.id,{workflowId:workflow.id,facts:[{title:'Verified product',statement:'Observed bounded purpose',impact:'Constrains map'}],direction:{title:'Direction',objective:'Deliver result',scopeIn:['Outcome'],scopeOut:[],constraints:[],assumptions:[],risks:[]},criteria:[{statement:'Verify outcome',criticality:'required',verificationIntent:'Review result',validationPolicy:'operator_decision'}],sources:model.sources});
   await planning.review(root,workflow.id,candidate.review.cycleId,{expectedRecordVersion:1,outcome:'approved'});
+  await observe({root,store,state,projectId,workflow},'project-phase-map');
   const mapService = require('../../dist/main/phaseMap/structuredPhaseMapService.js').createStructuredPhaseMapService();
   const mapContext = await mapService.get(root,workflow.id);
   const mapSaved = await mapService.save(root,workflow.id,{workflowId:workflow.id,phases:sourceBacked?typedMapPhases.slice(0,1):typedMapPhases,sources:mapContext.sources});
   await mapService.review(root,workflow.id,mapSaved.review.cycle.id,{expectedRecordVersion:1,outcome:'approved'});
+  await observe({root,store,state,projectId,workflow},'phase-interview');
   return {root,store,state,projectId,workflow,service:require('../../dist/main/phaseMap/structuredPhaseMapService.js').createStructuredPhaseMapService()};
 }
 
@@ -358,7 +363,7 @@ test('Greenfield SQL review and Repair preserve current Tester, human Criteria a
   await approveContract(id);const first=await attempt(id,'greenfield-first','production-defect-suspected');
   const created=await kernel.createWorkflowRepair(f.root,f.workflow.id,id,first.result.id),repairId=created.repair.id;assert.equal((await reviewService.get(f.root,f.workflow.id,id)).repairs[0].parentId,id);
 
-  await assert.rejects(kernel.createWorkflowRepair(f.root,f.workflow.id,id,first.result.id),/already exists/);
+  assert.equal((await kernel.createWorkflowRepair(f.root,f.workflow.id,id,first.result.id)).repair.id,repairId);
   const repairFile='planning/work-items/'+repairId+'/Repair_Work_Card.md'; fs.mkdirSync(path.dirname(path.join(f.root,repairFile)),{recursive:true}); fs.writeFileSync(path.join(f.root,repairFile),'# Historical Repair Work Card\nApproved prose is not SQL authority.');
   assert.equal((await planning.get(f.root,f.workflow.id,repairId)).review.disposition.state,'none');
   let repairPlan=await planning.get(f.root,f.workflow.id,repairId);assert.equal(repairPlan.review.required,true);
@@ -450,14 +455,14 @@ async function qualifyProjectCreationCompletion(context,sourceBacked){
    let model=await loop.get(f.root,f.workflow.id,key,'interview');model=await loop.save(f.root,f.workflow.id,key,'interview',{workflowId:f.workflow.id,phaseId:model.phase.id,stageKind:'interview',facts:[],direction,criteria:[],sources:model.sources});await loop.review(f.root,f.workflow.id,key,'interview',model.review.cycle.id,{expectedRecordVersion:1,outcome:'approved'});
    let planning=await loop.get(f.root,f.workflow.id,key,'planning');const candidates=(index===0&&!sourceBacked?[1,2]:[1]).map(order=>({candidateId:'work_'+order,order,title:'Outcome '+order,purpose:'Bounded implementation',dependsOn:order===2?['work_1']:[],resolutionStatus:'planned',resolutionReason:'',evidencePaths:[],criteria:[]}));
    planning=await loop.save(f.root,f.workflow.id,key,'planning',{workflowId:f.workflow.id,phaseId:planning.phase.id,stageKind:'planning',facts:[],direction,criteria:index===0&&!sourceBacked?[{statement:"Phase result remains usable",criticality:"required",verificationIntent:"Observe complete Phase",validationPolicy:"deferred_visual_phase"}]:[],candidates,sources:planning.sources});planning=await loop.review(f.root,f.workflow.id,key,'planning',planning.review.cycle.id,{expectedRecordVersion:1,outcome:'approved'});
-   assert.equal((await navigation.get(f.root,f.workflow.id)).currentWorkspace,'workflow-execution');
+   assert.equal((await navigation.get(f.root,f.workflow.id)).currentWorkspace,'phase-work-card-selection');
    assert.deepEqual((await kernel.getExecutionProjection(f.root,f.workflow.id)).items.filter(item=>planning.review.workItems.some(work=>work.id===item.record.id)).map(item=>item.record.id).sort(),planning.review.workItems.map(work=>work.id).sort());
    for(const [workIndex,work] of planning.review.workItems.entries()){
      const record=await f.store.getEntity(f.projectId,work.id);await f.state.saveWorkItemPlanningContract(f.projectId,{workflowId:f.workflow.id,workItemId:work.id,expectedVersion:record.recordVersion,implementationBoundaries:['Only bounded outcome'],affectedPaths:sourceBacked?['outcome.txt']:[],proofIntent:['Independent exact evidence']});const contract=await f.state.getWorkItemPlanningReview(f.projectId,work.id);await f.state.recordWorkItemPlanningReview(f.projectId,f.workflow.id,work.id,{expectedRecordVersion:contract.workItem.body.contractRevision,outcome:'approved'});
      const current=await f.store.getEntity(f.projectId,work.id);const attempt=await kernel.beginWorkItemAttempt(f.root,f.workflow.id,work.id,current.recordVersion,'close-'+work.id);const implementation=await kernel.finishWorkItemAttempt(f.root,f.workflow.id,work.id,attempt.executionRef,{outcome:'implemented',summary:'Useful bounded result',deviations:[],blockers:[],residualRisks:[]});
      await recordTester(work.id,implementation);
      const view=await close.get(f.root,f.workflow.id,'work-item',work.id);assert.equal(view.eligible,true,view.blockers.join(','));await assert.rejects(close.close(f.root,{workflowId:f.workflow.id,scope:'work-item',entityId:work.id,expectedVersion:view.expectedVersion-1,outcome:'Close',rationale:'Stale proof'}),/stale/);
-     const closed=await close.close(f.root,{workflowId:f.workflow.id,scope:'work-item',entityId:work.id,expectedVersion:view.expectedVersion,outcome:'Close',rationale:'Current independent proof permits closure'});assert.equal(closed.closed,true);assert.equal(closed.next.workspaceId,index===0&&workIndex===0&&!sourceBacked?'workflow-execution':'phase-validation');workIds.push(work.id);
+     const closed=await close.close(f.root,{workflowId:f.workflow.id,scope:'work-item',entityId:work.id,expectedVersion:view.expectedVersion,outcome:'Close',rationale:'Current independent proof permits closure'});assert.equal(closed.closed,true);assert.equal(closed.next.workspaceId,index===0&&workIndex===0&&!sourceBacked?'phase-work-card-selection':'phase-validation');workIds.push(work.id);
    }
    if(index===0&&!sourceBacked){
      let boundary=await kernel.getPhaseValidationProjection(f.root,f.workflow.id,planning.phase.id);const criterion=boundary.criteria.find(entry=>entry.policy==="deferred_visual_phase").criterion;
@@ -471,8 +476,8 @@ async function qualifyProjectCreationCompletion(context,sourceBacked){
      await kernel.completeWorkItem(f.root,f.workflow.id,repairId,(await f.store.getEntity(f.projectId,repairId)).recordVersion);
      boundary=await kernel.getPhaseValidationProjection(f.root,f.workflow.id,planning.phase.id);await kernel.recordPhaseVisualCriterion(f.root,{workflowId:f.workflow.id,phaseId:planning.phase.id,criterionId:criterion.id,expectedCriterionVersion:criterion.recordVersion,expectedPhaseVersion:boundary.phaseVersion,outcome:'pass',summary:'Operator observed usable current Phase including Repair'});
    }
-   const phase=await close.get(f.root,f.workflow.id,'phase',key);assert.equal(phase.eligible,true,phase.blockers.join(','));await reviewedClose('phase',phase.entityId,phase.expectedVersion);const done=await close.get(f.root,f.workflow.id,'phase',phase.entityId);assert.equal(done.closed,true);assert.equal(done.next.workspaceId,index===0&&!sourceBacked?'phase-interview':'workflow-execution');
-   assert.equal((await navigation.get(f.root,f.workflow.id)).currentWorkspace,index===0&&!sourceBacked?'phase-interview':'workflow-execution');
+   const phase=await close.get(f.root,f.workflow.id,'phase',key);assert.equal(phase.eligible,true,phase.blockers.join(','));await reviewedClose('phase',phase.entityId,phase.expectedVersion);const done=await close.get(f.root,f.workflow.id,'phase',phase.entityId);assert.equal(done.closed,true);assert.equal(done.next.workspaceId,index===0&&!sourceBacked?'phase-interview':'project-validation');
+   assert.equal((await navigation.get(f.root,f.workflow.id)).currentWorkspace,index===0&&!sourceBacked?'phase-interview':'project-validation');
    assert.equal(require('../../dist/main/phaseClose/phaseCloseService.js').getPhaseCloseProjection(f.root,key).complete,true);assert.ok((await kernel.getExecutionProjection(f.root,f.workflow.id)).items.filter(item=>item.phaseId===planning.phase.id).every(item=>item.record.body.workState==='closed'));
  }
  let project=await close.get(f.root,f.workflow.id,'workflow',f.workflow.id);assert.equal(project.eligible,false);const criterion=project.criteria[0];assert.equal(criterion.policy,'operator_decision');
@@ -483,6 +488,7 @@ async function qualifyProjectCreationCompletion(context,sourceBacked){
    await kernel.completeWorkflowExecution(f.root,f.workflow.id,project.expectedVersion);
    assert.equal((await f.store.getProject(f.projectId)).lifecycleState,'active');
    assert.equal((await f.store.getEntity(f.projectId,f.workflow.id)).body.currentWorkspace,'integration-ready');
+   assert.equal((await navigation.get(f.root,f.workflow.id)).currentWorkspace,'project-validation');
    const integrated=await require('../../dist/main/sourceControl/workflowIntegrationService.js').createWorkflowIntegrationService(f.root,f.workflow.id).integrate();
    assert.equal(integrated.candidate.status,'integrated',JSON.stringify(integrated.candidate));assert.equal(integrated.integration.body.workflowId,f.workflow.id);
    assert.equal((await f.store.getEntity(f.projectId,f.workflow.id)).lifecycleState,'active');
@@ -512,3 +518,34 @@ async function qualifyProjectCreationCompletion(context,sourceBacked){
  const intake=await f.state.createWorkIntake(f.projectId,{request:'Optional routing',desiredOutcome:'Choose next work',constraints:[],evidenceContext:[],requestedIntegrationTarget:'dev'});
  assert.equal((await require('../../dist/main/workflow/structuredWorkRoutingService.js').createStructuredWorkRoutingService().get(f.root,intake.intake.id,intake.workflow.id)).projectId,f.projectId);
 }
+
+
+test('Greenfield full SQL navigation repeats exact Phase WorkItem and Repair boundaries without Markdown or mutation on read',async context=>{
+ const nav=require('../../dist/main/workflow/greenfieldNavigationService.js').createGreenfieldNavigationService();const observed=[];
+ const f=await structuredPhaseLoopFixture(context,false,async(f,stage)=>{const value=await nav.get(f.root,f.workflow.id);assert.equal(value.currentWorkspace,stage);observed.push(stage);});
+ const ingress=require('../../dist/main/workflow/workflowCandidateIngressService.js').createWorkflowCandidateIngressService(),loop=require('../../dist/main/phasePlanning/structuredPhaseLoopService.js').createStructuredPhaseLoopService(),kernel=require('../../dist/main/workflow/workflowExecutionApplicationService.js').createWorkflowExecutionApplicationService(),close=require('../../dist/main/workflow/structuredCloseAdvanceService.js').createStructuredCloseAdvanceService();
+ const core=require('../../dist/shared/projectState/projectStateService.js').createProjectStateService,tester=core(f.store,{principalId:'nav-tester',principalType:'agent',role:'Tester'}),validator=core(f.store,{principalId:'nav-validator',principalType:'agent',role:'Validator'});
+ const direction={title:'Direction',objective:'Bounded outcome',scopeIn:['Outcome'],scopeOut:[],constraints:[],assumptions:[],risks:[]};
+ async function at(stage,id){const before=(await f.store.listStateChanges(f.projectId)).length,value=await nav.get(f.root,f.workflow.id);assert.equal(value.currentWorkspace,stage,value.reason);if(id)assert.equal(value.currentWorkItemId,id);assert.equal((await f.store.listStateChanges(f.projectId)).length,before);assert.notEqual(value.currentWorkspace,'workflow-execution');return value;}
+ async function contract(id){const receipt=await ingress.submit(f.root,{workflowId:f.workflow.id,stage:'work-item-planning',scopeEntityId:id,candidateJson:JSON.stringify({implementationBoundaries:['Exact outcome'],affectedPaths:[],proofIntent:['Independent exact proof']})});return receipt;}
+ async function approve(id){const record=await f.store.getEntity(f.projectId,id);await f.state.recordWorkItemPlanningReview(f.projectId,f.workflow.id,id,{expectedRecordVersion:record.recordVersion,outcome:'approved'});}
+ async function finish(id){const attempt=await kernel.prepareImplementationAttempt(f.root,f.workflow.id,id);await at('work-card-building-review',id);await kernel.beginWorkItemAttempt(f.root,f.workflow.id,id,(await f.store.getEntity(f.projectId,id)).recordVersion,attempt.id);await at('work-card-building-review',id);const result=await kernel.finishWorkItemAttempt(f.root,f.workflow.id,id,attempt.id,{summary:'Exact outcome',deviations:[],blockers:[],residualRisks:[],outcome:'implemented'});await at('work-card-report-review',id);await tester.createTesterResult(f.projectId,f.workflow.id,id,result.id,{sourceMode:'source-neutral',recommendation:'reuse-existing-proof',affectedCapabilityIds:[],permanentTestPaths:[],determinationEvidence:['Exact independent evidence'],unknowns:[],rationale:'Sufficient current proof'});const view=await kernel.getWorkItemValidationProjection(f.root,f.workflow.id,id);for(const entry of view.criteria.filter(entry=>entry.policy==='semantic_ai'))await validator.recordValidation(f.projectId,entry.criterion.id,{validationType:'work-item-criterion',method:'Independent exact review',validationMode:'semantic_ai',outcome:'pass',summary:'Satisfied',targetRecordVersion:entry.criterion.recordVersion,implementationRecordId:result.id});return result;}
+ async function pass(id){const cycle=await f.state.prepareWorkItemValidationCycle(f.projectId,f.workflow.id,id);await f.state.reviewWorkItemValidationCycle(f.projectId,f.workflow.id,id,{cycleId:cycle.id,expectedRecordVersion:cycle.recordVersion,outcome:'ValidatePassed'});assert.equal((await f.store.getEntity(f.projectId,id)).body.workState,'closed');}
+ for(const [phaseIndex,key] of ['phase_one','phase_two'].entries()){
+  await at('phase-interview');let model=await loop.get(f.root,f.workflow.id,key,'interview');let receipt=await ingress.submit(f.root,{workflowId:f.workflow.id,stage:'phase-interview',scopeEntityId:model.phase.id,candidateJson:JSON.stringify({facts:[],direction,criteria:[]})});await loop.review(f.root,f.workflow.id,key,'interview',receipt.reviewId,{expectedRecordVersion:receipt.recordVersion,outcome:'approved'});await at('phase-planning-bundle');
+  model=await loop.get(f.root,f.workflow.id,key,'planning');receipt=await ingress.submit(f.root,{workflowId:f.workflow.id,stage:'phase-planning',scopeEntityId:model.phase.id,candidateJson:JSON.stringify({facts:[],direction,criteria:[],candidates:[1,2].map(order=>({candidateId:key+'_work_'+order,order,title:'Work '+order,purpose:'Bounded outcome',dependsOn:order===1?[]:[key+'_work_1'],resolutionStatus:'planned',resolutionReason:'',evidencePaths:[],criteria:[]}))})});await loop.review(f.root,f.workflow.id,key,'planning',receipt.reviewId,{expectedRecordVersion:receipt.recordVersion,outcome:'approved'});let current=await at('phase-work-card-selection');assert.equal(current.phaseStates.length,2);
+  const works=(await loop.get(f.root,f.workflow.id,key,'planning')).review.workItems;
+  for(const [workIndex,work] of works.entries()){
+   await contract(work.id);await at('work-card-planning',work.id);await approve(work.id);await at('work-card-building-review',work.id);await finish(work.id);
+   let cycle=await f.state.prepareWorkItemValidationCycle(f.projectId,f.workflow.id,work.id);await at('work-card-report-review',work.id);assert.equal((await nav.get(f.root,f.workflow.id)).executionContext.workCard.loopStep,'Review & Validation');
+   await ingress.submit(f.root,{workflowId:f.workflow.id,stage:'work-item-review-advisory',scopeEntityId:work.id,candidateJson:JSON.stringify({advisorySummary:'Exact advisory',advisoryBlockingFindings:[],advisoryRecommendation:'ValidatePassed'})});await at('work-card-report-review',work.id);
+   if(phaseIndex===0&&workIndex===0)for(let repetition=0;repetition<2;repetition++){
+    cycle=await f.state.prepareWorkItemValidationCycle(f.projectId,f.workflow.id,work.id);const decision=await f.state.reviewWorkItemValidationCycle(f.projectId,f.workflow.id,work.id,{cycleId:cycle.id,expectedRecordVersion:cycle.recordVersion,outcome:'RequestRepair',repairDefectText:'Exact observed defect '+repetition});const result=await kernel.createWorkflowRepair(f.root,f.workflow.id,work.id,decision.id),repairId=result.repair.id;
+    current=await at('work-card-repair',repairId);assert.equal(current.currentRepairId,repairId);assert.equal(current.parentWorkItemId,work.id);await contract(repairId);await at('work-card-repair',repairId);await approve(repairId);await at('work-card-building-review',repairId);await finish(repairId);await pass(repairId);await at('work-card-building-review',work.id);assert.equal((await f.store.getEntity(f.projectId,work.id)).body.workState,'ready');await finish(work.id);
+   }
+   await pass(work.id);await at(workIndex===0?'phase-work-card-selection':'phase-validation');
+  }
+  const view=await close.get(f.root,f.workflow.id,'phase',model.phase.id);assert.equal(view.eligible,true,view.blockers.join(';'));let review=await close.saveCloseout(f.root,{workflowId:f.workflow.id,scope:'phase',targetEntityId:view.entityId,expectedTargetVersion:view.expectedVersion,closureDecision:'Close',rationale:'Exact current Phase completed'});await close.reviewCloseout(f.root,f.workflow.id,review.cycleId,{expectedRecordVersion:review.recordVersion,outcome:'approved'});assert.equal((await close.get(f.root,f.workflow.id,'phase',view.entityId)).closed,true);await at(phaseIndex===0?'phase-interview':'project-validation');
+ }
+ let project=await close.get(f.root,f.workflow.id,'workflow',f.workflow.id);for(const criterion of project.criteria.filter(entry=>!entry.satisfied))project=await close.projectCriterion(f.root,{workflowId:f.workflow.id,criterionId:criterion.id,expectedCriterionVersion:criterion.recordVersion,expectedWorkflowVersion:project.expectedVersion,outcome:'approved',rationale:'Complete exact Project'});assert.equal(project.eligible,true,project.blockers.join(';'));const review=await close.saveCloseout(f.root,{workflowId:f.workflow.id,scope:'project',targetEntityId:f.workflow.id,expectedTargetVersion:project.expectedVersion,closureDecision:'Close',rationale:'Exact Project accepted'});await close.reviewCloseout(f.root,f.workflow.id,review.cycleId,{expectedRecordVersion:review.recordVersion,outcome:'approved'});assert.equal((await close.get(f.root,f.workflow.id,'workflow',f.workflow.id)).closed,true);const terminalNav=await at('workflow-hub');assert.equal(terminalNav.phaseStates.length,2);assert.equal(terminalNav.workItemStates.length,6);assert.ok(terminalNav.workItemStates.every(item=>item.state==='closed'&&!item.planningEligible));assert.deepEqual(observed,['project-intake-capture','architect-interview','project-planning-review','project-phase-map','phase-interview']);assert.equal(fs.existsSync(path.join(f.root,'planning')),false);
+});

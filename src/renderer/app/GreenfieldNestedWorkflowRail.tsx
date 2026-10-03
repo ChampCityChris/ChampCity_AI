@@ -228,16 +228,10 @@ export async function loadGreenfieldNestedRail(
   const navigation = await api.getGreenfieldNavigation(workflowId);
   if (navigation.workflowId !== workflowId) throw Error("Exact Greenfield Workflow required.");
   const requiredWorkspaceId = navigation.closed ? null
-    : navigation.currentWorkspace === "workflow-execution" ? "phase-work-card-selection"
+
     : navigation.currentWorkspace === "workflow-hub" ? null : navigation.currentWorkspace;
   return greenfieldNestedRailModel({...presentation, requiredWorkspaceId,
-    executionContext: {
-      phase: {state: navigation.currentPhaseId ? "active" : "none", phaseId: navigation.currentPhaseId ?? undefined,
-        dependsOn: [], reason: navigation.reason ?? "", loopStep: navigation.currentWorkspace === "phase-interview" ? "Phase Intake"
-          : navigation.currentWorkspace === "phase-planning-bundle" ? "Phase Planning" : undefined},
-      workCard: {state: navigation.currentWorkItemId ? "active" : "none", workCardId: navigation.currentWorkItemId ?? undefined,
-        dispositionOrState: "", reason: navigation.reason ?? ""},
-    },
+    executionContext: navigation.executionContext,
   });
 }
 

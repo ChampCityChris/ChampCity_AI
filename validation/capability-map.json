@@ -10980,7 +10980,7 @@
     {
       "testPath": "test/phase-planning/phase-planning-service.test.cjs",
       "currentTestCount": {
-        "value": 9,
+        "value": 10,
         "basis": "RWS06E adds exact SQL Phase stage review and deterministic typed Phase Planning migration proofs. RWS06H adds SQL review/repair convergence proof. RWS06I adds structured close/advance lifecycle proof. RWS06I-R02 extends the existing lifecycle proof through real integration and same active Current Project continuation."
       },
       "duration": {

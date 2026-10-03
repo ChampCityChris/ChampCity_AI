@@ -42,11 +42,11 @@ export function createStructuredCloseAdvanceService() {
       const currentPhase=scope==="phase"?plan.phases.find(phase=>phase.phaseId===entityId):plan.phases.find(phase=>phase.workItemIds.includes(entityId));
       if(scope==="work-item"){
         const sibling=(currentPhase?works.filter(work=>currentPhase.workItemIds.includes(work.id)):works).find(work=>work.id!==entityId&&!["closed","cancelled"].includes(work.body.workState)&&edges.filter(edge=>edge.relationshipType==="depends_on"&&edge.fromEntityId===work.id).every(edge=>edge.toEntityId===entityId||works.some(item=>item.id===edge.toEntityId&&item.body.workState==="closed")));
-        next=sibling?{workspaceId:"workflow-execution",entityId:sibling.id,label:"Next WorkItem"}:currentPhase?{workspaceId:"phase-validation",entityId:currentPhase.phaseId,label:"Phase validation"}:{workspaceId:"workflow-execution",entityId:workflowId,label:"Workflow completion"};
+        next=sibling?{workspaceId:projectCreation?"phase-work-card-selection":"workflow-execution",entityId:sibling.id,label:"Next WorkItem"}:currentPhase?{workspaceId:"phase-validation",entityId:currentPhase.phaseId,label:"Phase validation"}:{workspaceId:"workflow-execution",entityId:workflowId,label:"Workflow completion"};
       }else if(scope==="phase"){
         const phase=plan.phases.find(phase=>phase.phaseId!==entityId&&phase.record.body.phaseState!=="closed"&&edges.filter(edge=>edge.relationshipType==="depends_on"&&edge.fromEntityId===phase.phaseId).every(edge=>edge.toEntityId===entityId||plan.phases.some(item=>item.phaseId===edge.toEntityId&&item.record.body.phaseState==="closed")));
-        next=phase?{workspaceId:projectCreation?"phase-interview":"workflow-execution",entityId:phase.phaseId,label:"Next Phase"}:{workspaceId:"workflow-execution",entityId:workflowId,label:projectCreation?"Project validation":"Workflow completion"};
-      }else if(!closed&&sourceMode==="source-backed")next={workspaceId:"workflow-execution",entityId:workflowId,label:"Exact source integration"};
+        next=phase?{workspaceId:projectCreation?"phase-interview":"workflow-execution",entityId:phase.phaseId,label:"Next Phase"}:{workspaceId:projectCreation?"project-validation":"workflow-execution",entityId:workflowId,label:projectCreation?"Project validation":"Workflow completion"};
+      }else if(!closed&&sourceMode==="source-backed")next={workspaceId:projectCreation?"project-validation":"workflow-execution",entityId:workflowId,label:"Exact source integration"};
       const criteria:CloseAdvanceProjection["criteria"]=[];
       if(scope==="workflow"&&projectCreation&&!closed){
         const cycles=(await store.listEntities(projectId,"ProjectPlanningReviewCycle")).filter(cycle=>cycle.entityType==="ProjectPlanningReviewCycle"&&cycle.lifecycleState==="active"&&cycle.body.workflowId===workflowId);
