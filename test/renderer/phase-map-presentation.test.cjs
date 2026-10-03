@@ -245,3 +245,39 @@ test("Phase Map work card counts use real formal Work Card identities only", () 
   assert.equal(counts.get("phase-01"), 1);
   assert.equal(counts.has("phase-02"), false);
 });
+
+const {ProjectPhaseMapShell,ProjectPhaseMapCards}=require('./renderer-source-loader.cjs').loadRendererSourceModule('src/renderer/app/ProjectPhaseMapShell.tsx');
+test('recovered Project Phase Map cards match surviving historical markup with typed projections',()=>{
+ for(const currentPhaseId of [null,'phase-02'])for(const count of [0,3]){
+  const document=phaseMapDocument(),projection=phaseMapProjectionFromDocument(document);
+  const documents=Array.from({length:count},(_,index)=>({logicalDocumentId:`work-${index}`,markdownPath:`planning/phases/phase-01/Work_Cards/WC${index}.md`,displayFilename:`WC${index}.md`,metadata:{artifactType:'formal-work-card',phaseId:'phase-01',workCardId:`WC${index}`},effectiveDisposition:'Approved',initializationNeeded:false}));
+  const common={currentPhaseId,documentError:'',feedback:'Current evidence',selectedDocument:document,onCopy(){}};
+  assert.equal(renderToStaticMarkup(React.createElement(ProjectPhaseMapCards,{...common,projection,workCardCounts:{'phase-01':count}})),renderToStaticMarkup(React.createElement(FigmaPhaseMapWorkspace,{...common,documents})));
+ }
+ const markup=renderToStaticMarkup(React.createElement(ProjectPhaseMapCards,{currentPhaseId:null,documentError:'SQL blocker',feedback:'',selectedDocument:null,projection:{state:'needs-attention',reason:'Exact current map required'},workCardCounts:{},onCopy(){}}));assert.match(markup,/Exact current map required/);assert.match(markup,/SQL blocker/);assert.match(markup,/disabled=""/);
+});
+test('recovered Project Phase Map shell preserves expansion and browser placement without deriving authority',()=>{
+ const original={useState:React.useState,useEffect:React.useEffect};let expanded;
+ React.useState=initial=>[expanded??initial,value=>{expanded=value;}];React.useEffect=()=>{};
+ const props={selectedDocument:phaseMapDocument(),projection:{state:'readable',phases:phaseMapProjectionFromDocument(phaseMapDocument()).phases},currentPhaseId:'phase-01',documentError:'',feedback:'',workCardCounts:{},onCopy(){}};
+ function nodes(element){return !element||typeof element!=='object'?[]:[element,...React.Children.toArray(element.props?.children).flatMap(nodes)];}
+ try{let first=ProjectPhaseMapCards(props);nodes(first).find(node=>node.type==='button'&&node.props.className==='figma-phase-map-item').props.onClick();let next=ProjectPhaseMapCards(props);assert.equal(nodes(next).find(node=>node.type==='h2'&&node.props.children==='Second Phase').props.children,'Second Phase');assert.equal(nodes(next).filter(node=>node.type==='button'&&node.props['aria-expanded']===true).length,1);}finally{Object.assign(React,original);}
+ for(const browserVisible of [true,false]){const markup=renderToStaticMarkup(React.createElement(ProjectPhaseMapShell,{cards:props,review:null,browserVisible,browserCompanion:React.createElement('div',{className:'figma-browser-column'},'Architect')}));assert.match(markup,/Phase Map Figma workspace/);assert.equal(markup.includes('chat-hidden'),!browserVisible);assert.ok(markup.indexOf('figma-phase-map-column')<markup.indexOf('figma-browser-column'));assert.match(markup,/tabindex="-1"/);}
+});
+test('recovered Project Phase Map adapter Refresh and exact review are driven by SQL candidates',async t=>{
+ const f=await require('../support/structured-architect-fixture.cjs').structuredArchitectFixture(t);await f.architect.review(f.root,f.workflow.id,f.candidate.review.cycleId,{expectedRecordVersion:f.candidate.review.recordVersion,outcome:'approved'});
+ const ingress=require('../../dist/main/workflow/workflowCandidateIngressService.js').createWorkflowCandidateIngressService(),planning=require('../../dist/main/projectPlanning/structuredProjectPlanningService.js').createStructuredProjectPlanningService();
+ const semantic={facts:[{title:'Verified',statement:'Current understanding',impact:'Bounded outcome'}],direction:{title:'Direction',objective:'Useful outcome',scopeIn:['First'],scopeOut:['Later'],constraints:[],assumptions:[],risks:[]},criteria:[{statement:'Useful',criticality:'required',verificationIntent:'Operator confirms',validationPolicy:'operator_decision'}]};
+ const plan=await ingress.submit(f.root,{workflowId:f.workflow.id,stage:'project-planning',candidateJson:JSON.stringify(semantic)});await planning.review(f.root,f.workflow.id,plan.reviewId,{expectedRecordVersion:plan.recordVersion,outcome:'approved'});
+ const map=await ingress.submit(f.root,{workflowId:f.workflow.id,stage:'phase-map',candidateJson:JSON.stringify({phases:[{phaseId:'foundation',title:'Foundation',order:1,purpose:'Usable result',dependsOn:[],sourceReferences:[]}]})});
+ const service=require('../../dist/main/phaseMap/structuredPhaseMapService.js').createStructuredPhaseMapService(),navigation=require('../../dist/main/workflow/greenfieldNavigationService.js').createGreenfieldNavigationService();const sql=await service.get(f.root,f.workflow.id);
+ const {StructuredPhaseMapWorkspace}=require('./renderer-source-loader.cjs').loadRendererSourceModule('src/renderer/app/StructuredPhaseMapWorkspace.tsx');const originals={useState:React.useState,useEffect:React.useEffect},oldWindow=global.window,values=[sql,'','notes','Approved',false,'',null];let index=0;const calls=[];
+ React.useState=initial=>{const position=index++;return[values[position]??initial,value=>{values[position]=typeof value==='function'?value(values[position]):value;}];};React.useEffect=()=>{};
+ global.window={champcity:{getStructuredPhaseMap:async id=>{calls.push(['get',id]);return service.get(f.root,id);},getGreenfieldNavigation:id=>navigation.get(f.root,id),reviewStructuredPhaseMap:async(...args)=>{calls.push(['review',...args]);return service.review(f.root,...args);}}};
+ const render=()=>{index=0;return StructuredPhaseMapWorkspace({workflowId:f.workflow.id,browserPanel:null,onNext:async()=>{}});};
+ try{let element=render();assert.equal(element.type.name,'ProjectPhaseMapShell');assert.equal(element.props.cards.projection.phases[0].phaseId,'foundation');assert.equal(element.props.cards.selectedDocument.metadata.canonical,undefined);assert.equal(element.props.review.canApply,true);
+ element.props.review.onApply();for(let n=0;n<500&&values[4];n++)await new Promise(resolve=>setTimeout(resolve,10));assert.deepEqual(calls[0],['review',f.workflow.id,map.reviewId,{expectedRecordVersion:map.recordVersion,outcome:'approved',notes:'notes'}]);
+ element=render();element.props.browserCompanion.props.children[1].props.onRefresh();for(let n=0;n<500&&values[4];n++)await new Promise(resolve=>setTimeout(resolve,10));element=render();assert.deepEqual(calls[1],['get',f.workflow.id]);assert.equal(values[1],'',String(values[1]));assert.equal(values[4],false);assert.equal(values[0].review.disposition.state,'approved');assert.equal(element.props.cards.currentPhaseId,'foundation');assert.equal(element.props.cards.workCardCounts.foundation,0);
+ values[1]='SQL map source is stale';element=render();assert.equal(element.props.review.canApply,false);assert.equal(element.props.cards.documentError,'SQL map source is stale');
+ }finally{Object.assign(React,originals);global.window=oldWindow;}
+});

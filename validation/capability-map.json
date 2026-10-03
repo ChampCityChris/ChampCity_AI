@@ -2262,6 +2262,18 @@
         {
           "behaviorId": "phase-planning-revisionrequested-bundle-revises-both-documents-once-and-resets-review-state",
           "description": "phase planning RevisionRequested bundle revises both documents once and resets review state"
+        },
+        {
+          "behaviorId": "recovered-project-phase-map-expansion-and-browser-presentation-preserve-boundaries",
+          "description": "recovered Project Phase Map shell preserves expansion and browser placement without deriving authority"
+        },
+        {
+          "behaviorId": "recovered-project-phase-map-sql-refresh-and-exact-review-bind-current-candidate",
+          "description": "recovered Project Phase Map adapter Refresh and exact review are driven by SQL candidates"
+        },
+        {
+          "behaviorId": "recovered-project-phase-map-typed-cards-preserve-historical-markup",
+          "description": "recovered Project Phase Map cards match surviving historical markup with typed projections"
         }
       ]
     },
@@ -13285,13 +13297,13 @@
     {
       "testPath": "test/renderer/phase-map-presentation.test.cjs",
       "currentTestCount": {
-        "value": 7,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 10,
+        "basis": "Observed WSF05 normal-Windows focused TAP summary."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 239,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
+        "milliseconds": 915,
+        "basis": "WSF05 normal-Windows direct owned-file run; wall-clock file-process duration."
       },
       "proposedValidationLane": "affected-capability",
       "platformDependency": "none",
@@ -13300,8 +13312,8 @@
         "filesystem": true,
         "git": false,
         "network": false,
-        "process": false,
-        "timing": false
+        "process": true,
+        "timing": true
       },
       "sourceInspectionClassification": "none",
       "v2Disposition": "preserve",
@@ -13309,13 +13321,14 @@
         "capability"
       ],
       "execution": {
-        "requiresBuild": false,
+        "requiresBuild": true,
         "platform": "any",
         "externalCapabilities": [],
         "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: repository-readonly.",
+        "schedulingReason": "Renderer characterization and SQL fixtures own isolated temporary directories and per-process React hook state.",
         "ownedResources": [
-          "repository-readonly"
+          "bounded-child-process",
+          "temp-filesystem-isolated"
         ]
       },
       "proofCharacteristics": [
@@ -13366,6 +13379,24 @@
           "capabilityId": "phase-execution-workflow",
           "behaviorId": "phase-map-work-card-counts-use-real-formal-work-card-identities-only",
           "proofLocator": "Phase Map work card counts use real formal Work Card identities only",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "phase-execution-workflow",
+          "behaviorId": "recovered-project-phase-map-expansion-and-browser-presentation-preserve-boundaries",
+          "proofLocator": "recovered Project Phase Map shell preserves expansion and browser placement without deriving authority",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "phase-execution-workflow",
+          "behaviorId": "recovered-project-phase-map-sql-refresh-and-exact-review-bind-current-candidate",
+          "proofLocator": "recovered Project Phase Map adapter Refresh and exact review are driven by SQL candidates",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "phase-execution-workflow",
+          "behaviorId": "recovered-project-phase-map-typed-cards-preserve-historical-markup",
+          "proofLocator": "recovered Project Phase Map cards match surviving historical markup with typed projections",
           "proofRole": "primary"
         }
       ]
