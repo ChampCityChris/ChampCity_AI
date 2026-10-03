@@ -3253,6 +3253,10 @@
           "description": "Build workspace renders implementation context and Codex controls without document-review actions"
         },
         {
+          "behaviorId": "closed-greenfield-entry-stays-on-the-sql-resolver-while-other-terminal-family-dispatch-is-preserved",
+          "description": "closed Greenfield entry stays on the SQL resolver while other terminal family dispatch is preserved"
+        },
+        {
           "behaviorId": "development-rail-renders-workflow-phase-and-work-card-navigation",
           "description": "Development rail renders workflow, phase, and Work Card navigation"
         },
@@ -3291,6 +3295,18 @@
         {
           "behaviorId": "generic-preview-disposition-footer-is-suppressed-only-for-project-intake-and-specialized-workspa",
           "description": "generic preview disposition footer is suppressed only for Project Intake and specialized workspaces"
+        },
+        {
+          "behaviorId": "greenfield-composes-all-eighteen-recovered-adapters-with-exact-identities-and-no-generic-execution-fallback",
+          "description": "Greenfield composes all eighteen recovered adapters with exact identities and no generic execution fallback"
+        },
+        {
+          "behaviorId": "greenfield-resume-uses-sole-sql-resolver-and-inspection-is-read-only-ephemeral-presentation",
+          "description": "Greenfield resume uses sole SQL resolver and inspection is read-only ephemeral presentation"
+        },
+        {
+          "behaviorId": "greenfield-shared-review-alternate-repair-and-terminal-callbacks-preserve-authorized-routing",
+          "description": "Greenfield shared review alternate Repair and terminal callbacks preserve authorized routing"
         },
         {
           "behaviorId": "hub-sidebar-omits-development-lifecycle-fields-while-development-sidebar-owns-them",
@@ -3391,6 +3407,10 @@
         {
           "behaviorId": "project-validation-shell-preserves-recovered-evidence-geometry-and-ordered-independent-controls",
           "description": "Project Validation shell preserves recovered evidence geometry and ordered independent controls"
+        },
+        {
+          "behaviorId": "recovered-shells-contain-no-service-calls-and-composition-contains-no-copied-workspace-chrome",
+          "description": "recovered shells contain no service calls and composition contains no copied workspace chrome"
         },
         {
           "behaviorId": "repair-adapter-binds-exact-sql-identity-candidate-review-and-shared-implementation-navigation",
@@ -13456,6 +13476,83 @@
           "capabilityId": "external-provider-integration",
           "behaviorId": "typed-preload-executes-only-fixed-github-ipc-channels-and-forwards-constrained-reads",
           "proofLocator": "typed preload executes only fixed GitHub IPC channels and forwards constrained reads",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
+      "testPath": "test/renderer/greenfield-shell-composition.test.cjs",
+      "currentTestCount": {
+        "value": 5,
+        "basis": "Recovered historical characterization plus exact SQL application adapter proof."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 1000,
+        "basis": "Initial bounded renderer characterization estimate."
+      },
+      "proposedValidationLane": "affected-capability",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": true,
+        "timing": true
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability"
+      ],
+      "execution": {
+        "requiresBuild": false,
+        "platform": "any",
+        "externalCapabilities": [],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Renderer characterization and SQL fixtures own isolated temporary directories and per-process React hook state.",
+        "ownedResources": [
+          "bounded-child-process",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "rendered-output"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "closed-greenfield-entry-stays-on-the-sql-resolver-while-other-terminal-family-dispatch-is-preserved",
+          "proofLocator": "closed Greenfield entry stays on the SQL resolver while other terminal family dispatch is preserved",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "greenfield-composes-all-eighteen-recovered-adapters-with-exact-identities-and-no-generic-execution-fallback",
+          "proofLocator": "Greenfield composes all eighteen recovered adapters with exact identities and no generic execution fallback",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "greenfield-resume-uses-sole-sql-resolver-and-inspection-is-read-only-ephemeral-presentation",
+          "proofLocator": "Greenfield resume uses sole SQL resolver and inspection is read-only ephemeral presentation",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "greenfield-shared-review-alternate-repair-and-terminal-callbacks-preserve-authorized-routing",
+          "proofLocator": "Greenfield shared review alternate Repair and terminal callbacks preserve authorized routing",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "recovered-shells-contain-no-service-calls-and-composition-contains-no-copied-workspace-chrome",
+          "proofLocator": "recovered shells contain no service calls and composition contains no copied workspace chrome",
           "proofRole": "primary"
         }
       ]

@@ -20,9 +20,9 @@ export function StructuredWorkflowWorkspace({workflow, repositoryIdentity, brows
   const stages = deriveWorkflowStageRailModel(workflow, inspectedStage ?? undefined, stage => setInspection({workflow,stage}));
   const reloadCurrentWorkflow = async () => { await onProgressed(workflow.workflowId); };
   let content: ReactNode;
+  if (workflow.workflowType === "project-creation") return <GreenfieldWorkspace workflow={workflow} repositoryIdentity={repositoryIdentity} browserPanel={browserPanel} onReturn={onReturn} />;
   if (!canonical && workflow.lifecycleState !== "active") return <WorkflowInstanceWorkspace workflow={workflow} onReturn={onReturn} />;
   if (workflow.workflowType === "work-intake-routing") return <OptionalWorkIntakeWorkspace workflow={workflow} browserPanel={browserPanel} onReturn={onReturn} onRouted={onOpen} />;
-  if (workflow.workflowType === "project-creation") return <GreenfieldWorkspace workflow={workflow} repositoryIdentity={repositoryIdentity} browserPanel={browserPanel} onReturn={onReturn} />;
   if (stages && canonical && inspectedStage && inspectedStage !== canonical) {
     const stage = stages.find(entry => entry.id === inspectedStage)!;
     content = <WorkflowStageInspectionWorkspace key={`${workflow.workflowId}:${workflow.currentWorkspace}:${inspectedStage}`} workflow={workflow} stage={inspectedStage} label={stage.label} status={stage.statusLabel} canonical={canonical} onReturn={onReturn} />;

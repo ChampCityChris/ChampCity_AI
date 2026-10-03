@@ -1,53 +1,33 @@
-import {useEffect, useRef, useState, type ReactNode} from "react";
-import type {ProjectIntakeSubmission, WorkspaceId} from "../../shared/workspaceContracts";
-import type {GreenfieldNavigationProjection, GreenfieldStage} from "../../shared/greenfieldNavigationContracts";
+import {useEffect,useRef,useState,type ReactNode} from "react";
+import type {ProjectIntakeSubmission,WorkspaceId,ProjectLifecycleRailStatus} from "../../shared/workspaceContracts";
+import type {GreenfieldNavigationProjection,GreenfieldStage} from "../../shared/greenfieldNavigationContracts";
 import type {WorkflowInstanceSummary} from "../../shared/workflowApplicationContracts";
-import {ProjectIntakeWorkspace} from "./ProjectIntakeWorkspace";
-import {StructuredArchitectWorkspace} from "./StructuredArchitectWorkspace";
-import {StructuredProjectPlanningWorkspace} from "./StructuredProjectPlanningWorkspace";
-import {StructuredPhaseMapWorkspace} from "./StructuredPhaseMapWorkspace";
-import {StructuredPhaseLoopWorkspace} from "./StructuredPhaseLoopWorkspace";
-
-const emptyIntake: ProjectIntakeSubmission = {projectName: "", projectPurpose: "", desiredOutcome: "", projectType: "Desktop application", projectRepository: "", hasExistingSourceOrPlanning: false, knownConstraints: "", repositoryReviewContext: ""};
-
-/** Owns Greenfield stage composition; all mutations retain exact SQL identities. */
-export function GreenfieldWorkspace({workflow, repositoryIdentity, browserPanel, onReturn}: {
-  workflow: WorkflowInstanceSummary; repositoryIdentity: string; browserPanel: ReactNode; onReturn: () => void;
-}) {
-  const [navigation, setNavigation] = useState<GreenfieldNavigationProjection | null>(null), [stage, setStage] = useState<GreenfieldStage>("project-intake-capture");
-  const [error, setError] = useState("");
-  const [intake, setIntake] = useState({...emptyIntake, projectRepository: repositoryIdentity});
-  const generation = useRef(0);
-  const refresh = async () => {
-    const request = ++generation.current;
-    const current = await window.champcity.getGreenfieldNavigation(workflow.workflowId);
-    const nextStage = current.currentWorkspace;
-    if (request !== generation.current) return;
-    setNavigation(current); setStage(nextStage); setError("");
-  };
-  useEffect(() => {void refresh().catch(reason => setError(String(reason))); return () => {generation.current++;};}, [workflow.workflowId]);
-  const go = async (_destination: WorkspaceId) => {await refresh();};
-  const phaseId = navigation?.currentPhaseId;
-  let content: ReactNode;
-  switch (stage) {
-    case "project-intake-capture":
-      content = <ProjectIntakeWorkspace workflowId={workflow.workflowId} value={intake} onChange={setIntake}
-        repositoryIdentity={repositoryIdentity} isChoosingProjectRepository={false} onChooseProjectRepository={() => setError("Use Change Project to select a different repository.")}
-        onRailStatus={() => undefined} onPrepared={() => void go("architect-interview").catch(reason => setError(String(reason)))} />; break;
-    case "architect-interview":
-      content = <StructuredArchitectWorkspace workflowId={workflow.workflowId} browserVisible browserCompanion={browserPanel} onNext={() => go("project-planning-review")} />; break;
-    case "project-planning-review":
-      content = <StructuredProjectPlanningWorkspace workflowId={workflow.workflowId} browserPanel={browserPanel} onNext={() => go("project-phase-map")} />; break;
-    case "project-phase-map":
-      content = <StructuredPhaseMapWorkspace workflowId={workflow.workflowId} browserPanel={browserPanel} onNext={() => go("phase-interview")} />; break;
-    case "phase-interview": case "phase-planning-bundle":
-      content = <StructuredPhaseLoopWorkspace workflowId={workflow.workflowId} phaseId={phaseId ?? undefined} stageKind={stage === "phase-interview" ? "interview" : "planning"}
-        browserPanel={browserPanel} onNext={() => go(stage === "phase-interview" ? "phase-planning-bundle" : "phase-work-card-selection")} />; break;
-    case "workflow-hub":
-      content = <p role="status">Project Creation is complete. <button onClick={onReturn}>Return to Workflows</button></p>; break;
-    default: content = <p role="status">The current SQL stage is {stage}. Refresh to resolve its current destination.</p>;
-  }
-  return <section aria-label="Greenfield Workflow"><header><button onClick={onReturn}>Workflows</button><h1 id="workspace-heading">{workflow.title}</h1>
-    <button onClick={() => void refresh().catch(reason => setError(String(reason)))}>Resume current stage</button></header>
-    {error ? <p role="alert">{error}</p> : null}{navigation ? content : <p>Loading current SQL stage…</p>}</section>;
+import {GreenfieldNestedWorkflowRail} from "./GreenfieldNestedWorkflowRail";
+import {composeGreenfieldStage,type GreenfieldShellSelection} from "./GreenfieldStageComposition";
+const emptyIntake:ProjectIntakeSubmission={projectName:"",projectPurpose:"",desiredOutcome:"",projectType:"Desktop application",projectRepository:"",hasExistingSourceOrPlanning:false,knownConstraints:"",repositoryReviewContext:""};
+const selectionFromSql=(value:GreenfieldNavigationProjection):GreenfieldShellSelection=>({stage:value.currentWorkspace,phaseId:value.currentPhaseId,workItemId:value.currentWorkItemId,repairId:value.currentRepairId});
+/** Presentation inspection is ephemeral; resume always reads the sole SQL navigation resolver. */
+export function GreenfieldWorkspace({workflow,repositoryIdentity,browserPanel,onReturn}:{workflow:WorkflowInstanceSummary;repositoryIdentity:string;browserPanel:ReactNode;onReturn:()=>void}):JSX.Element {
+ const [navigation,setNavigation]=useState<GreenfieldNavigationProjection|null>(null),[selection,setSelection]=useState<GreenfieldShellSelection>({stage:"project-intake-capture",phaseId:null,workItemId:null,repairId:null}),[error,setError]=useState(""),[intake,setIntake]=useState({...emptyIntake,projectRepository:repositoryIdentity});
+ const generation=useRef(0);
+ async function refresh():Promise<GreenfieldNavigationProjection|null>{const token=++generation.current;const current=await window.champcity.getGreenfieldNavigation(workflow.workflowId);if(token!==generation.current)return null;if(current.workflowId!==workflow.workflowId)throw Error("Exact Greenfield Workflow identity changed.");setNavigation(current);setSelection(selectionFromSql(current));setError("");return current;}
+ const resume=()=>void refresh().catch(reason=>setError(String(reason)));
+ useEffect(()=>{setNavigation(null);setSelection({stage:"project-intake-capture",phaseId:null,workItemId:null,repairId:null});setError("");resume();return()=>{generation.current++;};},[workflow.workflowId]);
+ function open(stage:GreenfieldStage,workItemId=selection.workItemId??undefined){if(!navigation)return;const work=workItemId?navigation.workItemStates.find(item=>item.workItemId===workItemId):null;if(workItemId&&!work){setError("Select an exact SQL Work Card from this Workflow.");return;}setSelection({...selection,stage,phaseId:work?.phaseId??selection.phaseId??navigation.currentPhaseId,workItemId:work?.workItemId??selection.workItemId,repairId:work?.parentWorkItemId?work.workItemId:selection.repairId});setError("");}
+ async function terminal(stage:"work-card-close"|"phase-close"|"project-close"){const previous=selection,current=await refresh();if(!current)return;const closed=stage==="project-close"?current.closed:stage==="phase-close"?current.phaseStates.some(phase=>phase.phaseId===previous.phaseId&&phase.state==="closed"):current.workItemStates.some(item=>item.workItemId===previous.workItemId&&item.state==="closed");if(!closed)throw Error("Terminal presentation requires exact SQL closed state.");setSelection({...previous,stage});}
+ const canonical=navigation&&selection.stage===navigation.currentWorkspace&&selection.phaseId===navigation.currentPhaseId&&selection.workItemId===navigation.currentWorkItemId;
+ const alternate=navigation&&selection.stage==="work-card-validation"&&navigation.currentWorkspace==="work-card-report-review"&&selection.workItemId===navigation.currentWorkItemId;
+ const selectedCandidate=navigation&&navigation.currentWorkspace==="phase-work-card-selection"&&selection.phaseId===navigation.currentPhaseId&&["work-card-intake","work-card-planning"].includes(selection.stage)&&navigation.workItemStates.some(item=>item.workItemId===selection.workItemId&&item.planningEligible);
+ const terminalView=navigation&&(selection.stage==="project-close"&&navigation.closed||selection.stage==="phase-close"&&navigation.phaseStates.some(phase=>phase.phaseId===selection.phaseId&&phase.state==="closed")||selection.stage==="work-card-close"&&navigation.workItemStates.some(item=>item.workItemId===selection.workItemId&&item.state==="closed"));
+ const inspection=!!navigation&&!canonical&&!alternate&&!selectedCandidate&&!terminalView;
+ const status:Partial<Record<WorkspaceId,ProjectLifecycleRailStatus>>=Object.fromEntries((navigation?.completedWorkspaces??[]).map(stage=>[stage,"Completed"]));
+ const context=navigation?{phase:{...navigation.executionContext.phase,phaseId:selection.phaseId??undefined,state:selection.phaseId?"active" as const:"none" as const,title:navigation.phaseStates.find(phase=>phase.phaseId===selection.phaseId)?.title},workCard:{...navigation.executionContext.workCard,workCardId:selection.workItemId??undefined,state:selection.workItemId?"active" as const:"none" as const,title:navigation.workItemStates.find(item=>item.workItemId===selection.workItemId)?.title}}:undefined;
+ const content=composeGreenfieldStage({workflowId:workflow.workflowId,selection,repositoryIdentity,browserPanel:inspection?null:browserPanel,intake,onIntakeChange:setIntake,resume,open,terminal:stage=>void terminal(stage).catch(reason=>setError(String(reason))),repair:()=>resume(),onReturn,onRepositoryChange:()=>setError("Use Change Project to select a different repository.")});
+ return <section className="greenfield-workspace" aria-label="Greenfield Workflow"><header className="greenfield-workspace-header"><button type="button" onClick={onReturn}>Workflows</button><h1 id="workspace-heading">{workflow.title}</h1><button type="button" onClick={resume}>Resume current stage</button></header>
+ {navigation?<><GreenfieldNestedWorkflowRail activeWorkspaceId={selection.stage} requiredWorkspaceId={navigation.closed?null:navigation.currentWorkspace} executionContext={context} projectRailStatuses={status} projectIntakeStatus={navigation.completedWorkspaces.includes("project-intake-capture")?"Completed":"Open"} onWorkspaceChange={stage=>open(stage as GreenfieldStage)}/>
+ <div className="greenfield-inspection-controls"><label>Inspect SQL Phase<select aria-label="Inspect SQL Phase" value={selection.phaseId??""} onChange={event=>{const id=event.target.value;setSelection({stage:"phase-interview",phaseId:id||null,workItemId:null,repairId:null});}}><option value="">Select Phase</option>{navigation.phaseStates.map(phase=><option key={phase.phaseId} value={phase.phaseId}>{phase.title} · {phase.state}</option>)}</select></label><label>Inspect SQL Work Card<select aria-label="Inspect SQL Work Card" value={selection.workItemId??""} onChange={event=>{const item=navigation.workItemStates.find(item=>item.workItemId===event.target.value);if(item)setSelection({stage:item.state==="closed"?"work-card-close":item.parentWorkItemId?"work-card-repair":"work-card-planning",phaseId:item.phaseId,workItemId:item.workItemId,repairId:item.parentWorkItemId?item.workItemId:null});}}><option value="">Select Work Card</option>{navigation.workItemStates.filter(item=>item.phaseId===selection.phaseId).map(item=><option key={item.workItemId} value={item.workItemId}>{item.title} · {item.state}</option>)}</select></label>{selection.workItemId?<button type="button" onClick={()=>open("work-card-validation")}>Open manual Work Card Validation</button>:null}</div>
+ <p className="greenfield-navigation-reason" role="status">{inspection?"Read-only workspace inspection. Resume current stage to continue. ":""}{navigation.reason}{navigation.blockers.length?" · "+navigation.blockers.join("; "):""}</p></>:null}
+ {error?<p role="alert">{error}</p>:null}
+ <fieldset className="greenfield-shell-host" disabled={inspection} key={workflow.workflowId+":"+selection.stage+":"+selection.phaseId+":"+selection.workItemId}>{navigation?content:<p role="status">Loading current SQL stage…</p>}</fieldset>
+ </section>;
 }

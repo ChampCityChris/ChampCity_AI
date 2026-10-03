@@ -9510,3 +9510,14 @@ body {
 .work-card-report-review-body > .work-card-report-document-pane { flex: 1 0 420px; }
 .work-card-review-proof { min-width: 0; padding: 8px; }
 .work-card-review-proof pre { max-height: 180px; overflow: auto; white-space: pre-wrap; }
+
+/* Greenfield composition sizing; recovered workspace geometry remains in its shell. */
+.greenfield-workspace { display:flex; flex-direction:column; height:100%; min-height:0; min-width:0; overflow:hidden; }
+.greenfield-workspace-header { display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:8px 16px; flex-shrink:0; }
+.greenfield-workspace-header h1 { flex:1; margin:0; font-size:16px; }
+.greenfield-inspection-controls { display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:6px 16px; flex-shrink:0; font-size:12px; }
+.greenfield-inspection-controls label { display:flex; align-items:center; gap:8px; }
+.greenfield-inspection-controls select { max-width:260px; background:var(--color-card); color:inherit; border:1px solid var(--color-border); border-radius:4px; padding:4px; }
+.greenfield-navigation-reason { flex-shrink:0; margin:0; padding:4px 16px; font-size:12px; color:var(--color-muted-foreground); }
+.greenfield-shell-host { display:flex; flex-direction:column; flex:1; min-height:0; min-width:0; overflow:hidden; border:0; padding:0; margin:0; }
+.greenfield-shell-host > * { flex:1; min-height:0; }
