@@ -139,6 +139,39 @@ export function createWorkflowApplicationService(dependencies: {
     });
   }
 
+  async function getWorkflowStageInspection(projectRoot: string, workflowId: string): Promise<import("../../shared/workflowApplicationContracts").WorkflowStageInspection> {
+    if (typeof workflowId !== "string" || !workflowId.trim() || workflowId.length > 128) throw Error("Exact bounded Workflow ID is required.");
+    return withCurrentProject(projectRoot, (store, projectId) => store.transaction(projectId, async unit => {
+      const workflow = requireWorkflow(await unit.getEntity(projectId, workflowId));
+      if (!currentInstance(workflow) || ["project-creation", "work-intake-routing"].includes(workflow.body.workflowType)) throw Error("Exact substantive Workflow inspection required.");
+      const all = await unit.listEntities(projectId), edges = (await unit.listRelationships(projectId)).filter(edge => !edge.endedAt);
+      const byId = new Map(all.map(record => [record.id, record]));
+      const owned = new Set([workflowId, ...all.filter(record => "workflowId" in record.body && record.body.workflowId === workflowId).map(record => record.id)]);
+      // Follow ownership/evidence inward, never peer dependencies, route provenance or arbitrary links.
+      const incoming = new Set(["intake_for", "architect_review_for", "plan_review_for", "workflow_member", "review_member", "part_of", "governs", "supports", "implements_work_item", "records_attempt", "assesses_work_item", "evaluates", "integrates", "phase_review_for"]);
+      for (let pass = 0; pass < all.length; pass++) {
+        const before = owned.size;
+        for (const edge of edges) {
+          const id = incoming.has(edge.relationshipType) && owned.has(edge.toEntityId) ? edge.fromEntityId : edge.relationshipType === "defines_criterion" && owned.has(edge.fromEntityId) ? edge.toEntityId : null;
+          const record = id ? byId.get(id) : null;
+          if (record && record.entityType !== "Workflow" && (!("workflowId" in record.body) || record.body.workflowId === workflowId)) owned.add(record.id);
+        }
+        if (owned.size === before) break;
+      }
+      const candidates = all.filter(record => owned.has(record.id)).sort((a,b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+      const records: typeof candidates = [];
+      let bytes = 0;
+      for (const record of candidates) {
+        bytes += new TextEncoder().encode(JSON.stringify(record)).length;
+        if (records.length >= 256 || bytes > 200000) break;
+        records.push(record);
+      }
+      const included = new Set(records.map(record => record.id));
+      const links = edges.filter(edge => included.has(edge.fromEntityId) && included.has(edge.toEntityId));
+      return {workflowId, currentWorkspace: workflow.body.currentWorkspace, records, relationships: links.slice(0,512), truncated: records.length !== candidates.length || links.length > 512};
+    }));
+  }
+
   async function getWorkflowPlanningContext(projectRoot: string, workflowId: string) {
     return withCurrentProject(projectRoot, async (store, projectId) => {
       const workflow = requireWorkflow(await store.getEntity(projectId, workflowId));
@@ -236,5 +269,5 @@ export function createWorkflowApplicationService(dependencies: {
     });
   }
 
-  return { savePlanCandidate, getPlanReview, recordPlanReview, listCurrentProjectWorkflows, getCurrentProjectWorkflow, getWorkflowPlanningContext, getAcceptedWorkflowPlanningGraph, acceptReviewedWorkflowPlanningGraph, startDirectWorkflow, ensureProjectCreationWorkflow, completeIncompleteGreenfieldInitialization };
+  return { getWorkflowStageInspection, savePlanCandidate, getPlanReview, recordPlanReview, listCurrentProjectWorkflows, getCurrentProjectWorkflow, getWorkflowPlanningContext, getAcceptedWorkflowPlanningGraph, acceptReviewedWorkflowPlanningGraph, startDirectWorkflow, ensureProjectCreationWorkflow, completeIncompleteGreenfieldInitialization };
 }

@@ -211,7 +211,8 @@ test("Feature and Issue route through one exact Structured Workflow planning she
     ["issue-resolution", "issue-rca", "issue-exact-987"],
   ]) {
     const workflow = { workflowId, lineageId: "lineage", workflowType, title: "Exact Workflow", workflowState: "active", lifecycleState: "active", currentWorkspace, createdAt: "now", updatedAt: "now" };
-    const element = StructuredWorkflowWorkspace({workflow, repositoryIdentity: "", onReturn: () => undefined, onOpen: () => undefined, browserPanel: React.createElement("div", null, "Architect browser")});
+    const tree = progressionRender(StructuredWorkflowWorkspace,{workflow, repositoryIdentity: "", onReturn: () => undefined, onOpen: () => undefined, browserPanel: React.createElement("div", null, "Architect browser")},[null]);
+    const element = progressionFind(tree,node=>node.type?.name === "ExactWorkflowPlanningWorkspace");
     assert.equal(element.type.name, "ExactWorkflowPlanningWorkspace");
     assert.equal(element.props.workflow.workflowId, workflowId);
     assert.equal(element.props.browserPanel.props.children, "Architect browser");
@@ -501,7 +502,7 @@ test("all six intake entry workspaces share ordered fields and generated Markdow
 const { WorkflowStageRail } = loader.loadRendererSourceModule("src/renderer/app/WorkflowStageRail.tsx");
 const { deriveWorkflowStageRailModel } = loader.loadRendererSourceModule("src/renderer/app/workflowStageRailModel.ts");
 
-test("six exact substantive Intake rails share seven stages and disable future navigation", () => {
+test("six exact substantive Intake rails share seven stages with independent inspection availability", () => {
   const substantive = Object.values(WORKFLOW_TYPE_REGISTRY).filter(d => d.directStart);
   assert.equal(substantive.length, 6);
   for (const definition of substantive) {
@@ -515,18 +516,18 @@ test("six exact substantive Intake rails share seven stages and disable future n
     assert.equal(stages[2].label, definition.workflowType === "issue-resolution" ? "Correction Planning" : "Planning");
     for (const stage of stages.slice(1)) {
       assert.equal(stage.state, "available");
-      assert.equal(stage.enabled, false);
-      assert.equal(stage.onClick, undefined);
+      assert.equal(stage.enabled, true);
+      assert.equal(typeof stage.onClick, "function");
       assert.equal(stage.isRequired, false);
     }
     const markup = renderToStaticMarkup(React.createElement(WorkflowStageRail, { stages, ariaLabel: "Workflow pipeline" }));
     assert.equal((markup.match(/class="figma-pipeline-stage"/g) || []).length, 7);
     assert.equal((markup.match(/figma-stage-connector /g) || []).length, 12);
-    assert.equal((markup.match(/disabled=""/g) || []).length, 6);
+    assert.equal((markup.match(/disabled=""/g) || []).length, 0);
     assert.equal((markup.match(/aria-current="page"/g) || []).length, 1);
-    assert.match(markup, /01 Intake: Open\. Current required step\. Open workflow step\./);
+    assert.match(markup, /01 Intake: Open\. Current required step\. Inspected stage\. Inspect workflow step\./);
     assert.match(markup, /figma-pipeline-step active required in-progress/);
-    assert.match(markup, /07 Close: Not Ready\. Workflow step unavailable\./);
+    assert.match(markup, /07 Close: Not Ready\. Inspect workflow step\./);
     assert.equal(deriveWorkflowStageRailModel({ workflowType: definition.workflowType, currentWorkspace: "feature-intake-extra" }), null);
     for (const other of substantive.filter(d => d !== definition))
       assert.equal(deriveWorkflowStageRailModel({ workflowType: definition.workflowType, currentWorkspace: other.entryWorkspace }), null);
@@ -601,8 +602,10 @@ test("four remaining Architect stages route through the shared shell with a righ
   for (const [workflowType, currentWorkspace] of [["refactor-migration", "refactor-assessment"], ["integration-composition", "integration-assessment"], ["infrastructure-platform", "infrastructure-assessment"], ["research-prototype", "research-assessment"]]) {
     assert.equal(workflowPlanningSurface({workflowType, currentWorkspace, lifecycleState: "active"}), "architect");
     const html = renderToStaticMarkup(React.createElement(StructuredArchitectWorkspace, {workflowId: "exact-workflow", stageLabel: "Architect Assessment", browserVisible: true, browserCompanion: React.createElement("div", {id: "assessment-browser"}), onReturn: () => {}}));
-    assert.match(html, /figma-doc-review-column/); assert.match(html, /figma-doc-chat-workspace/); assert.match(html, /assessment-browser/); assert.match(html, /Architect Workflow pipeline/); assert.match(html, /Not Ready/);
-    for (const label of ["Work Item Map", "Execution", "Validation", "Close"]) assert.ok(html.includes(label));
+    assert.match(html, /figma-doc-review-column/); assert.match(html, /figma-doc-chat-workspace/); assert.match(html, /assessment-browser/); assert.doesNotMatch(html, /Architect Workflow pipeline/);
+    const shell=renderToStaticMarkup(React.createElement(StructuredWorkflowWorkspace,{workflow:{workflowId:"exact-workflow",workflowType,currentWorkspace,lifecycleState:"active"},onReturn(){},onOpen(){},repositoryIdentity:"",browserPanel:React.createElement("div",{id:"assessment-browser"})}));
+    assert.match(shell,/Workflow pipeline/); assert.match(shell,/Not Ready/);
+    for (const label of ["Work Item Map", "Execution", "Validation", "Close"]) assert.ok(shell.includes(label));
   }
 });
 
@@ -687,7 +690,7 @@ test('six existing-project renderer pipelines await exact application re-resolut
         resolved = appSlots[13];
         const mounted = progressionFind(progressionRender(App,{},appSlots),node => node.type?.name === 'StructuredWorkflowWorkspace');
         assert.ok(mounted);
-        return mounted.type(mounted.props);
+        return progressionFind(progressionRender(mounted.type,mounted.props,[null]),node=>['WorkflowIntakeWorkspace','ExactWorkflowPlanningWorkspace','WorkflowExecutionWorkspace'].includes(node.type?.name));
       };
       let child = shell();
       const intake = progressionRender(child.type, child.props, [{},{recordVersion:1,reviewDocument:{displayFilename:'Intake'},disposition:{state:'none'},values:{}},false,true,false,'','','Approved',false,'']);
@@ -741,7 +744,7 @@ test('application progression rejects mismatched exact identity and returns term
     window.champcity.getWorkflow = async id => {assert.equal(id,workflow.workflowId); return {workflow:persisted};};
     window.champcity.closeExactResearch = async id => {assert.equal(id,workflow.workflowId); persisted = {...persisted,lifecycleState:'closed',workflowState:'closed'};};
     const appShell = mounted();
-    const child = appShell.type(appShell.props);
+    const child = progressionFind(progressionRender(appShell.type,appShell.props,[null]),node=>['WorkflowIntakeWorkspace','ExactWorkflowPlanningWorkspace','WorkflowExecutionWorkspace'].includes(node.type?.name));
     const planning = progressionRender(child.type,child.props,[{researchOutcome:{outcome:'no-implementation-plan-required'}},'',false,null,true]);
     const close = progressionFind(planning,node => node.type === 'button' && node.props.children === 'Close Research with approved outcome');
     assert.ok(close); close.props.onClick(); await new Promise(resolve => setImmediate(resolve));
@@ -757,7 +760,7 @@ test('Execution reroutes changed SQL stages and terminal closure while within-st
   const projection = () => ({items:[],plan:{workflow:{lifecycleState:persisted.lifecycleState,body:{currentWorkspace:persisted.currentWorkspace}},phases:[]},source:{state:'non-source'}});
   const mountExecution = () => {
     const appShell = progressionFind(progressionRender(App,{},appSlots),node => node.type?.name === 'StructuredWorkflowWorkspace');
-    const child = appShell.type(appShell.props);
+    const child = progressionFind(progressionRender(appShell.type,appShell.props,[null]),node=>['WorkflowIntakeWorkspace','ExactWorkflowPlanningWorkspace','WorkflowExecutionWorkspace'].includes(node.type?.name));
     return progressionRender(child.type,child.props,[projection(),null,null,{catalog:[]},null,null,null,'','','',null,null,'[]','','','pass','approved',{}]);
   };
   try {
@@ -774,4 +777,62 @@ test('Execution reroutes changed SQL stages and terminal closure while within-st
     close.props.onNext({workspaceId:'workflow-hub'}); await new Promise(resolve => setImmediate(resolve));
     assert.equal(appSlots[1],'workflow-type'); assert.equal(appSlots[13],null);
   } finally {global.window = previousWindow;}
+});
+
+
+test('all six direct and routed rails inspect every stage without mutation and reset on exact reload', async () => {
+  const previousWindow = global.window;
+  const types = Object.values(WORKFLOW_TYPE_REGISTRY).filter(d=>d.directStart);
+  try {
+    global.window = {champcity:new Proxy({}, {get:(_target,name)=>{throw Error(`Unexpected service mutation during rail navigation: ${String(name)}`);}})};
+    for (const definition of types) for (const routed of [false,true]) {
+      const assessment = {'feature-capability':'feature-assessment','issue-resolution':'issue-rca','refactor-migration':'refactor-assessment','integration-composition':'integration-assessment','infrastructure-platform':'infrastructure-assessment','research-prototype':'research-assessment'}[definition.workflowType];
+      const planning = definition.workflowType === 'feature-capability' ? 'feature-planning' : definition.workflowType === 'issue-resolution' ? 'issue-planning' : 'planning';
+      for (const currentWorkspace of [definition.entryWorkspace,assessment,planning,'work-item-map','implementation','validation','integration-ready']) {
+        const workflow={workflowId:'exact-'+definition.workflowType,workflowType:definition.workflowType,currentWorkspace,lifecycleState:'active',...(routed?{routedSourceWorkflowId:'route'}:{})};
+        const props={workflow,onReturn(){},onOpen(){},onProgressed:async()=>{},repositoryIdentity:'',browserPanel:null}, slots=[null];
+        const render=()=>progressionRender(StructuredWorkflowWorkspace,props,slots);
+        const rail=()=>progressionFind(render(),node=>node.type?.name==='WorkflowStageRail');
+        const canonical=rail().props.stages.find(stage=>stage.isRequired).id;
+        for (const stage of rail().props.stages) {
+          assert.equal(stage.enabled,true); stage.onClick();
+          const selected=rail().props.stages.find(entry=>entry.state==='exact'); assert.equal(selected.id,stage.id);
+          assert.equal(workflow.currentWorkspace,currentWorkspace);
+          const inspector=progressionFind(render(),node=>node.type?.name==='WorkflowStageInspectionWorkspace');
+          if (stage.id===canonical) assert.equal(inspector,null,'current stage retains normal work surface');
+          else {
+            assert.ok(inspector);
+            const snapshot={workflowId:workflow.workflowId,currentWorkspace,records:[{id:'intake',entityType:'WorkflowIntake',body:{values:{objective:'Saved exact Intake'}}}],relationships:[],truncated:false};
+            const view=progressionRender(inspector.type,inspector.props,[snapshot,'']);
+            const markup=renderToStaticMarkup(view);
+            assert.match(markup,/Read only/);
+            assert.equal(progressionFind(view,node=>node.type==='textarea'||node.type==='form'),null);
+            if (stage.statusLabel==='Not Ready') {assert.match(markup,/Not Ready/); assert.ok(progressionFind(view,node=>node.props?.role==='note'));}
+            if (stage.id==='intake') assert.match(markup,/Saved exact Intake/);
+          }
+        }
+        props.workflow={...workflow};
+        assert.equal(rail().props.stages.find(stage=>stage.state==='exact').id,canonical,'exact reload resets inspection');
+        props.workflow={...workflow,workflowId:'other-exact'};
+        assert.equal(rail().props.stages.find(stage=>stage.state==='exact').id,canonical,'different Workflow resets inspection');
+        assert.equal(progressionFind(progressionRender(StructuredWorkflowWorkspace,{...props,workflow},[null]),node=>node.type?.name==='WorkflowStageRail').props.stages.find(stage=>stage.state==='exact').id,canonical,'fresh reopen starts at persisted stage');
+      }
+    }
+  } finally {global.window=previousWindow;}
+});
+
+test('inspection mount reads exact bounded evidence and ignores obsolete asynchronous results', async () => {
+  const {WorkflowStageInspectionWorkspace}=loader.loadRendererSourceModule('src/renderer/app/StructuredWorkflowWorkspace.tsx');
+  const previousWindow=global.window, previousEffect=React.useEffect, previousState=React.useState;
+  const slots=[null,''], effects=[]; let index=0, resolveRead, reads=0;
+  try {
+    global.window={champcity:{getWorkflowStageInspection:id=>{assert.equal(id,'exact');reads++;return new Promise(resolve=>{resolveRead=resolve;});}}};
+    React.useState=initial=>{const i=index++;return [slots[i]??initial,value=>{slots[i]=value;}];};
+    React.useEffect=effect=>effects.push(effect);
+    const workflow={workflowId:'exact',currentWorkspace:'feature-assessment'};
+    WorkflowStageInspectionWorkspace({workflow,stage:'intake',label:'Intake',status:'Completed',canonical:'assessment',onReturn(){}});
+    const cleanup=effects[0](); assert.equal(reads,1);
+    cleanup(); resolveRead({workflowId:'exact',currentWorkspace:'feature-assessment',records:[],relationships:[],truncated:false});
+    await new Promise(resolve=>setImmediate(resolve)); assert.equal(slots[0],null);
+  } finally {global.window=previousWindow;React.useEffect=previousEffect;React.useState=previousState;}
 });

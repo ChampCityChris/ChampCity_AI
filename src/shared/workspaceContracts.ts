@@ -1451,6 +1451,7 @@ export interface ChampCityApi {
   copyStructuredWorkRouting: (intakeId: string, routingWorkflowId: string) => Promise<{ copied: true }>;
   listWorkflows: () => Promise<import("./workflowApplicationContracts").WorkflowInventory>;
   startWorkflow: (request: import("./workflowApplicationContracts").DirectWorkflowStartRequest) => Promise<import("./workflowApplicationContracts").DirectWorkflowStartResult>;
+  getWorkflowStageInspection: (workflowId: string) => Promise<import("./workflowApplicationContracts").WorkflowStageInspection>;
   getWorkflow: (workflowId: string) => Promise<import("./workflowApplicationContracts").WorkflowOpenResult>;
   getWorkItemValidation: (workflowId: string, workItemId: string) => Promise<import("./workflowApplicationContracts").WorkItemValidationProjection>;
   getWorkflowExecutionProjection: (workflowId: string) => Promise<import("./workflowApplicationContracts").WorkflowExecutionProjection>;

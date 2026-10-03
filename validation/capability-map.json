@@ -3339,6 +3339,14 @@
         {
           "behaviorId": "workflow-hub-registry-exposes-only-the-functional-peer-workflows",
           "description": "Workflow Hub registry exposes only the functional peer workflows"
+        },
+        {
+          "behaviorId": "workflow-rail-inspection-independent-from-progression",
+          "description": "Rail selection is temporary across all six direct/routed families; every stage is inspectable, noncurrent work is read-only and exact reload resets to SQL."
+        },
+        {
+          "behaviorId": "workflow-stage-inspection-exact-read-and-mount-lifecycle",
+          "description": "Inspection reads exact bounded SQL evidence without mutation and discards responses after unmount."
         }
       ]
     },
@@ -13676,8 +13684,8 @@
     {
       "testPath": "test/renderer/workflow-hub-shell.test.cjs",
       "currentTestCount": {
-        "value": 34,
-        "basis": "RWS06-R01 adds six-family direct/routed application progression, fail-closed dispatch, exact identity, and terminal closure proof."
+        "value": 36,
+        "basis": "RWS06-R03 adds previously uncovered independent rail selection and asynchronous read-only inspection lifecycle proof to the existing navigation owner."
       },
       "duration": {
         "kind": "measured",
@@ -13795,6 +13803,18 @@
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "workflow-hub-registry-exposes-only-the-functional-peer-workflows",
           "proofLocator": "Workflow Hub registry exposes only the functional peer workflows",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "workflow-rail-inspection-independent-from-progression",
+          "proofLocator": "all six direct and routed rails inspect every stage without mutation and reset on exact reload",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "workflow-stage-inspection-exact-read-and-mount-lifecycle",
+          "proofLocator": "inspection mount reads exact bounded evidence and ignores obsolete asynchronous results",
           "proofRole": "primary"
         }
       ]

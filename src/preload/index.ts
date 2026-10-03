@@ -58,6 +58,7 @@ const api: ChampCityApi = {
   copyStructuredWorkRouting: (intakeId, workflowId) => ipcRenderer.invoke("structuredWIR:copy", intakeId, workflowId) as ReturnType<ChampCityApi["copyStructuredWorkRouting"]>,
   listWorkflows: () => ipcRenderer.invoke("workflow:list") as ReturnType<ChampCityApi["listWorkflows"]>,
   startWorkflow: (request) => ipcRenderer.invoke("workflow:start", request) as ReturnType<ChampCityApi["startWorkflow"]>,
+  getWorkflowStageInspection: workflowId => ipcRenderer.invoke("workflow:stageInspection", workflowId) as ReturnType<ChampCityApi["getWorkflowStageInspection"]>,
   getWorkflow: (workflowId) => ipcRenderer.invoke("workflow:get", workflowId) as ReturnType<ChampCityApi["getWorkflow"]>,
   getWorkItemValidation: (workflowId, workItemId) => ipcRenderer.invoke("workflow:workItemValidation", workflowId, workItemId) as ReturnType<ChampCityApi["getWorkItemValidation"]>,
   getCloseAdvance:(workflowId,scope,entityId)=>ipcRenderer.invoke("closeAdvance:get",workflowId,scope,entityId),

@@ -106,6 +106,12 @@ async function exactPlanningFixture(context, type, noPlan = false, routed = fals
   const {workflowPlanningSurface} = require('../renderer/renderer-source-loader.cjs').loadRendererSourceModule('src/renderer/app/workflowPlanningDispatch.ts');
   const resolve = async () => (await workflowApp.getCurrentProjectWorkflow(root, workflow.id)).workflow;
   assert.equal(workflowPlanningSurface(await resolve()), 'intake');
+  const initialChanges=(await store.listStateChanges(projectId)).length;
+  const futureInspection=await workflowApp.getWorkflowStageInspection(root,workflow.id);
+  assert.equal(futureInspection.currentWorkspace,workflow.body.currentWorkspace);
+  assert.equal((await store.listStateChanges(projectId)).length,initialChanges);
+  assert.equal(futureInspection.records.filter(record=>record.entityType==='ArchitectReviewCycle'||record.entityType==='PlanReviewCycle').length,0);
+
   if (routed) {
     const routing = await state.createWorkIntake(projectId,{request:'Route request',desiredOutcome:'Outcome',constraints:[],evidenceContext:[],requestedIntegrationTarget:'dev'});
     await state.linkWorkflowRouteTarget(projectId,routing.workflow.id,workflow.id);
@@ -127,6 +133,11 @@ async function exactPlanningFixture(context, type, noPlan = false, routed = fals
   const refreshed = await resolve();
   assert.equal(refreshed.currentWorkspace, require('../../dist/shared/projectState/architectReviewContracts.js').ARCHITECT_WORKSPACE_BY_WORKFLOW[type]);
   assert.equal(workflowPlanningSurface(refreshed), type === 'feature-capability' ? 'feature' : type === 'issue-resolution' ? 'issue' : 'architect');
+  const completedIntake=await workflowApp.getWorkflowStageInspection(root,workflow.id);
+  assert.ok(completedIntake.records.some(record=>record.entityType==='WorkflowIntake' && record.id===intake.id));
+  assert.ok(completedIntake.records.some(record=>record.entityType==='Decision' && record.body.outcome==='approved'));
+  assert.equal((await store.listEntities(projectId,'ArchitectReviewCycle')).length,0,'inspection never prepares an Architect cycle');
+
 
   let output;
   if (type==='issue-resolution') {
@@ -185,6 +196,20 @@ for (const type of ['feature-capability','issue-resolution','refactor-migration'
   assert.equal((await f.store.getEntity(f.projectId,f.workflow.id)).body.currentWorkspace,'work-item-map');
   assert.equal(f.workflowPlanningSurface(await f.resolve()), 'execution');
   assert.equal((await f.app.get(f.root,f.workflow.id)).acceptedPlan.directWorkItems[0].id,accepted.acceptedPlan.directWorkItems[0].id);
+  const peer=await f.state.createWorkflow(f.projectId,{workflowType:type,title:type,currentWorkspace:WORKFLOW_TYPE_REGISTRY[type].entryWorkspace});
+  const peerFinding=await f.state.createRecord(f.projectId,'Finding',{title:'Peer-only evidence',statement:'Peer-only scope',category:'fixture',impact:'Peer',observedAt:new Date().toISOString(),findingState:'current'});
+  await f.state.createRelationship(f.projectId,peerFinding.id,'workflow_member',peer.id);
+  const beforeInspection=(await f.store.listStateChanges(f.projectId)).length;
+  const snapshot=await handlers.get('workflow:stageInspection')({},f.workflow.id);
+  assert.equal(snapshot.workflowId,f.workflow.id); assert.equal(snapshot.currentWorkspace,'work-item-map');
+  assert.ok(snapshot.records.some(record=>record.entityType==='WorkflowIntake'));
+  assert.ok(snapshot.records.some(record=>record.entityType==='ArchitectReviewCycle'));
+  assert.ok(snapshot.records.some(record=>record.entityType==='PlanReviewCycle'));
+  assert.ok(snapshot.records.some(record=>record.entityType==='WorkItem'));
+  assert.equal((await f.store.listStateChanges(f.projectId)).length,beforeInspection,'inspection is read-only SQL');
+  assert.throws(()=>handlers.get('workflow:stageInspection')({},f.workflow.id,'planning'),/Exact bounded/);
+  assert.ok(!snapshot.records.some(record=>record.id===peer.id || record.id===peerFinding.id || record.entityType==='Workflow' && record.id!==f.workflow.id));
+
   });
 }
 test('Research no-Plan approval atomically closes with SQL evidence and completion Decision',async context=>{
@@ -196,6 +221,11 @@ test('Research no-Plan approval atomically closes with SQL evidence and completi
   assert.equal((await f.store.listEntities(f.projectId,'WorkItem')).length,0);
   const decisions=await f.store.listEntities(f.projectId,'Decision');
   assert.ok(decisions.some(record=>record.body.decisionType==='research-completion'));
+  const history=await require('../../dist/main/workflow/workflowApplicationService.js').createWorkflowApplicationService().getWorkflowStageInspection(f.root,f.workflow.id);
+  assert.equal(history.currentWorkspace,'research-close');
+  assert.ok(history.records.some(record=>record.entityType==='ResearchOutcome'));
+  assert.ok(history.records.some(record=>record.entityType==='Decision' && record.body.decisionType==='research-completion'));
+
   await assert.rejects(f.app.prepare(f.root,f.workflow.id),/exact active/);
   const execution=require('../../dist/main/workflow/workflowExecutionApplicationService.js').createWorkflowExecutionApplicationService();
   await assert.rejects(execution.getExecutionProjection(f.root,f.workflow.id),/current supported implementation Workflow/);

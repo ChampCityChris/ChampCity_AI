@@ -58,7 +58,7 @@ function PipelineStep({
       ) : null}
       <button
         aria-current={state === "exact" ? "page" : undefined}
-        aria-label={`${String(index + 1).padStart(2, "0")} ${label}: ${statusLabel}.${isRequired ? " Current required step." : ""} ${enabled === false || !onClick ? "Workflow step unavailable." : "Open workflow step."}`}
+        aria-label={`${String(index + 1).padStart(2, "0")} ${label}: ${statusLabel}.${isRequired ? " Current required step." : ""} ${selected ? "Inspected stage. " : ""}${enabled === false || !onClick ? "Workflow step unavailable." : "Inspect workflow step."}`}
         className={[
           "figma-pipeline-step",
           selected ? "active" : "",

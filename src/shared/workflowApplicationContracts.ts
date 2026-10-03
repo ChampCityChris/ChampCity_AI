@@ -166,3 +166,12 @@ export interface WorkItemExecutionContract {
   sourceMutation: "required" | "not-required";
   sourceRevisionId: string | null;
 }
+
+/** Bounded SQL evidence for read-only rail inspection, including terminal Workflows. */
+export interface WorkflowStageInspection {
+  workflowId: string;
+  currentWorkspace: string;
+  records: import("./projectState/domainContracts").ProjectStateEntity[];
+  relationships: import("./projectState/relationshipRegistry").ProjectStateRelationship[];
+  truncated: boolean;
+}

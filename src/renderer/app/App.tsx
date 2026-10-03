@@ -9,8 +9,6 @@ import { OptionalWorkIntakeWorkspace } from "./OptionalWorkIntakeWorkspace";
 import { SourceControlWorkspace } from "./SourceControlWorkspace";
 import { ApplicationSettingsController } from "./ApplicationSettingsController";
 import { ApplicationBrowserHost } from "./ApplicationBrowserHost";
-import { WorkflowStageRail } from "./WorkflowStageRail";
-import { deriveWorkflowStageRailModel } from "./workflowStageRailModel";
 import { admitExistingProject, acceptExistingProjectAdoption, openInspectedExistingProject } from "./existingProjectEntryController";
 import { shouldShowClosedWorkIntakeSummary } from "./workflowPlanningDispatch";
 import type { ExistingProjectGitAdoptionPlan } from "../../shared/sourceControlContracts";
@@ -287,13 +285,11 @@ export function App(): JSX.Element {
 
   const isLanding = view === "landing";
   const isSettings = view === "settings";
-  const workflowStages = view === "workflow-instance" ? deriveWorkflowStageRailModel(workflow) : null;
   const projectName = workspace.ok ? workspace.workspaceRoot.split(/[\\/]/).filter(Boolean).at(-1) ?? workspace.workspaceRoot : "No Project selected";
   const browserPanel = <ApplicationBrowserHost />;
 
   return <div className={`app-root ${themeMode === "dark" ? "dark" : ""}`}>
     <FigmaAppStrip />
-    {workflowStages ? <WorkflowStageRail stages={workflowStages} ariaLabel="Workflow pipeline" /> : null}
     <div className={isLanding ? "app-body landing-app-body" : "app-body"}>
       {!isLanding ? <FigmaSidebar activeWorkspaceId={isSettings ? "settings" : "app"} isChoosing={isChoosing}
         mode={view === "workflow-hub" || view === "workflow-type" ? "hub" : view === "source-control" ? "source-control" : "settings"}

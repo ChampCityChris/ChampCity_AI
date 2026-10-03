@@ -36,6 +36,7 @@ export function registerWorkflowApplicationIpc(registry: WorkflowApplicationIpcR
       throw Error("Exact bounded Workflow intake arguments are required.");
     return args[0];
   };
+  registry.handle("workflow:stageInspection", (_event, ...args) => service.getWorkflowStageInspection(getCurrentProjectRoot(), intakeId(args, 1)));
   registry.handle("workflow:getIntake", (_event, ...args) => intake.ensureWorkflowIntake(getCurrentProjectRoot(), intakeId(args, 1)));
   const workItemPlanning = createStructuredWorkItemPlanningService();
   const workArgs = (args: unknown[], count: number) => {

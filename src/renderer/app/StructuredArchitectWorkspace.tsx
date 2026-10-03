@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ArchitectWorkspaceShell } from "./ArchitectWorkspaceShell";
 import { FigmaDocumentCard } from "./FigmaDocumentCard";
 import { validateArchitectCandidateOutput, type ArchitectCandidateOutput, type StructuredArchitectWorkspaceModel } from "../../shared/architectWorkspaceContracts";
-import { WorkflowStageRail } from "./WorkflowStageRail";
 import { ReviewDecisionPanel } from "./ReviewDecisionPanel";
 
 export function StructuredArchitectWorkspace(props: {workflowId: string | null; browserCompanion: ReactNode; browserVisible: boolean; onRailStatus?: (status: StructuredArchitectWorkspaceModel["railStatus"]) => void;
@@ -40,13 +39,7 @@ export function StructuredArchitectWorkspace(props: {workflowId: string | null; 
   </div></section>;
   return <ArchitectWorkspaceShell label={model?.stageLabel ?? props.stageLabel ?? "Architect Workspace"} browserVisible={props.browserVisible} browserCompanion={props.browserCompanion} browserActions={browserActions}
     navigation={props.onReturn ? <button onClick={props.onReturn}>Back to Workflows</button> : null}
-    context={<>{props.onReturn ? <WorkflowStageRail ariaLabel="Architect Workflow pipeline" stages={[
-      {id: "intake", label: "Intake", statusLabel: model?.intakeRailStatus ?? "Open", state: "available", isRequired: !model?.ready, enabled: false},
-      {id: "assessment", label: model?.stageLabel ?? props.stageLabel ?? "Architect Assessment", statusLabel: model?.railStatus ?? "Not Ready", state: "exact", isRequired: model?.railStatus !== "Completed", enabled: true, onClick: () => {}},
-      {id: "planning", label: model?.workflowType === "issue-resolution" ? "Correction Planning" : "Planning", statusLabel: model?.nextStageReady && props.onNext ? "Open" : "Not Ready", state: "available", isRequired: !!model?.nextStageReady && !!props.onNext, enabled: !!model?.nextStageReady && !!props.onNext,
-        onClick: props.onNext ? () => void action(props.onNext!) : undefined},
-      ...[{id: "topology", label: "Work Item Map"}, {id: "execution", label: "Execution"}, {id: "validation", label: "Validation"}, {id: "close", label: "Close"}].map(stage => ({...stage, statusLabel: "Not Ready", state: "available" as const, isRequired: false, enabled: false})),
-    ]} /> : null}</>}
+    context={null}
     feedback={<>{error ? <p role="alert">{error}</p> : null}{feedback ? <p role="status">{feedback}</p> : null}{model?.materializationError ? <p role="alert">{model.materializationError}</p> : null}</>}
     reviewContent={<><FigmaDocumentCard selectedDocument={selectedDocument} documentError="" feedback="" slots={slots} selectedSlotId={selectedSlotId} onSelectSlot={slotId => setSelectedSlotId(slotId)} onCopy={() => void action(async () => {await navigator.clipboard.writeText(selectedDocument?.bodyMarkdown ?? selectedDocument?.preview ?? "");})} />
       {showingReview && model?.review ? <ReviewDecisionPanel label="Review Decision" notes={notes} onNotesChange={setNotes} hasCurrentRevision={!!revision} busy={busy}
