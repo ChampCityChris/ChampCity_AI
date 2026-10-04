@@ -480,3 +480,19 @@ test('Greenfield Architect refresh reveals and selects current review slots with
  const source=require('node:fs').readFileSync('src/renderer/app/GreenfieldArchitectWorkspace.tsx','utf8');assert.doesNotMatch(source,/<textarea|saveStructuredArchitectOutput|Save Architect output/);assert.doesNotMatch(source,/finalDraftHandoff|onRegeneratePrompt|FinalDraftHandoff/);
  }finally{Object.assign(React,originals);global.window=old;}
 });
+
+
+test('Reload recovers detached and zero bounds before page reload; healthy Reload preserves attachment', async () => {
+  const {registerArchitectBrowserRecovery,reloadArchitectBrowserWithRecovery} = loadRendererSourceModule('src/renderer/app/architectBrowserRecovery.ts');
+  const oldWindow = global.window;
+  const calls = [];
+  let state = 'detached', result = {status:'attached-visible',generation:3};
+  const unregister = registerArchitectBrowserRecovery({retry:async()=>{calls.push('retry');return result;},getGeneration:()=>3});
+  global.window = {champcity:{getArchitectBrowserFoundationStatus:async()=>({attachment:{state}}),reloadArchitectBrowser:async()=>{calls.push('reload');return visibleStatus();}}};
+  try {
+    for(state of ['detached','attached-zero-bounds']) {calls.length=0;await reloadArchitectBrowserWithRecovery();assert.deepEqual(calls,['retry','reload']);}
+    state='attached-visible';calls.length=0;await reloadArchitectBrowserWithRecovery();assert.deepEqual(calls,['reload']);
+    state='detached';result={status:'failed',generation:3,message:'zero layout'};calls.length=0;
+    await assert.rejects(reloadArchitectBrowserWithRecovery(),/zero layout/);assert.deepEqual(calls,['retry']);
+  } finally {unregister();global.window=oldWindow;}
+});

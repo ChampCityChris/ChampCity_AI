@@ -1,3 +1,4 @@
+import {reloadArchitectBrowserWithRecovery} from "./architectBrowserRecovery";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {ArchitectInterviewShell, ArchitectInterviewBrowserActions} from "./ArchitectInterviewShell";
 import { type StructuredArchitectWorkspaceModel } from "../../shared/architectWorkspaceContracts";
@@ -36,8 +37,8 @@ export function GreenfieldArchitectWorkspace(props: {workflowId: string | null; 
   const prepare = () => void action(async () => {if (!props.workflowId) throw Error("Exact Greenfield Workflow required."); accept(await window.champcity.prepareStructuredArchitectWorkspace(props.workflowId)); setFeedback("Handoff prepared from current SQL Intake.");});
   const browserActions = <ArchitectInterviewBrowserActions canPrepareHandoff={!busy && !!model?.ready} canCopyHandoff={!busy && !!model?.handoff}
     onPrepareHandoff={prepare} onCopyHandoff={() => void action(async () => {await navigator.clipboard.writeText(model!.handoff!);})}
-    onRefresh={refresh} onReloadBrowser={() => void action(async () => {await window.champcity.reloadArchitectBrowser();})}
-    onRetryBrowser={() => void action(async () => {await window.champcity.reloadArchitectBrowser();})}
+    onRefresh={refresh} onReloadBrowser={() => void action(async () => {await reloadArchitectBrowserWithRecovery();})}
+    onRetryBrowser={() => void action(async () => {await reloadArchitectBrowserWithRecovery();})}
     isRevisionRequest={model?.review?.disposition.state === "revision_requested"} actionMessage={error ? {kind:"error",message:error} : feedback ? {kind:"success",message:feedback} : null} />;
   return <ArchitectInterviewShell label={props.stageLabel ?? "Architect Interview Figma document workspace"} browserVisible={props.browserVisible}
     browserCompanion={<div className="figma-browser-column">{props.browserCompanion}{browserActions}</div>}

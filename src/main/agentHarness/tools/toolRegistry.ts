@@ -1,3 +1,4 @@
+import {PRIMARY_MCP_RESOURCE_SCOPE} from "../runtime/oauthStore";
 import {createWorkflowCandidateIngressService} from "../../workflow/workflowCandidateIngressService";
 import {WORKFLOW_CANDIDATE_STAGES, WORKFLOW_CANDIDATE_MAX_BYTES} from "../../../shared/workflowCandidateContracts";
 import { skipIsolatedOperationStep, beginIsolatedOperation, inspectIsolatedOperation, continueIsolatedOperation, abortIsolatedOperation, advanceIsolatedOperation, type IsolatedOperationKind } from "../../repository/isolatedGitOperations";
@@ -193,6 +194,7 @@ interface ToolProvider {
 }
 
 interface DispatchInput {
+  scope?: string;
   signal?: AbortSignal;
   managedWorkspaces?: ManagedWorkspaceStore;
   context: AgentHarnessWorkspaceContext;
@@ -266,7 +268,7 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
   const providers = createToolProviders(releaseToolbox);
   const providerByName = new Map(providers.map((provider) => [provider.name, provider]));
   return {
-    listTools: (scope = "files.read files.write") => providers
+    listTools: (scope = PRIMARY_MCP_RESOURCE_SCOPE) => providers
       .map((provider) => buildToolDefinition(provider, scope))
       .filter((definition): definition is AgentHarnessToolDefinition => Boolean(definition)),
     callTool: async (call) => {
@@ -318,6 +320,7 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
           }
           assertActionAccess(context, contract.kind);
           const dispatchResult = await contract.dispatch({
+            scope: call.scope,
             context,
             params,
             signal: call.signal,
@@ -786,7 +789,10 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
     {
       name:"workflow_toolbox", title:"workflow_toolbox", description:"Bounded Greenfield semantic candidate ingress; Operator disposition is separate.",
       actions:[
-        readAction("status", {}, () => ({implemented:true, stages:WORKFLOW_CANDIDATE_STAGES, candidateMaxBytes:WORKFLOW_CANDIDATE_MAX_BYTES, operatorDisposition:false})),
+        readAction("status", {}, ({scope}) => ({implemented:true, supportedStages:WORKFLOW_CANDIDATE_STAGES, stages:WORKFLOW_CANDIDATE_STAGES, candidateMaxBytes:WORKFLOW_CANDIDATE_MAX_BYTES, operatorDisposition:false,
+          submissionAvailable:scopeIncludes(scope,"files.write"), requiredWriteScope:"files.write",
+          availableActions:scopeIncludes(scope,"files.write") ? ["status","submit_stage_candidate"] : ["status"],
+          submissionRequirement:scopeIncludes(scope,"files.write") ? null : "Candidate submission requires reauthorization with files.write scope."})),
         writeAction("submit_stage_candidate", "workflow-write", {
           workflowId:{type:"string",required:true,minLength:1,maxLength:128},
           stage:{type:"string",required:true,allowedValues:WORKFLOW_CANDIDATE_STAGES},
@@ -1185,7 +1191,7 @@ function paramMatchesType(value: unknown, spec: ParamSpec): boolean {
 }
 
 function scopeIncludes(scope: string | undefined, required: string): boolean {
-  return (scope ?? "files.read files.write").split(/\s+/).includes(required);
+  return (scope ?? PRIMARY_MCP_RESOURCE_SCOPE).split(/\s+/).includes(required);
 }
 
 function recordArgumentValue(value: unknown, label = "tool arguments"): Record<string, unknown> {

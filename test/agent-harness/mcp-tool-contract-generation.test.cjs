@@ -532,12 +532,12 @@ function mcpHeaders(token) {
   };
 }
 
-async function issueOAuthToken(base, scope) {
+async function issueOAuthToken(base, scope, registrationScope = scope) {
   const verifier = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUV";
   const registeredResponse = await fetch(`${base}/oauth/register`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ redirect_uris: ["http://127.0.0.1/callback"], scope }),
+    body: JSON.stringify({ redirect_uris: ["http://127.0.0.1/callback"], scope: registrationScope }),
   });
   assert.equal(registeredResponse.status, 201);
   const registered = await registeredResponse.json();
@@ -545,7 +545,7 @@ async function issueOAuthToken(base, scope) {
   authorizeUrl.searchParams.set("client_id", registered.client_id);
   authorizeUrl.searchParams.set("redirect_uri", "http://127.0.0.1/callback");
   authorizeUrl.searchParams.set("response_type", "code");
-  authorizeUrl.searchParams.set("scope", scope);
+  if (scope !== undefined) authorizeUrl.searchParams.set("scope", scope);
   authorizeUrl.searchParams.set("code_challenge", pkceChallenge(verifier));
   authorizeUrl.searchParams.set("code_challenge_method", "S256");
   const authorization = await fetch(authorizeUrl, { redirect: "manual" });
@@ -574,3 +574,44 @@ async function connectMcpClient(url, token) {
   await client.connect(transport);
   return { client, transport };
 }
+
+
+test("OAuth public MCP capture exposes candidate submission only to new full grants and persists SQL", async t => {
+  const f = await require('../support/structured-architect-fixture.cjs').structuredArchitectFixture(t, {save:false});
+  f.userDataRoot = path.join(f.root, 'harness-data');
+  const registry = createRegistry(f);
+  const runtime = await startAgentHarnessHttpRuntime({host:'127.0.0.1', port:0, userDataRoot:f.userDataRoot, registry});
+  t.after(() => runtime.close());
+  const base = new URL(runtime.url).origin;
+  const workspaceId = resolveWorkspaceRootContext(f.root).workspaceId;
+  for (const [requested, registered, expected] of [
+    ['files.read','files.read','files.read'],
+    [undefined,undefined,'files.read files.write'],
+    [undefined,'files.read','files.read files.write'],
+  ]) {
+    const token = await issueOAuthToken(base, requested, registered);
+    assert.equal(token.scope, expected);
+    const {client,transport} = await connectMcpClient(runtime.url, token.access_token);
+    try {
+      const tools = (await client.listTools()).tools;
+      const tool = tools.find(tool => tool.name === 'workflow_toolbox');
+      const actions = tool.inputSchema.oneOf.map(branch => branch.properties.action.const);
+      const available = expected === 'files.read' ? ['status'] : ['status','submit_stage_candidate'];
+      assert.deepEqual(actions, available);
+      t.diagnostic(JSON.stringify({grantedScope:token.scope,registrationScope:registered ?? "omitted",authorizationScope:requested ?? "omitted",workflowActions:actions,publicContractFingerprint:fingerprintAgentHarnessPublicToolDefinitions(token.scope,tools)}));
+      const status = await client.callTool({name:'workflow_toolbox', arguments:{workspaceId,action:'status'}});
+      assert.equal(status.structuredContent.payload.submissionAvailable, expected !== 'files.read');
+      assert.deepEqual(status.structuredContent.payload.availableActions, available);
+      assert.equal(status.structuredContent.payload.requiredWriteScope,'files.write');
+      if (expected === 'files.read') {
+        assert.match(status.structuredContent.payload.submissionRequirement,/reauthorization/);
+        continue;
+      }
+      const result = await client.callTool({name:'workflow_toolbox', arguments:{workspaceId,action:'submit_stage_candidate',params:{workflowId:f.workflow.id,stage:'architect-interview',candidateJson:JSON.stringify(f.output)}}});
+      assert.equal(result.structuredContent.ok,true,JSON.stringify(result));
+      const review = await f.architect.get(f.root, f.workflow.id);
+      assert.equal(review.review.cycleId, result.structuredContent.payload.reviewId);
+      assert.ok(review.reviewDocument);
+    } finally {await transport.close();}
+  }
+});

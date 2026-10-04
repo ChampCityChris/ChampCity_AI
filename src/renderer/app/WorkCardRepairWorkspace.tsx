@@ -1,3 +1,4 @@
+import {reloadArchitectBrowserWithRecovery} from "./architectBrowserRecovery";
 import {useEffect,useRef,useState,type ReactNode} from "react";
 import {WorkCardRepairShell} from "./WorkCardRepairShell";
 import {FigmaDocumentDispositionPanel} from "./FigmaDocumentDispositionPanel";
@@ -29,7 +30,7 @@ export function WorkCardRepairWorkspace(props:{workflowId:string;repairId:string
   architectStatusText="Review exact failure provenance and submit the Repair WorkItem planning candidate through workflow_toolbox." browserPanel={props.browserPanel} copyEnabled={!!exact&&!busy&&!!model.handoff} documentFeedback=""
   documentSlots={docs.map(doc=>({slotId:doc.logicalDocumentId,displayLabel:doc.displayFilename.replace(/\.md$/,""),targetPath:doc.markdownPath,logicalDocumentId:doc.logicalDocumentId,documentReadState:"readable"}))} isArchitectPaneVisible={props.browserVisible??true} isPreparing={busy}
   onCopyDocument={()=>void navigator.clipboard.writeText(document?.bodyMarkdown??"")} onExportDocument={request=>void action(()=>window.champcity.exportMarkdownDocument(request))}
-  onCopyHandoff={()=>{if(exact)void navigator.clipboard.writeText(model.handoff);}} onPrepareHandoff={()=>void action(async()=>{},"Exact Repair Work Card prompt prepared.")} onRefresh={()=>void action(async()=>{},"SQL Repair context refreshed.")} onReloadBrowser={()=>void action(()=>window.champcity.reloadArchitectBrowser())} onSelectDocument={setSelected}
+  onCopyHandoff={()=>{if(exact)void navigator.clipboard.writeText(model.handoff);}} onPrepareHandoff={()=>void action(async()=>{},"Exact Repair Work Card prompt prepared.")} onRefresh={()=>void action(async()=>{},"SQL Repair context refreshed.")} onReloadBrowser={()=>void action(()=>reloadArchitectBrowserWithRecovery())} onSelectDocument={setSelected}
   prepareButtonLabel="Prepare Repair Work Card Prompt" prepareEnabled={!!exact&&!busy&&model.repair.lifecycleState==="active"}
   repairReviewPanel={<FigmaDocumentDispositionPanel currentDocument={document?.displayFilename} workflowStep="Repair Work Card Planning" effectiveDisposition={document?.effectiveDisposition} canApply={canReview} isApplying={busy||!candidate} notes={notes} onNotesChange={setNotes} status={status} onStatusChange={setStatus}
     onApply={()=>{if(canReview&&exact)void action(()=>window.champcity.reviewStructuredWorkItemPlanning(props.workflowId,props.repairId,{expectedRecordVersion:model.repair.recordVersion,outcome:status==="Approved"?"approved":status==="RevisionRequested"?"revision_requested":"rejected",notes}),"Exact Repair planning review recorded.");}}/>}

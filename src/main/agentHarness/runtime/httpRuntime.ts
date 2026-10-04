@@ -14,6 +14,7 @@ import {
   issueAuthorizationCode,
   projectOAuthResourceScope,
   OAUTH_RESOURCE_SCOPES,
+  PRIMARY_MCP_RESOURCE_SCOPE,
   OAUTH_AUTHORIZATION_SCOPES,
   refreshOAuthAccessToken,
   registerOAuthClient,
@@ -76,7 +77,6 @@ export interface AgentHarnessHttpRuntimeHandle {
 
 const MCP_MAX_REQUEST_BYTES = 1_000_000;
 const OAUTH_MAX_REQUEST_BYTES = 64_000;
-const PRIMARY_PUBLIC_TOOL_SCOPE = "files.read files.write";
 const DEFAULT_MCP_SESSION_POLICY: AgentHarnessMcpSessionPolicy = {
   idleTtlMs: 5 * 60 * 1_000,
   reaperCadenceMs: 60 * 1_000,
@@ -457,7 +457,7 @@ class RuntimeToolContractGeneration {
   }
 
   primarySnapshot(): AgentHarnessToolContractSnapshot {
-    return snapshotAgentHarnessRuntimeToolContract(this.contractForScope(PRIMARY_PUBLIC_TOOL_SCOPE));
+    return snapshotAgentHarnessRuntimeToolContract(this.contractForScope(PRIMARY_MCP_RESOURCE_SCOPE));
   }
 
   publishedDiagnostics(sessions: McpSessionRegistry): AgentHarnessToolContractDiagnostics["published"] {
@@ -496,7 +496,7 @@ export async function startAgentHarnessHttpRuntime(options: AgentHarnessHttpRunt
   const operationalDiagnostics = new AgentHarnessOperationalDiagnosticsCollector(options.operationalDiagnosticsOptions);
   const contractGeneration = new RuntimeToolContractGeneration(
     options.registry,
-    PRIMARY_PUBLIC_TOOL_SCOPE,
+    PRIMARY_MCP_RESOURCE_SCOPE,
   );
   let admittingRequests = true;
   let readinessReasonCode: AgentHarnessReadinessReasonCode = "ready";
@@ -592,7 +592,7 @@ export async function startAgentHarnessHttpRuntime(options: AgentHarnessHttpRunt
           client_id: requestUrl.searchParams.get("client_id") ?? "",
           redirect_uri: requestUrl.searchParams.get("redirect_uri") ?? "",
           response_type: requestUrl.searchParams.get("response_type") ?? undefined,
-          scope: requestUrl.searchParams.get("scope") ?? "files.read",
+          scope: requestUrl.searchParams.get("scope") ?? undefined,
           code_challenge: requestUrl.searchParams.get("code_challenge") ?? "",
           code_challenge_method: requestUrl.searchParams.get("code_challenge_method") ?? undefined,
         });
@@ -907,7 +907,7 @@ function authenticate(req: IncomingMessage, options: AgentHarnessHttpRuntimeOpti
 } | null {
   if (options.allowUnauthenticatedLocal === true) {
     return {
-      scope: "files.read files.write",
+      scope: PRIMARY_MCP_RESOURCE_SCOPE,
       authorizationPrincipal: "local-unauthenticated",
     };
   }

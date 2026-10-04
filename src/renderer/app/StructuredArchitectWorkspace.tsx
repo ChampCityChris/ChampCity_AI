@@ -1,3 +1,4 @@
+import {reloadArchitectBrowserWithRecovery} from "./architectBrowserRecovery";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ArchitectWorkspaceShell } from "./ArchitectWorkspaceShell";
 import { FigmaDocumentCard } from "./FigmaDocumentCard";
@@ -33,7 +34,7 @@ export function StructuredArchitectWorkspace(props: {workflowId: string | null; 
   }, [props.workflowId, props.refreshToken]);
   async function action(work: () => Promise<void>) {setBusy(true); setError(""); setFeedback(""); try {await work();} catch (reason) {setError(reason instanceof Error ? reason.message : String(reason));} finally {setBusy(false);}}
   const browserActions = <section className="figma-browser-actions-panel" aria-label="Browser Actions"><header><span>Browser Actions</span></header><div className="figma-browser-actions-row">
-    <button disabled={busy} onClick={() => void action(async () => {await window.champcity.reloadArchitectBrowser();})}>Reload ChatGPT</button>
+    <button disabled={busy} onClick={() => void action(async () => {await reloadArchitectBrowserWithRecovery();})}>Reload ChatGPT</button>
     <button disabled={busy || !props.workflowId} onClick={() => void action(async () => {accept(await window.champcity.prepareStructuredArchitectWorkspace(props.workflowId!)); setFeedback("Handoff prepared from current SQL Intake.");})}>Prepare / Refresh Handoff</button>
     <button disabled={busy || !model?.handoff} onClick={() => void action(async () => {await navigator.clipboard.writeText(model!.handoff!); setFeedback("Architect handoff copied.");})}>Copy Handoff</button>
   </div></section>;

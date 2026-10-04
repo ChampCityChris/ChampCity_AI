@@ -1,3 +1,4 @@
+import {reloadArchitectBrowserWithRecovery} from "./architectBrowserRecovery";
 import {useEffect, useState, type ReactNode} from "react";
 import {ProjectPlanningReviewShell, ProjectPlanningBrowserActions} from "./ProjectPlanningReviewShell";
 import type {createStructuredProjectPlanningService} from "../../main/projectPlanning/structuredProjectPlanningService";
@@ -34,7 +35,7 @@ export function StructuredProjectPlanningWorkspace(props: {workflowId: string | 
     review={{currentDocument:selectedDocument?.displayFilename,effectiveDisposition:selectedDocument?.effectiveDisposition,workflowStep:"Review & Validation",isApplying:busy||!canReview,canApply:!busy&&canReview&&!!status&&(status!=="Approved"||allViewed),notes,onNotesChange:setNotes,status,onStatusChange:setStatus,warning:!allViewed&&canReview?"Open every current output revision before approval.":undefined,
       onApply:()=>void action(async()=>{if(!review||!props.workflowId)throw Error("Exact current review required.");accept(await window.champcity.reviewStructuredProjectPlanning(props.workflowId,review.cycleId,{expectedRecordVersion:review.recordVersion,outcome:status==="Approved"?"approved":status==="RevisionRequested"?"revision_requested":"rejected",notes}));setStatus("");setFeedback("Operator review recorded.");})}}
     browserCompanion={<div className="figma-browser-column">{props.browserPanel}<ProjectPlanningBrowserActions canPrepareHandoff={!busy&&!!model} canCopyHandoff={!busy&&!!model?.handoff} isRevisionRequest={review?.disposition.state==="revision_requested"}
-      onPrepareHandoff={refresh} onCopyHandoff={()=>void action(async()=>{await navigator.clipboard.writeText(model!.handoff);})} onRefresh={refresh} onReloadBrowser={()=>void action(async()=>{await window.champcity.reloadArchitectBrowser();})} onRetryBrowser={()=>void action(async()=>{await window.champcity.reloadArchitectBrowser();})}
+      onPrepareHandoff={refresh} onCopyHandoff={()=>void action(async()=>{await navigator.clipboard.writeText(model!.handoff);})} onRefresh={refresh} onReloadBrowser={()=>void action(async()=>{await reloadArchitectBrowserWithRecovery();})} onRetryBrowser={()=>void action(async()=>{await reloadArchitectBrowserWithRecovery();})}
       actionMessage={error?{kind:"error",message:error}:feedback?{kind:"success",message:feedback}:null}
       contextualActions={<button disabled={busy||review?.disposition.state!=="approved"} onClick={props.onNext}>Continue to Phase Map</button>} /></div>} />;
 }

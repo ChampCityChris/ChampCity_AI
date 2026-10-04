@@ -1,3 +1,4 @@
+import {reloadArchitectBrowserWithRecovery} from "./architectBrowserRecovery";
 import {useEffect,useRef,useState,type ReactNode} from "react";
 import {WorkCardPlanningShell,WorkCardPlanningBrowserActions} from "./WorkCardPlanningShell";
 import {FigmaDocumentDispositionPanel} from "./FigmaDocumentDispositionPanel";
@@ -22,6 +23,6 @@ export function WorkCardPlanningWorkspace(props:{workflowId:string;workItemId:st
   reviewControls={<FigmaDocumentDispositionPanel currentDocument={document?.displayFilename} effectiveDisposition={document?.effectiveDisposition} workflowStep="Review & Validation" isApplying={busy||!hasReview} canApply={canReview} notes={notes} onNotesChange={setNotes} status={status} onStatusChange={setStatus}
    onApply={()=>{if(canReview)void action(async token=>{accept(await window.champcity.reviewStructuredWorkItemPlanning(props.workflowId,props.workItemId,{expectedRecordVersion:model!.workItem.recordVersion,outcome:status==="Approved"?"approved":status==="RevisionRequested"?"revision_requested":"rejected",notes}),token);if(token===generation.current){setStatus("");setFeedback("Work Card Planning review recorded.");}});}} />}
   browserCompanion={(props.browserVisible??true)?<div className="figma-browser-column">{props.browserPanel}<WorkCardPlanningBrowserActions canPrepareHandoff={exact&&!busy} canCopyHandoff={exact&&!busy&&!!model.handoff} onPrepareHandoff={refresh} onCopyHandoff={()=>void action(async()=>{if(exact)await navigator.clipboard.writeText(model.handoff);})}
-   onRefresh={refresh} onReloadBrowser={()=>void action(async()=>{await window.champcity.reloadArchitectBrowser();})} onRetryBrowser={()=>void action(async()=>{await window.champcity.reloadArchitectBrowser();})} isRevisionRequest={exact&&model.review.disposition.state==="revision_requested"}
+   onRefresh={refresh} onReloadBrowser={()=>void action(async()=>{await reloadArchitectBrowserWithRecovery();})} onRetryBrowser={()=>void action(async()=>{await reloadArchitectBrowserWithRecovery();})} isRevisionRequest={exact&&model.review.disposition.state==="revision_requested"}
    actionMessage={error?{kind:"error",message:error}:feedback?{kind:"success",message:feedback}:null} contextualActions={<button disabled={!exact||busy||model.review.disposition.state!=="approved"} onClick={props.onNext} type="button">Continue to Work Card Implement</button>}/></div>:null}/ >;
 }

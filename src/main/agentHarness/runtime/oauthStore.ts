@@ -54,6 +54,8 @@ export interface LegacyOAuthClientImportResult {
   registeredClientCount: number;
 }
 
+export const PRIMARY_MCP_RESOURCE_SCOPE = "files.read files.write";
+
 export const OAUTH_RESOURCE_SCOPES = ["files.read", "files.write"] as const;
 export const OAUTH_AUTHORIZATION_SCOPES = [...OAUTH_RESOURCE_SCOPES, "offline_access"] as const;
 type OAuthAuthorizationScope = (typeof OAUTH_AUTHORIZATION_SCOPES)[number];
@@ -120,7 +122,7 @@ export function registerOAuthClient(userDataRoot: string, input: Record<string, 
     client_uri: optionalClientUri(payload.client_uri),
     grant_types: grantTypes,
     response_types: responseTypes,
-    scope: normalizeAuthorizationScope(typeof payload.scope === "string" ? payload.scope : "files.read"),
+    scope: normalizeAuthorizationScope(typeof payload.scope === "string" ? payload.scope : PRIMARY_MCP_RESOURCE_SCOPE),
     created_at: new Date().toISOString(),
   };
   writeStore(userDataRoot, { ...store, clients: [...store.clients, client] });
@@ -193,7 +195,7 @@ export function validateOAuthAuthorizationRequest(userDataRoot: string, input: {
   }
   let requestedScope: string;
   try {
-    requestedScope = assertResourceAuthorizationScope(input.scope ?? client.scope);
+    requestedScope = assertResourceAuthorizationScope(input.scope ?? PRIMARY_MCP_RESOURCE_SCOPE);
   } catch (error) {
     return {
       ok: false,

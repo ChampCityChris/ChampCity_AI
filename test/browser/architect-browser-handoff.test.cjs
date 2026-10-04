@@ -218,3 +218,55 @@ test('failed allowed browser surface explicitly returns to configured ChatGPT UR
   view.webContents.emit('did-fail-load',{},-105,'NAME_NOT_RESOLVED','https://chatgpt.com/',true);let target;view.webContents.loadURL=async url=>{target=url;};view.webContents.reload=()=>assert.fail('failed surface must navigate');
   assert.equal(service.reloadArchitectBrowserSurface().browserState,'loading');assert.equal(target,getArchitectSurfaceUrl());
 });
+
+
+test("renderer remount accepts sequence one in a new generation and reuses the native session", async () => {
+  const {createArchitectAttachmentCoordinator, resetArchitectAttachmentGenerationForTest} = require('../../dist/shared/architectInterview/architectBrowserAttachmentCoordinator.js');
+  resetArchitectAttachmentGenerationForTest();
+  const {view,window} = fakeBrowserBoundary();
+  let creations = 0, resolveOldBounds;
+  configureArchitectBrowserServiceForTest({createView: () => {creations++; return view;}});
+  const coordinator = (delayDetach = false) => {
+    let sequence = 0;
+    return createArchitectAttachmentCoordinator({
+      measureHost: () => ({x:5,y:10,width:640,height:400}), nextSequence: () => ++sequence,
+      onError: () => {}, onStatus: () => {}, waitForNextFrame: async () => {},
+      showBrowser: async generation => attachArchitectBrowserSurface(window,generation),
+      hideBrowser: async generation => service.detachArchitectBrowserSurface(generation),
+      setBounds: async bounds => {
+        const ack = setArchitectBrowserBounds(bounds);
+        if(delayDetach && bounds.width === 0) return new Promise(resolve => {resolveOldBounds = () => resolve(ack);});
+        return ack;
+      },
+    });
+  };
+  const first = coordinator(true);
+  assert.equal((await first.attach()).status,'attached-visible');
+  setArchitectBrowserBounds({x:5,y:10,width:640,height:400,sequence:20,attachmentGeneration:first.getGeneration()});
+  const oldDetach = first.detach();
+  await Promise.resolve();
+  const second = coordinator();
+  assert.equal((await second.attach()).status,'attached-visible');
+  assert.equal(getArchitectBrowserFoundationStatus().boundsSequence,1);
+  resolveOldBounds(); await oldDetach;
+  const status = getArchitectBrowserFoundationStatus();
+  assert.equal(status.attachment.state,'attached-visible');
+  assert.equal(status.boundsSequence,1);
+  assert.equal(status.attachmentGeneration,second.getGeneration());
+  assert.equal(creations,1);
+  assert.equal(view.webContents.getURL(),'https://chatgpt.com/');
+  let current = second;
+  for (let cycle = 0; cycle < 3; cycle++) {
+    setArchitectBrowserBounds({x:5,y:10,width:640,height:400,sequence:20,attachmentGeneration:current.getGeneration()});
+    const detached = await current.detach();
+    assert.equal(detached.attachment.state,'detached');
+    current = coordinator();
+    assert.equal((await current.attach()).status,'attached-visible');
+    assert.equal(getArchitectBrowserFoundationStatus().boundsSequence,1);
+    assert.equal(creations,1);
+    assert.equal(view.webContents.getURL(),'https://chatgpt.com/');
+  }
+
+  assert.equal(setArchitectBrowserBounds({x:0,y:0,width:0,height:0,sequence:99,attachmentGeneration:1}).disposition,'stale-generation');
+  assert.equal(setArchitectBrowserBounds({x:0,y:0,width:0,height:0,sequence:0,attachmentGeneration:current.getGeneration()}).disposition,'stale-sequence');
+});

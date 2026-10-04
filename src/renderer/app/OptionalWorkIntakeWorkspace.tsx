@@ -1,3 +1,4 @@
+import {reloadArchitectBrowserWithRecovery} from "./architectBrowserRecovery";
 import {useEffect, useState, type ReactNode} from "react";
 import type {WorkIntakeProjection} from "../../shared/workIntakeContracts";
 import type {WorkflowInstanceSummary} from "../../shared/workflowApplicationContracts";
@@ -11,7 +12,7 @@ export function OptionalWorkIntakeWorkspace({workflow, browserPanel, onReturn, o
     void window.champcity.getWorkIntakeProjection().then(result => {if (active) setProjection(result);}).catch(reason => {if (active) setError(String(reason));});
     return () => {active = false;};}, [workflow?.workflowId]);
   if (routing?.workIntakeId) return <StructuredWorkRoutingWorkspace intakeId={routing.workIntakeId} routingWorkflowId={routing.workflowId}
-    browserPanel={browserPanel} onReloadBrowser={() => void window.champcity.reloadArchitectBrowser().catch(reason => setError(String(reason)))} onReturn={onReturn} onRouted={onRouted} />;
+    browserPanel={browserPanel} onReloadBrowser={() => void reloadArchitectBrowserWithRecovery().catch(reason => setError(String(reason)))} onReturn={onReturn} onRouted={onRouted} />;
   return <>{error ? <p role="alert">{error}</p> : null}{projection ? <WorkIntakeWorkspace projection={projection} onReturn={onReturn}
     onSaved={async intakeId => {
       const inventory = await window.champcity.listWorkflows();

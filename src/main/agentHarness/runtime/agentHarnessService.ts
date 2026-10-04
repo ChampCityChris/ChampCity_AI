@@ -24,7 +24,7 @@ import {
 } from "./agentHarnessSettings";
 import { startAgentHarnessHttpRuntime, type AgentHarnessHttpRuntimeHandle } from "./httpRuntime";
 import { captureAgentHarnessPublicToolContract } from "./mcpServer";
-import { importLegacyOAuthClientRegistry, readOAuthStoreDiagnostics } from "./oauthStore";
+import { importLegacyOAuthClientRegistry, readOAuthStoreDiagnostics, PRIMARY_MCP_RESOURCE_SCOPE } from "./oauthStore";
 import { reconcileWorkspaceRepositoryCheckouts } from "../modelAccess/repositoryCheckoutAccessProjectionService";
 import { createProjectSourceOperationCoordinator } from "../../core/projectSourceOperationCoordinator";
 import type { ProjectSourceOperationCoordinator } from "../../core/projectSourceOperationCoordinator";
@@ -89,11 +89,11 @@ export class AgentHarnessService {
       userDataRoot: options.userDataRoot,
       runtimeDiagnostics: () => this.status() as unknown as Record<string, unknown>,
     });
-    this.registryContract = captureAgentHarnessPublicToolContract(this.registry, "files.read files.write");
+    this.registryContract = captureAgentHarnessPublicToolContract(this.registry, PRIMARY_MCP_RESOURCE_SCOPE);
   }
 
   tools(): AgentHarnessToolDefinition[] {
-    return this.registry.listTools("files.read files.write");
+    return this.registry.listTools(PRIMARY_MCP_RESOURCE_SCOPE);
   }
 
   toolRegistry(): AgentHarnessToolRegistry {

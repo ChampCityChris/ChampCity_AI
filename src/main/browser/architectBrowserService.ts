@@ -615,11 +615,14 @@ function isCanceledNavigation(errorCode: unknown, errorDescription: unknown): bo
 }
 
 function acceptAttachmentGeneration(attachmentGeneration?: number): void {
-  if (typeof attachmentGeneration === "number" && Number.isFinite(attachmentGeneration)) {
-    currentAttachmentGeneration = Math.max(currentAttachmentGeneration, Math.round(attachmentGeneration));
-    return;
+  const nextGeneration = typeof attachmentGeneration === "number" && Number.isFinite(attachmentGeneration)
+    ? Math.max(currentAttachmentGeneration, Math.round(attachmentGeneration))
+    : currentAttachmentGeneration + 1;
+  if (nextGeneration > currentAttachmentGeneration) {
+    latestBoundsSequence = 0;
+    rendererBounds = zeroBounds(0);
   }
-  currentAttachmentGeneration += 1;
+  currentAttachmentGeneration = nextGeneration;
 }
 
 function isStaleAttachmentGeneration(attachmentGeneration?: number): boolean {

@@ -1,3 +1,4 @@
+import {reloadArchitectBrowserWithRecovery} from "./architectBrowserRecovery";
 import {useEffect,useRef,useState,type ReactNode} from "react";
 import {PhasePlanningShell,PhasePlanningBrowserActions} from "./PhasePlanningShell";
 import {FigmaDocumentDispositionPanel} from "./FigmaDocumentDispositionPanel";
@@ -31,6 +32,6 @@ export function PhasePlanningWorkspace(props:{workflowId:string;phaseId:string;b
    onApply={()=>{if(canReview&&review)void action(async token=>{accept(await window.champcity.reviewStructuredPhaseLoop(props.workflowId,model!.phase.id,"planning",review.cycle.id,{expectedRecordVersion:review.cycle.recordVersion,outcome:status==="Approved"?"approved":status==="RevisionRequested"?"revision_requested":"rejected",notes}),token);if(token===generation.current){setStatus("");setFeedback("Phase Planning review recorded.");}});}} />}
   browserCompanion={(props.browserVisible??true)?<div className="figma-browser-column">{props.browserPanel}<PhasePlanningBrowserActions prepareHandoffLabel="Prepare Handoff" copyHandoffLabel="Copy Handoff"
    canPrepareHandoff={exact&&!busy} canCopyHandoff={exact&&!busy&&!!model.handoff} onPrepareHandoff={refresh} onCopyHandoff={()=>void action(async()=>{if(exact)await navigator.clipboard.writeText(model.handoff);})}
-   onRefresh={refresh} onReloadBrowser={()=>void action(async()=>{await window.champcity.reloadArchitectBrowser();})} onRetryBrowser={()=>void action(async()=>{await window.champcity.reloadArchitectBrowser();})} isRevisionRequest={review?.disposition.state==="revision_requested"}
+   onRefresh={refresh} onReloadBrowser={()=>void action(async()=>{await reloadArchitectBrowserWithRecovery();})} onRetryBrowser={()=>void action(async()=>{await reloadArchitectBrowserWithRecovery();})} isRevisionRequest={review?.disposition.state==="revision_requested"}
    actionMessage={error?{kind:"error",message:error}:feedback?{kind:"success",message:feedback}:null} contextualActions={<button disabled={busy||review?.disposition.state!=="approved"} onClick={props.onNext} type="button">Continue to Work Card Map</button>}/></div>:null}/ >;
 }

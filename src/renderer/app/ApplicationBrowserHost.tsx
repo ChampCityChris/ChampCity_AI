@@ -1,3 +1,4 @@
+import {registerArchitectBrowserRecovery, reloadArchitectBrowserWithRecovery} from "./architectBrowserRecovery";
 import {useEffect, useRef, useState} from "react";
 import type {ArchitectBrowserFoundationStatus} from "../../shared/workspaceContracts";
 import {createArchitectAttachmentCoordinator, shouldShowArchitectBrowserRetry, type ArchitectAttachmentCoordinator} from "../../shared/architectInterview/architectBrowserAttachmentCoordinator";
@@ -21,6 +22,7 @@ export function ApplicationBrowserHost() {
       setBounds: window.champcity.setArchitectBrowserBounds, showBrowser: window.champcity.showArchitectBrowser,
       hideBrowser: window.champcity.hideArchitectBrowser, waitForNextFrame: () => new Promise(resolve => window.requestAnimationFrame(() => resolve()))});
     coordinator.current = attachment;
+    const unregisterRecovery = registerArchitectBrowserRecovery(attachment);
     const sync = () => {
       if (frame !== null) window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
@@ -38,13 +40,13 @@ export function ApplicationBrowserHost() {
     const unsubscribe = window.champcity.onArchitectBrowserFoundationStatus(accept);
     void attachment.attach();
     return () => {
-      active = false; unsubscribe(); observer.disconnect(); window.removeEventListener("resize", sync);
+      active = false; unregisterRecovery(); unsubscribe(); observer.disconnect(); window.removeEventListener("resize", sync);
       if (frame !== null) window.cancelAnimationFrame(frame);
       coordinator.current = null;
       void attachment.detach().catch(() => undefined);
     };
   }, []);
-  const reload = async () => {try {setError(""); setStatus(await window.champcity.reloadArchitectBrowser());} catch (reason) {setError(String(reason));}};
+  const reload = async () => {try {setError(""); setStatus(await reloadArchitectBrowserWithRecovery());} catch (reason) {setError(String(reason));}};
   const failedLoad = status?.browserState === "load-failed";
   const diagnostic = failedLoad ? status.navigationDiagnostics.slice().reverse().find(item => item.frame === "main-frame" && item.eventType === "did-fail-load" && item.loadResult?.success === false) : undefined;
   const failureDetail = diagnostic ? `${diagnostic.destinationHost ?? "unknown host"} / ${diagnostic.eventType} / error ${diagnostic.loadResult?.code ?? "unknown"}`.slice(0, 240) : "";

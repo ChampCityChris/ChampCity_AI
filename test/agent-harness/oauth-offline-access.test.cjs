@@ -34,7 +34,7 @@ test("OAuth discovery separates permissions from session scopes on both metadata
     assert.deepEqual(metadata.token_endpoint_auth_methods_supported, ["none"]);
   }
   const client = await register(fixture);
-  assert.equal(client.scope, "files.read");
+  assert.equal(client.scope, "files.read files.write");
   assert.equal(client.token_endpoint_auth_method, "none");
   assert.equal(Object.hasOwn(client, "client_secret"), false);
   const before = fixture.storeText();
