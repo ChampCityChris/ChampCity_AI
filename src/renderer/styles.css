@@ -6683,6 +6683,26 @@ body {
   background: var(--background);
 }
 
+/* Project Creation owns the app-body remainder; its recovered chrome stays intrinsic. */
+.app-root:has(> .app-body > .greenfield-workflow-surface) {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.workspace-surface.greenfield-workflow-surface {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  gap: 0;
+}
+
+.greenfield-workflow-surface > .greenfield-workspace {
+  min-height: 0;
+  height: auto;
+  align-self: stretch;
+}
+
 .workspace-header h1,
 .preview-header h2,
 .current-document-summary strong,

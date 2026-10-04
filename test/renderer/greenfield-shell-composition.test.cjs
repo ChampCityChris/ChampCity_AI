@@ -99,3 +99,17 @@ test('Greenfield shell geometry has one fill owner and intrinsic recovered heade
  assert.match(css,/\.workspace-shell-frame > \.project-planning-blocker-banner\s*\{[^}]*flex:0 0 auto/);
  assert.match(css,/\.workspace-shell-frame > \.figma-doc-chat-workspace\s*\{[^}]*flex:1; height:auto/);
 });
+
+test('App grants the viewport contract only to Project Creation workflow instances',()=>{
+ const {App}=load('src/renderer/app/App.tsx');
+ const original={useState:React.useState,useRef:React.useRef,useEffect:React.useEffect};const old=global.window;
+ try{
+  global.window={localStorage:{getItem:()=>null}};React.useRef=initial=>({current:initial});React.useEffect=()=>{};
+  for(const [view,workflowType,expected] of [['workflow-instance','project-creation',true],['workflow-instance','feature-capability',false],['workflow-hub','project-creation',false],['workflow-instance',null,false]]){
+   let index=0;React.useState=initial=>{const i=index++;return[i===1?view:i===13?(workflowType?{workflowId:'wf',workflowType,lifecycleState:'closed'}:null):typeof initial==='function'?initial():initial,()=>{}];};
+   const tree=App(),surface=nodes(tree).find(n=>n.props.className?.split(' ').includes('workspace-surface'));
+   assert.equal(surface.props.className.includes('greenfield-workflow-surface'),expected,view+':'+workflowType);
+   if(view==='workflow-instance'&&workflowType){assert.equal(surface.props.children.type.name,'StructuredWorkflowWorkspace');assert.equal(surface.props.children.props.workflow.workflowType,workflowType);}
+  }
+ }finally{Object.assign(React,original);global.window=old;}
+});

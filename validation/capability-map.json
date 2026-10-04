@@ -3224,7 +3224,8 @@
         "src/shared/routedWorkflowContracts.ts",
         "src/shared/workIntakeNavigationContracts.ts",
         "src/shared/workflowHubContracts.ts",
-        "src/shared/workspaces/**"
+        "src/shared/workspaces/**",
+        "test/fixtures/greenfield-application-viewport/**"
       ],
       "dependsOn": [
         "desktop-application-shell",
@@ -3298,6 +3299,10 @@
         {
           "behaviorId": "generic-preview-disposition-footer-is-suppressed-only-for-project-intake-and-specialized-workspa",
           "description": "generic preview disposition footer is suppressed only for Project Intake and specialized workspaces"
+        },
+        {
+          "behaviorId": "greenfield-application-viewport-fill",
+          "description": "Project Creation fills the real App viewport through empty/generated Phase Map, completed Planning inspection and native browser resizing; other workflow families retain their generic surface."
         },
         {
           "behaviorId": "greenfield-architect-rail-preserves-sql-completion-unless-an-explicit-model-status-is-supplied",
@@ -13488,10 +13493,66 @@
       ]
     },
     {
+      "testPath": "test/renderer/greenfield-application-viewport.test.cjs",
+      "currentTestCount": {
+        "value": 1,
+        "basis": "R07 full actual App composition geometry, candidate stability, completed inspection, resize and generic-family regression."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 5500,
+        "basis": "R07 normal Windows Electron full composition fixture."
+      },
+      "proposedValidationLane": "desktop-platform",
+      "platformDependency": "windows",
+      "dependencies": {
+        "electron": true,
+        "filesystem": true,
+        "git": false,
+        "network": false,
+        "process": true,
+        "timing": true
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "desktop-platform"
+      ],
+      "execution": {
+        "requiresBuild": false,
+        "platform": "windows",
+        "externalCapabilities": [],
+        "scheduling": "exclusive-desktop",
+        "schedulingReason": "Real hidden Electron BrowserWindow and native WebContentsView with isolated synthetic workflow data.",
+        "ownedResources": [
+          "bounded-child-process",
+          "electron-desktop",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "environment-bound",
+        "rendered-output"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "greenfield-application-viewport-fill",
+          "proofLocator": "full App viewport fills empty/generated Phase Map and completed Planning inspection while preserving generic workflows",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
       "testPath": "test/renderer/greenfield-shell-composition.test.cjs",
       "currentTestCount": {
-        "value": 5,
-        "basis": "Recovered historical characterization plus exact SQL application adapter proof."
+        "value": 9,
+        "basis": "R07 focused renderer run including App surface dispatch and preserved generic families."
       },
       "duration": {
         "kind": "estimated",

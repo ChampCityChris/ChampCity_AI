@@ -298,7 +298,7 @@ export function App(): JSX.Element {
         onOpenSettings={openSettings} onReturnToWorkflowHub={returnToWorkflowHub} onThemeChange={setThemeMode}
         projectName={projectName} themeMode={themeMode} workspace={workspace}
         workflowContextAction={view === "workflow-instance" && workflowContextAction?.workflowId === workflow?.workflowId ? workflowContextAction : null} /> : null}
-      <section className={["workspace-surface", isLanding ? "landing-surface" : "", view === "workflow-hub" ? "workflow-hub-surface" : "", view === "source-control" ? "source-control-surface" : "", isSettings ? "settings-workspace-surface" : ""].filter(Boolean).join(" ")}>
+      <section className={["workspace-surface", isLanding ? "landing-surface" : "", view === "workflow-hub" ? "workflow-hub-surface" : "", view === "source-control" ? "source-control-surface" : "", isSettings ? "settings-workspace-surface" : "", view === "workflow-instance" && workflow?.workflowType === "project-creation" ? "greenfield-workflow-surface" : ""].filter(Boolean).join(" ")}>
         {isLanding ? <LandingWorkspace feedback={error} isChoosing={isChoosing} migrationPlan={pendingAdoption}
           onAcceptMigration={() => void acceptProjectAdoption()} onCancelMigration={() => void cancelProjectAdoption()}
           onOpenExistingProject={() => void openExistingProject()} onStartNewProject={() => void startNewProject()} />
