@@ -213,12 +213,41 @@ test('Work Card Map SQL adapter keeps exact Phase dependencies active selection 
  const planning={workflowId:'wf',phase:{id:'p',body:{phaseKey:'phase-one'}},stageKind:'planning',review:{cycle:{id:'plan'},disposition:{state:'approved'}}};
  const item=(id,phaseId,state,blockers=[],deps=[])=>({record:{id,body:{candidateKey:id,title:id,objective:'Build '+id,workState:state,planningOrder:Number(id.slice(-1))}},phaseId,dependencyIds:deps,eligibility:{eligible:!blockers.length,blockers}});
  const execution={workflowId:'wf',activeWorkItemIds:[],items:[item('wc1','p','closed'),item('wc2','p','planned',['work-item-contract-review-required'],['wc1']),item('wc3','p','planned',['dependency:wc2'],['wc2']),item('peer4','other','planned')]};
- const validation={workflowId:'wf',phaseId:'p',workItemsClosed:false};
- let view=workCardMapFromSql(planning,execution,validation);assert.deepEqual(view.candidates.map(c=>c.status),['Complete','Eligible','Ineligible']);assert.deepEqual(view.candidates[1].dependsOn,['wc1']);
- assert.throws(()=>workCardMapFromSql(planning,{...execution,workflowId:'peer'},validation),/identities/);
- view=workCardMapFromSql(planning,{...execution,activeWorkItemIds:['wc2']},validation);assert.equal(view.candidates[1].actionLabel,'Continue Work Card');assert.equal(view.candidates[1].canBegin,true);
- assert.equal(workCardMapFromSql(planning,execution,{...validation,workItemsClosed:true}).state,'all-complete');assert.equal(workCardMapFromSql({...planning,staleReview:{reason:'Changed'}},execution,validation).state,'needs-attention');
+ execution.plan={phases:[{phaseId:'p'}]};
+ let view=workCardMapFromSql(planning,execution);assert.deepEqual(view.candidates.map(c=>c.status),['Complete','Eligible','Ineligible']);assert.deepEqual(view.candidates[1].dependsOn,['wc1']);
+ assert.throws(()=>workCardMapFromSql(planning,{...execution,workflowId:'peer'}),/identities/);
+ view=workCardMapFromSql(planning,{...execution,activeWorkItemIds:['wc2']});assert.equal(view.candidates[1].actionLabel,'Continue Work Card');assert.equal(view.candidates[1].canBegin,true);
+ assert.equal(workCardMapFromSql(planning,{...execution,items:execution.items.map(i=>({...i,record:{...i.record,body:{...i.record.body,workState:'closed'}}}))}).state,'all-complete');assert.equal(workCardMapFromSql({...planning,staleReview:{reason:'Changed'}},execution).state,'needs-attention');
  const original={useState:React.useState,useRef:React.useRef,useEffect:React.useEffect};let index=0,calls=[];
  React.useEffect=()=>{};React.useRef=()=>({current:0});React.useState=initial=>[index++===0?{...view,requestKey:'wf:p'}:'',()=>{}];
  try{let e=SqlWorkspace({workflowId:'wf',phaseId:'p',onOpenWorkItem:id=>calls.push(id),onOpenPhaseValidation:()=>calls.push('phase')});e.props.onBeginPlanning('wc2');e.props.onBeginPlanning('wc3');e.props.onOpenPhaseValidation();assert.deepEqual(calls,['wc2']);index=0;e=SqlWorkspace({workflowId:'wf',phaseId:'other',onOpenWorkItem:id=>calls.push(id),onOpenPhaseValidation(){}});assert.equal(e.props.projection,null);e.props.onBeginPlanning('wc2');assert.deepEqual(calls,['wc2']);}finally{Object.assign(React,original);}
+});
+
+test('Work Card Map load isolates validation and distinguishes pending failed and empty projections',async()=>{
+ const original={useState:React.useState,useRef:React.useRef,useEffect:React.useEffect},oldWindow=global.window;
+ let values=[],index=0,effect,runEffect=true,calls=[];const ref={current:0};
+ React.useState=initial=>{const slot=index++;if(!(slot in values))values[slot]=initial;return [values[slot],value=>{values[slot]=value;}];};
+ React.useRef=()=>ref;React.useEffect=fn=>{if(runEffect){effect=fn;runEffect=false;}};
+ const planning={workflowId:'wf',phase:{id:'p',body:{phaseKey:'phase-one'}},stageKind:'planning',review:{cycle:{id:'plan'},disposition:{state:'approved'}}};
+ const item=(id,state='planned',blockers=[])=>({record:{id,body:{candidateKey:id,title:id,objective:'Build',workState:state}},phaseId:'p',dependencyIds:[],eligibility:{blockers}});
+ const execution={workflowId:'wf',plan:{phases:[{phaseId:'p'}]},activeWorkItemIds:[],items:[item('wc1'),item('wc2','planned',['dependency:wc1'])]};
+ const draw=()=>{index=0;return SqlWorkspace({workflowId:'wf',phaseId:'p',onOpenWorkItem:id=>calls.push(id),onOpenPhaseValidation:()=>calls.push('phase')});};
+ const markup=element=>renderToStaticMarkup(element);
+ try{
+  for(const mode of ['success','failure','empty','identity']){
+   values=[];runEffect=true;calls=[];
+   global.window={champcity:{getStructuredPhaseLoop:async()=>mode==='identity'?{...planning,phase:{...planning.phase,id:'foreign'}}:planning,getWorkflowExecutionProjection:async()=>{if(mode==='failure')throw Error('Execution unavailable');return {...execution,items:mode==='empty'?[]:execution.items};},getWorkflowPhaseValidation:async()=>{calls.push('validation');throw Error('Phase aggregate evidence source candidate is not current.');}}};
+   let element=draw();assert.match(markup(element),/Loading current Work Card candidates/);assert.doesNotMatch(markup(element),/No Work Card candidates found/);
+   effect();await new Promise(setImmediate);element=draw();const html=markup(element);
+   if(mode==='success'){assert.match(html,/wc1/);assert.match(html,/Eligible/);assert.match(html,/Ineligible/);element.props.onBeginPlanning('wc1');element.props.onBeginPlanning('wc2');element.props.onOpenPhaseValidation();assert.deepEqual(calls,['wc1']);}
+   else if(mode==='empty'){assert.match(html,/No Work Card candidates found/);assert.equal(element.props.projection.state,'ready');}
+   else {assert.match(html,mode==='failure'?/Execution unavailable/:/Exact Phase map identities required/);assert.doesNotMatch(html,/No Work Card candidates found|Loading current/);}
+   assert.ok(!calls.includes('validation'));
+  }
+  for(const state of ['planned','ready','in_progress','validation_pending'])assert.equal(workCardMapFromSql(planning,{...execution,items:[item('wc1','closed'),item('wc2',state)]}).state,'ready');
+  assert.throws(()=>workCardMapFromSql({...planning,phase:{...planning.phase,id:'foreign'}},execution),/identities/);
+  assert.throws(()=>workCardMapFromSql({...planning,stageKind:'interview'},execution),/identities/);
+  const active=workCardMapFromSql(planning,{...execution,activeWorkItemIds:['wc1'],items:[item('wc1'),item('wc2')]});assert.equal(active.candidates[0].actionLabel,'Continue Work Card');assert.equal(active.candidates[1].canBegin,false);
+  const complete=workCardMapFromSql(planning,{...execution,items:[item('wc1','closed')]});assert.equal(complete.state,'all-complete');assert.match(markup(React.createElement(WorkCardMapShell,{...draw().props,projection:complete,actionError:''})),/>Phase Validation</);
+ }finally{Object.assign(React,original);global.window=oldWindow;}
 });

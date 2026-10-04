@@ -126,7 +126,10 @@ export function WorkCardMapShell({
             </div>
           ) : null}
 
-          {candidates.length === 0 && projection?.state !== "needs-attention" ? (
+          {!projection && !actionError ? (
+            <div className="figma-empty-document" role="status">Loading current Work Card candidates...</div>
+          ) : null}
+          {projection && candidates.length === 0 && projection.state === "ready" && !actionError ? (
             <div className="figma-empty-document">
               <strong>No Work Card candidates found</strong>
               <span>The current plan has no candidates to display.</span>

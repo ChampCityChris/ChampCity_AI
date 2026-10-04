@@ -296,6 +296,22 @@ test('SQL Phase Interview and Phase Planning preserve exact stage review and act
   const stable = accepted.review.markdown, work = await f.store.getEntity(f.projectId,ids[0]);
   await f.store.transaction(f.projectId,unit=>unit.saveEntity({...work,recordVersion:work.recordVersion+1,updatedAt:new Date().toISOString(),body:{...work.body,workState:'closed'}},work.recordVersion));
   assert.equal((await kernel.getExecutionProjection(f.root,f.workflow.id)).items.find(item=>item.record.id===ids[0]).record.body.workState,'closed'); assert.equal((await loop.get(f.root,f.workflow.id,'phase_one','planning')).review.markdown,stable);
+  // A source binding can be unreadable to aggregate validation while the approved plan
+  // and execution remain readable. This is the live map-load regression boundary.
+  const source = require('../../dist/shared/projectState/projectStateService.js').createProjectStateService(f.store,{principalId:'source-state',principalType:'system',role:'System'});
+  const baseline = await source.createWorkflowSourceBaseline(f.projectId,f.workflow.id,{repositoryId:'map-source',integrationTargetSourceLineId:'dev',baseRevisionId:'R0'});
+  const binding = await source.createWorkflowSourceBinding(f.projectId,f.workflow.id,baseline.id);
+  await source.updateSourceBinding(f.projectId,binding.id,{preparationState:'preparing'},1);
+  await assert.rejects(kernel.getPhaseValidationProjection(f.root,f.workflow.id,initial.phase.id),/Phase aggregate evidence source candidate is not current/);
+  const readablePlanning = await loop.get(f.root,f.workflow.id,initial.phase.id,'planning');
+  assert.equal(readablePlanning.review.disposition.state,'approved');
+  const {workCardMapFromSql} = require('../renderer/renderer-source-loader.cjs').loadRendererSourceModule('src/renderer/app/WorkCardMapWorkspace.tsx');
+  const view = workCardMapFromSql(readablePlanning,await kernel.getExecutionProjection(f.root,f.workflow.id));
+  assert.deepEqual(view.candidates.map(item=>item.candidateId).sort(),[...ids].sort());
+  assert.equal(view.state,'ready');
+  const {WorkCardMapShell} = require('../renderer/renderer-source-loader.cjs').loadRendererSourceModule('src/renderer/app/WorkCardMapShell.tsx');
+  const markup = require('react-dom/server').renderToStaticMarkup(require('react').createElement(WorkCardMapShell,{projection:view,actionError:'',actionFeedback:'',isBeginningPlanning:false,onCopy(){},onBeginPlanning(){},onOpenPhaseValidation(){}}));
+  assert.match(markup,/First work/); assert.match(markup,/Second work/); assert.doesNotMatch(markup,/No Work Card candidates found/);
 });
 
 test('Historical Phase Planning metadata is inert and fresh structured planning is required', async context => {
