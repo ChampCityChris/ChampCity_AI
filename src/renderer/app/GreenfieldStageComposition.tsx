@@ -24,7 +24,7 @@ export interface GreenfieldShellSelection {stage:GreenfieldStage;phaseId:string|
 export interface GreenfieldStageCompositionProps {
  workflowId:string;selection:GreenfieldShellSelection;repositoryIdentity:string;browserPanel:ReactNode;
  intake:ProjectIntakeSubmission;onIntakeChange:(value:ProjectIntakeSubmission)=>void;
- resume:()=>void;open:(stage:GreenfieldStage,workItemId?:string)=>void;
+ resume:()=>Promise<void>;open:(stage:GreenfieldStage,workItemId?:string)=>void;
  terminal:(stage:"work-card-close"|"phase-close"|"project-close")=>void;
  repair:(id:string)=>void;onReturn:()=>void;onRepositoryChange:()=>void;
 }
@@ -34,9 +34,9 @@ export function composeGreenfieldStage(props:GreenfieldStageCompositionProps):Re
  const missing=<p role="status">Select an exact SQL Phase / Work Card to inspect this workspace.</p>;
  switch(stage){
  case "project-intake-capture":return <ProjectIntakeWorkspace workflowId={workflowId} value={props.intake} onChange={props.onIntakeChange} repositoryIdentity={props.repositoryIdentity} isChoosingProjectRepository={false} onChooseProjectRepository={props.onRepositoryChange} onRailStatus={()=>{}} onPrepared={resume}/>;
- case "architect-interview":return <GreenfieldArchitectWorkspace workflowId={workflowId} browserVisible={!!browserPanel} browserCompanion={browserPanel} onNext={async()=>resume()}/>;
- case "project-planning-review":return <StructuredProjectPlanningWorkspace workflowId={workflowId} browserPanel={browserPanel} onNext={async()=>resume()}/>;
- case "project-phase-map":return <StructuredPhaseMapWorkspace workflowId={workflowId} browserPanel={browserPanel} onNext={async()=>resume()}/>;
+ case "architect-interview":return <GreenfieldArchitectWorkspace workflowId={workflowId} browserVisible={!!browserPanel} browserCompanion={browserPanel} onNext={resume}/>;
+ case "project-planning-review":return <StructuredProjectPlanningWorkspace workflowId={workflowId} browserPanel={browserPanel} browserVisible={!!browserPanel} onNext={resume}/>;
+ case "project-phase-map":return <StructuredPhaseMapWorkspace workflowId={workflowId} browserPanel={browserPanel} browserVisible={!!browserPanel} onNext={resume}/>;
  case "phase-interview":return phaseId?<PhaseInterviewWorkspace workflowId={workflowId} phaseId={phaseId} browserPanel={browserPanel} browserVisible={!!browserPanel} onNext={resume}/>:missing;
  case "phase-planning-bundle":return phaseId?<PhasePlanningWorkspace workflowId={workflowId} phaseId={phaseId} browserPanel={browserPanel} browserVisible={!!browserPanel} onNext={resume}/>:missing;
  case "phase-work-card-selection":return phaseId?<WorkCardMapWorkspace workflowId={workflowId} phaseId={phaseId} onOpenWorkItem={id=>open("work-card-intake",id)} onOpenPhaseValidation={()=>open("phase-validation")}/>:missing;

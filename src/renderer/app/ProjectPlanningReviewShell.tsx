@@ -11,12 +11,12 @@ export interface ProjectPlanningReviewShellProps {
 }
 /** Exact 965536de Project Planning document/browser composition; all authority supplied. */
 export function ProjectPlanningReviewShell(props: ProjectPlanningReviewShellProps): JSX.Element {
-  return <><ProjectPlanningBlockerBanner blocker={props.blocker} />
+  return <div className="workspace-shell-frame"><ProjectPlanningBlockerBanner blocker={props.blocker} />
     <section className={["figma-doc-chat-workspace", !props.browserVisible ? "chat-hidden" : ""].filter(Boolean).join(" ")}
       aria-label={props.label} ref={props.surfaceRef} tabIndex={-1}>
       <div className="figma-doc-review-column"><FigmaDocumentCard {...props.document} /><FigmaDocumentDispositionPanel {...props.review} /></div>
       {props.browserCompanion}
-    </section></>;
+    </section></div>;
 }
 
 export interface ProjectPlanningBlocker {reason: string; requiredAction: string; evidencePaths: string[]}

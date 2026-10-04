@@ -1,12 +1,12 @@
 import {reloadArchitectBrowserWithRecovery} from "./architectBrowserRecovery";
-import {useEffect, useState, type ReactNode} from "react";
+import {useEffect, useRef, useState, type ReactNode} from "react";
 import {ProjectPlanningReviewShell, ProjectPlanningBrowserActions} from "./ProjectPlanningReviewShell";
 import type {createStructuredProjectPlanningService} from "../../main/projectPlanning/structuredProjectPlanningService";
 import type {PlanningDocumentDetail} from "../../shared/documents/planningDocument";
 import type {DocumentDispositionStatus} from "../../shared/documents/documentDisposition";
 type PlanningModel = Awaited<ReturnType<ReturnType<typeof createStructuredProjectPlanningService>["get"]>>;
 
-export function StructuredProjectPlanningWorkspace(props: {workflowId: string | null; browserPanel: ReactNode; onNext: () => void; browserVisible?: boolean; onRailStatus?: (status: "Open" | "Completed" | "Awaiting Approval" | "Not Ready") => void}): JSX.Element {
+export function StructuredProjectPlanningWorkspace(props: {workflowId: string | null; browserPanel: ReactNode; onNext: () => void|Promise<void>; browserVisible?: boolean; onRailStatus?: (status: "Open" | "Completed" | "Awaiting Approval" | "Not Ready") => void}): JSX.Element {
   const [model,setModel]=useState<PlanningModel|null>(null),[error,setError]=useState("");
   const [notes,setNotes]=useState(""),[status,setStatus]=useState<DocumentDispositionStatus|"">(""),[busy,setBusy]=useState(false),[feedback,setFeedback]=useState("");
   const [selectedSlotId,setSelectedSlotId]=useState("profile"),[viewed,setViewed]=useState<string[]>([]);
@@ -19,7 +19,8 @@ export function StructuredProjectPlanningWorkspace(props: {workflowId: string | 
   useEffect(()=>{let active=true;setModel(null);setError("");setViewed([]);setSelectedSlotId("profile");
     if(props.workflowId)window.champcity.getStructuredProjectPlanning(props.workflowId).then(next=>{if(active)accept(next);}).catch(reason=>{if(active){setError(String(reason));props.onRailStatus?.("Not Ready");}});
     else setError("Select exact Project Creation Workflow.");return()=>{active=false;};},[props.workflowId]);
-  async function action(work:()=>Promise<void>){setBusy(true);setError("");setFeedback("");try{await work();}catch(reason){setError(String(reason));}finally{setBusy(false);}}
+  const actionInFlight=useRef(false);
+ async function action(work:()=>Promise<void>){if(actionInFlight.current)return;actionInFlight.current=true;setBusy(true);setError("");setFeedback("");try{await work();}catch(reason){setError(String(reason));}finally{actionInFlight.current=false;setBusy(false);}}
   const refresh=()=>void action(async()=>{if(!props.workflowId)throw Error("Exact Workflow required.");accept(await window.champcity.getStructuredProjectPlanning(props.workflowId));});
   const review=model?.review;
   const documents:PlanningDocumentDetail[]=review ? [
@@ -33,9 +34,8 @@ export function StructuredProjectPlanningWorkspace(props: {workflowId: string | 
     blocker={blocker?{reason:blocker,requiredAction:"Prepare the handoff from current approved Architect evidence, submit a fresh candidate, then Refresh.",evidencePaths:model?.sources.map(source=>`project-state:${source.entityId}@${source.recordVersion}`)??[]}:null}
     document={{selectedDocument,documentError:"",feedback,slots:[{slotId:"profile",displayLabel:"Project Profile",logicalDocumentId:documents[0]?.logicalDocumentId},{slotId:"roadmap",displayLabel:"Project Roadmap",logicalDocumentId:documents[1]?.logicalDocumentId}],selectedSlotId,onSelectSlot:slot=>{setSelectedSlotId(slot);if(revision)setViewed(current=>current.includes(`${revision}:${slot}`)?current:[...current,`${revision}:${slot}`]);},onCopy:()=>void action(async()=>{await navigator.clipboard.writeText(selectedDocument?.bodyMarkdown??"");})}}
     review={{currentDocument:selectedDocument?.displayFilename,effectiveDisposition:selectedDocument?.effectiveDisposition,workflowStep:"Review & Validation",isApplying:busy||!canReview,canApply:!busy&&canReview&&!!status&&(status!=="Approved"||allViewed),notes,onNotesChange:setNotes,status,onStatusChange:setStatus,warning:!allViewed&&canReview?"Open every current output revision before approval.":undefined,
-      onApply:()=>void action(async()=>{if(!review||!props.workflowId)throw Error("Exact current review required.");accept(await window.champcity.reviewStructuredProjectPlanning(props.workflowId,review.cycleId,{expectedRecordVersion:review.recordVersion,outcome:status==="Approved"?"approved":status==="RevisionRequested"?"revision_requested":"rejected",notes}));setStatus("");setFeedback("Operator review recorded.");})}}
-    browserCompanion={<div className="figma-browser-column">{props.browserPanel}<ProjectPlanningBrowserActions canPrepareHandoff={!busy&&!!model} canCopyHandoff={!busy&&!!model?.handoff} isRevisionRequest={review?.disposition.state==="revision_requested"}
+      onApply:()=>void action(async()=>{if(!review||!props.workflowId)throw Error("Exact current review required.");accept(await window.champcity.reviewStructuredProjectPlanning(props.workflowId,review.cycleId,{expectedRecordVersion:review.recordVersion,outcome:status==="Approved"?"approved":status==="RevisionRequested"?"revision_requested":"rejected",notes}));setStatus("");setFeedback("Operator review recorded.");if(status==="Approved")await props.onNext();})}}
+    browserCompanion={(props.browserVisible??true)?<div className="figma-browser-column">{props.browserPanel}<ProjectPlanningBrowserActions canPrepareHandoff={!busy&&!!model} canCopyHandoff={!busy&&!!model?.handoff} isRevisionRequest={review?.disposition.state==="revision_requested"}
       onPrepareHandoff={refresh} onCopyHandoff={()=>void action(async()=>{await navigator.clipboard.writeText(model!.handoff);})} onRefresh={refresh} onReloadBrowser={()=>void action(async()=>{await reloadArchitectBrowserWithRecovery();})} onRetryBrowser={()=>void action(async()=>{await reloadArchitectBrowserWithRecovery();})}
-      actionMessage={error?{kind:"error",message:error}:feedback?{kind:"success",message:feedback}:null}
-      contextualActions={<button disabled={busy||review?.disposition.state!=="approved"} onClick={props.onNext}>Continue to Phase Map</button>} /></div>} />;
+      actionMessage={error?{kind:"error",message:error}:feedback?{kind:"success",message:feedback}:null} /></div>:null} />;
 }

@@ -1,5 +1,5 @@
 import {reloadArchitectBrowserWithRecovery} from "./architectBrowserRecovery";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {ArchitectInterviewShell, ArchitectInterviewBrowserActions} from "./ArchitectInterviewShell";
 import { type StructuredArchitectWorkspaceModel } from "../../shared/architectWorkspaceContracts";
 import {FigmaDocumentDispositionPanel} from "./FigmaDocumentDispositionPanel";
@@ -32,7 +32,8 @@ export function GreenfieldArchitectWorkspace(props: {workflowId: string | null; 
     else setError("Select the exact Workflow to open its Architect stage.");
     return () => {active = false;};
   }, [props.workflowId, props.refreshToken]);
-  async function action(work: () => Promise<void>) {setBusy(true); setError(""); setFeedback(""); try {await work();} catch (reason) {setError(reason instanceof Error ? reason.message : String(reason));} finally {setBusy(false);}}
+  const actionInFlight=useRef(false);
+ async function action(work: () => Promise<void>) {if(actionInFlight.current)return;actionInFlight.current=true;setBusy(true); setError(""); setFeedback(""); try {await work();} catch (reason) {setError(reason instanceof Error ? reason.message : String(reason));} finally {actionInFlight.current=false;setBusy(false);}}
   const refresh = () => void action(async () => {if (!props.workflowId) throw Error("Exact Greenfield Workflow required."); accept(await window.champcity.getStructuredArchitectWorkspace(props.workflowId));});
   const prepare = () => void action(async () => {if (!props.workflowId) throw Error("Exact Greenfield Workflow required."); accept(await window.champcity.prepareStructuredArchitectWorkspace(props.workflowId)); setFeedback("Handoff prepared from current SQL Intake.");});
   const browserActions = <ArchitectInterviewBrowserActions canPrepareHandoff={!busy && !!model?.ready} canCopyHandoff={!busy && !!model?.handoff}
@@ -41,7 +42,7 @@ export function GreenfieldArchitectWorkspace(props: {workflowId: string | null; 
     onRetryBrowser={() => void action(async () => {await reloadArchitectBrowserWithRecovery();})}
     isRevisionRequest={model?.review?.disposition.state === "revision_requested"} actionMessage={error ? {kind:"error",message:error} : feedback ? {kind:"success",message:feedback} : null} />;
   return <ArchitectInterviewShell label={props.stageLabel ?? "Architect Interview Figma document workspace"} browserVisible={props.browserVisible}
-    browserCompanion={<div className="figma-browser-column">{props.browserCompanion}{browserActions}</div>}
+    browserCompanion={props.browserVisible?<div className="figma-browser-column">{props.browserCompanion}{browserActions}</div>:null}
     document={{selectedDocument, documentError:"", feedback:model?.materializationError ?? "", slots, selectedSlotId, onSelectSlot:setSelectedSlotId,
       onCopy:() => void action(async () => {await navigator.clipboard.writeText(selectedDocument?.bodyMarkdown ?? selectedDocument?.preview ?? "");})}}
     reviewControls={<>
@@ -50,8 +51,7 @@ export function GreenfieldArchitectWorkspace(props: {workflowId: string | null; 
         workflowStep="Review & Validation" notes={notes} onNotesChange={setNotes} onStatusChange={setStatus} status={status}
         onApply={() => void action(async () => {const outcome = status === "Approved" ? "approved" : status === "RevisionRequested" ? "revision_requested" : "rejected";
           const next = await window.champcity.reviewStructuredArchitectOutput(props.workflowId!, model!.review!.cycleId, {expectedRecordVersion:model!.review!.recordVersion, outcome, notes});
-          if (outcome === "approved" && props.onApproved) await props.onApproved(); else accept(next); setStatus(""); setFeedback("Operator review recorded.");})} /> : null}
-      {!props.onReturn && props.onNext ? <section className="architect-workflow-action-panel" aria-label="Workflow action"><header>Next stage</header><button className="apply-button" disabled={busy || !model?.nextStageReady} onClick={() => void action(props.onNext!)}>Continue to Project Planning</button></section> : null}
+          accept(next); if (outcome === "approved") await (props.onApproved ?? props.onNext)?.(); setStatus(""); setFeedback("Operator review recorded.");})} /> : null}
       {props.supportControls}
       {model?.supportRecords?.length ? <details><summary>Workflow supporting records</summary><ul>{model.supportRecords.map(record => <li key={record.id}><code>{record.id}</code> · {record.entityType === "Evidence" ? record.body.description : record.entityType === "Finding" ? record.body.title : record.entityType}</li>)}</ul></details> : null}
       </>}

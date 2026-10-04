@@ -9520,6 +9520,13 @@ body {
 .greenfield-inspection-controls select { max-width:260px; background:var(--color-card); color:inherit; border:1px solid var(--color-border); border-radius:4px; padding:4px; }
 .greenfield-navigation-reason { flex-shrink:0; margin:0; padding:4px 16px; font-size:12px; color:var(--color-muted-foreground); }
 .greenfield-shell-host { display:flex; flex-direction:column; flex:1; min-height:0; min-width:0; overflow:hidden; border:0; padding:0; margin:0; }
-.greenfield-shell-host > * { flex:1; min-height:0; }
+/* One grid item owns the available stage height, independent of adapter content. */
+.greenfield-shell-content { display:grid; grid-template-rows:minmax(0, 1fr); flex:1; min-height:0; min-width:0; overflow:hidden; }
+/* Headers and blockers are intrinsic; only the named workspace body grows. */
+.workspace-shell-frame { display:flex; flex-direction:column; min-height:0; min-width:0; overflow:hidden; }
+.workspace-shell-frame > .workspace-header,
+.workspace-shell-frame > .project-planning-blocker-banner { flex:0 0 auto; }
+.workspace-shell-frame > .intake-workspace-shell,
+.workspace-shell-frame > .figma-doc-chat-workspace { flex:1; height:auto; min-height:0; }
 /* The recovered browser panel has toolbar, native host, and status rows. */
 .greenfield-shell-host .figma-browser-panel { grid-template-rows: auto minmax(0, 1fr) auto; }

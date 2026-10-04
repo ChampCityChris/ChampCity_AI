@@ -409,10 +409,10 @@ test("workflow candidate ingress routes every Greenfield semantic stage through 
     assert.doesNotMatch(handoff,/Return only one JSON object|return structured|returning structured|Submit semantic candidate JSON|Return advisorySummary/i);
   };
   assertDelivery(architect.handoff);assert.match(architect.handoff,/Bound workspaceId:/);
-  const React=require('react'), originals={useState:React.useState,useEffect:React.useEffect,useMemo:React.useMemo},oldWindow=global.window;
+  const React=require('react'), originals={useState:React.useState,useEffect:React.useEffect,useMemo:React.useMemo,useRef:React.useRef},oldWindow=global.window;
   const {GreenfieldArchitectWorkspace}=require('../renderer/renderer-source-loader.cjs').loadRendererSourceModule('src/renderer/app/GreenfieldArchitectWorkspace.tsx');
   const values=[f.prepared,'','','','',false,'intake'];let index=0,refreshed;
-  React.useState=initial=>{const position=index++;return [position<values.length?values[position]:initial,value=>{if(position===0)refreshed=value;}];};React.useEffect=()=>{};React.useMemo=fn=>fn();
+  React.useState=initial=>{const position=index++;return [position<values.length?values[position]:initial,value=>{if(position===0)refreshed=value;}];};React.useEffect=()=>{};React.useRef=initial=>({current:initial});React.useMemo=fn=>fn();
   global.window={champcity:{getStructuredArchitectWorkspace:id=>f.architect.get(f.root,id)}};
   try {
     const element=GreenfieldArchitectWorkspace({workflowId:f.workflow.id,browserVisible:true,browserCompanion:null});

@@ -143,9 +143,20 @@ test("Architect Interview rail uses SQL model status independently of historical
   assert.equal(statuses["architect-interview"], "Completed"); assert.equal(statuses["project-planning-review"], "Ready");
 });
 
-test("Architect disposition controls belong to the structured cycle component", () => {
-  const source = require("node:fs").readFileSync(path.join(__dirname, "../../src/renderer/app/StructuredArchitectWorkspace.tsx"), "utf8");
-  assert.doesNotMatch(source, /canReviewArchitectRevision/); assert.match(source, /expectedRecordVersion: model!\.review!\.recordVersion/);
+test("Architect disposition controls belong to the structured cycle component", async () => {
+  const {composeGreenfieldStage}=loadRendererSourceModule('src/renderer/app/GreenfieldStageComposition.tsx');
+  const original={useState:React.useState,useEffect:React.useEffect,useRef:React.useRef,useMemo:React.useMemo},old=global.window;
+  const model={review:{cycleId:'current-cycle',recordVersion:7,disposition:{state:'none'}},reviewDocument:{logicalDocumentId:'current-review',displayFilename:'ARCHITECT_REVIEW.md'}};
+  const values=[model,'Operator notes','Approved','','',false,'architect-review'];let index=0;const calls=[];
+  React.useState=initial=>[index<values.length?values[index++]:initial,()=>{}];React.useEffect=()=>{};React.useRef=initial=>({current:initial});React.useMemo=f=>f();
+  global.window={champcity:{reviewStructuredArchitectOutput:async(...args)=>{calls.push(args);return model;}}};
+  try {
+    const adapter=composeGreenfieldStage({workflowId:'wf',selection:{stage:'architect-interview',phaseId:null,workItemId:null,repairId:null},browserPanel:React.createElement('aside'),resume:async()=>calls.push('canonical-refresh')});
+    const shell=adapter.type(adapter.props);
+    const panel=React.Children.toArray(shell.props.reviewControls.props.children).find(n=>n.type?.name==='FigmaDocumentDispositionPanel');
+    panel.props.onApply();await new Promise(setImmediate);
+    assert.deepEqual(calls,[['wf','current-cycle',{expectedRecordVersion:7,outcome:'approved',notes:'Operator notes'}],'canonical-refresh']);
+  } finally {Object.assign(React,original);global.window=old;}
 });
 
 test("embedded Architect workspaces use dual-pane mode without changing other workspaces", () => {
@@ -551,16 +562,16 @@ test('recovered Project Planning adapter Refresh exposes both SQL documents and 
   await require('../../dist/main/workflow/workflowCandidateIngressService.js').createWorkflowCandidateIngressService().submit(f.root,{workflowId:f.workflow.id,stage:'project-planning',candidateJson:JSON.stringify(input)});
   const sql=await service.get(f.root,f.workflow.id),cycle=sql.review.cycleId,version=sql.review.recordVersion;
   const {StructuredProjectPlanningWorkspace}=require('./renderer-source-loader.cjs').loadRendererSourceModule('src/renderer/app/StructuredProjectPlanningWorkspace.tsx');
-  const originals={useState:React.useState,useEffect:React.useEffect},oldWindow=global.window;const values=[sql,'','notes','Approved',false,'','profile',[`${cycle}@${version}:profile`]];let index=0;const calls=[];
-  React.useState=initial=>{const position=index++;return [position<values.length?values[position]:initial,value=>{values[position]=typeof value==='function'?value(values[position]):value;}];};React.useEffect=()=>{};
+  const originals={useState:React.useState,useEffect:React.useEffect,useRef:React.useRef},oldWindow=global.window;const values=[sql,'','notes','Approved',false,'','profile',[`${cycle}@${version}:profile`]];let index=0;const calls=[];
+  React.useState=initial=>{const position=index++;return [position<values.length?values[position]:initial,value=>{values[position]=typeof value==='function'?value(values[position]):value;}];};React.useEffect=()=>{};React.useRef=initial=>({current:initial});
   global.window={champcity:{getStructuredProjectPlanning:async id=>{calls.push(['get',id]);return service.get(f.root,id);},reviewStructuredProjectPlanning:async(...args)=>{calls.push(['review',...args]);return service.review(f.root,...args);}}};
-  const render=()=>{index=0;return StructuredProjectPlanningWorkspace({workflowId:f.workflow.id,browserPanel:null,onNext(){}});};
+  const render=()=>{index=0;return StructuredProjectPlanningWorkspace({workflowId:f.workflow.id,browserPanel:null,onNext:async()=>{const nav=await require('../../dist/main/workflow/greenfieldNavigationService.js').createGreenfieldNavigationService().get(f.root,f.workflow.id);assert.equal(nav.currentWorkspace,'project-phase-map');calls.push(['advance']);}});};
   try{
     let element=render();assert.equal(element.type.name,'ProjectPlanningReviewShell');assert.match(element.props.document.selectedDocument.bodyMarkdown,/Current understanding/);assert.equal(element.props.review.canApply,false);assert.match(element.props.review.warning,/Open every/);
     element.props.document.onSelectSlot('roadmap');element=render();assert.match(element.props.document.selectedDocument.bodyMarkdown,/Useful outcome/);assert.equal(element.props.review.canApply,true);
     element.props.browserCompanion.props.children[1].props.onRefresh();for(let n=0;n<100&&values[4];n++)await new Promise(resolve=>setTimeout(resolve,10));assert.deepEqual(calls[0],['get',f.workflow.id]);
     element=render();element.props.review.onApply();for(let n=0;n<100&&values[4];n++)await new Promise(resolve=>setTimeout(resolve,10));
-    assert.deepEqual(calls[1],['review',f.workflow.id,cycle,{expectedRecordVersion:version,outcome:'approved',notes:'notes'}]);assert.equal(values[0].review.disposition.state,'approved');
+    assert.deepEqual(calls[1],['review',f.workflow.id,cycle,{expectedRecordVersion:version,outcome:'approved',notes:'notes'}]);assert.equal(values[0].review.disposition.state,'approved');assert.deepEqual(calls[2],['advance']);
     values[1]='SQL readiness blocker';element=render();assert.equal(element.props.blocker.reason,'SQL readiness blocker');
   }finally{Object.assign(React,originals);global.window=oldWindow;}
 });
