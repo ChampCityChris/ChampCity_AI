@@ -69,7 +69,7 @@ function assertArchitectHandoff(model, type) {
   const {GREENFIELD_ARCHITECT_SECTIONS, FEATURE_ARCHITECT_SECTIONS, ASSESSMENT_SECTIONS, validateArchitectCandidateOutput} = require("../../dist/shared/architectWorkspaceContracts.js");
   const handoff = model.handoff;
   const blocks = handoff.split("\n\n");
-  const templateIndex = blocks.findIndex(block => block.startsWith("Workflow-specific JSON template"));
+  const templateIndex = blocks.findIndex(block => block.startsWith(type === "project-creation" ? "Semantic schema template" : "Workflow-specific JSON template"));
   assert.ok(templateIndex >= 0);
   const output = JSON.parse(blocks[templateIndex + 1]);
   assert.ok(handoff.includes("100000"));

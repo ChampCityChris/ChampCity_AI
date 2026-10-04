@@ -1,3 +1,4 @@
+import type {WorkflowContextAction} from "./figma/FigmaSidebar";
 import {useEffect, useState, type ReactNode} from "react";
 import {WorkflowStageRail} from "./WorkflowStageRail";
 import {canonicalWorkflowRailStage, deriveWorkflowStageRailModel, workflowStageInspectionBlocker, type InspectedWorkflowStage} from "./workflowStageRailModel";
@@ -10,8 +11,8 @@ import {ExactWorkflowPlanningWorkspace} from "./ExactWorkflowPlanningWorkspace";
 import {WorkflowInstanceWorkspace} from "./WorkflowInstanceWorkspace";
 import {OptionalWorkIntakeWorkspace} from "./OptionalWorkIntakeWorkspace";
 import {GreenfieldWorkspace} from "./GreenfieldWorkspace";
-export function StructuredWorkflowWorkspace({workflow, repositoryIdentity, browserPanel, onReturn, onOpen, onProgressed}: {
-  workflow: WorkflowInstanceSummary; repositoryIdentity: string; browserPanel: ReactNode; onReturn: () => void; onOpen: (id: string) => void; onProgressed: (id: string) => Promise<void>;
+export function StructuredWorkflowWorkspace({workflow, repositoryIdentity, browserPanel, onReturn, onOpen, onProgressed, onWorkflowContextAction}: {
+  workflow: WorkflowInstanceSummary; repositoryIdentity: string; browserPanel: ReactNode; onReturn: () => void; onOpen: (id: string) => void; onProgressed: (id: string) => Promise<void>; onWorkflowContextAction?: (action: WorkflowContextAction | null) => void;
 }) {
   // Bind selection to the exact loaded object. Any open/progression reload resets to SQL.
   const [inspection, setInspection] = useState<{workflow: WorkflowInstanceSummary; stage: InspectedWorkflowStage} | null>(null);
@@ -20,7 +21,7 @@ export function StructuredWorkflowWorkspace({workflow, repositoryIdentity, brows
   const stages = deriveWorkflowStageRailModel(workflow, inspectedStage ?? undefined, stage => setInspection({workflow,stage}));
   const reloadCurrentWorkflow = async () => { await onProgressed(workflow.workflowId); };
   let content: ReactNode;
-  if (workflow.workflowType === "project-creation") return <GreenfieldWorkspace workflow={workflow} repositoryIdentity={repositoryIdentity} browserPanel={browserPanel} onReturn={onReturn} />;
+  if (workflow.workflowType === "project-creation") return <GreenfieldWorkspace workflow={workflow} repositoryIdentity={repositoryIdentity} browserPanel={browserPanel} onReturn={onReturn} onWorkflowContextAction={onWorkflowContextAction} />;
   if (!canonical && workflow.lifecycleState !== "active") return <WorkflowInstanceWorkspace workflow={workflow} onReturn={onReturn} />;
   if (workflow.workflowType === "work-intake-routing") return <OptionalWorkIntakeWorkspace workflow={workflow} browserPanel={browserPanel} onReturn={onReturn} onRouted={onOpen} />;
   if (stages && canonical && inspectedStage && inspectedStage !== canonical) {

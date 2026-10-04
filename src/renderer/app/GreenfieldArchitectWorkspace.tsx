@@ -7,7 +7,6 @@ import type {DocumentDispositionStatus} from "../../shared/documents/documentDis
 export function GreenfieldArchitectWorkspace(props: {workflowId: string | null; browserCompanion: ReactNode; browserVisible: boolean; onRailStatus?: (status: StructuredArchitectWorkspaceModel["railStatus"]) => void;
   stageLabel?: string; onReturn?: () => void; onNext?: () => Promise<void>; onApproved?: () => Promise<void>; supportControls?: ReactNode; refreshToken?: number}): JSX.Element {
   const [model, setModel] = useState<StructuredArchitectWorkspaceModel | null>(null);
-  const [finalDraftHandoff, setFinalDraftHandoff] = useState("");
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<DocumentDispositionStatus | "">("");
   const [error, setError] = useState("");
@@ -36,10 +35,6 @@ export function GreenfieldArchitectWorkspace(props: {workflowId: string | null; 
   const refresh = () => void action(async () => {if (!props.workflowId) throw Error("Exact Greenfield Workflow required."); accept(await window.champcity.getStructuredArchitectWorkspace(props.workflowId));});
   const prepare = () => void action(async () => {if (!props.workflowId) throw Error("Exact Greenfield Workflow required."); accept(await window.champcity.prepareStructuredArchitectWorkspace(props.workflowId)); setFeedback("Handoff prepared from current SQL Intake.");});
   const browserActions = <ArchitectInterviewBrowserActions canPrepareHandoff={!busy && !!model?.ready} canCopyHandoff={!busy && !!model?.handoff}
-    canRegeneratePrompt={!busy && !!model?.ready} onRegeneratePrompt={prepare}
-    canPrepareFinalDraftHandoff={!busy && !!model?.handoff} canCopyFinalDraftHandoff={!busy && !!finalDraftHandoff}
-    onPrepareFinalDraftHandoff={() => {setFinalDraftHandoff(model?.handoff ? `${model.handoff}\nSubmit the final semantic Architect Interview candidate through workflow_toolbox.submit_stage_candidate using the stage and workspace binding above.` : "");}}
-    onCopyFinalDraftHandoff={() => void action(async () => {await navigator.clipboard.writeText(finalDraftHandoff);})}
     onPrepareHandoff={prepare} onCopyHandoff={() => void action(async () => {await navigator.clipboard.writeText(model!.handoff!);})}
     onRefresh={refresh} onReloadBrowser={() => void action(async () => {await window.champcity.reloadArchitectBrowser();})}
     onRetryBrowser={() => void action(async () => {await window.champcity.reloadArchitectBrowser();})}

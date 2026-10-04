@@ -87,11 +87,11 @@ export function architectCandidateHandoffContract(type: WorkflowType): string[] 
   const textRule = "Nonempty text must contain no control characters U+0000-U+0008, U+000B, U+000C or U+000E-U+001F. Byte limits use UTF-8.";
   const recommendationRule = "Proposed Architect decisions and recommendations are never Operator Decisions. Use the approved Intake. Do not choose a route.";
   if (type === "project-creation") return [
-    `Return only one JSON object with exactly the fifteen GREENFIELD_ARCHITECT_SECTIONS keys: ${Object.keys(GREENFIELD_ARCHITECT_SECTIONS).join(", ")}. Every value is an array of 1-${limits.sectionItems} nonempty strings, each at most ${limits.textBytes} bytes.`,
+    `Construct a semantic candidate object with exactly the fifteen GREENFIELD_ARCHITECT_SECTIONS keys: ${Object.keys(GREENFIELD_ARCHITECT_SECTIONS).join(", ")}. Every value is an array of 1-${limits.sectionItems} nonempty strings, each at most ${limits.textBytes} bytes.`,
     `Maximum ${limits.totalItems} total items; the sum of UTF-8 bytes of JSON-serialized section arrays must not exceed ${limits.transportBytes} bytes. projectPlanningDirection joined with newline must not exceed ${limits.directionBytes} bytes.`,
     textRule, recommendationRule,
     "Project Planning Direction must cover the full adopted Project scope, governing architecture, product capabilities, dependencies and acceptance obligations. Identify unresolved Operator decisions explicitly.",
-    "Workflow-specific JSON template (authoritative field names):", JSON.stringify(Object.fromEntries(Object.keys(GREENFIELD_ARCHITECT_SECTIONS).map(key => [key, ["Replace with substantive direction or an explicit unresolved item."]])))
+    "Semantic schema template (authoritative field names):", JSON.stringify(Object.fromEntries(Object.keys(GREENFIELD_ARCHITECT_SECTIONS).map(key => [key, ["Replace with substantive direction or an explicit unresolved item."]])))
   ];
   if (type === "issue-resolution") return [
     `Return only one JSON object with exactly the top-level key rootCauses, an array of 1-${limits.rootCauses} typed RootCause candidates; no unrelated top-level keys. Total JSON transport must not exceed ${limits.transportBytes} UTF-8 bytes.`,

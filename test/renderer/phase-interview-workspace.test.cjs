@@ -13,9 +13,9 @@ test('Phase Interview shell preserves historical document review browser composi
   const baseline=render(React.createElement('section',{className:'figma-doc-chat-workspace'+(browserVisible?'':' chat-hidden'),'aria-label':'Phase Interview phase-07 Figma document workspace',tabIndex:-1},React.createElement('div',{className:'figma-doc-review-column'},React.createElement(FigmaDocumentCard,document),review),browser));
   assert.equal(recovered,baseline);
  }
- const actions={canPrepareHandoff:false,canCopyHandoff:false,canPrepareFinalDraftHandoff:false,canCopyFinalDraftHandoff:false,onPrepareHandoff(){},onCopyHandoff(){},onPrepareFinalDraftHandoff(){},onCopyFinalDraftHandoff(){},onRefresh(){},onReloadBrowser(){},onRetryBrowser(){},prepareHandoffLabel:'Prepare Phase Interview Handoff',copyHandoffLabel:'Copy Phase Interview Handoff'};
+ const actions={canPrepareHandoff:false,canCopyHandoff:false,onPrepareHandoff(){},onCopyHandoff(){},onRefresh(){},onReloadBrowser(){},onRetryBrowser(){},prepareHandoffLabel:'Prepare Phase Interview Handoff',copyHandoffLabel:'Copy Phase Interview Handoff'};
  const markup=render(React.createElement(PhaseInterviewBrowserActions,actions));let last=-1;
- for(const label of ['Reload ChatGPT','Prepare Phase Interview Handoff','Copy Phase Interview Handoff','Prepare Final Draft Handoff','Copy Final Draft Handoff','Refresh']){const i=markup.indexOf(label);assert.ok(i>last,label);last=i;}
+ for(const label of ['Reload ChatGPT','Prepare Phase Interview Handoff','Copy Phase Interview Handoff','Refresh']){const i=markup.indexOf(label);assert.ok(i>last,label);last=i;}
  assert.match(markup,/disabled=""/);assert.match(render(React.createElement(PhaseInterviewBrowserActions,{...actions,isRevisionRequest:true})),/Prepare Revision Request/);
 });
 test('Phase Interview adapter binds repeated exact Phase reviews and typed handoffs without candidate editors',async()=>{
@@ -28,7 +28,7 @@ test('Phase Interview adapter binds repeated exact Phase reviews and typed hando
   const draw=(id=phaseId)=>{index=0;return PhaseInterviewWorkspace({workflowId:'workflow',phaseId:id,browserPanel:null,onNext(){}}).props;};
   let p=draw();assert.match(p.label,new RegExp(phaseId));assert.match(p.document.selectedDocument.bodyMarkdown,new RegExp(phaseId));assert.equal(p.reviewControls.props.canApply,true);
   p.reviewControls.props.onApply();await new Promise(setImmediate);assert.deepEqual(calls[0],['review','workflow',phaseId,'interview','cycle-'+phaseId,{expectedRecordVersion:5,outcome:'approved',notes:'Operator notes'}]);
-  const actions=p.browserCompanion.props.children[1].props;actions.onPrepareHandoff();await new Promise(setImmediate);assert.deepEqual(calls[1],['get','workflow',phaseId,'interview']);actions.onPrepareFinalDraftHandoff();assert.match(values[6],/workflow_toolbox.submit_stage_candidate/);
+  const actions=p.browserCompanion.props.children[1].props;actions.onPrepareHandoff();await new Promise(setImmediate);assert.deepEqual(calls[1],['get','workflow',phaseId,'interview']);assert.equal(actions.onPrepareFinalDraftHandoff,undefined);assert.equal(index,6);assert.doesNotMatch(require('node:fs').readFileSync('src/renderer/app/PhaseInterviewWorkspace.tsx','utf8'),/finalHandoff|FinalDraftHandoff/);
   p=draw('foreign');assert.equal(p.reviewControls.props.canApply,false);assert.equal(p.document.selectedDocument,null);assert.equal(p.browserCompanion.props.children[1].props.canCopyHandoff,false);
   values[0]={...model,staleReview:{reason:'Phase evidence changed'},review:null};p=draw();assert.equal(p.reviewControls.props.canApply,false);assert.match(p.document.documentError,/evidence changed/);
  }}finally{Object.assign(React,original);global.window=oldWindow;}

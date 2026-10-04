@@ -4,6 +4,8 @@ import type { WorkspaceSelection } from "../../../shared/workspaceContracts";
 export type FigmaThemeMode = "dark" | "light";
 export type FigmaSidebarMode = "hub" | "source-control" | "settings";
 
+export interface WorkflowContextAction {workflowId: string; label: string; onClick: () => void}
+
 export function FigmaSidebar({
   activeWorkspaceId,
   isChoosing,
@@ -16,6 +18,7 @@ export function FigmaSidebar({
   projectName,
   themeMode,
   workspace,
+  workflowContextAction,
 }: {
   activeWorkspaceId: string;
   isChoosing: boolean;
@@ -28,6 +31,7 @@ export function FigmaSidebar({
   projectName: string;
   themeMode: FigmaThemeMode;
   workspace: WorkspaceSelection;
+  workflowContextAction?: WorkflowContextAction | null;
 }): JSX.Element {
   const isDark = themeMode === "dark";
   const isHubMode = mode === "hub";
@@ -42,6 +46,7 @@ export function FigmaSidebar({
           </button>
         </section>
       ) : null}
+      {workflowContextAction ? <section className="figma-sidebar-section" aria-label="Current Workflow"><button className="figma-sidebar-action" onClick={workflowContextAction.onClick} type="button">{workflowContextAction.label}</button></section> : null}
       <section className="figma-sidebar-section project-selector" aria-label="Select Project">
         <p className="figma-sidebar-label">{showsProjectName ? "Project" : "Select Project"}</p>
         {showsProjectName ? <strong className="figma-sidebar-primary">{projectName}</strong> : null}

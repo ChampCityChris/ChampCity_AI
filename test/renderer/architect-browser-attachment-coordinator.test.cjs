@@ -433,16 +433,26 @@ test("recovered Architect Interview keeps faithful independent panes and browser
   }
 });
 test("recovered Architect Browser Actions retain historical order, revision labels and supplied readiness", () => {
-  const props={canPrepareHandoff:false,canCopyHandoff:false,canRegeneratePrompt:true,canPrepareFinalDraftHandoff:false,canCopyFinalDraftHandoff:false,onReloadBrowser(){},onPrepareHandoff(){},onCopyHandoff(){},onRefresh(){},onRetryBrowser(){},onRegeneratePrompt(){},onPrepareFinalDraftHandoff(){},onCopyFinalDraftHandoff(){},showRetryButton:true};
+  const props={canPrepareHandoff:false,canCopyHandoff:false,onReloadBrowser(){},onPrepareHandoff(){},onCopyHandoff(){},onRefresh(){},onRetryBrowser(){},showRetryButton:true};
   const markup=renderToStaticMarkup(React.createElement(recoveredArchitect.ArchitectInterviewBrowserActions,props));
-  let last=-1;for(const label of ['Reload ChatGPT','Regenerate Interview Prompt','Prepare Handoff','Copy Handoff','Prepare Final Draft Handoff','Copy Final Draft Handoff','Refresh','Retry Browser']) {const pos=markup.indexOf(label);assert.ok(pos>last,label);last=pos;}
+  let last=-1;for(const label of ['Reload ChatGPT','Prepare Handoff','Copy Handoff','Refresh','Retry Browser']) {const pos=markup.indexOf(label);assert.ok(pos>last,label);last=pos;}
   assert.match(markup,/disabled=""/);
+  assert.equal((markup.match(/>Prepare Handoff</g)||[]).length,1);
+  assert.equal((markup.match(/>Copy Handoff</g)||[]).length,1);
+  assert.doesNotMatch(markup,/Regenerate|Final Draft/);
+  const fs=require('node:fs');
+  for(const [file,name] of [['ArchitectInterviewShell','ArchitectInterview'],['ProjectPlanningReviewShell','ProjectPlanning'],['ProjectPhaseMapShell','ProjectPhaseMap'],['PhaseInterviewShell','PhaseInterview'],['PhasePlanningShell','PhasePlanning'],['WorkCardPlanningShell','WorkCardPlanning']]) {
+    assert.equal(renderToStaticMarkup(React.createElement(loadRendererSourceModule('src/renderer/app/'+file+'.tsx')[name+'BrowserActions'],props)),markup);
+    assert.match(fs.readFileSync('src/renderer/app/'+file+'.tsx','utf8'),new RegExp('export \\{WorkflowCandidateBrowserActions as '+name+'BrowserActions\\}'));
+    assert.doesNotMatch(fs.readFileSync('src/renderer/app/'+file+'.tsx','utf8'),/Regenerate Interview Prompt|Final Draft Handoff|figma-browser-actions-row/);
+  }
+  assert.doesNotMatch(fs.readFileSync('src/renderer/app/WorkflowCandidateBrowserActions.tsx','utf8'),/window\.champcity|from ["'][^"']*(?:main\/|projectStateService|sqlite)/);
   const revision=renderToStaticMarkup(React.createElement(recoveredArchitect.ArchitectInterviewBrowserActions,{...props,isRevisionRequest:true}));assert.match(revision,/Prepare Revision Request/);assert.match(revision,/Copy Revision Request/);
 });
 test("recovered Greenfield Architect binds SQL handoff callbacks and current review version", async () => {
   const originals={useState:React.useState,useEffect:React.useEffect,useMemo:React.useMemo};const oldWindow=global.window;let index=0;const calls=[];
   const model={workflowId:'exact-workflow',workflowType:'project-creation',ready:true,railStatus:'Awaiting Approval',handoff:'SQL handoff',review:{cycleId:'sql-cycle',recordVersion:4,disposition:{state:'proposed'}},reviewDocument:{logicalDocumentId:'sql-doc',displayFilename:'ARCHITECT.md',effectiveDisposition:'Pending'},nextStageReady:false};
-  const values=[model,'','notes','Approved','','',false,'architect-review'];
+  const values=[model,'notes','Approved','','',false,'architect-review'];
   React.useState=initial=>[index<values.length?values[index++]:initial,()=>{}];React.useEffect=()=>{};React.useMemo=f=>f();
   global.window={champcity:{reviewStructuredArchitectOutput:async(...args)=>{calls.push(args);return model;},prepareStructuredArchitectWorkspace:async(...args)=>{calls.push(args);return model;}}};
   try {
@@ -464,9 +474,9 @@ test('attached load failure presents unavailable, bounded redacted diagnostics a
 test('Greenfield Architect refresh reveals and selects current review slots without JSON entry',async()=>{
  const originals={useState:React.useState,useEffect:React.useEffect,useMemo:React.useMemo},old=global.window;let index=0;
  const intake={logicalDocumentId:'intake'},review={logicalDocumentId:'review'},model={intakeDocument:intake,ready:true};
- const values=[model,'','','','','',false,'intake'];React.useState=initial=>{const i=index++;return[values[i]??initial,v=>{values[i]=typeof v==='function'?v(values[i]):v;}];};React.useEffect=()=>{};React.useMemo=f=>f();
+ const values=[model,'','','','',false,'intake'];React.useState=initial=>{const i=index++;return[values[i]??initial,v=>{values[i]=typeof v==='function'?v(values[i]):v;}];};React.useEffect=()=>{};React.useMemo=f=>f();
  global.window={champcity:{getStructuredArchitectWorkspace:async()=>({...model,reviewDocument:review,review:{cycleId:'current',recordVersion:2,disposition:{state:'none'}}})}};
  try {let element=GreenfieldArchitectWorkspace({workflowId:'wf',browserVisible:true,browserCompanion:null});assert.deepEqual(element.props.document.slots.map(x=>x.displayLabel),['Project Intake']);element.props.browserCompanion.props.children[1].props.onRefresh();await new Promise(setImmediate);index=0;element=GreenfieldArchitectWorkspace({workflowId:'wf',browserVisible:true,browserCompanion:null});assert.deepEqual(element.props.document.slots.map(x=>x.displayLabel),['Project Intake','Architect Review']);assert.equal(element.props.document.selectedSlotId,'architect-review');assert.equal(element.props.document.selectedDocument,review);
- const source=require('node:fs').readFileSync('src/renderer/app/GreenfieldArchitectWorkspace.tsx','utf8');assert.doesNotMatch(source,/<textarea|saveStructuredArchitectOutput|Save Architect output/);assert.match(source,/workflow_toolbox.submit_stage_candidate/);
+ const source=require('node:fs').readFileSync('src/renderer/app/GreenfieldArchitectWorkspace.tsx','utf8');assert.doesNotMatch(source,/<textarea|saveStructuredArchitectOutput|Save Architect output/);assert.doesNotMatch(source,/finalDraftHandoff|onRegeneratePrompt|FinalDraftHandoff/);
  }finally{Object.assign(React,originals);global.window=old;}
 });

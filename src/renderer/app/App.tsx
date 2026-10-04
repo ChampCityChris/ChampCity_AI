@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { FigmaAppStrip } from "./figma/FigmaAppStrip";
-import { FigmaSidebar, type FigmaThemeMode } from "./figma/FigmaSidebar";
+import { FigmaSidebar, type FigmaThemeMode, type WorkflowContextAction } from "./figma/FigmaSidebar";
 import { LandingWorkspace } from "./LandingWorkspace";
 import { WorkflowHubWorkspace } from "./WorkflowHubWorkspace";
 import { WorkflowTypeWorkspace } from "./WorkflowTypeWorkspace";
@@ -283,6 +283,7 @@ export function App(): JSX.Element {
     setWorkflowId(null); setWorkflow(null); setView(workflowType ? "workflow-type" : "workflow-hub");
   }
 
+  const [workflowContextAction, setWorkflowContextAction] = useState<WorkflowContextAction | null>(null);
   const isLanding = view === "landing";
   const isSettings = view === "settings";
   const projectName = workspace.ok ? workspace.workspaceRoot.split(/[\\/]/).filter(Boolean).at(-1) ?? workspace.workspaceRoot : "No Project selected";
@@ -295,7 +296,8 @@ export function App(): JSX.Element {
         mode={view === "workflow-hub" || view === "workflow-type" ? "hub" : view === "source-control" ? "source-control" : "settings"}
         onChooseProject={() => void openExistingProject()} onClearProject={() => void clearProject()}
         onOpenSettings={openSettings} onReturnToWorkflowHub={returnToWorkflowHub} onThemeChange={setThemeMode}
-        projectName={projectName} themeMode={themeMode} workspace={workspace} /> : null}
+        projectName={projectName} themeMode={themeMode} workspace={workspace}
+        workflowContextAction={view === "workflow-instance" && workflowContextAction?.workflowId === workflow?.workflowId ? workflowContextAction : null} /> : null}
       <section className={["workspace-surface", isLanding ? "landing-surface" : "", view === "workflow-hub" ? "workflow-hub-surface" : "", view === "source-control" ? "source-control-surface" : "", isSettings ? "settings-workspace-surface" : ""].filter(Boolean).join(" ")}>
         {isLanding ? <LandingWorkspace feedback={error} isChoosing={isChoosing} migrationPlan={pendingAdoption}
           onAcceptMigration={() => void acceptProjectAdoption()} onCancelMigration={() => void cancelProjectAdoption()}
@@ -306,7 +308,7 @@ export function App(): JSX.Element {
             onReturn={returnToWorkflowType} onRouted={id => void openRoutedWorkflow(id)} />
           : view === "source-control" ? <SourceControlWorkspace key={workspace.ok ? workspace.workspaceRoot : "none"} projectName={projectName} onReturn={returnToWorkflowHub} />
           : view === "workflow-instance" ? workflow ? <StructuredWorkflowWorkspace key={workflow.workflowId} workflow={workflow}
-            repositoryIdentity={workspace.ok ? workspace.workspaceRoot : ""} browserPanel={browserPanel} onReturn={returnToWorkflowType} onOpen={id => void openWorkflow(id)} onProgressed={refreshWorkflowStage} /> : <p role="status">Loading Workflow…</p>
+            repositoryIdentity={workspace.ok ? workspace.workspaceRoot : ""} browserPanel={browserPanel} onReturn={returnToWorkflowType} onOpen={id => void openWorkflow(id)} onProgressed={refreshWorkflowStage} onWorkflowContextAction={setWorkflowContextAction} /> : <p role="status">Loading Workflow…</p>
           : view === "workflow-type" && workflowType ? <WorkflowTypeWorkspace key={workflowType} workflowType={workflowType}
             workflows={inventory?.groups.find(group => group.workflowType === workflowType)?.workflows ?? []}
             loading={isInventoryLoading} error={workflowError} onOpenWorkflow={id => void openWorkflow(id)}
