@@ -460,6 +460,7 @@ test("Workflow IPC accepts exact bounded arguments and binds calls to the main-s
 });
 
 test("Hub sidebar has no legacy Development lifecycle fields", () => {
+  assertCanonicalSidebar();
   const hubMarkup = renderToStaticMarkup(React.createElement(FigmaSidebar, {
     activeWorkspaceId: "work-card-report-review",
     isChoosing: false,
@@ -835,3 +836,22 @@ test('inspection mount reads exact bounded evidence and ignores obsolete asynchr
     await new Promise(resolve=>setImmediate(resolve)); assert.equal(slots[0],null);
   } finally {global.window=previousWindow;React.useEffect=previousEffect;React.useState=previousState;}
 });
+
+
+function assertCanonicalSidebar(){
+ const {workflowSidebarContextFromSql}=loader.loadRendererSourceModule('src/renderer/app/workflowSidebarContext.ts');
+ const {workspaceDefinitions}=loader.loadRendererSourceModule('src/shared/workspaceContracts.ts');
+ const props={activeWorkspaceId:'app',mode:'settings',isChoosing:false,projectName:'Project',themeMode:'dark',workspace:{ok:true,workspaceRoot:'<PROJECT_REPO>'}};
+ for(const stage of ['project-planning-review','phase-interview','phase-planning-bundle','work-card-planning','work-card-building-review','work-card-report-review','work-card-repair']){
+  const phaseActive=!stage.startsWith('project-'),workActive=stage.startsWith('work-card-'),repair=stage==='work-card-repair';
+  const loop=stage==='phase-interview'?'Phase Intake':'Phase Planning',workLoop=repair?'Repair':stage==='work-card-planning'?'Planning':stage==='work-card-building-review'?'Implement':'Review & Validation';
+  const nav={workflowId:'wf',currentWorkspace:stage,reason:'Canonical SQL reason',currentRepairId:repair?'repair-id':null,parentWorkItemId:repair?'parent-id':null,executionContext:{phase:{state:phaseActive?'active':'none',phaseId:phaseActive?'phase-id':undefined,title:'Old title',order:2,totalPhaseCount:4,loopStep:loop,reason:'Phase reason'},workCard:{state:workActive?'active':'none',workCardId:workActive?'card-id':undefined,title:'Old card',loopStep:workLoop,dispositionOrState:'old-state',reason:'Work reason'}},phaseStates:[{phaseId:'phase-id',title:'SQL Phase title',state:'blocked'}],workItemStates:[{workItemId:'card-id',title:'SQL Card title',state:'validation_pending'}]};
+  const context=workflowSidebarContextFromSql(nav);assert.equal(context.workflowId,'wf');assert.equal(context.stage.workspaceId,stage);assert.equal(context.stage.label,workspaceDefinitions.find(item=>item.id===stage).label);
+  const markup=renderToStaticMarkup(React.createElement(FigmaSidebar,{...props,workflowSidebarContext:context,workflowContextAction:{workflowId:'wf',label:'Resume current stage',onClick(){}}}));
+  for(const label of ['Current Stage','Current Phase','Current Work Card','Canonical SQL reason','Resume current stage','figma-sidebar-scroll'])assert.ok(markup.includes(label),label);
+  assert.ok(markup.indexOf('Resume current stage')<markup.indexOf('Current Stage'));assert.ok(markup.indexOf('Current Stage')<markup.indexOf('aria-label="Settings"'));
+  if(phaseActive){for(const value of ['SQL Phase title','phase-id','Phase 2 of 4','blocked',loop])assert.ok(markup.includes(value),value);assert.doesNotMatch(markup,/Old title/);}else assert.match(markup,/No active Phase/);
+  if(workActive){for(const value of ['SQL Card title','card-id','validation_pending',workLoop.replaceAll('&','&amp;')])assert.ok(markup.includes(value),value);assert.doesNotMatch(markup,/Old card|old-state/);}else assert.match(markup,/No active Work Card/);
+  if(repair){assert.match(markup,/Repair: repair-id/);assert.match(markup,/Parent Work Card: parent-id/);}
+ }
+}

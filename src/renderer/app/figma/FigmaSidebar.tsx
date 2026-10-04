@@ -1,5 +1,6 @@
 import { FolderOpen, LayoutGrid, Settings, X } from "lucide-react";
 import type { WorkspaceSelection } from "../../../shared/workspaceContracts";
+import type { WorkflowSidebarContext } from "../workflowSidebarContext";
 
 export type FigmaThemeMode = "dark" | "light";
 export type FigmaSidebarMode = "hub" | "source-control" | "settings";
@@ -19,6 +20,7 @@ export function FigmaSidebar({
   themeMode,
   workspace,
   workflowContextAction,
+  workflowSidebarContext,
 }: {
   activeWorkspaceId: string;
   isChoosing: boolean;
@@ -32,6 +34,7 @@ export function FigmaSidebar({
   themeMode: FigmaThemeMode;
   workspace: WorkspaceSelection;
   workflowContextAction?: WorkflowContextAction | null;
+  workflowSidebarContext?: WorkflowSidebarContext | null;
 }): JSX.Element {
   const isDark = themeMode === "dark";
   const isHubMode = mode === "hub";
@@ -58,6 +61,36 @@ export function FigmaSidebar({
           {workspace.ok ? <button className="figma-sidebar-action icon-button text-button" onClick={onClearProject} title="Clear selected project" type="button"><X aria-hidden="true" size={14} />Clear Project</button> : null}
         </div>
       </section>
+      {workflowSidebarContext ? <div className="figma-sidebar-scroll" aria-label="Current Workflow context">
+        <section className="figma-sidebar-section">
+          <div className="figma-sidebar-field">
+            <p>Current Stage</p>
+            <strong className="figma-sidebar-primary">{workflowSidebarContext.stage.label}</strong>
+            <span>{workflowSidebarContext.stage.reason}</span>
+          </div>
+          <div className="figma-sidebar-field">
+            <p>Current Phase</p>
+            {workflowSidebarContext.phase ? <>
+              <strong className="figma-sidebar-primary">{workflowSidebarContext.phase.title}</strong>
+              <small className="figma-sidebar-id">{workflowSidebarContext.phase.id}</small>
+              {workflowSidebarContext.phase.order !== undefined && workflowSidebarContext.phase.total !== undefined ? <span>Phase {workflowSidebarContext.phase.order} of {workflowSidebarContext.phase.total}</span> : null}
+              <span>{workflowSidebarContext.phase.state}</span>
+              {workflowSidebarContext.phase.loopStep ? <span>{workflowSidebarContext.phase.loopStep}</span> : null}
+            </> : <><strong className="figma-sidebar-primary">No active Phase</strong><span>{workflowSidebarContext.phaseReason}</span></>}
+          </div>
+          <div className="figma-sidebar-field">
+            <p>Current Work Card</p>
+            {workflowSidebarContext.workCard ? <>
+              <strong className="figma-sidebar-primary">{workflowSidebarContext.workCard.title}</strong>
+              <small className="figma-sidebar-id">{workflowSidebarContext.workCard.id}</small>
+              <span>{workflowSidebarContext.workCard.state}</span>
+              {workflowSidebarContext.workCard.loopStep ? <span>{workflowSidebarContext.workCard.loopStep}</span> : null}
+              {workflowSidebarContext.workCard.repairId ? <small>Repair: {workflowSidebarContext.workCard.repairId}</small> : null}
+              {workflowSidebarContext.workCard.parentId ? <small>Parent Work Card: {workflowSidebarContext.workCard.parentId}</small> : null}
+            </> : <><strong className="figma-sidebar-primary">No active Work Card</strong><span>{workflowSidebarContext.workCardReason}</span></>}
+          </div>
+        </section>
+      </div> : null}
       <section className="figma-sidebar-section figma-settings-section" aria-label="Settings">
         <button aria-current={activeWorkspaceId === "settings" ? "page" : undefined} className={["figma-sidebar-action", "figma-settings-action", activeWorkspaceId === "settings" ? "active" : ""].filter(Boolean).join(" ")} onClick={onOpenSettings} title="Open Settings" type="button">
           <Settings aria-hidden="true" size={14} />Settings

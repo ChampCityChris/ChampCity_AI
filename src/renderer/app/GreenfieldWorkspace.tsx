@@ -1,3 +1,4 @@
+import {workflowSidebarContextFromSql, type WorkflowSidebarContext} from "./workflowSidebarContext";
 import type {WorkflowContextAction} from "./figma/FigmaSidebar";
 import {useEffect,useRef,useState,type ReactNode} from "react";
 import type {ProjectIntakeSubmission,WorkspaceId,ProjectLifecycleRailStatus} from "../../shared/workspaceContracts";
@@ -15,7 +16,7 @@ function isCanonicalSelection(selection:GreenfieldShellSelection,navigation:Gree
  return selection.stage!=="work-card-repair"||selection.repairId===navigation.currentRepairId;
 }
 /** Presentation inspection is ephemeral; resume always reads the sole SQL navigation resolver. */
-export function GreenfieldWorkspace({workflow,repositoryIdentity,browserPanel,onReturn,onWorkflowContextAction}:{workflow:WorkflowInstanceSummary;repositoryIdentity:string;browserPanel:ReactNode;onReturn:()=>void;onWorkflowContextAction?:(action:WorkflowContextAction|null)=>void}):JSX.Element {
+export function GreenfieldWorkspace({workflow,repositoryIdentity,browserPanel,onReturn,onWorkflowContextAction,onWorkflowSidebarContext}:{workflow:WorkflowInstanceSummary;repositoryIdentity:string;browserPanel:ReactNode;onReturn:()=>void;onWorkflowContextAction?:(action:WorkflowContextAction|null)=>void;onWorkflowSidebarContext?:(context:WorkflowSidebarContext|null)=>void}):JSX.Element {
  const [navigation,setNavigation]=useState<GreenfieldNavigationProjection|null>(null),[selection,setSelection]=useState<GreenfieldShellSelection>({stage:"project-intake-capture",phaseId:null,workItemId:null,repairId:null}),[error,setError]=useState(""),[intake,setIntake]=useState({...emptyIntake,projectRepository:repositoryIdentity});
  const generation=useRef(0);
  async function refresh():Promise<GreenfieldNavigationProjection|null>{const token=++generation.current;const current=await window.champcity.getGreenfieldNavigation(workflow.workflowId);if(token!==generation.current)return null;if(current.workflowId!==workflow.workflowId)throw Error("Exact Greenfield Workflow identity changed.");setNavigation(current);setSelection(selectionFromSql(current));setError("");return current;}
@@ -24,7 +25,7 @@ export function GreenfieldWorkspace({workflow,repositoryIdentity,browserPanel,on
  function open(stage:GreenfieldStage,workItemId?:string){
   if(!navigation)return;
   if(stage===navigation.currentWorkspace&&(workItemId===undefined||workItemId===navigation.currentWorkItemId)){
-   setSelection({...selectionFromSql(navigation),inspection:false});setError("");return;
+   return resume();
   }
   const workStage=stage.startsWith("work-card-"),phaseStage=stage.startsWith("phase-");
   // Retain inspected Work Card context only for another Work Card surface.
@@ -44,6 +45,10 @@ export function GreenfieldWorkspace({workflow,repositoryIdentity,browserPanel,on
   onWorkflowContextAction?.(navigation?.workflowId===workflow.workflowId&&inspection?{workflowId:workflow.workflowId,label:"Resume current stage",onClick:resume}:null);
   return()=>onWorkflowContextAction?.(null);
  },[navigation,selection,onWorkflowContextAction,workflow.workflowId]);
+ useEffect(()=>{
+  onWorkflowSidebarContext?.(navigation?.workflowId===workflow.workflowId?workflowSidebarContextFromSql(navigation):null);
+  return()=>onWorkflowSidebarContext?.(null);
+ },[navigation,onWorkflowSidebarContext,workflow.workflowId]);
  const status:Partial<Record<WorkspaceId,ProjectLifecycleRailStatus>>=Object.fromEntries((navigation?.completedWorkspaces??[]).map(stage=>[stage,"Completed"]));
  const context=navigation?{phase:{...navigation.executionContext.phase,phaseId:selection.phaseId??undefined,state:selection.phaseId?"active" as const:"none" as const,title:navigation.phaseStates.find(phase=>phase.phaseId===selection.phaseId)?.title},workCard:{...navigation.executionContext.workCard,workCardId:selection.workItemId??undefined,state:selection.workItemId?"active" as const:"none" as const,title:navigation.workItemStates.find(item=>item.workItemId===selection.workItemId)?.title}}:undefined;
  const lifecycleContext=selection.stage.startsWith("phase-")||selection.stage.startsWith("work-card-");
