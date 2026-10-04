@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Play, Square, Wrench } from "lucide-react";
 import type {
   CodexImplementerExecutionModel,
-  RuntimeActionResult,
 } from "../../shared/workspaceContracts";
 import {
   codexImplementerAvailabilityLabel,
@@ -38,11 +37,8 @@ export function WorkCardImplementShell({
   isCodexActionRunning,
   context,
   modelSelection,
-  documentPanel,
   navigation,
-  canCreateReport = true,
   onCancelCodex,
-  onCreateReport,
   onRespondToCodexApproval,
   onRespondToCodexMcpElicitation,
   onRespondToCodexUserInput,
@@ -55,11 +51,8 @@ export function WorkCardImplementShell({
   isCodexActionRunning: boolean;
   context: WorkCardImplementContext | null;
   modelSelection: ImplementModelSelection;
-  documentPanel?: ReactNode;
   navigation?: ReactNode;
-  canCreateReport?: boolean;
   onCancelCodex: () => void;
-  onCreateReport: () => Promise<RuntimeActionResult | void>;
   onRespondToCodexApproval: (requestId: string, decision: "approve" | "deny") => void;
   onRespondToCodexMcpElicitation: (
     requestId: string,
@@ -71,7 +64,6 @@ export function WorkCardImplementShell({
   onRunCodex: (selection: CodexModelSelection) => void;
 }): JSX.Element {
   const projection = context;
-  const reportIsPending = projection?.canExecute === true;
   const contractLabel = projection?.implementationContractLabel ?? "Approved Work Card Contract";
   const revisionLabel = projection?.implementationContractType === "repair-work-card" ? "Repair Revision" : "Formal Revision";
   const codexContext = projection
@@ -136,14 +128,11 @@ export function WorkCardImplementShell({
         {projection?.reportReadError ? (
           <div className="document-error" role="status">{projection.reportReadError}</div>
         ) : null}
-        {projection?.reportMissing ? (
-          <button className="apply-button" disabled={!canCreateReport || isCodexActionRunning} onClick={() => void onCreateReport()} type="button">
-            Create Implementer Report
-          </button>
-        ) : null}
-        {!projection?.reportMissing && reportIsPending ? (
+        {projection ? (
           <CodexExecutionActions
             modelSelection={modelSelection}
+            canRunOverride={projection.canExecute}
+            runLabel="Implement"
             execution={codexExecution}
             isActionRunning={isCodexActionRunning}
             onCancel={onCancelCodex}
@@ -165,8 +154,7 @@ export function WorkCardImplementShell({
         onRespondToCodexUserInput={onRespondToCodexUserInput}
         postRunFeedback={terminalFeedback}
       />
-      {documentPanel}
-      {navigation}
+      {navigation ? <footer className="work-card-implement-footer">{navigation}</footer> : null}
     </section>
   );
 }
@@ -360,7 +348,7 @@ export function CodexExecutionActions({
 }): JSX.Element {
 
   const state = execution?.state ?? "unavailable";
-  const canRun = Boolean(execution?.canRunAgain) && canRunOverride && !isActionRunning;
+  const canRun = Boolean(execution?.canRunAgain) && canRunOverride && !isActionRunning && state !== "running" && state !== "unavailable";
   const canResolveEnvironment = Boolean(onResolveEnvironment && execution?.canResolveEnvironment) && !isActionRunning;
   const isRunning = state === "running";
 
@@ -371,7 +359,7 @@ export function CodexExecutionActions({
         <button
           className="apply-button codex-command"
           disabled={!canRun || !modelSelection.canRun}
-          onClick={() => { if (modelSelection.selection) onRun({ ...modelSelection.selection }); }}
+          onClick={() => { if (canRun && modelSelection.canRun && modelSelection.selection) onRun({ ...modelSelection.selection }); }}
           type="button"
         >
           <Play aria-hidden="true" size={16} />

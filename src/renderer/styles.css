@@ -9521,9 +9521,10 @@ body {
 .intake-help-text { color: var(--muted-foreground); font-size: 0.85rem; line-height: 1.4; }
 .intake-workspace-shell-companion > .figma-browser-panel { flex: 1; min-height: 0; }
 
-/* WSF15: optional SQL report/export and navigation slots follow the recovered two-column Implement row. */
-.work-card-implement-report,
-.work-card-implement-navigation { grid-column: 1 / -1; min-width: 0; }
+/* Implement context and console fill the primary row; navigation is intrinsic. */
+.work-card-building-workspace { grid-template-rows: minmax(0, 1fr) auto; }
+.work-card-implement-footer { grid-column: 1 / -1; min-width: 0; }
+.work-card-implement-navigation { min-width: 0; }
 
 /* SQL Tester/criterion ports beneath the recovered Report Review controls. */
 .work-card-report-review-body { min-height: 0; min-width: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }

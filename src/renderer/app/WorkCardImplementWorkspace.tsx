@@ -1,13 +1,13 @@
-import {useEffect,useRef,useState,type ReactNode} from "react";
+import {useEffect,useRef,useState} from "react";
 import {WorkCardImplementShell,type WorkCardImplementContext} from "./WorkCardImplementShell";
 import {selectionBlocker,type CodexManagedRuntimeStatus,type CodexModelSelection} from "../../shared/codexRuntimeContracts";
-import {FigmaMarkdownBody} from "./FigmaDocumentCard";
 import type {ChampCityApi,CodexImplementerExecutionModel} from "../../shared/workspaceContracts";
 type Planning=Awaited<ReturnType<ChampCityApi["getStructuredWorkItemPlanning"]>>;
 type Report=Awaited<ReturnType<ChampCityApi["getImplementationAttempt"]>>;
 export function WorkCardImplementWorkspace(props:{readOnly?:boolean;workflowId:string;workItemId:string;onNext:()=>void}):JSX.Element {
  const [planning,setPlanning]=useState<Planning|null>(null),[report,setReport]=useState<Report>(null),[execution,setExecution]=useState<CodexImplementerExecutionModel|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState("");
  const generation=useRef(0);
+ const actionInFlight=useRef(false);
  const selection=useCodexModelSelection(!!props.readOnly||busy||execution?.state==="running");
  const [parentWorkItemId,setParentWorkItemId]=useState<string|undefined>(undefined);
  const exact=planning?.workflowId===props.workflowId&&planning.workItem.id===props.workItemId&&planning.workflowType==="project-creation";
@@ -19,37 +19,18 @@ export function WorkCardImplementWorkspace(props:{readOnly?:boolean;workflowId:s
   setParentWorkItemId(nextProjection.plan.repairIds.find(edge=>edge.from===props.workItemId)?.to);
   setPlanning(nextPlanning);setReport(nextReport);setExecution(nextExecution);setError("");
  }
- useEffect(()=>{const token=++generation.current;setPlanning(null);setReport(null);setExecution(null);setParentWorkItemId(undefined);setBusy(false);setError("");void refresh(token).catch(reason=>{if(token===generation.current)setError(String(reason));});return()=>{generation.current++;};},[props.workflowId,props.workItemId]);
+ useEffect(()=>{const token=++generation.current;setPlanning(null);setReport(null);setExecution(null);setParentWorkItemId(undefined);setBusy(false);actionInFlight.current=false;setError("");void refresh(token).catch(reason=>{if(token===generation.current)setError(String(reason));});return()=>{generation.current++;};},[props.workflowId,props.workItemId]);
  useEffect(()=>{if(execution?.state!=="running")return;const token=generation.current;const timer=window.setInterval(()=>void refresh(token).catch(reason=>{if(token===generation.current)setError(String(reason));}),1500);return()=>window.clearInterval(timer);},[execution?.state,props.workflowId,props.workItemId]);
- async function action(work:()=>Promise<unknown>,mutation=true){if(mutation&&props.readOnly||!exact||busy)return;const token=generation.current;setBusy(true);setError("");try{await work();await refresh(token);}catch(reason){if(token===generation.current)setError(String(reason));}finally{if(token===generation.current)setBusy(false);}}
+ async function action(work:()=>Promise<unknown>,mutation=true){if(mutation&&props.readOnly||!exact||busy||actionInFlight.current)return;const token=generation.current;actionInFlight.current=true;setBusy(true);setError("");try{await work();await refresh(token);}catch(reason){if(token===generation.current)setError(String(reason));}finally{if(token===generation.current){actionInFlight.current=false;setBusy(false);}}}
  const currentReport=report?.attempt.body.workflowId===props.workflowId&&report.attempt.body.workItemId===props.workItemId?report:null;
- const context:WorkCardImplementContext|null=exact?{workCardId:planning.workItem.body.candidateKey??planning.workItem.id,workCardTitle:planning.workItem.body.title,implementationContractLabel:planning.workItem.body.workItemKind==="repair"||planning.workItem.body.workItemKind==="fix"?"Approved Repair Work Card Contract":"Approved Work Card Contract",implementationContractType:planning.workItem.body.workItemKind==="repair"||planning.workItem.body.workItemKind==="fix"?"repair-work-card":"formal-work-card",formalWorkCardPath:`project-state:${planning.workItem.id}`,formalWorkCardRevision:planning.workItem.body.contractRevision??planning.workItem.recordVersion,parentWorkCardId:parentWorkItemId,implementerReportPath:currentReport?`project-state:${currentReport.attempt.id}`:"Create Implementer Report",report:currentReport?{disposition:currentReport.attempt.body.attemptState==="prepared"?"Pending":currentReport.attempt.body.attemptState,artifactRevision:currentReport.attempt.recordVersion}:null,reportMissing:!currentReport||currentReport.attempt.body.attemptState==="completed"&&["planned","ready"].includes(planning.workItem.body.workState),reportReadiness:currentReport?.attempt.body.attemptState??"missing",reportReadinessReason:execution?.failureReason??"Exact SQL execution/report reservation.",canExecute:!props.readOnly&&!!currentReport&&["prepared","running"].includes(currentReport.attempt.body.attemptState)}:null;
- return <WorkCardImplementShell context={context} modelSelection={selection} codexExecution={execution} isCodexActionRunning={!!props.readOnly||busy} canCreateReport={!props.readOnly&&exact&&planning.review.disposition.state==="approved"} documentError={error} feedback=""
-  onCreateReport={()=>action(()=>window.champcity.prepareImplementationAttempt(props.workflowId,props.workItemId))} onRunCodex={value=>void action(()=>window.champcity.startWorkflowWorkItemCodexExecution(props.workflowId,props.workItemId,value))}
+ const context:WorkCardImplementContext|null=exact?{workCardId:planning.workItem.body.candidateKey??planning.workItem.id,workCardTitle:planning.workItem.body.title,implementationContractLabel:planning.workItem.body.workItemKind==="repair"||planning.workItem.body.workItemKind==="fix"?"Approved Repair Work Card Contract":"Approved Work Card Contract",implementationContractType:planning.workItem.body.workItemKind==="repair"||planning.workItem.body.workItemKind==="fix"?"repair-work-card":"formal-work-card",formalWorkCardPath:`project-state:${planning.workItem.id}`,formalWorkCardRevision:planning.workItem.body.contractRevision??planning.workItem.recordVersion,parentWorkCardId:parentWorkItemId,implementerReportPath:currentReport?`project-state:${currentReport.attempt.id}`:"Prepared when Implement starts",report:currentReport?{disposition:currentReport.attempt.body.attemptState==="prepared"?"Pending":currentReport.attempt.body.attemptState,artifactRevision:currentReport.attempt.recordVersion}:null,reportMissing:!currentReport||currentReport.attempt.body.attemptState==="completed"&&["planned","ready"].includes(planning.workItem.body.workState),reportReadiness:currentReport?.attempt.body.attemptState??"missing",reportReadinessReason:execution?.failureReason??"Exact SQL execution/report reservation.",canExecute:!props.readOnly&&!error&&planning.review.disposition.state==="approved"&&!!execution?.canRunAgain&&execution.state!=="running"&&execution.state!=="unavailable"}:null;
+ return <WorkCardImplementShell context={context} modelSelection={selection} codexExecution={execution} isCodexActionRunning={!!props.readOnly||busy} documentError={error} feedback=""
+  onRunCodex={value=>{if(context?.canExecute&&selection.canRun)void action(()=>window.champcity.startWorkflowWorkItemCodexExecution(props.workflowId,props.workItemId,value));}}
   onCancelCodex={()=>void action(()=>window.champcity.cancelCodexImplementerExecution({workflowId:props.workflowId,workItemId:props.workItemId}))} onResolveEnvironment={()=>void refresh()}
   onRespondToCodexApproval={(requestId,decision)=>void action(()=>window.champcity.respondToCodexApproval({workflowId:props.workflowId,workItemId:props.workItemId,requestId,decision}))}
   onRespondToCodexUserInput={(requestId,answers)=>void action(()=>window.champcity.respondToCodexUserInput({workflowId:props.workflowId,workItemId:props.workItemId,requestId,answers}))}
   onRespondToCodexMcpElicitation={(requestId,kind,content)=>void action(()=>window.champcity.respondToCodexMcpElicitation({workflowId:props.workflowId,workItemId:props.workItemId,requestId,action:kind,content}))}
-  documentPanel={<div className="work-card-implement-report"><ImplementReportDocument report={currentReport} onCopy={()=>void navigator.clipboard.writeText(currentReport?.markdown??"")} onExport={()=>void action(()=>window.champcity.exportMarkdownDocument({suggestedFilename:currentReport!.filename,markdown:currentReport!.markdown}),false)}/></div>}
-  navigation={<div className="codex-execution-actions work-card-implement-navigation"><button type="button" onClick={()=>void refresh()}>Refresh</button><button type="button" disabled={props.readOnly||!exact||busy||currentReport?.attempt.body.attemptState!=="completed"} onClick={props.onNext}>Continue to Review & Validation</button></div>}/ >;
-}
-
-export function ImplementReportDocument({ report, onCopy, onExport }: {
-  report: Report; onCopy: () => void; onExport: () => void;
-}): JSX.Element {
-  const state = report?.attempt.body.attemptState;
-  return <article className="figma-document-card" aria-label="Implementer Report">
-    <header className="figma-document-card-header">
-      <div className="figma-document-title-row"><strong>{report?.filename ?? "No Implementer Report"}</strong></div>
-      <div className="figma-document-card-actions">
-        {state ? <span className="figma-document-status">{state === "prepared" ? "Pending" : state}</span> : null}
-        <button type="button" disabled={!report} onClick={onCopy}>Copy</button>
-        <button type="button" disabled={!report} onClick={onExport}>Export Markdown…</button>
-      </div>
-    </header>
-    <div className="figma-document-path-row">{report ? `project-state:${report.attempt.id}` : "Create Implementer Report"}</div>
-    <div className="figma-document-card-body">{report ? <FigmaMarkdownBody markdown={report.markdown}/> : <div className="figma-empty-document">No report yet</div>}</div>
-  </article>;
+  navigation={<div className="codex-execution-actions work-card-implement-navigation"><button type="button" onClick={()=>void refresh()}>Refresh</button><button type="button" disabled={props.readOnly||!exact||busy||!!error||currentReport?.attempt.body.attemptState!=="completed"} onClick={props.onNext}>Continue to Review & Validation</button></div>}/ >;
 }
 
 export function useCodexModelSelection(disabled: boolean) {

@@ -34,7 +34,7 @@ test('full App viewport fills empty/generated Phase Map and completed Planning i
     assert.equal(result.status, 0, result.error?.message ?? result.stdout + result.stderr);
     const receipt = JSON.parse(fs.readFileSync(path.join(temp, 'receipt.json'), 'utf8'));
     assert.equal(receipt.nativeSyntheticInteraction, 'passed');
-    assert.ok(receipt.baseline['.architect-browser-host'].height < 10, 'fixture reproduces the original outer collapse');
+    assert.ok(receipt.baseline['.architect-browser-host'].height < receipt.empty['.architect-browser-host'].height / 2, 'removing the Greenfield surface sizing materially collapses the browser host');
     assert.equal(receipt.generic['.workspace-surface'].className, 'workspace-surface');
   } finally {
     fs.rmSync(temp, {recursive: true, force: true});

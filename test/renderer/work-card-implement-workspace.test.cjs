@@ -109,8 +109,8 @@ test("Environment Resolution terminal feedback and Last Run summary match determ
     codexExecution: unresolved, documentError: "", feedback: codexTerminalFeedback(unresolved).message,
     isCodexActionRunning: false,
     context: { workCardId: "WC01", formalWorkCardPath: "planning/WC01.md", formalWorkCardRevision: 1, implementerReportPath: "planning/IMPLEMENTER_REPORT_WC01.md", reportMissing: false, report: { disposition: "Pending", artifactRevision: 1 }, canExecute: true },
-    modelSelection: {controls:null,selection:null,canRun:false},
-    onCancelCodex() {}, onCreateReport() {}, onRespondToCodexApproval() {}, onRespondToCodexMcpElicitation() {}, onRespondToCodexUserInput() {}, onResolveEnvironment() {}, onRunCodex() {},
+    modelSelection: {controls:React.createElement("div", {"aria-label":"Model and Reasoning"}),selection:null,canRun:false},
+    onCancelCodex() {}, onRespondToCodexApproval() {}, onRespondToCodexMcpElicitation() {}, onRespondToCodexUserInput() {}, onResolveEnvironment() {}, onRunCodex() {},
   }));
   assert.match(workspaceMarkup, /document-feedback warning/);
 
@@ -128,18 +128,19 @@ test("Build workspace renders implementation context and Codex controls without 
   const { WorkCardImplementShell } = require("./renderer-source-loader.cjs").loadRendererSourceModule("src/renderer/app/WorkCardImplementShell.tsx");
   const input = {
     codexExecution: null, documentError: "", feedback: "", isCodexActionRunning: false,
-    context: { workCardId: "WC01", workCardTitle: "Implement fixture", formalWorkCardPath: "planning/WC01.md", formalWorkCardRevision: 2, implementerReportPath: "planning/IMPLEMENTER_REPORT_WC01.md", reportMissing: true, canExecute: false },
-    modelSelection: {controls:null,selection:null,canRun:false},
-    onCancelCodex() {}, onCreateReport() {}, onRespondToCodexApproval() {}, onRespondToCodexMcpElicitation() {}, onRespondToCodexUserInput() {}, onResolveEnvironment() {}, onRunCodex() {},
+    context: { workCardId: "WC01", workCardTitle: "Implement fixture", formalWorkCardPath: "planning/WC01.md", formalWorkCardRevision: 2, implementerReportPath: "planning/IMPLEMENTER_REPORT_WC01.md", reportMissing: true, canExecute: true },
+    modelSelection: {controls:React.createElement("div", {"aria-label":"Model and Reasoning"}),selection:null,canRun:false},
+    onCancelCodex() {}, onRespondToCodexApproval() {}, onRespondToCodexMcpElicitation() {}, onRespondToCodexUserInput() {}, onResolveEnvironment() {}, onRunCodex() {},
   };
   const markup = renderToStaticMarkup(React.createElement(WorkCardImplementShell, input));
-  for (const label of ["Implementer Report Target", "planning/IMPLEMENTER_REPORT_WC01.md", "Create Implementer Report", "Codex execution console"]) assert.ok(markup.includes(label), label);
-  assert.doesNotMatch(markup, /Run Codex Implementer|Cancel Codex Run|Apply Review|Review Notes|Select a document|Allow network for this Codex run/);
+  for (const label of ["Implementer Report Target", "planning/IMPLEMENTER_REPORT_WC01.md", "Model and Reasoning", "Implement", "Codex execution console"]) assert.ok(markup.includes(label), label);
+  assert.doesNotMatch(markup, /Create Implementer Report|Cancel Codex Run|Apply Review|Review Notes|Select a document|Allow network for this Codex run/);
   input.context.reportMissing = false;
   input.context.canExecute = true;
   input.context.report = { disposition: "Pending", artifactRevision: 1 };
   const pending = renderToStaticMarkup(React.createElement(WorkCardImplementShell, input));
-  assert.match(pending, /Run Codex Implementer/);
+  assert.match(pending, />Implement<\/button>/);
+  assert.doesNotMatch(pending, /aria-label="Implementer Report"|work-card-implement-report/);
   assert.doesNotMatch(pending, /Create Implementer Report/);
 });
 
@@ -160,28 +161,34 @@ test("environment status renders typed permission and restart requirements", () 
   }
 });
 
-// WSF15 adds the SQL adapter boundary to the restored historical shell owner.
-test("Implement adapter creates durable report separately from Run and preserves exact execution identities", async () => {
+test("Implement adapter starts once without renderer preparation, recovers prepared attempts, and fails closed", async () => {
  const React=require('react'), {loadRendererSourceModule:load}=require('./renderer-source-loader.cjs');
  const {WorkCardImplementWorkspace}=load('src/renderer/app/WorkCardImplementWorkspace.tsx');
  const original={useState:React.useState,useEffect:React.useEffect,useRef:React.useRef},oldWindow=global.window;
- let values,index,calls=[];
- React.useState=initial=>{const slot=index++;return [values[slot]??initial,value=>values[slot]=value];};React.useEffect=()=>{};React.useRef=()=>({current:0});
- try {for(const workItemId of ['work-a','repair-b']){
-  const planning={workflowId:'wf',workflowType:'project-creation',workItem:{id:workItemId,recordVersion:4,body:{workState:'planned',workItemKind:workItemId==='repair-b'?'fix':'feature',title:'Exact work',contractRevision:4}},review:{disposition:{state:'approved'}}};
-  let report=null;const execution={state:'ready',canRunAgain:true};
+ let values,index,refs,refIndex,calls=[];
+ React.useState=initial=>{const slot=index++;return [slot in values?values[slot]:initial,value=>values[slot]=value];};
+ React.useEffect=()=>{};React.useRef=initial=>refs[refIndex++]??(refs[refIndex-1]={current:initial});
+ try {for(const workItemId of ['work-a','repair-b']) for(const prepared of [false,true]) {
+  const planning={workflowId:'wf',workflowType:'project-creation',workItem:{id:workItemId,recordVersion:4,body:{workState:'planned',workItemKind:workItemId==='repair-b'?'repair':'feature',title:'Exact work',contractRevision:4}},review:{disposition:{state:'approved'}}};
+  const report=prepared?{attempt:{id:'existing-attempt',recordVersion:1,body:{workflowId:'wf',workItemId,attemptState:'prepared'}},markdown:'# Pending SQL report'}:null;
+  const execution={state:'ready',canRunAgain:true};
   const runtime={version:'fixture',busy:false,updateState:'up-to-date',catalog:[{id:'fixture',model:'fixture-model',displayName:'Fixture',supportedReasoningEfforts:['high']}],selection:{model:'fixture-model',reasoningEffort:'high'}};
-  values=[planning,null,execution,false,'',runtime,null,false,''];calls=[];
-  global.window={champcity:{getStructuredWorkItemPlanning:async(...args)=>{calls.push(['planning',...args]);return planning;},getImplementationAttempt:async(...args)=>{calls.push(['report',...args]);return report;},getWorkflowWorkItemCodexExecutionStatus:async()=>execution,getWorkflowExecutionProjection:async()=>({plan:{workflow:{id:"wf"},repairIds:[{from:"repair-b",to:"work-a"}]}}),prepareImplementationAttempt:async(...args)=>{calls.push(['prepare',...args]);report={attempt:{id:'attempt-'+workItemId,recordVersion:1,body:{workflowId:'wf',workItemId,attemptState:'prepared'}},filename:'IMPLEMENTER_REPORT_fixture.md',markdown:'# Pending SQL report'};return report.attempt;},startWorkflowWorkItemCodexExecution:async(...args)=>{calls.push(['run',...args]);return execution;}}};
-  const draw=(id=workItemId)=>{index=0;return WorkCardImplementWorkspace({workflowId:'wf',workItemId:id,onNext(){}}).props;};
-  let p=draw();assert.equal(p.context.reportMissing,true);assert.equal(p.canCreateReport,true);await p.onCreateReport();
-  assert.deepEqual(calls[0],['prepare','wf',workItemId]);assert.equal(calls.some(call=>call[0]==='run'),false);
-  p=draw();assert.equal(p.context.reportMissing,false);assert.equal(p.context.canExecute,true);assert.match(p.documentPanel.props.children.props.report.markdown,/Pending SQL/);
-  const {ImplementReportDocument}=load('src/renderer/app/WorkCardImplementWorkspace.tsx');
-  const completed={...report,attempt:{...report.attempt,body:{...report.attempt.body,attemptState:'completed'}},markdown:'# Completed SQL report'};
-  const completedMarkup=require('react-dom/server').renderToStaticMarkup(React.createElement(ImplementReportDocument,{report:completed,onCopy(){},onExport(){}}));
-  assert.match(completedMarkup,/>completed<|Completed SQL report/);assert.doesNotMatch(completedMarkup,/>Pending</);
-  p.onRunCodex(runtime.selection);await new Promise(setImmediate);assert.deepEqual(calls.find(call=>call[0]==='run'),['run','wf',workItemId,runtime.selection]);
-  const before=calls.length;p=draw('peer');assert.equal(p.context,null);await p.onCreateReport();assert.equal(calls.length,before);
+  values=[planning,report,execution,false,'',runtime,null,false,''];refs=[];calls=[];let release;
+  global.window={champcity:{getStructuredWorkItemPlanning:async()=>planning,getImplementationAttempt:async()=>report,getWorkflowWorkItemCodexExecutionStatus:async()=>execution,getWorkflowExecutionProjection:async()=>({plan:{workflow:{id:'wf'},repairIds:[]}}),prepareImplementationAttempt:async()=>{throw Error('Renderer must never prepare');},startWorkflowWorkItemCodexExecution:(...args)=>{calls.push(['run',...args]);return new Promise(resolve=>release=resolve);},cancelCodexImplementerExecution:async selector=>calls.push(['cancel',selector]),respondToCodexApproval:async value=>calls.push(['approval',value]),respondToCodexUserInput:async value=>calls.push(['input',value]),respondToCodexMcpElicitation:async value=>calls.push(['mcp',value])}};
+  const draw=(extra={})=>{index=refIndex=0;return WorkCardImplementWorkspace({workflowId:'wf',workItemId,onNext(){},...extra}).props;};
+  let p=draw();assert.equal(p.context.canExecute,true);assert.equal(p.context.reportMissing,!prepared);assert.equal(p.modelSelection.canRun,true);
+  assert.equal(p.documentPanel,undefined);assert.equal(p.onCreateReport,undefined);assert.equal(p.canCreateReport,undefined);
+  if(prepared)assert.equal(p.context.implementerReportPath,'project-state:existing-attempt');
+  p.onRunCodex(runtime.selection);p.onRunCodex(runtime.selection);
+  assert.deepEqual(calls,[['run','wf',workItemId,runtime.selection]]);
+  assert.equal(draw().isCodexActionRunning,true);release(execution);await new Promise(setImmediate);
+  p=draw({readOnly:true});assert.equal(p.context.canExecute,false);p.onRunCodex(runtime.selection);assert.equal(calls.length,1);
+  p=draw({workItemId:'peer'});assert.equal(p.context,null);p.onRunCodex(runtime.selection);assert.equal(calls.length,1);
+  planning.review.disposition.state='none';p=draw();assert.equal(p.context.canExecute,false);p.onRunCodex(runtime.selection);assert.equal(calls.length,1);planning.review.disposition.state='approved';
+  values[4]='Stale context';p=draw();assert.equal(p.context.canExecute,false);p.onRunCodex(runtime.selection);assert.equal(calls.length,1);values[4]='';
+  for(const state of ['running','unavailable']) {execution.state=state;p=draw();assert.equal(p.context.canExecute,false);assert.equal(p.modelSelection.canRun,state!=='running');p.onRunCodex(runtime.selection);assert.equal(calls.length,1);}
+  execution.state='running';p=draw();assert.equal(p.modelSelection.controls.props.children[0].props.children[1].props.disabled,true);
+  await p.onCancelCodex();await new Promise(setImmediate);assert.equal(calls.at(-1)[0],'cancel');
+  for(const [handler,args,kind] of [['onRespondToCodexApproval',['approval-1','approve'],'approval'],['onRespondToCodexUserInput',['input-1',{answer:['yes']}],'input'],['onRespondToCodexMcpElicitation',['mcp-1','accept',{}],'mcp']]) {p=draw();p[handler](...args);await new Promise(setImmediate);assert.equal(calls.at(-1)[0],kind);assert.equal(calls.at(-1)[1].workItemId,workItemId);}
  }}finally{Object.assign(React,original);global.window=oldWindow;}
 });

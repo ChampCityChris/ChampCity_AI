@@ -84,6 +84,7 @@ async function waitForSelectorState(service, root, selector, expectedState, atte
 }
 
 test("exact Workflow Implementer input request resumes only through its Workflow and WorkItem selector", async t => {
+ for (const prepared of [false, true]) await t.test(prepared ? "reuse prepared attempt" : "auto-prepare one attempt", async t => {
   const { runtimeFixture, selection } = require("../support/codex-runtime.cjs");
   const { createWorkflowExecutionApplicationService } = require("../../dist/main/workflow/workflowExecutionApplicationService.js");
   const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
@@ -102,11 +103,13 @@ test("exact Workflow Implementer input request resumes only through its Workflow
   const execution = createWorkflowExecutionApplicationService();
   await execution.acceptWorkItemExecutionPlan(root, { workflowId: workflow.workflow.id, workItemId: item.id, expectedVersion: item.recordVersion,
     plan: { implementationBoundaries: ["Resume exact session"], affectedPaths: [], proofIntent: ["Confirm resumed output"] } });
+  const reserved = prepared ? await execution.prepareImplementationAttempt(root, workflow.workflow.id, item.id) : null;
+  let starts = 0;
   let answerSession;
   const inputAnswered = new Promise(resolve => { answerSession = resolve; });
   let capturedResponse;
   const fixture = runtimeFixture(); await fixture.ready;
-  const service = new CodexImplementerExecutionService(async () => ({ startThread() { return { id: "exact-pending-thread",
+  const service = new CodexImplementerExecutionService(async () => ({ startThread() { starts++; return { id: "exact-pending-thread",
     async runStreamed() { return { events: (async function* () {
       yield { type: "user_input.requested", request: { requestId: "input-1", threadId: "exact-pending-thread", turnId: "exact-turn", itemId: "exact-input",
         questions: [{ id: "next_step", header: "Next Step", question: "How should execution continue?", options: [{ label: "Continue", description: "Resume this exact run." }] }] } };
@@ -118,6 +121,12 @@ test("exact Workflow Implementer input request resumes only through its Workflow
     undefined, () => ({ sandboxMode: "workspace-write", approvalPolicy: "on-request", approvalsReviewer: "user", networkAccessEnabled: false }),
     undefined, fixture.manager, () => createWorkflowExecutionApplicationService());
   await service.start(root, selector, selection);
+  await service.start(root, selector, selection);
+  const attempts = (await store.listEntities(registration.project.id, "ImplementationAttempt")).filter(a => a.body.workItemId === item.id);
+  assert.equal(attempts.length, 1);
+  assert.equal(starts, 1);
+  if (reserved) assert.equal(attempts[0].id, reserved.id);
+  assert.equal(attempts[0].body.attemptState, "running");
   let pending;
   for (let attempt = 0; attempt < 80; attempt += 1) {
     pending = await service.getStatus(root, selector);
@@ -130,6 +139,12 @@ test("exact Workflow Implementer input request resumes only through its Workflow
   assert.equal(answered.pendingUserInput, null);
   assert.deepEqual(capturedResponse, { requestId: "input-1", answers: { next_step: ["Continue"] } });
   assert.equal((await waitForSelectorState(service, root, selector, "completed")).workflowId, workflow.workflow.id);
+  const report = await execution.getImplementationAttempt(root, workflow.workflow.id, item.id);
+  assert.equal(report.attempt.id, attempts[0].id);
+  assert.equal(report.attempt.body.attemptState, "completed");
+  assert.equal((await store.getEntity(registration.project.id, report.attempt.body.implementationRecordId)).body.executionRef, attempts[0].id);
+  assert.match(report.markdown, /Resumed exact WorkItem/);
+ });
 });
 
 test("exact Workflow Tester input response resumes only its Workflow, WorkItem, and ImplementationRecord session", async t => {

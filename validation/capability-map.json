@@ -3329,8 +3329,8 @@
           "description": "Hub with no selected project renders project-selection shell without Development lifecycle status"
         },
         {
-          "behaviorId": "implement-adapter-creates-durable-report-separately-from-run-and-preserves-exact-execution-identities",
-          "description": "Implement adapter creates durable report separately from Run and preserves exact execution identities"
+          "behaviorId": "implement-adapter-starts-once-without-renderer-preparation-recovers-prepared-attempts-and-fails-closed",
+          "description": "Implement adapter starts once without renderer preparation, recovers prepared attempts, and fails closed"
         },
         {
           "behaviorId": "landing-selection-feedback-remains-bounded-to-the-landing-surface",
@@ -14349,7 +14349,7 @@
       "testPath": "test/renderer/work-card-implement-workspace.test.cjs",
       "currentTestCount": {
         "value": 6,
-        "basis": "WSF15 five recovered historical scenarios plus exact SQL adapter preparation/run proof."
+        "basis": "R11 recovered controls, direct single-action execution, prepared recovery and fail-closed SQL adapter proof."
       },
       "duration": {
         "kind": "estimated",
@@ -14416,8 +14416,8 @@
         },
         {
           "capabilityId": "renderer-navigation-and-presentation",
-          "behaviorId": "implement-adapter-creates-durable-report-separately-from-run-and-preserves-exact-execution-identities",
-          "proofLocator": "Implement adapter creates durable report separately from Run and preserves exact execution identities",
+          "behaviorId": "implement-adapter-starts-once-without-renderer-preparation-recovers-prepared-attempts-and-fails-closed",
+          "proofLocator": "Implement adapter starts once without renderer preparation, recovers prepared attempts, and fails closed",
           "proofRole": "primary"
         },
         {
