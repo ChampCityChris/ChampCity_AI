@@ -21,7 +21,19 @@ export function GreenfieldWorkspace({workflow,repositoryIdentity,browserPanel,on
  async function refresh():Promise<GreenfieldNavigationProjection|null>{const token=++generation.current;const current=await window.champcity.getGreenfieldNavigation(workflow.workflowId);if(token!==generation.current)return null;if(current.workflowId!==workflow.workflowId)throw Error("Exact Greenfield Workflow identity changed.");setNavigation(current);setSelection(selectionFromSql(current));setError("");return current;}
  const resume=async()=>{await refresh().catch(reason=>setError(String(reason)));};
  useEffect(()=>{setNavigation(null);setSelection({stage:"project-intake-capture",phaseId:null,workItemId:null,repairId:null});setError("");resume();return()=>{generation.current++;};},[workflow.workflowId]);
- function open(stage:GreenfieldStage,workItemId=selection.workItemId??undefined){if(!navigation)return;const work=workItemId?navigation.workItemStates.find(item=>item.workItemId===workItemId):null;if(workItemId&&!work){setError("Select an exact SQL Work Card from this Workflow.");return;}const next={...selection,stage,phaseId:work?.phaseId??selection.phaseId??navigation.currentPhaseId,workItemId:work?.workItemId??selection.workItemId,repairId:work?.parentWorkItemId?work.workItemId:selection.repairId};setSelection({...next,inspection:isCanonicalSelection(next,navigation)?false:inspection||undefined});setError("");}
+ function open(stage:GreenfieldStage,workItemId?:string){
+  if(!navigation)return;
+  if(stage===navigation.currentWorkspace&&(workItemId===undefined||workItemId===navigation.currentWorkItemId)){
+   setSelection({...selectionFromSql(navigation),inspection:false});setError("");return;
+  }
+  const workStage=stage.startsWith("work-card-"),phaseStage=stage.startsWith("phase-");
+  // Retain inspected Work Card context only for another Work Card surface.
+  const requestedWorkItemId=workItemId??(workStage?selection.workItemId:undefined);
+  const work=requestedWorkItemId?navigation.workItemStates.find(item=>item.workItemId===requestedWorkItemId):null;
+  if(requestedWorkItemId&&!work){setError("Select an exact SQL Work Card from this Workflow.");return;}
+  const next:GreenfieldShellSelection={stage,phaseId:workStage||phaseStage?work?.phaseId??selection.phaseId??navigation.currentPhaseId:null,workItemId:workStage?work?.workItemId??null:null,repairId:workStage&&work?.parentWorkItemId?work.workItemId:null};
+  setSelection({...next,inspection:isCanonicalSelection(next,navigation)?false:inspection||undefined});setError("");
+ }
  async function terminal(stage:"work-card-close"|"phase-close"|"project-close"){const previous=selection,current=await refresh();if(!current)return;const closed=stage==="project-close"?current.closed:stage==="phase-close"?current.phaseStates.some(phase=>phase.phaseId===previous.phaseId&&phase.state==="closed"):current.workItemStates.some(item=>item.workItemId===previous.workItemId&&item.state==="closed");if(!closed)throw Error("Terminal presentation requires exact SQL closed state.");setSelection({...previous,stage});}
  const canonical=navigation&&isCanonicalSelection(selection,navigation);
  const alternate=navigation&&selection.stage==="work-card-validation"&&navigation.currentWorkspace==="work-card-report-review"&&selection.workItemId===navigation.currentWorkItemId;

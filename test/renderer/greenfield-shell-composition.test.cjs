@@ -16,28 +16,34 @@ test('Greenfield resume uses sole SQL resolver and inspection is read-only ephem
  try{let element=draw();assert.equal(sidebarAction,null);assert.ok(!nodes(element).some(x=>x.type==='button'&&['Resume current stage','Workflows'].includes(x.props.children)));assert.equal(nodes(element).find(x=>x.props?.className==='greenfield-shell-host').props['data-inspection'],false);const rail=nodes(element).find(x=>typeof x.type==='function'&&x.type.name==='GreenfieldNestedWorkflowRail');assert.equal(rail.props.requiredWorkspaceId,'work-card-report-review');rail.props.onWorkspaceChange('work-card-validation');element=draw();assert.equal(sidebarAction,null);assert.equal(nodes(element).find(x=>x.props?.className==='greenfield-shell-host').props['data-inspection'],false);assert.equal(nodes(element).filter(x=>x.type==='select').length,1);rail.props.onWorkspaceChange('architect-interview');element=draw();assert.equal(nodes(element).filter(x=>x.type==='select').length,0);assert.equal(nodes(element).filter(x=>x.type==='fieldset').length,0);assert.equal(nodes(element).find(x=>x.props?.className==='greenfield-shell-host').props['data-inspection'],true);assert.equal(nodes(element).find(x=>x.type?.name==='GreenfieldArchitectWorkspace').props.browserCompanion,props.browserPanel);assert.deepEqual(calls,[]);nodes(element).find(x=>x.type?.name==='GreenfieldNestedWorkflowRail').props.onWorkspaceChange('work-card-report-review');element=draw();assert.equal(nodes(element).find(x=>x.props?.className==='greenfield-shell-host').props['data-inspection'],false);assert.equal(values[1].inspection,false);assert.equal(sidebarAction,null);
  const selectRail=stage=>{nodes(draw()).find(x=>x.type?.name==='GreenfieldNestedWorkflowRail').props.onWorkspaceChange(stage);return draw();};
  const assertInspection=expected=>{assert.equal(nodes(draw()).find(x=>x.props?.className==='greenfield-shell-host').props['data-inspection'],expected);assert.equal(!!sidebarAction,expected);};
- // Same-stage historical identities remain inspection; only exact SQL identity escapes it.
- nav.currentWorkspace='phase-planning-bundle';nav.currentWorkItemId=null;
- values[1]={stage:'phase-interview',phaseId:'next',workItemId:null,repairId:null,inspection:true};
- selectRail('phase-planning-bundle');assertInspection(true);
- nodes(draw()).find(x=>x.props?.['aria-label']==='Inspect Phase').props.onChange({target:{value:'phase'}});
- selectRail('phase-planning-bundle');assertInspection(false);assert.equal(values[1].inspection,false);
+ const assertCanonical=()=>{assert.deepEqual(values[1],{stage:nav.currentWorkspace,phaseId:nav.currentPhaseId,workItemId:nav.currentWorkItemId,repairId:nav.currentRepairId,inspection:false});assertInspection(false);};
+ // Return directly from historical Work Card context without adjusting selectors first.
+ nav.workItemStates.push({...nav.workItemStates[0],workItemId:'phase-b-work',phaseId:'next',state:'closed'});
+ nav.currentWorkspace='phase-interview';nav.currentWorkItemId=null;
+ values[1]={stage:'work-card-close',phaseId:'next',workItemId:'phase-b-work',repairId:null,inspection:true};
+ selectRail('work-card-planning');assertInspection(true);assert.equal(values[1].workItemId,'phase-b-work');assert.equal(values[1].phaseId,'next');
+ selectRail('phase-planning-bundle');assertInspection(true);assert.equal(values[1].phaseId,'next');assert.equal(values[1].workItemId,null);
+ values[1]={stage:'work-card-close',phaseId:'next',workItemId:'phase-b-work',repairId:null,inspection:true};
+ selectRail('phase-interview');assertCanonical();nav.workItemStates.pop();
  nav.currentWorkspace='work-card-report-review';nav.currentWorkItemId='work';
  nav.workItemStates.push({...nav.workItemStates[0],workItemId:'historical',state:'closed'});
  values[1]={stage:'work-card-close',phaseId:'phase',workItemId:'historical',repairId:null,inspection:true};
- selectRail('work-card-report-review');assertInspection(true);
- nodes(draw()).find(x=>x.props?.['aria-label']==='Inspect Work Card').props.onChange({target:{value:'work'}});
- selectRail('work-card-report-review');assertInspection(false);
+ selectRail('work-card-report-review');assertCanonical();
+ // Explicit map/context requests keep their exact identity even at the canonical stage.
+ nav.currentWorkspace='phase-work-card-selection';values[1]={stage:nav.currentWorkspace,phaseId:'phase',workItemId:null,repairId:null};
+ const map=nodes(draw()).find(x=>x.type?.name==='WorkCardMapWorkspace');nav.currentWorkspace='work-card-intake';
+ map.props.onOpenWorkItem('historical');assert.equal(values[1].workItemId,'historical');assertInspection(true);
  nav.currentWorkspace='work-card-repair';nav.currentRepairId='repair';nav.currentWorkItemId='work';
- values[1]={stage:'work-card-repair',phaseId:'phase',workItemId:'work',repairId:'historical-repair',inspection:true};
- selectRail('work-card-repair');assertInspection(true);
- values[1].repairId='repair';selectRail('work-card-repair');assertInspection(false);
+ nav.workItemStates.push({...nav.workItemStates[0],workItemId:'historical-repair',phaseId:'next',parentWorkItemId:'phase-b-parent'});
+ values[1]={stage:'work-card-repair',phaseId:'next',workItemId:'historical-repair',repairId:'historical-repair',inspection:true};
+ selectRail('work-card-building-review');assertInspection(true);assert.equal(values[1].workItemId,'historical-repair');assert.equal(values[1].repairId,'historical-repair');
+ selectRail('work-card-repair');assertCanonical();nav.workItemStates.pop();
  nav.currentWorkspace='project-phase-map';nav.currentPhaseId=null;nav.currentWorkItemId=null;nav.currentRepairId=null;
  // Project stages ignore retained historical Phase/WorkItem presentation context.
  values[1]={stage:'project-phase-map',phaseId:'next',workItemId:'historical',repairId:null};assertInspection(false);
  selectRail('project-planning-review');assertInspection(true);
  selectRail('architect-interview');assertInspection(true);
- selectRail('project-phase-map');assertInspection(false);assert.equal(values[1].inspection,false);
+ selectRail('project-phase-map');assertCanonical();
  assert.deepEqual(calls,[],'rail/context selection performs no SQL calls');
  nav.currentWorkspace='work-card-report-review';nav.currentPhaseId='phase';nav.currentWorkItemId='work';nav.workItemStates.pop();
  for(const stage of ['project-intake-capture','architect-interview','project-planning-review','project-phase-map']){values[1]={...values[1],stage};assert.equal(nodes(draw()).filter(x=>x.type==='select').length,0,stage+' omits global inventory');}
