@@ -9557,3 +9557,16 @@ body {
 .greenfield-shell-content > .figma-phase-map-workspace { grid-template-rows:minmax(0, 1fr); }
 .greenfield-shell-host .figma-browser-column { align-self:stretch; }
 .greenfield-shell-host .figma-browser-column > .figma-browser-panel { flex:1 1 0; }
+
+/* Each Implement column owns one intrinsic tab header and one bounded active body. */
+.work-card-building-workspace > :is(.work-card-building-context, .codex-execution-panel) {
+  display: flex; flex-direction: column; overflow: hidden; padding: 0; gap: 0;
+}
+.implement-tabs { flex: 0 0 auto; }
+.implement-tab-body { flex: 1; min-height: 0; min-width: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.implement-interaction-pending { color: var(--primary); font-size: 11px; }
+.implement-tabs button:focus-visible, .work-card-implement-navigation .apply-button:focus-visible {
+  outline: 2px solid var(--primary); outline-offset: -3px;
+}
+.work-card-implement-navigation .apply-button:hover:not(:disabled) { filter: brightness(1.12); }
+.work-card-implement-navigation .apply-button:disabled { opacity: .5; cursor: not-allowed; }

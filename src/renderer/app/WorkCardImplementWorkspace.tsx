@@ -30,7 +30,7 @@ export function WorkCardImplementWorkspace(props:{readOnly?:boolean;workflowId:s
   onRespondToCodexApproval={(requestId,decision)=>void action(()=>window.champcity.respondToCodexApproval({workflowId:props.workflowId,workItemId:props.workItemId,requestId,decision}))}
   onRespondToCodexUserInput={(requestId,answers)=>void action(()=>window.champcity.respondToCodexUserInput({workflowId:props.workflowId,workItemId:props.workItemId,requestId,answers}))}
   onRespondToCodexMcpElicitation={(requestId,kind,content)=>void action(()=>window.champcity.respondToCodexMcpElicitation({workflowId:props.workflowId,workItemId:props.workItemId,requestId,action:kind,content}))}
-  navigation={<div className="codex-execution-actions work-card-implement-navigation"><button type="button" onClick={()=>void refresh()}>Refresh</button><button type="button" disabled={props.readOnly||!exact||busy||!!error||currentReport?.attempt.body.attemptState!=="completed"} onClick={props.onNext}>Continue to Review & Validation</button></div>}/ >;
+  navigation={<div className="codex-execution-actions work-card-implement-navigation"><button className="apply-button codex-command secondary" type="button" onClick={()=>void refresh()}>Refresh</button><button className="apply-button codex-command" type="button" disabled={props.readOnly||!exact||busy||!!error||currentReport?.attempt.body.attemptState!=="completed"} onClick={props.onNext}>Continue to Review & Validation</button></div>}/ >;
 }
 
 export function useCodexModelSelection(disabled: boolean) {

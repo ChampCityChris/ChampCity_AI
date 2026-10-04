@@ -133,7 +133,7 @@ test("Build workspace renders implementation context and Codex controls without 
     onCancelCodex() {}, onRespondToCodexApproval() {}, onRespondToCodexMcpElicitation() {}, onRespondToCodexUserInput() {}, onResolveEnvironment() {}, onRunCodex() {},
   };
   const markup = renderToStaticMarkup(React.createElement(WorkCardImplementShell, input));
-  for (const label of ["Implementer Report Target", "planning/IMPLEMENTER_REPORT_WC01.md", "Model and Reasoning", "Implement", "Codex execution console"]) assert.ok(markup.includes(label), label);
+  for (const label of ["Context", "Status", "Interaction", "Diagnostics", "Model and Reasoning", "Implement", "Codex execution console"]) assert.ok(markup.includes(label), label);
   assert.doesNotMatch(markup, /Create Implementer Report|Cancel Codex Run|Apply Review|Review Notes|Select a document|Allow network for this Codex run/);
   input.context.reportMissing = false;
   input.context.canExecute = true;
@@ -176,7 +176,7 @@ test("Implement adapter starts once without renderer preparation, recovers prepa
   values=[planning,report,execution,false,'',runtime,null,false,''];refs=[];calls=[];let release;
   global.window={champcity:{getStructuredWorkItemPlanning:async()=>planning,getImplementationAttempt:async()=>report,getWorkflowWorkItemCodexExecutionStatus:async()=>execution,getWorkflowExecutionProjection:async()=>({plan:{workflow:{id:'wf'},repairIds:[]}}),prepareImplementationAttempt:async()=>{throw Error('Renderer must never prepare');},startWorkflowWorkItemCodexExecution:(...args)=>{calls.push(['run',...args]);return new Promise(resolve=>release=resolve);},cancelCodexImplementerExecution:async selector=>calls.push(['cancel',selector]),respondToCodexApproval:async value=>calls.push(['approval',value]),respondToCodexUserInput:async value=>calls.push(['input',value]),respondToCodexMcpElicitation:async value=>calls.push(['mcp',value])}};
   const draw=(extra={})=>{index=refIndex=0;return WorkCardImplementWorkspace({workflowId:'wf',workItemId,onNext(){},...extra}).props;};
-  let p=draw();assert.equal(p.context.canExecute,true);assert.equal(p.context.reportMissing,!prepared);assert.equal(p.modelSelection.canRun,true);
+  let p=draw();const footer=React.Children.toArray(p.navigation.props.children);assert.equal(footer[0].props.className,'apply-button codex-command secondary');assert.equal(footer[1].props.className,'apply-button codex-command');assert.equal(footer[1].props.type,'button');assert.equal(footer[1].props.disabled,true);assert.equal(p.context.canExecute,true);assert.equal(p.context.reportMissing,!prepared);assert.equal(p.modelSelection.canRun,true);
   assert.equal(p.documentPanel,undefined);assert.equal(p.onCreateReport,undefined);assert.equal(p.canCreateReport,undefined);
   if(prepared)assert.equal(p.context.implementerReportPath,'project-state:existing-attempt');
   p.onRunCodex(runtime.selection);p.onRunCodex(runtime.selection);
@@ -191,4 +191,38 @@ test("Implement adapter starts once without renderer preparation, recovers prepa
   await p.onCancelCodex();await new Promise(setImmediate);assert.equal(calls.at(-1)[0],'cancel');
   for(const [handler,args,kind] of [['onRespondToCodexApproval',['approval-1','approve'],'approval'],['onRespondToCodexUserInput',['input-1',{answer:['yes']}],'input'],['onRespondToCodexMcpElicitation',['mcp-1','accept',{}],'mcp']]) {p=draw();p[handler](...args);await new Promise(setImmediate);assert.equal(calls.at(-1)[0],kind);assert.equal(calls.at(-1)[1].workItemId,workItemId);}
  }}finally{Object.assign(React,original);global.window=oldWindow;}
+});
+
+
+test("Implement tabs keep local identity, bounded bodies, interaction cues and all diagnostic tails", () => {
+ const React=require('react'), {loadRendererSourceModule:load}=require('./renderer-source-loader.cjs');
+ const {WorkCardImplementShell, CodexExecutionConsole}=load('src/renderer/app/WorkCardImplementShell.tsx');
+ const original=React.useState,oldWindow=global.window;let stored,services=0;
+ React.useState=initial=>{stored??=initial;return [stored,value=>stored=value];};
+ global.window={champcity:new Proxy({}, {get(){services++;throw Error('Tab must not access a service');}})};
+ const children=n=>React.Children.toArray(n?.props?.children);
+ const find=(n,p)=>{if(!n||typeof n!=='object')return null;if(typeof n.type==='function'&&n.type.name==='PresentationTabs')return find(n.type(n.props),p);if(p(n))return n;for(const c of children(n)){const f=find(c,p);if(f)return f;}return null;};
+ const panel=tree=>find(tree,n=>n.props?.role==='tabpanel');
+ const click=(tree,label)=>find(tree,n=>n.props?.role==='tab'&&children(n)[0]===label).props.onClick();
+ const base={execution:null,isActionRunning:true,modelSelection:{controls:'Model controls'},onRespondToCodexApproval(){throw Error('mutation')},onRespondToCodexUserInput(){throw Error('mutation')},onRespondToCodexMcpElicitation(){throw Error('mutation')}};
+ try {
+  let tree=CodexExecutionConsole(base);assert.equal(panel(tree).props['aria-label'],'Status');
+  click(tree,'Diagnostics');tree=CodexExecutionConsole({...base,execution:{state:'failed',eventTail:['event'],stderrTail:['error'],finalResponseTail:['final'],approvalTail:[{type:'command',decision:'deny',completed:true,requestId:'request'}],runtimeDenialTail:['denial']}});
+  assert.equal(panel(tree).props['aria-label'],'Diagnostics');
+  const tails=[];function collect(n){if(!n||typeof n!=='object')return;if(n.props?.values)tails.push(n.props);children(n).forEach(collect);}collect(tree);
+  assert.deepEqual(tails.map(t=>t.label),['Approval Tail','Runtime Denial Tail','Event Tail','Error Tail','Final Response Tail']);
+  tree=CodexExecutionConsole({...base,presentationIdentity:'new-attempt',execution:{state:'failed',failureReason:'Checkpoint failed',checkpoint:{status:'blocked',message:'No commit'}}});
+  assert.equal(panel(tree).props['aria-label'],'Status');
+  for(const kind of ['pendingApproval','pendingUserInput','pendingMcpElicitation']) {
+   stored=undefined;tree=CodexExecutionConsole({...base,execution:{[kind]:{requestId:'pending'}}});
+   assert.equal(panel(tree).props['aria-label'],'Interaction');
+   click(tree,'Status');tree=CodexExecutionConsole({...base,execution:{[kind]:{requestId:'pending'}}});
+   const tab=find(tree,n=>n.props?.role==='tab'&&children(n)[0]==='Interaction');assert.equal(children(tab)[1].props.children,'Action required');
+  }
+  stored=undefined;const shell={codexExecution:null,documentError:'',feedback:'',isCodexActionRunning:true,context:{workCardId:'work',formalWorkCardPath:'work',implementerReportPath:'attempt',reportReadiness:'ready'},modelSelection:{controls:'Model controls'},onRunCodex(){throw Error('mutation')}};
+  tree=WorkCardImplementShell(shell);assert.equal(panel(tree).props['aria-label'],'Implement');click(tree,'Context');tree=WorkCardImplementShell(shell);assert.equal(panel(tree).props['aria-label'],'Context');
+  assert.ok(find(tree,n=>n.type==='dt'&&n.props.children==='Implementer Report Target'));
+  tree=WorkCardImplementShell({...shell,context:{...shell.context,implementerReportPath:'next-attempt'}});assert.equal(panel(tree).props['aria-label'],'Implement');
+  assert.equal(services,0);
+ }finally{React.useState=original;global.window=oldWindow;}
 });

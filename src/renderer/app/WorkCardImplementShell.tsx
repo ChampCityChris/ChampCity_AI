@@ -76,10 +76,15 @@ export function WorkCardImplementShell({
       }
     : undefined;
   const terminalFeedback = codexTerminalFeedback(codexExecution);
+  const identity = `${projection?.formalWorkCardPath}:${projection?.implementerReportPath}`;
+  const [tab, selectTab] = usePresentationTab(identity, "Implement");
 
   return (
     <section className="work-card-building-workspace" aria-label="Work Card Implement and Codex Execution">
       <section className="work-card-building-context" aria-label="Implement context and controls">
+        <PresentationTabs label="Implement pane" tabs={["Implement", "Context"]} selected={tab} onSelect={selectTab} />
+        <div className="implement-tab-body" role="tabpanel" aria-label={tab}>
+        {tab === "Context" ? <>
         <header>
           <div>
             <span>Current Work Card</span>
@@ -114,6 +119,13 @@ export function WorkCardImplementShell({
             <dt>Report Revision</dt>
             <dd>{projection?.report?.artifactRevision ?? "Waiting"}</dd>
           </div>
+        </dl>
+        <dl>
+          <div><dt>Source Mode</dt><dd>{codexExecution?.sourceMode ?? "Waiting"}</dd></div>
+          <div><dt>Checkpoint</dt><dd>{codexExecution?.checkpoint?.status ?? "Waiting"}</dd></div>
+        </dl>
+        </> : <>
+        <dl>
           <div>
             <dt>Report Readiness</dt>
             <dd>{projection?.reportReadiness ?? "Waiting"}</dd>
@@ -142,9 +154,12 @@ export function WorkCardImplementShell({
         ) : null}
         {feedback ? <div className={`document-feedback${feedback === terminalFeedback?.message ? ` ${terminalFeedback.tone}` : ""}`} role="status">{feedback}</div> : null}
         {documentError ? <div className="document-error" role="status">{documentError}</div> : null}
+        </>}
+        </div>
       </section>
 
       <CodexExecutionConsole
+        presentationIdentity={identity}
         modelSelection={modelSelection}
         contextSummary={codexContext}
         execution={codexExecution}
@@ -393,6 +408,7 @@ export function CodexExecutionActions({
 }
 
 export function CodexExecutionConsole({
+  presentationIdentity,
   contextSummary,
   modelSelection,
   execution,
@@ -403,6 +419,7 @@ export function CodexExecutionConsole({
   postRunFeedback,
   postRunMessage,
 }: {
+  presentationIdentity?: string;
   contextSummary?: CodexExecutionContextSummary;
   modelSelection: ImplementModelSelection;
   execution: ImplementExecutionPresentation | null;
@@ -424,9 +441,15 @@ export function CodexExecutionConsole({
   const executionLabel = integrationRepair ? "Integration Repair" : execution?.executionKind === "environment-resolution"
     ? "Environment Resolution" : "Work Card Implementation";
   const reportUpdated = execution?.reportUpdated ? "Updated" : "Not updated";
+  const pending = Boolean(execution?.pendingApproval || execution?.pendingUserInput || execution?.pendingMcpElicitation);
+  const identity = `${presentationIdentity ?? contextSummary?.reportPath ?? ""}:${execution?.workflowId}:${execution?.workItemId}:${execution?.startedAt}`;
+  const [tab, selectTab] = usePresentationTab(identity, pending ? "Interaction" : "Status");
 
   return (
     <section className="codex-execution-panel" aria-label="Codex execution console">
+      <PresentationTabs label="Execution pane" tabs={["Status", "Interaction", "Diagnostics"]} selected={tab} onSelect={selectTab} pending={pending ? "Interaction" : undefined} />
+      <div className="implement-tab-body" role="tabpanel" aria-label={tab}>
+      {tab === "Status" ? <>
       <header>
         <div>
           <span>Codex Availability</span>
@@ -438,14 +461,6 @@ export function CodexExecutionConsole({
         </div>
       </header>
       <dl>
-        {!integrationRepair ? <><div>
-          <dt>{contextSummary?.contractLabel ?? "Work Card Contract"}</dt>
-          <dd>{contextSummary ? `${contextSummary.contractPath} revision ${contextSummary.contractRevision}` : "Waiting"}</dd>
-        </div>
-        <div>
-          <dt>Implementer Report</dt>
-          <dd>{contextSummary ? `${contextSummary.reportPath} revision ${contextSummary.reportRevision}` : "Waiting"}</dd>
-        </div></> : null}
         <div>
           <dt>State</dt>
           <dd>{state}</dd>
@@ -475,6 +490,8 @@ export function CodexExecutionConsole({
       {postRunMessage ? (
         <div className="codex-execution-message" role="status">{postRunMessage}</div>
       ) : null}
+      </> : tab === "Interaction" ? <>
+      {!pending ? <p>No interaction pending.</p> : null}
       {execution?.pendingApproval ? (
         <CodexApprovalPanel
           disabled={isActionRunning}
@@ -496,6 +513,7 @@ export function CodexExecutionConsole({
           pending={execution.pendingMcpElicitation}
         />
       ) : null}
+      </> : <>
       {execution?.runtimeState ? (
         <RuntimeDiagnostics runtimeState={execution.runtimeState} approvalCount={execution.approvalTail.length} />
       ) : null}
@@ -519,6 +537,8 @@ export function CodexExecutionConsole({
       {execution?.finalResponseTail.length ? (
         <TailBlock label="Final Response Tail" values={execution.finalResponseTail} />
       ) : null}
+      </>}
+      </div>
     </section>
   );
 }
@@ -754,4 +774,22 @@ export function codexTerminalFeedback(
   return execution.reportUpdated
     ? { message: "Codex execution finished. Review the existing Implementer Report.", tone: "success" }
     : { message: "Codex completed, but the Implementer Report was not updated.", tone: "warning" };
+}
+
+/** Local presentation state is reset synchronously when the inspected identity changes. */
+function usePresentationTab(identity: string, defaultTab: string): [string, (tab: string) => void] {
+  const [selection, setSelection] = useState({ identity, tab: defaultTab });
+  if (selection.identity !== identity) setSelection({ identity, tab: defaultTab });
+  return [selection.identity === identity ? selection.tab : defaultTab, tab => setSelection({ identity, tab })];
+}
+
+function PresentationTabs({label, tabs, selected, onSelect, pending}: {
+  label: string; tabs: string[]; selected: string; onSelect: (tab: string) => void; pending?: string;
+}): JSX.Element {
+  return <div className="figma-document-tabs implement-tabs" role="tablist" aria-label={label}>
+    {tabs.map(tab => <button key={tab} type="button" role="tab" aria-selected={selected === tab}
+      className={selected === tab ? "active" : ""} onClick={() => onSelect(tab)}>
+      {tab}{pending === tab ? <strong className="implement-interaction-pending">Action required</strong> : null}
+    </button>)}
+  </div>;
 }

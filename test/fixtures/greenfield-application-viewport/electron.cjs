@@ -6,7 +6,7 @@ app.whenReady().then(async()=>{
  const wait=()=>new Promise(r=>setTimeout(r,500));await wait();
  const measure=()=>win.webContents.executeJavaScript(`Object.fromEntries(['.app-root','.app-body','.workspace-surface','.greenfield-workspace','.greenfield-navigation-reason','.greenfield-shell-host','.figma-phase-map-workspace','.figma-phase-map-column','.figma-browser-column','.architect-browser-host','.figma-doc-chat-workspace'].map(s=>{const e=document.querySelector(s),r=e?.getBoundingClientRect(),c=e&&getComputedStyle(e);return[s,r?{x:r.x,y:r.y,height:r.height,width:r.width,bottom:r.bottom,display:c.display,overflowY:c.overflowY,className:e.className}:null]}))`);
  const near=(a,b)=>assert.ok(Math.abs(a-b)<1,`${a} != ${b}`);
- const check=async(name,height=1000,map=true)=>{const r=await measure();receipt[name]=r;near(r['.app-body'].bottom,height);near(r['.workspace-surface'].bottom,height);near(r['.greenfield-workspace'].bottom,height);near(r['.greenfield-shell-host'].bottom,height);near(r['.greenfield-shell-host'].y,r['.greenfield-navigation-reason'].bottom);assert.ok(r['.greenfield-shell-host'].height>400);assert.ok(r['.figma-browser-column'].height>400);assert.ok(r['.architect-browser-host'].height>300);if(map){near(r['.figma-phase-map-workspace'].bottom,height);assert.ok(r['.figma-phase-map-column'].height>400);near(r['.figma-phase-map-column'].height,r['.figma-browser-column'].height);}
+ const check=async(name,height=1000,map=true)=>{height=win.getContentSize()[1];const r=await measure();receipt[name]=r;near(r['.app-body'].bottom,height);near(r['.workspace-surface'].bottom,height);near(r['.greenfield-workspace'].bottom,height);near(r['.greenfield-shell-host'].bottom,height);near(r['.greenfield-shell-host'].y,r['.greenfield-navigation-reason'].bottom);assert.ok(r['.greenfield-shell-host'].height>400);assert.ok(r['.figma-browser-column'].height>400);assert.ok(r['.architect-browser-host'].height>300);if(map){near(r['.figma-phase-map-workspace'].bottom,height);assert.ok(r['.figma-phase-map-column'].height>400);near(r['.figma-phase-map-column'].height,r['.figma-browser-column'].height);}
  const b=await win.webContents.executeJavaScript('fixture.bounds()');const h=r['.architect-browser-host'];near(b.height,Math.round(h.height));near(b.y,Math.round(h.y));native.setBounds({x:b.x,y:b.y,width:b.width,height:b.height});return r;};
  try{
   // Measure immediately so asynchronous App/runtime responses cannot restore the class first.
@@ -17,11 +17,11 @@ app.whenReady().then(async()=>{
   win.setContentSize(1440,850);await wait();await check('resized',850);assert.ok(receipt.resized['.architect-browser-host'].height<receipt.generated['.architect-browser-host'].height);
   win.setContentSize(1440,1000);await wait();
   await win.webContents.executeJavaScript(`Array.from(document.querySelectorAll('button')).find(b=>b.textContent.includes('Project Planning')).click()`);await wait();await check('completedPlanningInspection',1000,false);assert.equal(await win.webContents.executeJavaScript(`document.querySelector('.greenfield-shell-host').dataset.inspection`),'true');
-  for(const state of ['before','prepared','running','completed']) {
+  for(const state of ['before','prepared','running','failed','completed']) {
    await win.webContents.executeJavaScript(`fixture.implement('${state}')`);await wait();
    const geometry=await win.webContents.executeJavaScript(`(() => {
     const rect=s=>{const e=document.querySelector(s),r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,bottom:r.bottom,right:r.right}};
-    return {host:rect('.greenfield-shell-content'),workspace:rect('.work-card-building-workspace'),context:rect('.work-card-building-context'),console:rect('.codex-execution-panel'),footer:rect('.work-card-implement-footer'),text:document.querySelector('.work-card-building-workspace').textContent,modelLocked:document.querySelector('select[aria-label="Model"]').disabled,reasoningLocked:document.querySelector('select[aria-label="Reasoning"]').disabled,implementDisabled:Array.from(document.querySelector('.work-card-building-workspace').querySelectorAll('button')).find(b=>b.textContent==='Implement').disabled,report:!!document.querySelector('.work-card-implement-report,article[aria-label="Implementer Report"]')};
+    return {host:rect('.greenfield-shell-content'),workspace:rect('.work-card-building-workspace'),context:rect('.work-card-building-context'),console:rect('.codex-execution-panel'),footer:rect('.work-card-implement-footer'),text:document.querySelector('.work-card-building-workspace').textContent,modelLocked:document.querySelector('select[aria-label="Model"]').disabled,reasoningLocked:document.querySelector('select[aria-label="Reasoning"]').disabled,implementDisabled:Array.from(document.querySelector('.work-card-building-workspace').querySelectorAll('button.codex-command')).find(b=>b.textContent==='Implement').disabled,report:!!document.querySelector('.work-card-implement-report,article[aria-label="Implementer Report"]')};
    })()`);
    receipt['implement-'+state]=geometry;
    near(geometry.context.y,geometry.console.y);near(geometry.context.height,geometry.console.height);
@@ -32,6 +32,17 @@ app.whenReady().then(async()=>{
    assert.equal(geometry.implementDisabled,state==='running'||state==='completed');
    assert.equal(geometry.modelLocked,state==='running');assert.equal(geometry.reasoningLocked,state==='running');
    if(state==='running')assert.match(geometry.text,/Cancel Codex Run/);
+   if(state==='failed')assert.match(geometry.text,/Checkpoint failed fixture|Checkpoint blocked fixture/);
+   const tabs=await win.webContents.executeJavaScript(`Array.from(document.querySelectorAll('[role="tab"]')).map(t=>t.textContent)`);
+   assert.deepEqual(tabs,['Implement','Context','Status','Interaction','Diagnostics']);
+   for(const tab of ['Context','Diagnostics','Interaction','Status','Implement']) {
+    await win.webContents.executeJavaScript(`Array.from(document.querySelectorAll('[role="tab"]')).find(t=>t.textContent==='${tab}').click()`);
+    const body=await win.webContents.executeJavaScript(`(() => {const panels=Array.from(document.querySelectorAll('.implement-tab-body'));return {labels:panels.map(p=>p.getAttribute('aria-label')),text:panels.map(p=>p.textContent).join(' '),bounded:panels.every(p=>p.getBoundingClientRect().bottom<=document.querySelector('.work-card-implement-footer').getBoundingClientRect().y)};})()`);
+    assert.equal(body.labels.length,2);assert.ok(body.labels.includes(tab));assert.equal(body.bounded,true);
+    if(tab==='Diagnostics')assert.match(body.text,/Execution console evidence/);
+    if(tab==='Context')assert.match(body.text,/Implementer Report Target/);
+   }
+
   }
   await win.webContents.executeJavaScript('fixture.generic()');await wait();receipt.generic=await measure();assert.equal(receipt.generic['.workspace-surface'].className,'workspace-surface');assert.equal(receipt.generic['.workspace-surface'].display,'flex');assert.equal(receipt.generic['.workspace-surface'].overflowY,'auto');
   fs.writeFileSync(path.join(__dirname,'receipt.json'),JSON.stringify(receipt,null,2));clearTimeout(timeout);app.exit(0);
