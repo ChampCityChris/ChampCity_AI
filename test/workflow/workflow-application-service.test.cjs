@@ -69,25 +69,21 @@ function assertArchitectHandoff(model, type) {
   const {GREENFIELD_ARCHITECT_SECTIONS, FEATURE_ARCHITECT_SECTIONS, ASSESSMENT_SECTIONS, validateArchitectCandidateOutput} = require("../../dist/shared/architectWorkspaceContracts.js");
   const handoff = model.handoff;
   const blocks = handoff.split("\n\n");
-  const templateIndex = blocks.findIndex(block => block.startsWith(type === "project-creation" ? "Semantic schema template" : "Workflow-specific JSON template"));
-  assert.ok(templateIndex >= 0);
-  const output = JSON.parse(blocks[templateIndex + 1]);
-  assert.ok(handoff.includes("100000"));
-  assert.ok(handoff.includes("UTF-8"));
+  const sections = type === "project-creation" ? GREENFIELD_ARCHITECT_SECTIONS : type === "feature-capability" ? FEATURE_ARCHITECT_SECTIONS : ASSESSMENT_SECTIONS[type];
+  const output = type === "issue-resolution" ? {rootCauses:[{title:"Cause",statement:"Evidenced defect",rationale:"Explanation",confidence:0.8,findingIds:[],evidenceIds:[]}]} : Object.fromEntries(Object.keys(sections).map(key => [key, type === "project-creation" ? ["Substantive direction"] : "Substantive assessment"]));
+  assert.doesNotMatch(handoff, /Maximum 200 total items|UTF-8|\d+ bytes|U\+0000|schema template|JSON template|Replace with substantive/);
+  assert.match(handoff, /approved Intake is governing scope/);
+  assert.match(handoff, /unresolved Operator question rather than inventing work or selecting a route/);
   const groundZero = "Project ground zero is the selected repository plus the local development machine. Distinguish verified installed, verified missing and unverified capabilities, repository bootstrap mechanisms and explicitly externally managed capabilities. Missing required capabilities are Project work unless approved evidence establishes external ownership.";
   assert.equal(blocks.filter(block => block === groundZero).length, 1);
   assert.equal(handoff.includes("Project Planning Direction must"), type === "project-creation");
   assert.ok(handoff.includes("never Operator Decisions"));
   if (type === "issue-resolution") {
-    assert.deepEqual(Object.keys(output), ["rootCauses"]);
-    assert.match(handoff, /1-12 typed RootCause/);
-    assert.match(handoff, /title .*200 bytes/);
-    assert.match(handoff, /each at most 4096 bytes/);
-    assert.match(handoff, /Optional confidence.*between 0 and 1/);
-    assert.match(handoff, /0-32 unique string IDs.*128 characters/);
-    assert.match(handoff, /at least one valid supplied Finding or Evidence before persistence succeeds/);
+    assert.match(handoff, /rootCauses as a collection of typed RootCause/);
+    for (const field of ["title", "statement", "rationale", "findingIds", "evidenceIds", "confidence"]) assert.ok(handoff.includes(field));
+    assert.match(handoff, /certainty between 0 and 1/);
+    assert.match(handoff, /at least one valid supplied Finding or Evidence/);
     assert.match(handoff, /exact IDs supplied/);
-    assert.ok(!handoff.includes("Feature dimensions"));
     const evidence = model.supportRecords.find(record => record.entityType === "Evidence");
     assert.ok(evidence, "Actual handoff supplies a valid Evidence ID");
     output.rootCauses[0].evidenceIds = [evidence.id];
@@ -97,19 +93,14 @@ function assertArchitectHandoff(model, type) {
     for (const key of Object.keys(sections)) assert.ok(handoff.includes(key));
     if (type === "project-creation") {
       assert.match(handoff, /exactly the fifteen/);
-      assert.match(handoff, /array of 1-32.*4000 bytes/);
-      assert.match(handoff, /Maximum 200 total items/);
-      assert.match(handoff, /sum of UTF-8 bytes of JSON-serialized section arrays/);
-      assert.match(handoff, /projectPlanningDirection joined with newline.*4096 bytes/);
-      assert.ok(Object.values(output).every(Array.isArray));
-      assert.ok(!handoff.includes("scalar string"));
+      for (const title of Object.values(GREENFIELD_ARCHITECT_SECTIONS)) assert.ok(handoff.includes(title));
+      assert.match(handoff, /each field is a collection/);
+      assert.match(handoff, /workflow_toolbox.submit_stage_candidate/);
+      assert.match(handoff, /materially unresolved questions/);
+      assert.match(handoff, /press Refresh/);
     } else {
       assert.match(handoff, /one nonempty scalar string, not an array/);
-      assert.ok(handoff.includes(`at most ${type === "feature-capability" ? 4096 : 4000} bytes`));
-      assert.ok(Object.values(output).every(value => typeof value === "string"));
-      if (type === "feature-capability") assert.match(handoff, /All seven dimensions are required/);
-      else assert.ok(!handoff.includes("seven dimensions"));
-      assert.ok(!handoff.includes("array of 1-32"));
+      for (const title of Object.values(sections)) assert.ok(handoff.includes(title));
     }
     assert.ok(!handoff.includes("typed RootCause"));
   }

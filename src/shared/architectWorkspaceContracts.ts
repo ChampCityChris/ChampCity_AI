@@ -81,32 +81,27 @@ export function validateGreenfieldArchitectOutput(value: unknown): asserts value
   if (size > ARCHITECT_LIMITS.transportBytes || count > ARCHITECT_LIMITS.totalItems) throw Error("Architect output exceeds the bounded transport limit.");
   if (new TextEncoder().encode((value as GreenfieldArchitectOutput).projectPlanningDirection.join("\n")).length > ARCHITECT_LIMITS.directionBytes) throw Error("Project Planning direction must fit the bounded solution objective.");
 }
-/** Contract prose and example share the validator's section definitions and bounds. */
+/** Semantic guidance is independent of transport validation and its bounds. */
 export function architectCandidateHandoffContract(type: WorkflowType): string[] {
-  const limits = ARCHITECT_LIMITS;
-  const textRule = "Nonempty text must contain no control characters U+0000-U+0008, U+000B, U+000C or U+000E-U+001F. Byte limits use UTF-8.";
-  const recommendationRule = "Proposed Architect decisions and recommendations are never Operator Decisions. Use the approved Intake. Do not choose a route.";
+  const recommendationRule = "Proposed Architect decisions and recommendations are never Operator Decisions. The approved Intake is governing scope. Do not infer additional implementation requirements solely from classification or metadata. If supplied context is materially ambiguous or conflicting, preserve the ambiguity as an unresolved Operator question rather than inventing work or selecting a route.";
   if (type === "project-creation") return [
-    `Construct a semantic candidate object with exactly the fifteen GREENFIELD_ARCHITECT_SECTIONS keys: ${Object.keys(GREENFIELD_ARCHITECT_SECTIONS).join(", ")}. Every value is an array of 1-${limits.sectionItems} nonempty strings, each at most ${limits.textBytes} bytes.`,
-    `Maximum ${limits.totalItems} total items; the sum of UTF-8 bytes of JSON-serialized section arrays must not exceed ${limits.transportBytes} bytes. projectPlanningDirection joined with newline must not exceed ${limits.directionBytes} bytes.`,
-    textRule, recommendationRule,
+    "Capture exactly the fifteen required semantic sections; each field is a collection of substantive text items or explicitly unresolved questions:",
+    ...Object.entries(GREENFIELD_ARCHITECT_SECTIONS).map(([field, section]) => `${section}: ${field}`),
+    recommendationRule,
     "Project Planning Direction must cover the full adopted Project scope, governing architecture, product capabilities, dependencies and acceptance obligations. Identify unresolved Operator decisions explicitly.",
-    "Semantic schema template (authoritative field names):", JSON.stringify(Object.fromEntries(Object.keys(GREENFIELD_ARCHITECT_SECTIONS).map(key => [key, ["Replace with substantive direction or an explicit unresolved item."]])))
   ];
   if (type === "issue-resolution") return [
-    `Return only one JSON object with exactly the top-level key rootCauses, an array of 1-${limits.rootCauses} typed RootCause candidates; no unrelated top-level keys. Total JSON transport must not exceed ${limits.transportBytes} UTF-8 bytes.`,
-    `Each candidate has required title (nonempty string, at most ${limits.titleBytes} bytes), statement and rationale (nonempty strings, each at most ${limits.featureBytes} bytes), findingIds and evidenceIds. Optional confidence is a finite number between 0 and 1 inclusive. No other candidate keys are allowed.`,
-    `findingIds and evidenceIds are each arrays of 0-${limits.referenceItems} unique string IDs, each at most ${limits.referenceLength} characters. Each candidate must cite at least one valid supplied Finding or Evidence before persistence succeeds. Use exact IDs supplied in the handoff SQL context for this Issue Workflow; Evidence may support the SQL Intake directly without a Finding.`,
-    textRule, recommendationRule,
-    "Workflow-specific JSON template (authoritative field names; replace reference arrays with supplied IDs):", JSON.stringify({rootCauses: [{title: "Cause title", statement: "Evidenced defect", rationale: "Explanation", confidence: 0.8, findingIds: [], evidenceIds: []}]})
+    "Capture rootCauses as a collection of typed RootCause candidates. Each candidate requires title, statement, rationale, findingIds and evidenceIds; optional confidence expresses certainty between 0 and 1.",
+    "findingIds and evidenceIds are collections of unique supplied IDs. Each candidate must cite at least one valid supplied Finding or Evidence. Use exact IDs supplied in the handoff SQL context for this Issue Workflow; Evidence may support the SQL Intake directly without a Finding.",
+    recommendationRule,
   ];
   const sections = type === "feature-capability" ? FEATURE_ARCHITECT_SECTIONS : Object.hasOwn(ASSESSMENT_SECTIONS, type) ? ASSESSMENT_SECTIONS[type as AssessmentWorkflowType] : undefined;
   if (!sections) throw Error("Architect output contract is unavailable for this Workflow type.");
   return [
-    `Return only one JSON object with exactly ${type === "feature-capability" ? "the seven FEATURE_ARCHITECT_SECTIONS" : "this workflow's ASSESSMENT_SECTIONS"} keys: ${Object.keys(sections).join(", ")}${type === "research-prototype" ? "; researchOutcome is the additional typed lifecycle-outcome field" : ""}. Every assessment dimension is one nonempty scalar string, not an array, at most ${type === "feature-capability" ? limits.featureBytes : limits.textBytes} bytes. All ${type === "feature-capability" ? "seven dimensions" : "workflow-specific dimensions"} are required. Total JSON transport must not exceed ${limits.transportBytes} UTF-8 bytes.`,
-    textRule, recommendationRule,
-    ...(type === "research-prototype" ? ["Also supply researchOutcome as a typed object: {outcome: no-implementation-plan-required or research-plan-required, prototypeDisposition: disposable or candidate-for-later-work, productionFollowUp: none or new-work-intake-required, evidence: nonempty bounded string array, decisionEnabled: string, successFailureResult: string, closureCondition: string}. Candidate-for-later-work requires new-work-intake-required. This outcome is reviewed within the same exact Architect cycle; prose recommendations cannot authorize closure."] : []),
-    "Workflow-specific JSON template (authoritative field names):", JSON.stringify(Object.fromEntries(Object.keys(sections).map(key => [key, "Replace with substantive assessment or explicitly unresolved direction."])))
+    "Capture all required assessment dimensions; each field is one nonempty scalar string, not an array:",
+    ...Object.entries(sections).map(([field, section]) => `${section}: ${field}`),
+    recommendationRule,
+    ...(type === "research-prototype" ? ["Also supply researchOutcome with outcome (no-implementation-plan-required | research-plan-required), prototypeDisposition (disposable | candidate-for-later-work), productionFollowUp (none | new-work-intake-required), evidence (a collection of substantive text), decisionEnabled, successFailureResult and closureCondition. Candidate-for-later-work requires new-work-intake-required. This outcome is reviewed within the same exact Architect cycle; prose recommendations cannot authorize closure."] : []),
   ];
 }
 export interface StructuredArchitectWorkspaceModel {
