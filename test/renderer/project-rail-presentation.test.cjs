@@ -575,3 +575,13 @@ test('recovered Project Planning adapter Refresh exposes both SQL documents and 
     values[1]='SQL readiness blocker';element=render();assert.equal(element.props.blocker.reason,'SQL readiness blocker');
   }finally{Object.assign(React,originals);global.window=oldWindow;}
 });
+
+test('Greenfield Architect rail preserves SQL completion unless an explicit model status is supplied',()=>{
+ const {greenfieldNestedRailModel}=require('./renderer-source-loader.cjs').loadRendererSourceModule('src/renderer/app/GreenfieldNestedWorkflowRail.tsx');
+ const props={activeWorkspaceId:'project-phase-map',requiredWorkspaceId:'project-phase-map',onWorkspaceChange(){},projectRailStatuses:{'architect-interview':'Completed'}};
+ const status=extra=>greenfieldNestedRailModel({...props,...extra}).projectSteps.find(step=>step.id==='architect-interview').presentation.statusLabel;
+ assert.equal(status({}),'Completed');
+ assert.equal(status({architectInterviewStatus:'Needs Attention'}),'Needs Attention');
+ assert.equal(status({architectInterviewStatus:'Awaiting Approval'}),'Awaiting Approval');
+ assert.equal(status({activeWorkspaceId:'architect-interview',requiredWorkspaceId:'architect-interview',projectRailStatuses:{}}),'Open');
+});

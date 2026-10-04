@@ -10,6 +10,7 @@ export interface WorkCardMapShellCandidate extends WorkCardMapCandidateProjectio
 export type WorkCardMapShellProjection=Omit<WorkCardMapProjection,"candidates"> & {candidates:WorkCardMapShellCandidate[]};
 
 export function WorkCardMapShell({
+  readOnly = false,
   actionError,
   actionFeedback,
   onCopy,
@@ -19,6 +20,7 @@ export function WorkCardMapShell({
   onOpenPhaseValidation,
   projection,
 }: {
+  readOnly?: boolean;
   actionError: string;
   actionFeedback: string;
   onCopy: (markdown:string)=>void;
@@ -49,14 +51,14 @@ export function WorkCardMapShell({
       <header className="figma-work-card-map-screen-header">
         <h1 id="workspace-heading">Work Card Map</h1>
         {projection?.state === "all-complete" ? (
-          <button className="figma-work-card-map-primary-action" onClick={onOpenPhaseValidation} type="button">
+          <button className="figma-work-card-map-primary-action" disabled={readOnly} onClick={onOpenPhaseValidation} type="button">
             <ArrowRight aria-hidden="true" size={16} />
             Phase Validation
           </button>
         ) : (
           <button
             className="figma-work-card-map-primary-action"
-            disabled={!canBeginSelected || isBeginningPlanning}
+            disabled={readOnly || !canBeginSelected || isBeginningPlanning}
             onClick={() => {
               if (selectedCandidate) {
                 onBeginPlanning(selectedCandidate.candidateId);

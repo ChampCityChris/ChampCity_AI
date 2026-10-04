@@ -5,7 +5,7 @@ import { type StructuredArchitectWorkspaceModel } from "../../shared/architectWo
 import {FigmaDocumentDispositionPanel} from "./FigmaDocumentDispositionPanel";
 import type {DocumentDispositionStatus} from "../../shared/documents/documentDisposition";
 
-export function GreenfieldArchitectWorkspace(props: {workflowId: string | null; browserCompanion: ReactNode; browserVisible: boolean; onRailStatus?: (status: StructuredArchitectWorkspaceModel["railStatus"]) => void;
+export function GreenfieldArchitectWorkspace(props:{readOnly?:boolean;workflowId: string | null; browserCompanion: ReactNode; browserVisible: boolean; onRailStatus?: (status: StructuredArchitectWorkspaceModel["railStatus"]) => void;
   stageLabel?: string; onReturn?: () => void; onNext?: () => Promise<void>; onApproved?: () => Promise<void>; supportControls?: ReactNode; refreshToken?: number}): JSX.Element {
   const [model, setModel] = useState<StructuredArchitectWorkspaceModel | null>(null);
   const [notes, setNotes] = useState("");
@@ -35,8 +35,8 @@ export function GreenfieldArchitectWorkspace(props: {workflowId: string | null; 
   const actionInFlight=useRef(false);
  async function action(work: () => Promise<void>) {if(actionInFlight.current)return;actionInFlight.current=true;setBusy(true); setError(""); setFeedback(""); try {await work();} catch (reason) {setError(reason instanceof Error ? reason.message : String(reason));} finally {actionInFlight.current=false;setBusy(false);}}
   const refresh = () => void action(async () => {if (!props.workflowId) throw Error("Exact Greenfield Workflow required."); accept(await window.champcity.getStructuredArchitectWorkspace(props.workflowId));});
-  const prepare = () => void action(async () => {if (!props.workflowId) throw Error("Exact Greenfield Workflow required."); accept(await window.champcity.prepareStructuredArchitectWorkspace(props.workflowId)); setFeedback("Handoff prepared from current SQL Intake.");});
-  const browserActions = <ArchitectInterviewBrowserActions canPrepareHandoff={!busy && !!model?.ready} canCopyHandoff={!busy && !!model?.handoff}
+  const prepare = () => {if(props.readOnly)return;void action(async () => {if (!props.workflowId) throw Error("Exact Greenfield Workflow required."); accept(await window.champcity.prepareStructuredArchitectWorkspace(props.workflowId)); setFeedback("Handoff prepared from current SQL Intake.");});};
+  const browserActions = <ArchitectInterviewBrowserActions canPrepareHandoff={!props.readOnly && !busy && !!model?.ready} canCopyHandoff={!busy && !!model?.handoff}
     onPrepareHandoff={prepare} onCopyHandoff={() => void action(async () => {await navigator.clipboard.writeText(model!.handoff!);})}
     onRefresh={refresh} onReloadBrowser={() => void action(async () => {await reloadArchitectBrowserWithRecovery();})}
     onRetryBrowser={() => void action(async () => {await reloadArchitectBrowserWithRecovery();})}
@@ -46,12 +46,12 @@ export function GreenfieldArchitectWorkspace(props: {workflowId: string | null; 
     document={{selectedDocument, documentError:"", feedback:model?.materializationError ?? "", slots, selectedSlotId, onSelectSlot:setSelectedSlotId,
       onCopy:() => void action(async () => {await navigator.clipboard.writeText(selectedDocument?.bodyMarkdown ?? selectedDocument?.preview ?? "");})}}
     reviewControls={<>
-      {showingReview && model?.review ? <FigmaDocumentDispositionPanel canApply={!!status && !busy} isApplying={busy}
+      {showingReview && model?.review ? <FigmaDocumentDispositionPanel canApply={!props.readOnly && !!status && !busy} isApplying={!!props.readOnly||busy}
         currentDocument={selectedDocument?.displayFilename} effectiveDisposition={selectedDocument?.effectiveDisposition}
         workflowStep="Review & Validation" notes={notes} onNotesChange={setNotes} onStatusChange={setStatus} status={status}
-        onApply={() => void action(async () => {const outcome = status === "Approved" ? "approved" : status === "RevisionRequested" ? "revision_requested" : "rejected";
+        onApply={() => {if(props.readOnly)return;void action(async () => {const outcome = status === "Approved" ? "approved" : status === "RevisionRequested" ? "revision_requested" : "rejected";
           const next = await window.champcity.reviewStructuredArchitectOutput(props.workflowId!, model!.review!.cycleId, {expectedRecordVersion:model!.review!.recordVersion, outcome, notes});
-          accept(next); if (outcome === "approved") await (props.onApproved ?? props.onNext)?.(); setStatus(""); setFeedback("Operator review recorded.");})} /> : null}
+          accept(next); if (outcome === "approved") await (props.onApproved ?? props.onNext)?.(); setStatus(""); setFeedback("Operator review recorded.");});}} /> : null}
       {props.supportControls}
       {model?.supportRecords?.length ? <details><summary>Workflow supporting records</summary><ul>{model.supportRecords.map(record => <li key={record.id}><code>{record.id}</code> · {record.entityType === "Evidence" ? record.body.description : record.entityType === "Finding" ? record.body.title : record.entityType}</li>)}</ul></details> : null}
       </>}

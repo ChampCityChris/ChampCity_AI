@@ -18,7 +18,7 @@ export function workCardMapFromSql(planning:Planning,execution:WorkflowExecution
  });
  return {state:!approved?"needs-attention":validation.workItemsClosed?"all-complete":"ready",phaseId:planning.phase.body.phaseKey,sourceWorkCardPlanPath:`project-state:${planning.review?.cycle.id??planning.phase.id}`,phaseValidationWorkspaceId:"phase-validation",reason:planning.staleReview?.reason??(!approved?"Approve the current Phase Planning and Work Card Plan.":validation.workItemsClosed?"All planned Work Cards are complete for this phase.":"Work Card candidates are projected from the current Approved Work Card Plan."),candidates};
 }
-export function WorkCardMapWorkspace(props:{workflowId:string;phaseId:string;onOpenWorkItem:(workItemId:string)=>void;onOpenPhaseValidation:()=>void}):JSX.Element {
+export function WorkCardMapWorkspace(props:{readOnly?:boolean;workflowId:string;phaseId:string;onOpenWorkItem:(workItemId:string)=>void;onOpenPhaseValidation:()=>void}):JSX.Element {
  const [projection,setProjection]=useState<(WorkCardMapShellProjection & {requestKey:string})|null>(null),[error,setError]=useState("");const generation=useRef(0);
  useEffect(()=>{const token=++generation.current;setProjection(null);setError("");void (async()=>{
   const planning=await window.champcity.getStructuredPhaseLoop(props.workflowId,props.phaseId,"planning");
@@ -26,6 +26,6 @@ export function WorkCardMapWorkspace(props:{workflowId:string;phaseId:string;onO
   const next=workCardMapFromSql(planning,execution,validation);if(token===generation.current)setProjection({...next,requestKey:props.workflowId+":"+props.phaseId});
  })().catch(reason=>{if(token===generation.current)setError(String(reason));});return()=>{generation.current++;};},[props.workflowId,props.phaseId]);
  const current=projection?.requestKey===props.workflowId+":"+props.phaseId?projection:null;
- return <WorkCardMapShell key={props.workflowId+props.phaseId} projection={current} phaseLabel={props.phaseId} actionError={error} actionFeedback="" isBeginningPlanning={false}
-  onCopy={markdown=>void navigator.clipboard.writeText(markdown).catch(reason=>setError(String(reason)))} onBeginPlanning={id=>{if(current?.candidates.some(item=>item.candidateId===id&&item.canBegin))props.onOpenWorkItem(id);}} onOpenPhaseValidation={()=>{if(current?.state==="all-complete")props.onOpenPhaseValidation();}}/>;
+ return <WorkCardMapShell readOnly={props.readOnly} key={props.workflowId+props.phaseId} projection={current} phaseLabel={props.phaseId} actionError={error} actionFeedback="" isBeginningPlanning={false}
+  onCopy={markdown=>void navigator.clipboard.writeText(markdown).catch(reason=>setError(String(reason)))} onBeginPlanning={id=>{if(!props.readOnly&&current?.candidates.some(item=>item.candidateId===id&&item.canBegin))props.onOpenWorkItem(id);}} onOpenPhaseValidation={()=>{if(!props.readOnly&&current?.state==="all-complete")props.onOpenPhaseValidation();}}/>;
 }

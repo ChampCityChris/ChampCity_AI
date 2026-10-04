@@ -5,7 +5,7 @@ import type {ChampCityApi,CodexTesterExecutionModel} from "../../shared/workspac
 type Review=Awaited<ReturnType<ChampCityApi["getStructuredWorkItemReview"]>>;
 type Planning=Awaited<ReturnType<ChampCityApi["getStructuredWorkItemPlanning"]>>;
 type Report=Awaited<ReturnType<ChampCityApi["getImplementationAttempt"]>>;
-export interface WorkItemReviewWorkspaceProps {workflowId:string;workItemId:string;browserPanel?:ReactNode;onClosed:()=>void;onRepair:(repairId:string)=>void;onValidation?:()=>void}
+export interface WorkItemReviewWorkspaceProps {readOnly?:boolean;workflowId:string;workItemId:string;browserPanel?:ReactNode;onClosed:()=>void;onRepair:(repairId:string)=>void;onValidation?:()=>void}
 
 /** Shared application binding for the two distinct aggregate review surfaces. */
 export function useWorkItemReviewContext(props:WorkItemReviewWorkspaceProps) {
@@ -22,11 +22,11 @@ export function useWorkItemReviewContext(props:WorkItemReviewWorkspaceProps) {
  }
  useEffect(()=>{const token=++generation.current;setReview(null);setPlanning(null);setReport(null);setTester(null);setNotes("");setDefect("");setSelected("report");setBusy(false);setError("");setFeedback("");void load(token).catch(reason=>{if(token===generation.current)setError(String(reason));});return()=>{generation.current++;};},[props.workflowId,props.workItemId]);
  useEffect(()=>{if(tester?.state!=="running")return;const token=generation.current;const timer=window.setInterval(()=>void load(token).catch(reason=>{if(token===generation.current)setError(String(reason));}),1500);return()=>window.clearInterval(timer);},[tester?.state,props.workflowId,props.workItemId]);
- async function action(work:()=>Promise<unknown>,message="") {if(!exact||busy)return;const token=generation.current;setBusy(true);setError("");try{await work();await load(token);if(token===generation.current)setFeedback(message);}catch(reason){if(token===generation.current)setError(String(reason));}finally{if(token===generation.current)setBusy(false);}}
+ async function action(work:()=>Promise<unknown>,message="",mutation=false) {if(mutation&&props.readOnly||!exact||busy)return;const token=generation.current;setBusy(true);setError("");try{await work();await load(token);if(token===generation.current)setFeedback(message);}catch(reason){if(token===generation.current)setError(String(reason));}finally{if(token===generation.current)setBusy(false);}}
  const completed=exact&&report?.attempt.body.attemptState==="completed"&&report.attempt.body.implementationRecordId===review.validation.implementationRecordId&&review.workItem.body.workState==="validation_pending";
- const canPass=!!completed&&!busy&&!error&&!!review?.validation.completion.eligible&&!!review.validation.testerResultId;
- const canRepair=!!completed&&!busy&&!error&&!!defect.trim();
- const prepare=()=>action(()=>window.champcity.prepareWorkItemValidationCycle(props.workflowId,props.workItemId),"Current validation attempt prepared.");
+ const canPass=!props.readOnly&&!!completed&&!busy&&!error&&!!review?.validation.completion.eligible&&!!review.validation.testerResultId;
+ const canRepair=!props.readOnly&&!!completed&&!busy&&!error&&!!defect.trim();
+ const prepare=()=>!props.readOnly&&action(()=>window.champcity.prepareWorkItemValidationCycle(props.workflowId,props.workItemId),"Current validation attempt prepared.");
  async function decide(outcome:"ValidatePassed"|"RequestRepair") {
   if(outcome==="ValidatePassed"?!canPass:!canRepair)return;
   await action(async()=>{
@@ -44,14 +44,14 @@ export function useWorkItemReviewContext(props:WorkItemReviewWorkspaceProps) {
   selectedDocumentLabel:document.label,selectedDocumentFilename:document.label+".md",selectedDocumentPath:document.path,selectedDocumentStatus:document.status,selectedDocumentBody:document.body,operatorNotes:notes,onOperatorNotesChange:setNotes,repairDefectText:defect,onRepairDefectTextChange:setDefect,
   advisoryField:review?.cycle?.cycle.body.advisorySummary?{label:"Advisory Architect summary",value:review.cycle.cycle.body.advisorySummary,readOnly:true}:undefined,onValidatePassed:()=>void decide("ValidatePassed"),onRequestRepair:()=>void decide("RequestRepair"),documentError:error,feedback};
  const documentActions=<div className="validation-action-row"><button type="button" disabled={!document.body} onClick={()=>void navigator.clipboard.writeText(document.body)}>Copy</button><button type="button" disabled={!document.body||busy} onClick={()=>void action(()=>window.champcity.exportMarkdownDocument({suggestedFilename:document.label.replaceAll(" ","_")+".md",markdown:document.body}))}>Export Markdown…</button></div>;
- const proofActions=exact?<WorkItemProofActions workflowId={props.workflowId} workItemId={props.workItemId} review={review} tester={tester} busy={busy} action={action} onRepair={props.onRepair}/>:null;
+ const proofActions=exact?<WorkItemProofActions workflowId={props.workflowId} workItemId={props.workItemId} review={review} tester={tester} busy={!!props.readOnly||busy} action={(work,message)=>action(work,message,true)} onRepair={props.onRepair}/>:null;
  return {review,planning,report,tester,busy,error,completed,prepare,action,load,decision,documentActions,proofActions,
   shell:{identity:exact?`${review.workItem.body.candidateKey??review.workItem.id} - ${review.workItem.body.title}`:props.workItemId,contractPath:`project-state:${props.workItemId}`,reportStatus:report?`revision ${report.attempt.recordVersion} | ${report.attempt.body.attemptState}`:"Waiting",reportPath:report?`project-state:${report.attempt.id}`:"Create Implementer Report",decision,documentActions,proofActions} satisfies WorkCardReviewValidationShellProps};
 }
 
 export function WorkCardReviewValidationWorkspace(props:WorkItemReviewWorkspaceProps):JSX.Element {
  const context=useWorkItemReviewContext(props);
- return <WorkCardReviewValidationShell {...context.shell} browserPanel={props.browserPanel?<div className="figma-browser-column">{props.browserPanel}<div className="validation-action-row"><button type="button" disabled={!context.completed||context.busy} onClick={()=>void context.action(async()=>{await window.champcity.prepareWorkItemValidationCycle(props.workflowId,props.workItemId);},"Advisory context prepared.")}>Prepare Advisory Review</button><button type="button" disabled={!context.review?.handoff} onClick={()=>void navigator.clipboard.writeText(context.review?.handoff??"")}>Copy Handoff</button></div></div>:null}
+ return <WorkCardReviewValidationShell {...context.shell} browserPanel={props.browserPanel?<div className="figma-browser-column">{props.browserPanel}<div className="validation-action-row"><button type="button" disabled={props.readOnly||!context.completed||context.busy} onClick={()=>void context.action(async()=>{await window.champcity.prepareWorkItemValidationCycle(props.workflowId,props.workItemId);},"Advisory context prepared.",true)}>Prepare Advisory Review</button><button type="button" disabled={!context.review?.handoff} onClick={()=>void navigator.clipboard.writeText(context.review?.handoff??"")}>Copy Handoff</button></div></div>:null}
   navigation={<div className="validation-action-row"><button type="button" onClick={()=>void context.action(async()=>{},"SQL evidence refreshed.")}>Refresh</button>{props.onValidation?<button type="button" disabled={!context.completed} onClick={props.onValidation}>Open Work Card Validation</button>:null}</div>}/>;
 }
 

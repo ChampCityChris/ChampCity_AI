@@ -9530,3 +9530,9 @@ body {
 .workspace-shell-frame > .figma-doc-chat-workspace { flex:1; height:auto; min-height:0; }
 /* The recovered browser panel has toolbar, native host, and status rows. */
 .greenfield-shell-host .figma-browser-panel { grid-template-rows: auto minmax(0, 1fr) auto; }
+
+/* Direct recovered roots stretch within the same definite stage grid track. */
+.greenfield-shell-content > :is(.figma-phase-map-workspace, .figma-doc-chat-workspace, .figma-intake-workspace, .figma-work-card-map-screen, .work-card-repair-workspace) { height:auto; align-self:stretch; min-height:0; }
+.greenfield-shell-content > .figma-phase-map-workspace { grid-template-rows:minmax(0, 1fr); }
+.greenfield-shell-host .figma-browser-column { align-self:stretch; }
+.greenfield-shell-host .figma-browser-column > .figma-browser-panel { flex:1 1 0; }

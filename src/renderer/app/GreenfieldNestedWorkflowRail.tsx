@@ -190,7 +190,7 @@ const workCardStepIdsByLoopStep = {
 } as const;
 
 export function greenfieldNestedRailModel({
-  activeWorkspaceId, architectInterviewStatus = "Open", executionContext,
+  activeWorkspaceId, architectInterviewStatus, executionContext,
   onWorkspaceChange, projectRailStatuses = {}, projectIntakeStatus = "Open", requiredWorkspaceId = null,
 }: GreenfieldNestedWorkflowRailProps): NestedWorkflowRailShellProps {
   const requiredLoopWorkspaceId = requiredWorkspaceId && phaseOrWorkCardWorkspaceIds.has(requiredWorkspaceId) ? requiredWorkspaceId : activeWorkspaceId;

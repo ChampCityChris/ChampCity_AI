@@ -3300,6 +3300,10 @@
           "description": "generic preview disposition footer is suppressed only for Project Intake and specialized workspaces"
         },
         {
+          "behaviorId": "greenfield-architect-rail-preserves-sql-completion-unless-an-explicit-model-status-is-supplied",
+          "description": "Greenfield Architect rail preserves SQL completion unless an explicit model status is supplied"
+        },
+        {
           "behaviorId": "greenfield-composes-all-eighteen-recovered-adapters-with-exact-identities-and-no-generic-execution-fallback",
           "description": "Greenfield composes all eighteen recovered adapters with exact identities and no generic execution fallback"
         },
@@ -14040,6 +14044,12 @@
           "capabilityId": "renderer-navigation-and-presentation",
           "behaviorId": "generic-preview-disposition-footer-is-suppressed-only-for-project-intake-and-specialized-workspa",
           "proofLocator": "generic preview disposition footer is suppressed only for Project Intake and specialized workspaces",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "renderer-navigation-and-presentation",
+          "behaviorId": "greenfield-architect-rail-preserves-sql-completion-unless-an-explicit-model-status-is-supplied",
+          "proofLocator": "Greenfield Architect rail preserves SQL completion unless an explicit model status is supplied",
           "proofRole": "primary"
         },
         {

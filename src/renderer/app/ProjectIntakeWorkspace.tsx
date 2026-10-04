@@ -4,6 +4,7 @@ import { type ProjectIntakeSubmission } from "../../shared/workspaceContracts";
 import {ProjectIntakeShell} from "./ProjectIntakeShell";
 
 type ProjectIntakeWorkspaceProps = {
+  readOnly?: boolean;
   workflowId?: string;
   onPrepared: () => void;
   onRailStatus: (status: "Open" | "Awaiting Approval" | "Completed") => void;
@@ -24,8 +25,8 @@ export function ProjectIntakeWorkspace(props: ProjectIntakeWorkspaceProps): JSX.
   const document = state.model?.reviewDocument ?? null;
   return <ProjectIntakeShell {...props} isSubmittingIntake={state.busy}
     onChange={value => {props.onChange(value); state.markDirty();}}
-    onSubmit={() => void state.save({workflowType:"project-creation", values:{...props.value, projectRepository:props.repositoryIdentity}})}
-    captureDisabled={!state.loaded || state.busy}
+    onSubmit={() => !props.readOnly && void state.save({workflowType:"project-creation", values:{...props.value, projectRepository:props.repositoryIdentity}})}
+    captureDisabled={props.readOnly || !state.loaded || state.busy}
     postSubmitConfirmation={document && !state.dirty ? {
       summary:"Project Intake Markdown was created successfully in the active repository.",
       entries:[{label:"Project Intake Markdown", value:document.markdownPath}],
@@ -33,9 +34,9 @@ export function ProjectIntakeWorkspace(props: ProjectIntakeWorkspaceProps): JSX.
     feedback={state.error ? <p role="alert">{state.error}</p> : null}
     document={{selectedDocument:document, documentError:state.error, feedback:state.model?.materializationError ?? "",
       neutralMessage:"Save Intake to generate Markdown for review.", onCopy:() => {void navigator.clipboard.writeText(document?.bodyMarkdown ?? "");}}}
-    disposition={document ? {canApply:Boolean(state.status) && !state.dirty && state.loaded, currentDocument:document.displayFilename,
+    disposition={document ? {canApply:!props.readOnly && Boolean(state.status) && !state.dirty && state.loaded, currentDocument:document.displayFilename,
       effectiveDisposition:document.effectiveDisposition, isApplying:state.busy, notes:state.notes, onNotesChange:state.setNotes,
-      onStatusChange:state.setStatus, status:state.status, onApply:() => void state.review(), workflowStep:"Review & Validation",
+      onStatusChange:state.setStatus, status:state.status, onApply:() => {if(!props.readOnly)void state.review();}, workflowStep:"Review & Validation",
       warning:state.dirty ? "Save changes before reviewing the current Intake revision." : undefined} : null}
     />;
 }
