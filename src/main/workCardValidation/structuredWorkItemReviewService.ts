@@ -8,6 +8,16 @@ import {createWorkflowExecutionApplicationService} from "../workflow/workflowExe
 import type {StructuredWorkItemReview} from "../../shared/structuredWorkItemReviewContracts";
 import type {ProjectStateRecord} from "../../shared/projectState/domainContracts";
 const operator={principalId:"local-operator",principalType:"human" as const,role:"Operator"};
+const label = (key:string) => key.replace(/([a-z])([A-Z])/g,"$1 $2").replace(/^./,value=>value.toUpperCase());
+/** Lossless semantic detail for inspection; no raw record JSON in generated documents. */
+function facts(value:unknown, indent=""):string {
+  if(value===null||value===undefined)return "None";
+  if(Array.isArray(value))return value.length?value.map((entry,index)=>typeof entry==="object"&&entry!==null?`${indent}- Item ${index+1}:\n${facts(entry,indent+"  ")}`:`${indent}- ${facts(entry)}`).join("\n"):"None";
+  if(typeof value==="object")return Object.entries(value).map(([key,entry])=>`${indent}- ${label(key)}:${typeof entry==="object"&&entry!==null&&Object.keys(entry).length?"\n"+facts(entry,indent+"  "):" "+facts(entry)}`).join("\n");
+  return String(value);
+}
+const section=(title:string,value:unknown)=>`## ${title}\n\n${facts(value)}`;
+const recommendation=(value:string)=>value==="ValidatePassed"?"Validate Passed":value==="RequestRepair"?"Request Repair":value;
 export function createStructuredWorkItemReviewService() {
   async function withStore<T>(root:string,work:(store:ReturnType<typeof createSQLiteProjectStateStore>,projectId:string)=>Promise<T>) {
     const canonical=fs.realpathSync(root),projectId=selectedCurrentProjectId(canonical, {includeClosed: true});if(!projectId)throw Error("Selected SQL Project required.");
@@ -27,11 +37,39 @@ export function createStructuredWorkItemReviewService() {
       const checkpoints=(await store.listEntities(projectId,"SourceCheckpoint")).filter((record):record is ProjectStateRecord<"SourceCheckpoint">=>record.entityType==="SourceCheckpoint"&&record.body.workflowId===workflowId&&linked("checkpoints",record.id));
       const repairs=edges.filter(edge=>edge.relationshipType==="repairs"&&(edge.toEntityId===workItemId||edge.fromEntityId===workItemId)).map(edge=>({repairId:edge.fromEntityId,parentId:edge.toEntityId}));
       const cycle = await state.getWorkItemValidationCycle(projectId, workflowId, workItemId);
+      const attempt = await state.getImplementationAttempt(projectId,workflowId,workItemId);
+      const report = attempt ? await state.getImplementationAttemptReport(projectId,attempt.id) : null;
+      const currentResult=implementations.find(record=>record.id===validation.implementationRecordId);
+      const currentTester=testers.find(record=>record.id===validation.testerResultId);
+      const repairLineage=await Promise.all(repairs.map(async lineage=>{
+        const repair=await store.getEntity(projectId,lineage.repairId);
+        return {...lineage,revision:repair?.recordVersion,...(repair?.entityType==="WorkItem"?{title:repair.body.title,state:repair.body.workState,objective:repair.body.objective}:{})};
+      }));
+      const criterionSummary={...validation,criteria:validation.criteria.map(({criterion,...proof})=>({...proof,criterionId:criterion.id,criterionRevision:criterion.recordVersion,statement:criterion.body.statement,criticality:criterion.body.criticality}))};
+      const currentCheckpoints=checkpoints.filter(record=>edges.some(edge=>edge.relationshipType==="checkpoints"&&edge.fromEntityId===record.id&&(edge.toEntityId===currentResult?.id||edge.toEntityId===currentTester?.id)));
+      const contract=[`# Approved Work Card: ${workItem.body.title}`,`Workflow: ${workflowId}; WorkItem: ${workItem.id}@${workItem.recordVersion}`,workItem.body.objective,
+        section("Execution contract",{implementationBoundaries:workItem.body.implementationBoundaries,affectedPaths:workItem.body.affectedPaths,proofIntent:workItem.body.proofIntent}),
+        section("Criteria",validation.criteria.map(entry=>({id:entry.criterion.id,revision:entry.criterion.recordVersion,...entry.criterion.body})))].join("\n\n");
+      const basis=cycle?{workflowId,workItemId,implementationAttemptId:cycle.cycle.body.implementationAttemptId,implementationRecordId:cycle.cycle.body.implementationRecordId,cycleId:cycle.cycle.id,cycleRevision:cycle.cycle.recordVersion,current:cycle.current}:null;
+      const advisoryMarkdown=cycle?.cycle.body.advisorySummary ? ["# Architect Advisory Review",section("Summary",cycle.cycle.body.advisorySummary),
+        section("Recommendation",recommendation(cycle.cycle.body.advisoryRecommendation??"Inconclusive")),section("Blocking findings",cycle.cycle.body.advisoryBlockingFindings??[]),
+        ...(cycle.cycle.body.advisoryRepairDefectText?[section("Suggested repair defect",cycle.cycle.body.advisoryRepairDefectText)]:[]),section("Review basis",basis),
+        "Generated from SQL; non-authoritative advisory. Only the Operator can record disposition."].join("\n\n"):undefined;
       const reviewedSources = cycle ? await Promise.all(cycle.cycle.body.layout.sources.map(source => store.getEntityVersion(projectId,source.entityId,source.recordVersion))) : [];
       const handoff = [...workflowCandidateHandoff(fs.realpathSync(root),workflowId,"work-item-review-advisory",workItemId),
-        "Review the exact approved WorkItem contract and current SQL Implementer Report, Tester/criterion/source evidence below. Construct the semantic advisory object with fields advisorySummary, advisoryBlockingFindings, advisoryRecommendation (ValidatePassed | RequestRepair | Inconclusive), optional advisoryRepairDefectText. Advice never approves or completes work.", JSON.stringify({workItem,implementations,testers,validations,decisions,checkpoints,cycle},null,2)].join("\n\n");
-      const markdown=["# Work Card Validation Record",JSON.stringify({workflowId,workItem,implementations,testers,validations,evidence,decisions,checkpoints,repairs,cycle,reviewedSources,current:validation},null,2),"Generated projection only. Editing or deleting this report cannot change SQL authority."].join("\n\n");
-      return {workflowId,workItem,implementations,testers,validations,evidence,decisions,checkpoints,repairs,validation,cycle,handoff,markdown};
+        "Review the exact current evidence below. Ask only materially unresolved questions if needed. Submit advisorySummary, advisoryBlockingFindings[], advisoryRecommendation (ValidatePassed | RequestRepair | Inconclusive), and optional advisoryRepairDefectText with workflow_toolbox.submit_stage_candidate, stage work-item-review-advisory, in the exact Workflow and WorkItem scope above. Advice never approves or completes work. Advice does not approve, close, validate, or create Repair authority. After submission tell the Operator to press Refresh.",
+        contract,report?.markdown??"Implementer Report: not yet available",section("Current implementation",{attemptId:attempt?.id,attemptRevision:attempt?.recordVersion,resultId:currentResult?.id,resultRevision:currentResult?.recordVersion}),
+        section("Current Tester",currentTester?{id:currentTester.id,revision:currentTester.recordVersion,...currentTester.body}:null),
+        section("Criterion proof summary",criterionSummary),section("Source / checkpoints",currentCheckpoints.map(record=>({id:record.id,revision:record.recordVersion,...record.body}))),
+        section("Repair lineage",repairLineage),section("Advisory cycle",basis),advisoryMarkdown??"Architect advisory: not yet submitted"].join("\n\n");
+      const markdown=["# Work Card Validation Record",section("Work Card identity and state",{workflowId,workItemId,title:workItem.body.title,state:workItem.body.workState,revision:workItem.recordVersion}),
+        section("Implementation attempt and result",{attemptId:attempt?.id,attemptRevision:attempt?.recordVersion,resultId:validation.implementationRecordId}),
+        section("Tester recommendation and evidence",currentTester?.body??null),section("Criterion proof summary",criterionSummary),section("Source / checkpoint status",currentCheckpoints.map(record=>({id:record.id,revision:record.recordVersion,...record.body}))),
+        advisoryMarkdown??section("Architect advisory","Not yet submitted"),section("Operator notes",cycle?.cycle.body.operatorNotes??null),section("Repair defect text",cycle?.cycle.body.repairDefectText??null),
+        section("Aggregate disposition / currentness",cycle?{...basis,disposition:cycle.disposition}:"Not prepared"),section("Repair lineage",repairLineage),
+        section("SQL review metadata and evidence",{workItem,implementations,testers,validations,evidence,decisions,checkpoints,cycle,reviewedSources,current:validation}),
+        "Generated projection only. Editing or deleting this report cannot change SQL authority."].join("\n\n");
+      return {workflowId,workItem,implementations,testers,validations,evidence,decisions,checkpoints,repairs,validation,cycle,handoff,markdown,advisoryMarkdown};
     });
   }
   async function prepare(root:string,workflowId:string,workItemId:string) {

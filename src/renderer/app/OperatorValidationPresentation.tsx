@@ -34,7 +34,9 @@ export function OperatorValidationPresentation({
   selectedDocumentPath,
   selectedDocumentStatus,
   validatePassedLabel = "Validate Passed",
+  surface = "all",
 }: {
+  surface?: "all" | "documents" | "decision";
   advisoryField?: {
     label: string;
     value: string;
@@ -70,7 +72,7 @@ export function OperatorValidationPresentation({
 }): JSX.Element {
   return (
     <section className="work-card-report-document-pane" aria-label={ariaLabel}>
-      <div className="architect-document-selector" role="tablist" aria-label={ariaLabel}>
+      {surface!=="decision"?<><div className="architect-document-selector" role="tablist" aria-label={ariaLabel}>
         {documentChoices.map((document) => (
           <button
             aria-selected={selectedDocumentId === document.id}
@@ -99,8 +101,9 @@ export function OperatorValidationPresentation({
         </header>
         <pre className="preview-body">{selectedDocumentBody}</pre>
       </article>
+      {documentError ? <div className="document-error" role="status">{documentError}</div> : null}</>:null}
 
-      <section className="architect-review-panel" aria-label={decisionAriaLabel}>
+      {surface!=="documents"?<section className="architect-review-panel" aria-label={decisionAriaLabel}>
         <label>
           <span>{operatorNotesLabel}</span>
           <textarea
@@ -141,7 +144,7 @@ export function OperatorValidationPresentation({
         {documentError ? <div className="document-error" role="status">{documentError}</div> : null}
         {feedback ? <div className="document-feedback" role="status">{feedback}</div> : null}
         {outcomeMessage ? <div className="document-feedback" role="status">{outcomeMessage}</div> : null}
-      </section>
+      </section>:null}
     </section>
   );
 }

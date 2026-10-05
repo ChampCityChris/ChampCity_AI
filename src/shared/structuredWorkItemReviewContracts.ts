@@ -13,6 +13,7 @@ export interface StructuredWorkItemReview {
   validation: WorkItemValidationProjection;
   cycle?: {cycle: ProjectStateRecord<"WorkItemValidationCycle">; current: boolean; disposition: import("./projectState/projectStateService").EffectiveDisposition} | null;
   handoff?: string;
+  advisoryMarkdown?: string;
   markdown: string;
 }
 

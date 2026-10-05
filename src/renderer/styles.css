@@ -9526,9 +9526,14 @@ body {
 .work-card-implement-footer { grid-column: 1 / -1; min-width: 0; }
 .work-card-implement-navigation { min-width: 0; }
 
-/* SQL Tester/criterion ports beneath the recovered Report Review controls. */
+/* Review tabs own one bounded body; browser actions keep intrinsic height. */
+.review-validation-workspace .work-card-report-review-workspace { grid-template-rows: auto auto minmax(0, 1fr) auto; overflow: hidden; }
+.review-workspace-tabs { min-height: 38px; }
 .work-card-report-review-body { min-height: 0; min-width: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
-.work-card-report-review-body > .work-card-report-document-pane { flex: 1 0 420px; }
+.work-card-report-review-body > .work-card-report-document-pane { flex: 1 0 auto; overflow: visible; grid-template-rows: auto minmax(0, 1fr); }
+.work-card-report-review-body .architect-review-panel { grid-template-columns: 1fr; }
+.review-validation-workspace .figma-browser-column > .figma-browser-actions-panel { flex: 0 0 auto; }
+.review-validation-workspace .figma-browser-column > .figma-browser-panel { flex: 1 1 0; min-height: 0; }
 .work-card-review-proof { min-width: 0; padding: 8px; }
 .work-card-review-proof pre { max-height: 180px; overflow: auto; white-space: pre-wrap; }
 
