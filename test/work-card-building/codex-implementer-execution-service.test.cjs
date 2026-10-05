@@ -456,3 +456,79 @@ test("exact source-backed and source-neutral WorkItems use the bounded Tester li
   assert.equal(checkoutRegistrations, 3, "Only actual Runs materialize source; durable report/status reads do not prepare another checkout");
   assert.equal(appServerCalls, 3);
 });
+
+
+test("source-backed no-mutation WorkItems complete, recover unchanged attempts, and keep strict mutation checkpoint boundaries", async t => {
+ const {execFileSync}=require('node:child_process');
+ const {runtimeFixture,selection}=require('../support/codex-runtime.cjs');
+ const {createWorkflowExecutionApplicationService}=require('../../dist/main/workflow/workflowExecutionApplicationService.js');
+ const {createSQLiteProjectStateStore}=require('../../dist/main/projectState/sqliteProjectStateStore.js');
+ const {registerCurrentProject}=require('../../dist/main/projectState/currentProjectRegistrationService.js');
+ const {createProjectStateService}=require('../../dist/shared/projectState/projectStateService.js');
+ const {CodexTesterExecutionService}=require('../../dist/main/workCardBuilding/codexTesterExecutionService.js');
+ const root=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'source-no-mutation-'));
+ const registration=await registerCurrentProject(root,'existing',{projectName:'No mutation'}),projectId=registration.project.id;
+ const dev=path.join(root,'Dev');fs.mkdirSync(dev);const git=(...args)=>execFileSync('git',args,{cwd:dev,encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
+ git('init','-b','dev');git('config','user.name','Fixture');git('config','user.email','fixture@example.invalid');
+ fs.mkdirSync(path.join(dev,'test'));fs.mkdirSync(path.join(dev,'validation'));fs.writeFileSync(path.join(dev,'feature.txt'),'baseline');
+ fs.writeFileSync(path.join(dev,'test','seed.test.cjs'),'// seed');fs.writeFileSync(path.join(dev,'validation','capability-map.json'),JSON.stringify({schemaVersion:4,capabilities:[],tests:[]}));
+ git('add','--all');git('commit','-m','baseline');const revision=git('rev-parse','HEAD');
+ fs.writeFileSync(path.join(root,'.champcity','mcp-workspace-binding.json'),JSON.stringify({mcpWorkspaceId:'no-mutation',gitBacked:true}));
+ const store=createSQLiteProjectStateStore(path.join(root,'.champcity','project-state.sqlite'));
+ const state=createProjectStateService(store,{principalId:'operator',principalType:'human',role:'Operator'});
+ t.after(()=>{store.close();fs.rmSync(root,{recursive:true,force:true});});
+ const workflow=(await state.createSubstantiveWorkflow(projectId,{workflowType:'feature-capability',title:'Read source',entryWorkspace:'feature-intake',sourceSeed:{repositoryId:'repo',integrationTargetSourceLineId:'dev',baseRevisionId:revision}})).workflow;
+ const plan=await state.acceptWorkflowPlanningGraph(projectId,{workflowId:workflow.id,topology:'direct',solution:{title:'Read source',objective:'Complete without edits',scopeIn:[],scopeOut:[],constraints:[],assumptions:[],risks:[]},solutionCriteria:[],phases:[],workItems:['fresh','recovered','mutation-required','unexpected','unreported'].map(key=>({key,kind:'feature',title:key,objective:'Assess source context',dependencyKeys:[],criteria:[]}))});
+ const kernel=createWorkflowExecutionApplicationService();
+ for(const item of plan.directWorkItems)await kernel.acceptWorkItemExecutionPlan(root,{workflowId:workflow.id,workItemId:item.id,expectedVersion:item.recordVersion,plan:{implementationBoundaries:['Exact approved scope'],affectedPaths:item.body.title==='mutation-required'?['feature.txt']:[],proofIntent:['Assess exact source context']}});
+ const runtime=runtimeFixture();await runtime.ready;const captures=[];
+ const factory=async()=>({startThread(options){captures.push(options);return {id:'read-thread',async runStreamed(prompt){
+  assert.match(prompt,/source-backed/);const unexpected=prompt.includes('"objective": "Assess source context"')&&prompt.includes('"workItemId": "'+plan.directWorkItems.find(i=>i.body.title==='unexpected').id+'"');
+  const unreported=prompt.includes('"workItemId": "'+plan.directWorkItems.find(i=>i.body.title==='unreported').id+'"');
+  if(unexpected||unreported)fs.writeFileSync(path.join(options.workingDirectory,'feature.txt'),'unauthorized');
+  return {events:(async function*(){if(unexpected)yield {type:'item.completed',item:{type:'file_change',changes:[{path:'feature.txt'}],status:'completed'}};yield {type:'item.completed',item:{type:'agent_message',text:JSON.stringify({summary:'Assessed context',deviations:[],blockers:[],residualRisks:[],outcome:'implemented'})}};yield {type:'turn.completed'};})()};
+ }};}});
+ const service=new CodexImplementerExecutionService(factory,undefined,undefined,undefined,runtime.manager);
+ service.configureSourceCheckoutProjection(async()=>({workspaceId:'no-mutation',projection:{registerRepositoryCheckout:async(_id,checkout)=>({...checkout,availability:'available',validationError:null})}}));
+ const fresh=plan.directWorkItems.find(i=>i.body.title==='fresh'),selector={ownerKind:'workflow-work-item',workflowId:workflow.id,workItemId:fresh.id};
+ assert.equal((await service.start(root,selector,selection)).state,'running');const completed=await waitForSelectorState(service,root,selector,'completed',300);
+ assert.equal(completed.checkpoint.status,'not-required');assert.equal(completed.failureReason,null);assert.equal(completed.sourceMode,'source-backed');
+ assert.equal(captures[0].readOnly,true);assert.deepEqual(captures[0].writableRoots,[]);
+ const contract=await kernel.createTesterWorkItemExecutionContract(root,workflow.id,fresh.id,{sourceMutation:'not-required',affectedPaths:[],proofIntent:['Assess']});
+ assert.equal(contract.sourceRevisionId,revision);assert.equal(contract.sourceMutation,'not-required');
+ const freshImpl=(await state.getImplementationAttempts(projectId,fresh.id)).at(-1);
+ const projection=await kernel.getCheckpointRecoveryProjection(root,workflow.id,fresh.id);assert.equal(projection.implementation.state,'not-required');assert.equal(projection.implementation.retryable,false);assert.equal(projection.implementation.reason,null);
+ assert.equal((await store.listEntities(projectId,'SourceCheckpoint')).length,0);
+ const restart=new CodexImplementerExecutionService(async()=>{throw Error('Recovery must not start runtime');},undefined,undefined,undefined,runtime.manager);
+ const recoveredStatus=await restart.getStatus(root,selector);assert.equal(recoveredStatus.state,'completed');assert.equal(recoveredStatus.checkpoint.status,'not-required');assert.equal(recoveredStatus.retryBlocker,null);
+ const tester=new CodexTesterExecutionService(async()=>({startThread(){return {id:'tester',async runStreamed(){return {events:(async function*(){yield {type:'item.completed',item:{type:'agent_message',text:JSON.stringify({recommendation:'no-permanent-test-required',permanentTestPaths:[],determinationEvidence:['Read exact unchanged source'],unknowns:[],rationale:'No permanent test change required'})}};yield {type:'turn.completed'};})()};}};}}));
+ const ids={workflowId:workflow.id,workItemId:fresh.id,implementationRecordId:freshImpl.id};assert.equal((await tester.getStatus(root,ids)).state,'ready');await tester.start(root,ids,selection);
+ let done;for(let i=0;i<300;i++){done=await tester.getStatus(root,ids);if(done.state!=='running')break;await new Promise(r=>setTimeout(r,10));}
+ assert.equal(done.state,'completed',done.failureReason);const result=await state.getRecord(projectId,done.testerResultId);assert.equal(result.body.sourceMode,'source-backed');assert.equal(result.body.checkpointState,'not-required');assert.equal(result.body.candidateRevisionId,revision);
+ assert.equal((await kernel.getWorkItemValidationProjection(root,workflow.id,fresh.id)).completion.eligible,true);
+ const freshCurrent=await state.getRecord(projectId,fresh.id);await kernel.completeWorkItem(root,workflow.id,fresh.id,freshCurrent.recordVersion);assert.equal((await state.getRecord(projectId,fresh.id)).body.workState,'closed');
+ const recovered=plan.directWorkItems.find(i=>i.body.title==='recovered');const reserved=await kernel.prepareImplementationAttempt(root,workflow.id,recovered.id);await kernel.beginWorkItemAttempt(root,workflow.id,recovered.id,reserved.body.workItemVersion,reserved.id);
+ const record=await kernel.finishWorkItemAttempt(root,workflow.id,recovered.id,reserved.id,{summary:'Existing semantic success',deviations:[],blockers:[],residualRisks:[],outcome:'implemented'});const before=record;
+ const reopening=new CodexImplementerExecutionService(factory,undefined,undefined,undefined,runtime.manager);
+ assert.equal((await reopening.getStatus(root,{ownerKind:'workflow-work-item',workflowId:workflow.id,workItemId:recovered.id})).checkpoint.status,'not-required');
+ assert.deepEqual(await state.getRecord(projectId,record.id),before);assert.equal((await state.getImplementationAttempt(projectId,workflow.id,recovered.id)).id,reserved.id);
+ const proofTester=new CodexTesterExecutionService(async()=>({startThread(options){return {id:'proof-tester',async runStreamed(){fs.writeFileSync(path.join(options.workingDirectory,'test','new.test.cjs'),'// independent proof');return {events:(async function*(){yield {type:'item.completed',item:{type:'file_change',changes:[{path:'test/new.test.cjs'}],status:'completed'}};yield {type:'item.completed',item:{type:'agent_message',text:JSON.stringify({recommendation:'permanent-proof-change-warranted',permanentTestPaths:['test/new.test.cjs'],determinationEvidence:['New independent test proof'],unknowns:[],rationale:'Permanent regression proof warranted'})}};yield {type:'turn.completed'};})()};}};}}));
+ const proofIds={workflowId:workflow.id,workItemId:recovered.id,implementationRecordId:record.id};await proofTester.start(root,proofIds,selection);
+ let proof;for(const deadline=Date.now()+30000;Date.now()<deadline;){proof=await proofTester.getStatus(root,proofIds);if(proof.state!=='running')break;await new Promise(r=>setTimeout(r,50));}
+ assert.equal(proof.state,'completed',proof.failureReason);assert.equal(proof.checkpointState,'committed');assert.notEqual(proof.candidateRevisionId,revision);
+ assert.equal((await kernel.getCheckpointRecoveryProjection(root,workflow.id,recovered.id)).implementation.state,'not-required');
+ assert.equal((await kernel.getCheckpointRecoveryProjection(root,workflow.id,recovered.id)).tester.state,'committed');
+ const candidate=proof.candidateRevisionId;
+ const mutation=plan.directWorkItems.find(i=>i.body.title==='mutation-required'),mutSelector={ownerKind:'workflow-work-item',workflowId:workflow.id,workItemId:mutation.id};
+ const mutContract=await kernel.createWorkItemExecutionContract(root,workflow.id,mutation.id,{sourceMutation:'not-required',affectedPaths:[],proofIntent:['Caller cannot remove source authority']});assert.equal(mutContract.sourceMutation,'required');assert.deepEqual(mutContract.affectedPaths,['feature.txt']);
+ await service.start(root,mutSelector,selection);const failed=await waitForSelectorState(service,root,mutSelector,'failed',300);assert.equal(failed.checkpoint.status,'blocked');assert.match(failed.failureReason,/No attributable source changes/);
+ const mutImpl=(await state.getImplementationAttempts(projectId,mutation.id)).at(-1);assert.equal((await tester.getStatus(root,{workflowId:workflow.id,workItemId:mutation.id,implementationRecordId:mutImpl.id})).state,'unavailable');
+ const mutRecovery=await kernel.getCheckpointRecoveryProjection(root,workflow.id,mutation.id);assert.equal(mutRecovery.implementation.state,'pending');assert.equal(mutRecovery.implementation.retryable,false);
+ for(const title of ['unexpected','unreported']) {const item=plan.directWorkItems.find(i=>i.body.title===title),sel={ownerKind:'workflow-work-item',workflowId:workflow.id,workItemId:item.id};await service.start(root,sel,selection);const rejected=await waitForSelectorState(service,root,sel,'failed',300);assert.equal(rejected.checkpoint.status,'not-required');assert.equal((await state.getImplementationAttempts(projectId,item.id)).at(-1).body.outcome,'failed');assert.notEqual((await restart.getStatus(root,sel)).state,'completed');assert.equal(fs.readFileSync(path.join(captures.at(-1).workingDirectory,'feature.txt'),'utf8'),'baseline');}
+ assert.equal((await store.listEntities(projectId,'SourceCheckpoint')).length,1);assert.equal((await store.listEntities(projectId,'SourceCheckpoint'))[0].body.checkpointKind,'tester');const binding=(await store.listEntities(projectId,'SourceBinding')).find(b=>b.body.workflowId===workflow.id);assert.equal(binding.body.currentRevisionId,candidate);
+ assert.equal((await kernel.getCheckpointRecoveryProjection(root,workflow.id,recovered.id)).implementation.state,'not-required');
+ // Binding drift must invalidate the otherwise successful historical no-mutation attempt.
+ await state.updateSourceBinding(projectId,binding.id,{currentRevisionId:'f'.repeat(40)},binding.recordVersion);
+ assert.equal((await kernel.getCheckpointRecoveryProjection(root,workflow.id,recovered.id)).implementation.state,'inspection-required');
+ assert.equal((await tester.getStatus(root,{workflowId:workflow.id,workItemId:recovered.id,implementationRecordId:record.id})).state,'unavailable');
+});

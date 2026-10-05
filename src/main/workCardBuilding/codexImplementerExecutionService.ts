@@ -538,7 +538,7 @@ export class CodexImplementerExecutionService {
         sourceBacked = { checkoutRoot, repositoryCheckoutId: checkout.repositoryCheckoutId, sourceLineId: checkout.sourceLineId,
           expectedRevisionId: contract.sourceRevisionId!, attributablePaths: [] };
       }
-      if (contract.sourceMutation === "not-required" && contract.sourceRevisionId !== null || contract.sourceMutation === "required" && !contract.sourceRevisionId)
+      if (sourceBacked && !contract.sourceRevisionId || !sourceBacked && contract.sourceRevisionId !== null || contract.sourceMutation === "required" && !sourceBacked)
         throw Error("Exact Codex WorkItem source contract is inconsistent with its Workflow source state.");
       return {
         ownerKind: "workflow-work-item", phaseId: contract.phase?.id ?? null, workCardId: contract.workItemId, workCardTitle: contract.objective,
@@ -556,11 +556,16 @@ export class CodexImplementerExecutionService {
     const active = this.exactSessionsByOwner.get(exactExecutionOwnerKey(workspaceRoot, selector.workflowId, selector.workItemId));
     if (active?.workflowWorkItem?.workflowId === selector.workflowId && active.workflowWorkItem.workItemId === selector.workItemId) {
       const recovery = await this.workflowExecutionServiceFactory().getCheckpointRecoveryProjection(workspaceRoot, selector.workflowId, selector.workItemId).catch(() => null);
+      if (active.state !== "running" && recovery?.implementation.implementationRecordId && recovery.implementation.state === "not-required" && active.workflowWorkItem.resultOutcome === "implemented" &&
+        active.workflowWorkItem.contract.sourceMutation === "not-required") {
+        active.state = "completed"; active.failureReason = null;
+        active.checkpoint = { status: "not-required", message: "Approved WorkItem requires no source mutation; the source revision is unchanged.", remote: "not-requested", receipts: [] };
+      }
       const checkpointRecoveryRequired = recovery?.implementation.retryable === true || recovery?.implementation.state === "blocked" || recovery?.implementation.state === "inspection-required" || recovery?.implementation.state === "pending";
       const canRunAgain = !checkpointRecoveryRequired && (active.state === "failed" || active.state === "cancelled" || active.workflowWorkItem.resultOutcome === "partial" || active.workflowWorkItem.resultOutcome === "failed");
       return modelFromSession(active, this.now(), { canRunAgain, retryBlocker: checkpointRecoveryRequired
         ? "Semantic implementation attempt is complete; recover its exact durable SourceCheckpoint instead of rerunning Implementer."
-        : canRunAgain ? null : "Refresh the exact WorkItem state before another implementation attempt." });
+        : canRunAgain || recovery?.implementation.state === "not-required" && active.state === "completed" ? null : "Refresh the exact WorkItem state before another implementation attempt." });
     }
     const durable = await this.workflowExecutionServiceFactory().getImplementationAttempt(workspaceRoot, selector.workflowId, selector.workItemId).catch(() => null);
     if (durable?.attempt.body.attemptState === "running") return unavailableFromPreflight(Error("Running ImplementationAttempt has no live Codex session; recovery/inspection required."));
@@ -571,6 +576,17 @@ export class CodexImplementerExecutionService {
         return {...baseModel(path.resolve(workspaceRoot)), state: "ready", canRunAgain: true, executionKind: "workflow-work-item-implementation", workflowId: selector.workflowId, workItemId: selector.workItemId,
           workItemVersion: durable.attempt.body.workItemVersion, executionContractDigest: durable.attempt.body.contractDigest, sourceMode: durable.attempt.body.sourceMode};
       } catch (error) {return unavailableFromPreflight(error instanceof Error ? error : Error(String(error)));}
+    }
+    if (durable?.attempt.body.attemptState === "completed" && durable.attempt.body.implementationRecordId) {
+      const recovery = await this.workflowExecutionServiceFactory().getCheckpointRecoveryProjection(workspaceRoot, selector.workflowId, selector.workItemId).catch(() => null);
+      const view = await this.workflowExecutionServiceFactory().getExecutionProjection(workspaceRoot, selector.workflowId).catch(() => null);
+      const item = view?.items.find(candidate => candidate.record.id === selector.workItemId);
+      if (item?.record.body.affectedPaths?.length === 0 && item.implementationAttempts.at(-1)?.body.outcome === "implemented" &&
+        recovery?.implementation.state === "not-required" && recovery.implementation.implementationRecordId === durable.attempt.body.implementationRecordId && recovery.sourceMode === "source-backed")
+        return { ...baseModel(path.resolve(workspaceRoot)), state: "completed", lastRunState: "completed", canRunAgain: false, retryBlocker: null,
+          executionKind: "workflow-work-item-implementation", workflowId: selector.workflowId, workItemId: selector.workItemId,
+          workItemVersion: durable.attempt.body.workItemVersion, sourceMode: "source-backed", reportUpdated: true,
+          checkpoint: { status: "not-required", message: "Approved WorkItem requires no source mutation; the source revision is unchanged.", remote: "not-requested", receipts: [] } };
     }
     const context = await this.resolveWorkflowWorkItemContext(workspaceRoot, selector);
     if (context instanceof Error) {
@@ -642,9 +658,9 @@ export class CodexImplementerExecutionService {
         runtimeState: appServer.getRuntimeState?.() ?? null, pendingApproval: null, pendingUserInput: null, pendingMcpElicitation: null,
         failureReason: null, reportUpdated: false, reportSha256After: null, abortController: new AbortController(), threadAdapter: null,
         appServerAdapter: appServer, executionPromise: null, cancellationRequested: false,
-        checkpoint: exact.sourceBacked
+        checkpoint: exact.sourceBacked && exact.contract.sourceMutation === "required"
           ? { status: "blocked", message: "Source-backed checkpoint is pending validated completion.", remote: "not-requested", receipts: [] }
-          : { status: "not-required", message: "Source-neutral WorkItem execution does not create a SourceCheckpoint.", remote: "not-requested", receipts: [] },
+          : { status: "not-required", message: "This WorkItem does not require source mutation or an implementation SourceCheckpoint.", remote: "not-requested", receipts: [] },
       };
       this.exactSessionsByOwner.set(key, session);
       session.executionPromise = this.executeWithAppServer(session, appServer);
@@ -874,7 +890,8 @@ export class CodexImplementerExecutionService {
         reasoningEffort: session.selection?.reasoningEffort,
         skipGitRepoCheck: true,
         ...threadOptionsFromCodexImplementerPolicy(session.executionPolicy),
-        writableRoots: session.executionPolicy.sandboxMode === "workspace-write"
+        ...(session.workflowWorkItem?.sourceBacked && session.workflowWorkItem.contract.sourceMutation === "not-required" ? { readOnly: true } : {}),
+        writableRoots: session.workflowWorkItem?.sourceBacked && session.workflowWorkItem.contract.sourceMutation === "not-required" ? [] : session.executionPolicy.sandboxMode === "workspace-write"
           ? [session.workflowWorkItem?.workerDirectory ?? session.projectRoot]
           : undefined,
       });
@@ -975,6 +992,18 @@ export class CodexImplementerExecutionService {
           : { summary: "Codex execution did not produce a valid semantic completion.", deviations: [], blockers: [terminalFailureReason ?? "Codex execution failed."], residualRisks: [], outcome: "failed" as const });
         let finalizedResult = result;
         const sourceAttempt = session.workflowWorkItem.sourceBacked;
+        if (sourceAttempt && session.workflowWorkItem.contract.sourceMutation === "not-required") {
+          try {
+            const root = sourceAttempt.checkoutRoot;
+            const head = (await runBoundedGit({ cwd: root, args: ["rev-parse", "HEAD"] })).stdout.trim();
+            const projection = await this.workflowExecutionServiceFactory().getExecutionProjection(session.projectRoot, session.workflowWorkItem.workflowId);
+            const changes = (await runBoundedGit({ cwd: root, args: ["diff", "--name-only", "--no-renames", "-z", "HEAD"] })).stdout;
+            const untracked = (await runBoundedGit({ cwd: root, args: ["ls-files", "--others", "--exclude-standard", "-z"] })).stdout;
+            sourceAttempt.attributablePaths.push(...[...changes.split("\0"), ...untracked.split("\0")].filter(Boolean));
+            if (head !== sourceAttempt.expectedRevisionId || projection.source.state !== "ready" || projection.source.currentRevisionId !== sourceAttempt.expectedRevisionId)
+              throw Error("No-mutation source revision or binding changed unexpectedly.");
+          } catch (error) { sourceAttempt.attributionFailure = messageForCodexFailure(error); }
+        }
         const scopeViolated = Boolean(sourceAttempt?.attributionFailure || (sourceAttempt && sourceAttempt.attributablePaths.some(file =>
           !session.workflowWorkItem!.contract.affectedPaths.some(allowed => file === allowed || file.startsWith(`${allowed.replace(/\/$/, "")}/`)))));
         let scopeRestored = false;
@@ -1027,6 +1056,8 @@ export class CodexImplementerExecutionService {
             const source = session.workflowWorkItem.sourceBacked;
             if (scopeViolated && scopeRestored) {
               session.checkpoint = { status: "not-required", message: "Scope-violating attempt was rejected and the exact checkout restored; no SourceCheckpoint was created.", remote: "not-requested", receipts: [] };
+            } else if (!scopeViolated && session.workflowWorkItem.contract.sourceMutation === "not-required") {
+              session.checkpoint = { status: "not-required", message: "Approved WorkItem requires no source mutation; the source revision is unchanged.", remote: "not-requested", receipts: [] };
             } else if (result.outcome !== "implemented" || source.attributionFailure || source.attributablePaths.length === 0) {
               session.checkpoint = { status: "blocked", message: source.attributionFailure ?? (result.outcome !== "implemented"
                 ? "Implementation did not produce a successful validated result; source changes require inspection."
@@ -1138,7 +1169,7 @@ Authority and identity:
 ${JSON.stringify(contract, null, 2)}
 
 Execution boundary:
-- Your working directory is the exact registered Workflow checkout at ${sourceCheckoutRoot}; make only the accepted bounded source changes there, within scopeIn and outside scopeOut.
+- Your working directory is the exact registered Workflow checkout at ${sourceCheckoutRoot}; ${contract.sourceMutation === "not-required" ? "use it only for read/context. Do not modify any source files; successful implemented completion with zero changes is valid and no implementation checkpoint is required." : "make only the accepted bounded source changes there, within scopeIn and outside scopeOut."}
 - Do not modify files outside that checkout, the Project container, or application-owned evidence. Do not use another repository or checkout.
 - Do not run Git commands or stage, commit, push, or otherwise mutate Git state. ChampCity captures App Server file-change evidence and performs the structured checkpoint after your result.
 - Do not edit generated output, dependencies, credentials, or application state. Do not claim checkpoint or permanent validation.

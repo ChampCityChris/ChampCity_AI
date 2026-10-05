@@ -199,7 +199,8 @@ export class CodexTesterExecutionService {
       if (binding.body.repositoryCheckoutId !== workflowRepositoryCheckoutId(workflow.id) || binding.body.workSourceLineId !== workflowSourceLineName(workflow.id)) fail("Tester SourceBinding does not identify the exact managed Workflow checkout.");
       const links = await store.listRelationships(projectId, "checkpoints");
       const checkpoints = (await store.listEntities(projectId, "SourceCheckpoint")).filter((row): row is ProjectStateRecord<"SourceCheckpoint"> => row.entityType === "SourceCheckpoint" && row.body.checkpointKind === "implementation" && row.body.checkpointState === "committed" && row.body.resultingRevisionId !== undefined && row.body.workflowId === workflow.id && links.some(edge => edge.fromEntityId === row.id && edge.toEntityId === implementation.id && !edge.endedAt));
-      if (checkpoints.length !== 1 || checkpoints[0].body.resultingRevisionId !== binding.body.currentRevisionId)
+      const noMutation = checkpoints.length === 0 && await state.isSourceBackedNoMutationImplementation(projectId, workflow.id, workItem.id, implementation.id, binding.body.currentRevisionId!);
+      if (!noMutation && (checkpoints.length !== 1 || checkpoints[0].body.resultingRevisionId !== binding.body.currentRevisionId))
         fail(`Tester requires the exact committed implementation checkpoint at the current source revision (matching checkpoints: ${checkpoints.length}; checkpoint revision: ${checkpoints[0]?.body.resultingRevisionId ?? "missing"}; bound revision: ${binding.body.currentRevisionId ?? "missing"}).`);
       const managed = resolveManagedWorkflowCheckoutPath(root, workflow.id), checkoutRoot = fs.realpathSync(managed.checkoutRoot);
       const [top, branch, head, common, status] = await Promise.all([
@@ -214,7 +215,7 @@ export class CodexTesterExecutionService {
       const expectedCommon = path.resolve(devCheckout, devCommon.stdout.trim());
       const validationRoot = path.join(checkoutRoot, "validation");
       if (fs.realpathSync(top.stdout.trim()) !== checkoutRoot || branch.stdout.trim() !== binding.body.workSourceLineId || head.stdout.trim() !== binding.body.currentRevisionId || status.stdout || !fs.existsSync(testRoot) || fs.realpathSync(testRoot) !== testRoot || !fs.existsSync(validationRoot) || fs.realpathSync(validationRoot) !== validationRoot || fs.realpathSync(commonPath) !== fs.realpathSync(expectedCommon)) fail("Tester checkout is stale, dirty, redirected, or does not match SourceBinding.");
-      const changedPaths = (await runBoundedGit({ cwd: checkoutRoot, args: ["diff-tree", "--no-commit-id", "--name-only", "-r", checkpoints[0].body.resultingRevisionId! ] })).stdout.split(/\r?\n/).filter(Boolean).sort();
+      const changedPaths = noMutation ? [] : (await runBoundedGit({ cwd: checkoutRoot, args: ["diff-tree", "--no-commit-id", "--name-only", "-r", checkpoints[0].body.resultingRevisionId! ] })).stdout.split(/\r?\n/).filter(Boolean).sort();
       const catalog = readLifecycleCatalog(checkoutRoot, changedPaths);
       const obligations = (await store.listEntities(projectId, "RegressionObligation"))
         .filter((row): row is ProjectStateRecord<"RegressionObligation"> => row.entityType === "RegressionObligation" && row.lifecycleState === "active" && row.body.obligationState !== "retired")

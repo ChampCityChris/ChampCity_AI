@@ -315,13 +315,36 @@ export function createWorkflowExecutionApplicationService(dependencies: {
             Array.isArray(attempt?.attributablePaths) && attempt.attributablePaths.length > 0;
         } catch { packetValid = false; }
       }
-      const implState = sourceMode === "source-neutral" ? "not-applicable" : implementationCheckpoint?.entityType === "SourceCheckpoint" ? implementationCheckpoint.body.checkpointState : implementation?.body.outcome === "implemented" ? "pending" : "not-required";
+      const source = (await project(store, projectId, plan)).source;
+      const noMutationRequired = Array.isArray(item.body.affectedPaths) && item.body.affectedPaths.length === 0;
+      const noMutationRevision = tester?.body.sourceMode === "source-backed" && tester.body.checkpointState === "committed" &&
+        testerCheckpoint?.entityType === "SourceCheckpoint" && testerCheckpoint.body.checkpointState === "committed" && testerCheckpoint.body.checkpointKind === "tester" &&
+        testerCheckpoint.body.workflowId === workflowId && testerCheckpoint.body.expectedRevisionId === tester.body.implementerRevisionId &&
+        testerCheckpoint.body.resultingRevisionId === source.currentRevisionId && tester.body.candidateRevisionId === source.currentRevisionId
+        ? tester.body.implementerRevisionId : source.currentRevisionId;
+      let noMutationCurrent = sourceMode === "source-backed" && noMutationRequired && implementation?.body.outcome === "implemented" &&
+        source.state === "ready" && Boolean(source.currentRevisionId) && await createProjectStateService(store, operator)
+          .isSourceBackedNoMutationImplementation(projectId, workflowId, workItemId, implementation.id, noMutationRevision!);
+      if (noMutationCurrent) {
+        try {
+          const checkout = fs.realpathSync(resolveManagedWorkflowCheckoutPath(fs.realpathSync(projectRoot), workflowId).checkoutRoot);
+          const [head, top, branch, dirty, common, devCommon] = await Promise.all([
+            runBoundedGit({ cwd: checkout, args: ["rev-parse", "HEAD"] }), runBoundedGit({ cwd: checkout, args: ["rev-parse", "--show-toplevel"] }),
+            runBoundedGit({ cwd: checkout, args: ["branch", "--show-current"] }), runBoundedGit({ cwd: checkout, args: ["status", "--porcelain", "--untracked-files=all"] }),
+            runBoundedGit({ cwd: checkout, args: ["rev-parse", "--git-common-dir"] }), runBoundedGit({ cwd: path.join(projectRoot, "Dev"), args: ["rev-parse", "--git-common-dir"] }),
+          ]);
+          noMutationCurrent = head.stdout.trim() === source.currentRevisionId && fs.realpathSync(top.stdout.trim()) === checkout &&
+            branch.stdout.trim() === source.workSourceLineId && !dirty.stdout &&
+            fs.realpathSync(path.resolve(checkout, common.stdout.trim())) === fs.realpathSync(path.resolve(projectRoot, "Dev", devCommon.stdout.trim()));
+        } catch { noMutationCurrent = false; }
+      }
+      const implState = sourceMode === "source-neutral" ? "not-applicable" : implementationCheckpoint?.entityType === "SourceCheckpoint" ? implementationCheckpoint.body.checkpointState : implementation?.body.outcome === "implemented" ? noMutationRequired ? noMutationCurrent ? "not-required" : "inspection-required" : "pending" : "not-required";
       const testerState = sourceMode === "source-neutral" ? "not-applicable" : tester?.body.checkpointState ?? "not-required";
-      const implRetryable = sourceMode === "source-backed" && packetValid && item.body.workState === "validation_pending" && implState !== "committed";
+      const implRetryable = sourceMode === "source-backed" && !noMutationRequired && packetValid && item.body.workState === "validation_pending" && implState !== "committed";
       const testerRetryable = sourceMode === "source-backed" && Boolean(tester && tester.body.checkpointState === "pending" && tester.body.permanentTestPaths.length && item.body.workState === "validation_pending");
       return { workflowId, workItemId, sourceMode,
         implementation: { implementationRecordId: implementation?.id ?? null, checkpointId: implementationCheckpoint?.id ?? null, state: implState, retryable: implRetryable,
-          reason: implRetryable ? null : implState === "not-applicable" ? null : implState === "committed" ? "Implementation checkpoint is committed." : "Exact durable implementation attribution is missing or no longer retryable." },
+          reason: implRetryable ? null : implState === "not-applicable" || implState === "not-required" ? null : implState === "committed" ? "Implementation checkpoint is committed." : "Exact durable implementation attribution is missing or no longer retryable." },
         tester: { implementationRecordId: implementation?.id ?? null, testerResultId: tester?.id ?? null, checkpointId: testerCheckpoint?.id ?? null, state: testerState, retryable: testerRetryable,
           reason: testerRetryable ? null : testerState === "not-applicable" ? null : testerState === "committed" || testerState === "not-required" ? null : "Exact pending TesterResult checkpoint is not safely retryable." } };
     });
@@ -396,7 +419,6 @@ export function createWorkflowExecutionApplicationService(dependencies: {
           if (head !== projection.source.currentRevisionId || status) throw Error("Source-backed checkout is not restored clean at the unchanged SourceBinding revision.");
         }
       }
-      if (projection.source.state !== "non-source" && !affectedPaths.length) throw Error("Source-backed execution plans require at least one accepted repository path.");
       const criterionIds = workflow.criteria.filter(candidate => candidate.ownerId === item.record.id || candidate.ownerId === workflow.solutions[0]?.id).map(candidate => candidate.record.id);
       const validations = (await store.listEntities(projectId, "Validation")).filter((record): record is ProjectStateRecord<"Validation"> => record.entityType === "Validation" && (record.body.targetEntityId === item.record.id || criterionIds.includes(record.body.targetEntityId)));
       const testers = (await store.listEntities(projectId, "TesterResult")).filter(record => record.entityType === "TesterResult" && record.body.workflowId === input.workflowId && record.body.workItemId === input.workItemId);
@@ -920,7 +942,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       const plan = await workItemPlan(store, projectId, await exactPlan(store, projectId, workflowId), workItemId);
       const projection = await project(store, projectId, plan);
       if (input.sourceMutation === "required" && projection.source.state === "non-source") throw Error("SOURCE_CAPABILITY_UNAVAILABLE");
-      if (input.sourceMutation === "required" && projection.source.state !== "ready") throw Error("Source-backed execution requires a prepared exact Workflow checkout.");
+      if (projection.source.state !== "non-source" && projection.source.state !== "ready") throw Error("Source-backed execution requires a prepared exact Workflow checkout.");
       const item = projection.items.find(candidate => candidate.record.id === workItemId);
       if (!item) throw Error("Exact Work Item is not part of the selected Workflow plan.");
       const allowedStates = allowValidationPending ? ["validation_pending"] : ["planned", "ready"];
@@ -941,7 +963,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
         projectId, workflowId, workItemId, workItemVersion: item.record.recordVersion, objective: item.record.body.objective,
         solution, phase, criteria, dependencyIds: item.dependencyIds, scopeIn: [...solution.body.scopeIn], scopeOut: [...solution.body.scopeOut],
         constraints: [...solution.body.constraints], implementationBoundaries: [...item.record.body.implementationBoundaries], affectedPaths: [...item.record.body.affectedPaths].sort(), proofIntent: [...item.record.body.proofIntent],
-        sourceMutation: input.sourceMutation, sourceRevisionId: projection.source.currentRevisionId,
+        sourceMutation: allowValidationPending ? input.sourceMutation : item.record.body.affectedPaths.length > 0 ? "required" as const : "not-required" as const, sourceRevisionId: projection.source.currentRevisionId,
       };
       const serialized = JSON.stringify(body);
       const digest = createHash("sha256").update(serialized).digest("hex");

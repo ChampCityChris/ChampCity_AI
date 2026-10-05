@@ -1512,7 +1512,9 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         const checkpointLinks = (await unit.listRelationships(projectId, "checkpoints")).filter(edge => edge.toEntityId === implementationRecordId && !edge.endedAt);
         const checkpoints = (await Promise.all(checkpointLinks.map(edge => unit.getEntity(projectId, edge.fromEntityId))))
           .filter((record): record is ProjectStateRecord<"SourceCheckpoint"> => record?.entityType === "SourceCheckpoint" && record.body.checkpointKind === "implementation" && record.body.checkpointState === "committed");
-        if (sourceBindings.length !== 1 || sourceBindings[0].body.preparationState !== "ready" || sourceBindings[0].body.currentRevisionId !== input.implementerRevisionId || checkpoints.length !== 1 || checkpoints[0].body.resultingRevisionId !== input.implementerRevisionId)
+        const noMutation = checkpointLinks.length === 0 && await isSourceBackedNoMutationImplementation(projectId, workflowId, workItemId, implementationRecordId, input.implementerRevisionId!, unit);
+        if (sourceBindings.length !== 1 || sourceBindings[0].body.preparationState !== "ready" || sourceBindings[0].body.currentRevisionId !== input.implementerRevisionId ||
+          !noMutation && (checkpoints.length !== 1 || checkpoints[0].body.resultingRevisionId !== input.implementerRevisionId))
           fail("Source-backed TesterResult requires its current committed implementation checkpoint and ready SourceBinding.");
       } else if (sourceBindings.length !== 0 || input.permanentTestPaths.length !== 0) {
         fail("Source-neutral TesterResult cannot claim repository proof paths or a SourceBinding.");
@@ -1684,6 +1686,37 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (live.length > 1) fail("Ambiguous current ImplementationAttempt.");
     return live[0] ?? attempts.sort((a,b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)).at(-1) ?? null;
   }
+  /** Exact historical reservation proof for source-backed work that authorized no source edits. */
+  async function isSourceBackedNoMutationImplementation(projectId: ProjectId, workflowId: EntityId, workItemId: EntityId,
+    implementationRecordId: EntityId, sourceRevisionId: string, reader: ProjectStateStore | ProjectStateUnitOfWork = store): Promise<boolean> {
+    const item = await reader.getEntity(projectId, workItemId);
+    const implementation = await reader.getEntity(projectId, implementationRecordId);
+    if (item?.entityType !== "WorkItem" || !Array.isArray(item.body.affectedPaths) || item.body.affectedPaths.length !== 0 ||
+      implementation?.entityType !== "ImplementationRecord" || implementation.body.workItemId !== workItemId || implementation.body.outcome !== "implemented" ||
+      implementation.body.blockers.length || !implementation.body.executionRef || !sourceRevisionId) return false;
+    const attempt = await reader.getEntity(projectId, implementation.body.executionRef);
+    if (attempt?.entityType !== "ImplementationAttempt" || attempt.lifecycleState !== "active" || attempt.body.workflowId !== workflowId || attempt.body.workItemId !== workItemId ||
+      attempt.body.sourceMode !== "source-backed" || attempt.body.attemptState !== "completed" || attempt.body.implementationRecordId !== implementation.id ||
+      attempt.body.sourceRevisionId !== sourceRevisionId || (await getImplementationAttempt(projectId, workflowId, workItemId))?.id !== attempt.id ||
+      (await getImplementationAttempts(projectId, workItemId)).at(-1)?.id !== implementation.id) return false;
+    if ((await getWorkItemPlanningReview(projectId, workItemId)).disposition.state !== "approved") return false;
+    const reserved = await reader.getEntityVersion(projectId, workItemId, attempt.body.workItemVersion);
+    if (reserved?.entityType !== "WorkItem" || reserved.body.affectedPaths?.length !== 0 ||
+      ["objective", "implementationBoundaries", "affectedPaths", "proofIntent", "contractRevision"].some(key =>
+        JSON.stringify((reserved.body as unknown as Record<string, unknown>)[key]) !== JSON.stringify((item.body as unknown as Record<string, unknown>)[key]))) return false;
+    for (const source of attempt.body.layout.sources) {
+      const previous = await reader.getEntityVersion(projectId, source.entityId, source.recordVersion);
+      const current = await reader.getEntity(projectId, source.entityId);
+      if (!previous || !current || previous.entityType !== current.entityType) return false;
+      if (!["Workflow", "Phase", "WorkItem", "SourceBinding"].includes(current.entityType) && current.recordVersion !== previous.recordVersion) return false;
+      if (previous.entityType === "SourceBinding" && current.entityType === "SourceBinding" &&
+        (previous.body.sourceBaselineId !== current.body.sourceBaselineId || previous.body.repositoryCheckoutId && previous.body.repositoryCheckoutId !== current.body.repositoryCheckoutId ||
+          previous.body.workSourceLineId && previous.body.workSourceLineId !== current.body.workSourceLineId)) return false;
+    }
+    const links = (await reader.listRelationships(projectId, "checkpoints")).filter(edge => !edge.endedAt && edge.toEntityId === implementationRecordId);
+    return links.length === 0;
+  }
+
   async function reviseImplementationAttempt(unit: ProjectStateUnitOfWork, previous: ProjectStateRecord<"ImplementationAttempt">, body: EntityBodyMap["ImplementationAttempt"], context?: MutationContext) {
     const now = new Date().toISOString();
     const next = validateProjectStateEntity({...previous, body, recordVersion: previous.recordVersion + 1, updatedAt: now, updatedBy: trustedPrincipal});
@@ -3467,7 +3500,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         if (tester.body.checkpointState === "committed") {
           const checkpoint = tester.body.sourceCheckpointId ? await store.getEntity(projectId, tester.body.sourceCheckpointId) : null;
           if (checkpoint?.entityType !== "SourceCheckpoint" || checkpoint.body.workflowId !== workflowId || checkpoint.body.resultingRevisionId !== tester.body.candidateRevisionId || !links.some(edge => edge.fromEntityId === checkpoint.id && edge.toEntityId === tester.id && !edge.endedAt)) fail("Committed Phase TesterResult must link its exact candidate checkpoint.");
-        } else if (tester.body.candidateRevisionId !== tester.body.implementerRevisionId || !checkpoints.some(record => record.entityType === "SourceCheckpoint" && record.body.workflowId === workflowId && record.body.checkpointKind === "implementation" && record.body.resultingRevisionId === tester.body.candidateRevisionId && links.some(edge => edge.fromEntityId === record.id && edge.toEntityId === implementation.id && !edge.endedAt))) fail("Uncheckpointed Phase TesterResult must match its implementation checkpoint candidate.");
+        } else if (tester.body.candidateRevisionId !== tester.body.implementerRevisionId || !await isSourceBackedNoMutationImplementation(projectId, workflowId, workItemId, implementation.id, tester.body.implementerRevisionId!) && !checkpoints.some(record => record.entityType === "SourceCheckpoint" && record.body.workflowId === workflowId && record.body.checkpointKind === "implementation" && record.body.resultingRevisionId === tester.body.candidateRevisionId && links.some(edge => edge.fromEntityId === record.id && edge.toEntityId === implementation.id && !edge.endedAt))) fail("Uncheckpointed Phase TesterResult must match its implementation checkpoint candidate.");
       }
       ids.push(results[0].id);
     }
@@ -3748,7 +3781,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const contractTargets = new Set([workItem.id, ...history.filter(edge => edge.relationshipType === "defines_criterion" && edge.fromEntityId === workItem.id).map(edge => edge.toEntityId)]);
       if (history.some(edge => ["evaluates", "checkpoints", "repairs", "blocks"].includes(edge.relationshipType) && contractTargets.has(edge.toEntityId))) fail("Detailed planning cannot change after validation, checkpoint, repair or blocker evidence.");
       const baselines = (await unit.listRelationships(projectId, "baselines_source")).filter(edge => !edge.endedAt && edge.toEntityId === input.workflowId);
-      if (baselines.length ? !input.affectedPaths.length : input.affectedPaths.length) fail(baselines.length ? "Source-backed WorkItem requires accepted affected paths." : "Source-neutral WorkItem requires empty affected paths.");
+      if (!baselines.length && input.affectedPaths.length) fail("Source-neutral WorkItem requires empty affected paths.");
       if (!baselines.length && input.criteria?.some(criterion => criterion.criticality === "required" && criterion.validationPolicy === "deterministic")) fail("Required deterministic proof is unavailable for source-neutral WorkItem planning.");
       const oldCriterionIds = workItem.body.contractCriterionIds ?? [];
       let contractCriterionIds = oldCriterionIds;
@@ -4534,6 +4567,6 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, recordCriterionOperatorDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, prepareImplementationAttempt, getImplementationAttempt, assertImplementationAttemptCurrent, getImplementationAttemptReport, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,
     getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, renderView, exportStructuredProjectState, getAuthoritativeContext, getCommittedEventFeed, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
     getEffectiveDisposition, getCriterionOperatorDecisionStatus, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus, linkPhaseValidationEvidence,
-    getImplementationAttempts, getExecutionPlan, getWorkflowExecutionPlan, getProjectCompletionEligibility, getWorkflowSourceRevisionChain: (projectId: ProjectId, workflowId: EntityId) => workflowSourceRevisionChain(projectId, workflowId), acceptWorkflowPlanningGraph, acceptFeatureAssessment, acceptIssueRca, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,
+    isSourceBackedNoMutationImplementation, getImplementationAttempts, getExecutionPlan, getWorkflowExecutionPlan, getProjectCompletionEligibility, getWorkflowSourceRevisionChain: (projectId: ProjectId, workflowId: EntityId) => workflowSourceRevisionChain(projectId, workflowId), acceptWorkflowPlanningGraph, acceptFeatureAssessment, acceptIssueRca, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,
     getWorkRouteHistory, getCurrentWorkRoute, getWorkIntakeSummary, getSourceSemanticView, getRegressionObligationView };
 }
