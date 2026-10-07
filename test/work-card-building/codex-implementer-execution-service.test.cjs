@@ -120,6 +120,9 @@ test("exact Workflow Implementer input request resumes only through its Workflow
     async respondToUserInput(requestId, answers) { capturedResponse = { requestId, answers }; answerSession(); } }; } }),
     undefined, () => ({ sandboxMode: "workspace-write", approvalPolicy: "on-request", approvalsReviewer: "user", networkAccessEnabled: false }),
     undefined, fixture.manager, () => createWorkflowExecutionApplicationService());
+  const beforeStatus = await store.listEntities(registration.project.id, "ImplementationAttempt");
+  assert.equal((await service.getStatus(root, selector)).state, "ready");
+  assert.deepEqual(await store.listEntities(registration.project.id, "ImplementationAttempt"), beforeStatus);
   await service.start(root, selector, selection);
   await service.start(root, selector, selection);
   const attempts = (await store.listEntities(registration.project.id, "ImplementationAttempt")).filter(a => a.body.workItemId === item.id);
@@ -127,6 +130,10 @@ test("exact Workflow Implementer input request resumes only through its Workflow
   assert.equal(starts, 1);
   if (reserved) assert.equal(attempts[0].id, reserved.id);
   assert.equal(attempts[0].body.attemptState, "running");
+  const restarted = new CodexImplementerExecutionService(undefined, undefined, undefined, undefined, fixture.manager);
+  const recovery = await restarted.getStatus(root, selector);
+  assert.equal(recovery.state, "unavailable");
+  assert.match(recovery.failureReason, /recovery\/inspection/);
   let pending;
   for (let attempt = 0; attempt < 80; attempt += 1) {
     pending = await service.getStatus(root, selector);
@@ -491,6 +498,33 @@ test("source-backed no-mutation WorkItems complete, recover unchanged attempts, 
  const service=new CodexImplementerExecutionService(factory,undefined,undefined,undefined,runtime.manager);
  service.configureSourceCheckoutProjection(async()=>({workspaceId:'no-mutation',projection:{registerRepositoryCheckout:async(_id,checkout)=>({...checkout,availability:'available',validationError:null})}}));
  const fresh=plan.directWorkItems.find(i=>i.body.title==='fresh'),selector={ownerKind:'workflow-work-item',workflowId:workflow.id,workItemId:fresh.id};
+ const freshProjection=await kernel.getExecutionProjection(root,workflow.id);
+ for(const sourceState of ['unprepared','ready','blocked']) {
+  const view=structuredClone(freshProjection);view.source.state=sourceState;
+  const statusService=new CodexImplementerExecutionService(undefined,undefined,undefined,undefined,runtime.manager,()=>({
+   getImplementationAttempt:async()=>null,getExecutionProjection:async()=>view,
+   prepareExecution:async()=>{throw Error('Status must not materialize');},prepareImplementationAttempt:async()=>{throw Error('Status must not reserve');}
+  }));
+  const status=await statusService.getStatus(root,selector);assert.equal(status.state,sourceState==='blocked'?'unavailable':'ready');assert.equal(status.canRunAgain,sourceState!=='blocked');
+ }
+ for(const invalidate of [view=>view.workflowId='peer',view=>view.plan.workflow.id='peer',view=>view.items=[],view=>view.items.push(view.items.find(i=>i.record.id===fresh.id)),
+  view=>view.items.find(i=>i.record.id===fresh.id).record.lifecycleState='archived',view=>view.items.find(i=>i.record.id===fresh.id).record.body.workState='validation_pending',
+  view=>view.items.find(i=>i.record.id===fresh.id).eligibility.eligible=false,view=>view.items.find(i=>i.record.id===fresh.id).eligibility.blockers=['work-item-contract-review-required'],
+  view=>view.items.find(i=>i.record.id===fresh.id).record.body.proofIntent=[]]) {
+  const view=structuredClone(freshProjection);invalidate(view);
+  const blocked=new CodexImplementerExecutionService(undefined,undefined,undefined,undefined,runtime.manager,()=>({getImplementationAttempt:async()=>null,getExecutionProjection:async()=>view}));
+  assert.equal((await blocked.getStatus(root,selector)).state,'unavailable');
+ }
+ for(const kind of ['ambiguous','stale']) {
+  const blocked=new CodexImplementerExecutionService(undefined,undefined,undefined,undefined,runtime.manager,()=>({
+   getImplementationAttempt:async()=>{if(kind==='ambiguous')throw Error('Ambiguous current ImplementationAttempt.');return {attempt:{id:'stale',body:{attemptState:'prepared'}}};},
+   assertImplementationAttemptCurrent:async()=>{throw Error('Prepared ImplementationAttempt is stale.');}
+  }));
+  const status=await blocked.getStatus(root,selector);assert.equal(status.state,'unavailable');assert.match(status.failureReason,new RegExp(kind,'i'));
+ }
+ const beforeStatus=await store.listStateChanges(projectId),ready=await service.getStatus(root,selector);
+ assert.equal(ready.state,'ready');assert.equal(ready.executionContractDigest,null);assert.equal(ready.sourceMode,'source-backed');
+ assert.deepEqual(await store.listStateChanges(projectId),beforeStatus);assert.equal(fs.existsSync(path.join(root,'.champcity','checkouts',workflow.id)),false);
  assert.equal((await service.start(root,selector,selection)).state,'running');const completed=await waitForSelectorState(service,root,selector,'completed',300);
  assert.equal(completed.checkpoint.status,'not-required');assert.equal(completed.failureReason,null);assert.equal(completed.sourceMode,'source-backed');
  assert.equal(captures[0].readOnly,true);assert.deepEqual(captures[0].writableRoots,[]);

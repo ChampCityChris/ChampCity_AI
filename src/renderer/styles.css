@@ -7277,6 +7277,7 @@ body {
 }
 
 .work-card-repair-actions {
+  flex: 0 0 auto;
   min-width: 0;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -7346,17 +7347,19 @@ body {
   padding: 14px;
 }
 
-.work-card-repair-actions strong,
+.work-card-repair-architect-status strong,
+.work-card-repair-architect-status p,
 .work-card-repair-actions p {
   overflow-wrap: anywhere;
 }
 
-.work-card-repair-actions strong {
+.work-card-repair-architect-status strong {
   display: block;
   margin-top: 2px;
   font-size: 0.95rem;
 }
 
+.work-card-repair-architect-status p,
 .work-card-repair-actions p {
   margin: 4px 0 0;
   color: var(--muted-foreground);
@@ -7401,6 +7404,8 @@ body {
 }
 
 .work-card-repair-message {
+  max-height: 80px;
+  overflow-y: auto;
   grid-column: 1 / -1;
   margin: 0;
   padding: 9px 10px;
@@ -7419,7 +7424,13 @@ body {
 }
 
 .work-card-repair-architect-column .figma-browser-panel {
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.work-card-repair-architect-status {
+  flex: 0 0 auto;
+  padding: 0 14px;
 }
 
 .intake-workspace-shell-intake,

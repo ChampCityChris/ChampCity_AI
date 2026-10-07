@@ -576,20 +576,61 @@ test('Greenfield full SQL navigation repeats exact Phase WorkItem and Repair bou
 });
 
 
-test('Greenfield completed source-backed no-mutation attempt reopens into Review without replacement or checkpoint', async context => {
+test('Greenfield fresh source-backed Implement and Repair start from read-only readiness and preserve no-mutation Review', async context => {
  const f=await structuredPhaseLoopFixture(context,true);
  const loop=require('../../dist/main/phasePlanning/structuredPhaseLoopService.js').createStructuredPhaseLoopService();
  const kernel=require('../../dist/main/workflow/workflowExecutionApplicationService.js').createWorkflowExecutionApplicationService();
  const nav=require('../../dist/main/workflow/greenfieldNavigationService.js').createGreenfieldNavigationService();
  const revision=require('node:child_process').execFileSync('git',['rev-parse','dev'],{cwd:path.join(f.root,'Dev'),encoding:'utf8'}).trim();
- await f.state.createWorkflowSourceBaseline(f.projectId,f.workflow.id,{repositoryId:'selected-project-source',integrationTargetSourceLineId:'dev',baseRevisionId:revision});
- await require('../../dist/main/sourceControl/workflowSourceMaterializationService.js').createWorkflowSourceMaterializationService({projectContainerRoot:f.root,projectId:f.projectId}).materialize(f.workflow.id);
+ const baseline=await f.state.createWorkflowSourceBaseline(f.projectId,f.workflow.id,{repositoryId:'selected-project-source',integrationTargetSourceLineId:'dev',baseRevisionId:revision});
+ // Match source-seeded Workflow creation: reserve binding identity, but leave the checkout unprepared.
+ await f.state.createWorkflowSourceBinding(f.projectId,f.workflow.id,baseline.id);
+ const {CodexImplementerExecutionService}=require('../../dist/main/workCardBuilding/codexImplementerExecutionService.js');
+ const {runtimeFixture,selection}=require('../support/codex-runtime.cjs');const runtime=runtimeFixture();await runtime.ready;
+ let preparations=0;const executions=[];
+ const service=new CodexImplementerExecutionService(async()=>({startThread(options){return {id:'greenfield-start',async runStreamed(prompt){
+  executions.push({options,prompt});if(prompt.includes('"repair.txt"'))fs.writeFileSync(path.join(options.workingDirectory,'repair.txt'),'Approved repair');
+  return {events:(async function*(){if(prompt.includes('"repair.txt"'))yield {type:'item.completed',item:{type:'file_change',changes:[{path:'repair.txt'}],status:'completed'}};yield {type:'item.completed',item:{type:'agent_message',text:JSON.stringify({summary:'Exact source assessment',deviations:[],blockers:[],residualRisks:[],outcome:'implemented'})}};yield {type:'turn.completed'};})()};
+ }};}}),undefined,undefined,undefined,runtime.manager);
+ service.configureSourceCheckoutProjection(async()=>{preparations++;return {workspaceId:'greenfield-readiness',projection:{registerRepositoryCheckout:async(_id,checkout)=>({...checkout,availability:'available',validationError:null})}};});
+ async function clickImplement(id,expectedPreparations){
+  const selector={ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:id};
+  assert.equal(await kernel.getImplementationAttempt(f.root,f.workflow.id,id),null);
+  const before=await f.store.listStateChanges(f.projectId),execution=await service.getStatus(f.root,selector);
+  assert.equal(execution.state,'ready',execution.failureReason);assert.equal(execution.canRunAgain,true);assert.equal(execution.sourceMode,'source-backed');
+  assert.equal(execution.workflowId,f.workflow.id);assert.equal(execution.workItemId,id);assert.equal(execution.workItemVersion,(await f.store.getEntity(f.projectId,id)).recordVersion);
+  assert.equal(execution.executionContractDigest,null);assert.equal(execution.failureReason,null);assert.equal(execution.retryBlocker,null);
+  assert.deepEqual(await f.store.listStateChanges(f.projectId),before);assert.equal(preparations,expectedPreparations);
+  assert.equal(await kernel.getImplementationAttempt(f.root,f.workflow.id,id),null);
+  const React=require('react'),{loadRendererSourceModule:load}=require('../renderer/renderer-source-loader.cjs');
+  const {WorkCardImplementWorkspace}=load('src/renderer/app/WorkCardImplementWorkspace.tsx'),{CodexExecutionActions}=load('src/renderer/app/WorkCardImplementShell.tsx');
+  const planning=await require('../../dist/main/workCardPlanning/structuredWorkItemPlanningService.js').createStructuredWorkItemPlanningService().get(f.root,f.workflow.id,id);
+  const original={useState:React.useState,useEffect:React.useEffect,useRef:React.useRef},old=global.window;
+  const values=[planning,null,execution,false,'',{...runtime.manager.getStatus(),selection},null,false,''];let index=0,started;
+  React.useState=initial=>{const slot=index++;return [slot in values?values[slot]:initial,value=>values[slot]=value];};React.useEffect=()=>{};React.useRef=initial=>({current:initial});
+  global.window={champcity:{startWorkflowWorkItemCodexExecution:(workflowId,workItemId,model)=>started=service.start(f.root,{ownerKind:'workflow-work-item',workflowId,workItemId},model),getStructuredWorkItemPlanning:async()=>planning,getImplementationAttempt:()=>kernel.getImplementationAttempt(f.root,f.workflow.id,id),getWorkflowWorkItemCodexExecutionStatus:()=>service.getStatus(f.root,selector),getWorkflowExecutionProjection:()=>kernel.getExecutionProjection(f.root,f.workflow.id)}};
+  try {
+   const props=WorkCardImplementWorkspace({workflowId:f.workflow.id,workItemId:id,onNext(){}}).props;
+   assert.equal(props.context.canExecute,true);assert.equal(props.modelSelection.canRun,true);
+   const tree=CodexExecutionActions({execution:props.codexExecution,modelSelection:props.modelSelection,isActionRunning:false,onRun:props.onRunCodex,onCancel(){}});
+   const nodes=n=>!n||typeof n!=='object'?[]:[n,...React.Children.toArray(n.props?.children).flatMap(nodes)];
+   const button=nodes(tree).find(n=>n.type==='button'&&n.props.className==='apply-button codex-command');assert.equal(button.props.disabled,false);button.props.onClick();
+   const running=await started;assert.equal(running.state,'running',running.failureReason);await new Promise(setImmediate);
+  } finally {Object.assign(React,original);global.window=old;}
+  let completed;for(let i=0;i<300;i++){completed=await service.getStatus(f.root,selector);if(completed.state!=='running')break;await new Promise(resolve=>setTimeout(resolve,20));}
+  assert.equal(completed.state,'completed',completed.failureReason);assert.equal(preparations,expectedPreparations+1);
+  const attempts=(await f.store.listEntities(f.projectId,'ImplementationAttempt')).filter(a=>a.body.workItemId===id);assert.equal(attempts.length,1);
+  const attempt=attempts[0],implementation=await f.store.getEntity(f.projectId,attempt.body.implementationRecordId);
+  assert.equal(implementation.body.executionRef,attempt.id);assert.equal(implementation.body.workItemId,id);assert.ok(executions.at(-1).prompt.includes(id));
+  return {attempt,implementation,completed};
+ }
  const direction={title:'Assess current source',objective:'Complete without edits',scopeIn:['Read source context'],scopeOut:['Source edits'],constraints:[],assumptions:[],risks:[]};
  let model=await loop.get(f.root,f.workflow.id,'phase_one','interview');model=await loop.save(f.root,f.workflow.id,'phase_one','interview',{workflowId:f.workflow.id,phaseId:model.phase.id,stageKind:'interview',facts:[],direction,criteria:[],sources:model.sources});await loop.review(f.root,f.workflow.id,'phase_one','interview',model.review.cycle.id,{expectedRecordVersion:1,outcome:'approved'});
  model=await loop.get(f.root,f.workflow.id,'phase_one','planning');model=await loop.save(f.root,f.workflow.id,'phase_one','planning',{workflowId:f.workflow.id,phaseId:model.phase.id,stageKind:'planning',facts:[],direction,criteria:[],candidates:[{candidateId:'read_work',order:1,title:'Read source',purpose:'Assess context',dependsOn:[],resolutionStatus:'planned',resolutionReason:'',evidencePaths:[],criteria:[]}],sources:model.sources});model=await loop.review(f.root,f.workflow.id,'phase_one','planning',model.review.cycle.id,{expectedRecordVersion:1,outcome:'approved'});
  const item=model.review.workItems[0];await kernel.acceptWorkItemExecutionPlan(f.root,{workflowId:f.workflow.id,workItemId:item.id,expectedVersion:item.recordVersion,plan:{implementationBoundaries:['Read exact source'],affectedPaths:[],proofIntent:['Review context assessment']}});
- const contract=await kernel.createWorkItemExecutionContract(f.root,f.workflow.id,item.id,{sourceMutation:'required',affectedPaths:['ignored-caller.txt'],proofIntent:['Ignored caller intent']});assert.equal(contract.sourceMutation,'not-required');assert.equal(contract.sourceRevisionId,revision);assert.deepEqual(contract.affectedPaths,[]);
- const attempt=await kernel.prepareImplementationAttempt(f.root,f.workflow.id,item.id);await kernel.beginWorkItemAttempt(f.root,f.workflow.id,item.id,attempt.body.workItemVersion,attempt.id);const implementation=await kernel.finishWorkItemAttempt(f.root,f.workflow.id,item.id,attempt.id,{summary:'Context assessed',deviations:[],blockers:[],residualRisks:[],outcome:'implemented'});
+ assert.equal((await kernel.getExecutionProjection(f.root,f.workflow.id)).source.state,'unprepared');
+ const {attempt,implementation,completed}=await clickImplement(item.id,0);assert.equal(completed.checkpoint.status,'not-required');assert.equal(executions[0].options.readOnly,true);assert.deepEqual(executions[0].options.writableRoots,[]);
+ const reopened=await new CodexImplementerExecutionService().getStatus(f.root,{ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:item.id});assert.equal(reopened.state,'completed');assert.equal(reopened.checkpoint.status,'not-required');
  const before=(await f.store.listStateChanges(f.projectId)).length;
  assert.equal((await require('../../dist/main/workflow/greenfieldNavigationService.js').createGreenfieldNavigationService().get(f.root,f.workflow.id)).currentWorkspace,'work-card-report-review');
  assert.equal((await kernel.getCheckpointRecoveryProjection(f.root,f.workflow.id,item.id)).implementation.state,'not-required');assert.equal((await f.store.listStateChanges(f.projectId)).length,before);
@@ -599,4 +640,15 @@ test('Greenfield completed source-backed no-mutation attempt reopens into Review
  assert.equal((await f.state.getImplementationAttempt(f.projectId,f.workflow.id,item.id)).id,attempt.id);assert.deepEqual(await f.store.getEntity(f.projectId,implementation.id),implementation);
  assert.equal((await nav.get(f.root,f.workflow.id)).currentWorkspace,'work-card-report-review');
  const view=await kernel.getPhaseValidationProjection(f.root,f.workflow.id,model.phase.id);assert.equal(view.sourceRevisionId,revision);assert.equal(view.workItemsClosed,false);assert.ok(!view.completion.blockers.some(value=>value.includes("tester")));
+ const cycle=await f.state.prepareWorkItemValidationCycle(f.projectId,f.workflow.id,item.id);
+ const decision=await f.state.reviewWorkItemValidationCycle(f.projectId,f.workflow.id,item.id,{cycleId:cycle.id,expectedRecordVersion:cycle.recordVersion,outcome:'RequestRepair',repairDefectText:'Add approved repair evidence'});
+ const {repair}=await kernel.createWorkflowRepair(f.root,f.workflow.id,item.id,decision.id);
+ assert.equal((await nav.get(f.root,f.workflow.id)).currentWorkspace,'work-card-repair');
+ await require('../../dist/main/workflow/workflowCandidateIngressService.js').createWorkflowCandidateIngressService().submit(f.root,{workflowId:f.workflow.id,stage:'work-item-planning',scopeEntityId:repair.id,candidateJson:JSON.stringify({implementationBoundaries:['Exact repair evidence'],affectedPaths:['repair.txt'],proofIntent:['Check approved repair file']})});
+ assert.equal((await service.getStatus(f.root,{ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:repair.id})).state,'unavailable','Unapproved Repair planning blocks Start');
+ await f.state.recordWorkItemPlanningReview(f.projectId,f.workflow.id,repair.id,{expectedRecordVersion:(await f.store.getEntity(f.projectId,repair.id)).recordVersion,outcome:'approved'});
+ const current=await nav.get(f.root,f.workflow.id);assert.equal(current.currentWorkspace,'work-card-building-review');assert.equal(current.currentWorkItemId,repair.id);
+ const repaired=await clickImplement(repair.id,1);assert.equal(repaired.completed.checkpoint.status,'committed');assert.notEqual(executions[1].options.readOnly,true);assert.ok(executions[1].options.writableRoots.includes(executions[1].options.workingDirectory));
+ assert.deepEqual((await kernel.getExecutionProjection(f.root,f.workflow.id)).items.find(i=>i.record.id===repair.id).record.body.affectedPaths,['repair.txt']);
+ assert.equal((await f.store.listEntities(f.projectId,'SourceCheckpoint')).length,1);
 });

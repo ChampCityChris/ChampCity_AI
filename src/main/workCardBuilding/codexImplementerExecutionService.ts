@@ -553,6 +553,9 @@ export class CodexImplementerExecutionService {
   }
 
   private async getWorkflowWorkItemStatus(workspaceRoot: string, selector: Extract<CodexExecutionSelector, { ownerKind: "workflow-work-item" }>): Promise<CodexImplementerExecutionModel> {
+    if (Object.keys(selector).sort().join("|") !== ["ownerKind", "workflowId", "workItemId"].sort().join("|") ||
+      typeof selector.workflowId !== "string" || typeof selector.workItemId !== "string" || !selector.workflowId.trim() || !selector.workItemId.trim())
+      return unavailableFromPreflight(Error("Exact workflowId and workItemId are required; source mutation options are not accepted by this execution mode."));
     const active = this.exactSessionsByOwner.get(exactExecutionOwnerKey(workspaceRoot, selector.workflowId, selector.workItemId));
     if (active?.workflowWorkItem?.workflowId === selector.workflowId && active.workflowWorkItem.workItemId === selector.workItemId) {
       const recovery = await this.workflowExecutionServiceFactory().getCheckpointRecoveryProjection(workspaceRoot, selector.workflowId, selector.workItemId).catch(() => null);
@@ -567,7 +570,34 @@ export class CodexImplementerExecutionService {
         ? "Semantic implementation attempt is complete; recover its exact durable SourceCheckpoint instead of rerunning Implementer."
         : canRunAgain || recovery?.implementation.state === "not-required" && active.state === "completed" ? null : "Refresh the exact WorkItem state before another implementation attempt." });
     }
-    const durable = await this.workflowExecutionServiceFactory().getImplementationAttempt(workspaceRoot, selector.workflowId, selector.workItemId).catch(() => null);
+    const kernel = this.workflowExecutionServiceFactory();
+    let durable: Awaited<ReturnType<typeof kernel.getImplementationAttempt>>;
+    try { durable = await kernel.getImplementationAttempt(workspaceRoot, selector.workflowId, selector.workItemId); }
+    catch (error) { return unavailableFromPreflight(error instanceof Error ? error : Error(String(error))); }
+    if (!durable) {
+      try {
+        // Readiness permits an attempt to Start. Only Start resolves the source checkout and execution contract.
+        const view = await kernel.getExecutionProjection(workspaceRoot, selector.workflowId);
+        const matches = view.items.filter(candidate => candidate.record.id === selector.workItemId);
+        if (view.workflowId !== selector.workflowId || view.plan.workflow.id !== selector.workflowId || matches.length !== 1)
+          throw Error("Exact WorkItem is not part of the selected Workflow plan.");
+        const item = matches[0];
+        if (item.record.lifecycleState !== "active" || !["planned", "ready"].includes(item.record.body.workState) ||
+          item.eligibility.workItemId !== selector.workItemId || !item.eligibility.eligible || item.eligibility.blockers.length)
+          throw Error("Work Item is not eligible to start implementation.");
+        if (!item.record.body.implementationBoundaries?.length || !item.record.body.proofIntent?.length || !Array.isArray(item.record.body.affectedPaths))
+          throw Error("Architect execution planning is required before Implementer execution.");
+        if (view.source.state === "blocked") throw Error(view.source.failureCode ?? "Workflow source preparation is blocked.");
+        if (view.source.state === "non-source") {
+          const context = await this.resolveWorkflowWorkItemContext(workspaceRoot, selector);
+          return context instanceof Error ? unavailableFromPreflight(context) : readyModel(context);
+        }
+        return { ...baseModel(path.resolve(workspaceRoot)), state: "ready", canRunAgain: true,
+          executionKind: "workflow-work-item-implementation", workflowId: view.workflowId, workItemId: item.record.id,
+          workItemVersion: item.record.recordVersion, phaseId: item.phaseId, workCardId: item.record.id,
+          workCardTitle: item.record.body.title, sourceMode: "source-backed" };
+      } catch (error) { return unavailableFromPreflight(error instanceof Error ? error : Error(String(error))); }
+    }
     if (durable?.attempt.body.attemptState === "running") return unavailableFromPreflight(Error("Running ImplementationAttempt has no live Codex session; recovery/inspection required."));
     if (durable?.attempt.body.attemptState === "prepared") {
       try {

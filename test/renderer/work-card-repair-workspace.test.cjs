@@ -8,6 +8,7 @@ function nodes(x){return !x||typeof x!=='object'?[]:[x,...React.Children.toArray
 test('Repair renders primary evidence bound repair target and controlled handoff actions',()=>{
  const calls=[],p=base();p.onPrepareHandoff=()=>calls.push('prepare');p.onReloadBrowser=()=>calls.push('reload');p.onRefresh=()=>calls.push('refresh');const element=WorkCardRepairShell(p),markup=render(element);
  for(const text of ['Repair repairs Parent','Preserve exact failure','Prepare Repair Work Card Prompt','Copy Handoff','Reload ChatGPT','Embedded Architect'])assert.ok(markup.includes(text));
+ for(const label of ['Prepare Repair Work Card Prompt','Copy Handoff','Reload ChatGPT','Refresh'])assert.ok(markup.indexOf('Embedded Architect')<markup.indexOf(label),label+' follows browser');
  const buttons=nodes(element).filter(x=>x.type==='button');assert.equal(buttons[0].props.disabled,false);assert.equal(buttons[1].props.disabled,true);buttons[0].props.onClick();buttons[2].props.onClick();buttons[3].props.onClick();assert.deepEqual(calls,['prepare','reload','refresh']);assert.ok(markup.indexOf('work-card-repair-column')<markup.indexOf('work-card-repair-architect-column'));
 });
 test('Repair preserves review slot browser hiding and repeated loop presentation without authority',()=>{

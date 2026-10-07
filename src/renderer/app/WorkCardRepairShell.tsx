@@ -106,12 +106,13 @@ export function WorkCardRepairShell({
       </div>
       {isArchitectPaneVisible ? (
         <div className="figma-browser-column work-card-repair-architect-column" aria-label={architectAriaLabel}>
+          <div className="work-card-repair-architect-status">
+            <span>{architectHeading}</span>
+            <strong>{architectStateLabel}</strong>
+            <p>{architectStatusText}</p>
+          </div>
+          {browserPanel}
           <section className="work-card-repair-actions" aria-label="Repair Work Card Architect actions">
-            <div>
-              <span>{architectHeading}</span>
-              <strong>{architectStateLabel}</strong>
-              <p>{architectStatusText}</p>
-            </div>
             <button
               className="work-card-repair-primary"
               disabled={!prepareEnabled}
@@ -151,7 +152,6 @@ export function WorkCardRepairShell({
             {actionFeedback ? <p className="work-card-repair-message success">{actionFeedback}</p> : null}
             {actionError ? <p className="work-card-repair-message error">{actionError}</p> : null}
           </section>
-          {browserPanel}
         </div>
       ) : null}
     </section>
