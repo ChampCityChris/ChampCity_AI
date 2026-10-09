@@ -2652,13 +2652,30 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     });
   }
 
-  async function createSourceCheckpoint(projectId: ProjectId, bindingId: EntityId, workflowId: EntityId, targetId: EntityId,
-    input: Pick<EntityBodyMap["SourceCheckpoint"], "boundaryId" | "expectedRevisionId" | "checkpointKind" | "checkpointState"> & { resultingRevisionId?: string; receiptDigest?: string }, context?: MutationContext) {
+  type SourceCheckpointInput = Pick<EntityBodyMap["SourceCheckpoint"], "boundaryId" | "expectedRevisionId" | "checkpointKind" | "checkpointState"> & { resultingRevisionId?: string; receiptDigest?: string };
+  async function persistSourceCheckpoint(projectId: ProjectId, bindingId: EntityId, workflowId: EntityId, targetId: EntityId,
+    input: SourceCheckpointInput, context?: MutationContext, recoveredAttemptId?: EntityId) {
     exactInput(input, ["boundaryId", "expectedRevisionId", "checkpointKind", "checkpointState", "resultingRevisionId", "receiptDigest"]);
     return store.transaction(projectId, async unit => {
       const binding = await requiredRecord(unit, projectId, bindingId);
       const target = await requiredRecord(unit, projectId, targetId);
-      if (binding.entityType !== "SourceBinding" || binding.body.preparationState !== "ready" || !binding.body.workSourceLineId || !binding.body.repositoryCheckoutId) fail("Checkpoint requires a ready SourceBinding with RepositoryCheckout.");
+      if (recoveredAttemptId) {
+        const attempt = await requiredRecord(unit, projectId, recoveredAttemptId);
+        const item = target.entityType === "ImplementationRecord" ? await requiredRecord(unit, projectId, target.body.workItemId) : null;
+        const latestImplementation = item ? (await getImplementationAttempts(projectId, item.id)).at(-1) : null;
+        const latestAttempt = item ? await getImplementationAttempt(projectId, workflowId, item.id) : null;
+        const review = item ? await getWorkItemPlanningReview(projectId, item.id) : null;
+        if (binding.entityType !== "SourceBinding" || binding.lifecycleState !== "active" || binding.body.preparationState !== "blocked" ||
+          binding.body.failureCode !== "REPOSITORY_CHECKOUT_MATERIALIZATION_FAILED" || target.entityType !== "ImplementationRecord" ||
+          target.body.outcome !== "implemented" || target.body.blockers.length || target.body.executionRef !== recoveredAttemptId ||
+          attempt.entityType !== "ImplementationAttempt" || attempt.lifecycleState !== "active" || attempt.body.attemptState !== "completed" ||
+          attempt.body.implementationRecordId !== target.id || attempt.body.workflowId !== workflowId || attempt.body.sourceMode !== "source-backed" ||
+          attempt.body.sourceRevisionId !== input.expectedRevisionId || input.boundaryId !== attempt.id || input.checkpointKind !== "implementation" || input.checkpointState !== "pending" ||
+          item?.entityType !== "WorkItem" || item.body.workState !== "validation_pending" || !item.body.affectedPaths?.length || review?.disposition.state !== "approved" ||
+          latestImplementation?.id !== target.id || latestAttempt?.id !== attempt.id)
+          fail("Recovered implementation checkpoint requires the exact current approved successful reserved attempt.");
+      }
+      if (binding.entityType !== "SourceBinding" || binding.body.preparationState !== "ready" && !recoveredAttemptId || !binding.body.workSourceLineId || !binding.body.repositoryCheckoutId) fail("Checkpoint requires a ready SourceBinding with RepositoryCheckout.");
       const baseline = await requiredRecord(unit, projectId, binding.body.sourceBaselineId);
       const workflow = await requiredRecord(unit, projectId, workflowId);
       await requireCurrentSourceWorkflow(unit, projectId, workflow);
@@ -2696,6 +2713,22 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       }
       return checkpoint;
     });
+  }
+
+  async function createSourceCheckpoint(projectId: ProjectId, bindingId: EntityId, workflowId: EntityId, targetId: EntityId,
+    input: SourceCheckpointInput, context?: MutationContext) {
+    return persistSourceCheckpoint(projectId, bindingId, workflowId, targetId, input, context);
+  }
+
+  /** Source-control recovery supplies durable owners and a verified receipt, never a generic readiness bypass. */
+  async function createRecoveredImplementationSourceCheckpoint(projectId: ProjectId, bindingId: EntityId, workflowId: EntityId,
+    implementationId: EntityId, receiptDigest: string) {
+    const implementation = await requiredRecord(store, projectId, implementationId);
+    if (implementation.entityType !== "ImplementationRecord" || !implementation.body.executionRef) fail("Recovery implementation boundary is unavailable.");
+    const attempt = await requiredRecord(store, projectId, implementation.body.executionRef);
+    if (attempt.entityType !== "ImplementationAttempt" || !attempt.body.sourceRevisionId) fail("Recovery reserved source revision is unavailable.");
+    return persistSourceCheckpoint(projectId, bindingId, workflowId, implementationId, { boundaryId: attempt.id,
+      expectedRevisionId: attempt.body.sourceRevisionId, checkpointKind: "implementation", checkpointState: "pending", receiptDigest }, undefined, attempt.id);
   }
 
   async function advanceSourceCheckpoint(projectId: ProjectId, checkpointId: EntityId, input: { checkpointState: EntityBodyMap["SourceCheckpoint"]["checkpointState"]; resultingRevisionId?: string }, expectedRevision: number, context?: MutationContext) {
@@ -4561,7 +4594,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   }
 
   return {getCloseoutEligibility, saveCloseoutCandidate, getCloseoutReview, recordCloseoutReview, saveWorkItemPlanningContract, getWorkItemPlanningReview, recordWorkItemPlanningReview, savePhaseLoopCandidate, getPhaseLoopReview, recordPhaseLoopReview, saveGreenfieldPhaseMap, getGreenfieldPhaseMap, recordGreenfieldPhaseMapReview, saveProjectPlanningCandidate, getProjectPlanningReview, recordProjectPlanningReview, closeResearchAfterAssessment, savePlanCandidate, getPlanReview, recordPlanReview, prepareArchitectWorkspace, prepareExactPlanningWorkspace, adoptLegacyArchitectReview, saveArchitectCandidate, saveGreenfieldArchitectOutput, getArchitectReviewProjection, saveArchitectReviewCycle, getCurrentArchitectReviewCycle, getArchitectReviewDisposition, recordArchitectReview, saveWorkflowIntake, recordWorkflowIntakeDecision, getWorkflowIntakeDisposition, createRecord, createWorkflow, createSubstantiveWorkflow, createSubstantiveWorkflowInUnitOfWork, createProjectCreationWorkflow, createWorkIntake, reviseWorkIntake, advanceWorkIntake, recordRouteAssessment, recordRouteDecision, recordWorkIntakeRouteRevisionRequest, completeWorkIntakeRouteHandoff,
-    createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, advanceSourceCheckpoint, completeTesterResultCheckpoint, createIntegrationRecord, advanceIntegrationRecord, completeWorkflowExecution, closeIntegratedWorkflow,
+    createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, createRecoveredImplementationSourceCheckpoint, advanceSourceCheckpoint, completeTesterResultCheckpoint, createIntegrationRecord, advanceIntegrationRecord, completeWorkflowExecution, closeIntegratedWorkflow,
     prepareWorkItemValidationCycle, getWorkItemValidationCycle, reviewWorkItemValidationCycle,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, createTesterResult, createWorkflowRepair, createPhaseRepair, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
     reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, recordCriterionOperatorDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, prepareImplementationAttempt, getImplementationAttempt, assertImplementationAttemptCurrent, getImplementationAttemptReport, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,

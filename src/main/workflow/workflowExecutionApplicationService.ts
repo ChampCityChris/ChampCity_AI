@@ -921,6 +921,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       : { state: "non-source", currentRevisionId: null };
     if (!request.sourceMutating) return { state: view.source.state, currentRevisionId: view.source.currentRevisionId, ...(view.source.failureCode ? { failureCode: view.source.failureCode } : {}) };
     if (!dependencies.materializeWorkflowSource) return { state: "blocked", currentRevisionId: null, failureCode: "SOURCE_CHECKOUT_PREPARATION_UNAVAILABLE" };
+    let recovering = true;
     try {
       // Recovery belongs to Start preparation, never to generic materialization or a status read.
       const anchor = await withCurrentProject(projectRoot, async (store, projectId) => {
@@ -929,23 +930,29 @@ export function createWorkflowExecutionApplicationService(dependencies: {
         return baseline.body.workflowId;
       });
       const checkout = resolveManagedWorkflowCheckoutPath(fs.realpathSync(projectRoot), anchor).checkoutRoot;
-      if (fs.existsSync(checkout) && (await runBoundedGit({ cwd: checkout, args: ["status", "--porcelain", "--untracked-files=all"] })).stdout) {
+      const dirty = fs.existsSync(checkout) && Boolean((await runBoundedGit({ cwd: checkout, args: ["status", "--porcelain", "--untracked-files=all"] })).stdout);
+      const blockedRecovery = view.source.state === "blocked" && view.source.failureCode === "REPOSITORY_CHECKOUT_MATERIALIZATION_FAILED";
+      if (dirty || blockedRecovery) {
+        const head = (await runBoundedGit({ cwd: checkout, args: ["rev-parse", "HEAD"] })).stdout.trim();
         const candidates = await withCurrentProject(projectRoot, async (store, projectId) => {
           const edges = (await store.listRelationships(projectId, "checkpoints")).filter(edge => !edge.endedAt);
-          const committed = new Set((await store.listEntities(projectId, "SourceCheckpoint")).filter(record => record.entityType === "SourceCheckpoint" && record.body.checkpointState === "committed").map(record => record.id));
+          const committed = (await store.listEntities(projectId, "SourceCheckpoint")).filter(record => record.entityType === "SourceCheckpoint" && record.body.checkpointState === "committed");
           const state = createProjectStateService(store, operator);
           const gaps = [];
           for (const item of view.items) {
             const implementation = (await state.getImplementationAttempts(projectId, item.record.id)).at(-1);
+            const linked = committed.filter(record => edges.some(edge => edge.toEntityId === implementation?.id && edge.fromEntityId === record.id));
             if (implementation?.body.outcome === "implemented" && item.record.body.affectedPaths?.length &&
-              !edges.some(edge => edge.toEntityId === implementation.id && committed.has(edge.fromEntityId))) gaps.push({ workItemId: item.record.id, implementationRecordId: implementation.id });
+              (!linked.length || blockedRecovery && linked.some(record => record.entityType === "SourceCheckpoint" && record.body.resultingRevisionId === head)))
+              gaps.push({ workItemId: item.record.id, implementationRecordId: implementation.id });
           }
           return gaps;
         });
-        if (candidates.length !== 1) throw Error("Inspection required: dirty Workflow source has no unique recoverable implementation owner.");
+        if (candidates.length !== 1) throw Error("Inspection required: Workflow source has no unique recoverable implementation owner.");
         const recovered = await retryStructuredImplementationCheckpoint(projectRoot, view.projectId, workflowId, candidates[0].workItemId, candidates[0].implementationRecordId);
         if (recovered.checkpoint.state !== "committed") throw Error(`Inspection required: ${recovered.checkpoint.message}`);
       }
+      recovering = false;
       const result = await dependencies.materializeWorkflowSource(fs.realpathSync(projectRoot), view.projectId, workflowId);
       const refreshed = await getExecutionProjection(projectRoot, workflowId);
       if (refreshed.source.state !== "ready" || result.binding.projectId !== view.projectId || result.binding.entityType !== "SourceBinding" ||
@@ -956,7 +963,8 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       return { state: "ready", currentRevisionId: refreshed.source.currentRevisionId, repositoryCheckoutId: result.binding.body.repositoryCheckoutId,
         sourceBinding: result.binding, repositoryCheckout: result.checkout };
     } catch (error) {
-      const failureCode = (error as Error & { materializationCode?: string }).materializationCode ?? (error instanceof Error && /inspection required/i.test(error.message) ? error.message : "REPOSITORY_CHECKOUT_MATERIALIZATION_FAILED");
+      const failureCode = recovering ? `Inspection required: ${error instanceof Error ? error.message.replace(/^Inspection required: /i, "").slice(0, 512) : "source checkpoint recovery failed."}` :
+        (error as Error & { materializationCode?: string }).materializationCode ?? (error instanceof Error && /inspection required/i.test(error.message) ? error.message.slice(0, 512) : "REPOSITORY_CHECKOUT_MATERIALIZATION_FAILED");
       return { state: "blocked", currentRevisionId: null, failureCode };
     }
   }

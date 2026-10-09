@@ -11,6 +11,9 @@ import { createSourceControlService } from "./sourceControlService";
 import { resolveManagedProjectSourceTopology, resolveManagedWorkflowCheckoutPath, workflowRepositoryCheckoutId } from "./projectSourceTopology";
 import { workflowSourceLineName } from "./workSourceNaming";
 import { runBoundedGit } from "../core/gitExecution";
+import { inspectLegacyImplementationCheckpoint } from "./structuredWorkflowCheckpointService";
+import { acquireWorkflowExecutionLease, workflowExecutionLeaseKey } from "../workCardBuilding/workflowExecutionLease";
+import { reconcileWorkflowSource } from "./workflowSourceReconciliation";
 
 const principal = { principalId: "local-operator", principalType: "human" as const, role: "Operator" };
 const activeRoots = new Set<string>();
@@ -64,7 +67,9 @@ async function exactCheckpoint(store: Store, projectId: string, boundaryId: stri
   return records[0] ?? null;
 }
 
-async function checkpoint(root: string, projectId: string, kind: Kind, request: Request): Promise<CheckpointResult> {
+// Only the qualified, lease-owning legacy recovery operation below can supply this internal proof.
+type LegacyProof = Awaited<ReturnType<typeof inspectLegacyImplementationCheckpoint>>;
+async function checkpoint(root: string, projectId: string, kind: Kind, request: Request, legacyProof?: LegacyProof): Promise<CheckpointResult> {
   let selected: string;
   try { selected = fs.realpathSync(root); } catch { return blocked("Selected repository is unavailable."); }
   let lockKey = selected;
@@ -100,7 +105,9 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
       const bindingWorkflow = await store.getEntity(projectId, binding.body.workflowId);
       const baselineWorkflow = baseline?.entityType === "SourceBaseline" ? await store.getEntity(projectId, baseline.body.workflowId) : null;
       if (baseline?.entityType !== "SourceBaseline" || bindingWorkflow?.entityType !== "Workflow" || baselineWorkflow?.entityType !== "Workflow" || bindingWorkflow.lineageId !== baselineWorkflow.lineageId) return blocked("SourceBinding baseline and Workflow lineage mismatch.");
-      if (binding.body.preparationState !== "ready" || !binding.body.currentRevisionId || !binding.body.workSourceLineId || !binding.body.repositoryCheckoutId || binding.body.workSourceLineId !== request.sourceLineId || binding.body.repositoryCheckoutId !== request.repositoryCheckoutId)
+      const qualifiedBlocked = kind === "implementation" && legacyProof?.bindingId === binding.id && legacyProof.bindingVersion === binding.recordVersion &&
+        binding.body.preparationState === "blocked" && binding.body.failureCode === "REPOSITORY_CHECKOUT_MATERIALIZATION_FAILED";
+      if (binding.body.preparationState !== "ready" && !qualifiedBlocked || !binding.body.currentRevisionId || !binding.body.workSourceLineId || !binding.body.repositoryCheckoutId || binding.body.workSourceLineId !== request.sourceLineId || binding.body.repositoryCheckoutId !== request.repositoryCheckoutId)
         return blocked("Workflow SourceBinding does not match the checkpoint request.");
       if (request.repositoryCheckoutId !== workflowRepositoryCheckoutId(baseline.body.workflowId) || binding.body.workSourceLineId !== workflowSourceLineName(baseline.body.workflowId)) return blocked("Workflow checkout identity differs from its immutable SourceBaseline anchor.");
       const checkout = resolveManagedWorkflowCheckoutPath(selected, baseline.body.workflowId).checkoutRoot;
@@ -156,11 +163,34 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
         dispositionId: kind === "disposition" ? (request as DispositionCheckpointRequest).dispositionId : null,
         sourceLineId: request.sourceLineId, expectedRevisionId: request.expectedRevisionId, files: fileDigests }));
       const message = commitMessage(kind, receiptDigest);
+      const baselineBody = baseline.body;
+      async function completeBinding(committed: Checkpoint): Promise<CheckpointResult> {
+        if (legacyProof && binding.body.preparationState === "blocked") {
+          const revision = committed.body.resultingRevisionId!;
+          // Check all provenance again after commit, before completing the general source lifecycle.
+          const exact = await inspectLegacyImplementationCheckpoint(selected, projectId, request.workflowId,
+            (target as ProjectStateRecord<"ImplementationRecord">).body.workItemId, request.targetEntityId);
+          if (exact.bindingId !== binding.id || exact.bindingVersion !== binding.recordVersion || exact.attributablePaths.join("\0") !== paths.join("\0") ||
+            (await reconcileWorkflowSource(selected, baselineBody.workflowId, { ...request, expectedRevisionId: revision })).length)
+            return inspection("Recovered checkpoint binding/source completion requires inspection.", committed.id);
+          // Use the existing blocked -> preparing -> ready transitions in one SQL transaction.
+          binding = await store.transaction(projectId, async unit => {
+            const lifecycle = createProjectStateService({ ...store, ...unit, transaction: async (_projectId, work) => work(unit) }, principal);
+            const preparing = await lifecycle.updateSourceBinding(projectId, binding.id,
+              { preparationState: "preparing", currentRevisionId: revision, failureCode: undefined }, binding.recordVersion) as Binding;
+            return await lifecycle.updateSourceBinding(projectId, preparing.id,
+              { preparationState: "ready", failureCode: undefined }, preparing.recordVersion) as Binding;
+          });
+        }
+        return result(baselineBody.repositoryId, committed);
+      }
       if (saved && (saved.body.workflowId !== request.workflowId || saved.body.expectedRevisionId !== request.expectedRevisionId ||
         saved.body.sourceLineId !== request.sourceLineId || saved.body.checkpointKind !== kind || saved.body.receiptDigest !== receiptDigest))
         return inspection("Checkpoint identity conflicts with saved evidence.", saved.id);
+      if (saved) pendingId = saved.id;
       if (saved?.body.checkpointState === "committed") {
-        if (!saved.body.resultingRevisionId || branch.result.head !== saved.body.resultingRevisionId || binding.body.currentRevisionId !== saved.body.resultingRevisionId)
+        if (!saved.body.resultingRevisionId || branch.result.head !== saved.body.resultingRevisionId ||
+          binding.body.currentRevisionId !== saved.body.resultingRevisionId && !(qualifiedBlocked && binding.body.currentRevisionId === request.expectedRevisionId))
           return inspection("Committed checkpoint no longer matches the current exact source boundary.", saved.id);
         const committed = await source.inspectCommit({ ref: saved.body.resultingRevisionId });
         const changed = await source.changedFiles();
@@ -170,7 +200,7 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
           !changed.ok || relevantChanges.length > 0)
           return inspection("Committed checkpoint source evidence has changed and requires inspection.", saved.id);
         if (kind === "tester") await state.completeTesterResultCheckpoint(projectId, target.id, saved.id, target.recordVersion);
-        return result(baseline.body.repositoryId, saved);
+        return await completeBinding(saved);
       }
       if (branch.result.head !== request.expectedRevisionId) {
         if (!saved || saved.body.workflowId !== request.workflowId || saved.body.expectedRevisionId !== request.expectedRevisionId ||
@@ -185,7 +215,8 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
       if (!saved) {
         if (binding.body.currentRevisionId !== request.expectedRevisionId)
           return blocked("Expected source revision is stale.");
-        const created = await state.createSourceCheckpoint(projectId, binding.id, request.workflowId, request.targetEntityId,
+        const created = qualifiedBlocked ? await state.createRecoveredImplementationSourceCheckpoint(projectId, binding.id, request.workflowId,
+          request.targetEntityId, receiptDigest) : await state.createSourceCheckpoint(projectId, binding.id, request.workflowId, request.targetEntityId,
           { boundaryId: request.boundaryId, expectedRevisionId: request.expectedRevisionId, checkpointKind: kind,
             checkpointState: "pending", receiptDigest });
         if (created.entityType !== "SourceCheckpoint") throw Error("Checkpoint record type changed.");
@@ -205,10 +236,12 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
         if (binding.body.currentRevisionId === request.expectedRevisionId) binding = await state.updateSourceBinding(projectId, binding.id,
           { currentRevisionId: inspected.result.commit }, binding.recordVersion) as Binding;
         if (binding.body.currentRevisionId !== inspected.result.commit) return inspection("Source binding requires inspection.", saved.id);
+        if (saved.body.checkpointState === "blocked") saved = await state.advanceSourceCheckpoint(projectId, saved.id,
+          { checkpointState: "pending" }, saved.recordVersion) as Checkpoint;
         saved = await state.advanceSourceCheckpoint(projectId, saved.id,
           { checkpointState: "committed", resultingRevisionId: inspected.result.commit }, saved.recordVersion) as Checkpoint;
         if (kind === "tester") await state.completeTesterResultCheckpoint(projectId, target.id, saved.id, target.recordVersion);
-        return result(baseline.body.repositoryId, saved);
+        return await completeBinding(saved);
       }
       const changed = await source.changedFiles();
       if (branch.result.head !== request.expectedRevisionId) return blocked("Expected source revision is stale.", saved.id);
@@ -262,9 +295,9 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
       saved = await state.advanceSourceCheckpoint(projectId, saved.id,
         { checkpointState: "committed", resultingRevisionId: inspected.result.commit }, saved.recordVersion) as Checkpoint;
       if (kind === "tester") await state.completeTesterResultCheckpoint(projectId, target.id, saved.id, target.recordVersion);
-      return result(baseline.body.repositoryId, saved);
+      return await completeBinding(saved);
     } finally { store.close(); }
-  } catch {
+  } catch (error) {
     if (pendingId) {
       try {
         const recovery = createSQLiteProjectStateStore(path.join(selected, ".champcity", "project-state.sqlite"));
@@ -276,8 +309,31 @@ async function checkpoint(root: string, projectId: string, kind: Kind, request: 
         } finally { recovery.close(); }
       } catch { /* Preserve the pending record for explicit retry reconciliation. */ }
     }
-    return inspection("Checkpoint outcome is uncertain; inspect source and saved evidence before retrying.", pendingId);
+    return inspection(legacyProof && error instanceof Error ? `Legacy checkpoint recovery requires inspection: ${error.message.slice(0, 512)}` :
+      "Checkpoint outcome is uncertain; inspect source and saved evidence before retrying.", pendingId);
   } finally { if (lockAcquired) activeRoots.delete(lockKey); }
+}
+
+/** Internal recovery entry point accepts only durable owner IDs, never a readiness switch or caller paths. */
+export async function recoverLegacyImplementationCheckpoint(root: string, projectId: string, workflowId: string,
+  workItemId: string, implementationRecordId: string): Promise<CheckpointResult> {
+  let lease: ReturnType<typeof acquireWorkflowExecutionLease> = null;
+  try {
+    const proof = await inspectLegacyImplementationCheckpoint(root, projectId, workflowId, workItemId, implementationRecordId);
+    lease = acquireWorkflowExecutionLease(workflowExecutionLeaseKey("source-backed", proof.checkoutRoot), `checkpoint-recovery:${implementationRecordId}`);
+    if (!lease) throw Error("Inspection required: another execution owns this Workflow checkout.");
+    const exact = await inspectLegacyImplementationCheckpoint(root, projectId, workflowId, workItemId, implementationRecordId);
+    if (JSON.stringify(proof) !== JSON.stringify(exact)) throw Error("Inspection required: recovery proof changed while obtaining the source lease.");
+    const store = createSQLiteProjectStateStore(path.join(fs.realpathSync(root), ".champcity", "project-state.sqlite"));
+    try {
+      const implementation = await store.getEntity(projectId, implementationRecordId);
+      if (implementation?.entityType !== "ImplementationRecord" || !implementation.body.executionRef) throw Error("Inspection required: implementation boundary is unavailable.");
+      return await checkpoint(root, projectId, "implementation", { ...exact, boundaryId: implementation.body.executionRef,
+        workflowId, targetEntityId: implementationRecordId }, exact);
+    } finally { store.close(); }
+  } catch (error) {
+    throw Error(`Inspection required: ${error instanceof Error ? error.message.replace(/^Inspection required: /i, "") : "legacy recovery proof is unavailable."}`);
+  } finally { lease?.release(); }
 }
 
 /** Main-process semantic checkpoint operations. The caller supplies a selected Project root. */

@@ -6,10 +6,11 @@ import { createProjectStateService, type DecisionInput } from "../../shared/proj
 import type { CheckpointResult } from "../../shared/sourceLifecycleContracts";
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
 import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
-import { createDispositionCheckpoint, createImplementationCheckpoint, createTesterCheckpoint } from "./semanticCheckpointService";
+import { createDispositionCheckpoint, createImplementationCheckpoint, createTesterCheckpoint, recoverLegacyImplementationCheckpoint } from "./semanticCheckpointService";
 import { boundedSourcePaths, reconcileWorkflowSource, sourcePathsInScope } from "./workflowSourceReconciliation";
 import { resolveManagedWorkflowCheckoutPath } from "./projectSourceTopology";
-import { acquireWorkflowExecutionLease, workflowExecutionLeaseKey } from "../workCardBuilding/workflowExecutionLease";
+import { runBoundedGit } from "../core/gitExecution";
+import { createSourceControlService } from "./sourceControlService";
 
 const operator = { principalId: "local-operator", principalType: "human" as const, role: "Operator" };
 type Store = ReturnType<typeof createSQLiteProjectStateStore>;
@@ -22,7 +23,7 @@ function open(root: string, projectId: string): { selected: string; store: Store
   if (selectedCurrentProjectId(selected) !== projectId) throw Error("Selected Current Project registration is unavailable.");
   return { selected, store: createSQLiteProjectStateStore(path.join(selected, ".champcity", "project-state.sqlite")) };
 }
-async function bindingForWorkflow(store: Store, projectId: string, workflowId: string): Promise<Binding> {
+async function bindingForWorkflow(store: Store, projectId: string, workflowId: string, legacyInspection = false): Promise<Binding> {
   const targetWorkflow = await store.getEntity(projectId, workflowId);
   if (targetWorkflow?.entityType !== "Workflow") throw Error("A substantive Workflow is required.");
   const workflows = (await store.listEntities(projectId, "Workflow")).filter((row): row is ProjectStateRecord<"Workflow"> => row.entityType === "Workflow" && row.lineageId === targetWorkflow.lineageId);
@@ -38,7 +39,9 @@ async function bindingForWorkflow(store: Store, projectId: string, workflowId: s
     const baselineWorkflow = baseline?.entityType === "SourceBaseline" ? await store.getEntity(projectId, baseline.body.workflowId) : null;
     if (baseline?.entityType !== "SourceBaseline" || workflow?.entityType !== "Workflow" || baselineWorkflow?.entityType !== "Workflow" || workflow.lineageId !== baselineWorkflow.lineageId) throw Error("SourceBinding baseline and Workflow lineage mismatch.");
   }
-  if (bindings.length !== 1 || bindings[0].body.preparationState !== "ready" ||
+  const recoveryBlocked = legacyInspection && bindings.length === 1 && bindings[0].body.preparationState === "blocked" &&
+    bindings[0].body.failureCode === "REPOSITORY_CHECKOUT_MATERIALIZATION_FAILED";
+  if (bindings.length !== 1 || bindings[0].body.preparationState !== "ready" && !recoveryBlocked ||
     !bindings[0].body.currentRevisionId || !bindings[0].body.workSourceLineId || !bindings[0].body.repositoryCheckoutId) throw Error("Workflow source must be ready.");
   return bindings[0];
 }
@@ -173,13 +176,18 @@ export async function inspectLegacyImplementationCheckpoint(root: string, projec
         (previous.body.sourceBaselineId !== current.body.sourceBaselineId || previous.body.repositoryCheckoutId && previous.body.repositoryCheckoutId !== current.body.repositoryCheckoutId || previous.body.workSourceLineId && previous.body.workSourceLineId !== current.body.workSourceLineId))
         throw Error("Inspection required: reserved planning/source evidence changed.");
     }
-    const binding = await bindingForWorkflow(store, projectId, workflowId);
-    if (binding.body.currentRevisionId !== attempt.body.sourceRevisionId) throw Error("Inspection required: reserved source revision is stale.");
+    const binding = await bindingForWorkflow(store, projectId, workflowId, true);
+    const reservedBinding = attempt.body.layout.sources.find(source => source.entityId === binding.id);
+    const previousBinding = reservedBinding ? await store.getEntityVersion(projectId, binding.id, reservedBinding.recordVersion) : null;
+    if (previousBinding?.entityType !== "SourceBinding" || previousBinding.body.preparationState !== "ready" ||
+      previousBinding.body.currentRevisionId !== attempt.body.sourceRevisionId || previousBinding.body.sourceBaselineId !== binding.body.sourceBaselineId ||
+      previousBinding.body.repositoryCheckoutId !== binding.body.repositoryCheckoutId || previousBinding.body.workSourceLineId !== binding.body.workSourceLineId)
+      throw Error("Inspection required: exact reserved SourceBinding identity is unavailable.");
     const checkpoints = await store.listEntities(projectId, "SourceCheckpoint");
     const checkpointLinks = (await store.listRelationships(projectId, "checkpoints")).filter(edge => !edge.endedAt);
     const owned = checkpoints.filter((record): record is Checkpoint => record.entityType === "SourceCheckpoint" &&
       (record.body.boundaryId === attempt.id || checkpointLinks.some(edge => edge.fromEntityId === record.id && edge.toEntityId === implementation.id)));
-    if (owned.length > 1 || owned.some(record => record.lifecycleState !== "active" || record.body.checkpointState === "committed" ||
+    if (owned.length > 1 || owned.some(record => record.lifecycleState !== "active" ||
       record.body.boundaryId !== attempt.id || record.body.workflowId !== workflowId || record.body.checkpointKind !== "implementation" ||
       record.body.sourceLineId !== binding.body.workSourceLineId || record.body.expectedRevisionId !== attempt.body.sourceRevisionId ||
       checkpointLinks.filter(edge => edge.fromEntityId === record.id).length !== 3 ||
@@ -192,17 +200,52 @@ export async function inspectLegacyImplementationCheckpoint(root: string, projec
     const stat = fs.lstatSync(packetPath);
     if (!stat.isFile() || stat.isSymbolicLink() || fs.realpathSync(packetPath) !== packetPath || stat.size > 48 * 1024) throw Error("Inspection required: legacy packet is unavailable, redirected or oversized.");
     const packet = JSON.parse(fs.readFileSync(packetPath, "utf8"));
-    if (packet.projectId !== projectId || packet.workflowId !== workflowId || packet.workItemId !== workItemId || packet.executionRef !== attempt.id ||
+    if (packet.schemaVersion !== 1 || packet.projectId !== projectId || packet.workflowId !== workflowId || packet.workItemId !== workItemId || packet.executionRef !== attempt.id ||
       typeof packet.contractDigest !== "string" || !/^[a-f0-9]{64}$/i.test(packet.contractDigest) ||
+      packet.contractDigest !== attempt.body.contractDigest ||
       ["summary", "deviations", "blockers", "residualRisks", "outcome"].some(key => JSON.stringify(packet.result?.[key]) !== JSON.stringify((implementation.body as unknown as Record<string, unknown>)[key])) ||
       packet.sourceCheckpointAttempt?.attributablePaths?.length)
       throw Error("Inspection required: legacy packet does not match the exact successful attempt.");
     const baseline = await store.getEntity(projectId, binding.body.sourceBaselineId);
     if (baseline?.entityType !== "SourceBaseline") throw Error("Inspection required: immutable source anchor is missing.");
     const identity = { repositoryCheckoutId: binding.body.repositoryCheckoutId!, sourceLineId: binding.body.workSourceLineId!, expectedRevisionId: attempt.body.sourceRevisionId };
-    const paths = await reconcileWorkflowSource(selected, baseline.body.workflowId, identity);
+    const checkoutRoot = resolveManagedWorkflowCheckoutPath(selected, baseline.body.workflowId).checkoutRoot;
+    const head = (await runBoundedGit({ cwd: checkoutRoot, args: ["rev-parse", "HEAD"] })).stdout.trim();
+    let paths: string[];
+    if (head === identity.expectedRevisionId) {
+      if (binding.body.currentRevisionId !== head || owned[0]?.body.checkpointState === "committed")
+        throw Error("Inspection required: reserved source revision is stale.");
+      paths = await reconcileWorkflowSource(selected, baseline.body.workflowId, identity);
+    } else {
+      // Clean interrupted finalization needs exact SQL boundary and Git receipt evidence.
+      const saved = owned[0];
+      if (!saved?.body.receiptDigest || ![identity.expectedRevisionId, head].includes(binding.body.currentRevisionId!) ||
+        saved.body.checkpointState === "committed" && saved.body.resultingRevisionId !== head)
+        throw Error("Inspection required: reserved source revision is stale.");
+      const dirty = await reconcileWorkflowSource(selected, baseline.body.workflowId, { ...identity, expectedRevisionId: head });
+      const commit = await createSourceControlService({ repositoryId: baseline.body.repositoryId, repositoryRoot: checkoutRoot }).inspectCommit({ ref: head });
+      if (dirty.length || !commit.ok || commit.result.parents.length !== 1 || commit.result.parents[0] !== identity.expectedRevisionId ||
+        commit.result.message.trim() !== `ChampCity implementation checkpoint ${saved.body.receiptDigest}\n\nCheckpoint-Receipt: ${saved.body.receiptDigest}\nCheckpoint-Kind: implementation`)
+        throw Error("Inspection required: interrupted checkpoint Git evidence does not match the saved boundary.");
+      paths = boundedSourcePaths(commit.result.changedFiles.map(file => file.path));
+    }
     if (!paths.length || !sourcePathsInScope(paths, approved)) throw Error("Inspection required: dirty source paths are empty or outside the approved scope.");
-    return { ...identity, attributablePaths: paths, checkoutRoot: resolveManagedWorkflowCheckoutPath(selected, baseline.body.workflowId).checkoutRoot };
+    const sequence = new Map((await store.listOutbox(projectId)).filter(event => event.entityId && event.payload.operation === "create")
+      .map(event => [event.entityId!, event.sequence]));
+    for (const other of await store.listEntities(projectId, "ImplementationAttempt")) {
+      if (other.entityType !== "ImplementationAttempt" || other.id === attempt.id || other.lifecycleState !== "active" ||
+        other.body.sourceMode !== "source-backed" || other.body.sourceRevisionId !== attempt.body.sourceRevisionId ||
+        !other.body.layout.sources.some(source => source.entityId === binding.id) || !["running", "completed"].includes(other.body.attemptState)) continue;
+      const record = other.body.implementationRecordId ? await store.getEntity(projectId, other.body.implementationRecordId) : null;
+      if (other.body.attemptState === "running") throw Error("Inspection required: another reserved implementation owns this source.");
+      if (record?.entityType !== "ImplementationRecord" || record.body.outcome !== "implemented" ||
+        (sequence.get(record.id) ?? Infinity) <= (sequence.get(implementation.id) ?? -1)) continue;
+      const contract = await store.getEntityVersion(projectId, other.body.workItemId, other.body.workItemVersion);
+      if (contract?.entityType !== "WorkItem" || !Array.isArray(contract.body.affectedPaths) ||
+        paths.some(file => sourcePathsInScope([file], boundedSourcePaths(contract.body.affectedPaths!))))
+        throw Error("Inspection required: newer implementation ownership overlaps this source boundary.");
+    }
+    return { ...identity, attributablePaths: paths, checkoutRoot, bindingId: binding.id, bindingVersion: binding.recordVersion };
   } finally { store.close(); }
 }
 
@@ -225,16 +268,8 @@ export async function retryStructuredImplementationCheckpoint(root: string, proj
     const packet = JSON.parse(fs.readFileSync(packetPath, "utf8")) as Record<string, unknown>;
     let attribution = packet.sourceCheckpointAttempt as Record<string, unknown> | undefined;
     if (!attribution || attribution.attributablePaths === undefined || Array.isArray(attribution.attributablePaths) && attribution.attributablePaths.length === 0) {
-      const legacy = await inspectLegacyImplementationCheckpoint(selected, projectId, workflowId, workItemId, implementationRecordId);
-      const lease = acquireWorkflowExecutionLease(workflowExecutionLeaseKey("source-backed", legacy.checkoutRoot), `checkpoint-recovery:${implementationRecordId}`);
-      if (!lease) throw Error("Inspection required: another execution owns this Workflow checkout.");
-      try {
-        // Recheck under the same exclusive lease used by Implementer and Tester.
-        const exact = await inspectLegacyImplementationCheckpoint(selected, projectId, workflowId, workItemId, implementationRecordId);
-        const checkpoint = await createImplementationCheckpoint(selected, projectId, { ...exact, boundaryId: implementation.body.executionRef,
-          workflowId, targetEntityId: implementation.id });
-        return { record: implementation, checkpoint };
-      } finally { lease.release(); }
+      const checkpoint = await recoverLegacyImplementationCheckpoint(selected, projectId, workflowId, workItemId, implementationRecordId);
+      return { record: implementation, checkpoint };
     }
     if (!attribution || packet.projectId !== projectId || packet.workflowId !== workflowId || packet.workItemId !== workItemId ||
       packet.executionRef !== implementation.body.executionRef || !Array.isArray(attribution.attributablePaths) ||

@@ -55,6 +55,19 @@ test("implementation checkpoint writes only to Workflow checkout and retries by 
   try { const binding = (await store.listEntities(f.projectId, "SourceBinding"))[0]; assert.equal(binding.body.currentRevisionId, first.revision.revisionId);
     const saved = await store.getEntity(f.projectId, first.checkpointId); assert.equal(saved.body.workflowId, f.workflowId); assert.equal(Object.hasOwn(saved.body, "workIntakeId"), false); }
   finally { store.close(); }
+  // An ordinary checkpoint cannot ready even a matching materialization-blocked binding.
+  const lifecycleStore = createSQLiteProjectStateStore(path.join(f.root, ".champcity", "project-state.sqlite"));
+  try {
+    const state = createProjectStateService(lifecycleStore, operator), binding = (await lifecycleStore.listEntities(f.projectId, "SourceBinding"))[0];
+    const blocked = await state.updateSourceBinding(f.projectId, binding.id,
+      { preparationState: "blocked", failureCode: "REPOSITORY_CHECKOUT_MATERIALIZATION_FAILED" }, binding.recordVersion);
+    assert.equal((await createImplementationCheckpoint(f.root, f.projectId, implementation(f))).state, "blocked");
+    await assert.rejects(require("../../dist/main/sourceControl/semanticCheckpointService.js").recoverLegacyImplementationCheckpoint(
+      f.root, f.projectId, f.workflowId, f.workId, f.implementationId), /inspection required/i);
+    assert.deepEqual(await lifecycleStore.getEntity(f.projectId, binding.id), blocked);
+    const preparing = await state.updateSourceBinding(f.projectId, binding.id, { preparationState: "preparing", failureCode: undefined }, blocked.recordVersion);
+    await state.updateSourceBinding(f.projectId, binding.id, { preparationState: "ready" }, preparing.recordVersion);
+  } finally { lifecycleStore.close(); }
   const second = await createImplementationCheckpoint(f.root, f.projectId, implementation(f));
   assert.equal(second.checkpointId, first.checkpointId); assert.equal(git(f.checkout, "rev-list", "--count", f.line), "2");
 });

@@ -576,7 +576,8 @@ test('Greenfield full SQL navigation repeats exact Phase WorkItem and Repair bou
 });
 
 
-test('Greenfield stranded parent checkpoint recovers before a stale prepared Repair starts', async context => {
+test('Greenfield stranded parent checkpoint recovers before a stale prepared Repair starts', async suite => {
+ for (const interruption of ['dirty-blocked','git-committed','sql-committed','sql-committed-old-binding']) await suite.test(interruption, async context => {
  const f=await structuredPhaseLoopFixture(context,true);
  const {execFileSync}=require('node:child_process');
  const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8'}).trim();
@@ -603,7 +604,7 @@ test('Greenfield stranded parent checkpoint recovers before a stale prepared Rep
  const packetPath=path.join(f.root,'.champcity','runtime','work-item-attempts',attempt.id+'.json');
  fs.mkdirSync(path.dirname(packetPath),{recursive:true});
  fs.writeFileSync(packetPath,JSON.stringify({schemaVersion:1,projectId:f.projectId,workflowId:f.workflow.id,workItemId:parent.id,executionRef:attempt.id,contractDigest:attempt.body.contractDigest,result}));
- const packetBytes=fs.readFileSync(packetPath);
+ const packetBytes=fs.readFileSync(packetPath),parentAttempt=await f.store.getEntity(f.projectId,attempt.id);
  fs.mkdirSync(path.dirname(path.join(checkout,relative)),{recursive:true});fs.writeFileSync(path.join(checkout,relative),'Stranded parent evidence');
  const cycle=await f.state.prepareWorkItemValidationCycle(f.projectId,f.workflow.id,parent.id);
  const decision=await f.state.reviewWorkItemValidationCycle(f.projectId,f.workflow.id,parent.id,{cycleId:cycle.id,expectedRecordVersion:cycle.recordVersion,outcome:'RequestRepair',repairDefectText:'Extend parent evidence'});
@@ -624,19 +625,39 @@ test('Greenfield stranded parent checkpoint recovers before a stale prepared Rep
  await assert.rejects(retry(f.root,f.projectId,f.workflow.id,parent.id,implementation.id),/another execution/i);competing.release();
  assert.equal((await f.store.listEntities(f.projectId,'SourceCheckpoint')).length,0);
  const recoverable=await kernel.getCheckpointRecoveryProjection(f.root,f.workflow.id,parent.id);assert.equal(recoverable.implementation.retryable,true);
+ // Inject only synthetic interrupted-finalization states; no real project is touched.
+ if(interruption==='git-committed'){
+  const sourceModule=require('../../dist/main/sourceControl/sourceControlService.js'),original=sourceModule.createSourceControlService;
+  sourceModule.createSourceControlService=(...args)=>{const source=original(...args),commit=source.checkpointCommit;return {...source,async checkpointCommit(...values){const committed=await commit(...values);assert.equal(committed.ok,true);throw Error('Synthetic interruption after Git commit');}};};
+  try {const interrupted=await retry(f.root,f.projectId,f.workflow.id,parent.id,implementation.id);assert.equal(interrupted.checkpoint.state,'inspection-required');}
+  finally {sourceModule.createSourceControlService=original;}
+  assert.equal((await f.store.listEntities(f.projectId,'SourceCheckpoint'))[0].body.checkpointState,'inspection-required');
+ }else if(interruption.startsWith('sql-committed')){
+  const committed=await retry(f.root,f.projectId,f.workflow.id,parent.id,implementation.id);assert.equal(committed.checkpoint.state,'committed');
+  const current=await f.store.getEntity(f.projectId,materialized.binding.id);
+  await f.state.updateSourceBinding(f.projectId,current.id,{preparationState:'blocked',failureCode:'REPOSITORY_CHECKOUT_MATERIALIZATION_FAILED',...(interruption==='sql-committed-old-binding'?{currentRevisionId:revision}:{})},current.recordVersion);
+ }
+ // Reproduce the durable failure that stranded the real parent before Repair Start.
+ if(!interruption.startsWith('sql-committed')) await assert.rejects(materializer.materialize(f.workflow.id),error=>error.materializationCode==='REPOSITORY_CHECKOUT_MATERIALIZATION_FAILED');
+ const blockedBinding=await f.store.getEntity(f.projectId,materialized.binding.id);
+ const beforeStart=(await f.store.listStateChanges(f.projectId)).length;await kernel.getExecutionProjection(f.root,f.workflow.id);await kernel.getCheckpointRecoveryProjection(f.root,f.workflow.id,parent.id);assert.equal((await f.store.listStateChanges(f.projectId)).length,beforeStart);
+ assert.equal(blockedBinding.body.preparationState,'blocked');assert.equal(blockedBinding.body.failureCode,'REPOSITORY_CHECKOUT_MATERIALIZATION_FAILED');
  const {runtimeFixture,selection}=require('../support/codex-runtime.cjs'),runtime=runtimeFixture();await runtime.ready;
  let calls=0,release;const finish=new Promise(resolve=>release=resolve);
  const {CodexImplementerExecutionService}=require('../../dist/main/workCardBuilding/codexImplementerExecutionService.js');
  const service=new CodexImplementerExecutionService(async()=>({startThread(options){calls++;assert.equal(git(checkout,'status','--porcelain','--untracked-files=all'),'');assert.notEqual(git(checkout,'rev-parse','HEAD'),revision);return {id:'repair-after-recovery',async runStreamed(){await finish;fs.writeFileSync(path.join(options.workingDirectory,'repair.txt'),'Approved repair');return {events:(async function*(){yield {type:'item.completed',item:{type:'agent_message',text:JSON.stringify({...result,summary:'Implemented repair without file telemetry'})}};yield {type:'turn.completed'};})()};}};}}),undefined,undefined,undefined,runtime.manager);
  service.configureSourceCheckoutProjection(async()=>({workspaceId:'stranded-greenfield',projection:{registerRepositoryCheckout:async(_id,value)=>({...value,availability:'available',validationError:null})}}));
  const selector={ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:repair.id};
+ const beforePoll=await f.store.listStateChanges(f.projectId);await service.getStatus(f.root,selector);assert.deepEqual(await f.store.listStateChanges(f.projectId),beforePoll);
  const running=await service.start(f.root,selector,selection);assert.equal(running.state,'running',running.failureReason);assert.equal(calls,1);
+ assert.equal((await service.start(f.root,selector,selection)).state,'running');assert.equal(calls,1);
  const recoveredCheckpoints=await f.store.listEntities(f.projectId,'SourceCheckpoint');assert.equal(recoveredCheckpoints.length,1);assert.equal(recoveredCheckpoints[0].body.checkpointState,'committed');
- assert.equal(recoveredCheckpoints[0].body.expectedRevisionId,revision);
+ assert.equal(recoveredCheckpoints[0].body.expectedRevisionId,revision);assert.equal(git(checkout,'rev-list','--count',revision+'..HEAD'),'1');
  assert.ok((await f.store.listRelationships(f.projectId,'checkpoints')).some(e=>e.fromEntityId===recoveredCheckpoints[0].id&&e.toEntityId===implementation.id));
  const binding=await f.store.getEntity(f.projectId,materialized.binding.id);assert.equal(binding.body.currentRevisionId,recoveredCheckpoints[0].body.resultingRevisionId);assert.equal(git(checkout,'status','--porcelain','--untracked-files=all'),'');
+ assert.equal(binding.body.preparationState,'ready');assert.equal(binding.body.failureCode,undefined);
  assert.deepEqual(await f.store.getEntity(f.projectId,implementation.id),implementation);assert.deepEqual(fs.readFileSync(packetPath),packetBytes);
- const parentAttempts=(await f.store.listEntities(f.projectId,'ImplementationAttempt')).filter(a=>a.body.workItemId===parent.id);assert.equal(parentAttempts.length,1);assert.equal(parentAttempts[0].id,attempt.id);
+ const parentAttempts=(await f.store.listEntities(f.projectId,'ImplementationAttempt')).filter(a=>a.body.workItemId===parent.id);assert.equal(parentAttempts.length,1);assert.deepEqual(parentAttempts[0],parentAttempt);assert.equal(parentAttempts[0].body.attemptState,'completed');
  assert.equal((await f.store.getEntity(f.projectId,stale.id)).body.attemptState,'abandoned');
  const repairAttempts=(await f.store.listEntities(f.projectId,'ImplementationAttempt')).filter(a=>a.body.workItemId===repair.id&&['prepared','running'].includes(a.body.attemptState));assert.equal(repairAttempts.length,1);assert.equal(repairAttempts[0].body.sourceRevisionId,binding.body.currentRevisionId);
  release();let completed;for(let i=0;i<400;i++){completed=await service.getStatus(f.root,selector);if(completed.state!=='running')break;await new Promise(resolve=>setTimeout(resolve,20));}
@@ -644,6 +665,7 @@ test('Greenfield stranded parent checkpoint recovers before a stale prepared Rep
  const records=await f.store.listEntities(f.projectId,'ImplementationRecord');assert.equal(records.length,2);assert.equal(records.filter(r=>r.body.workItemId===parent.id).length,1);
  assert.equal((await f.store.listEntities(f.projectId,'SourceCheckpoint')).length,2);
  const repaired=records.find(r=>r.body.workItemId===repair.id);const repairPacket=JSON.parse(fs.readFileSync(path.join(path.dirname(packetPath),repaired.body.executionRef+'.json'),'utf8'));assert.deepEqual(repairPacket.sourceCheckpointAttempt.attributablePaths,['repair.txt']);
+ });
 });
 
 test('Greenfield fresh source-backed Implement and Repair start from read-only readiness and preserve no-mutation Review', async context => {
