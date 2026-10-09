@@ -278,10 +278,10 @@ test("exact source-backed and source-neutral WorkItems use the bounded Tester li
     appServerCalls++;
     return { startThread(options) { captured.push(options); return { id: "source-thread", async runStreamed() {
       const relative = appServerCalls === 1 ? "feature.txt" : appServerCalls === 2 ? "unreported.txt" : "unreported-dir";
-      if (appServerCalls > 2) { fs.mkdirSync(path.join(options.workingDirectory, relative), { recursive: true }); fs.writeFileSync(path.join(options.workingDirectory, relative, "nested.txt"), "unsafe\n"); }
+      if (appServerCalls > 2) { fs.mkdirSync(path.join(options.workingDirectory, relative), { recursive: true }); fs.writeFileSync(path.join(options.workingDirectory, relative, "nested.txt"), "unsafe\n"); execFileSync("git", ["checkout", "-b", "identity-drift-fixture"], { cwd: options.workingDirectory }); }
       else fs.writeFileSync(path.join(options.workingDirectory, relative), "implemented\n");
       return { events: (async function* () {
-        yield { type: "item.completed", item: { type: "file_change", changes: [{ path: relative }], status: "completed" } };
+        if (appServerCalls !== 2) yield { type: "item.completed", item: { type: "file_change", changes: [{ path: relative }], status: "completed" } };
         yield { type: "item.completed", item: { type: "agent_message", text: JSON.stringify({ summary: "Implemented the exact source WorkItem", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" }) } };
         yield { type: "turn.completed" };
       })() };
@@ -485,15 +485,17 @@ test("source-backed no-mutation WorkItems complete, recover unchanged attempts, 
  const state=createProjectStateService(store,{principalId:'operator',principalType:'human',role:'Operator'});
  t.after(()=>{store.close();fs.rmSync(root,{recursive:true,force:true});});
  const workflow=(await state.createSubstantiveWorkflow(projectId,{workflowType:'feature-capability',title:'Read source',entryWorkspace:'feature-intake',sourceSeed:{repositoryId:'repo',integrationTargetSourceLineId:'dev',baseRevisionId:revision}})).workflow;
- const plan=await state.acceptWorkflowPlanningGraph(projectId,{workflowId:workflow.id,topology:'direct',solution:{title:'Read source',objective:'Complete without edits',scopeIn:[],scopeOut:[],constraints:[],assumptions:[],risks:[]},solutionCriteria:[],phases:[],workItems:['fresh','recovered','mutation-required','unexpected','unreported'].map(key=>({key,kind:'feature',title:key,objective:'Assess source context',dependencyKeys:[],criteria:[]}))});
+ const plan=await state.acceptWorkflowPlanningGraph(projectId,{workflowId:workflow.id,topology:'direct',solution:{title:'Read source',objective:'Complete without edits',scopeIn:[],scopeOut:[],constraints:[],assumptions:[],risks:[]},solutionCriteria:[],phases:[],workItems:['fresh','recovered','mutation-required','unexpected','unreported','missing-telemetry','incomplete-telemetry'].map(key=>({key,kind:'feature',title:key,objective:'Assess source context',dependencyKeys:[],criteria:[]}))});
  const kernel=createWorkflowExecutionApplicationService();
- for(const item of plan.directWorkItems)await kernel.acceptWorkItemExecutionPlan(root,{workflowId:workflow.id,workItemId:item.id,expectedVersion:item.recordVersion,plan:{implementationBoundaries:['Exact approved scope'],affectedPaths:item.body.title==='mutation-required'?['feature.txt']:[],proofIntent:['Assess exact source context']}});
+ for(const item of plan.directWorkItems)await kernel.acceptWorkItemExecutionPlan(root,{workflowId:workflow.id,workItemId:item.id,expectedVersion:item.recordVersion,plan:{implementationBoundaries:['Exact approved scope'],affectedPaths:['mutation-required','missing-telemetry','incomplete-telemetry'].includes(item.body.title)?['feature.txt']:[],proofIntent:['Assess exact source context']}});
  const runtime=runtimeFixture();await runtime.ready;const captures=[];
  const factory=async()=>({startThread(options){captures.push(options);return {id:'read-thread',async runStreamed(prompt){
   assert.match(prompt,/source-backed/);const unexpected=prompt.includes('"objective": "Assess source context"')&&prompt.includes('"workItemId": "'+plan.directWorkItems.find(i=>i.body.title==='unexpected').id+'"');
   const unreported=prompt.includes('"workItemId": "'+plan.directWorkItems.find(i=>i.body.title==='unreported').id+'"');
+  const telemetry=['missing-telemetry','incomplete-telemetry'].find(title=>prompt.includes('"workItemId": "'+plan.directWorkItems.find(i=>i.body.title===title).id+'"'));
   if(unexpected||unreported)fs.writeFileSync(path.join(options.workingDirectory,'feature.txt'),'unauthorized');
-  return {events:(async function*(){if(unexpected)yield {type:'item.completed',item:{type:'file_change',changes:[{path:'feature.txt'}],status:'completed'}};yield {type:'item.completed',item:{type:'agent_message',text:JSON.stringify({summary:'Assessed context',deviations:[],blockers:[],residualRisks:[],outcome:'implemented'})}};yield {type:'turn.completed'};})()};
+  if(telemetry)fs.writeFileSync(path.join(options.workingDirectory,'feature.txt'),telemetry);
+  return {events:(async function*(){if(unexpected)yield {type:'item.completed',item:{type:'file_change',changes:[{path:'feature.txt'}],status:'completed'}};if(telemetry==='incomplete-telemetry')yield {type:'item.completed',item:{type:'file_change',changes:[],status:'completed'}};yield {type:'item.completed',item:{type:'agent_message',text:JSON.stringify({summary:'Assessed context',deviations:[],blockers:[],residualRisks:[],outcome:'implemented'})}};yield {type:'turn.completed'};})()};
  }};}});
  const service=new CodexImplementerExecutionService(factory,undefined,undefined,undefined,runtime.manager);
  service.configureSourceCheckoutProjection(async()=>({workspaceId:'no-mutation',projection:{registerRepositoryCheckout:async(_id,checkout)=>({...checkout,availability:'available',validationError:null})}}));
@@ -562,7 +564,16 @@ test("source-backed no-mutation WorkItems complete, recover unchanged attempts, 
  assert.equal((await store.listEntities(projectId,'SourceCheckpoint')).length,1);assert.equal((await store.listEntities(projectId,'SourceCheckpoint'))[0].body.checkpointKind,'tester');const binding=(await store.listEntities(projectId,'SourceBinding')).find(b=>b.body.workflowId===workflow.id);assert.equal(binding.body.currentRevisionId,candidate);
  assert.equal((await kernel.getCheckpointRecoveryProjection(root,workflow.id,recovered.id)).implementation.state,'not-required');
  // Binding drift must invalidate the otherwise successful historical no-mutation attempt.
- await state.updateSourceBinding(projectId,binding.id,{currentRevisionId:'f'.repeat(40)},binding.recordVersion);
+ for(const title of ['missing-telemetry','incomplete-telemetry']) {
+  const item=plan.directWorkItems.find(i=>i.body.title===title),selector={ownerKind:'workflow-work-item',workflowId:workflow.id,workItemId:item.id};
+  const started=await service.start(root,selector,selection);assert.equal(started.state,'running',started.failureReason);
+  const completed=await waitForSelectorState(service,root,selector,'completed',400);assert.equal(completed.checkpoint.status,'committed');
+  const implementation=(await state.getImplementationAttempts(projectId,item.id)).at(-1);
+  const packet=JSON.parse(fs.readFileSync(path.join(root,'.champcity','runtime','work-item-attempts',implementation.body.executionRef+'.json'),'utf8'));
+  assert.deepEqual(packet.sourceCheckpointAttempt.attributablePaths,['feature.txt']);assert.equal(execFileSync('git',['status','--porcelain','--untracked-files=all'],{cwd:captures.at(-1).workingDirectory,encoding:'utf8'}).trim(),'');
+ }
+ assert.equal((await store.listEntities(projectId,'SourceCheckpoint')).length,3);
+ await state.updateSourceBinding(projectId,binding.id,{currentRevisionId:'f'.repeat(40)},(await store.getEntity(projectId,binding.id)).recordVersion);
  assert.equal((await kernel.getCheckpointRecoveryProjection(root,workflow.id,recovered.id)).implementation.state,'inspection-required');
  assert.equal((await tester.getStatus(root,{workflowId:workflow.id,workItemId:recovered.id,implementationRecordId:record.id})).state,'unavailable');
 });

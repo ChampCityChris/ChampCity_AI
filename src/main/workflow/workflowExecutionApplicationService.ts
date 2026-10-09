@@ -14,7 +14,7 @@ import { reviewWorkItemCriterion } from "./semanticWorkItemValidator";
 import { loadCodexAppServerAdapter, type CodexAppServerAdapter } from "../workCardBuilding/codexAppServerTransport";
 import { runBoundedGit } from "../core/gitExecution";
 import { runDeterministicWorkItemProfile } from "./deterministicWorkItemValidator";
-import { checkpointStructuredTesterResult, retryStructuredImplementationCheckpoint } from "../sourceControl/structuredWorkflowCheckpointService";
+import { checkpointStructuredTesterResult, inspectLegacyImplementationCheckpoint, retryStructuredImplementationCheckpoint } from "../sourceControl/structuredWorkflowCheckpointService";
 
 const operator = { principalId: "local-operator", principalType: "human" as const, role: "Operator" };
 const workflowApplication = { principalId: "workflow-execution-application", principalType: "system" as const, role: "System" };
@@ -306,6 +306,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       const tester = testerResults[0] ?? null;
       const testerCheckpoint = tester?.body.sourceCheckpointId ? checkpoints.find(record => record.entityType === "SourceCheckpoint" && record.id === tester.body.sourceCheckpointId) : null;
       let packetValid = false;
+      let inspectionReason: string | null = null;
       if (sourceMode === "source-backed" && implementation?.body.executionRef && item.body.workState === "validation_pending") {
         try {
           const packetPath = path.join(fs.realpathSync(projectRoot), ".champcity", "runtime", "work-item-attempts", `${implementation.body.executionRef}.json`);
@@ -314,6 +315,10 @@ export function createWorkflowExecutionApplicationService(dependencies: {
           packetValid = packet.workflowId === workflowId && packet.workItemId === workItemId && packet.projectId === projectId && packet.executionRef === implementation.body.executionRef &&
             Array.isArray(attempt?.attributablePaths) && attempt.attributablePaths.length > 0;
         } catch { packetValid = false; }
+        if (!packetValid && (implementationCheckpoint?.entityType !== "SourceCheckpoint" || implementationCheckpoint.body.checkpointState !== "committed")) {
+          try { await inspectLegacyImplementationCheckpoint(projectRoot, projectId, workflowId, workItemId, implementation.id); packetValid = true; }
+          catch (error) { inspectionReason = error instanceof Error ? error.message : String(error); }
+        }
       }
       const source = (await project(store, projectId, plan)).source;
       const noMutationRequired = Array.isArray(item.body.affectedPaths) && item.body.affectedPaths.length === 0;
@@ -344,7 +349,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       const testerRetryable = sourceMode === "source-backed" && Boolean(tester && tester.body.checkpointState === "pending" && tester.body.permanentTestPaths.length && item.body.workState === "validation_pending");
       return { workflowId, workItemId, sourceMode,
         implementation: { implementationRecordId: implementation?.id ?? null, checkpointId: implementationCheckpoint?.id ?? null, state: implState, retryable: implRetryable,
-          reason: implRetryable ? null : implState === "not-applicable" || implState === "not-required" ? null : implState === "committed" ? "Implementation checkpoint is committed." : "Exact durable implementation attribution is missing or no longer retryable." },
+          reason: implRetryable ? null : implState === "not-applicable" || implState === "not-required" ? null : implState === "committed" ? "Implementation checkpoint is committed." : inspectionReason ?? "Exact durable implementation attribution is missing or no longer retryable." },
         tester: { implementationRecordId: implementation?.id ?? null, testerResultId: tester?.id ?? null, checkpointId: testerCheckpoint?.id ?? null, state: testerState, retryable: testerRetryable,
           reason: testerRetryable ? null : testerState === "not-applicable" ? null : testerState === "committed" || testerState === "not-required" ? null : "Exact pending TesterResult checkpoint is not safely retryable." } };
     });
@@ -917,6 +922,30 @@ export function createWorkflowExecutionApplicationService(dependencies: {
     if (!request.sourceMutating) return { state: view.source.state, currentRevisionId: view.source.currentRevisionId, ...(view.source.failureCode ? { failureCode: view.source.failureCode } : {}) };
     if (!dependencies.materializeWorkflowSource) return { state: "blocked", currentRevisionId: null, failureCode: "SOURCE_CHECKOUT_PREPARATION_UNAVAILABLE" };
     try {
+      // Recovery belongs to Start preparation, never to generic materialization or a status read.
+      const anchor = await withCurrentProject(projectRoot, async (store, projectId) => {
+        const baseline = view.source.baselineId ? await store.getEntity(projectId, view.source.baselineId) : null;
+        if (baseline?.entityType !== "SourceBaseline") throw Error("Inspection required: immutable source anchor is missing.");
+        return baseline.body.workflowId;
+      });
+      const checkout = resolveManagedWorkflowCheckoutPath(fs.realpathSync(projectRoot), anchor).checkoutRoot;
+      if (fs.existsSync(checkout) && (await runBoundedGit({ cwd: checkout, args: ["status", "--porcelain", "--untracked-files=all"] })).stdout) {
+        const candidates = await withCurrentProject(projectRoot, async (store, projectId) => {
+          const edges = (await store.listRelationships(projectId, "checkpoints")).filter(edge => !edge.endedAt);
+          const committed = new Set((await store.listEntities(projectId, "SourceCheckpoint")).filter(record => record.entityType === "SourceCheckpoint" && record.body.checkpointState === "committed").map(record => record.id));
+          const state = createProjectStateService(store, operator);
+          const gaps = [];
+          for (const item of view.items) {
+            const implementation = (await state.getImplementationAttempts(projectId, item.record.id)).at(-1);
+            if (implementation?.body.outcome === "implemented" && item.record.body.affectedPaths?.length &&
+              !edges.some(edge => edge.toEntityId === implementation.id && committed.has(edge.fromEntityId))) gaps.push({ workItemId: item.record.id, implementationRecordId: implementation.id });
+          }
+          return gaps;
+        });
+        if (candidates.length !== 1) throw Error("Inspection required: dirty Workflow source has no unique recoverable implementation owner.");
+        const recovered = await retryStructuredImplementationCheckpoint(projectRoot, view.projectId, workflowId, candidates[0].workItemId, candidates[0].implementationRecordId);
+        if (recovered.checkpoint.state !== "committed") throw Error(`Inspection required: ${recovered.checkpoint.message}`);
+      }
       const result = await dependencies.materializeWorkflowSource(fs.realpathSync(projectRoot), view.projectId, workflowId);
       const refreshed = await getExecutionProjection(projectRoot, workflowId);
       if (refreshed.source.state !== "ready" || result.binding.projectId !== view.projectId || result.binding.entityType !== "SourceBinding" ||
@@ -927,7 +956,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       return { state: "ready", currentRevisionId: refreshed.source.currentRevisionId, repositoryCheckoutId: result.binding.body.repositoryCheckoutId,
         sourceBinding: result.binding, repositoryCheckout: result.checkout };
     } catch (error) {
-      const failureCode = (error as Error & { materializationCode?: string }).materializationCode ?? "REPOSITORY_CHECKOUT_MATERIALIZATION_FAILED";
+      const failureCode = (error as Error & { materializationCode?: string }).materializationCode ?? (error instanceof Error && /inspection required/i.test(error.message) ? error.message : "REPOSITORY_CHECKOUT_MATERIALIZATION_FAILED");
       return { state: "blocked", currentRevisionId: null, failureCode };
     }
   }

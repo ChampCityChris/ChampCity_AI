@@ -3568,6 +3568,7 @@
         "src/main/planExecution/routedDevelopmentExecutionService.ts",
         "src/main/sourceControl/semanticCheckpointService.ts",
         "src/main/sourceControl/structuredWorkflowCheckpointService.ts",
+        "src/main/sourceControl/workflowSourceReconciliation.ts",
         "src/main/validation/testLifecycleDeterminationService.ts",
         "src/main/workCardPlanning/workItemDecompositionService.ts",
         "src/main/workIntake/workRouteDecisionService.ts",

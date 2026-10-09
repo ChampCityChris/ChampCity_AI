@@ -74,6 +74,10 @@ test("historical Workflow checkpoint IDs block before Git mutation while the suc
   const successor = (await state.supersedeRecord(f.projectId, f.workflowId, { ...prior.body, title: "Successor" }, prior.recordVersion)).successor;
   store.close();
   fs.writeFileSync(path.join(f.checkout, "feature.txt"), "feature content\n");
+  const {reconcileWorkflowSource}=require('../../dist/main/sourceControl/workflowSourceReconciliation.js');
+  const sourceIdentity={checkoutRoot:f.checkout,repositoryCheckoutId:f.checkoutId,sourceLineId:f.line,expectedRevisionId:f.head};
+  assert.deepEqual(await reconcileWorkflowSource(f.root,f.workflowId,sourceIdentity),['feature.txt']);
+  await assert.rejects(reconcileWorkflowSource(f.root,successor.id,sourceIdentity),/no such file|ENOENT|identity/i);
   const historical = await createImplementationCheckpoint(f.root, f.projectId, implementation(f));
   assert.equal(historical.state, "blocked");
   assert.match(historical.message, /unique current active nonterminal substantive Workflow owner/);

@@ -7,6 +7,9 @@ import type { CheckpointResult } from "../../shared/sourceLifecycleContracts";
 import { createSQLiteProjectStateStore } from "../projectState/sqliteProjectStateStore";
 import { selectedCurrentProjectId } from "../projectState/currentProjectRegistrationService";
 import { createDispositionCheckpoint, createImplementationCheckpoint, createTesterCheckpoint } from "./semanticCheckpointService";
+import { boundedSourcePaths, reconcileWorkflowSource, sourcePathsInScope } from "./workflowSourceReconciliation";
+import { resolveManagedWorkflowCheckoutPath } from "./projectSourceTopology";
+import { acquireWorkflowExecutionLease, workflowExecutionLeaseKey } from "../workCardBuilding/workflowExecutionLease";
 
 const operator = { principalId: "local-operator", principalType: "human" as const, role: "Operator" };
 type Store = ReturnType<typeof createSQLiteProjectStateStore>;
@@ -137,6 +140,72 @@ export async function checkpointStructuredTesterResult(root: string, projectId: 
   } finally { store.close(); }
 }
 
+/** Read-only legacy proof. No packet or immutable implementation is rewritten. */
+export async function inspectLegacyImplementationCheckpoint(root: string, projectId: string, workflowId: string,
+  workItemId: string, implementationRecordId: string) {
+  const { selected, store } = open(root, projectId);
+  try {
+    await assertWorkOwner(store, projectId, workflowId, workItemId);
+    const state = createProjectStateService(store, operator);
+    const item = await store.getEntity(projectId, workItemId);
+    const implementation = await store.getEntity(projectId, implementationRecordId);
+    if (item?.entityType !== "WorkItem" || item.lifecycleState !== "active" || item.body.workState !== "validation_pending" ||
+      implementation?.entityType !== "ImplementationRecord" || implementation.body.workItemId !== workItemId ||
+      implementation.body.outcome !== "implemented" || implementation.body.blockers.length || !implementation.body.executionRef ||
+      !item.body.affectedPaths?.length || (await state.getWorkItemPlanningReview(projectId, workItemId)).disposition.state !== "approved")
+      throw Error("Inspection required: exact approved successful mutation-required implementation is unavailable.");
+    const approved = boundedSourcePaths(item.body.affectedPaths);
+    const attempt = await state.getImplementationAttempt(projectId, workflowId, workItemId);
+    if (attempt?.id !== implementation.body.executionRef || attempt.lifecycleState !== "active" || attempt.body.attemptState !== "completed" ||
+      attempt.body.implementationRecordId !== implementation.id || attempt.body.sourceMode !== "source-backed" || !attempt.body.sourceRevisionId ||
+      (await state.getImplementationAttempts(projectId, workItemId)).at(-1)?.id !== implementation.id)
+      throw Error("Inspection required: completed implementation/attempt ownership is ambiguous or stale.");
+    const reserved = await store.getEntityVersion(projectId, workItemId, attempt.body.workItemVersion);
+    if (reserved?.entityType !== "WorkItem" || ["objective", "implementationBoundaries", "affectedPaths", "proofIntent", "contractRevision"].some(key =>
+      JSON.stringify((reserved.body as unknown as Record<string, unknown>)[key]) !== JSON.stringify((item.body as unknown as Record<string, unknown>)[key])))
+      throw Error("Inspection required: approved implementation contract changed.");
+    for (const source of attempt.body.layout.sources) {
+      const previous = await store.getEntityVersion(projectId, source.entityId, source.recordVersion);
+      const current = await store.getEntity(projectId, source.entityId);
+      if (!previous || !current || previous.entityType !== current.entityType ||
+        !["Workflow", "Phase", "WorkItem", "SourceBinding"].includes(current.entityType) && previous.recordVersion !== current.recordVersion ||
+        previous.entityType === "SourceBinding" && current.entityType === "SourceBinding" &&
+        (previous.body.sourceBaselineId !== current.body.sourceBaselineId || previous.body.repositoryCheckoutId && previous.body.repositoryCheckoutId !== current.body.repositoryCheckoutId || previous.body.workSourceLineId && previous.body.workSourceLineId !== current.body.workSourceLineId))
+        throw Error("Inspection required: reserved planning/source evidence changed.");
+    }
+    const binding = await bindingForWorkflow(store, projectId, workflowId);
+    if (binding.body.currentRevisionId !== attempt.body.sourceRevisionId) throw Error("Inspection required: reserved source revision is stale.");
+    const checkpoints = await store.listEntities(projectId, "SourceCheckpoint");
+    const checkpointLinks = (await store.listRelationships(projectId, "checkpoints")).filter(edge => !edge.endedAt);
+    const owned = checkpoints.filter((record): record is Checkpoint => record.entityType === "SourceCheckpoint" &&
+      (record.body.boundaryId === attempt.id || checkpointLinks.some(edge => edge.fromEntityId === record.id && edge.toEntityId === implementation.id)));
+    if (owned.length > 1 || owned.some(record => record.lifecycleState !== "active" || record.body.checkpointState === "committed" ||
+      record.body.boundaryId !== attempt.id || record.body.workflowId !== workflowId || record.body.checkpointKind !== "implementation" ||
+      record.body.sourceLineId !== binding.body.workSourceLineId || record.body.expectedRevisionId !== attempt.body.sourceRevisionId ||
+      checkpointLinks.filter(edge => edge.fromEntityId === record.id).length !== 3 ||
+      checkpointLinks.some(edge => edge.fromEntityId === record.id && ![binding.id, workflowId, implementation.id].includes(edge.toEntityId)) ||
+      !checkpointLinks.some(edge => edge.fromEntityId === record.id && edge.toEntityId === implementation.id)) ||
+      checkpoints.some(record => record.entityType === "SourceCheckpoint" && record.body.sourceLineId === binding.body.workSourceLineId &&
+        record.body.checkpointState !== "committed" && !owned.some(current => current.id === record.id)))
+      throw Error("Inspection required: another checkpoint already owns this source boundary.");
+    const packetPath = path.join(selected, ".champcity", "runtime", "work-item-attempts", `${attempt.id}.json`);
+    const stat = fs.lstatSync(packetPath);
+    if (!stat.isFile() || stat.isSymbolicLink() || fs.realpathSync(packetPath) !== packetPath || stat.size > 48 * 1024) throw Error("Inspection required: legacy packet is unavailable, redirected or oversized.");
+    const packet = JSON.parse(fs.readFileSync(packetPath, "utf8"));
+    if (packet.projectId !== projectId || packet.workflowId !== workflowId || packet.workItemId !== workItemId || packet.executionRef !== attempt.id ||
+      typeof packet.contractDigest !== "string" || !/^[a-f0-9]{64}$/i.test(packet.contractDigest) ||
+      ["summary", "deviations", "blockers", "residualRisks", "outcome"].some(key => JSON.stringify(packet.result?.[key]) !== JSON.stringify((implementation.body as unknown as Record<string, unknown>)[key])) ||
+      packet.sourceCheckpointAttempt?.attributablePaths?.length)
+      throw Error("Inspection required: legacy packet does not match the exact successful attempt.");
+    const baseline = await store.getEntity(projectId, binding.body.sourceBaselineId);
+    if (baseline?.entityType !== "SourceBaseline") throw Error("Inspection required: immutable source anchor is missing.");
+    const identity = { repositoryCheckoutId: binding.body.repositoryCheckoutId!, sourceLineId: binding.body.workSourceLineId!, expectedRevisionId: attempt.body.sourceRevisionId };
+    const paths = await reconcileWorkflowSource(selected, baseline.body.workflowId, identity);
+    if (!paths.length || !sourcePathsInScope(paths, approved)) throw Error("Inspection required: dirty source paths are empty or outside the approved scope.");
+    return { ...identity, attributablePaths: paths, checkoutRoot: resolveManagedWorkflowCheckoutPath(selected, baseline.body.workflowId).checkoutRoot };
+  } finally { store.close(); }
+}
+
 /** Retry the one durable source-backed implementation attempt; never accepts renderer paths. */
 export async function retryStructuredImplementationCheckpoint(root: string, projectId: string, workflowId: string,
   workItemId: string, implementationRecordId: string): Promise<WorkflowCheckpointResult<ProjectStateRecord<"ImplementationRecord">>> {
@@ -154,7 +223,19 @@ export async function retryStructuredImplementationCheckpoint(root: string, proj
     const stat = fs.statSync(packetPath);
     if (!stat.isFile() || stat.size > 1_000_000) throw Error("Durable implementation checkpoint attribution packet is missing or oversized.");
     const packet = JSON.parse(fs.readFileSync(packetPath, "utf8")) as Record<string, unknown>;
-    const attribution = packet.sourceCheckpointAttempt as Record<string, unknown> | undefined;
+    let attribution = packet.sourceCheckpointAttempt as Record<string, unknown> | undefined;
+    if (!attribution || attribution.attributablePaths === undefined || Array.isArray(attribution.attributablePaths) && attribution.attributablePaths.length === 0) {
+      const legacy = await inspectLegacyImplementationCheckpoint(selected, projectId, workflowId, workItemId, implementationRecordId);
+      const lease = acquireWorkflowExecutionLease(workflowExecutionLeaseKey("source-backed", legacy.checkoutRoot), `checkpoint-recovery:${implementationRecordId}`);
+      if (!lease) throw Error("Inspection required: another execution owns this Workflow checkout.");
+      try {
+        // Recheck under the same exclusive lease used by Implementer and Tester.
+        const exact = await inspectLegacyImplementationCheckpoint(selected, projectId, workflowId, workItemId, implementationRecordId);
+        const checkpoint = await createImplementationCheckpoint(selected, projectId, { ...exact, boundaryId: implementation.body.executionRef,
+          workflowId, targetEntityId: implementation.id });
+        return { record: implementation, checkpoint };
+      } finally { lease.release(); }
+    }
     if (!attribution || packet.projectId !== projectId || packet.workflowId !== workflowId || packet.workItemId !== workItemId ||
       packet.executionRef !== implementation.body.executionRef || !Array.isArray(attribution.attributablePaths) ||
       attribution.attributablePaths.length < 1 || attribution.attributablePaths.length > 256 ||

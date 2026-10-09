@@ -576,6 +576,76 @@ test('Greenfield full SQL navigation repeats exact Phase WorkItem and Repair bou
 });
 
 
+test('Greenfield stranded parent checkpoint recovers before a stale prepared Repair starts', async context => {
+ const f=await structuredPhaseLoopFixture(context,true);
+ const {execFileSync}=require('node:child_process');
+ const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8'}).trim();
+ const kernel=require('../../dist/main/workflow/workflowExecutionApplicationService.js').createWorkflowExecutionApplicationService();
+ const loop=require('../../dist/main/phasePlanning/structuredPhaseLoopService.js').createStructuredPhaseLoopService();
+ const revision=git(path.join(f.root,'Dev'),'rev-parse','HEAD');
+ const baseline=await f.state.createWorkflowSourceBaseline(f.projectId,f.workflow.id,{repositoryId:'selected-project-source',integrationTargetSourceLineId:'dev',baseRevisionId:revision});
+ await f.state.createWorkflowSourceBinding(f.projectId,f.workflow.id,baseline.id);
+ const materializer=require('../../dist/main/sourceControl/workflowSourceMaterializationService.js').createWorkflowSourceMaterializationService({projectContainerRoot:f.root,projectId:f.projectId});
+ const materialized=await materializer.materialize(f.workflow.id),checkout=path.join(f.root,materialized.checkout.projectRelativePath);
+ const direction={title:'Exact source',objective:'Recover stranded implementation',scopeIn:['Evidence'],scopeOut:[],constraints:[],assumptions:[],risks:[]};
+ let model=await loop.get(f.root,f.workflow.id,'phase_one','interview');
+ model=await loop.save(f.root,f.workflow.id,'phase_one','interview',{workflowId:f.workflow.id,phaseId:model.phase.id,stageKind:'interview',facts:[],direction,criteria:[],sources:model.sources});
+ await loop.review(f.root,f.workflow.id,'phase_one','interview',model.review.cycle.id,{expectedRecordVersion:1,outcome:'approved'});
+ model=await loop.get(f.root,f.workflow.id,'phase_one','planning');
+ model=await loop.save(f.root,f.workflow.id,'phase_one','planning',{workflowId:f.workflow.id,phaseId:model.phase.id,stageKind:'planning',facts:[],direction,criteria:[],candidates:[{candidateId:'stranded',order:1,title:'Stranded parent',purpose:'Approved source evidence',dependsOn:[],resolutionStatus:'planned',resolutionReason:'',evidencePaths:[],criteria:[]}],sources:model.sources});
+ await loop.review(f.root,f.workflow.id,'phase_one','planning',model.review.cycle.id,{expectedRecordVersion:1,outcome:'approved'});
+ const parent=await f.store.getEntity(f.projectId,model.review.workItems[0].id),relative='conformance/phase-1/work-card-01.txt';
+ await kernel.acceptWorkItemExecutionPlan(f.root,{workflowId:f.workflow.id,workItemId:parent.id,expectedVersion:parent.recordVersion,plan:{implementationBoundaries:['Exact approved file'],affectedPaths:[relative],proofIntent:['Check source evidence']}});
+ const attempt=await kernel.prepareImplementationAttempt(f.root,f.workflow.id,parent.id);
+ await kernel.beginWorkItemAttempt(f.root,f.workflow.id,parent.id,attempt.body.workItemVersion,attempt.id);
+ const result={summary:'Implemented parent',deviations:[],blockers:[],residualRisks:[],outcome:'implemented'};
+ const implementation=await kernel.finishWorkItemAttempt(f.root,f.workflow.id,parent.id,attempt.id,result);
+ const packetPath=path.join(f.root,'.champcity','runtime','work-item-attempts',attempt.id+'.json');
+ fs.mkdirSync(path.dirname(packetPath),{recursive:true});
+ fs.writeFileSync(packetPath,JSON.stringify({schemaVersion:1,projectId:f.projectId,workflowId:f.workflow.id,workItemId:parent.id,executionRef:attempt.id,contractDigest:attempt.body.contractDigest,result}));
+ const packetBytes=fs.readFileSync(packetPath);
+ fs.mkdirSync(path.dirname(path.join(checkout,relative)),{recursive:true});fs.writeFileSync(path.join(checkout,relative),'Stranded parent evidence');
+ const cycle=await f.state.prepareWorkItemValidationCycle(f.projectId,f.workflow.id,parent.id);
+ const decision=await f.state.reviewWorkItemValidationCycle(f.projectId,f.workflow.id,parent.id,{cycleId:cycle.id,expectedRecordVersion:cycle.recordVersion,outcome:'RequestRepair',repairDefectText:'Extend parent evidence'});
+ const {repair}=await kernel.createWorkflowRepair(f.root,f.workflow.id,parent.id,decision.id);
+ await kernel.acceptWorkItemExecutionPlan(f.root,{workflowId:f.workflow.id,workItemId:repair.id,expectedVersion:repair.recordVersion,plan:{implementationBoundaries:['Exact repair evidence'],affectedPaths:['repair.txt'],proofIntent:['Check repair file']}});
+ const stale=await kernel.prepareImplementationAttempt(f.root,f.workflow.id,repair.id);assert.equal(stale.body.sourceRevisionId,revision);
+ const retry=require('../../dist/main/sourceControl/structuredWorkflowCheckpointService.js').retryStructuredImplementationCheckpoint;
+ // Legacy failures retain every byte and create no checkpoint.
+ fs.writeFileSync(path.join(checkout,'outside.txt'),'Unapproved');
+ await assert.rejects(retry(f.root,f.projectId,f.workflow.id,parent.id,implementation.id),/outside.*scope/i);
+ const rejected=await kernel.getCheckpointRecoveryProjection(f.root,f.workflow.id,parent.id);assert.equal(rejected.implementation.retryable,false);assert.match(rejected.implementation.reason,/inspection required/i);
+ assert.equal(fs.readFileSync(path.join(checkout,relative),'utf8'),'Stranded parent evidence');fs.unlinkSync(path.join(checkout,'outside.txt'));
+ git(checkout,'checkout','-b','inspection-fixture');
+ await assert.rejects(retry(f.root,f.projectId,f.workflow.id,parent.id,implementation.id),/branch or HEAD changed/i);
+ git(checkout,'checkout',materialized.binding.body.workSourceLineId);
+ const {acquireWorkflowExecutionLease,workflowExecutionLeaseKey}=require('../../dist/main/workCardBuilding/workflowExecutionLease.js');
+ const competing=acquireWorkflowExecutionLease(workflowExecutionLeaseKey('source-backed',checkout),'fixture-tester');
+ await assert.rejects(retry(f.root,f.projectId,f.workflow.id,parent.id,implementation.id),/another execution/i);competing.release();
+ assert.equal((await f.store.listEntities(f.projectId,'SourceCheckpoint')).length,0);
+ const recoverable=await kernel.getCheckpointRecoveryProjection(f.root,f.workflow.id,parent.id);assert.equal(recoverable.implementation.retryable,true);
+ const {runtimeFixture,selection}=require('../support/codex-runtime.cjs'),runtime=runtimeFixture();await runtime.ready;
+ let calls=0,release;const finish=new Promise(resolve=>release=resolve);
+ const {CodexImplementerExecutionService}=require('../../dist/main/workCardBuilding/codexImplementerExecutionService.js');
+ const service=new CodexImplementerExecutionService(async()=>({startThread(options){calls++;assert.equal(git(checkout,'status','--porcelain','--untracked-files=all'),'');assert.notEqual(git(checkout,'rev-parse','HEAD'),revision);return {id:'repair-after-recovery',async runStreamed(){await finish;fs.writeFileSync(path.join(options.workingDirectory,'repair.txt'),'Approved repair');return {events:(async function*(){yield {type:'item.completed',item:{type:'agent_message',text:JSON.stringify({...result,summary:'Implemented repair without file telemetry'})}};yield {type:'turn.completed'};})()};}};}}),undefined,undefined,undefined,runtime.manager);
+ service.configureSourceCheckoutProjection(async()=>({workspaceId:'stranded-greenfield',projection:{registerRepositoryCheckout:async(_id,value)=>({...value,availability:'available',validationError:null})}}));
+ const selector={ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:repair.id};
+ const running=await service.start(f.root,selector,selection);assert.equal(running.state,'running',running.failureReason);assert.equal(calls,1);
+ const recoveredCheckpoints=await f.store.listEntities(f.projectId,'SourceCheckpoint');assert.equal(recoveredCheckpoints.length,1);assert.equal(recoveredCheckpoints[0].body.checkpointState,'committed');
+ assert.equal(recoveredCheckpoints[0].body.expectedRevisionId,revision);
+ assert.ok((await f.store.listRelationships(f.projectId,'checkpoints')).some(e=>e.fromEntityId===recoveredCheckpoints[0].id&&e.toEntityId===implementation.id));
+ const binding=await f.store.getEntity(f.projectId,materialized.binding.id);assert.equal(binding.body.currentRevisionId,recoveredCheckpoints[0].body.resultingRevisionId);assert.equal(git(checkout,'status','--porcelain','--untracked-files=all'),'');
+ assert.deepEqual(await f.store.getEntity(f.projectId,implementation.id),implementation);assert.deepEqual(fs.readFileSync(packetPath),packetBytes);
+ const parentAttempts=(await f.store.listEntities(f.projectId,'ImplementationAttempt')).filter(a=>a.body.workItemId===parent.id);assert.equal(parentAttempts.length,1);assert.equal(parentAttempts[0].id,attempt.id);
+ assert.equal((await f.store.getEntity(f.projectId,stale.id)).body.attemptState,'abandoned');
+ const repairAttempts=(await f.store.listEntities(f.projectId,'ImplementationAttempt')).filter(a=>a.body.workItemId===repair.id&&['prepared','running'].includes(a.body.attemptState));assert.equal(repairAttempts.length,1);assert.equal(repairAttempts[0].body.sourceRevisionId,binding.body.currentRevisionId);
+ release();let completed;for(let i=0;i<400;i++){completed=await service.getStatus(f.root,selector);if(completed.state!=='running')break;await new Promise(resolve=>setTimeout(resolve,20));}
+ assert.equal(completed.state,'completed',completed.failureReason);assert.equal(completed.checkpoint.status,'committed');assert.equal(git(checkout,'status','--porcelain','--untracked-files=all'),'');
+ const records=await f.store.listEntities(f.projectId,'ImplementationRecord');assert.equal(records.length,2);assert.equal(records.filter(r=>r.body.workItemId===parent.id).length,1);
+ assert.equal((await f.store.listEntities(f.projectId,'SourceCheckpoint')).length,2);
+ const repaired=records.find(r=>r.body.workItemId===repair.id);const repairPacket=JSON.parse(fs.readFileSync(path.join(path.dirname(packetPath),repaired.body.executionRef+'.json'),'utf8'));assert.deepEqual(repairPacket.sourceCheckpointAttempt.attributablePaths,['repair.txt']);
+});
+
 test('Greenfield fresh source-backed Implement and Repair start from read-only readiness and preserve no-mutation Review', async context => {
  const f=await structuredPhaseLoopFixture(context,true);
  const loop=require('../../dist/main/phasePlanning/structuredPhaseLoopService.js').createStructuredPhaseLoopService();

@@ -54,6 +54,7 @@ import { createImplementationCheckpoint } from "../sourceControl/semanticCheckpo
 import { resolveManagedProjectSourceTopology, resolveManagedWorkflowCheckoutPath } from "../sourceControl/projectSourceTopology";
 import { workflowSourceLineName } from "../sourceControl/workSourceNaming";
 import { runBoundedGit } from "../core/gitExecution";
+import { reconcileWorkflowSource, sourcePathsInScope } from "../sourceControl/workflowSourceReconciliation";
 import { workflowRepositoryCheckoutId } from "../sourceControl/projectSourceTopology";
 
 export const CODEX_RUNTIME_UNAVAILABLE_MESSAGE =
@@ -92,7 +93,7 @@ interface WorkflowWorkItemExecutionData {
   workerDirectory?: string;
   evidencePacketPath?: string;
   resultOutcome?: "implemented" | "partial" | "blocked" | "failed" | "abandoned";
-  sourceBacked?: { checkoutRoot: string; repositoryCheckoutId: string; sourceLineId: string; expectedRevisionId: string; attributablePaths: string[]; attributionFailure?: string };
+  sourceBacked?: { checkoutWorkflowId: string; checkoutRoot: string; repositoryCheckoutId: string; sourceLineId: string; expectedRevisionId: string; attributablePaths: string[]; attributionFailure?: string };
 }
 interface ExecutionContextFields {
   ownerKind?: "development" | "issue" | "routed-development" | "workflow-work-item";
@@ -535,7 +536,7 @@ export class CodexImplementerExecutionService {
           Boolean(dirty) && "dirty-checkout",
         ].filter((value): value is string => typeof value === "string");
         if (checkoutMismatches.length) throw Error(`Prepared Workflow checkout failed exact binding verification (${checkoutMismatches.join(", ")}).`);
-        sourceBacked = { checkoutRoot, repositoryCheckoutId: checkout.repositoryCheckoutId, sourceLineId: checkout.sourceLineId,
+        sourceBacked = { checkoutWorkflowId: checkout.workflowId ?? selector.workflowId, checkoutRoot, repositoryCheckoutId: checkout.repositoryCheckoutId, sourceLineId: checkout.sourceLineId,
           expectedRevisionId: contract.sourceRevisionId!, attributablePaths: [] };
       }
       if (sourceBacked && !contract.sourceRevisionId || !sourceBacked && contract.sourceRevisionId !== null || contract.sourceMutation === "required" && !sourceBacked)
@@ -643,13 +644,17 @@ export class CodexImplementerExecutionService {
     const attemptKernel = this.workflowExecutionServiceFactory();
     let preparedAttempt: import("../../shared/projectState/domainContracts").ProjectStateRecord<"ImplementationAttempt">;
     try {
-      const report = await attemptKernel.getImplementationAttempt(workspaceRoot, selector.workflowId, selector.workItemId);
-      preparedAttempt = report?.attempt.body.attemptState === "prepared" ? report.attempt : await attemptKernel.prepareImplementationAttempt(workspaceRoot, selector.workflowId, selector.workItemId);
+      preparedAttempt = await attemptKernel.prepareImplementationAttempt(workspaceRoot, selector.workflowId, selector.workItemId);
       // Validate reservation before source checkout materialization.
       await attemptKernel.assertImplementationAttemptCurrent(workspaceRoot, preparedAttempt.id);
     } catch (error) { return unavailableFromPreflight(error instanceof Error ? error : Error(String(error))); }
     const context = await this.resolveWorkflowWorkItemContext(workspaceRoot, selector, true);
     if (context instanceof Error) return unavailableFromPreflight(context);
+    try {
+      // Source recovery/materialization may advance the reservation. The typed command abandons stale prepared attempts.
+      preparedAttempt = await attemptKernel.prepareImplementationAttempt(workspaceRoot, selector.workflowId, selector.workItemId);
+      await attemptKernel.assertImplementationAttemptCurrent(workspaceRoot, preparedAttempt.id);
+    } catch (error) { return unavailableFromPreflight(error instanceof Error ? error : Error(String(error))); }
     const exact = context.workflowWorkItem!;
     const executionRef = preparedAttempt.id;
     const runtimeDirectory = path.join(context.projectRoot, ".champcity", "runtime");
@@ -943,7 +948,13 @@ export class CodexImplementerExecutionService {
               if (!allowed.some(scope => normalized === scope || normalized.startsWith(`${scope.replace(/\/$/, "")}/`))) throw Error(`Observed path is outside the accepted Architect scope: ${normalized}`);
             }
           }
-          catch (error) { session.workflowWorkItem.sourceBacked.attributionFailure ??= messageForCodexFailure(error); }
+          catch (error) {
+            const message = messageForCodexFailure(error);
+            appendTail(session.stderrTail, `File-change telemetry: ${message}`);
+            if (session.workflowWorkItem.contract.sourceMutation === "not-required" ||
+              !["App Server file-change event omitted attributable path evidence.", "App Server file-change event contains an invalid path record."].includes(message))
+              session.workflowWorkItem.sourceBacked.attributionFailure ??= message;
+          }
         }
         if (event.type === "item.completed" && event.item.type === "file_change" && session.checkpointCapture) {
           try {
@@ -1022,27 +1033,25 @@ export class CodexImplementerExecutionService {
           : { summary: "Codex execution did not produce a valid semantic completion.", deviations: [], blockers: [terminalFailureReason ?? "Codex execution failed."], residualRisks: [], outcome: "failed" as const });
         let finalizedResult = result;
         const sourceAttempt = session.workflowWorkItem.sourceBacked;
-        if (sourceAttempt && session.workflowWorkItem.contract.sourceMutation === "not-required") {
+        if (sourceAttempt) {
           try {
-            const root = sourceAttempt.checkoutRoot;
-            const head = (await runBoundedGit({ cwd: root, args: ["rev-parse", "HEAD"] })).stdout.trim();
+            const paths = await reconcileWorkflowSource(session.projectRoot, sourceAttempt.checkoutWorkflowId, sourceAttempt);
             const projection = await this.workflowExecutionServiceFactory().getExecutionProjection(session.projectRoot, session.workflowWorkItem.workflowId);
-            const changes = (await runBoundedGit({ cwd: root, args: ["diff", "--name-only", "--no-renames", "-z", "HEAD"] })).stdout;
-            const untracked = (await runBoundedGit({ cwd: root, args: ["ls-files", "--others", "--exclude-standard", "-z"] })).stdout;
-            sourceAttempt.attributablePaths.push(...[...changes.split("\0"), ...untracked.split("\0")].filter(Boolean));
-            if (head !== sourceAttempt.expectedRevisionId || projection.source.state !== "ready" || projection.source.currentRevisionId !== sourceAttempt.expectedRevisionId)
-              throw Error("No-mutation source revision or binding changed unexpectedly.");
+            if (projection.source.state !== "ready" || projection.source.currentRevisionId !== sourceAttempt.expectedRevisionId ||
+              projection.source.repositoryCheckoutId !== sourceAttempt.repositoryCheckoutId || projection.source.workSourceLineId !== sourceAttempt.sourceLineId)
+              throw Error("Reserved source revision or binding changed unexpectedly.");
+            sourceAttempt.attributablePaths = paths;
           } catch (error) { sourceAttempt.attributionFailure = messageForCodexFailure(error); }
         }
-        const scopeViolated = Boolean(sourceAttempt?.attributionFailure || (sourceAttempt && sourceAttempt.attributablePaths.some(file =>
-          !session.workflowWorkItem!.contract.affectedPaths.some(allowed => file === allowed || file.startsWith(`${allowed.replace(/\/$/, "")}/`)))));
+        const scopeViolated = Boolean(sourceAttempt?.attributionFailure || (sourceAttempt &&
+          !sourcePathsInScope(sourceAttempt.attributablePaths, session.workflowWorkItem.contract.affectedPaths)));
         let scopeRestored = false;
         if (scopeViolated && sourceAttempt) {
           try {
             const checkout = fs.realpathSync(sourceAttempt.checkoutRoot);
             const top = path.resolve((await runBoundedGit({ cwd: checkout, args: ["rev-parse", "--show-toplevel"] })).stdout.trim());
             const head = (await runBoundedGit({ cwd: checkout, args: ["rev-parse", "HEAD"] })).stdout.trim();
-            const managed = resolveManagedWorkflowCheckoutPath(session.projectRoot, session.workflowWorkItem.workflowId);
+            const managed = resolveManagedWorkflowCheckoutPath(session.projectRoot, sourceAttempt.checkoutWorkflowId);
             const devRoot = resolveManagedProjectSourceTopology(session.projectRoot).devCheckoutRoot;
             const common = path.resolve(checkout, (await runBoundedGit({ cwd: checkout, args: ["rev-parse", "--git-common-dir"] })).stdout.trim());
             const devCommon = path.resolve(devRoot, (await runBoundedGit({ cwd: devRoot, args: ["rev-parse", "--git-common-dir"] })).stdout.trim());
