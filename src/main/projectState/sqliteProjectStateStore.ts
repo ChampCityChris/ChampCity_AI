@@ -175,7 +175,61 @@ function readPort(database: DatabaseSync, assertOpen: () => void, useSnapshot = 
 }
 
 /** Read-only projection access: opening this port never initializes or migrates a store. */
-export function createSQLiteProjectStateReader(databasePath: string): ProjectStateReadPort & { close(): void } {
+export interface ProjectStateInspectionPage {
+  kind: "entities" | "versions" | "relationships" | "changes";
+  entityType?: EntityType;
+  entityId?: string;
+  direction?: "inbound" | "outbound" | "both";
+  selection?: "active" | "ended" | "both";
+  after: [string, string | number];
+  limit: number;
+}
+
+/** Fixed SQL projections: bodies are never loaded by enumeration, and LIMIT applies in SQLite. */
+function inspectionPage(database: DatabaseSync, projectId: string, page: ProjectStateInspectionPage): Record<string, unknown>[] {
+  if (!Number.isSafeInteger(page.limit) || page.limit < 1 || page.limit > 51) throw new ProjectStateStoreError("INVALID_STATE", "Inspection page is invalid.");
+  const summary = `record_version AS recordVersion, lifecycle_state AS lifecycleState, disposition_state AS dispositionState,
+    created_at AS createdAt, updated_at AS updatedAt, closed_at AS closedAt, superseded_at AS supersededAt`;
+  switch (page.kind) {
+    case "entities":
+      return page.entityType === "Project"
+        ? all(database, `SELECT project_id AS id, 'Project' AS entityType, ${summary} FROM project_versions
+            WHERE project_id=? AND project_id>? AND record_version=(SELECT current_record_version FROM projects WHERE project_id=?)
+            ORDER BY project_id LIMIT ?`, projectId, page.after[0], projectId, page.limit)
+        : all(database, `SELECT e.entity_id AS id, e.entity_type AS entityType, v.record_version AS recordVersion,
+            v.lifecycle_state AS lifecycleState, v.disposition_state AS dispositionState, v.created_at AS createdAt,
+            v.updated_at AS updatedAt, v.closed_at AS closedAt, v.superseded_at AS supersededAt
+            FROM state_entities e JOIN state_entity_versions v ON v.project_id=e.project_id AND v.entity_id=e.entity_id AND v.record_version=e.current_record_version
+            WHERE e.project_id=? AND e.entity_type=? AND e.entity_id>? ORDER BY e.entity_id LIMIT ?`, projectId, page.entityType!, page.after[0], page.limit);
+    case "versions":
+      return page.entityId === projectId
+        ? all(database, `SELECT project_id AS id, 'Project' AS entityType, ${summary} FROM project_versions
+            WHERE project_id=? AND record_version>? ORDER BY record_version LIMIT ?`, projectId, page.after[1], page.limit)
+        : all(database, `SELECT entity_id AS id, entity_type AS entityType, ${summary} FROM state_entity_versions
+            WHERE project_id=? AND entity_id=? AND record_version>? ORDER BY record_version LIMIT ?`, projectId, page.entityId!, page.after[1], page.limit);
+    case "relationships":
+      return all(database, `SELECT relationship_id AS id, relationship_type AS relationshipType,
+          from_entity_id AS fromEntityId, to_entity_id AS toEntityId, created_at AS effectiveAt, ended_at AS endedAt
+          FROM relationships WHERE project_id=? AND relationship_id>?
+          AND ((? IN ('outbound','both') AND from_entity_id=?) OR (? IN ('inbound','both') AND to_entity_id=?))
+          AND (?='both' OR (?='active' AND ended_at IS NULL) OR (?='ended' AND ended_at IS NOT NULL))
+          ORDER BY relationship_id LIMIT ?`, projectId, page.after[0], page.direction!, page.entityId!, page.direction!, page.entityId!,
+          page.selection!, page.selection!, page.selection!, page.limit);
+    case "changes":
+      return all(database, `SELECT change_id AS id, entity_id AS entityId, from_record_version AS fromRecordVersion,
+          to_record_version AS toRecordVersion, operation, principal_json AS principalJson, occurred_at AS occurredAt,
+          changed_fields_json AS changedFieldsJson, reason, causation_id AS causationId, correlation_id AS correlationId
+          FROM state_changes WHERE project_id=? AND entity_id=? AND (occurred_at>? OR (occurred_at=? AND change_id>?))
+          ORDER BY occurred_at, change_id LIMIT ?`, projectId, page.entityId!, page.after[0], page.after[0], page.after[1], page.limit)
+        .map(({principalJson, changedFieldsJson, ...row}) => ({...row, principal: parsed(principalJson), changedFields: parsed(changedFieldsJson)}));
+  }
+}
+
+export function createSQLiteProjectStateReader(databasePath: string): ProjectStateReadPort & {
+  inspectPage(projectId: string, page: ProjectStateInspectionPage): Record<string, unknown>[];
+  hasInspectionEntity(projectId: string, entityId: string): boolean;
+  close(): void;
+} {
   if (!path.isAbsolute(databasePath) || databasePath.startsWith("\\\\") || databasePath.startsWith("//")) {
     throw new ProjectStateStoreError("INVALID_STATE", "Project State requires an absolute local database path.");
   }
@@ -183,6 +237,16 @@ export function createSQLiteProjectStateReader(databasePath: string): ProjectSta
   if (typeof database.enableDefensive === "function") database.enableDefensive(true);
   let closed = false;
   return { ...readPort(database, () => { if (closed) throw new ProjectStateStoreError("INVALID_STATE", "Project State reader is closed."); }, true),
+    inspectPage(projectId, page) {
+      if (closed) throw new ProjectStateStoreError("INVALID_STATE", "Project State reader is closed.");
+      return execute(() => inspectionPage(database, projectId, page));
+    },
+    hasInspectionEntity(projectId, entityId) {
+      if (closed) throw new ProjectStateStoreError("INVALID_STATE", "Project State reader is closed.");
+      return execute(() => !!(entityId === projectId
+        ? one(database, "SELECT project_id FROM projects WHERE project_id=? LIMIT 1", projectId)
+        : one(database, "SELECT entity_id FROM state_entities WHERE project_id=? AND entity_id=? LIMIT 1", projectId, entityId)));
+    },
     close() { if (!closed) { closed = true; database.close(); } } };
 }
 

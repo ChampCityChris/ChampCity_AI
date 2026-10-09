@@ -7,6 +7,7 @@ const { DatabaseSync } = require("node:sqlite");
 const test = require("node:test");
 const { createProjectStateEntity } = require("../../dist/shared/projectState/entityTypeRegistry.js");
 const { createSQLiteProjectStateStore } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
+const { createSQLiteProjectStateReader } = require("../../dist/main/projectState/sqliteProjectStateStore.js");
 const { registerProjectStateStoreConformance } = require("../support/project-state-store-conformance.cjs");
 
 function fixture(context) {
@@ -18,6 +19,63 @@ function fixture(context) {
 }
 
 registerProjectStateStoreConformance("SQLite ProjectStateStore", fixture);
+
+test("SQLite inspection pages apply fixed SQL limits without hydrating the corpus", async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-inspection-sql-"));
+  const file = path.join(root, "state.sqlite"), store = createSQLiteProjectStateStore(file);
+  const principal = {principalId: "fixture", principalType: "system", role: "test"};
+  const project = createProjectStateEntity({entityType: "Project", principal, body: {name: "Fixture", description: "Bounded"}});
+  const entities = Array.from({length: 160}, (_, i) => createProjectStateEntity({entityType: "WorkItem", projectId: project.id, principal,
+    body: {workItemKind: "feature", title: `Item ${i}`, objective: "Exact", workState: "ready"}}));
+  await store.transaction(project.id, async unit => { await unit.saveEntity(project, null); for (const entity of entities) await unit.saveEntity(entity, null); });
+  const item = entities[0];
+  const at = "2026-01-01T00:00:00.000Z";
+  await store.transaction(project.id, async unit => {
+    for (let version = 2; version <= 65; version++) {
+      await unit.saveEntity({...item, recordVersion: version}, version - 1);
+      await unit.appendStateChange({id: randomUUID(), projectId: project.id, entityId: item.id, fromRecordVersion: version - 1,
+        toRecordVersion: version, operation: "revise", principal, occurredAt: at, changedFields: ["objective"], reason: "fixture"});
+      const relationship = {id: randomUUID(), projectId: project.id, fromEntityId: item.id, relationshipType: "relates_to", toEntityId: entities[version].id, createdAt: at, createdBy: principal};
+      await unit.saveRelationship(relationship);
+      if (version % 2 === 0) await unit.endRelationship(relationship.id, at);
+    }
+  });
+  store.close();
+  const reader = createSQLiteProjectStateReader(file);
+  t.after(() => { reader.close(); fs.rmSync(root, {recursive: true, force: true}); });
+  const original = DatabaseSync.prototype.prepare;
+  const queries = [];
+  DatabaseSync.prototype.prepare = function(sql) {
+    queries.push(sql); assert.match(sql, /LIMIT \?/); assert.doesNotMatch(sql, /body_json|COUNT\(|SELECT \*/i);
+    const statement = original.call(this, sql);
+    const all = statement.all.bind(statement);
+    statement.all = (...args) => { const rows = all(...args); assert.ok(rows.length <= 8); return rows; };
+    return statement;
+  };
+  try {
+    for (const kind of ["entities", "versions", "relationships", "changes"]) {
+      const ids = []; let after = ["", 0];
+      for (;;) {
+        const rows = reader.inspectPage(project.id, {kind, entityType: "WorkItem", entityId: item.id, direction: "outbound", selection: "both", after, limit: 8});
+        if (!rows.length) break;
+        assert.equal(rows.some(row => Object.hasOwn(row, "body")), false);
+        ids.push(...rows.map(row => kind === "versions" ? row.recordVersion : row.id));
+        const last = rows.at(-1);
+        after = kind === "versions" ? ["", last.recordVersion] : kind === "changes" ? [last.occurredAt, last.id] : [last.id, 0];
+      }
+      assert.equal(new Set(ids).size, ids.length);
+      assert.equal(ids.length, {entities: 160, versions: 65, relationships: 64, changes: 64}[kind]);
+      assert.deepEqual(ids, [...ids].sort(kind === "versions" ? (a,b) => a-b : undefined));
+    }
+    const active = reader.inspectPage(project.id, {kind: "relationships", entityId: item.id, direction: "outbound", selection: "active", after: ["", 0], limit: 8});
+    const ended = reader.inspectPage(project.id, {kind: "relationships", entityId: item.id, direction: "both", selection: "ended", after: ["", 0], limit: 8});
+    assert.ok(active.every(row => row.endedAt === null)); assert.ok(ended.every(row => row.endedAt === at));
+    assert.ok(queries.length > 40);
+  } finally { DatabaseSync.prototype.prepare = original; }
+  assert.deepEqual(await reader.getEntityVersion(project.id, item.id, 1), item);
+  reader.close();
+  assert.throws(() => reader.inspectPage(project.id, {kind: "entities", after: ["",0], limit: 1}), error => error.code === "INVALID_STATE");
+});
 
 test("SQLite transaction rolls back versions, audit and outbox after a stale mutation", async context => {
   const store = fixture(context);

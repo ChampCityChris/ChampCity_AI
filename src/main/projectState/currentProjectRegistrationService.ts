@@ -41,15 +41,29 @@ export function selectedCurrentProjectId(projectRoot: string, options: {includeC
     throw Error("Project State storage is invalid.");
   const databasePath = path.join(directory, "project-state.sqlite");
   if (!fs.existsSync(databasePath)) return null;
-  if (fs.lstatSync(databasePath).isSymbolicLink() || !fs.lstatSync(databasePath).isFile()) throw Error("Project State store is invalid.");
-  const database = new DatabaseSync(databasePath, { readOnly: true });
+  const databaseStat = fs.lstatSync(databasePath);
+  if (databaseStat.isSymbolicLink() || !databaseStat.isFile() || databaseStat.nlink !== 1) throw Error("Project State store is invalid.");
+  if (path.dirname(fs.realpathSync(databasePath)) !== fs.realpathSync(directory)) throw Error("Project State store is invalid.");
+  for (const suffix of ["-wal", "-shm", "-journal"]) {
+    const sidecar = databasePath + suffix;
+    try {
+      const sidecarStat = fs.lstatSync(sidecar);
+      if (sidecarStat.isSymbolicLink() || !sidecarStat.isFile() || sidecarStat.nlink !== 1 ||
+        path.dirname(fs.realpathSync(sidecar)) !== fs.realpathSync(directory)) throw Error("Project State store is invalid.");
+    } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+  }
+  const database = new DatabaseSync(databasePath, { readOnly: true, defensive: true, allowExtension: false });
   try {
     const tables = database.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='projects'").all();
     if (!tables.length) throw Error("Selected Project State store is not current.");
     const rows = database.prepare(`SELECT e.project_id, v.body_json FROM state_entities e
       JOIN state_entity_versions v ON v.project_id=e.project_id AND v.entity_id=e.entity_id AND v.record_version=e.current_record_version
       JOIN projects p ON p.project_id=e.project_id
-      WHERE e.entity_type='ProjectResource' AND e.lifecycle_state='active' AND (p.lifecycle_state='active' OR (${options.includeClosed === true ? 1 : 0}=1 AND p.lifecycle_state='closed'))`).all() as { project_id: string; body_json: string }[];
+      WHERE e.entity_type='ProjectResource' AND e.lifecycle_state='active' AND (p.lifecycle_state='active' OR (?=1 AND p.lifecycle_state='closed'))
+      AND json_valid(v.body_json) AND json_extract(v.body_json,'$.resourceType')='current-project-registration'
+      AND json_extract(v.body_json,'$.provider')='champcity' AND json_extract(v.body_json,'$.logicalName')='current-project'
+      AND json_extract(v.body_json,'$.locator')='selected-project' AND json_extract(v.body_json,'$.role')='current-project'
+      AND (SELECT COUNT(*) FROM json_each(v.body_json))=5 LIMIT 2`).all(options.includeClosed === true ? 1 : 0) as { project_id: string; body_json: string }[];
     const registrations = rows.filter(row => { try { return isCurrentProjectRegistration(JSON.parse(row.body_json)); } catch { return false; } });
     if (registrations.length > 1) throw Error("Selected Project State contains ambiguous Project identities.");
     return registrations[0]?.project_id ?? null;

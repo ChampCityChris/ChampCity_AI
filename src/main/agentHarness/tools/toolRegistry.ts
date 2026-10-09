@@ -73,6 +73,8 @@ import {
   type HarnessActionKind,
 } from "../workspace/workspaceAccess";
 import * as z from "zod/v4";
+import { ENTITY_TYPE_REGISTRY } from "../../../shared/projectState/entityTypeRegistry";
+import { inspectRegisteredProjectState } from "../../projectState/projectStateInspectionService";
 
 export type PublicToolName =
   | "repo_toolbox"
@@ -125,7 +127,6 @@ const HOTFIX10_RESERVED_TOOLBOX_NAMES = [
   "development_toolbox",
   "system_toolbox",
   "network_toolbox",
-  "data_toolbox",
   "security_toolbox",
   "observability_toolbox",
   "ui_toolbox",
@@ -176,6 +177,9 @@ interface ParamSpec {
   maxItems?: number;
   minLength?: number;
   maxLength?: number;
+  integer?: boolean;
+  minimum?: number;
+  maximum?: number;
 }
 
 interface ToolActionContract {
@@ -347,7 +351,10 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
           ok: false,
           toolName: call.name,
           action,
-          error: call.name === "test_toolbox" && !(error instanceof AgentHarnessError)
+          error: call.name === "data_toolbox"
+            ? { code: error instanceof AgentHarnessError ? error.code : "RUNTIME_ERROR",
+                message: "Project State inspection request was rejected; verify workspace registration, read scope and bounded parameters." }
+            : call.name === "test_toolbox" && !(error instanceof AgentHarnessError)
             ? { code: "RUNTIME_ERROR", message: "Bound validation execution is unavailable; inspect the repository toolkit and runtime." }
             : call.name === "git_toolbox" && /worktree|isolated_operation|reflog|delete_untracked_paths/.test(action) && !(error instanceof AgentHarnessError)
             ? { code: "GIT_EXECUTION_FAILED", message: "Managed Git operation is unavailable or its filesystem state changed; inspect before retrying." }
@@ -804,6 +811,10 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
         })),
       ],
     },
+    {
+      name: "data_toolbox", title: "Project State inspection", description: "Bounded read-only structured state of the registered Current Project. No SQL or path selectors; continuations expire on runtime restart. inspect_entity bodyFields explicitly selects top-level fields for oversized bodies.",
+      actions: projectStateInspectionActions(),
+    },
     ...HOTFIX10_RESERVED_TOOLBOX_NAMES.map(reservedToolboxProvider),
     {
       name: "workspace_write_attached_image",
@@ -886,7 +897,9 @@ function buildParamsInputSchema(params: Record<string, ParamSpec>): Record<strin
             maxItems: spec.maxItems ?? 256,
             items: { type: "string", minLength: spec.minLength ?? 1, maxLength: spec.maxLength ?? 4_096 },
           }
-        : { type: spec.type, ...(spec.allowedValues ? { enum: spec.allowedValues } : {}),
+        : { type: spec.integer ? "integer" : spec.type, ...(spec.allowedValues ? { enum: spec.allowedValues } : {}),
+            ...(spec.minimum === undefined ? {} : { minimum: spec.minimum }),
+            ...(spec.maximum === undefined ? {} : { maximum: spec.maximum }),
             ...(spec.minLength === undefined ? {} : { minLength: spec.minLength }),
             ...(spec.maxLength === undefined ? {} : { maxLength: spec.maxLength }) },
     ])),
@@ -926,7 +939,8 @@ function zodParamSchema(spec: ParamSpec): z.ZodType<unknown> {
     return z.array(z.string().min(spec.minLength ?? 1).max(spec.maxLength ?? 4_096)).min(spec.minItems ?? 1).max(spec.maxItems ?? 256);
   }
   if (spec.type === "number") {
-    return z.number().refine((value) => Number.isFinite(value), "number must be finite");
+    return z.number().refine((value) => Number.isFinite(value) && (!spec.integer || Number.isSafeInteger(value)) &&
+      (spec.minimum === undefined || value >= spec.minimum) && (spec.maximum === undefined || value <= spec.maximum), "number exceeds its bounds");
   }
   if (spec.type === "boolean") {
     return z.boolean();
@@ -947,6 +961,26 @@ function testExecutionAction(name: TestToolboxAction, params: Record<string, Par
 
 function readAction(name: string, params: Record<string, ParamSpec>, dispatch: ToolActionContract["dispatch"]): ToolActionContract {
   return { name, kind: "read", requiredScope: "files.read", params, dispatch };
+}
+
+function projectStateInspectionActions(): ToolActionContract[] {
+  const entityId: ParamSpec = {type: "string", required: true, minLength: 1, maxLength: 128};
+  const page: Record<string, ParamSpec> = {
+    limit: {type: "number", integer: true, minimum: 1, maximum: 50},
+    cursor: {type: "string", minLength: 1, maxLength: 2048},
+  };
+  const action = (name: string, params: Record<string, ParamSpec>) => readAction(name, params,
+    ({context, params: values}) => inspectRegisteredProjectState(context.root, context.workspaceId, name, values));
+  return [
+    action("status", {}),
+    action("inspect_entity", {entityId, recordVersion: {type: "number", integer: true, minimum: 1, maximum: Number.MAX_SAFE_INTEGER},
+      bodyFields: {type: "string-array", minItems: 1, maxItems: 32, minLength: 1, maxLength: 80}}),
+    action("list_entities", {entityType: {type: "string", required: true, allowedValues: Object.keys(ENTITY_TYPE_REGISTRY)}, ...page}),
+    action("list_entity_versions", {entityId, ...page}),
+    action("list_entity_relationships", {entityId, direction: {type: "string", allowedValues: ["inbound", "outbound", "both"]},
+      selection: {type: "string", allowedValues: ["active", "ended", "both"]}, ...page}),
+    action("list_entity_changes", {entityId, ...page}),
+  ];
 }
 
 function gitInspectionAction(name: string, params: Record<string, ParamSpec>, dispatch: ToolActionContract["dispatch"]): ToolActionContract {
@@ -1185,7 +1219,8 @@ function paramMatchesType(value: unknown, spec: ParamSpec): boolean {
         && entry.length <= (spec.maxLength ?? 4_096) && Buffer.byteLength(entry, "utf8") <= 4_096);
   }
   if (spec.type === "number") {
-    return typeof value === "number" && Number.isFinite(value);
+    return typeof value === "number" && Number.isFinite(value) && (!spec.integer || Number.isSafeInteger(value)) &&
+      (spec.minimum === undefined || value >= spec.minimum) && (spec.maximum === undefined || value <= spec.maximum);
   }
   return typeof value === spec.type;
 }

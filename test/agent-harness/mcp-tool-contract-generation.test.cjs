@@ -25,6 +25,8 @@ const {
   resolveWorkspaceRootContext,
 } = require(path.join(root, "dist/main/agentHarness/workspace/workspaceAccess.js"));
 const { AgentHarnessError } = require(path.join(root, "dist/main/core/applicationErrors.js"));
+const { randomUUID, createHash } = require("node:crypto");
+const { DatabaseSync } = require("node:sqlite");
 const { Client } = require("@modelcontextprotocol/sdk/client/index.js");
 const {
   StreamableHTTPClientTransport,
@@ -574,6 +576,139 @@ async function connectMcpClient(url, token) {
   await client.connect(transport);
   return { client, transport };
 }
+
+test("read-only public MCP inspects bounded registered Project history without changing authority", {timeout: 30_000}, async t => {
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-mpsi-client-"));
+  const userDataRoot = path.join(container, "harness");
+  const projectRoots = [path.join(container, "Primary"), path.join(container, "Peer")];
+  const {registerCurrentProject} = require("../../dist/main/projectState/currentProjectRegistrationService.js");
+  const {createProjectStateEntity} = require("../../dist/shared/projectState/entityTypeRegistry.js");
+  const {createSQLiteProjectStateStore} = require("../../dist/main/projectState/sqliteProjectStateStore.js");
+  const workspaces = new RegisteredWorkspaceRegistry({userDataRoot});
+  const principal = {principalId: "fixture", principalType: "system", role: "test"};
+  const fixtures = [];
+  for (const projectRoot of projectRoots) {
+    fs.mkdirSync(projectRoot);
+    fs.writeFileSync(path.join(projectRoot, "README.md"), "Unchanged fixture\n");
+    const registration = await registerCurrentProject(projectRoot, "greenfield");
+    const projectId = registration.project.id;
+    const file = path.join(projectRoot, ".champcity", "project-state.sqlite");
+    const store = createSQLiteProjectStateStore(file);
+    const entity = (entityType, body) => createProjectStateEntity({entityType, projectId, principal, body});
+    const binding = entity("SourceBinding", {workflowId: randomUUID(), sourceBaselineId: randomUUID(), preparationState: "preparing"});
+    const workItemId = randomUUID();
+    const attempt = entity("ImplementationAttempt", {workflowId: binding.body.workflowId, workItemId, workItemVersion: 1,
+      contractId: "fixture-contract", contractDigest: "a".repeat(64), attemptState: "prepared", sourceRevisionId: "reserved-revision", sourceMode: "source-backed",
+      layout: {memberIds: [binding.id, binding.body.workflowId], sources: [{entityId: binding.id, recordVersion: 1}, {entityId: workItemId, recordVersion: 1}]}});
+    const items = Array.from({length: 63}, (_, i) => entity("WorkItem", {workItemKind: "feature", title: `Work ${i}`, objective: "ordinary\nSQL value", workState: "ready"}));
+    const large = entity("WorkItem", {workItemKind: "feature", title: "Large", objective: "Small exact field", workState: "ready", implementationBoundaries: Array(15).fill("x".repeat(4090))});
+    const secrets = entity("WorkflowIntake", {workflowId: binding.body.workflowId, workflowType: "project-creation", values: {
+      apiKey: "synthetic-credential", ordinary: "ordinary\nSQL value", endpoint: "https://user:synthetic-password@example.invalid/path", local: projectRoot,
+      textual: "Bearer synthetic-value", nestedText: "password=synthetic-value"}});
+    const at = "2026-01-01T00:00:00.000Z";
+    const relationship = {id: randomUUID(), projectId, fromEntityId: attempt.id, relationshipType: "relates_to", toEntityId: binding.id, createdAt: at, createdBy: principal};
+    try {
+      await store.transaction(projectId, async unit => {
+        for (const record of [binding, attempt, ...items, large, secrets]) await unit.saveEntity(record, null);
+        await unit.saveRelationship(relationship);
+        await unit.appendStateChange({id: "00000000-0000-4000-8000-000000000001", projectId, entityId: binding.id,
+          fromRecordVersion: null, toRecordVersion: 1, operation: "create", principal, occurredAt: at, changedFields: ["preparationState"], reason: "reservation", causationId: "fixture-cause", correlationId: "fixture-correlation"});
+        await unit.saveEntity({...binding, recordVersion: 2, body: {...binding.body, preparationState: "ready", workSourceLineId: "work-line", currentRevisionId: "revision", repositoryCheckoutId: "checkout"}}, 1);
+        await unit.appendStateChange({id: "00000000-0000-4000-8000-000000000002", projectId, entityId: binding.id,
+          fromRecordVersion: 1, toRecordVersion: 2, operation: "revise", principal, occurredAt: at, changedFields: ["preparationState", "currentRevisionId"], reason: "materialization"});
+        await unit.appendOutbox({id: randomUUID(), projectId, eventType: "fixture", occurredAt: at, payload: {fixture: true}});
+      });
+    } finally { store.close(); }
+    const workspaceId = (await workspaces.register(projectRoot)).workspaceId;
+    fixtures.push({projectRoot, file, projectId, workspaceId, binding, attempt, items, large, secrets, relationship});
+  }
+  const [f, peer] = fixtures;
+  let runtime;
+  const registry = createAgentHarnessToolRegistry({userDataRoot, workspaceAccess: createRegisteredWorkspaceAccessProvider({
+    resolveWorkspaceContext: id => workspaces.resolve(id), listWorkspaceSummaries: () => workspaces.snapshot().workspaces,
+  }), runtimeDiagnostics: () => ({toolContractDiagnostics: {registry: runtime.runtimeToolContract(), published: runtime.publishedToolContractDiagnostics()}})});
+  runtime = await startAgentHarnessHttpRuntime({host: "127.0.0.1", port: 0, userDataRoot, registry, allowUnauthenticatedLocal: false});
+  const clients = [];
+  t.after(async () => { for (const client of clients) await client.close(); await runtime.close(); fs.rmSync(container, {recursive: true, force: true}); });
+  const token = await issueOAuthToken(new URL(runtime.url).origin, "files.read");
+  const connected = await connectMcpClient(runtime.url, token.access_token); clients.push(connected.client);
+  let client = connected.client;
+  const invoke = async (action, params = {}, workspaceId = f.workspaceId) => (await client.callTool({name: "data_toolbox", arguments: {workspaceId, action, params}})).structuredContent;
+  const read = async (...args) => { const response = await invoke(...args); assert.equal(response.ok, true, JSON.stringify(response));
+    assert.equal(response.payload.workspaceId, args[2] ?? f.workspaceId); assert.ok(Buffer.byteLength(JSON.stringify(response)) < 65536); return response.payload; };
+  const snapshot = fixture => {
+    const db = new DatabaseSync(fixture.file, {readOnly: true});
+    try { return JSON.stringify(["projects", "project_versions", "state_entities", "state_entity_versions", "relationships", "state_changes", "outbox_events", "project_state_authority"].map(table => db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all())); }
+    finally { db.close(); }
+  };
+  const contents = () => projectRoots.map(projectRoot => {
+    const files = [];
+    const visit = dir => { for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+      const file = path.join(dir, entry.name); if (entry.isDirectory()) visit(file); else files.push([path.relative(projectRoot, file), createHash("sha256").update(fs.readFileSync(file)).digest("hex")]);
+    } }; visit(projectRoot); return files;
+  });
+  const before = fixtures.map(snapshot), beforeFiles = contents();
+  const status = await read("status"); assert.equal(status.projectId, f.projectId); assert.equal(status.storeAvailable, true);
+  assert.equal(status.capability, "bounded-read-only-project-state");
+  assert.equal((await client.listTools()).tools.length, registry.listTools("files.read").length);
+  assert.equal(registry.listTools().length, 35);
+  const inventory = (await client.callTool({name: "diagnostics_toolbox", arguments: {workspaceId: f.workspaceId, action: "tool_inventory"}})).structuredContent;
+  assert.equal(JSON.stringify(inventory).includes("list_entity_changes"), true);
+  for (const entityType of ["ImplementationAttempt", "SourceBinding", "ImplementationRecord", "SourceCheckpoint", "Project"]) {
+    const page = await read("list_entities", {entityType}); assert.equal(page.projectId, f.projectId);
+    assert.equal(page.items.some(item => Object.hasOwn(item, "body")), false);
+    if (entityType === "ImplementationAttempt") assert.equal(page.items[0].id, f.attempt.id);
+    if (entityType === "SourceBinding") assert.equal(page.items[0].id, f.binding.id);
+    if (entityType === "Project") assert.equal(page.items[0].id, f.projectId);
+  }
+  assert.deepEqual((await read("inspect_entity", {entityId: f.attempt.id})).record.body.layout.sources, f.attempt.body.layout.sources);
+  const historical = await read("inspect_entity", {entityId: f.binding.id, recordVersion: 1});
+  assert.equal(historical.record.body.preparationState, "preparing"); assert.equal(historical.versionSelection, "historical"); assert.equal(historical.currentRecordVersion, 2);
+  assert.equal((await read("inspect_entity", {entityId: f.binding.id})).record.body.preparationState, "ready");
+  const firstVersion = await read("list_entity_versions", {entityId: f.binding.id, limit: 1});
+  const secondVersion = await read("list_entity_versions", {entityId: f.binding.id, limit: 1, cursor: firstVersion.nextCursor});
+  assert.deepEqual([...firstVersion.items, ...secondVersion.items].map(item => item.recordVersion), [1, 2]); assert.equal(secondVersion.hasMore, false);
+  const inbound = await read("list_entity_relationships", {entityId: f.binding.id, direction: "inbound", selection: "active"});
+  assert.equal(inbound.items[0].fromEntityId, f.attempt.id); assert.equal(inbound.items[0].effectiveAt, f.relationship.createdAt);
+  assert.equal((await read("list_entity_relationships", {entityId: f.binding.id, direction: "outbound"})).items.length, 0);
+  assert.equal((await read("list_entity_relationships", {entityId: f.binding.id, selection: "ended"})).items.length, 0);
+  const changes = await read("list_entity_changes", {entityId: f.binding.id, limit: 1});
+  const changes2 = await read("list_entity_changes", {entityId: f.binding.id, limit: 1, cursor: changes.nextCursor});
+  assert.deepEqual([...changes.items, ...changes2.items].map(item => item.reason), ["reservation", "materialization"]);
+  assert.deepEqual(changes2.items[0].changedFields, ["preparationState", "currentRevisionId"]);
+  assert.equal(changes.items[0].causationId, "fixture-cause"); assert.equal(changes.items[0].principal.principalId, "fixture");
+  const ids = []; let cursor;
+  do { const page = await read("list_entities", {entityType: "WorkItem", limit: 13, ...(cursor ? {cursor} : {})}); ids.push(...page.items.map(item => item.id)); cursor = page.nextCursor; } while (cursor);
+  assert.deepEqual(ids, [...f.items, f.large].map(item => item.id).sort()); assert.equal(new Set(ids).size, ids.length);
+  assert.equal((await read("inspect_entity", {entityId: randomUUID()})).status, "not-found");
+  assert.equal((await read("inspect_entity", {entityId: f.binding.id, recordVersion: 99})).status, "version-not-found");
+  assert.equal((await read("inspect_entity", {entityId: peer.binding.id})).status, "not-found");
+  assert.equal((await read("inspect_entity", {entityId: peer.binding.id}, peer.workspaceId)).record.body.preparationState, "ready");
+  const tooLarge = await read("inspect_entity", {entityId: f.large.id}); assert.equal(tooLarge.status, "response-too-large");
+  const subset = await read("inspect_entity", {entityId: f.large.id, bodyFields: ["objective"]});
+  assert.equal(subset.partialBody, true); assert.deepEqual(subset.record.body, {objective: "Small exact field"}); assert.ok(subset.omittedBodyFields.includes("implementationBoundaries"));
+  const redacted = await read("inspect_entity", {entityId: f.secrets.id});
+  assert.equal(redacted.record.body.values.ordinary, "ordinary\nSQL value");
+  for (const key of ["apiKey", "endpoint", "local", "textual", "nestedText"]) { assert.equal(redacted.record.body.values[key], "[redacted]"); assert.ok(redacted.redactedFields.includes(`body.values.${key}`)); }
+  for (const [action, params] of [
+    ["list_entities", {entityType: "unknown"}], ["list_entities", {entityType: "WorkItem", limit: 1.5}], ["list_entities", {entityType: "WorkItem", limit: 0}], ["list_entities", {entityType: "WorkItem", limit: 51}],
+    ["inspect_entity", {entityId: f.binding.id, recordVersion: 0}], ["inspect_entity", {entityId: f.binding.id, recordVersion: 1.1}],
+    ["inspect_entity", {entityId: f.binding.id, projectId: peer.projectId}], ["inspect_entity", {entityId: f.binding.id, path: peer.file}],
+    ["inspect_entity", {entityId: f.binding.id, bodyFields: ["missing"]}],
+    ["list_entities", {entityType: "WorkItem", cursor: "invalid"}], ["list_entity_versions", {entityId: f.binding.id, cursor: changes.nextCursor}],
+    ["list_entity_relationships", {entityId: f.binding.id, direction: "invalid"}],
+  ]) {
+    const response = await client.callTool({name: "data_toolbox", arguments: {workspaceId: f.workspaceId, action, params}});
+    assert.equal(response.isError, true, `${action}: ${JSON.stringify(params)}`);
+  }
+  const scopedCursor = await read("list_entities", {entityType: "WorkItem", limit: 1});
+  assert.equal((await invoke("list_entities", {entityType: "WorkItem", cursor: scopedCursor.nextCursor}, peer.workspaceId)).error.code, "INVALID_INPUT");
+  assert.equal((await invoke("status", {}, "unregistered")).error.code, "WORKSPACE_ACCESS_DENIED");
+  assert.equal((await registry.callTool({name: "data_toolbox", scope: "files.write", arguments: {workspaceId: f.workspaceId, action: "status"}})).error.code, "OAUTH_SCOPE_DENIED");
+  const reconnected = await connectMcpClient(runtime.url, token.access_token); clients.push(reconnected.client); client = reconnected.client;
+  assert.equal((await read("list_entities", {entityType: "WorkItem", cursor: scopedCursor.nextCursor, limit: 1})).items.length, 1);
+  assert.deepEqual(fixtures.map(snapshot), before); assert.deepEqual(contents(), beforeFiles);
+});
 
 
 test("OAuth public MCP capture exposes candidate submission only to new full grants and persists SQL", async t => {

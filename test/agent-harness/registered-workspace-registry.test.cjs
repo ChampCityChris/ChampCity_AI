@@ -35,6 +35,46 @@ async function waitFor(predicate, message, timeoutMs = 2_000) {
   assert.fail(message);
 }
 
+test("Project State MCP rejects redirected and malformed stores without creating registration", async t => {
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-inspection-path-"));
+  const projectRoot = path.join(container, "Project"), peerRoot = path.join(container, "Peer");
+  fs.mkdirSync(projectRoot); fs.mkdirSync(peerRoot);
+  const {registerCurrentProject} = require("../../dist/main/projectState/currentProjectRegistrationService.js");
+  const {inspectRegisteredProjectState} = require("../../dist/main/projectState/projectStateInspectionService.js");
+  const service = new AgentHarnessService({userDataRoot: path.join(container, "harness"), allowUnauthenticatedLocal: true});
+  t.after(() => fs.rmSync(container, {recursive: true, force: true}));
+  const workspaceId = (await service.registerWorkspaceRoot(projectRoot)).workspace.workspaceId;
+  const call = async () => {
+    const result = await service.toolRegistry().callTool({name: "data_toolbox", scope: "files.read", arguments: {workspaceId, action: "status"}});
+    assert.equal(result.ok, true); assert.equal(JSON.stringify(result).includes(container), false); return result.payload;
+  };
+  assert.equal((await call()).availability, "not-registered"); assert.equal(fs.existsSync(path.join(projectRoot, ".champcity")), false);
+  await registerCurrentProject(peerRoot, "greenfield");
+  fs.symlinkSync(path.join(peerRoot, ".champcity"), path.join(projectRoot, ".champcity"), "junction");
+  assert.equal((await call()).availability, "unavailable");
+  fs.unlinkSync(path.join(projectRoot, ".champcity")); fs.mkdirSync(path.join(projectRoot, ".champcity"));
+  const databasePath = path.join(projectRoot, ".champcity", "project-state.sqlite");
+  fs.mkdirSync(databasePath); assert.equal((await call()).availability, "unavailable"); fs.rmdirSync(databasePath);
+  fs.writeFileSync(databasePath, "malformed fixture database");
+  const before = fs.readFileSync(databasePath); assert.equal((await call()).availability, "unavailable"); assert.deepEqual(fs.readFileSync(databasePath), before);
+  fs.unlinkSync(databasePath);
+  // Hard links redirect file authority too, and do not need Windows symlink privileges.
+  const peerFile = path.join(peerRoot, ".champcity", "project-state.sqlite");
+  const peerBytes = fs.readFileSync(peerFile);
+  fs.linkSync(peerFile, databasePath);
+  assert.equal((await call()).availability, "unavailable"); assert.deepEqual(fs.readFileSync(peerFile), peerBytes);
+  fs.unlinkSync(databasePath);
+  // A redirected DB file requires symlink permission on Windows; junctions above are always exercised.
+  let linked = false;
+  try { fs.symlinkSync(path.join(peerRoot, ".champcity", "project-state.sqlite"), databasePath, "file"); linked = true; }
+  catch (error) { if (error.code !== "EPERM") throw error; t.diagnostic("File symlink creation unavailable; directory redirect and malformed file proof passed."); }
+  if (linked) { assert.equal((await call()).availability, "unavailable"); fs.unlinkSync(databasePath); }
+  const sidecar = path.join(projectRoot, ".champcity", "project-state.sqlite-wal");
+  fs.copyFileSync(peerFile, databasePath);
+  fs.linkSync(peerFile, sidecar); assert.equal((await call()).availability, "unavailable"); fs.unlinkSync(sidecar); fs.unlinkSync(databasePath);
+  assert.equal((await inspectRegisteredProjectState(projectRoot, workspaceId, "status", {})).availability, "not-registered");
+});
+
 test("registered workspace registry durably stores two exact projects and re-registration is idempotent", async () => {
   const fixture = createFixture();
   const registry = new RegisteredWorkspaceRegistry({ userDataRoot: fixture.userDataRoot });

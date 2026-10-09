@@ -87,6 +87,10 @@
           "description": "an abruptly closed SSE stream releases liveness but leaves TTL as logical session state"
         },
         {
+          "behaviorId": "bounded-project-state-mcp-history",
+          "description": "read-only public MCP inspects bounded registered Project history without changing authority"
+        },
+        {
           "behaviorId": "capacity-overload-initialization-failure-clean-close-and-runtime-close-use-bounded-idempotent-cl",
           "description": "capacity overload, initialization failure, clean close, and runtime close use bounded idempotent cleanup"
         },
@@ -2822,6 +2826,7 @@
       "capabilityId": "project-state-sqlite-store",
       "description": "Durable SQLite ProjectStateStore transactions, reads and concurrency.",
       "sourcePatterns": [
+        "src/main/projectState/projectStateInspectionService.ts",
         "src/main/projectState/sqliteProjectStateStore.ts"
       ],
       "dependsOn": [
@@ -2829,6 +2834,10 @@
         "project-state-store"
       ],
       "behaviors": [
+        {
+          "behaviorId": "bounded-sql-inspection-pages",
+          "description": "SQLite inspection pages apply fixed SQL limits without hydrating the corpus"
+        },
         {
           "behaviorId": "sqlite-audit-outbox-and-generation-commit-atomically",
           "description": "SQLite audit, outbox and generation commit atomically"
@@ -4479,6 +4488,10 @@
         {
           "behaviorId": "production-registration-and-startup-reconcile-conventional-checkout-authority",
           "description": "production workspace registration and service startup reconcile deterministic conventional checkout authority under the shared source fence, retiring it when the Project root is no longer conventional Git"
+        },
+        {
+          "behaviorId": "project-state-inspection-storage-containment",
+          "description": "Project State MCP rejects redirected and malformed stores without creating registration"
         },
         {
           "behaviorId": "registered-non-git-workspace-preserves-exact-read-search-markdown-write-and-non-git-status-seman",
@@ -6282,8 +6295,8 @@
     {
       "testPath": "test/agent-harness/mcp-tool-contract-generation.test.cjs",
       "currentTestCount": {
-        "value": 4,
-        "basis": "Counted node:test declarations after TVA10-HF01 adds public MCP checkout-to-child execution proof."
+        "value": 6,
+        "basis": "MPSI01 observed complete owner count from the normal Windows composed validation receipt; includes existing and new inspection proof."
       },
       "duration": {
         "kind": "measured",
@@ -6331,6 +6344,12 @@
         "environment-coupled"
       ],
       "behaviorCoverage": [
+        {
+          "capabilityId": "agent-harness-mcp-runtime",
+          "behaviorId": "bounded-project-state-mcp-history",
+          "proofLocator": "read-only public MCP inspects bounded registered Project history without changing authority",
+          "proofRole": "primary"
+        },
         {
           "capabilityId": "agent-harness-mcp-runtime",
           "behaviorId": "normalized-oauth-scopes-capture-at-most-once-and-preserve-exact-scope-filtered-public-tools",
@@ -6541,8 +6560,8 @@
     {
       "testPath": "test/agent-harness/registered-workspace-registry.test.cjs",
       "currentTestCount": {
-        "value": 17,
-        "basis": "EPGA-R04-R03-R04 extends the focused registry owner with exact-topology conventional retirement/restoration and shared-fence conversion-race proof while preserving downstream publish, public discovery, idempotence, revocation, and outage isolation."
+        "value": 18,
+        "basis": "EPGA-R04-R03-R04 extends the focused registry owner with exact-topology conventional retirement/restoration and shared-fence conversion-race proof while preserving downstream publish, public discovery, idempotence, revocation, and outage isolation. MPSI01 adds one bounded inspection scenario."
       },
       "duration": {
         "kind": "measured",
@@ -6612,6 +6631,12 @@
           "capabilityId": "workspace-registry",
           "behaviorId": "production-registration-and-startup-reconcile-conventional-checkout-authority",
           "proofLocator": "generic registration stays Git-neutral while production activation provisions one deterministic conventional checkout; exact-topology reconciliation retires and restores that identity idempotently; registration reconciliation waits behind the exclusive source fence; service initialization reconciles persisted conventional workspaces idempotently",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "workspace-registry",
+          "behaviorId": "project-state-inspection-storage-containment",
+          "proofLocator": "Project State MCP rejects redirected and malformed stores without creating registration",
           "proofRole": "primary"
         },
         {
@@ -12714,8 +12739,8 @@
     {
       "testPath": "test/project-state/sqlite-store-conformance.test.cjs",
       "currentTestCount": {
-        "value": 8,
-        "basis": "Four shared adapter conformance scenarios and four SQLite-specific scenarios introduced by SCL01G."
+        "value": 11,
+        "basis": "MPSI01 observed complete owner count from the normal Windows composed validation receipt; includes existing and new inspection proof."
       },
       "duration": {
         "kind": "measured",
@@ -12755,6 +12780,12 @@
         "current-proof-appropriate"
       ],
       "behaviorCoverage": [
+        {
+          "capabilityId": "project-state-sqlite-store",
+          "behaviorId": "bounded-sql-inspection-pages",
+          "proofLocator": "SQLite inspection pages apply fixed SQL limits without hydrating the corpus",
+          "proofRole": "primary"
+        },
         {
           "capabilityId": "project-state-sqlite-store",
           "behaviorId": "sqlite-audit-outbox-and-generation-commit-atomically",

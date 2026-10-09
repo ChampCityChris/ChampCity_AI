@@ -34,7 +34,6 @@ const RESERVED_TOOLBOX_NAMES = [
   "development_toolbox",
   "system_toolbox",
   "network_toolbox",
-  "data_toolbox",
   "security_toolbox",
   "observability_toolbox",
   "ui_toolbox",
@@ -47,6 +46,7 @@ const RESERVED_TOOLBOX_NAMES = [
 ];
 
 const EXISTING_TOOL_ACTIONS = {
+  data_toolbox: ["status", "inspect_entity", "list_entities", "list_entity_versions", "list_entity_relationships", "list_entity_changes"],
   workflow_toolbox: ["status", "submit_stage_candidate"],
   repo_toolbox: [
     "status",
@@ -160,7 +160,7 @@ test("HOTFIX10 publishes the exact stable top-level namespace and preserves exis
 
   assert.equal(fullTools.length, 35);
   assert.deepEqual([...toolsByName.keys()].sort(), EXPECTED_TOOL_NAMES);
-  assert.equal(RESERVED_TOOLBOX_NAMES.length, 23);
+  assert.equal(RESERVED_TOOLBOX_NAMES.length, 22);
   for (const [name, actions] of Object.entries(EXISTING_TOOL_ACTIONS)) {
     assert.deepEqual(toolsByName.get(name)?.actions, actions, name);
   }
@@ -210,6 +210,18 @@ test("HOTFIX10 placeholders are strict read-only registered-Workspace status act
   const writeToolNames = new Set(writeTools.keys());
   const beforeWorkspace = snapshotDirectory(fixture.root);
   const beforeUserData = snapshotDirectory(fixture.userDataRoot);
+
+  const data = readTools.get("data_toolbox");
+  assert.equal(data.readOnly, true);
+  assert.equal(writeTools.has("data_toolbox"), false);
+  const dataStatus = await registry.callTool({name: "data_toolbox", scope: "files.read", arguments: {workspaceId: fixture.workspaceId, action: "status"}});
+  assert.equal(dataStatus.ok, true);
+  assert.equal(dataStatus.payload.implemented, true);
+  assert.equal(dataStatus.payload.availability, "not-registered");
+  assert.equal(dataStatus.payload.projectId, null);
+  assert.equal(dataStatus.payload.workspaceId, fixture.workspaceId);
+  assert.equal(fs.existsSync(path.join(fixture.root, ".champcity")), false);
+  assert.deepEqual(snapshotDirectory(fixture.root), beforeWorkspace);
 
   for (const name of RESERVED_TOOLBOX_NAMES) {
     const tool = readTools.get(name);
