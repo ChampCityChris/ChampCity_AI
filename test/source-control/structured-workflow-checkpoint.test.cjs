@@ -14,7 +14,17 @@ const operator = { principalId: "operator", principalType: "human", role: "Opera
 const repositoryId = "workflow-wrapper-repository";
 function git(root, ...args) { return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim(); }
 test("legacy checkpoint recovery requires exact current ownership, approval and reserved HEAD", async t => {
- for (const mode of ["missing-paths", "pending-own-checkpoint", "blocked-dirty", "blocked-other-reason", "out-of-scope", "redirected-checkout", "changed-branch", "changed-binding", "competing-lease", "conflicting-receipt", "unproven-clean", "forged-committed-content", "committed-dirty", "unrelated-checkpoint", "newer-record", "newer-attempt", "newer-peer-owner", "wrong-packet-digest", "stale-head", "unapproved"]) await t.test(mode, async context => {
+ for (const mode of [
+  "missing-paths", "pre-materialization", "arbitrary-packet-digest", "ready-after-run",
+  "historical-checkout-drift", "historical-revision-drift", "historical-post-run-revision-drift",
+  "missing-binding-history", "missing-baseline-history", "missing-running-chronology",
+  "pending-own-checkpoint", "blocked-dirty", "blocked-other-reason", "out-of-scope",
+  "redirected-checkout", "redirected-packet", "changed-branch", "changed-binding", "competing-lease",
+  "conflicting-receipt", "unproven-clean", "forged-committed-content", "committed-dirty",
+  "unrelated-checkpoint", "newer-record", "newer-attempt", "newer-peer-owner",
+  "malformed-packet-digest", "wrong-packet-project", "wrong-packet-attempt", "altered-packet-result",
+  "forged-packet-paths", "stale-head", "unapproved",
+ ]) await t.test(mode, async context => {
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'champcity-legacy-checkpoint-')),dev=path.join(root,'Dev');fs.mkdirSync(dev);
   git(dev,'init','-b','dev');git(dev,'config','user.name','Fixture');git(dev,'config','user.email','fixture@example.invalid');
   fs.writeFileSync(path.join(dev,'baseline.txt'),'Baseline');git(dev,'add','.');git(dev,'commit','-m','Synthetic baseline');const revision=git(dev,'rev-parse','HEAD');
@@ -23,15 +33,34 @@ test("legacy checkpoint recovery requires exact current ownership, approval and 
   const state=createProjectStateService(store,operator);
   const {workflow}=await state.createSubstantiveWorkflow(projectId,{workflowType:'feature-capability',title:'Exact legacy',entryWorkspace:'feature-intake',sourceSeed:{repositoryId,integrationTargetSourceLineId:'dev',baseRevisionId:revision}});
   const plan=await state.acceptWorkflowPlanningGraph(projectId,{workflowId:workflow.id,topology:'direct',solution:{title:'Exact source',objective:'Recover checkpoint',scopeIn:[],scopeOut:[],constraints:[],assumptions:[],risks:[]},solutionCriteria:[],phases:[],workItems:[{key:'parent',kind:'feature',title:'Parent',objective:'Approved evidence',dependencyKeys:[],criteria:[]},...(mode==='newer-peer-owner'?[{key:'peer',kind:'feature',title:'Peer',objective:'Newer source owner',dependencyKeys:[],criteria:[]}]:[])]});
-  const materialized=await createWorkflowSourceMaterializationService({projectContainerRoot:root,projectId}).materialize(workflow.id),checkout=path.join(root,materialized.checkout.projectRelativePath);
+  const materializer=createWorkflowSourceMaterializationService({projectContainerRoot:root,projectId});
+  const preMaterialization=['pre-materialization','ready-after-run','historical-checkout-drift','historical-revision-drift'].includes(mode);
+  let materialized=preMaterialization?null:await materializer.materialize(workflow.id);
   const kernel=require('../../dist/main/workflow/workflowExecutionApplicationService.js').createWorkflowExecutionApplicationService();
   const work=plan.directWorkItems[0],relative='conformance/phase-1/work-card-01.txt';
   await kernel.acceptWorkItemExecutionPlan(root,{workflowId:workflow.id,workItemId:work.id,expectedVersion:work.recordVersion,plan:{implementationBoundaries:['Exact approved file'],affectedPaths:[relative],proofIntent:['Review source']}});
-  const attempt=await kernel.prepareImplementationAttempt(root,workflow.id,work.id);await kernel.beginWorkItemAttempt(root,workflow.id,work.id,attempt.body.workItemVersion,attempt.id);
+  const attempt=await kernel.prepareImplementationAttempt(root,workflow.id,work.id);
+  if(mode!=='ready-after-run'&&!materialized)materialized=await materializer.materialize(workflow.id);
+  let digest='a'.repeat(64);
+  if(mode!=='ready-after-run')digest=(await kernel.createWorkItemExecutionContract(root,workflow.id,work.id,{sourceMutation:'required',affectedPaths:[relative],proofIntent:['Review source']})).digest;
+  assert.notEqual(digest,attempt.body.contractDigest);
+  if(['historical-checkout-drift','historical-revision-drift'].includes(mode)){
+   const key=mode==='historical-checkout-drift'?'repositoryCheckoutId':'currentRevisionId';
+   const changed=await state.updateSourceBinding(projectId,materialized.binding.id,{[key]:mode==='historical-checkout-drift'?'wrong-historical-checkout':'a'.repeat(40)},materialized.binding.recordVersion);
+   await state.updateSourceBinding(projectId,changed.id,{[key]:materialized.binding.body[key]},changed.recordVersion);
+  }
+  await kernel.beginWorkItemAttempt(root,workflow.id,work.id,attempt.body.workItemVersion,attempt.id);
+  if(!materialized)materialized=await materializer.materialize(workflow.id);
+  const checkout=path.join(root,materialized.checkout.projectRelativePath);
   const result={summary:'Implemented',deviations:[],blockers:[],residualRisks:[],outcome:'implemented'};
   const implementation=await kernel.finishWorkItemAttempt(root,workflow.id,work.id,attempt.id,result);
+  if(mode==='historical-post-run-revision-drift'){
+   const changed=await state.updateSourceBinding(projectId,materialized.binding.id,{currentRevisionId:'a'.repeat(40)},materialized.binding.recordVersion);
+   await state.updateSourceBinding(projectId,changed.id,{currentRevisionId:revision},changed.recordVersion);
+  }
   const packetPath=path.join(root,'.champcity','runtime','work-item-attempts',attempt.id+'.json');fs.mkdirSync(path.dirname(packetPath),{recursive:true});
-  fs.writeFileSync(packetPath,JSON.stringify({schemaVersion:1,projectId,workflowId:workflow.id,workItemId:work.id,executionRef:attempt.id,contractDigest:mode==='wrong-packet-digest'?'a'.repeat(64):attempt.body.contractDigest,result,sourceCheckpointAttempt:{}}));const bytes=fs.readFileSync(packetPath);
+  fs.writeFileSync(packetPath,JSON.stringify({schemaVersion:1,projectId:mode==='wrong-packet-project'?'another-project':projectId,workflowId:workflow.id,workItemId:work.id,executionRef:mode==='wrong-packet-attempt'?'another-attempt':attempt.id,contractDigest:mode==='malformed-packet-digest'?'not-a-sha256':mode==='arbitrary-packet-digest'?'b'.repeat(64):digest,result:mode==='altered-packet-result'?{...result,summary:'Altered result'}:result,sourceCheckpointAttempt:mode==='forged-packet-paths'?{attributablePaths:['outside.txt']}:{}}));const bytes=fs.readFileSync(packetPath);
+  if(mode==='redirected-packet'){const directory=path.dirname(packetPath);fs.renameSync(directory,directory+'-original');fs.symlinkSync(directory+'-original',directory,'junction');}
   fs.mkdirSync(path.dirname(path.join(checkout,relative)),{recursive:true});fs.writeFileSync(path.join(checkout,relative),'Legacy evidence');
   let pendingId;
   if(['pending-own-checkpoint','conflicting-receipt','forged-committed-content','committed-dirty'].includes(mode)){
@@ -81,8 +110,18 @@ test("legacy checkpoint recovery requires exact current ownership, approval and 
   if(['conflicting-receipt','forged-committed-content'].includes(mode))fs.writeFileSync(path.join(checkout,relative),'Changed after saved receipt');
   let competing;
   if(mode==='competing-lease'){const leases=require('../../dist/main/workCardBuilding/workflowExecutionLease.js');competing=leases.acquireWorkflowExecutionLease(leases.workflowExecutionLeaseKey('source-backed',checkout),'fixture-tester');context.after(()=>competing.release());}
+  if(['missing-binding-history','missing-baseline-history','missing-running-chronology'].includes(mode)){
+   const module=require('../../dist/main/projectState/sqliteProjectStateStore.js'),original=module.createSQLiteProjectStateStore;
+   const baselineId=materialized.binding.body.sourceBaselineId;
+   module.createSQLiteProjectStateStore=(...args)=>{const reader=original(...args);return {...reader,
+    async getEntityVersion(project,id,version){if(mode==='missing-binding-history'&&id===materialized.binding.id||mode==='missing-baseline-history'&&id===baselineId)return null;return reader.getEntityVersion(project,id,version);},
+    async listOutbox(project,...rest){const events=await reader.listOutbox(project,...rest);return mode==='missing-running-chronology'?events.filter(event=>event.entityId!==attempt.id||event.payload.toRecordVersion!==2):events;}
+   };};
+   context.after(()=>{module.createSQLiteProjectStateStore=original;});
+  }
   const records=await store.listEntities(projectId,'ImplementationRecord'),attempts=await store.listEntities(projectId,'ImplementationAttempt');
-  if(['missing-paths','pending-own-checkpoint','blocked-dirty'].includes(mode)){
+  const sourceBefore={head:git(checkout,'rev-parse','HEAD'),status:git(checkout,'status','--porcelain','--untracked-files=all'),index:git(checkout,'ls-files','--stage')};
+  if(['missing-paths','pre-materialization','arbitrary-packet-digest','pending-own-checkpoint','blocked-dirty'].includes(mode)){
    const recovery=await kernel.getCheckpointRecoveryProjection(root,workflow.id,work.id);assert.equal(recovery.implementation.retryable,true,recovery.implementation.reason);
    const recovered=await kernel.retryImplementationCheckpoint(root,workflow.id,work.id,implementation.id);assert.equal(recovered.checkpoint.state,'committed',recovered.checkpoint.message);
    if(pendingId)assert.equal(recovered.checkpoint.checkpointId,pendingId);
@@ -94,12 +133,24 @@ test("legacy checkpoint recovery requires exact current ownership, approval and 
   }else{
    if(['conflicting-receipt','forged-committed-content'].includes(mode)){
     const refused=await retryStructuredImplementationCheckpoint(root,projectId,workflow.id,work.id,implementation.id);assert.equal(refused.checkpoint.state,'inspection-required');assert.match(refused.checkpoint.message,/identity conflicts/i);
-   }else await assert.rejects(retryStructuredImplementationCheckpoint(root,projectId,workflow.id,work.id,implementation.id),/latest|ownership|reserved|approved|stale|inspection/i);
+   }else await assert.rejects(retryStructuredImplementationCheckpoint(root,projectId,workflow.id,work.id,implementation.id),error=>{
+    assert.match(error.message,/latest|ownership|reserved|approved|stale|inspection|invalid/i);
+    if(mode==='ready-after-run')assert.match(error.message,/never became ready before/i);
+    if(mode.startsWith('historical-'))assert.match(error.message,/historical SourceBinding.*changed/i);
+    if(mode==='missing-running-chronology')assert.match(error.message,/state-change chronology/i);
+    return true;
+   });
    assert.equal((await store.listEntities(projectId,'SourceCheckpoint')).length,['unrelated-checkpoint','conflicting-receipt','forged-committed-content','committed-dirty'].includes(mode)?1:0);assert.equal(fs.readFileSync(path.join(checkout,relative),'utf8'),['conflicting-receipt','forged-committed-content'].includes(mode)?'Changed after saved receipt':'Legacy evidence');
-   if(!['competing-lease','conflicting-receipt','forged-committed-content'].includes(mode))assert.equal((await kernel.getCheckpointRecoveryProjection(root,workflow.id,work.id)).implementation.retryable,false);
-   const startKernel=require('../../dist/main/workflow/workflowExecutionApplicationService.js').createWorkflowExecutionApplicationService({materializeWorkflowSource:async()=>{throw Error('Recovery must refuse before materialization.');}});
-   const prepared=await startKernel.prepareExecution(root,workflow.id,{sourceMutating:true});assert.equal(prepared.state,'blocked');assert.match(prepared.failureCode,/inspection|recovery/i);assert.notEqual(prepared.failureCode,'REPOSITORY_CHECKOUT_MATERIALIZATION_FAILED');
+   if(mode==='forged-packet-paths'){
+    // A nonempty packet attribution uses the existing attributed-retry projection, not legacy discovery.
+    await assert.rejects(require('../../dist/main/sourceControl/structuredWorkflowCheckpointService.js').inspectLegacyImplementationCheckpoint(root,projectId,workflow.id,work.id,implementation.id),/legacy packet does not match/i);
+   }else{
+    if(!['competing-lease','conflicting-receipt','forged-committed-content'].includes(mode))assert.equal((await kernel.getCheckpointRecoveryProjection(root,workflow.id,work.id)).implementation.retryable,false);
+    const startKernel=require('../../dist/main/workflow/workflowExecutionApplicationService.js').createWorkflowExecutionApplicationService({materializeWorkflowSource:async()=>{throw Error('Recovery must refuse before materialization.');}});
+    const prepared=await startKernel.prepareExecution(root,workflow.id,{sourceMutating:true});assert.equal(prepared.state,'blocked');assert.match(prepared.failureCode,/inspection|recovery/i);assert.notEqual(prepared.failureCode,'REPOSITORY_CHECKOUT_MATERIALIZATION_FAILED');
+   }
    assert.equal(fs.readFileSync(path.join(checkout,relative),'utf8'),['conflicting-receipt','forged-committed-content'].includes(mode)?'Changed after saved receipt':'Legacy evidence');
+   assert.deepEqual({head:git(checkout,'rev-parse','HEAD'),status:git(checkout,'status','--porcelain','--untracked-files=all'),index:git(checkout,'ls-files','--stage')},sourceBefore);
   }
   assert.deepEqual(await store.listEntities(projectId,'ImplementationRecord'),records);assert.deepEqual(await store.listEntities(projectId,'ImplementationAttempt'),attempts);assert.deepEqual(fs.readFileSync(packetPath),bytes);
  });

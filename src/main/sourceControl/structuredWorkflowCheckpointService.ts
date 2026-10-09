@@ -143,6 +143,66 @@ export async function checkpointStructuredTesterResult(root: string, projectId: 
   } finally { store.close(); }
 }
 
+/** Prove materialization from saved versions and their transactional audit/outbox order. */
+async function assertLegacyBindingHistory(store: Store, projectId: string, binding: Binding,
+  attempt: ProjectStateRecord<"ImplementationAttempt">) {
+  const reservations = attempt.body.layout.sources.filter(source => source.entityId === binding.id);
+  const previous = reservations.length === 1 ? await store.getEntityVersion(projectId, binding.id, reservations[0].recordVersion) : null;
+  if (previous?.entityType !== "SourceBinding" || previous.lifecycleState !== "active" ||
+    previous.body.workflowId !== binding.body.workflowId || previous.body.sourceBaselineId !== binding.body.sourceBaselineId ||
+    !["unprepared", "ready"].includes(previous.body.preparationState))
+    throw Error("Inspection required: exact reserved SourceBinding identity is unavailable.");
+  const baselineReservation = attempt.body.layout.sources.find(source => source.entityId === previous.body.sourceBaselineId);
+  const baseline = baselineReservation ? await store.getEntityVersion(projectId, previous.body.sourceBaselineId, baselineReservation.recordVersion) : null;
+  if (baseline?.entityType !== "SourceBaseline" || baseline.lifecycleState !== "active" ||
+    previous.body.preparationState === "unprepared" && (baseline.body.baseRevisionId !== attempt.body.sourceRevisionId ||
+      previous.body.currentRevisionId || previous.body.repositoryCheckoutId || previous.body.workSourceLineId))
+    throw Error("Inspection required: reserved SourceBaseline/revision or unprepared binding identity changed.");
+
+  const changes = (await store.listStateChanges(projectId)).filter(change => [binding.id, attempt.id].includes(change.entityId) &&
+    ["create", "revise"].includes(change.operation));
+  const events = new Map((await store.listOutbox(projectId)).map(event => [event.id, event]));
+  const sequenceFor = (change: typeof changes[number]) => {
+    const event = events.get(change.id);
+    if (!event || event.entityId !== change.entityId || event.payload.changeId !== change.id ||
+      event.payload.operation !== change.operation || event.payload.fromRecordVersion !== change.fromRecordVersion ||
+      event.payload.toRecordVersion !== change.toRecordVersion)
+      throw Error("Inspection required: binding/attempt state-change chronology is unavailable.");
+    return event.sequence;
+  };
+  let runningSequence: number | undefined;
+  for (const change of changes.filter(change => change.entityId === attempt.id)) {
+    const version = await store.getEntityVersion(projectId, attempt.id, change.toRecordVersion);
+    if (version?.entityType !== "ImplementationAttempt") throw Error("Inspection required: saved attempt history is unavailable.");
+    if (version.body.attemptState !== "running") continue;
+    const before = change.fromRecordVersion === null ? null : await store.getEntityVersion(projectId, attempt.id, change.fromRecordVersion);
+    if (runningSequence !== undefined || before?.entityType !== "ImplementationAttempt" || before.body.attemptState !== "prepared")
+      throw Error("Inspection required: successful attempt running transition is ambiguous.");
+    runningSequence = sequenceFor(change);
+  }
+  if (runningSequence === undefined) throw Error("Inspection required: successful attempt running transition is missing.");
+  let readyBeforeRun = false;
+  const historicalRevisions = new Set<string>();
+  for (let version = previous.recordVersion; version <= binding.recordVersion; version++) {
+    const saved = await store.getEntityVersion(projectId, binding.id, version);
+    const audit = changes.filter(change => change.entityId === binding.id && change.toRecordVersion === version);
+    if (saved?.entityType !== "SourceBinding" || saved.lifecycleState !== "active" || audit.length !== 1)
+      throw Error("Inspection required: saved SourceBinding version history is unavailable.");
+    const beforeRun = sequenceFor(audit[0]) < runningSequence;
+    if (saved.body.currentRevisionId) historicalRevisions.add(saved.body.currentRevisionId);
+    if (saved.body.sourceBaselineId !== previous.body.sourceBaselineId || saved.body.workflowId !== previous.body.workflowId ||
+      saved.body.repositoryCheckoutId && saved.body.repositoryCheckoutId !== binding.body.repositoryCheckoutId ||
+      saved.body.workSourceLineId && saved.body.workSourceLineId !== binding.body.workSourceLineId ||
+      beforeRun && saved.body.currentRevisionId && saved.body.currentRevisionId !== attempt.body.sourceRevisionId)
+      throw Error("Inspection required: historical SourceBinding baseline/checkout/source revision changed.");
+    if (beforeRun && saved.body.preparationState === "ready" && saved.body.currentRevisionId === attempt.body.sourceRevisionId &&
+      saved.body.repositoryCheckoutId === binding.body.repositoryCheckoutId && saved.body.workSourceLineId === binding.body.workSourceLineId)
+      readyBeforeRun = true;
+  }
+  if (!readyBeforeRun) throw Error("Inspection required: exact SourceBinding never became ready before the successful attempt ran.");
+  return [...historicalRevisions];
+}
+
 /** Read-only legacy proof. No packet or immutable implementation is rewritten. */
 export async function inspectLegacyImplementationCheckpoint(root: string, projectId: string, workflowId: string,
   workItemId: string, implementationRecordId: string) {
@@ -177,12 +237,7 @@ export async function inspectLegacyImplementationCheckpoint(root: string, projec
         throw Error("Inspection required: reserved planning/source evidence changed.");
     }
     const binding = await bindingForWorkflow(store, projectId, workflowId, true);
-    const reservedBinding = attempt.body.layout.sources.find(source => source.entityId === binding.id);
-    const previousBinding = reservedBinding ? await store.getEntityVersion(projectId, binding.id, reservedBinding.recordVersion) : null;
-    if (previousBinding?.entityType !== "SourceBinding" || previousBinding.body.preparationState !== "ready" ||
-      previousBinding.body.currentRevisionId !== attempt.body.sourceRevisionId || previousBinding.body.sourceBaselineId !== binding.body.sourceBaselineId ||
-      previousBinding.body.repositoryCheckoutId !== binding.body.repositoryCheckoutId || previousBinding.body.workSourceLineId !== binding.body.workSourceLineId)
-      throw Error("Inspection required: exact reserved SourceBinding identity is unavailable.");
+    const historicalRevisions = await assertLegacyBindingHistory(store, projectId, binding, attempt);
     const checkpoints = await store.listEntities(projectId, "SourceCheckpoint");
     const checkpointLinks = (await store.listRelationships(projectId, "checkpoints")).filter(edge => !edge.endedAt);
     const owned = checkpoints.filter((record): record is Checkpoint => record.entityType === "SourceCheckpoint" &&
@@ -202,15 +257,23 @@ export async function inspectLegacyImplementationCheckpoint(root: string, projec
     const packet = JSON.parse(fs.readFileSync(packetPath, "utf8"));
     if (packet.schemaVersion !== 1 || packet.projectId !== projectId || packet.workflowId !== workflowId || packet.workItemId !== workItemId || packet.executionRef !== attempt.id ||
       typeof packet.contractDigest !== "string" || !/^[a-f0-9]{64}$/i.test(packet.contractDigest) ||
-      packet.contractDigest !== attempt.body.contractDigest ||
       ["summary", "deviations", "blockers", "residualRisks", "outcome"].some(key => JSON.stringify(packet.result?.[key]) !== JSON.stringify((implementation.body as unknown as Record<string, unknown>)[key])) ||
       packet.sourceCheckpointAttempt?.attributablePaths?.length)
       throw Error("Inspection required: legacy packet does not match the exact successful attempt.");
+    // Runtime work-item-contract and SQL work-item-reservation use different serializers.
+    // The historical execution context is not captured completely by the reservation layout
+    // (for example dependency state and materialized Phase versions). Do not reconstruct it
+    // from today's projections. This digest is shape-checked, non-authorizing metadata;
+    // immutable SQL results, approval, historical source identity and Git ownership prove recovery.
     const baseline = await store.getEntity(projectId, binding.body.sourceBaselineId);
     if (baseline?.entityType !== "SourceBaseline") throw Error("Inspection required: immutable source anchor is missing.");
     const identity = { repositoryCheckoutId: binding.body.repositoryCheckoutId!, sourceLineId: binding.body.workSourceLineId!, expectedRevisionId: attempt.body.sourceRevisionId };
     const checkoutRoot = resolveManagedWorkflowCheckoutPath(selected, baseline.body.workflowId).checkoutRoot;
     const head = (await runBoundedGit({ cwd: checkoutRoot, args: ["rev-parse", "HEAD"] })).stdout.trim();
+    // Any revision after Run must be the reservation or this exact HEAD, whose saved
+    // checkpoint receipt/commit is independently verified below before admitting an advance.
+    if (historicalRevisions.some(revision => revision !== identity.expectedRevisionId && revision !== head))
+      throw Error("Inspection required: historical SourceBinding source revision changed outside this checkpoint boundary.");
     let paths: string[];
     if (head === identity.expectedRevisionId) {
       if (binding.body.currentRevisionId !== head || owned[0]?.body.checkpointState === "committed")

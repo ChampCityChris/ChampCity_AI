@@ -577,7 +577,7 @@ test('Greenfield full SQL navigation repeats exact Phase WorkItem and Repair bou
 
 
 test('Greenfield stranded parent checkpoint recovers before a stale prepared Repair starts', async suite => {
- for (const interruption of ['dirty-blocked','git-committed','sql-committed','sql-committed-old-binding']) await suite.test(interruption, async context => {
+ for (const interruption of ['pre-materialization','dirty-blocked','git-committed','sql-committed','sql-committed-old-binding']) await suite.test(interruption, async context => {
  const f=await structuredPhaseLoopFixture(context,true);
  const {execFileSync}=require('node:child_process');
  const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8'}).trim();
@@ -585,9 +585,9 @@ test('Greenfield stranded parent checkpoint recovers before a stale prepared Rep
  const loop=require('../../dist/main/phasePlanning/structuredPhaseLoopService.js').createStructuredPhaseLoopService();
  const revision=git(path.join(f.root,'Dev'),'rev-parse','HEAD');
  const baseline=await f.state.createWorkflowSourceBaseline(f.projectId,f.workflow.id,{repositoryId:'selected-project-source',integrationTargetSourceLineId:'dev',baseRevisionId:revision});
- await f.state.createWorkflowSourceBinding(f.projectId,f.workflow.id,baseline.id);
+ const originalBinding=await f.state.createWorkflowSourceBinding(f.projectId,f.workflow.id,baseline.id);
  const materializer=require('../../dist/main/sourceControl/workflowSourceMaterializationService.js').createWorkflowSourceMaterializationService({projectContainerRoot:f.root,projectId:f.projectId});
- const materialized=await materializer.materialize(f.workflow.id),checkout=path.join(f.root,materialized.checkout.projectRelativePath);
+ let materialized=interruption==='pre-materialization'?null:await materializer.materialize(f.workflow.id);
  const direction={title:'Exact source',objective:'Recover stranded implementation',scopeIn:['Evidence'],scopeOut:[],constraints:[],assumptions:[],risks:[]};
  let model=await loop.get(f.root,f.workflow.id,'phase_one','interview');
  model=await loop.save(f.root,f.workflow.id,'phase_one','interview',{workflowId:f.workflow.id,phaseId:model.phase.id,stageKind:'interview',facts:[],direction,criteria:[],sources:model.sources});
@@ -598,12 +598,27 @@ test('Greenfield stranded parent checkpoint recovers before a stale prepared Rep
  const parent=await f.store.getEntity(f.projectId,model.review.workItems[0].id),relative='conformance/phase-1/work-card-01.txt';
  await kernel.acceptWorkItemExecutionPlan(f.root,{workflowId:f.workflow.id,workItemId:parent.id,expectedVersion:parent.recordVersion,plan:{implementationBoundaries:['Exact approved file'],affectedPaths:[relative],proofIntent:['Check source evidence']}});
  const attempt=await kernel.prepareImplementationAttempt(f.root,f.workflow.id,parent.id);
+ const reservedBinding=attempt.body.layout.sources.find(source=>source.entityId===originalBinding.id);
+ assert.ok(reservedBinding);
+ const savedBinding=await f.store.getEntityVersion(f.projectId,originalBinding.id,reservedBinding.recordVersion);
+ assert.equal(savedBinding.body.preparationState,interruption==='pre-materialization'?'unprepared':'ready');
+ if(!materialized)materialized=await materializer.materialize(f.workflow.id);
+ const checkout=path.join(f.root,materialized.checkout.projectRelativePath);
+ const executionContract=await kernel.createWorkItemExecutionContract(f.root,f.workflow.id,parent.id,{sourceMutation:'required',affectedPaths:[relative],proofIntent:['Check source evidence']});
+ assert.notEqual(executionContract.digest,attempt.body.contractDigest);
  await kernel.beginWorkItemAttempt(f.root,f.workflow.id,parent.id,attempt.body.workItemVersion,attempt.id);
+ const chronology=await f.store.listOutbox(f.projectId);
+ const readyEvent=chronology.find(event=>event.entityId===originalBinding.id&&event.payload.operation==='revise'&&event.payload.toRecordVersion===materialized.binding.recordVersion);
+ const runningEvent=chronology.find(event=>event.entityId===attempt.id&&event.payload.operation==='revise'&&event.payload.toRecordVersion===2);
+ assert.ok(readyEvent.sequence<runningEvent.sequence);
+ assert.equal((await f.store.getEntityVersion(f.projectId,attempt.id,2)).body.attemptState,'running');
  const result={summary:'Implemented parent',deviations:[],blockers:[],residualRisks:[],outcome:'implemented'};
  const implementation=await kernel.finishWorkItemAttempt(f.root,f.workflow.id,parent.id,attempt.id,result);
  const packetPath=path.join(f.root,'.champcity','runtime','work-item-attempts',attempt.id+'.json');
  fs.mkdirSync(path.dirname(packetPath),{recursive:true});
- fs.writeFileSync(packetPath,JSON.stringify({schemaVersion:1,projectId:f.projectId,workflowId:f.workflow.id,workItemId:parent.id,executionRef:attempt.id,contractDigest:attempt.body.contractDigest,result}));
+ fs.writeFileSync(packetPath,JSON.stringify({schemaVersion:1,projectId:f.projectId,workflowId:f.workflow.id,workItemId:parent.id,executionRef:attempt.id,contractDigest:executionContract.digest,result}));
+ const packet=JSON.parse(fs.readFileSync(packetPath,'utf8'));
+ for(const key of ['summary','deviations','blockers','residualRisks','outcome'])assert.deepEqual(packet.result[key],implementation.body[key]);
  const packetBytes=fs.readFileSync(packetPath),parentAttempt=await f.store.getEntity(f.projectId,attempt.id);
  fs.mkdirSync(path.dirname(path.join(checkout,relative)),{recursive:true});fs.writeFileSync(path.join(checkout,relative),'Stranded parent evidence');
  const cycle=await f.state.prepareWorkItemValidationCycle(f.projectId,f.workflow.id,parent.id);
@@ -612,6 +627,16 @@ test('Greenfield stranded parent checkpoint recovers before a stale prepared Rep
  await kernel.acceptWorkItemExecutionPlan(f.root,{workflowId:f.workflow.id,workItemId:repair.id,expectedVersion:repair.recordVersion,plan:{implementationBoundaries:['Exact repair evidence'],affectedPaths:['repair.txt'],proofIntent:['Check repair file']}});
  const stale=await kernel.prepareImplementationAttempt(f.root,f.workflow.id,repair.id);assert.equal(stale.body.sourceRevisionId,revision);
  const retry=require('../../dist/main/sourceControl/structuredWorkflowCheckpointService.js').retryStructuredImplementationCheckpoint;
+ // On a failing baseline, reach the production Start path so neither provenance predicate is hidden by a later guard assertion.
+ const initialRecovery=await kernel.getCheckpointRecoveryProjection(f.root,f.workflow.id,parent.id);
+ if(!initialRecovery.implementation.retryable){
+  const {runtimeFixture,selection}=require('../support/codex-runtime.cjs'),runtime=runtimeFixture();await runtime.ready;
+  const {CodexImplementerExecutionService}=require('../../dist/main/workCardBuilding/codexImplementerExecutionService.js');
+  const probe=new CodexImplementerExecutionService(async()=>{throw Error('Unsafe provenance must not reach Codex');},undefined,undefined,undefined,runtime.manager);
+  probe.configureSourceCheckoutProjection(async()=>({workspaceId:'stranded-greenfield',projection:{registerRepositoryCheckout:async(_id,value)=>({...value,availability:'available',validationError:null})}}));
+  const start=await probe.start(f.root,{ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:repair.id},selection);
+  assert.equal(start.state,'running',start.failureReason);
+ }
  // Legacy failures retain every byte and create no checkpoint.
  fs.writeFileSync(path.join(checkout,'outside.txt'),'Unapproved');
  await assert.rejects(retry(f.root,f.projectId,f.workflow.id,parent.id,implementation.id),/outside.*scope/i);
