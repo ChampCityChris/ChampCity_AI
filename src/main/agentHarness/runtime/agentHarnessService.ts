@@ -17,6 +17,7 @@ import type { AgentHarnessToolDefinition } from "../tools/toolRegistry";
 import { createAgentHarnessToolRegistry, type AgentHarnessToolRegistry } from "../tools/toolRegistry";
 import { createRegisteredWorkspaceAccessProvider, type AgentHarnessWorkspaceAccessProvider } from "../workspace/workspaceAccess";
 import { RegisteredWorkspaceRegistry } from "../workspace/registeredWorkspaceRegistry";
+import { LocalGitRepositoryAccessService } from "../workspace/localGitRepositoryAccessService";
 import {
   readAgentHarnessSettings,
   validateAgentHarnessSettingsInput,
@@ -84,6 +85,7 @@ export class AgentHarnessService {
       listRepositoryCheckoutSummaries: (workspaceId) => this.workspaceRegistry.listRepositoryCheckoutSummaries(workspaceId),
     });
     this.registry = createAgentHarnessToolRegistry({
+      localGitAccess: new LocalGitRepositoryAccessService(() => this.configuration.trustedLocalGitRoots),
       workspaceAccess: this.workspaceAccess,
       managedWorkspaces: this.workspaceRegistry,
       userDataRoot: options.userDataRoot,
@@ -312,6 +314,7 @@ export class AgentHarnessService {
       publicBaseUrlConfigured: Boolean(this.configuration.publicBaseUrl),
       oauthConfigured: !localUnauthenticated,
       localAuthenticationMode: localUnauthenticated ? "local-unauthenticated" : "oauth-required",
+      trustedLocalGitRoots: [...this.configuration.trustedLocalGitRoots],
       filesReadTransportAuthorized: localUnauthenticated || oauth.activeFilesReadAuthorizationCount > 0,
       filesWriteTransportAuthorized: localUnauthenticated || oauth.activeFilesWriteAuthorizationCount > 0,
       registeredClientCount: oauth.clientCount,

@@ -114,6 +114,7 @@ export interface AppInfo {
 export type AgentHarnessAuthenticationMode = "local-unauthenticated" | "oauth-required";
 
 export interface AgentHarnessSettings {
+  trustedLocalGitRoots: string[];
   enabled: boolean;
   host: string;
   port: number;
@@ -122,6 +123,7 @@ export interface AgentHarnessSettings {
 }
 
 export interface AgentHarnessSettingsInput {
+  trustedLocalGitRoots?: string[];
   enabled?: boolean | string;
   host?: string;
   port?: number | string;
@@ -371,6 +373,7 @@ export type AgentHarnessWorkspaceRegistrationResult =
     };
 
 export interface AgentHarnessStatus {
+  trustedLocalGitRoots: string[];
   state: "stopped" | "starting" | "running" | "stopping" | "failed";
   enabled: boolean;
   host: string;

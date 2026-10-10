@@ -861,6 +861,19 @@ export async function pushGitTag(root: string, input: {
   return { remote, tagName: verified.tagName, targetCommit: verified.targetCommit };
 }
 
+/** Explicit local-only tag deletion, preserving the established remote deletion contract. */
+export async function deleteLocalGitTag(root: string, tagName: string) {
+  await assertCleanRepository(root);
+  await validateTagName(root, tagName);
+  const exists = await tagExists(root, tagName);
+  const verified = exists ? await verifyGitTag(root, tagName) : null;
+  if (exists) {
+    const object = (await runBoundedGit({ cwd: root, args: ["rev-parse", "--verify", `refs/tags/${tagName}`] })).stdout.trim();
+    await runBoundedGit({ cwd: root, args: ["update-ref", "--no-deref", "-d", `refs/tags/${tagName}`, exactRefCommit(object)] });
+  }
+  return { tagName, localDeleted: exists, remoteDeleted: false, deletedCommit: verified?.targetCommit ?? null };
+}
+
 export async function deleteGitTag(root: string, input: {
   tagName: string;
   remote?: string;
@@ -1142,7 +1155,7 @@ async function assertCleanRepository(root: string): Promise<void> {
   }
 }
 
-async function assertValidLocalBranchName(root: string, branchName: string): Promise<void> {
+export async function assertValidLocalBranchName(root: string, branchName: string): Promise<void> {
   await assertValidBranchRefName(root, branchName, "branchName");
 }
 

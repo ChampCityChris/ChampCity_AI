@@ -362,9 +362,15 @@ test("public MCP Git contract requires exact registered checkout targeting", { t
     assert.deepEqual(tool.inputSchema, definitions.find((entry) => entry.name === tool.name).inputSchema);
     for (const action of tool.inputSchema.oneOf) {
       const params = action.properties.params;
-      const checkoutBound = (tool.name === "git_toolbox" && action.title !== "list_repository_checkouts") ||
+      const local = tool.name === "git_toolbox" && !action.required.includes("workspaceId");
+      const checkoutBound = (tool.name === "git_toolbox" && action.title !== "list_repository_checkouts" && !local) ||
         tool.name === "release_toolbox" || (tool.name === "test_toolbox" && action.title !== "status");
       assert.equal(params.required.includes("repositoryCheckoutId"), checkoutBound, `${tool.name}.${action.title} checkout boundary`);
+      if (local) {
+        assert.equal(action.properties.workspaceId, undefined);
+        assert.equal(params.properties.repositoryCheckoutId, undefined);
+        assert.equal(params.required.includes("localCheckoutHandle"), !["discover_local_repositories", "init_local_repository"].includes(action.title));
+      }
       for (const identity of ["checkoutId", "projectId", "workflowId", "workIntakeId", "sourceBaselineId", "sourceBindingId", "sourceLineId", "workItemId"]) {
         assert.equal(params.required.includes(identity), tool.name === "workflow_toolbox" && action.title === "submit_stage_candidate" && identity === "workflowId", `${tool.name}.${action.title} requires ${identity}`);
       }
@@ -576,6 +582,48 @@ async function connectMcpClient(url, token) {
   await client.connect(transport);
   return { client, transport };
 }
+
+test("LOCALGIT01 built OAuth contracts publish local targets and gate every local mutation", { timeout: 30000 }, async t => {
+  const { LocalGitRepositoryAccessService } = require("../../dist/main/agentHarness/workspace/localGitRepositoryAccessService.js");
+  const container = fs.mkdtempSync(path.join(os.tmpdir(), "localgit01-oauth-"));
+  const directory = path.join(container, "ordinary"); fs.mkdirSync(directory); fs.writeFileSync(path.join(directory, "source.txt"), "preserve");
+  const workspaces = new RegisteredWorkspaceRegistry({ userDataRoot: path.join(container, "harness") });
+  // A separate generic diagnostic workspace supplies the existing diagnostics
+  // route. The local repository is never registered or enrolled.
+  const diagnosticRoot = path.join(container, "diagnostics"); fs.mkdirSync(diagnosticRoot);
+  const workspaceId = (await workspaces.register(diagnosticRoot)).workspaceId;
+  const registry = createAgentHarnessToolRegistry({ userDataRoot: path.join(container, "harness"),
+    localGitAccess: new LocalGitRepositoryAccessService(() => [container]),
+    workspaceAccess: createRegisteredWorkspaceAccessProvider({ resolveWorkspaceContext: id => workspaces.resolve(id), listWorkspaceSummaries: () => workspaces.snapshot().workspaces }) });
+  const runtime = await startAgentHarnessHttpRuntime({ host: "127.0.0.1", port: 0, userDataRoot: path.join(container, "harness"), registry });
+  const clients = [];
+  t.after(async () => { for (const client of clients) await client.close(); await runtime.close(); fs.rmSync(container, { recursive: true, force: true }); });
+  const readToken = await issueOAuthToken(new URL(runtime.url).origin, "files.read");
+  const { client: read } = await connectMcpClient(runtime.url, readToken.access_token); clients.push(read);
+  const readTools = (await read.listTools()).tools;
+  const gitDefinition = readTools.find(tool => tool.name === "git_toolbox");
+  assert.ok(gitDefinition.inputSchema.oneOf.some(action => action.title === "discover_local_repositories"));
+  for (const name of ["init_local_repository", "create_local_worktree", "remove_local_worktree", "stage_changes", "commit", "merge_branch"]) {
+    assert.equal(gitDefinition.inputSchema.oneOf.some(action => action.title === name), false);
+    const response = await read.callTool({ name: "git_toolbox", arguments: { action: name, params: { directory, initialBranch: "dev", localCheckoutHandle: "unavailable" } } });
+    assert.equal(response.isError, true);
+  }
+  assert.equal(fs.existsSync(path.join(directory, ".git")), false);
+  const fullToken = await issueOAuthToken(new URL(runtime.url).origin, "files.read files.write");
+  const { client: full } = await connectMcpClient(runtime.url, fullToken.access_token); clients.push(full);
+  const fullTools = (await full.listTools()).tools;
+  const fullDefinition = fullTools.find(tool => tool.name === "git_toolbox");
+  assert.deepEqual(fullDefinition.inputSchema, registry.listTools().find(tool => tool.name === "git_toolbox").inputSchema);
+  const initialized = await full.callTool({ name: "git_toolbox", arguments: { action: "init_local_repository", params: { directory, initialBranch: "dev" } } });
+  assert.equal(initialized.structuredContent.ok, true);
+  const discovered = await read.callTool({ name: "git_toolbox", arguments: { action: "discover_local_repositories", params: { directory } } });
+  assert.equal(discovered.structuredContent.payload.repositories[0].checkouts[0].unborn, true);
+  const inventory = await full.callTool({ name: "diagnostics_toolbox", arguments: { workspaceId, action: "tool_inventory" } });
+  const actions = inventory.structuredContent.payload.registry.tools.find(tool => tool.name === "git_toolbox").actions;
+  for (const name of ["discover_local_repositories", "init_local_repository", "create_local_worktree", "remove_local_worktree"]) assert.ok(actions.includes(name));
+  assert.equal(workspaces.snapshot().workspaces.length, 1);
+  assert.equal(workspaces.snapshot().workspaces[0].workspaceId, workspaceId);
+});
 
 test("read-only public MCP inspects bounded registered Project history without changing authority", {timeout: 30_000}, async t => {
   const container = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-mpsi-client-"));

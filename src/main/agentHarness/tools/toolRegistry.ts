@@ -46,6 +46,7 @@ import {
   createGitTag,
   deleteGitBranch,
   deleteGitTag,
+  deleteLocalGitTag,
   fastForwardGitBranch,
   fetchGitRemote,
   inspectGitBranchState,
@@ -73,6 +74,7 @@ import {
   type HarnessActionKind,
 } from "../workspace/workspaceAccess";
 import * as z from "zod/v4";
+import { LocalGitRepositoryAccessService, redactLocalGitResult } from "../workspace/localGitRepositoryAccessService";
 import { ENTITY_TYPE_REGISTRY } from "../../../shared/projectState/entityTypeRegistry";
 import { inspectRegisteredProjectState } from "../../projectState/projectStateInspectionService";
 
@@ -187,6 +189,7 @@ interface ToolActionContract {
   kind: HarnessActionKind;
   requiredScope: RequiredScope;
   params: Record<string, ParamSpec>;
+  localOnly?: boolean;
   dispatch: (input: DispatchInput) => unknown | Promise<unknown>;
 }
 
@@ -249,6 +252,7 @@ export interface AgentHarnessToolRegistry {
 }
 
 interface RegistryOptions {
+  localGitAccess?: LocalGitRepositoryAccessService;
   managedWorkspaces?: ManagedWorkspaceStore;
   workspaceAccess: AgentHarnessWorkspaceAccessProvider;
   userDataRoot: string;
@@ -279,6 +283,7 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
       const attemptId = `ahr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
       const timestamp = new Date().toISOString();
       let action = "unknown";
+      let localMode = false;
       try {
         const args = recordArgumentValue(call.arguments);
         rejectUnknownKeys(args, ["workspaceId", "action", "params"], "tool arguments");
@@ -303,6 +308,32 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
         }
         if (contract.kind === "test-execution" && (typeof args.workspaceId !== "string" || !args.workspaceId.trim() || args.workspaceId.length > 160)) {
           throw new AgentHarnessError("INVALID_INPUT", "workspaceId must be a bounded workspace identity.");
+        }
+        const supplied = args.params && typeof args.params === "object" && !Array.isArray(args.params) ? args.params as Record<string, unknown> : {};
+        localMode = provider.name === "git_toolbox" && (contract.localOnly === true || supplied.localCheckoutHandle !== undefined);
+        if (localMode) {
+          if (args.workspaceId !== undefined || supplied.repositoryCheckoutId !== undefined) throw new AgentHarnessError("INVALID_INPUT", "Local Git targets and registered workspace targets are mutually exclusive.");
+          const service = options.localGitAccess;
+          if (!service) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "Local Git access requires Operator-configured Trusted Local Git Roots.");
+          const params = validateParams(args.params, localVariant(contract));
+          let payload: unknown;
+          if (action === "discover_local_repositories") payload = await service.discover({ directory: requiredString(params.directory, "directory"), maxDepth: numberValue(params.maxDepth), maxRepositories: numberValue(params.maxRepositories) });
+          else if (action === "init_local_repository") payload = await service.init({ directory: requiredString(params.directory, "directory"), initialBranch: requiredString(params.initialBranch, "initialBranch") });
+          else payload = await service.withCheckout(requiredString(params.localCheckoutHandle, "localCheckoutHandle"), async (checkout) => {
+            if (isManagedOnlyGitAction(action)) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "This action requires an application-managed checkout; use the typed local worktree lifecycle actions for local targets.");
+            if (action === "create_local_worktree") return service.createWorktree(checkout, { destinationDirectory: requiredString(params.destinationDirectory, "destinationDirectory"), branchName: requiredString(params.branchName, "branchName"), sourceRef: stringValue(params.sourceRef) });
+            if (action === "remove_local_worktree") return service.removeWorktree(checkout, requiredString(params.expectedBranch, "expectedBranch"));
+            if (action === "list_worktrees") return service.listWorktrees(checkout);
+            if (action === "delete_tag" && params.remote === undefined) return deleteLocalGitTag(checkout.root, requiredString(params.tagName, "tagName"));
+            if (action === "inspect_worktree") return (await service.listWorktrees(checkout)).find(item => item.localCheckoutHandle === checkout.localCheckoutHandle);
+            const context: AgentHarnessWorkspaceContext = { workspaceId: "", root: checkout.root, repositoryName: "local-repository", gitBacked: true,
+              capabilities: { filesystemRead: true, artifactWrite: true, patchWorkflow: true, gitInspection: true } };
+            const result = await contract.dispatch({ scope: call.scope, context, params, signal: call.signal, userDataRoot: options.userDataRoot,
+              workspaceSummaries: options.workspaceAccess.listWorkspaceSummaries, repositoryCheckoutSummaries: options.workspaceAccess.listRepositoryCheckoutSummaries });
+            if (action === "status") return { ...(result as object), ...(await service.listWorktrees(checkout)).find(item => item.localCheckoutHandle === checkout.localCheckoutHandle) };
+            return result;
+          });
+          return { ok: true, toolName: provider.name, action, payload: redactLocalGitResult(payload), attemptId, timestamp };
         }
         let context = await options.workspaceAccess.resolveWorkspaceContext(args.workspaceId);
         const projectRoot = context.root;
@@ -351,7 +382,7 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
           ok: false,
           toolName: call.name,
           action,
-          error: call.name === "data_toolbox"
+          error: localMode ? redactLocalGitResult(toBoundedError(error)) as ReturnType<typeof toBoundedError> : call.name === "data_toolbox"
             ? { code: error instanceof AgentHarnessError ? error.code : "RUNTIME_ERROR",
                 message: "Project State inspection request was rejected; verify workspace registration, read scope and bounded parameters." }
             : call.name === "test_toolbox" && !(error instanceof AgentHarnessError)
@@ -546,6 +577,10 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
       title: "git_toolbox",
       description: "ChampCity A/I Agent Harness git_toolbox.",
       actions: [
+        localGitAction("discover_local_repositories", "files.read", { ...requiredParams({ directory: "string" }), maxDepth: { type: "number", integer: true, minimum: 0, maximum: 6 }, maxRepositories: { type: "number", integer: true, minimum: 1, maximum: 50 } }),
+        localGitAction("init_local_repository", "files.write", requiredParams({ directory: "string", initialBranch: "string" })),
+        localGitAction("create_local_worktree", "files.write", { ...requiredParams({ localCheckoutHandle: "string", destinationDirectory: "string", branchName: "string" }), ...optionalParams({ sourceRef: "string" }) }),
+        localGitAction("remove_local_worktree", "files.write", requiredParams({ localCheckoutHandle: "string", expectedBranch: "string" })),
         readAction("list_repository_checkouts", {}, ({ context, repositoryCheckoutSummaries }) => repositoryCheckoutSummaries(context.workspaceId)),
         gitInspectionAction("status", {}, ({ context }) => gitStatus(context.root, context.gitBacked)),
         gitInspectionAction("diff", {
@@ -855,18 +890,18 @@ function buildInputSchema(actions: ToolActionContract[]): Record<string, unknown
   return {
     type: "object",
     additionalProperties: false,
-    required: ["workspaceId", "action"],
+    required: actions.some(action => action.localOnly || isGitCheckoutAction(action)) ? ["action"] : ["workspaceId", "action"],
     properties: {
       workspaceId: { type: "string" },
       action: { type: "string", enum: actions.map((action) => action.name) },
       params: { type: "object" },
     },
-    oneOf: actions.map((action) => buildActionInputSchema(action)),
+    oneOf: actions.flatMap(actionVariants).map((action) => buildActionInputSchema(action)),
   };
 }
 
 function buildActionInputSchema(action: ToolActionContract): Record<string, unknown> {
-  const required = ["workspaceId", "action"];
+  const required = action.localOnly ? ["action"] : ["workspaceId", "action"];
   if (requiredParamNames(action.params).length > 0) {
     required.push("params");
   }
@@ -876,7 +911,7 @@ function buildActionInputSchema(action: ToolActionContract): Record<string, unkn
     additionalProperties: false,
     required,
     properties: {
-      workspaceId: { type: "string", ...(action.kind === "test-execution" ? { minLength: 1, maxLength: 160 } : {}) },
+      ...(action.localOnly ? {} : { workspaceId: { type: "string", ...(action.kind === "test-execution" ? { minLength: 1, maxLength: 160 } : {}) } }),
       action: { type: "string", const: action.name },
       params: buildParamsInputSchema(action.params),
     },
@@ -907,8 +942,8 @@ function buildParamsInputSchema(params: Record<string, ParamSpec>): Record<strin
 }
 
 function buildInputZodSchema(actions: ToolActionContract[]): z.ZodType<Record<string, unknown>> {
-  const actionSchemas = actions.map((action) => z.object({
-    workspaceId: action.kind === "test-execution" ? z.string().min(1).max(160) : z.string(),
+  const actionSchemas = actions.flatMap(actionVariants).map((action) => z.object({
+    ...(action.localOnly ? {} : { workspaceId: action.kind === "test-execution" ? z.string().min(1).max(160) : z.string() }),
     action: z.literal(action.name),
     params: buildParamsZodSchema(action.params),
   }).strict());
@@ -985,6 +1020,26 @@ function projectStateInspectionActions(): ToolActionContract[] {
 
 function gitInspectionAction(name: string, params: Record<string, ParamSpec>, dispatch: ToolActionContract["dispatch"]): ToolActionContract {
   return { name, kind: "git-inspection", requiredScope: "files.read", params: withRepositoryCheckoutId(params), dispatch };
+}
+
+function isGitCheckoutAction(action: ToolActionContract): boolean {
+  return !action.localOnly && (action.kind === "git-inspection" || action.kind === "git-mutation");
+}
+function isManagedOnlyGitAction(name: string): boolean {
+  return /isolated_operation/.test(name) || ["create_worktree_from_ref", "create_worktree_for_branch", "remove_worktree", "discard_managed_worktree", "delete_untracked_paths"].includes(name);
+}
+function localVariant(action: ToolActionContract): ToolActionContract {
+  if (action.localOnly) return action;
+  const { repositoryCheckoutId: _checkout, ...params } = action.params;
+  if (action.name === "inspect_worktree") delete params.workspaceId;
+  return { ...action, localOnly: true, params: { ...params, localCheckoutHandle: { type: "string", required: true, minLength: 1, maxLength: 128 } } };
+}
+function actionVariants(action: ToolActionContract): ToolActionContract[] {
+  return isGitCheckoutAction(action) && !isManagedOnlyGitAction(action.name) ? [action, localVariant(action)] : [action];
+}
+function localGitAction(name: string, requiredScope: RequiredScope, params: Record<string, ParamSpec>): ToolActionContract {
+  return { name, kind: requiredScope === "files.read" ? "git-inspection" : "git-mutation", requiredScope, params, localOnly: true,
+    dispatch: () => { throw new AgentHarnessError("INVALID_INPUT", "Local Git action requires local target resolution."); } };
 }
 
 function withRepositoryCheckoutId(params: Record<string, ParamSpec>): Record<string, ParamSpec> {

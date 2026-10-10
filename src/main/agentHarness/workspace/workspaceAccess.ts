@@ -12,6 +12,16 @@ export interface AgentHarnessRepositoryCheckoutContext {
   release: () => void;
 }
 
+/** Git-only target; never enrolled as a workspace or application RepositoryCheckout. */
+export interface AgentHarnessLocalGitContext {
+  root: string;
+  gitDirectory: string;
+  commonDirectory: string;
+  primary: boolean;
+  localCheckoutHandle: string;
+  repositoryHandle: string;
+}
+
 export type HarnessActionKind =
   | "read"
   | "workflow-write"

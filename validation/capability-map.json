@@ -11,7 +11,8 @@
         "src/main/integrations/mcpWorkspacePromptContract.ts",
         "test/agent-harness/fixtures/electron-agent-harness-process-boundary.cjs",
         "test/support/mcp-diagnostics-fixture.cjs",
-        "test/support/mcp-session-fixture.cjs"
+        "test/support/mcp-session-fixture.cjs",
+        "work_cards/LOCALGIT01_IMPLEMENTER_REPORT.md"
       ],
       "dependsOn": [
         "agent-harness-repository-operations",
@@ -137,6 +138,10 @@
         {
           "behaviorId": "liveness-and-readiness-are-shallow-constant-cost-surfaces-with-stable-reason-codes",
           "description": "liveness and readiness are shallow constant-cost surfaces with stable reason codes"
+        },
+        {
+          "behaviorId": "local-git-published-oauth-target-contracts",
+          "description": "LOCALGIT01 built OAuth contracts publish local targets and gate every local mutation"
         },
         {
           "behaviorId": "mcp-runtime-follows-issue-record-screenshot-references-and-returns-exact-image-content-without-b",
@@ -438,7 +443,8 @@
       "description": "OAuth, scope, authorization, and secure public-connector behavior for the Agent Harness.",
       "sourcePatterns": [
         "src/main/agentHarness/runtime/httpRuntime.ts",
-        "src/main/agentHarness/runtime/oauthStore.ts"
+        "src/main/agentHarness/runtime/oauthStore.ts",
+        "src/main/agentHarness/workspace/localGitRepositoryAccessService.ts"
       ],
       "dependsOn": [
         "agent-harness-mcp-runtime"
@@ -451,6 +457,10 @@
         {
           "behaviorId": "legacy-import-accepts-and-canonicalizes-offline-scopes-while-rejecting-unknown-scopes-atomically",
           "description": "legacy import accepts and canonicalizes offline scopes while rejecting unknown scopes atomically"
+        },
+        {
+          "behaviorId": "local-git-trust-identity-expiry-and-helper-execution-boundary",
+          "description": "LOCALGIT01 trust, expiry, redirects and helper suppression fail closed without registration"
         },
         {
           "behaviorId": "oauth-discovery-separates-permissions-from-session-scopes-on-both-metadata-routes",
@@ -2934,6 +2944,7 @@
         "src/main/agentHarness/release/releaseCommandAdapter.ts",
         "src/main/agentHarness/release/releaseToolbox.ts",
         "src/main/agentHarness/tools/releaseToolbox.ts",
+        "src/main/agentHarness/workspace/localGitRepositoryAccessService.ts",
         "src/main/planExecution/**",
         "src/main/repository/gitMutations.ts",
         "src/main/sourceControl/**",
@@ -3108,6 +3119,10 @@
         {
           "behaviorId": "isolated-npm-ci-leaves-a-held-source-node-modules-electron-sentinel-intact",
           "description": "isolated npm ci leaves a held source node_modules/electron sentinel intact"
+        },
+        {
+          "behaviorId": "local-git-mcp-bootstrap-and-remote-free-worktree-promotion",
+          "description": "LOCALGIT01 published MCP bootstraps and promotes remote-free sibling worktrees without registration"
         },
         {
           "behaviorId": "managed-project-source-topology-separates-container-repository-and-checkouts",
@@ -5478,6 +5493,12 @@
       ],
       "behaviorCoverage": [
         {
+          "capabilityId": "agent-harness-security",
+          "behaviorId": "local-git-trust-identity-expiry-and-helper-execution-boundary",
+          "proofRole": "primary",
+          "proofLocator": "LOCALGIT01 trust, expiry, redirects and helper suppression fail closed without registration"
+        },
+        {
           "capabilityId": "release-and-git-operations",
           "behaviorId": "all-five-bounded-git-toolbox-mutations-execute-in-a-registered-git-repository-without-a-planning",
           "proofLocator": "all five bounded git_toolbox mutations execute in a registered Git repository without a planning corpus",
@@ -5494,6 +5515,12 @@
           "behaviorId": "git-dispatch-and-mutation-modules-do-not-import-workflow-decision-services",
           "proofLocator": "Git dispatch and mutation modules do not import workflow decision services",
           "proofRole": "primary"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "local-git-mcp-bootstrap-and-remote-free-worktree-promotion",
+          "proofRole": "primary",
+          "proofLocator": "LOCALGIT01 published MCP bootstraps and promotes remote-free sibling worktrees without registration"
         },
         {
           "capabilityId": "release-and-git-operations",
@@ -6349,6 +6376,12 @@
           "behaviorId": "bounded-project-state-mcp-history",
           "proofLocator": "read-only public MCP inspects bounded registered Project history without changing authority",
           "proofRole": "primary"
+        },
+        {
+          "capabilityId": "agent-harness-mcp-runtime",
+          "behaviorId": "local-git-published-oauth-target-contracts",
+          "proofRole": "primary",
+          "proofLocator": "LOCALGIT01 built OAuth contracts publish local targets and gate every local mutation"
         },
         {
           "capabilityId": "agent-harness-mcp-runtime",

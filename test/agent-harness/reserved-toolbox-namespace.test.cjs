@@ -67,6 +67,10 @@ const EXISTING_TOOL_ACTIONS = {
   ],
   visual_asset_toolbox: ["read_image", "inspect_image", "compare_images", "create_image_preview"],
   git_toolbox: [
+    "discover_local_repositories",
+    "init_local_repository",
+    "create_local_worktree",
+    "remove_local_worktree",
     "list_repository_checkouts",
     "status",
     "diff",

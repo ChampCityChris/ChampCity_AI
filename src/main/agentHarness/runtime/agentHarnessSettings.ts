@@ -6,11 +6,13 @@ import type {
   AgentHarnessSettingsInput,
 } from "../../../shared/workspaceContracts";
 import { normalizeAgentHarnessBindHost } from "./bindingPolicy";
+import { canonicalTrustedLocalGitRoots } from "../workspace/localGitRepositoryAccessService";
 
 const settingsDirectoryName = "agent-harness";
 const settingsFileName = "settings.json";
 
 export const defaultAgentHarnessSettings: AgentHarnessSettings = {
+  trustedLocalGitRoots: [],
   enabled: true,
   host: "127.0.0.1",
   port: 0,
@@ -36,6 +38,10 @@ export function readAgentHarnessSettings(
   overrides: AgentHarnessSettingsInput = {},
 ): AgentHarnessSettings {
   const stored = readStoredSettings(userDataRoot);
+  // A disappeared/redirected stored root revokes local access without preventing
+  // the independent registered-workspace runtime from starting.
+  try { stored.trustedLocalGitRoots = canonicalTrustedLocalGitRoots(stored.trustedLocalGitRoots); }
+  catch { stored.trustedLocalGitRoots = []; }
   return normalizeAgentHarnessSettings({
     ...defaultAgentHarnessSettings,
     ...stored,
@@ -102,6 +108,7 @@ function normalizeAgentHarnessSettings(input: AgentHarnessSettingsInput): AgentH
   }
 
   return {
+    trustedLocalGitRoots: canonicalTrustedLocalGitRoots(input.trustedLocalGitRoots),
     enabled,
     host,
     port,

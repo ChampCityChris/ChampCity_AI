@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { AgentHarnessError } from "./applicationErrors";
 
 export const GIT_COMMAND_TIMEOUT_MS = 15_000;
@@ -30,8 +31,43 @@ export interface GitExecutionResult {
 
 export type GitCandidateTruncationReason = "candidate-limit" | "deadline" | "output-limit" | null;
 
+// Call-scoped policy: external checkout hardening never changes registered-mode Git.
+const localPolicy = new AsyncLocalStorage<{ config: string[]; verify?: (cwd: string, args: string[]) => void; deadline?: number }>();
+export function withLocalGitExecution<T>(operation: () => Promise<T>, policy: { config?: string[]; verify?: (cwd: string, args: string[]) => void; deadline?: number } = {}): Promise<T> {
+  return localPolicy.run({ ...policy, config: policy.config ?? [] }, operation);
+}
+
+/** Locate the command, never confuse a branch/path/message operand with it. */
+export function gitCommandIndex(args: string[]): number {
+  for (let index = 0; index < args.length; index++) {
+    if (["-c", "-C", "--git-dir", "--work-tree", "--namespace", "--config-env"].includes(args[index])) { index++; continue; }
+    if (!args[index].startsWith("-")) return index;
+  }
+  return -1;
+}
+function localGitArguments(args: string[], config: string[]): string[] {
+  const position = gitCommandIndex(args), command = args[position];
+  const separator = args.indexOf("--", position + 1);
+  const flags = args.slice(position + 1, separator < 0 ? undefined : separator);
+  if (command === "clean" || command === "reset" && flags.includes("--hard") || command === "worktree" && flags.includes("--force")) {
+    throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "Destructive force, reset and clean execution is unavailable for local Git targets.");
+  }
+  const settings = ["core.hooksPath=/dev/null", "core.fsmonitor=false", "core.pager=", "commit.gpgSign=false",
+    "tag.gpgSign=false", "credential.helper=", "credential.interactive=false", "core.askPass=",
+    "protocol.allow=never", "protocol.https.allow=always", "protocol.http.allow=always", "diff.external=",
+    "interactive.diffFilter=", "core.editor=", "sequence.editor=", "init.templateDir=", "maintenance.auto=false",
+    "gc.auto=0", "submodule.recurse=false", "fetch.recurseSubmodules=false", "diff.ignoreSubmodules=all",
+    "core.protectNTFS=true", "core.protectHFS=true", "core.attributesFile=/dev/null", ...config];
+  const safeArgs = !["diff", "show", "log"].includes(command) ? args : [...args.slice(0, position + 1), "--no-ext-diff", "--no-textconv", ...args.slice(position + 1)];
+  return ["--no-pager", ...settings.flatMap(value => ["-c", value]), ...safeArgs];
+}
+
 export function runBoundedGit(options: GitExecutionOptions): Promise<GitExecutionResult> {
-  const timeoutMs = Math.min(Math.max(1, options.timeoutMs ?? GIT_COMMAND_TIMEOUT_MS), GIT_COMMAND_TIMEOUT_MS);
+  const policy = localPolicy.getStore();
+  policy?.verify?.(options.cwd, options.args);
+  if (policy?.deadline && Date.now() >= policy.deadline) return Promise.reject(new AgentHarnessError("GIT_TIMEOUT", "Local Git discovery deadline reached."));
+  const timeoutMs = Math.min(Math.max(1, options.timeoutMs ?? GIT_COMMAND_TIMEOUT_MS), GIT_COMMAND_TIMEOUT_MS,
+    policy?.deadline ? Math.max(1, policy.deadline - Date.now()) : GIT_COMMAND_TIMEOUT_MS);
   const stdoutLimitBytes = Math.min(
     Math.max(1, options.stdoutLimitBytes ?? GIT_STDOUT_LIMIT_BYTES),
     GIT_STDOUT_LIMIT_BYTES,
@@ -52,9 +88,9 @@ export function runBoundedGit(options: GitExecutionOptions): Promise<GitExecutio
     let child;
 
     try {
-      const args = process.platform === "win32"
-        ? ["-c", "core.longpaths=true", ...options.args]
-        : options.args;
+      const requestedArgs = policy ? localGitArguments(options.args, policy.config) : options.args;
+      const args = process.platform === "win32" ? ["-c", "core.longpaths=true", ...requestedArgs] : requestedArgs;
+      const environment = policy ? Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(GIT_|GCM_|SSH_)/i.test(key))) : process.env;
       child = spawn("git", args, {
         cwd: options.cwd,
         detached: process.platform !== "win32",
@@ -62,7 +98,8 @@ export function runBoundedGit(options: GitExecutionOptions): Promise<GitExecutio
         windowsHide: true,
         stdio: [options.stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"],
         env: {
-          ...process.env,
+          ...environment,
+          ...(policy ? { GIT_CONFIG_NOSYSTEM: "1", GIT_ATTR_NOSYSTEM: "1", GIT_ASKPASS: "", SSH_ASKPASS: "", GIT_NO_REPLACE_OBJECTS: "1" } : {}),
           ...(options.commitDates ? { GIT_AUTHOR_DATE: options.commitDates.author, GIT_COMMITTER_DATE: options.commitDates.committer } : {}),
           GIT_OPTIONAL_LOCKS: "0",
           GIT_TERMINAL_PROMPT: "0",

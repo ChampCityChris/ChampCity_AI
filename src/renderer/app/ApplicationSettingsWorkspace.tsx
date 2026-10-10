@@ -4,6 +4,7 @@ import type {AgentHarnessAuthenticationMode,AgentHarnessSettingsInput,AgentHarne
 import {GithubProviderSettings} from "./GithubProviderSettings";
 import {CodexConnectionsPanel} from "./CodexConnectionsPanel";
 export interface AgentHarnessSettingsForm {
+  trustedLocalGitRoots: string;
   enabled: boolean;
   host: string;
   port: string;
@@ -14,6 +15,7 @@ export function agentHarnessSettingsFormFromStatus(
   status: AgentHarnessStatus | null,
 ): AgentHarnessSettingsForm {
   return {
+    trustedLocalGitRoots: (status?.trustedLocalGitRoots ?? []).join("\n"),
     enabled: status?.enabled ?? true,
     host: status?.host ?? "127.0.0.1",
     port: status?.configuredPort.toString() ?? "0",
@@ -25,6 +27,7 @@ export function buildAgentHarnessSettingsInput(
   form: AgentHarnessSettingsForm,
 ): AgentHarnessSettingsInput {
   return {
+    trustedLocalGitRoots: (form.trustedLocalGitRoots ?? "").split(/\r?\n/).map(root => root.trim()).filter(Boolean),
     enabled: form.enabled,
     host: form.host.trim(),
     port: form.port.trim() === "" ? "0" : form.port.trim(),
@@ -119,6 +122,7 @@ export function AgentHarnessSettingsWorkspace({
     status?.host,
     status?.localAuthenticationMode,
     status?.publicBaseUrl,
+    status?.trustedLocalGitRoots?.join("\n"),
   ]);
 
   function updateSettingsForm<K extends keyof AgentHarnessSettingsForm>(
@@ -289,6 +293,12 @@ export function AgentHarnessSettingsWorkspace({
         <button disabled={isBusy} type="submit">
           Save Settings
         </button>
+        <label>
+          <span>Trusted Local Git Roots</span>
+          <textarea disabled={isBusy} rows={3} value={settingsForm.trustedLocalGitRoots}
+            onChange={event => updateSettingsForm("trustedLocalGitRoots", event.currentTarget.value)} />
+          <small>Enter one existing directory per line. Git repositories beneath these roots are available without project registration. An empty list disables local Git access.</small>
+        </label>
       </form>
 
       <div className="settings-grid">

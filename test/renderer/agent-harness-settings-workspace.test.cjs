@@ -360,6 +360,7 @@ test("Settings form model normalizes persisted configuration input", () => {
     localAuthenticationMode: "local-unauthenticated",
   }));
   assert.deepEqual(form, {
+    trustedLocalGitRoots: "",
     enabled: true,
     host: "127.0.0.1",
     port: "0",
@@ -374,12 +375,14 @@ test("Settings form model normalizes persisted configuration input", () => {
     publicBaseUrl: " ",
     localAuthenticationMode: "oauth-required",
   }), {
+    trustedLocalGitRoots: [],
     enabled: false,
     host: "127.0.0.1",
     port: "0",
     publicBaseUrl: null,
     localAuthenticationMode: "oauth-required",
   });
+  assert.deepEqual(buildAgentHarnessSettingsInput({ ...form, trustedLocalGitRoots: " root-one \n\n root-two " }).trustedLocalGitRoots, ["root-one", "root-two"]);
 });
 
 function sampleAgentHarnessStatus(overrides) {

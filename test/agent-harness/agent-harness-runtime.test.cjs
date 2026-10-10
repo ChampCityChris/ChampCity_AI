@@ -589,6 +589,7 @@ test("Agent Harness configuration persists under userData and survives service r
   });
 
   const saved = await firstService.saveConfiguration({
+    trustedLocalGitRoots: [root],
     enabled: false,
     host: "127.0.0.1",
     port: "4321",
@@ -613,6 +614,18 @@ test("Agent Harness configuration persists under userData and survives service r
   assert.equal(reconstructedStatus.host, "127.0.0.1");
   assert.equal(reconstructedStatus.configuredPort, 4321);
   assert.equal(reconstructedStatus.localAuthenticationMode, "oauth-required");
+  assert.deepEqual(reconstructedStatus.trustedLocalGitRoots, [fs.realpathSync.native(root)]);
+  const refused = await reconstructed.toolRegistry().callTool({ name: "git_toolbox", arguments: { action: "discover_local_repositories", params: { directory: path.dirname(root) } }, scope: "files.read" });
+  assert.equal(refused.error.code, "WORKSPACE_ACCESS_DENIED");
+  await assert.rejects(() => reconstructed.saveConfiguration({ trustedLocalGitRoots: [path.join(root, "missing")] }));
+  assert.deepEqual(reconstructed.status().trustedLocalGitRoots, [fs.realpathSync.native(root)]);
+  const disappearing = path.join(root, "trusted-then-missing"); fs.mkdirSync(disappearing);
+  await reconstructed.saveConfiguration({ trustedLocalGitRoots: [disappearing] }); fs.rmdirSync(disappearing);
+  const missingRootService = new BaseAgentHarnessService({ userDataRoot, enabled: false });
+  assert.deepEqual(missingRootService.status().trustedLocalGitRoots, []);
+  const registered = await missingRootService.registerWorkspaceRoot(root);
+  const read = await missingRootService.toolRegistry().callTool({ name: "repo_toolbox", scope: "files.read", arguments: { workspaceId: registered.workspace.workspaceId, action: "status" } });
+  assert.equal(read.ok, true, JSON.stringify(read));
 });
 
 test("Agent Harness settings reject unsafe public unauthenticated configuration without corrupting last valid settings", async () => {
