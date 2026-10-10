@@ -1171,7 +1171,7 @@ test('all six exact Workflow types execute direct and phased SQL WorkItems witho
 });
 
 // This extends the execution owner with previously uncovered pre-execution SQL identity/recovery proof.
-test("durable report preparation, stale reservation rejection and completed report survive SQLite reopen", async context => {
+for (const history of ['first','partial','failed','abandoned','ambiguous','current-result']) test("durable report preparation, stale reservation rejection and completed report survive SQLite reopen through "+history, async context => {
   const env = await setup(context);
   const created = await env.state.createSubstantiveWorkflow(env.projectId, {workflowType: "feature-capability", title: "Durable reports", entryWorkspace: "feature-intake"});
   const plan = await env.state.acceptWorkflowPlanningGraph(env.projectId, graph(created.workflow.id, "direct", "feature", [{key: "repair", kind: "feature", title: "Repair", objective: "Bounded repair", dependencyKeys: [], criteria: []}]));
@@ -1179,11 +1179,19 @@ test("durable report preparation, stale reservation rejection and completed repo
   let preparations = 0;
   const kernel = createWorkflowExecutionApplicationService({materializeWorkflowSource: async () => {preparations++; throw Error("Preparation must not materialize source");}});
   const accepted = await kernel.acceptWorkItemExecutionPlan(env.root, {workflowId: created.workflow.id, workItemId: item.id, expectedVersion: item.recordVersion, plan: {implementationBoundaries: ["Only repair"], affectedPaths: [], proofIntent: ["Inspect"]}});
-  const first = await kernel.prepareImplementationAttempt(env.root, created.workflow.id, item.id);
+  let first = await kernel.prepareImplementationAttempt(env.root, created.workflow.id, item.id), previous, previousResult;
+  if (history!=='first') {
+    previous=first;
+    await kernel.beginWorkItemAttempt(env.root,created.workflow.id,item.id,accepted.recordVersion,previous.id);
+    previousResult=await kernel.finishWorkItemAttempt(env.root,created.workflow.id,item.id,previous.id,{summary:'Unsuccessful immutable history',deviations:[],blockers:[],residualRisks:[],outcome:['ambiguous','current-result'].includes(history)?'partial':history});
+    previous=await env.store.getEntity(env.projectId,previous.id);
+    first=await kernel.prepareImplementationAttempt(env.root,created.workflow.id,item.id);
+    assert.notEqual(first.id,previous.id);assert.ok((await env.store.getEntity(env.projectId,item.id)).body.startedAt);
+  }
   assert.equal(first.body.attemptState, "prepared");
   assert.equal((await kernel.prepareImplementationAttempt(env.root, created.workflow.id, item.id)).id, first.id);
   assert.equal(preparations, 0);
-  assert.equal((await env.store.getEntity(env.projectId, item.id)).recordVersion, accepted.recordVersion);
+  assert.equal((await env.store.getEntity(env.projectId, item.id)).recordVersion, first.body.workItemVersion);
   const {CodexImplementerExecutionService} = require("../../dist/main/workCardBuilding/codexImplementerExecutionService.js");
   const codex = new CodexImplementerExecutionService();
   const selector = {ownerKind: "workflow-work-item", workflowId: created.workflow.id, workItemId: item.id};
@@ -1192,14 +1200,25 @@ test("durable report preparation, stale reservation rejection and completed repo
   reopenProject(env);
   assert.deepEqual(await createWorkflowExecutionApplicationService().getImplementationAttempt(env.root, created.workflow.id, item.id), pending);
   const planning = require("../../dist/main/workCardPlanning/structuredWorkItemPlanningService.js").createStructuredWorkItemPlanningService();
+  if(['ambiguous','current-result'].includes(history)){
+    await createProjectStateService(env.store,{principalId:'fixture-implementer',principalType:'agent',role:'Implementer'}).recordImplementation(env.projectId,item.id,{summary:'Incompatible attempt provenance',deviations:[],blockers:[],residualRisks:[],outcome:'failed',executionRef:history==='current-result'?first.id:'unknown-history-attempt'});
+    const changes=await env.store.listStateChanges(env.projectId),blocked=await planning.get(env.root,created.workflow.id,item.id);
+    assert.equal(blocked.revisionEligibility.eligible,false);assert.match(blocked.revisionEligibility.reason,/provenance|associated implementation result/);
+    await assert.rejects(planning.review(env.root,created.workflow.id,item.id,{expectedRecordVersion:blocked.workItem.recordVersion,outcome:'revision_requested',notes:'Reject incompatible provenance'}),/provenance|associated implementation result/);
+    assert.deepEqual(await env.store.listStateChanges(env.projectId),changes);assert.deepEqual(await env.store.getEntity(env.projectId,first.id),first);return;
+  }
+  const changes=await env.store.listStateChanges(env.projectId);
   const initialPlanning = await planning.get(env.root, created.workflow.id, item.id);
   assert.equal(initialPlanning.revisionEligibility.eligible, true);
+  assert.deepEqual(await env.store.listStateChanges(env.projectId),changes,'Eligibility reads preserve SQL history');
+  await assert.rejects(kernel.assertWorkItemPlanningRevisionEligible(env.root,created.workflow.id,item.id,initialPlanning.workItem.recordVersion-1),/stale/);
+  await assert.rejects(kernel.assertWorkItemPlanningRevisionEligible(env.root,created.workflow.id,'peer',initialPlanning.workItem.recordVersion),/exact current/);
   assert.match(initialPlanning.handoff, /Source-neutral WorkItems require affectedPaths=\[\] and no source repository mutation/);
-  await assert.rejects(planning.review(env.root, created.workflow.id, item.id, {expectedRecordVersion: accepted.recordVersion, outcome: "revision_requested", notes: " "}), /Exact Operator WorkItem contract review required/);
-  await planning.review(env.root, created.workflow.id, item.id, {expectedRecordVersion: accepted.recordVersion, outcome: "revision_requested", notes: "Revise the reserved contract before execution begins"});
+  await assert.rejects(planning.review(env.root, created.workflow.id, item.id, {expectedRecordVersion: initialPlanning.workItem.recordVersion, outcome: "revision_requested", notes: " "}), /Exact Operator WorkItem contract review required/);
+  await planning.review(env.root, created.workflow.id, item.id, {expectedRecordVersion: initialPlanning.workItem.recordVersion, outcome: "revision_requested", notes: "Revise the reserved contract before execution begins"});
   assert.equal((await planning.get(env.root, created.workflow.id, item.id)).review.disposition.state, "revision_requested");
   assert.deepEqual(await env.store.getEntity(env.projectId, first.id), first, "Requesting revision preserves the unstarted reservation");
-  const revised = await kernel.acceptWorkItemExecutionPlan(env.root, {workflowId: created.workflow.id, workItemId: item.id, expectedVersion: accepted.recordVersion, plan: {implementationBoundaries: ["Revised repair"], affectedPaths: [], proofIntent: ["Inspect revised"]}});
+  const revised = await kernel.acceptWorkItemExecutionPlan(env.root, {workflowId: created.workflow.id, workItemId: item.id, expectedVersion: initialPlanning.workItem.recordVersion, plan: {implementationBoundaries: ["Revised repair"], affectedPaths: [], proofIntent: ["Inspect revised"]}});
   await assert.rejects(kernel.beginWorkItemAttempt(env.root, created.workflow.id, item.id, revised.recordVersion, first.id), /stale/);
   const current = await kernel.prepareImplementationAttempt(env.root, created.workflow.id, item.id);
   assert.notEqual(current.id, first.id);
@@ -1223,8 +1242,9 @@ test("durable report preparation, stale reservation rejection and completed repo
   assert.match(report.filename, /^IMPLEMENTER_REPORT_.*\.md$/);
   reopenProject(env);
   assert.deepEqual(await createWorkflowExecutionApplicationService().getImplementationAttempt(env.root, created.workflow.id, item.id), report);
-  assert.equal((await env.store.listEntities(env.projectId, "ImplementationRecord")).length, 1);
-  assert.equal((await env.store.listRelationships(env.projectId, "attempt_result"))[0].toEntityId, current.id);
+  assert.equal((await env.store.listEntities(env.projectId, "ImplementationRecord")).length, previousResult?2:1);
+  assert.ok((await env.store.listRelationships(env.projectId, "attempt_result")).some(edge=>edge.toEntityId===current.id));
+  if(previousResult){assert.deepEqual(await env.store.getEntity(env.projectId,previous.id),previous);assert.deepEqual(await env.store.getEntity(env.projectId,previousResult.id),previousResult);}
   assert.equal(preparations, 0);
 });
 

@@ -173,8 +173,8 @@ test("Implement adapter starts once without renderer preparation, recovers prepa
   const report=prepared?{attempt:{id:'existing-attempt',recordVersion:1,body:{workflowId:'wf',workItemId,attemptState:'prepared'}},markdown:'# Pending SQL report'}:null;
   const execution={state:'ready',canRunAgain:true};
   const runtime={version:'fixture',busy:false,updateState:'up-to-date',catalog:[{id:'fixture',model:'fixture-model',displayName:'Fixture',supportedReasoningEfforts:['high']}],selection:{model:'fixture-model',reasoningEffort:'high'}};
-  values=[planning,report,execution,false,'',runtime,null,false,''];refs=[];calls=[];let release,statusReads=0;
-  global.window={champcity:{getStructuredWorkItemPlanning:async()=>planning,getImplementationAttempt:async()=>report,getWorkflowWorkItemCodexExecutionStatus:async()=>{statusReads++;return execution;},getWorkflowExecutionProjection:async()=>({plan:{workflow:{id:'wf'},repairIds:[]},items:[]}),getGreenfieldNavigation:async()=>({workflowId:'wf',currentWorkspace:'work-card-building-review',currentWorkItemId:workItemId}),prepareImplementationAttempt:async()=>{throw Error('Renderer must never prepare');},startWorkflowWorkItemCodexExecution:(...args)=>{calls.push(['run',...args]);return new Promise(resolve=>release=resolve);},cancelCodexImplementerExecution:async selector=>calls.push(['cancel',selector]),respondToCodexApproval:async value=>calls.push(['approval',value]),respondToCodexUserInput:async value=>calls.push(['input',value]),respondToCodexMcpElicitation:async value=>calls.push(['mcp',value])}};
+  values=[planning,report,execution,false,'',runtime,null,false,''];refs=[];calls=[];let release,statusReads=0,nextReport=report;
+  global.window={champcity:{getStructuredWorkItemPlanning:async()=>planning,getImplementationAttempt:async()=>nextReport,getWorkflowWorkItemCodexExecutionStatus:async()=>{statusReads++;return execution;},getWorkflowExecutionProjection:async()=>({plan:{workflow:{id:'wf'},repairIds:[]},items:[]}),getGreenfieldNavigation:async()=>({workflowId:'wf',currentWorkspace:'work-card-building-review',currentWorkItemId:workItemId}),prepareImplementationAttempt:async()=>{throw Error('Renderer must never prepare');},startWorkflowWorkItemCodexExecution:(...args)=>{calls.push(['run',...args]);return new Promise(resolve=>release=resolve);},cancelCodexImplementerExecution:async selector=>calls.push(['cancel',selector]),respondToCodexApproval:async value=>calls.push(['approval',value]),respondToCodexUserInput:async value=>calls.push(['input',value]),respondToCodexMcpElicitation:async value=>calls.push(['mcp',value])}};
   const draw=(extra={})=>{index=refIndex=0;return WorkCardImplementWorkspace({workflowId:'wf',workItemId,onNext(){},...extra}).props;};
   let p=draw();const footer=React.Children.toArray(p.navigation.props.children)[0].props.children;assert.equal(footer[0].props.className,'apply-button codex-command secondary');assert.equal(footer[1].props.className,'apply-button codex-command');assert.equal(footer[1].props.type,'button');assert.equal(footer[1].props.disabled,true);assert.equal(p.context.canExecute,true);assert.equal(p.context.reportMissing,!prepared);assert.equal(p.modelSelection.canRun,true);
   assert.equal(p.documentPanel,undefined);assert.equal(p.onCreateReport,undefined);assert.equal(p.canCreateReport,undefined);
@@ -183,11 +183,18 @@ test("Implement adapter starts once without renderer preparation, recovers prepa
   assert.deepEqual(calls,[['run','wf',workItemId,runtime.selection]]);
   assert.equal(draw().isCodexActionRunning,true);
   const returned={state:'unavailable',canRunAgain:false,failureReason:'Source preparation failed: stranded dirty checkout',retryBlocker:'Inspect exact source identity'};
+  nextReport={attempt:{id:'reserved-at-start',recordVersion:1,body:{workflowId:'wf',workItemId,workItemVersion:4,attemptState:'prepared'}}};
+  planning.revisionEligibility={eligible:true,reason:''};
   release(returned);await new Promise(setImmediate);
-  p=draw();assert.equal(p.codexExecution,returned);assert.equal(p.context.reportReadinessReason,returned.failureReason);assert.equal(statusReads,0,'Start failure must not be replaced with a Ready status read');
+  p=draw();assert.equal(p.codexExecution,returned);assert.equal(p.context.reportReadinessReason,returned.failureReason);assert.equal(statusReads,1,'Start reconciles SQL while retaining the exact returned failure');
+  assert.equal(p.context.implementerReportPath,'project-state:reserved-at-start');
+  const nodes=n=>!n||typeof n!=='object'?[]:[n,...React.Children.toArray(n.props?.children).flatMap(nodes)];
+  const revision=()=>nodes(draw().navigation).find(n=>n.type==='button'&&n.props.children==='Request Work Card Revision');
+  assert.equal(revision().props.disabled,true,'A nonblank Operator reason is required');
+  planning.revisionEligibility.eligible=false;assert.equal(revision(),undefined);planning.revisionEligibility.eligible=true;
   assert.equal(p.codexExecution.retryBlocker,returned.retryBlocker);
   React.Children.toArray(p.navigation.props.children)[0].props.children[0].props.onClick();await new Promise(setImmediate);
-  assert.equal(statusReads,1);assert.equal(draw().codexExecution,execution,'Explicit Refresh may reread Ready');
+  assert.equal(statusReads,2);assert.equal(draw().codexExecution,execution,'Explicit Refresh may reread Ready');
   p=draw({readOnly:true});assert.equal(p.context.canExecute,false);p.onRunCodex(runtime.selection);assert.equal(calls.length,1);
   p=draw({workItemId:'peer'});assert.equal(p.context,null);p.onRunCodex(runtime.selection);assert.equal(calls.length,1);
   planning.review.disposition.state='none';p=draw();assert.equal(p.context.canExecute,false);p.onRunCodex(runtime.selection);assert.equal(calls.length,1);planning.review.disposition.state='approved';
@@ -196,6 +203,24 @@ test("Implement adapter starts once without renderer preparation, recovers prepa
   execution.state='running';p=draw();assert.equal(p.modelSelection.controls.props.children[0].props.children[1].props.disabled,true);
   await p.onCancelCodex();await new Promise(setImmediate);assert.equal(calls.at(-1)[0],'cancel');
   for(const [handler,args,kind] of [['onRespondToCodexApproval',['approval-1','approve'],'approval'],['onRespondToCodexUserInput',['input-1',{answer:['yes']}],'input'],['onRespondToCodexMcpElicitation',['mcp-1','accept',{}],'mcp']]) {p=draw();p[handler](...args);await new Promise(setImmediate);assert.equal(calls.at(-1)[0],kind);assert.equal(calls.at(-1)[1].workItemId,workItemId);}
+  for(const failure of ['rejected-read','stale-report','begun','completed','typed-ineligible']){
+   execution.state='ready';values[2]=execution;values[4]='';
+   nextReport.attempt.body.attemptState='prepared';nextReport.attempt.body.workItemId=workItemId;
+   planning.revisionEligibility.eligible=true;
+   global.window.champcity.getStructuredWorkItemPlanning=async()=>{if(failure==='rejected-read')throw Error('SQL refresh rejected');return planning;};
+   global.window.champcity.startWorkflowWorkItemCodexExecution=async()=>{
+    if(failure==='stale-report')nextReport.attempt.body.workItemId='peer';
+    if(['begun','completed'].includes(failure))nextReport.attempt.body.attemptState=failure==='begun'?'running':'completed';
+    if(failure==='typed-ineligible')planning.revisionEligibility.eligible=false;
+    return returned;
+   };
+   draw().onRunCodex(runtime.selection);await new Promise(setImmediate);p=draw();
+   assert.equal(p.codexExecution,returned);assert.equal(p.codexExecution.retryBlocker,returned.retryBlocker);
+   assert.equal(revision(),undefined,failure+' must fail closed');
+   assert.equal(React.Children.toArray(p.navigation.props.children)[0].props.children[1].props.disabled,true);
+   if(['rejected-read','stale-report'].includes(failure))assert.match(p.documentError,/Start result refresh failed:/);
+   else assert.equal(p.documentError,'');
+  }
  }}finally{Object.assign(React,original);global.window=oldWindow;}
 });
 

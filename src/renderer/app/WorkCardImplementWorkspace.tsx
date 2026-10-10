@@ -31,12 +31,27 @@ export function WorkCardImplementWorkspace(props:{readOnly?:boolean;workflowId:s
  useEffect(()=>{const token=++generation.current;setPlanning(null);setReport(null);setExecution(null);setNavigation(null);setLatestResult(null);setFeedback("");setRevisionReason("");setParentWorkItemId(undefined);setBusy(false);actionInFlight.current=false;setError("");void refresh(token).catch(reason=>{if(token===generation.current)setError(String(reason));});return()=>{generation.current++;};},[props.workflowId,props.workItemId]);
  useEffect(()=>{if(execution?.state!=="running")return;const token=generation.current;const timer=window.setInterval(()=>void refresh(token).catch(reason=>{if(token===generation.current)setError(String(reason));}),1500);return()=>window.clearInterval(timer);},[execution?.state,props.workflowId,props.workItemId]);
  async function action(work:()=>Promise<unknown>,mutation=true){if(mutation&&props.readOnly||!exact||busy||actionInFlight.current)return;const token=generation.current;actionInFlight.current=true;setBusy(true);setError("");setFeedback("");try{await work();await refresh(token);}catch(reason){if(token===generation.current)setError(String(reason));}finally{if(token===generation.current){actionInFlight.current=false;setBusy(false);}}}
- async function start(selection:CodexModelSelection){if(props.readOnly||!exact||busy||actionInFlight.current)return;const token=generation.current;actionInFlight.current=true;setBusy(true);setError("");setFeedback("");try{const result=await window.champcity.startWorkflowWorkItemCodexExecution(props.workflowId,props.workItemId,selection);if(token!==generation.current)return;setExecution(result);if(result.state==="completed")await refresh(token,true);}catch(reason){try{await refresh(token);if(token===generation.current){setPreExecutionStartFailed(true);setError(String(reason));}}catch(refreshReason){if(token===generation.current){setPreExecutionStartFailed(false);setError(`Start failed: ${String(reason)}; refresh failed: ${String(refreshReason)}`);}}}finally{if(token===generation.current){actionInFlight.current=false;setBusy(false);}}}
+ async function start(selection:CodexModelSelection){
+  if(props.readOnly||!exact||busy||actionInFlight.current)return;
+  const token=generation.current;actionInFlight.current=true;setBusy(true);setError("");setFeedback("");
+  try{
+   const result=await window.champcity.startWorkflowWorkItemCodexExecution(props.workflowId,props.workItemId,selection);
+   if(token!==generation.current)return;
+   setExecution(result);
+   if(result.state!=="ready"&&result.state!=="running"){
+    // A returned failure can leave a durable reservation, or an already begun attempt.
+    // Reconcile SQL in the existing sequential order while retaining the Start diagnostic.
+    try{await refresh(token,true);}
+    catch(refreshReason){if(token===generation.current){setPreExecutionStartFailed(false);setError(`Start result refresh failed: ${String(refreshReason).slice(0,1024)}`);}}
+   }
+  }catch(reason){try{await refresh(token);if(token===generation.current){setPreExecutionStartFailed(true);setError(String(reason));}}catch(refreshReason){if(token===generation.current){setPreExecutionStartFailed(false);setError(`Start failed: ${String(reason)}; refresh failed: ${String(refreshReason)}`);}}}
+  finally{if(token===generation.current){actionInFlight.current=false;setBusy(false);}}
+ }
  const currentReport=report?.attempt.body.workflowId===props.workflowId&&report.attempt.body.workItemId===props.workItemId?report:null;
  const resultMatches=!!latestResult&&latestResult.id===currentReport?.attempt.body.implementationRecordId&&latestResult.body.executionRef===currentReport.attempt.id;
  const exactNavigation=navigation?.workflowId===props.workflowId&&navigation.currentWorkItemId===props.workItemId;
  const unsuccessful=resultMatches&&currentReport?.attempt.body.attemptState==="completed"&&["partial","failed","abandoned"].includes(latestResult.body.outcome)&&planning?.workItem.body.workState==="ready";
- const prepared=currentReport?.attempt.body.attemptState==="prepared"&&currentReport.attempt.body.workItemVersion===planning?.workItem.recordVersion&&!currentReport.attempt.body.implementationRecordId&&!latestResult&&["planned","ready"].includes(planning?.workItem.body.workState??"")&&planning?.review.disposition.state==="approved";
+ const prepared=currentReport?.attempt.body.attemptState==="prepared"&&currentReport.attempt.body.workItemVersion===planning?.workItem.recordVersion&&!currentReport.attempt.body.implementationRecordId&&(!latestResult||latestResult.body.executionRef!==currentReport.attempt.id&&["partial","failed","abandoned"].includes(latestResult.body.outcome))&&["planned","ready"].includes(planning?.workItem.body.workState??"")&&planning?.review.disposition.state==="approved";
  const checkpointFulfilled=execution?.checkpoint?.status==="committed"||execution?.checkpoint?.status==="not-required"&&planning?.workItem.body.affectedPaths?.length===0;
  const canContinue=!props.readOnly&&!!exact&&!busy&&!error&&execution?.state!=="running"&&exactNavigation&&navigation.currentWorkspace==="work-card-report-review"&&resultMatches&&currentReport?.attempt.body.attemptState==="completed"&&latestResult.body.outcome==="implemented"&&planning?.workItem.body.workState==="validation_pending"&&checkpointFulfilled;
  const canRevise=!props.readOnly&&!!exact&&!busy&&(!error||preExecutionStartFailed&&prepared)&&execution?.state!=="running"&&exactNavigation&&navigation.currentWorkspace==="work-card-building-review"&&(unsuccessful||prepared)&&planning?.revisionEligibility?.eligible===true;

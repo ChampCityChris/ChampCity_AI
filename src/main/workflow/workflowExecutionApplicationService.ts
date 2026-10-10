@@ -14,6 +14,7 @@ import { reviewWorkItemCriterion } from "./semanticWorkItemValidator";
 import { loadCodexAppServerAdapter, type CodexAppServerAdapter } from "../workCardBuilding/codexAppServerTransport";
 import { runBoundedGit } from "../core/gitExecution";
 import { reconcileWorkflowSource } from "../sourceControl/workflowSourceReconciliation";
+import { acquireWorkflowExecutionLease, workflowExecutionLeaseKey } from "../workCardBuilding/workflowExecutionLease";
 import { runDeterministicWorkItemProfile } from "./deterministicWorkItemValidator";
 import { checkpointStructuredTesterResult, inspectLegacyImplementationCheckpoint, retryStructuredImplementationCheckpoint } from "../sourceControl/structuredWorkflowCheckpointService";
 
@@ -417,7 +418,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       const testers = (await store.listEntities(projectId, "TesterResult")).filter(record => record.entityType === "TesterResult" && record.body.workflowId === input.workflowId && record.body.workItemId === input.workItemId);
       const attemptRefs = new Set(item.implementationAttempts.map(record => record.body.executionRef).filter((value): value is string => Boolean(value)));
       const checkpoints = (await store.listEntities(projectId, "SourceCheckpoint")).filter((record): record is ProjectStateRecord<"SourceCheckpoint"> => record.entityType === "SourceCheckpoint" && record.body.workflowId === input.workflowId && attemptRefs.has(record.body.boundaryId));
-      if ((!item.implementationAttempts.length && validations.length) || (!item.implementationAttempts.length && testers.length) || checkpoints.some(record => record.body.checkpointState !== "not-required")) throw Error("Execution plan cannot change after implementation evidence or source checkpoints exist.");
+      if (validations.length || testers.length || checkpoints.some(record => record.body.checkpointState !== "not-required")) throw Error("Execution plan cannot change after implementation evidence or source checkpoints exist.");
       const pending = await createProjectStateService(store, operator).getImplementationAttempt(projectId, input.workflowId, input.workItemId);
       if (pending?.body.attemptState === "running") throw Error("Execution planning cannot change during a live implementation attempt.");
       return {workflow, projection, item};
@@ -430,26 +431,44 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       const attempt = await state.getImplementationAttempt(projectId, workflowId, workItemId);
       if (attempt?.body.attemptState === "prepared") {
         if (item.record.lifecycleState !== "active" || attempt.lifecycleState !== "active" || attempt.body.workItemVersion !== expectedVersion ||
-          attempt.body.implementationRecordId || item.record.body.startedAt || item.implementationAttempts.length)
+          attempt.body.workflowId !== workflowId || attempt.body.workItemId !== workItemId || attempt.body.implementationRecordId)
           throw Error("Planning revision requires an exact current prepared reservation with no execution start or implementation result.");
         // Validate the durable reservation without preparing source or creating another attempt.
-        await state.assertImplementationAttemptCurrent(projectId, attempt.id);
+        const current = await state.assertImplementationAttemptCurrent(projectId, attempt.id);
+        // WorkItem startedAt and older results describe history, not this prepared retry.
+        // Any result claiming this reservation is incompatible even if its result link is absent.
+        if (current.body.implementationRecordId || (await store.listEntities(projectId, "ImplementationRecord")).some(record =>
+          record.entityType === "ImplementationRecord" && record.body.executionRef === current.id))
+          throw Error("Prepared planning revision is blocked by an associated implementation result.");
+        for (const result of item.implementationAttempts) {
+          const previous = result.body.executionRef ? await store.getEntity(projectId, result.body.executionRef) : null;
+          if (previous?.entityType !== "ImplementationAttempt" || previous.body.attemptState !== "completed" ||
+            previous.body.workflowId !== workflowId || previous.body.workItemId !== workItemId || previous.body.implementationRecordId !== result.id)
+            throw Error("Prepared planning revision requires completed unsuccessful history with exact attempt provenance.");
+        }
         if ((await state.getWorkItemPlanningReview(projectId, workItemId)).disposition.state !== "approved")
           throw Error("Prepared planning revision requires approved current WorkItem planning.");
         const checkpoints = (await store.listEntities(projectId, "SourceCheckpoint")).filter(record => record.entityType === "SourceCheckpoint" && record.body.workflowId === workflowId && record.body.boundaryId === attempt.id);
         if (checkpoints.length) throw Error("Prepared planning revision is blocked by an associated source checkpoint.");
-        if (attempt.body.sourceMode === "source-backed") {
-          const source = projection.source;
-          if (source.state === "ready" && source.repositoryCheckoutId && source.workSourceLineId && source.currentRevisionId && source.currentRevisionId === attempt.body.sourceRevisionId) {
-            const changes = await reconcileWorkflowSource(fs.realpathSync(projectRoot), workflowId, {
-              repositoryCheckoutId: source.repositoryCheckoutId, sourceLineId: source.workSourceLineId, expectedRevisionId: source.currentRevisionId,
-            });
-            if (changes.length) throw Error("Prepared source-backed checkout is not restored clean at the unchanged SourceBinding revision.");
-          } else if (source.state !== "unprepared" || fs.existsSync(resolveManagedWorkflowCheckoutPath(fs.realpathSync(projectRoot), workflowId).checkoutRoot)) {
-            throw Error("Prepared source-backed reservation requires unchanged source identity; existing checkout is unverified or source preparation is blocked.");
+        const executionRoot = attempt.body.sourceMode === "source-backed"
+          ? resolveManagedWorkflowCheckoutPath(fs.realpathSync(projectRoot), workflowId).checkoutRoot
+          : path.join(fs.realpathSync(projectRoot), ".champcity", "runtime", "work-item-workers", attempt.id);
+        const lease = acquireWorkflowExecutionLease(workflowExecutionLeaseKey(attempt.body.sourceMode, executionRoot), `planning-revision:${attempt.id}`);
+        if (!lease) throw Error("Prepared planning revision is blocked by a conflicting execution lease.");
+        try {
+          if (attempt.body.sourceMode === "source-backed") {
+            const source = projection.source;
+            if (source.state === "ready" && source.repositoryCheckoutId && source.workSourceLineId && source.currentRevisionId && source.currentRevisionId === attempt.body.sourceRevisionId) {
+              const changes = await reconcileWorkflowSource(fs.realpathSync(projectRoot), workflowId, {
+                repositoryCheckoutId: source.repositoryCheckoutId, sourceLineId: source.workSourceLineId, expectedRevisionId: source.currentRevisionId,
+              });
+              if (changes.length) throw Error("Prepared source-backed checkout is not restored clean at the unchanged SourceBinding revision.");
+            } else if (source.state !== "unprepared" || fs.existsSync(resolveManagedWorkflowCheckoutPath(fs.realpathSync(projectRoot), workflowId).checkoutRoot)) {
+              throw Error("Prepared source-backed reservation requires unchanged source identity; existing checkout is unverified or source preparation is blocked.");
+            }
           }
-        }
-        return;
+          return;
+        } finally { lease.release(); }
       }
       if (item.record.body.workState !== "ready" || attempt?.body.attemptState !== "completed" ||
         item.implementationAttempts.at(-1)?.id !== attempt.body.implementationRecordId ||
