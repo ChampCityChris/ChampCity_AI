@@ -13,6 +13,7 @@ import { resolveManagedWorkflowCheckoutPath } from "../sourceControl/projectSour
 import { reviewWorkItemCriterion } from "./semanticWorkItemValidator";
 import { loadCodexAppServerAdapter, type CodexAppServerAdapter } from "../workCardBuilding/codexAppServerTransport";
 import { runBoundedGit } from "../core/gitExecution";
+import { reconcileWorkflowSource } from "../sourceControl/workflowSourceReconciliation";
 import { runDeterministicWorkItemProfile } from "./deterministicWorkItemValidator";
 import { checkpointStructuredTesterResult, inspectLegacyImplementationCheckpoint, retryStructuredImplementationCheckpoint } from "../sourceControl/structuredWorkflowCheckpointService";
 
@@ -424,8 +425,32 @@ export function createWorkflowExecutionApplicationService(dependencies: {
 
   async function assertWorkItemPlanningRevisionEligible(projectRoot: string, workflowId: string, workItemId: string, expectedVersion: number) {
     return withCurrentProject(projectRoot, async (store, projectId) => {
-      const {item} = await executionPlanningContext(store, projectId, projectRoot, {workflowId, workItemId, expectedVersion});
-      const attempt = await createProjectStateService(store, operator).getImplementationAttempt(projectId, workflowId, workItemId);
+      const {item, projection} = await executionPlanningContext(store, projectId, projectRoot, {workflowId, workItemId, expectedVersion});
+      const state = createProjectStateService(store, operator);
+      const attempt = await state.getImplementationAttempt(projectId, workflowId, workItemId);
+      if (attempt?.body.attemptState === "prepared") {
+        if (item.record.lifecycleState !== "active" || attempt.lifecycleState !== "active" || attempt.body.workItemVersion !== expectedVersion ||
+          attempt.body.implementationRecordId || item.record.body.startedAt || item.implementationAttempts.length)
+          throw Error("Planning revision requires an exact current prepared reservation with no execution start or implementation result.");
+        // Validate the durable reservation without preparing source or creating another attempt.
+        await state.assertImplementationAttemptCurrent(projectId, attempt.id);
+        if ((await state.getWorkItemPlanningReview(projectId, workItemId)).disposition.state !== "approved")
+          throw Error("Prepared planning revision requires approved current WorkItem planning.");
+        const checkpoints = (await store.listEntities(projectId, "SourceCheckpoint")).filter(record => record.entityType === "SourceCheckpoint" && record.body.workflowId === workflowId && record.body.boundaryId === attempt.id);
+        if (checkpoints.length) throw Error("Prepared planning revision is blocked by an associated source checkpoint.");
+        if (attempt.body.sourceMode === "source-backed") {
+          const source = projection.source;
+          if (source.state === "ready" && source.repositoryCheckoutId && source.workSourceLineId && source.currentRevisionId && source.currentRevisionId === attempt.body.sourceRevisionId) {
+            const changes = await reconcileWorkflowSource(fs.realpathSync(projectRoot), workflowId, {
+              repositoryCheckoutId: source.repositoryCheckoutId, sourceLineId: source.workSourceLineId, expectedRevisionId: source.currentRevisionId,
+            });
+            if (changes.length) throw Error("Prepared source-backed checkout is not restored clean at the unchanged SourceBinding revision.");
+          } else if (source.state !== "unprepared" || fs.existsSync(resolveManagedWorkflowCheckoutPath(fs.realpathSync(projectRoot), workflowId).checkoutRoot)) {
+            throw Error("Prepared source-backed reservation requires unchanged source identity; existing checkout is unverified or source preparation is blocked.");
+          }
+        }
+        return;
+      }
       if (item.record.body.workState !== "ready" || attempt?.body.attemptState !== "completed" ||
         item.implementationAttempts.at(-1)?.id !== attempt.body.implementationRecordId ||
         !["partial", "failed", "abandoned"].includes(item.implementationAttempts.at(-1)?.body.outcome ?? ""))

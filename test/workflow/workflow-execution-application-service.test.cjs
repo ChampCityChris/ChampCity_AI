@@ -1191,6 +1191,14 @@ test("durable report preparation, stale reservation rejection and completed repo
   const pending = await kernel.getImplementationAttempt(env.root, created.workflow.id, item.id);
   reopenProject(env);
   assert.deepEqual(await createWorkflowExecutionApplicationService().getImplementationAttempt(env.root, created.workflow.id, item.id), pending);
+  const planning = require("../../dist/main/workCardPlanning/structuredWorkItemPlanningService.js").createStructuredWorkItemPlanningService();
+  const initialPlanning = await planning.get(env.root, created.workflow.id, item.id);
+  assert.equal(initialPlanning.revisionEligibility.eligible, true);
+  assert.match(initialPlanning.handoff, /Source-neutral WorkItems require affectedPaths=\[\] and no source repository mutation/);
+  await assert.rejects(planning.review(env.root, created.workflow.id, item.id, {expectedRecordVersion: accepted.recordVersion, outcome: "revision_requested", notes: " "}), /Exact Operator WorkItem contract review required/);
+  await planning.review(env.root, created.workflow.id, item.id, {expectedRecordVersion: accepted.recordVersion, outcome: "revision_requested", notes: "Revise the reserved contract before execution begins"});
+  assert.equal((await planning.get(env.root, created.workflow.id, item.id)).review.disposition.state, "revision_requested");
+  assert.deepEqual(await env.store.getEntity(env.projectId, first.id), first, "Requesting revision preserves the unstarted reservation");
   const revised = await kernel.acceptWorkItemExecutionPlan(env.root, {workflowId: created.workflow.id, workItemId: item.id, expectedVersion: accepted.recordVersion, plan: {implementationBoundaries: ["Revised repair"], affectedPaths: [], proofIntent: ["Inspect revised"]}});
   await assert.rejects(kernel.beginWorkItemAttempt(env.root, created.workflow.id, item.id, revised.recordVersion, first.id), /stale/);
   const current = await kernel.prepareImplementationAttempt(env.root, created.workflow.id, item.id);

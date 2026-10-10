@@ -252,7 +252,7 @@ test('failed Implement refresh and typed revision preserve exact identity and ga
  const button=(p,label)=>nodes(p.navigation).find(n=>n.type==='button'&&n.props.children===label);
  const draw=extra=>{index=refIndex=0;return WorkCardImplementWorkspace({workflowId:'wf',workItemId:'repair',onNext:async()=>{reconciles++;if(nextFailure)throw Error('Canonical navigation unavailable');},onRefreshNavigation:async()=>{reconciles++;if(nextFailure)throw Error('Canonical navigation unavailable');},...extra}).props;};
  React.useState=initial=>{const slot=index++;if(!(slot in values))values[slot]=initial;return [values[slot],value=>values[slot]=typeof value==='function'?value(values[slot]):value];};React.useEffect=()=>{};React.useRef=initial=>refs[refIndex++]??(refs[refIndex-1]={current:initial});
- global.window={champcity:{getStructuredWorkItemPlanning:async()=>{reads++;if(readFailure)throw Error('SQL read rejected');return planning;},getImplementationAttempt:async()=>report,getWorkflowWorkItemCodexExecutionStatus:async()=>execution,getWorkflowExecutionProjection:async()=>({plan:{workflow:{id:'wf'},repairIds:[]},items:[{record:planning.workItem,implementationAttempts:[result]}]}),getGreenfieldNavigation:async()=>nav,reviewStructuredWorkItemPlanning:(...args)=>{writes.push(args);return new Promise(resolve=>writeResolve=resolve);}}};
+ global.window={champcity:{getStructuredWorkItemPlanning:async()=>{reads++;if(readFailure)throw Error('SQL read rejected');return planning;},getImplementationAttempt:async()=>report,getWorkflowWorkItemCodexExecutionStatus:async()=>execution,getWorkflowExecutionProjection:async()=>({plan:{workflow:{id:'wf'},repairIds:[]},items:[{record:planning.workItem,implementationAttempts:report.attempt.body.implementationRecordId?[result]:[]}]}),getGreenfieldNavigation:async()=>nav,reviewStructuredWorkItemPlanning:(...args)=>{writes.push(args);return new Promise(resolve=>writeResolve=resolve);},startWorkflowWorkItemCodexExecution:async()=>{throw Error('Start failed before Codex began');}}};
  try {
   let p=draw();button(p,'Refresh').props.onClick();await tick();p=draw();
   assert.match(p.feedback,/refreshed/);assert.equal(reconciles,1);assert.equal(button(p,'Continue to Review & Validation').props.disabled,true);
@@ -286,5 +286,17 @@ test('failed Implement refresh and typed revision preserve exact identity and ga
   readFailure=true;button(draw(),'Refresh').props.onClick();await tick();assert.match(draw().documentError,/Refresh failed.*SQL read rejected/);
   readFailure=false;nextFailure=true;button(draw(),'Refresh').props.onClick();await tick();assert.match(draw().documentError,/Refresh failed.*Canonical navigation unavailable/);
   nextFailure=false;button(draw(),'Refresh').props.onClick();await tick();assert.equal(draw().documentError,'');assert.match(draw().feedback,/refreshed/);assert.equal(writes.length,1);assert.ok(reads>1);
+  report.attempt.body.attemptState='prepared';report.attempt.body.workItemVersion=8;delete report.attempt.body.implementationRecordId;
+  planning.workItem.body.workState='ready';nav.currentWorkspace='work-card-building-review';execution.state='ready';
+  button(draw(),'Refresh').props.onClick();await tick();
+  p=draw();assert.match(renderToStaticMarkup(p.navigation),/reservation is prepared and has not started/);assert.equal(button(p,'Continue to Review & Validation').props.disabled,true);
+  for(const extra of [{readOnly:true},{workItemId:'peer'}])assert.equal(button(draw(extra),'Request Work Card Revision'),undefined);
+  report.attempt.body.workItemVersion=7;assert.equal(button(draw(),'Request Work Card Revision'),undefined);report.attempt.body.workItemVersion=8;
+  planning.revisionEligibility={eligible:false,reason:'Prepared checkout is redirected'};assert.match(renderToStaticMarkup(draw().navigation),/Prepared checkout is redirected/);assert.equal(button(draw(),'Request Work Card Revision'),undefined);planning.revisionEligibility={eligible:true,reason:''};
+  values[5]={version:'fixture',busy:false,updateState:'up-to-date',catalog:[{id:'fixture',model:'fixture-model',displayName:'Fixture',supportedReasoningEfforts:['high']}],selection:{model:'fixture-model',reasoningEffort:'high'}};
+  p=draw();assert.equal(p.modelSelection.canRun,true);p.onRunCodex(values[5].selection);await tick();p=draw();assert.match(p.documentError,/Start failed before Codex began/);assert.equal(button(p,'Continue to Review & Validation').props.disabled,true);assert.ok(button(p,'Request Work Card Revision'));
+  nodes(p.navigation).find(n=>n.type==='textarea').props.onChange({target:{value:'   '}});assert.equal(button(draw(),'Request Work Card Revision').props.disabled,true);
+  nodes(draw().navigation).find(n=>n.type==='textarea').props.onChange({target:{value:'Revise the exact prepared reservation'}});button(draw(),'Request Work Card Revision').props.onClick();await tick();assert.equal(writes.length,2);assert.equal(writes[1][2].expectedRecordVersion,8);
+  planning.review.disposition.state='revision_requested';nav.currentWorkspace='work-card-repair';writeResolve(planning);await tick();assert.equal(button(draw(),'Request Work Card Revision'),undefined);assert.equal(report.attempt.body.attemptState,'prepared');
  }finally{Object.assign(React,original);global.window=old;}
 });
