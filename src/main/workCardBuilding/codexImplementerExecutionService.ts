@@ -1214,6 +1214,10 @@ Execution boundary:
 - Do not edit generated output, dependencies, credentials, or application state. Do not claim checkpoint or permanent validation.
 - Return exactly one JSON object as your final response, with only these fields: summary (string), deviations (string array), blockers (string array), residualRisks (string array), outcome (implemented|partial|blocked|failed).
 - Keep the result concise and report only semantic work actually performed. Do not claim ValidationCatalog or Tester proof; implementation-local evidence does not replace independent validation.
+- proofIntent may describe downstream Tester, Validator, or integration proof. Only implementation-local checks available within this exact WorkItem execution boundary belong to the Implementer.
+- Application-owned integration checks such as champcity-source-integrity are run later by ChampCity on registered isolated integration candidate source with application-supplied immutable context. They are not expected to be callable from the WorkItem checkout as npm scripts or shell commands. Do not treat that absence alone as a blocker to an otherwise successfully implemented, policy-compliant WorkItem.
+- Never claim a check passed without running it. Report outstanding downstream proof truthfully in residualRisks when appropriate; deferred proof does not turn a partial or failed semantic result into implemented.
+- The approved sourceMutation contract governs success: required means a qualifying attributable source change and application-owned checkpoint are necessary; not-required means zero unauthorized changes and checkpoint-not-required. Never fabricate file edits or a successful outcome to bypass this policy.
 - If the objective cannot be completed within this bounded source checkout, use partial, blocked, or failed and explain why in blockers.
 `;
   return `You are the Implementer for one exact ChampCity Workflow WorkItem.

@@ -174,9 +174,9 @@ test("Implement adapter starts once without renderer preparation, recovers prepa
   const execution={state:'ready',canRunAgain:true};
   const runtime={version:'fixture',busy:false,updateState:'up-to-date',catalog:[{id:'fixture',model:'fixture-model',displayName:'Fixture',supportedReasoningEfforts:['high']}],selection:{model:'fixture-model',reasoningEffort:'high'}};
   values=[planning,report,execution,false,'',runtime,null,false,''];refs=[];calls=[];let release,statusReads=0;
-  global.window={champcity:{getStructuredWorkItemPlanning:async()=>planning,getImplementationAttempt:async()=>report,getWorkflowWorkItemCodexExecutionStatus:async()=>{statusReads++;return execution;},getWorkflowExecutionProjection:async()=>({plan:{workflow:{id:'wf'},repairIds:[]}}),prepareImplementationAttempt:async()=>{throw Error('Renderer must never prepare');},startWorkflowWorkItemCodexExecution:(...args)=>{calls.push(['run',...args]);return new Promise(resolve=>release=resolve);},cancelCodexImplementerExecution:async selector=>calls.push(['cancel',selector]),respondToCodexApproval:async value=>calls.push(['approval',value]),respondToCodexUserInput:async value=>calls.push(['input',value]),respondToCodexMcpElicitation:async value=>calls.push(['mcp',value])}};
+  global.window={champcity:{getStructuredWorkItemPlanning:async()=>planning,getImplementationAttempt:async()=>report,getWorkflowWorkItemCodexExecutionStatus:async()=>{statusReads++;return execution;},getWorkflowExecutionProjection:async()=>({plan:{workflow:{id:'wf'},repairIds:[]},items:[]}),getGreenfieldNavigation:async()=>({workflowId:'wf',currentWorkspace:'work-card-building-review',currentWorkItemId:workItemId}),prepareImplementationAttempt:async()=>{throw Error('Renderer must never prepare');},startWorkflowWorkItemCodexExecution:(...args)=>{calls.push(['run',...args]);return new Promise(resolve=>release=resolve);},cancelCodexImplementerExecution:async selector=>calls.push(['cancel',selector]),respondToCodexApproval:async value=>calls.push(['approval',value]),respondToCodexUserInput:async value=>calls.push(['input',value]),respondToCodexMcpElicitation:async value=>calls.push(['mcp',value])}};
   const draw=(extra={})=>{index=refIndex=0;return WorkCardImplementWorkspace({workflowId:'wf',workItemId,onNext(){},...extra}).props;};
-  let p=draw();const footer=React.Children.toArray(p.navigation.props.children);assert.equal(footer[0].props.className,'apply-button codex-command secondary');assert.equal(footer[1].props.className,'apply-button codex-command');assert.equal(footer[1].props.type,'button');assert.equal(footer[1].props.disabled,true);assert.equal(p.context.canExecute,true);assert.equal(p.context.reportMissing,!prepared);assert.equal(p.modelSelection.canRun,true);
+  let p=draw();const footer=React.Children.toArray(p.navigation.props.children)[0].props.children;assert.equal(footer[0].props.className,'apply-button codex-command secondary');assert.equal(footer[1].props.className,'apply-button codex-command');assert.equal(footer[1].props.type,'button');assert.equal(footer[1].props.disabled,true);assert.equal(p.context.canExecute,true);assert.equal(p.context.reportMissing,!prepared);assert.equal(p.modelSelection.canRun,true);
   assert.equal(p.documentPanel,undefined);assert.equal(p.onCreateReport,undefined);assert.equal(p.canCreateReport,undefined);
   if(prepared)assert.equal(p.context.implementerReportPath,'project-state:existing-attempt');
   p.onRunCodex(runtime.selection);p.onRunCodex(runtime.selection);
@@ -186,7 +186,7 @@ test("Implement adapter starts once without renderer preparation, recovers prepa
   release(returned);await new Promise(setImmediate);
   p=draw();assert.equal(p.codexExecution,returned);assert.equal(p.context.reportReadinessReason,returned.failureReason);assert.equal(statusReads,0,'Start failure must not be replaced with a Ready status read');
   assert.equal(p.codexExecution.retryBlocker,returned.retryBlocker);
-  React.Children.toArray(p.navigation.props.children)[0].props.onClick();await new Promise(setImmediate);
+  React.Children.toArray(p.navigation.props.children)[0].props.children[0].props.onClick();await new Promise(setImmediate);
   assert.equal(statusReads,1);assert.equal(draw().codexExecution,execution,'Explicit Refresh may reread Ready');
   p=draw({readOnly:true});assert.equal(p.context.canExecute,false);p.onRunCodex(runtime.selection);assert.equal(calls.length,1);
   p=draw({workItemId:'peer'});assert.equal(p.context,null);p.onRunCodex(runtime.selection);assert.equal(calls.length,1);
@@ -229,6 +229,62 @@ test("Implement tabs keep local identity, bounded bodies, interaction cues and a
   tree=WorkCardImplementShell(shell);assert.equal(panel(tree).props['aria-label'],'Implement');click(tree,'Context');tree=WorkCardImplementShell(shell);assert.equal(panel(tree).props['aria-label'],'Context');
   assert.ok(find(tree,n=>n.type==='dt'&&n.props.children==='Implementer Report Target'));
   tree=WorkCardImplementShell({...shell,context:{...shell.context,implementerReportPath:'next-attempt'}});assert.equal(panel(tree).props['aria-label'],'Implement');
+  tree=WorkCardImplementShell({...shell,feedback:'SQL context refreshed',documentError:'Refresh failed: rejected read'});click(tree,'Context');tree=WorkCardImplementShell({...shell,feedback:'SQL context refreshed',documentError:'Refresh failed: rejected read'});assert.ok(find(panel(tree),n=>n.props?.className==='document-error'));assert.ok(find(panel(tree),n=>n.props?.className==='document-feedback'));
   assert.equal(services,0);
  }finally{React.useState=original;global.window=oldWindow;}
+});
+
+// Navigation is SQL authority; completed transport alone cannot authorize Review or revision.
+test('failed Implement refresh and typed revision preserve exact identity and gate successful Review', async () => {
+ const React=require('react'),{loadRendererSourceModule:load}=require('./renderer-source-loader.cjs');
+ const {WorkCardImplementWorkspace}=load('src/renderer/app/WorkCardImplementWorkspace.tsx');
+ const {CodexExecutionConsole}=load('src/renderer/app/WorkCardImplementShell.tsx');
+ const {renderToStaticMarkup}=require('react-dom/server');
+ const original={useState:React.useState,useEffect:React.useEffect,useRef:React.useRef},old=global.window;
+ const planning={workflowId:'wf',workflowType:'project-creation',workItem:{id:'repair',recordVersion:8,body:{workState:'ready',workItemKind:'repair',contractRevision:3,title:'Preserve correct file',affectedPaths:['correct.txt']}},review:{disposition:{state:'approved'}},revisionEligibility:{eligible:true,reason:''}};
+ const report={attempt:{id:'attempt',body:{workflowId:'wf',workItemId:'repair',attemptState:'completed',implementationRecordId:'result'}}};
+ const result={id:'result',body:{workflowId:'wf',workItemId:'repair',executionRef:'attempt',outcome:'partial'}};
+ const execution={state:'completed',canRunAgain:true,checkpoint:{status:'blocked',message:'No qualifying source change'}};
+ const nav={workflowId:'wf',currentWorkItemId:'repair',currentWorkspace:'work-card-building-review'};
+ const values=[],refs=[];let index=0,refIndex=0,reads=0,reconciles=0,writeResolve,readFailure=false,nextFailure=false;const writes=[];
+ const tick=()=>new Promise(setImmediate);
+ const nodes=n=>!n||typeof n!=='object'?[]:[n,...React.Children.toArray(n.props?.children).flatMap(nodes)];
+ const button=(p,label)=>nodes(p.navigation).find(n=>n.type==='button'&&n.props.children===label);
+ const draw=extra=>{index=refIndex=0;return WorkCardImplementWorkspace({workflowId:'wf',workItemId:'repair',onNext:async()=>{reconciles++;if(nextFailure)throw Error('Canonical navigation unavailable');},onRefreshNavigation:async()=>{reconciles++;if(nextFailure)throw Error('Canonical navigation unavailable');},...extra}).props;};
+ React.useState=initial=>{const slot=index++;if(!(slot in values))values[slot]=initial;return [values[slot],value=>values[slot]=typeof value==='function'?value(values[slot]):value];};React.useEffect=()=>{};React.useRef=initial=>refs[refIndex++]??(refs[refIndex-1]={current:initial});
+ global.window={champcity:{getStructuredWorkItemPlanning:async()=>{reads++;if(readFailure)throw Error('SQL read rejected');return planning;},getImplementationAttempt:async()=>report,getWorkflowWorkItemCodexExecutionStatus:async()=>execution,getWorkflowExecutionProjection:async()=>({plan:{workflow:{id:'wf'},repairIds:[]},items:[{record:planning.workItem,implementationAttempts:[result]}]}),getGreenfieldNavigation:async()=>nav,reviewStructuredWorkItemPlanning:(...args)=>{writes.push(args);return new Promise(resolve=>writeResolve=resolve);}}};
+ try {
+  let p=draw();button(p,'Refresh').props.onClick();await tick();p=draw();
+  assert.match(p.feedback,/refreshed/);assert.equal(reconciles,1);assert.equal(button(p,'Continue to Review & Validation').props.disabled,true);
+  assert.match(renderToStaticMarkup(p.navigation),/latest Implement result is partial.*Tester are not yet eligible/);
+  for(const status of ['blocked','committed','not-required']) {
+   Object.assign(React,original);
+   const markup=renderToStaticMarkup(React.createElement(CodexExecutionConsole,{execution:{...execution,checkpoint:{status,message:'Exact checkpoint'}},isActionRunning:false}));
+   assert.match(markup,new RegExp('codex-execution-message '+({blocked:'error',committed:'success','not-required':'neutral'})[status]+'[^>]*>Source checkpoint:'));
+   React.useState=initial=>{const slot=index++;return [values[slot],value=>values[slot]=value];};React.useEffect=()=>{};React.useRef=initial=>refs[refIndex++]??(refs[refIndex-1]={current:initial});
+  }
+  p=draw();assert.equal(button(p,'Request Work Card Revision').props.disabled,true);
+  nodes(p.navigation).find(n=>n.type==='textarea').props.onChange({target:{value:'Preserve conforming source; revise exact mutation contract'}});
+  p=draw();const request=button(p,'Request Work Card Revision').props.onClick;request();request();
+  assert.deepEqual(writes,[['wf','repair',{expectedRecordVersion:8,outcome:'revision_requested',notes:'Preserve conforming source; revise exact mutation contract'}]]);
+  assert.equal(draw().isCodexActionRunning,true);assert.equal(reconciles,1,'disposition must persist before navigation');
+  planning.review.disposition.state='revision_requested';nav.currentWorkspace='work-card-repair';writeResolve(planning);await tick();assert.equal(reconciles,2);
+  assert.equal(result.body.outcome,'partial');assert.equal(report.attempt.body.attemptState,'completed');
+  assert.equal(button(draw(),'Request Work Card Revision'),undefined);
+  nav.currentWorkspace='work-card-building-review';planning.review.disposition.state='approved';
+  for(const extra of [{readOnly:true},{workItemId:'peer'}])assert.equal(button(draw(extra),'Request Work Card Revision'),undefined);
+  for(const state of ['running','prepared']){report.attempt.body.attemptState=state;assert.equal(button(draw(),'Request Work Card Revision'),undefined);}report.attempt.body.attemptState='completed';
+  execution.state='running';assert.equal(button(draw(),'Request Work Card Revision'),undefined);execution.state='completed';
+  planning.revisionEligibility={eligible:false,reason:'Source-backed checkout is not restored clean'};assert.equal(button(draw(),'Request Work Card Revision'),undefined);planning.revisionEligibility={eligible:true,reason:''};
+  for(const outcome of ['partial','failed','abandoned']){result.body.outcome=outcome;assert.ok(button(draw(),'Request Work Card Revision'));}result.body.outcome='implemented';
+  planning.workItem.body.workState='validation_pending';nav.currentWorkspace='work-card-report-review';
+  for(const status of ['committed','not-required']){execution.checkpoint.status=status;planning.workItem.body.affectedPaths=status==='not-required'?[]:['correct.txt'];assert.equal(button(draw(),'Continue to Review & Validation').props.disabled,false);}
+  for(const status of ['blocked','pending']){execution.checkpoint.status=status;assert.equal(button(draw(),'Continue to Review & Validation').props.disabled,true);}execution.checkpoint.status='committed';
+  nav.currentWorkItemId='peer';assert.equal(button(draw(),'Continue to Review & Validation').props.disabled,true);nav.currentWorkItemId='repair';
+  nav.currentWorkspace='work-card-building-review';assert.equal(button(draw(),'Continue to Review & Validation').props.disabled,true);nav.currentWorkspace='work-card-report-review';
+  const before=reconciles;button(draw(),'Continue to Review & Validation').props.onClick();await tick();assert.equal(reconciles,before+1);
+  readFailure=true;button(draw(),'Refresh').props.onClick();await tick();assert.match(draw().documentError,/Refresh failed.*SQL read rejected/);
+  readFailure=false;nextFailure=true;button(draw(),'Refresh').props.onClick();await tick();assert.match(draw().documentError,/Refresh failed.*Canonical navigation unavailable/);
+  nextFailure=false;button(draw(),'Refresh').props.onClick();await tick();assert.equal(draw().documentError,'');assert.match(draw().feedback,/refreshed/);assert.equal(writes.length,1);assert.ok(reads>1);
+ }finally{Object.assign(React,original);global.window=old;}
 });

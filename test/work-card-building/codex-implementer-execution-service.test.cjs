@@ -490,7 +490,16 @@ test("source-backed no-mutation WorkItems complete, recover unchanged attempts, 
  for(const item of plan.directWorkItems)await kernel.acceptWorkItemExecutionPlan(root,{workflowId:workflow.id,workItemId:item.id,expectedVersion:item.recordVersion,plan:{implementationBoundaries:['Exact approved scope'],affectedPaths:['mutation-required','missing-telemetry','incomplete-telemetry'].includes(item.body.title)?['feature.txt']:[],proofIntent:['Assess exact source context']}});
  const runtime=runtimeFixture();await runtime.ready;const captures=[];
  const factory=async()=>({startThread(options){captures.push(options);return {id:'read-thread',async runStreamed(prompt){
-  assert.match(prompt,/source-backed/);const unexpected=prompt.includes('"objective": "Assess source context"')&&prompt.includes('"workItemId": "'+plan.directWorkItems.find(i=>i.body.title==='unexpected').id+'"');
+  assert.match(prompt,/source-backed/);
+  assert.match(prompt,/proofIntent may describe downstream Tester, Validator, or integration proof/);
+  assert.match(prompt,/Application-owned integration checks such as champcity-source-integrity are run later by ChampCity on registered isolated integration candidate source/);
+  assert.match(prompt,/not expected to be callable from the WorkItem checkout as npm scripts or shell commands/);
+  assert.match(prompt,/Do not treat that absence alone as a blocker/);
+  assert.match(prompt,/Never claim a check passed without running it/);
+  assert.match(prompt,/Report outstanding downstream proof truthfully in residualRisks/);
+  assert.match(prompt,/required means a qualifying attributable source change and application-owned checkpoint are necessary/);
+  assert.match(prompt,/not-required means zero unauthorized changes and checkpoint-not-required/);
+  const unexpected=prompt.includes('"objective": "Assess source context"')&&prompt.includes('"workItemId": "'+plan.directWorkItems.find(i=>i.body.title==='unexpected').id+'"');
   const unreported=prompt.includes('"workItemId": "'+plan.directWorkItems.find(i=>i.body.title==='unreported').id+'"');
   const telemetry=['missing-telemetry','incomplete-telemetry'].find(title=>prompt.includes('"workItemId": "'+plan.directWorkItems.find(i=>i.body.title===title).id+'"'));
   if(unexpected||unreported)fs.writeFileSync(path.join(options.workingDirectory,'feature.txt'),'unauthorized');

@@ -24,7 +24,7 @@ export interface GreenfieldShellSelection {inspection?:boolean;stage:GreenfieldS
 export interface GreenfieldStageCompositionProps {
  readOnly?:boolean;workflowId:string;selection:GreenfieldShellSelection;repositoryIdentity:string;browserPanel:ReactNode;
  intake:ProjectIntakeSubmission;onIntakeChange:(value:ProjectIntakeSubmission)=>void;
- resume:()=>Promise<void>;open:(stage:GreenfieldStage,workItemId?:string)=>void;
+ resume:()=>Promise<void>;refreshNavigation?:()=>Promise<void>;open:(stage:GreenfieldStage,workItemId?:string)=>void;
  terminal:(stage:"work-card-close"|"phase-close"|"project-close")=>void;
  repair:(id:string)=>void;onReturn:()=>void;onRepositoryChange:()=>void;
 }
@@ -42,7 +42,7 @@ export function composeGreenfieldStage(props:GreenfieldStageCompositionProps):Re
  case "phase-work-card-selection":return phaseId?<WorkCardMapWorkspace readOnly={props.readOnly} workflowId={workflowId} phaseId={phaseId} onOpenWorkItem={id=>open("work-card-intake",id)} onOpenPhaseValidation={()=>open("phase-validation")}/>:missing;
  case "work-card-intake":return workItemId?<WorkCardIntakeWorkspace readOnly={props.readOnly} workflowId={workflowId} workItemId={workItemId} onPrepared={()=>open("work-card-planning")}/>:missing;
  case "work-card-planning":return workItemId?<WorkCardPlanningWorkspace readOnly={props.readOnly} workflowId={workflowId} workItemId={workItemId} browserPanel={browserPanel} browserVisible={!!browserPanel} onNext={resume}/>:missing;
- case "work-card-building-review":return workItemId?<WorkCardImplementWorkspace readOnly={props.readOnly} workflowId={workflowId} workItemId={workItemId} onNext={resume}/>:missing;
+ case "work-card-building-review":return workItemId?<WorkCardImplementWorkspace readOnly={props.readOnly} workflowId={workflowId} workItemId={workItemId} onNext={resume} onRefreshNavigation={props.refreshNavigation}/>:missing;
  case "work-card-report-review":return workItemId?<WorkCardReviewValidationWorkspace readOnly={props.readOnly} workflowId={workflowId} workItemId={workItemId} browserPanel={browserPanel} onClosed={()=>terminal("work-card-close")} onRepair={props.repair} onValidation={()=>open("work-card-validation")}/>:missing;
  case "work-card-validation":return workItemId?<WorkCardValidationWorkspace readOnly={props.readOnly} workflowId={workflowId} workItemId={workItemId} onClosed={()=>terminal("work-card-close")} onRepair={props.repair} onValidation={()=>open("work-card-report-review")}/>:missing;
  case "work-card-repair":return repairId?<WorkCardRepairWorkspace readOnly={props.readOnly} workflowId={workflowId} repairId={repairId} browserPanel={browserPanel} browserVisible={!!browserPanel} onImplement={resume} onReview={resume} onParent={id=>open("work-card-report-review",id)}/>:missing;

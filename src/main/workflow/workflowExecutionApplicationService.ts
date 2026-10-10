@@ -383,23 +383,9 @@ export function createWorkflowExecutionApplicationService(dependencies: {
     });
   }
 
-  async function acceptWorkItemExecutionPlan(projectRoot: string, input: import("../../shared/workflowApplicationContracts").WorkItemExecutionPlanInput, approve = true, criteria?: import("../../shared/projectState/workItemPlanningContracts").WorkItemPlanningContract["criteria"]) {
-    const plan = input?.plan;
-    if (!input || !Number.isSafeInteger(input.expectedVersion) || !plan || !Array.isArray(plan.implementationBoundaries) || !Array.isArray(plan.affectedPaths) || !Array.isArray(plan.proofIntent)) throw Error("A bounded exact WorkItem execution plan is required.");
-    const boundedList = (values: string[], min: number, max: number, label: string) => {
-      if (values.length < min || values.length > max || values.some(value => typeof value !== "string" || !value.trim() || value.length > 512)) throw Error(`${label} must contain ${min}..${max} bounded text entries.`);
-      return values.map(value => value.trim());
-    };
-    const implementationBoundaries = boundedList(plan.implementationBoundaries, 1, 32, "Implementation boundaries");
-    const proofIntent = boundedList(plan.proofIntent, 1, 32, "Proof intent");
-    const affectedPaths = boundedList(plan.affectedPaths, 0, 128, "Affected paths");
-    for (const value of affectedPaths) {
-      if (value.startsWith("/") || /^[A-Za-z]:/.test(value) || value.includes("\\") || value.split("/").some(part => !part || part === "." || part === "..") ||
-        /(^|\/)(\.git|\.champcity|\.codex|node_modules|dist|build|out|coverage|\.env[^/]*|secrets?|credentials?)(\/|$)/i.test(value) || /(^|\/)(id_rsa|[^/]+\.(pem|key|p12|pfx)|[^/]*token[^/]*|[^/]*secret[^/]*)(\/|$)/i.test(value))
-        throw Error("Affected paths must be normalized, repository-relative source paths without runtime, Git, dependency, output, or secret paths.");
-    }
-    if (new Set(affectedPaths).size !== affectedPaths.length) throw Error("Affected paths must be unique.");
-    return withCurrentProject(projectRoot, async (store, projectId) => {
+  // One guard for candidate saves and the failed-Implement revision disposition.
+  async function executionPlanningContext(store: ProjectStateStore, projectId: ProjectId, projectRoot: string,
+    input: {workflowId: string; workItemId: string; expectedVersion: number}) {
       const workflow = await exactPlan(store, projectId, input.workflowId);
       if (!implementationWorkflowTypes.has(workflow.workflow.body.workflowType)) throw Error("Execution planning requires the exact current supported Workflow.");
       const projection = await project(store, projectId, workflow);
@@ -408,6 +394,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       if (item.repairIds.some(id => projection.items.some(candidate => candidate.record.id === id && !["closed", "cancelled"].includes(candidate.record.body.workState)))) throw Error("Execution planning is blocked while an active Repair owns the next correction.");
       if (item.implementationAttempts.length) {
         const latest = item.implementationAttempts.at(-1)!;
+        if (item.implementationAttempts.some(record => record.body.outcome === "implemented")) throw Error("Execution plan cannot change after a successful implementation attempt.");
         const scopeFailure = latest.body.outcome === "failed" && latest.body.blockers.some(value => /outside the accepted Architect path scope|exact checkout restored/i.test(value));
         if (!(item.record.body.workState === "ready" && latest.body.outcome !== "implemented" && (scopeFailure || ["partial", "failed", "abandoned"].includes(latest.body.outcome))))
           throw Error("Execution plan cannot change after a successful or unresolved implementation attempt.");
@@ -430,6 +417,40 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       const attemptRefs = new Set(item.implementationAttempts.map(record => record.body.executionRef).filter((value): value is string => Boolean(value)));
       const checkpoints = (await store.listEntities(projectId, "SourceCheckpoint")).filter((record): record is ProjectStateRecord<"SourceCheckpoint"> => record.entityType === "SourceCheckpoint" && record.body.workflowId === input.workflowId && attemptRefs.has(record.body.boundaryId));
       if ((!item.implementationAttempts.length && validations.length) || (!item.implementationAttempts.length && testers.length) || checkpoints.some(record => record.body.checkpointState !== "not-required")) throw Error("Execution plan cannot change after implementation evidence or source checkpoints exist.");
+      const pending = await createProjectStateService(store, operator).getImplementationAttempt(projectId, input.workflowId, input.workItemId);
+      if (pending?.body.attemptState === "running") throw Error("Execution planning cannot change during a live implementation attempt.");
+      return {workflow, projection, item};
+  }
+
+  async function assertWorkItemPlanningRevisionEligible(projectRoot: string, workflowId: string, workItemId: string, expectedVersion: number) {
+    return withCurrentProject(projectRoot, async (store, projectId) => {
+      const {item} = await executionPlanningContext(store, projectId, projectRoot, {workflowId, workItemId, expectedVersion});
+      const attempt = await createProjectStateService(store, operator).getImplementationAttempt(projectId, workflowId, workItemId);
+      if (item.record.body.workState !== "ready" || attempt?.body.attemptState !== "completed" ||
+        item.implementationAttempts.at(-1)?.id !== attempt.body.implementationRecordId ||
+        !["partial", "failed", "abandoned"].includes(item.implementationAttempts.at(-1)?.body.outcome ?? ""))
+        throw Error("Planning revision requires the exact completed unsuccessful ready WorkItem.");
+    });
+  }
+
+  async function acceptWorkItemExecutionPlan(projectRoot: string, input: import("../../shared/workflowApplicationContracts").WorkItemExecutionPlanInput, approve = true, criteria?: import("../../shared/projectState/workItemPlanningContracts").WorkItemPlanningContract["criteria"]) {
+    const plan = input?.plan;
+    if (!input || !Number.isSafeInteger(input.expectedVersion) || !plan || !Array.isArray(plan.implementationBoundaries) || !Array.isArray(plan.affectedPaths) || !Array.isArray(plan.proofIntent)) throw Error("A bounded exact WorkItem execution plan is required.");
+    const boundedList = (values: string[], min: number, max: number, label: string) => {
+      if (values.length < min || values.length > max || values.some(value => typeof value !== "string" || !value.trim() || value.length > 512)) throw Error(`${label} must contain ${min}..${max} bounded text entries.`);
+      return values.map(value => value.trim());
+    };
+    const implementationBoundaries = boundedList(plan.implementationBoundaries, 1, 32, "Implementation boundaries");
+    const proofIntent = boundedList(plan.proofIntent, 1, 32, "Proof intent");
+    const affectedPaths = boundedList(plan.affectedPaths, 0, 128, "Affected paths");
+    for (const value of affectedPaths) {
+      if (value.startsWith("/") || /^[A-Za-z]:/.test(value) || value.includes("\\") || value.split("/").some(part => !part || part === "." || part === "..") ||
+        /(^|\/)(\.git|\.champcity|\.codex|node_modules|dist|build|out|coverage|\.env[^/]*|secrets?|credentials?)(\/|$)/i.test(value) || /(^|\/)(id_rsa|[^/]+\.(pem|key|p12|pfx)|[^/]*token[^/]*|[^/]*secret[^/]*)(\/|$)/i.test(value))
+        throw Error("Affected paths must be normalized, repository-relative source paths without runtime, Git, dependency, output, or secret paths.");
+    }
+    if (new Set(affectedPaths).size !== affectedPaths.length) throw Error("Affected paths must be unique.");
+    return withCurrentProject(projectRoot, async (store, projectId) => {
+      const {workflow, projection, item} = await executionPlanningContext(store, projectId, projectRoot, input);
       if (projection.source.state === "non-source" && affectedPaths.length) throw Error("Source-neutral execution plans must have an empty affected-path scope.");
       const state = createProjectStateService(store, operator);
       const workItem = await state.saveWorkItemPlanningContract(projectId, {workflowId: input.workflowId, workItemId: item.record.id, expectedVersion: input.expectedVersion, implementationBoundaries, affectedPaths, proofIntent, ...(criteria !== undefined ? {criteria} : {})});
@@ -1088,7 +1109,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
   }
 
   return { getExecutionProjection, getWorkflowExecutionCompletionProjection, completeWorkflowExecution, getWorkItemValidationProjection, getCheckpointRecoveryProjection,
-    retryImplementationCheckpoint, retryTesterCheckpoint, decomposeWorkflowWorkItem, acceptWorkItemExecutionPlan,
+    retryImplementationCheckpoint, retryTesterCheckpoint, decomposeWorkflowWorkItem, acceptWorkItemExecutionPlan, assertWorkItemPlanningRevisionEligible,
     recordWorkItemVisualCriterion, recordWorkItemCriterionDecision, getPhaseValidationProjection, recordPhaseVisualCriterion,
     recordPhaseCriterionDecision, validateDeterministicPhaseCriterion, validateSemanticPhaseCriterion,
     completeWorkItem, completePhase, createWorkflowRepair, createPhaseRepair, validateSemanticWorkItemCriterion, validateDeterministicWorkItemCriterion, prepareExecution, createWorkItemExecutionContract, createTesterWorkItemExecutionContract,

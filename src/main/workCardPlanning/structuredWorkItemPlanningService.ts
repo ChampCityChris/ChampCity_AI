@@ -28,7 +28,13 @@ export function createStructuredWorkItemPlanningService() {
     const contract = {workflowId, workItemId, expectedVersion: item.recordVersion, implementationBoundaries: item.body.implementationBoundaries ?? [], affectedPaths: item.body.affectedPaths ?? [], proofIntent: item.body.proofIntent ?? []};
     const markdown = [`# Formal WorkItem: ${item.body.title}`, `WorkItem ${workItemId}; SQL revision ${item.recordVersion}`, item.body.objective, "## Execution contract", JSON.stringify(contract, null, 2), "## Criteria", ...criteria.map(entry => `${entry.record.id}: ${entry.record.body.statement} (${entry.record.body.validationPolicy})`)].join("\n\n");
     const handoff = [`# Architect WorkItem planning`, ...(plan.workflow.body.workflowType === "project-creation" ? workflowCandidateHandoff(root, workflowId, "work-item-planning", workItemId) : []), (plan.workflow.body.workflowType === "project-creation" ? "Construct only the semantic execution contract fields for MCP submission; IDs and versions below are application-owned context. " : "Return bounded JSON matching the exact IDs/version below. ") + " implementationBoundaries and proofIntent are collections of substantive execution boundaries and proof obligations. affectedPaths is a collection of normalized repository-relative source paths, empty for source-neutral work. Preserve all existing Criteria and dependencies. Optional criteria contain statement, criticality, verificationIntent, validationPolicy. Optional decomposition uses replacements, criterionDispositions and incomingDependentMappings; it requires a separate explicit Operator action. Replacements specify key,kind,title,objective,dependencyWorkItemIds,dependencyReplacementKeys. Map every current Criterion with transfer/elevate/split and every incoming dependent to replacement keys. Optional topologyCorrection specifies phases,phaseDependencies,boundaries,assignments, assigning every unchanged WorkItem ID and replacement key to explicit nonempty Phases with required acceptance Criteria. Every later Phase requires an allowed boundary reason, rationale and evidenceRefs under RWS06A. Never infer Phases from size or effort. Markdown is a generated readability projection only.", `Source mode: ${sourceBaselines.length ? "source-backed; accepted affected paths required" : "source-neutral; affected paths empty; required deterministic ValidationCatalog proof unavailable"}`, JSON.stringify(contract), `Accepted context: ${JSON.stringify({workItem: item, solutions: plan.solutions, criteria: plan.criteria, phase, dependencies: plan.dependencyIds, sourceBaselines})}`, review.disposition.state === "revision_requested" ? `Operator revision disposition: ${JSON.stringify(review.disposition)}` : ""].join("\n\n");
-    return {workflowId, workflowType: plan.workflow.body.workflowType, workItem: item, review, markdown, handoff};
+    let revisionEligibility = {eligible: false, reason: ""};
+    const attempt = await state.getImplementationAttempt(projectId, workflowId, workItemId);
+    if (isStructuredExecutionWorkflowType(plan.workflow.body.workflowType) && attempt?.body.attemptState === "completed" && item.body.workState === "ready") {
+      try {await createWorkflowExecutionApplicationService().assertWorkItemPlanningRevisionEligible(root, workflowId, workItemId, item.recordVersion); revisionEligibility = {eligible: true, reason: ""};}
+      catch (error) {revisionEligibility = {eligible: false, reason: error instanceof Error ? error.message : "Planning revision unavailable."};}
+    }
+    return {workflowId, workflowType: plan.workflow.body.workflowType, workItem: item, review, markdown, handoff, revisionEligibility};
   });
   const save = async (root: string, workflowId: string, workItemId: string, json: string) => {
     const input = parseWorkItemPlanningJson(json);
@@ -41,6 +47,15 @@ export function createStructuredWorkItemPlanningService() {
     return get(root, workflowId, workItemId);
   };
   const review = async (root: string, workflowId: string, workItemId: string, input: ArchitectReviewDecisionInput) => {
+    const current = await get(root, workflowId, workItemId);
+    if (isStructuredExecutionWorkflowType(current.workflowType)) {
+      const attempt = await createWorkflowExecutionApplicationService().getImplementationAttempt(root, workflowId, workItemId);
+      if (attempt?.attempt.body.attemptState === "running") throw Error("WorkItem planning review cannot change during a live implementation attempt.");
+      // Revision of an attempted contract reuses the failed-Implement planning guard.
+      // Approval of the replacement contract retains the normal planning lifecycle.
+      if (input.outcome === "revision_requested" && attempt)
+        await createWorkflowExecutionApplicationService().assertWorkItemPlanningRevisionEligible(root, workflowId, workItemId, input.expectedRecordVersion);
+    }
     await withState(root, (state, projectId) => state.recordWorkItemPlanningReview(projectId, workflowId, workItemId, input));
     return get(root, workflowId, workItemId);
   };

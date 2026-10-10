@@ -3098,6 +3098,12 @@ h1 {
   font-weight: 650;
 }
 
+.codex-execution-message.neutral {
+  color: #c5ccd5;
+  background: #242b35;
+  border-color: #4a5565;
+}
+
 .codex-execution-message.error {
   color: #ffc4c0;
   background: #401f23;

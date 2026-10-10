@@ -152,9 +152,9 @@ export function WorkCardImplementShell({
             onRun={onRunCodex}
           />
         ) : null}
+        </>}
         {feedback ? <div className={`document-feedback${feedback === terminalFeedback?.message ? ` ${terminalFeedback.tone}` : ""}`} role="status">{feedback}</div> : null}
         {documentError ? <div className="document-error" role="status">{documentError}</div> : null}
-        </>}
         </div>
       </section>
 
@@ -477,7 +477,7 @@ export function CodexExecutionConsole({
       {execution?.failureReason && !postRunFeedback ? (
         <div className="codex-execution-message error" role="status">{execution.failureReason}</div>
       ) : null}
-      {execution?.checkpoint ? <div className="codex-execution-message" role="status">
+      {execution?.checkpoint ? <div className={`codex-execution-message ${execution.checkpoint.status === "committed" ? "success" : execution.checkpoint.status === "blocked" ? "error" : execution.checkpoint.status === "not-required" ? "neutral" : "warning"}`} role="status">
         Source checkpoint: {execution.checkpoint.status}. {execution.checkpoint.message}
         {execution.checkpoint.commit ? <p>Commit: <code>{execution.checkpoint.commit}</code></p> : null}
       </div> : null}

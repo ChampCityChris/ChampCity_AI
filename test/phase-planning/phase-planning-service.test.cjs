@@ -693,7 +693,7 @@ test('Greenfield stranded parent checkpoint recovers before a stale prepared Rep
  });
 });
 
-test('Greenfield fresh source-backed Implement and Repair start from read-only readiness and preserve no-mutation Review', async context => {
+for (const failedRevision of [false,true]) test('Greenfield fresh source-backed Implement and Repair start from read-only readiness and preserve no-mutation Review'+(failedRevision?' through failed Implement governed revision':''), async context => {
  const f=await structuredPhaseLoopFixture(context,true);
  const loop=require('../../dist/main/phasePlanning/structuredPhaseLoopService.js').createStructuredPhaseLoopService();
  const kernel=require('../../dist/main/workflow/workflowExecutionApplicationService.js').createWorkflowExecutionApplicationService();
@@ -704,28 +704,28 @@ test('Greenfield fresh source-backed Implement and Repair start from read-only r
  await f.state.createWorkflowSourceBinding(f.projectId,f.workflow.id,baseline.id);
  const {CodexImplementerExecutionService}=require('../../dist/main/workCardBuilding/codexImplementerExecutionService.js');
  const {runtimeFixture,selection}=require('../support/codex-runtime.cjs');const runtime=runtimeFixture();await runtime.ready;
- let preparations=0;const executions=[];
+ let preparations=0,failRepair=failedRevision,releaseFailure;const executions=[];
  const service=new CodexImplementerExecutionService(async()=>({startThread(options){return {id:'greenfield-start',async runStreamed(prompt){
-  executions.push({options,prompt});if(prompt.includes('"repair.txt"'))fs.writeFileSync(path.join(options.workingDirectory,'repair.txt'),'Approved repair');
-  return {events:(async function*(){if(prompt.includes('"repair.txt"'))yield {type:'item.completed',item:{type:'file_change',changes:[{path:'repair.txt'}],status:'completed'}};yield {type:'item.completed',item:{type:'agent_message',text:JSON.stringify({summary:'Exact source assessment',deviations:[],blockers:[],residualRisks:[],outcome:'implemented'})}};yield {type:'turn.completed'};})()};
+  executions.push({options,prompt});if(!failRepair&&prompt.includes('"repair.txt"'))fs.writeFileSync(path.join(options.workingDirectory,'repair.txt'),'Approved repair');
+  return {events:(async function*(){if(failRepair&&prompt.includes('Exact repair evidence'))await new Promise(resolve=>releaseFailure=resolve);if(prompt.includes('"repair.txt"'))yield {type:'item.completed',item:{type:'file_change',changes:[{path:'repair.txt'}],status:'completed'}};yield {type:'item.completed',item:{type:'agent_message',text:JSON.stringify({summary:'Exact source assessment',deviations:[],blockers:[],residualRisks:[],outcome:failRepair&&prompt.includes('Exact repair evidence')?'partial':'implemented'})}};yield {type:'turn.completed'};})()};
  }};}}),undefined,undefined,undefined,runtime.manager);
  service.configureSourceCheckoutProjection(async()=>{preparations++;return {workspaceId:'greenfield-readiness',projection:{registerRepositoryCheckout:async(_id,checkout)=>({...checkout,availability:'available',validationError:null})}};});
- async function clickImplement(id,expectedPreparations){
+ async function clickImplement(id,expectedPreparations,rerun=false){
   const selector={ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:id};
-  assert.equal(await kernel.getImplementationAttempt(f.root,f.workflow.id,id),null);
+  if(!rerun)assert.equal(await kernel.getImplementationAttempt(f.root,f.workflow.id,id),null);
   const before=await f.store.listStateChanges(f.projectId),execution=await service.getStatus(f.root,selector);
-  assert.equal(execution.state,'ready',execution.failureReason);assert.equal(execution.canRunAgain,true);assert.equal(execution.sourceMode,'source-backed');
-  assert.equal(execution.workflowId,f.workflow.id);assert.equal(execution.workItemId,id);assert.equal(execution.workItemVersion,(await f.store.getEntity(f.projectId,id)).recordVersion);
-  assert.equal(execution.executionContractDigest,null);assert.equal(execution.failureReason,null);assert.equal(execution.retryBlocker,null);
+  assert.equal(execution.state,rerun?'failed':'ready',execution.failureReason);assert.equal(execution.canRunAgain,true);assert.equal(execution.sourceMode,'source-backed');
+  assert.equal(execution.workflowId,f.workflow.id);assert.equal(execution.workItemId,id);if(!rerun)assert.equal(execution.workItemVersion,(await f.store.getEntity(f.projectId,id)).recordVersion);
+  if(!rerun){assert.equal(execution.executionContractDigest,null);assert.equal(execution.failureReason,null);}assert.equal(execution.retryBlocker,null);
   assert.deepEqual(await f.store.listStateChanges(f.projectId),before);assert.equal(preparations,expectedPreparations);
-  assert.equal(await kernel.getImplementationAttempt(f.root,f.workflow.id,id),null);
+  if(!rerun)assert.equal(await kernel.getImplementationAttempt(f.root,f.workflow.id,id),null);
   const React=require('react'),{loadRendererSourceModule:load}=require('../renderer/renderer-source-loader.cjs');
   const {WorkCardImplementWorkspace}=load('src/renderer/app/WorkCardImplementWorkspace.tsx'),{CodexExecutionActions}=load('src/renderer/app/WorkCardImplementShell.tsx');
   const planning=await require('../../dist/main/workCardPlanning/structuredWorkItemPlanningService.js').createStructuredWorkItemPlanningService().get(f.root,f.workflow.id,id);
   const original={useState:React.useState,useEffect:React.useEffect,useRef:React.useRef},old=global.window;
   const values=[planning,null,execution,false,'',{...runtime.manager.getStatus(),selection},null,false,''];let index=0,started;
   React.useState=initial=>{const slot=index++;return [slot in values?values[slot]:initial,value=>values[slot]=value];};React.useEffect=()=>{};React.useRef=initial=>({current:initial});
-  global.window={champcity:{startWorkflowWorkItemCodexExecution:(workflowId,workItemId,model)=>started=service.start(f.root,{ownerKind:'workflow-work-item',workflowId,workItemId},model),getStructuredWorkItemPlanning:async()=>planning,getImplementationAttempt:()=>kernel.getImplementationAttempt(f.root,f.workflow.id,id),getWorkflowWorkItemCodexExecutionStatus:()=>service.getStatus(f.root,selector),getWorkflowExecutionProjection:()=>kernel.getExecutionProjection(f.root,f.workflow.id)}};
+  global.window={champcity:{startWorkflowWorkItemCodexExecution:(workflowId,workItemId,model)=>started=service.start(f.root,{ownerKind:'workflow-work-item',workflowId,workItemId},model),getStructuredWorkItemPlanning:async()=>planning,getImplementationAttempt:()=>kernel.getImplementationAttempt(f.root,f.workflow.id,id),getWorkflowWorkItemCodexExecutionStatus:()=>service.getStatus(f.root,selector),getWorkflowExecutionProjection:()=>kernel.getExecutionProjection(f.root,f.workflow.id),getGreenfieldNavigation:()=>nav.get(f.root,f.workflow.id)}};
   try {
    const props=WorkCardImplementWorkspace({workflowId:f.workflow.id,workItemId:id,onNext(){}}).props;
    assert.equal(props.context.canExecute,true);assert.equal(props.modelSelection.canRun,true);
@@ -734,10 +734,16 @@ test('Greenfield fresh source-backed Implement and Repair start from read-only r
    const button=nodes(tree).find(n=>n.type==='button'&&n.props.className==='apply-button codex-command');assert.equal(button.props.disabled,false);button.props.onClick();
    const running=await started;assert.equal(running.state,'running',running.failureReason);await new Promise(setImmediate);
   } finally {Object.assign(React,original);global.window=old;}
+  if(failRepair&&executions.at(-1)?.prompt.includes('Exact repair evidence')){
+   const current=await f.store.getEntity(f.projectId,id);
+   await assert.rejects(require('../../dist/main/workCardPlanning/structuredWorkItemPlanningService.js').createStructuredWorkItemPlanningService().review(f.root,f.workflow.id,id,{expectedRecordVersion:current.recordVersion,outcome:'revision_requested',notes:'Cannot revise a running attempt'}),/live implementation attempt/);
+   await assert.rejects(kernel.acceptWorkItemExecutionPlan(f.root,{workflowId:f.workflow.id,workItemId:id,expectedVersion:current.recordVersion,plan:{implementationBoundaries:['Do not revise live execution'],affectedPaths:[],proofIntent:['Inspect']} }),/planned\/ready|live implementation/);
+   releaseFailure();
+  }
   let completed;for(let i=0;i<300;i++){completed=await service.getStatus(f.root,selector);if(completed.state!=='running')break;await new Promise(resolve=>setTimeout(resolve,20));}
-  assert.equal(completed.state,'completed',completed.failureReason);assert.equal(preparations,expectedPreparations+1);
-  const attempts=(await f.store.listEntities(f.projectId,'ImplementationAttempt')).filter(a=>a.body.workItemId===id);assert.equal(attempts.length,1);
-  const attempt=attempts[0],implementation=await f.store.getEntity(f.projectId,attempt.body.implementationRecordId);
+  assert.equal(completed.state,failRepair&&executions.at(-1).prompt.includes('Exact repair evidence')?'failed':'completed',completed.failureReason);assert.equal(preparations,expectedPreparations+1);
+  const attempts=(await f.store.listEntities(f.projectId,'ImplementationAttempt')).filter(a=>a.body.workItemId===id);assert.equal(attempts.length,rerun?2:1);
+  const attempt=(await kernel.getImplementationAttempt(f.root,f.workflow.id,id)).attempt,implementation=await f.store.getEntity(f.projectId,attempt.body.implementationRecordId);
   assert.equal(implementation.body.executionRef,attempt.id);assert.equal(implementation.body.workItemId,id);assert.ok(executions.at(-1).prompt.includes(id));
   return {attempt,implementation,completed};
  }
@@ -761,10 +767,58 @@ test('Greenfield fresh source-backed Implement and Repair start from read-only r
  const decision=await f.state.reviewWorkItemValidationCycle(f.projectId,f.workflow.id,item.id,{cycleId:cycle.id,expectedRecordVersion:cycle.recordVersion,outcome:'RequestRepair',repairDefectText:'Add approved repair evidence'});
  const {repair}=await kernel.createWorkflowRepair(f.root,f.workflow.id,item.id,decision.id);
  assert.equal((await nav.get(f.root,f.workflow.id)).currentWorkspace,'work-card-repair');
- await require('../../dist/main/workflow/workflowCandidateIngressService.js').createWorkflowCandidateIngressService().submit(f.root,{workflowId:f.workflow.id,stage:'work-item-planning',scopeEntityId:repair.id,candidateJson:JSON.stringify({implementationBoundaries:['Exact repair evidence'],affectedPaths:['repair.txt'],proofIntent:['Check approved repair file']})});
+ await require('../../dist/main/workflow/workflowCandidateIngressService.js').createWorkflowCandidateIngressService().submit(f.root,{workflowId:f.workflow.id,stage:'work-item-planning',scopeEntityId:repair.id,candidateJson:JSON.stringify({implementationBoundaries:['Exact repair evidence; preserve file if already correct'],affectedPaths:failedRevision?['package.json']:['repair.txt'],proofIntent:['Inspect correct file; downstream champcity-source-integrity belongs to application integration']})});
  assert.equal((await service.getStatus(f.root,{ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:repair.id})).state,'unavailable','Unapproved Repair planning blocks Start');
  await f.state.recordWorkItemPlanningReview(f.projectId,f.workflow.id,repair.id,{expectedRecordVersion:(await f.store.getEntity(f.projectId,repair.id)).recordVersion,outcome:'approved'});
  const current=await nav.get(f.root,f.workflow.id);assert.equal(current.currentWorkspace,'work-card-building-review');assert.equal(current.currentWorkItemId,repair.id);
+ if(failedRevision){
+  const failed=await clickImplement(repair.id,1);assert.equal(failed.implementation.body.outcome,'partial');assert.equal((await f.store.getEntity(f.projectId,repair.id)).body.workState,'ready');
+  assert.equal((await nav.get(f.root,f.workflow.id)).currentWorkspace,'work-card-building-review');assert.equal((await f.store.listEntities(f.projectId,'SourceCheckpoint')).length,0);
+  const packetPath=path.join(f.root,'.champcity','runtime','work-item-attempts',failed.attempt.id+'.json'),packetBytes=fs.readFileSync(packetPath),attemptBytes=JSON.stringify(await f.store.getEntity(f.projectId,failed.attempt.id)),resultBytes=JSON.stringify(failed.implementation);
+  const planning=require('../../dist/main/workCardPlanning/structuredWorkItemPlanningService.js').createStructuredWorkItemPlanningService();
+  const git=(...args)=>require('node:child_process').execFileSync('git',args,{cwd:executions.at(-1).options.workingDirectory,encoding:'utf8'}).trim();
+  const cleanHead=git('rev-parse','HEAD');assert.equal(cleanHead,revision);assert.equal(git('status','--porcelain'),'');
+  let exact=await planning.get(f.root,f.workflow.id,repair.id);assert.equal(exact.revisionEligibility.eligible,true);
+  const input={expectedRecordVersion:exact.workItem.recordVersion,outcome:'revision_requested',notes:'File already conforms; preserve it with an approved no-mutation contract'};
+  const before=(await f.store.listStateChanges(f.projectId)).length;await nav.get(f.root,f.workflow.id);await planning.get(f.root,f.workflow.id,repair.id);assert.equal((await f.store.listStateChanges(f.projectId)).length,before);
+  await assert.rejects(planning.review(f.root,f.workflow.id,repair.id,{...input,expectedRecordVersion:input.expectedRecordVersion-1}),/stale/);
+  const outside=path.join(executions.at(-1).options.workingDirectory,'unapproved.txt');fs.writeFileSync(outside,'Synthetic dirty checkout');
+  assert.equal((await planning.get(f.root,f.workflow.id,repair.id)).revisionEligibility.eligible,false);
+  await assert.rejects(planning.review(f.root,f.workflow.id,repair.id,input),/restored clean/);
+  await assert.rejects(planning.save(f.root,f.workflow.id,repair.id,JSON.stringify({workflowId:f.workflow.id,workItemId:repair.id,expectedVersion:input.expectedRecordVersion,implementationBoundaries:['Exact repair evidence'],affectedPaths:[],proofIntent:['Inspect conforming source']})),/restored clean/);fs.unlinkSync(outside);
+  // Drive the actual failed SQL projection through the existing renderer and typed preload-shaped API.
+  const React=require('react'),{loadRendererSourceModule:load}=require('../renderer/renderer-source-loader.cjs');
+  const {WorkCardImplementWorkspace}=load('src/renderer/app/WorkCardImplementWorkspace.tsx');
+  const {renderToStaticMarkup}=require('react-dom/server');
+  const values=[exact,await kernel.getImplementationAttempt(f.root,f.workflow.id,repair.id),failed.completed,false,'',runtime.manager.getStatus(),null,false,'',item.id,await nav.get(f.root,f.workflow.id),failed.implementation,'',''],refs=[];
+  const original={useState:React.useState,useEffect:React.useEffect,useRef:React.useRef},old=global.window;
+  let index=0,refIndex=0,reconciled;
+  React.useState=initial=>{const slot=index++;return [slot in values?values[slot]:initial,value=>values[slot]=typeof value==='function'?value(values[slot]):value];};React.useEffect=()=>{};React.useRef=initial=>refs[refIndex++]??(refs[refIndex-1]={current:initial});
+  global.window={champcity:{getStructuredWorkItemPlanning:()=>planning.get(f.root,f.workflow.id,repair.id),getImplementationAttempt:()=>kernel.getImplementationAttempt(f.root,f.workflow.id,repair.id),getWorkflowWorkItemCodexExecutionStatus:()=>service.getStatus(f.root,{ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:repair.id}),getWorkflowExecutionProjection:()=>kernel.getExecutionProjection(f.root,f.workflow.id),getGreenfieldNavigation:()=>nav.get(f.root,f.workflow.id),reviewStructuredWorkItemPlanning:(workflowId,workItemId,decision)=>planning.review(f.root,workflowId,workItemId,decision)}};
+  const reconcile=async()=>reconciled=await nav.get(f.root,f.workflow.id);
+  const draw=()=>{index=refIndex=0;return WorkCardImplementWorkspace({workflowId:f.workflow.id,workItemId:repair.id,onNext:reconcile,onRefreshNavigation:reconcile}).props;};
+  const nodes=n=>!n||typeof n!=='object'?[]:[n,...React.Children.toArray(n.props?.children).flatMap(nodes)];
+  const button=(p,label)=>nodes(p.navigation).find(n=>n.type==='button'&&n.props.children===label);
+  const settle=async()=>{for(let i=0;i<300&&values[3];i++)await new Promise(resolve=>setTimeout(resolve,10));assert.equal(values[3],false);assert.equal(values[4],'');};
+  try{
+   let surface=draw();assert.equal(button(surface,'Continue to Review & Validation').props.disabled,true);assert.match(renderToStaticMarkup(surface.navigation),/latest Implement result is partial/);assert.equal(surface.codexExecution.checkpoint.status,'blocked');
+   const readsBefore=(await f.store.listStateChanges(f.projectId)).length;button(surface,'Refresh').props.onClick();await settle();surface=draw();assert.match(surface.feedback,/refreshed/);assert.equal(reconciled.currentWorkspace,'work-card-building-review');assert.equal((await f.store.listStateChanges(f.projectId)).length,readsBefore);
+   nodes(surface.navigation).find(n=>n.type==='textarea').props.onChange({target:{value:input.notes}});surface=draw();button(surface,'Request Work Card Revision').props.onClick();await settle();assert.equal(reconciled.currentWorkspace,'work-card-repair');
+  }finally{Object.assign(React,original);global.window=old;}
+  const canonical=await nav.get(f.root,f.workflow.id);assert.equal(canonical.currentWorkspace,'work-card-repair');assert.equal(canonical.currentWorkItemId,repair.id);assert.equal(canonical.currentRepairId,repair.id);
+  await require('../../dist/main/workflow/workflowCandidateIngressService.js').createWorkflowCandidateIngressService().submit(f.root,{workflowId:f.workflow.id,stage:'work-item-planning',scopeEntityId:repair.id,candidateJson:JSON.stringify({implementationBoundaries:['Exact repair evidence; preserve file if already correct'],affectedPaths:[],proofIntent:['Inspect correct source; application-owned downstream integration proof remains outstanding']})});
+  assert.equal((await nav.get(f.root,f.workflow.id)).currentWorkspace,'work-card-repair');
+  assert.equal((await service.start(f.root,{ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:repair.id},selection)).state,'unavailable','replacement still requires Operator approval');
+  exact=await planning.get(f.root,f.workflow.id,repair.id);await planning.review(f.root,f.workflow.id,repair.id,{expectedRecordVersion:exact.workItem.recordVersion,outcome:'approved',notes:'Approve exact inspection contract'});
+  failRepair=false;const revised=await clickImplement(repair.id,2,true);assert.notEqual(revised.attempt.id,failed.attempt.id);assert.equal(revised.implementation.body.outcome,'implemented');assert.equal(revised.completed.checkpoint.status,'not-required');assert.equal(executions.at(-1).options.readOnly,true);
+  assert.match(executions.at(-1).prompt,/"sourceMutation": "not-required"/);assert.equal(git('rev-parse','HEAD'),cleanHead);assert.equal(git('status','--porcelain'),'');
+  assert.equal((await nav.get(f.root,f.workflow.id)).currentWorkspace,'work-card-report-review');assert.equal((await f.store.listEntities(f.projectId,'SourceCheckpoint')).length,0);
+  assert.equal(JSON.stringify(await f.store.getEntity(f.projectId,failed.attempt.id)),attemptBytes);assert.equal(JSON.stringify(await f.store.getEntity(f.projectId,failed.implementation.id)),resultBytes);assert.deepEqual(fs.readFileSync(packetPath),packetBytes);
+  assert.equal((await kernel.createTesterWorkItemExecutionContract(f.root,f.workflow.id,repair.id,{sourceMutation:'not-required',affectedPaths:[],proofIntent:['Independent exact assessment']})).sourceRevisionId,cleanHead);
+  await tester.createTesterResult(f.projectId,f.workflow.id,repair.id,revised.implementation.id,{sourceMode:'source-backed',implementerRevisionId:cleanHead,recommendation:'no-permanent-test-required',affectedCapabilityIds:[],permanentTestPaths:[],determinationEvidence:['Independent unchanged-source inspection'],unknowns:[],rationale:'Conforming source preserved'});
+  await assert.rejects(planning.review(f.root,f.workflow.id,repair.id,{expectedRecordVersion:(await f.store.getEntity(f.projectId,repair.id)).recordVersion,outcome:'revision_requested',notes:'Successful attempts cannot replan'}),/planned\/ready|successful|unavailable/);
+  return;
+ }
  const repaired=await clickImplement(repair.id,1);assert.equal(repaired.completed.checkpoint.status,'committed');assert.notEqual(executions[1].options.readOnly,true);assert.ok(executions[1].options.writableRoots.includes(executions[1].options.workingDirectory));
  assert.deepEqual((await kernel.getExecutionProjection(f.root,f.workflow.id)).items.find(i=>i.record.id===repair.id).record.body.affectedPaths,['repair.txt']);
  assert.equal((await f.store.listEntities(f.projectId,'SourceCheckpoint')).length,1);
