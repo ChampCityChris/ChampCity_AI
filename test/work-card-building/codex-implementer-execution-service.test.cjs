@@ -76,6 +76,7 @@ async function waitForSelectorState(service, root, selector, expectedState, atte
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const status = await service.getStatus(root, selector);
     if (status.state === expectedState) return status;
+    if (!["ready", "running"].includes(status.state)) assert.equal(status.state, expectedState, status.failureReason);
     await new Promise(resolve => setTimeout(resolve, 10));
   }
   const status = await service.getStatus(root, selector);
@@ -458,6 +459,7 @@ test("exact source-backed and source-neutral WorkItems use the bounded Tester li
   assert.equal(restoreFailureStart.state, "running");
   const restoreFailure = await waitForSelectorState(service, root, { ownerKind: "workflow-work-item", workflowId: created.workflow.id, workItemId: unsafeRestoreItem.id }, "failed", 300);
   assert.equal(restoreFailure.checkpoint.status, "blocked");
+  assert.equal(restoreFailure.canRunAgain, false, "A failed source restore cannot use semantic blocked retry.");
   assert.match(restoreFailure.checkpoint.message, /recovery|restore|outside/i);
   assert.equal((await state.getRecord(project.project.id, unsafeRestoreItem.id)).body.workState, "blocked");
   assert.equal(checkoutRegistrations, 3, "Only actual Runs materialize source; durable report/status reads do not prepare another checkout");
@@ -485,10 +487,10 @@ test("source-backed no-mutation WorkItems complete, recover unchanged attempts, 
  const state=createProjectStateService(store,{principalId:'operator',principalType:'human',role:'Operator'});
  t.after(()=>{store.close();fs.rmSync(root,{recursive:true,force:true});});
  const workflow=(await state.createSubstantiveWorkflow(projectId,{workflowType:'feature-capability',title:'Read source',entryWorkspace:'feature-intake',sourceSeed:{repositoryId:'repo',integrationTargetSourceLineId:'dev',baseRevisionId:revision}})).workflow;
- const plan=await state.acceptWorkflowPlanningGraph(projectId,{workflowId:workflow.id,topology:'direct',solution:{title:'Read source',objective:'Complete without edits',scopeIn:[],scopeOut:[],constraints:[],assumptions:[],risks:[]},solutionCriteria:[],phases:[],workItems:['fresh','recovered','mutation-required','unexpected','unreported','missing-telemetry','incomplete-telemetry','semantic-partial','semantic-failed','cancelled'].map(key=>({key,kind:'feature',title:key,objective:'Assess source context',dependencyKeys:[],criteria:[]}))});
+ const plan=await state.acceptWorkflowPlanningGraph(projectId,{workflowId:workflow.id,topology:'direct',solution:{title:'Read source',objective:'Complete without edits',scopeIn:[],scopeOut:[],constraints:[],assumptions:[],risks:[]},solutionCriteria:[],phases:[],workItems:['fresh','recovered','mutation-allowed','unexpected','unreported','missing-telemetry','incomplete-telemetry','semantic-partial','semantic-failed','cancelled','blocked-retry','outside-allowed','transient-outside'].map(key=>({key,kind:'feature',title:key,objective:'Assess source context',dependencyKeys:[],criteria:[]}))});
  const kernel=createWorkflowExecutionApplicationService();
- for(const item of plan.directWorkItems)await kernel.acceptWorkItemExecutionPlan(root,{workflowId:workflow.id,workItemId:item.id,expectedVersion:item.recordVersion,plan:{implementationBoundaries:['Exact approved scope'],affectedPaths:['mutation-required','missing-telemetry','incomplete-telemetry'].includes(item.body.title)?['feature.txt']:[],proofIntent:['Assess exact source context']}});
- const runtime=runtimeFixture();await runtime.ready;const captures=[];let cancelRelease;
+ for(const item of plan.directWorkItems)await kernel.acceptWorkItemExecutionPlan(root,{workflowId:workflow.id,workItemId:item.id,expectedVersion:item.recordVersion,plan:{implementationBoundaries:['Exact approved scope'],affectedPaths:['mutation-allowed','missing-telemetry','incomplete-telemetry','blocked-retry','outside-allowed','transient-outside'].includes(item.body.title)?['feature.txt']:[],proofIntent:['Assess exact source context']}});
+ const runtime=runtimeFixture();await runtime.ready;const captures=[];let cancelRelease;let retryRuns=0;
  const factory=async()=>({startThread(options){captures.push(options);return {id:'read-thread',async interrupt(){cancelRelease?.();},async runStreamed(prompt){
   assert.match(prompt,/source-backed/);
   assert.match(prompt,/proofIntent may describe downstream Tester, Validator, or integration proof/);
@@ -497,16 +499,20 @@ test("source-backed no-mutation WorkItems complete, recover unchanged attempts, 
   assert.match(prompt,/Do not treat that absence alone as a blocker/);
   assert.match(prompt,/Never claim a check passed without running it/);
   assert.match(prompt,/Report outstanding downstream proof truthfully in residualRisks/);
-  assert.match(prompt,/required means a qualifying attributable source change and application-owned checkpoint are necessary/);
-  assert.match(prompt,/not-required means zero unauthorized changes and checkpoint-not-required/);
+  assert.match(prompt,/affectedPaths are the maximum approved mutation scope/);assert.match(prompt,/Zero source changes are a valid implemented result/);assert.match(prompt,/Never fabricate edits or no-op commits/);
+  assert.match(prompt,/sourceMutation=forbidden requires read-only source/);
   const unexpected=prompt.includes('"objective": "Assess source context"')&&prompt.includes('"workItemId": "'+plan.directWorkItems.find(i=>i.body.title==='unexpected').id+'"');
   const unreported=prompt.includes('"workItemId": "'+plan.directWorkItems.find(i=>i.body.title==='unreported').id+'"');
   const telemetry=['missing-telemetry','incomplete-telemetry'].find(title=>prompt.includes('"workItemId": "'+plan.directWorkItems.find(i=>i.body.title===title).id+'"'));
+  const blockedRetry=prompt.includes(plan.directWorkItems.find(i=>i.body.title==='blocked-retry').id);
+  const outside=['outside-allowed','transient-outside'].find(title=>prompt.includes(plan.directWorkItems.find(i=>i.body.title===title).id));
+  if(outside)fs.writeFileSync(path.join(options.workingDirectory,'other.txt'),'unauthorized');
+  if(outside==='transient-outside')fs.unlinkSync(path.join(options.workingDirectory,'other.txt'));
   const semantic=['partial','failed'].find(outcome=>prompt.includes('"workItemId": "'+plan.directWorkItems.find(i=>i.body.title==='semantic-'+outcome).id+'"'));
   if(prompt.includes('"workItemId": "'+plan.directWorkItems.find(i=>i.body.title==='cancelled').id+'"'))return {events:(async function*(){await new Promise(resolve=>cancelRelease=resolve);})()};
   if(unexpected||unreported)fs.writeFileSync(path.join(options.workingDirectory,'feature.txt'),'unauthorized');
   if(telemetry)fs.writeFileSync(path.join(options.workingDirectory,'feature.txt'),telemetry);
-  return {events:(async function*(){if(unexpected)yield {type:'item.completed',item:{type:'file_change',changes:[{path:'feature.txt'}],status:'completed'}};if(telemetry==='incomplete-telemetry')yield {type:'item.completed',item:{type:'file_change',changes:[],status:'completed'}};yield {type:'item.completed',item:{type:'agent_message',text:JSON.stringify({summary:'Assessed context',deviations:[],blockers:[],residualRisks:[],outcome:semantic??'implemented'})}};yield {type:'turn.completed'};})()};
+  return {events:(async function*(){if(outside==='transient-outside')yield {type:'item.completed',item:{type:'file_change',changes:[{path:'other.txt'}],status:'completed'}};if(unexpected)yield {type:'item.completed',item:{type:'file_change',changes:[{path:'feature.txt'}],status:'completed'}};if(telemetry==='incomplete-telemetry')yield {type:'item.completed',item:{type:'file_change',changes:[],status:'completed'}};yield {type:'item.completed',item:{type:'agent_message',text:JSON.stringify({summary:'Assessed context',deviations:[],blockers:[],residualRisks:[],outcome:blockedRetry&&retryRuns++===0?'blocked':semantic??'implemented'})}};yield {type:'turn.completed'};})()};
  }};}});
  const service=new CodexImplementerExecutionService(factory,undefined,undefined,undefined,runtime.manager);
  service.configureSourceCheckoutProjection(async()=>({workspaceId:'no-mutation',projection:{registerRepositoryCheckout:async(_id,checkout)=>({...checkout,availability:'available',validationError:null})}}));
@@ -541,8 +547,8 @@ test("source-backed no-mutation WorkItems complete, recover unchanged attempts, 
  assert.equal((await service.start(root,selector,selection)).state,'running');const completed=await waitForSelectorState(service,root,selector,'completed',300);
  assert.equal(completed.checkpoint.status,'not-required');assert.equal(completed.failureReason,null);assert.equal(completed.sourceMode,'source-backed');
  assert.equal(captures[0].readOnly,true);assert.deepEqual(captures[0].writableRoots,[]);
- const contract=await kernel.createTesterWorkItemExecutionContract(root,workflow.id,fresh.id,{sourceMutation:'not-required',affectedPaths:[],proofIntent:['Assess']});
- assert.equal(contract.sourceRevisionId,revision);assert.equal(contract.sourceMutation,'not-required');
+ const contract=await kernel.createTesterWorkItemExecutionContract(root,workflow.id,fresh.id,{sourceMutation:'forbidden',affectedPaths:[],proofIntent:['Assess']});
+ assert.equal(contract.sourceRevisionId,revision);assert.equal(contract.sourceMutation,'forbidden');
  const freshImpl=(await state.getImplementationAttempts(projectId,fresh.id)).at(-1);
  const projection=await kernel.getCheckpointRecoveryProjection(root,workflow.id,fresh.id);assert.equal(projection.implementation.state,'not-required');assert.equal(projection.implementation.retryable,false);assert.equal(projection.implementation.reason,null);
  assert.equal((await store.listEntities(projectId,'SourceCheckpoint')).length,0);
@@ -595,6 +601,7 @@ test("source-backed no-mutation WorkItems complete, recover unchanged attempts, 
  const freshCurrent=await state.getRecord(projectId,fresh.id);await kernel.completeWorkItem(root,workflow.id,fresh.id,freshCurrent.recordVersion);assert.equal((await state.getRecord(projectId,fresh.id)).body.workState,'closed');
  const recovered=plan.directWorkItems.find(i=>i.body.title==='recovered');const reserved=await kernel.prepareImplementationAttempt(root,workflow.id,recovered.id);await kernel.beginWorkItemAttempt(root,workflow.id,recovered.id,reserved.body.workItemVersion,reserved.id);
  const record=await kernel.finishWorkItemAttempt(root,workflow.id,recovered.id,reserved.id,{summary:'Existing semantic success',deviations:[],blockers:[],residualRisks:[],outcome:'implemented'});const before=record;
+ fs.writeFileSync(path.join(root,'.champcity','runtime','work-item-attempts',reserved.id+'.json'),JSON.stringify({schemaVersion:1,projectId,workflowId:workflow.id,workItemId:recovered.id,executionRef:reserved.id,contractDigest:reserved.body.contractDigest,result:{summary:record.body.summary,deviations:[],blockers:[],residualRisks:[],outcome:'implemented'}}));
  const reopening=new CodexImplementerExecutionService(factory,undefined,undefined,undefined,runtime.manager);
  assert.equal((await reopening.getStatus(root,{ownerKind:'workflow-work-item',workflowId:workflow.id,workItemId:recovered.id})).checkpoint.status,'not-required');
  assert.deepEqual(await state.getRecord(projectId,record.id),before);assert.equal((await state.getImplementationAttempt(projectId,workflow.id,recovered.id)).id,reserved.id);
@@ -605,13 +612,28 @@ test("source-backed no-mutation WorkItems complete, recover unchanged attempts, 
  assert.equal((await kernel.getCheckpointRecoveryProjection(root,workflow.id,recovered.id)).implementation.state,'not-required');
  assert.equal((await kernel.getCheckpointRecoveryProjection(root,workflow.id,recovered.id)).tester.state,'committed');
  const candidate=proof.candidateRevisionId;
- const mutation=plan.directWorkItems.find(i=>i.body.title==='mutation-required'),mutSelector={ownerKind:'workflow-work-item',workflowId:workflow.id,workItemId:mutation.id};
- const mutContract=await kernel.createWorkItemExecutionContract(root,workflow.id,mutation.id,{sourceMutation:'not-required',affectedPaths:[],proofIntent:['Caller cannot remove source authority']});assert.equal(mutContract.sourceMutation,'required');assert.deepEqual(mutContract.affectedPaths,['feature.txt']);
- await service.start(root,mutSelector,selection);const failed=await waitForSelectorState(service,root,mutSelector,'failed',300);assert.equal(failed.checkpoint.status,'blocked');assert.match(failed.failureReason,/No attributable source changes/);
- const mutImpl=(await state.getImplementationAttempts(projectId,mutation.id)).at(-1);assert.equal((await tester.getStatus(root,{workflowId:workflow.id,workItemId:mutation.id,implementationRecordId:mutImpl.id})).state,'unavailable');
- const mutRecovery=await kernel.getCheckpointRecoveryProjection(root,workflow.id,mutation.id);assert.equal(mutRecovery.implementation.state,'pending');assert.equal(mutRecovery.implementation.retryable,false);
- const pending=await restart.getStatus(root,mutSelector);for(const key of ['state','lastRunState','checkpoint','canRunAgain','retryBlocker','failureReason'])assert.deepEqual(pending[key],failed[key],key+': pending recovery restart parity');
- for(const title of ['unexpected','unreported']) {const item=plan.directWorkItems.find(i=>i.body.title===title),sel={ownerKind:'workflow-work-item',workflowId:workflow.id,workItemId:item.id};await service.start(root,sel,selection);const rejected=await waitForSelectorState(service,root,sel,'failed',300);assert.equal(rejected.checkpoint.status,'not-required');assert.equal((await state.getImplementationAttempts(projectId,item.id)).at(-1).body.outcome,'failed');const reopened=await restart.getStatus(root,sel);for(const key of ['state','lastRunState','checkpoint','failureReason','canRunAgain','retryBlocker'])assert.deepEqual(reopened[key],rejected[key],key+': scope-rejection restart parity');assert.equal(fs.readFileSync(path.join(captures.at(-1).workingDirectory,'feature.txt'),'utf8'),'baseline');}
+ const mutation=plan.directWorkItems.find(i=>i.body.title==='mutation-allowed'),mutSelector={ownerKind:'workflow-work-item',workflowId:workflow.id,workItemId:mutation.id};
+ const mutContract=await kernel.createWorkItemExecutionContract(root,workflow.id,mutation.id,{sourceMutation:'forbidden',affectedPaths:[],proofIntent:['Caller cannot remove source authority']});assert.equal(mutContract.sourceMutation,'allowed');assert.deepEqual(mutContract.affectedPaths,['feature.txt']);
+ await service.start(root,mutSelector,selection);const unchanged=await waitForSelectorState(service,root,mutSelector,'completed',300);assert.equal(unchanged.checkpoint.status,'not-required');assert.equal(unchanged.failureReason,null);
+ assert.notEqual(captures.at(-1).readOnly,true);assert.ok(captures.at(-1).writableRoots.length);assert.equal(checkoutGit('rev-parse','HEAD'),candidate);assert.equal(checkoutGit('status','--porcelain'),'');
+ const mutImpl=(await state.getImplementationAttempts(projectId,mutation.id)).at(-1);assert.equal(mutImpl.body.outcome,'implemented');assert.equal((await store.getEntity(projectId,mutation.id)).body.workState,'validation_pending');
+ const mutRecovery=await kernel.getCheckpointRecoveryProjection(root,workflow.id,mutation.id);assert.equal(mutRecovery.implementation.state,'not-required');assert.equal(mutRecovery.implementation.retryable,false);
+ const pending=await restart.getStatus(root,mutSelector);for(const key of ['state','lastRunState','checkpoint','canRunAgain','retryBlocker','failureReason'])assert.deepEqual(pending[key],unchanged[key],key+': optional mutation restart parity');
+ const mutationPacketPath=path.join(root,'.champcity','runtime','work-item-attempts',mutImpl.body.executionRef+'.json'),mutationPacketBytes=fs.readFileSync(mutationPacketPath);
+ for(const corrupt of [packet=>packet.executionRef='peer',packet=>packet.sourceCheckpointAttempt.attributablePaths=['other.txt'],packet=>packet.sourceCheckpointAttempt.attributionFailure='Unprovable transient change',packet=>packet.sourceCheckpointAttempt.expectedRevisionId='f'.repeat(40)]){
+  const packet=JSON.parse(mutationPacketBytes);corrupt(packet);fs.writeFileSync(mutationPacketPath,JSON.stringify(packet));assert.notEqual((await kernel.getCheckpointRecoveryProjection(root,workflow.id,mutation.id)).implementation.state,'not-required');assert.notEqual((await restart.getStatus(root,mutSelector)).state,'completed');
+ }fs.unlinkSync(mutationPacketPath);assert.notEqual((await kernel.getCheckpointRecoveryProjection(root,workflow.id,mutation.id)).implementation.state,'not-required');fs.writeFileSync(mutationPacketPath,mutationPacketBytes);
+ const mutIds={workflowId:workflow.id,workItemId:mutation.id,implementationRecordId:mutImpl.id};assert.equal((await tester.getStatus(root,mutIds)).state,'ready');await tester.start(root,mutIds,selection);
+ let tested;for(const deadline=Date.now()+30000;Date.now()<deadline;){tested=await tester.getStatus(root,mutIds);if(tested.state!=='running')break;await new Promise(r=>setTimeout(r,50));}assert.equal(tested.state,'completed');assert.equal(tested.candidateRevisionId,candidate);
+ const retryItem=plan.directWorkItems.find(i=>i.body.title==='blocked-retry'),retrySelector={ownerKind:'workflow-work-item',workflowId:workflow.id,workItemId:retryItem.id};
+ await service.start(root,retrySelector,selection);const blocked=await waitForSelectorState(service,root,retrySelector,'completed',300);assert.equal(blocked.canRunAgain,true);
+ const oldResult=(await state.getImplementationAttempts(projectId,retryItem.id)).at(-1),oldAttempt=await store.getEntity(projectId,oldResult.body.executionRef),blockedItem=await store.getEntity(projectId,retryItem.id);
+ const beforeRetryReads=await store.listStateChanges(projectId);assert.equal((await restart.getStatus(root,retrySelector)).canRunAgain,true);assert.deepEqual(await store.listStateChanges(projectId),beforeRetryReads);assert.equal(blockedItem.body.workState,'blocked');
+ fs.writeFileSync(path.join(checkout,'other.txt'),'dirty');assert.equal((await restart.getStatus(root,retrySelector)).canRunAgain,false);assert.equal((await service.start(root,retrySelector,selection)).state,'unavailable');fs.unlinkSync(path.join(checkout,'other.txt'));
+ assert.equal((await service.start(root,retrySelector,selection)).state,'running');const retried=await waitForSelectorState(service,root,retrySelector,'completed',300);assert.equal(retried.checkpoint.status,'not-required');
+ const retryResults=await state.getImplementationAttempts(projectId,retryItem.id);assert.equal(retryResults.length,2);assert.equal(retryResults[1].body.outcome,'implemented');assert.deepEqual(await store.getEntity(projectId,oldResult.id),oldResult);assert.deepEqual(await store.getEntity(projectId,oldAttempt.id),oldAttempt);
+ const newAttempt=await store.getEntity(projectId,retryResults[1].body.executionRef);assert.notEqual(newAttempt.id,oldAttempt.id);assert.equal(newAttempt.body.workItemVersion,blockedItem.recordVersion);assert.equal((await store.getEntityVersion(projectId,retryItem.id,newAttempt.body.workItemVersion)).body.contractRevision,blockedItem.body.contractRevision);assert.equal((await store.getEntity(projectId,retryItem.id)).body.workState,'validation_pending');assert.equal(checkoutGit('rev-parse','HEAD'),candidate);
+ for(const title of ['unexpected','unreported','outside-allowed','transient-outside']) {const item=plan.directWorkItems.find(i=>i.body.title===title),sel={ownerKind:'workflow-work-item',workflowId:workflow.id,workItemId:item.id};await service.start(root,sel,selection);const rejected=await waitForSelectorState(service,root,sel,'failed',300);assert.equal(rejected.checkpoint.status,'not-required');assert.equal((await state.getImplementationAttempts(projectId,item.id)).at(-1).body.outcome,'failed');const reopened=await restart.getStatus(root,sel);for(const key of ['state','lastRunState','checkpoint','failureReason','canRunAgain','retryBlocker'])assert.deepEqual(reopened[key],rejected[key],key+': scope-rejection restart parity');assert.equal(fs.readFileSync(path.join(captures.at(-1).workingDirectory,'feature.txt'),'utf8'),'baseline');}
  assert.equal((await store.listEntities(projectId,'SourceCheckpoint')).length,1);assert.equal((await store.listEntities(projectId,'SourceCheckpoint'))[0].body.checkpointKind,'tester');const binding=(await store.listEntities(projectId,'SourceBinding')).find(b=>b.body.workflowId===workflow.id);assert.equal(binding.body.currentRevisionId,candidate);
  assert.equal((await kernel.getCheckpointRecoveryProjection(root,workflow.id,recovered.id)).implementation.state,'not-required');
  // Binding drift must invalidate the otherwise successful historical no-mutation attempt.

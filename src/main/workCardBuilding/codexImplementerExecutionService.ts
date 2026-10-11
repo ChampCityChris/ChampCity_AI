@@ -518,10 +518,10 @@ export class CodexImplementerExecutionService {
         const source = prepareSource ? (await kernel.getExecutionProjection(projectRoot, selector.workflowId)).source : projection.source;
         sourceBacked = await inspectExistingWorkflowSource(projectRoot, inspection.checkoutWorkflowId, source);
         contract = await kernel.createWorkItemExecutionContract(projectRoot, selector.workflowId, selector.workItemId,
-          { sourceMutation: "required", affectedPaths: [], proofIntent: ["Return semantic completion for the exact accepted WorkItem contract."] });
+          { sourceMutation: "allowed", affectedPaths: [], proofIntent: ["Return semantic completion for the exact accepted WorkItem contract."] });
         if (contract.sourceRevisionId !== sourceBacked.expectedRevisionId) throw Error("Read-only source contract revision changed during inspection.");
       }
-      if (sourceBacked && !contract.sourceRevisionId || !sourceBacked && contract.sourceRevisionId !== null || contract.sourceMutation === "required" && !sourceBacked)
+      if (sourceBacked && !contract.sourceRevisionId || !sourceBacked && contract.sourceRevisionId !== null || contract.sourceMutation === "allowed" && !sourceBacked)
         throw Error("Exact Codex WorkItem source contract is inconsistent with its Workflow source state.");
       return {
         ownerKind: "workflow-work-item", phaseId: contract.phase?.id ?? null, workCardId: contract.workItemId, workCardTitle: contract.objective,
@@ -541,11 +541,14 @@ export class CodexImplementerExecutionService {
       return unavailableFromPreflight(Error("Exact workflowId and workItemId are required; source mutation options are not accepted by this execution mode."));
     const active = this.exactSessionsByOwner.get(exactExecutionOwnerKey(workspaceRoot, selector.workflowId, selector.workItemId));
     if (active?.workflowWorkItem?.workflowId === selector.workflowId && active.workflowWorkItem.workItemId === selector.workItemId) {
+      if (active.state === "failed" && active.workflowWorkItem.resultOutcome === "blocked")
+        return modelFromSession(active, this.now(), { canRunAgain: false, retryBlocker: active.failureReason ?? "Source recovery requires inspection." });
+      if (active.state !== "running" && active.workflowWorkItem.resultOutcome === "blocked" && active.workflowWorkItem.executionRef)
+        return this.rehydrateWorkflowWorkItemStatus(workspaceRoot, selector, active.workflowWorkItem.executionRef);
       const recovery = await this.workflowExecutionServiceFactory().getCheckpointRecoveryProjection(workspaceRoot, selector.workflowId, selector.workItemId).catch(() => null);
-      if (active.state !== "running" && recovery?.implementation.implementationRecordId && recovery.implementation.state === "not-required" && active.workflowWorkItem.resultOutcome === "implemented" &&
-        active.workflowWorkItem.contract.sourceMutation === "not-required") {
+      if (active.state !== "running" && recovery?.implementation.implementationRecordId && recovery.implementation.state === "not-required" && active.workflowWorkItem.resultOutcome === "implemented") {
         active.state = "completed"; active.failureReason = null;
-        active.checkpoint = { status: "not-required", message: "Approved WorkItem requires no source mutation; the source revision is unchanged.", remote: "not-requested", receipts: [] };
+        active.checkpoint = { status: "not-required", message: "No source mutation occurred; the verified source revision is unchanged.", remote: "not-requested", receipts: [] };
       }
       return modelFromSession(active, this.now(), workflowRetryReadiness(active.state, active.workflowWorkItem.resultOutcome, recovery));
     }
@@ -615,8 +618,9 @@ export class CodexImplementerExecutionService {
         recovery.workflowId !== selector.workflowId || recovery.workItemId !== selector.workItemId || recovery.sourceMode !== attempt.body.sourceMode ||
         recovery.implementation.implementationRecordId !== result.id || recovery.implementation.checkpointId !== (checkpoint?.id ?? null))
         throw Error("Durable implementation recovery ownership is stale or ambiguous.");
-      const mutationRequired = historicalWorkItem.body.affectedPaths!.length > 0;
-      const historicalState = durableWorkflowTerminalState(result.body, attempt.body.sourceMode === "source-backed" && mutationRequired, checkpoint?.body.checkpointState === "committed");
+      const mutationAllowed = historicalWorkItem.body.affectedPaths!.length > 0;
+      const checkpointRequired = recovery.implementation.state !== "not-required";
+      const historicalState = durableWorkflowTerminalState(result.body, attempt.body.sourceMode === "source-backed" && checkpointRequired, checkpoint?.body.checkpointState === "committed");
       inspectionModel = { ...baseModel(projectRoot), lastRunState: historicalState, ...workflowRetryReadiness(historicalState, result.body.outcome, recovery),
         executionKind: "workflow-work-item-implementation", workflowId: selector.workflowId, workItemId: selector.workItemId,
         workItemVersion: attempt.body.workItemVersion, executionContractDigest: attempt.body.contractDigest, sourceMode: attempt.body.sourceMode,
@@ -629,7 +633,7 @@ export class CodexImplementerExecutionService {
           throw Error("Historical execution source binding identity changed.");
         if (checkpoint && checkpoint.body.sourceLineId !== source.sourceLineId) throw Error("Historical checkpoint source line changed.");
         if (checkpoint?.body.checkpointState === "committed") {
-          if (!mutationRequired || result.body.outcome !== "implemented") throw Error("Historical committed checkpoint conflicts with the reserved mutation contract/result.");
+          if (!mutationAllowed || result.body.outcome !== "implemented") throw Error("Historical committed checkpoint conflicts with the reserved mutation contract/result.");
           await verifyDurableCheckpointCommit(source.checkoutRoot, checkpoint);
         }
         const implementedRevision = checkpoint?.body.checkpointState === "committed" ? checkpoint.body.resultingRevisionId : attempt.body.sourceRevisionId;
@@ -641,11 +645,9 @@ export class CodexImplementerExecutionService {
           if (!evidence.testerCheckpoint || evidence.testerCheckpoint.body.sourceLineId !== source.sourceLineId) throw Error("Historical Tester source line changed.");
           await verifyDurableCheckpointCommit(source.checkoutRoot, evidence.testerCheckpoint);
         }
-        if (result.body.outcome === "implemented" && !mutationRequired && recovery.implementation.state !== "not-required")
+        if (result.body.outcome === "implemented" && !checkpoint && !recovery.implementation.retryable && recovery.implementation.state !== "not-required")
           throw Error("Historical unchanged-source implementation requires inspection.");
-        if (result.body.outcome === "implemented" && mutationRequired && recovery.implementation.state === "not-required")
-          throw Error("Historical mutation-required contract conflicts with the current checkpoint evidence.");
-      } else if (view.source.state !== "non-source" || mutationRequired || attempt.body.sourceRevisionId || checkpoint) {
+      } else if (view.source.state !== "non-source" || mutationAllowed || attempt.body.sourceRevisionId || checkpoint) {
         throw Error("Historical source-neutral execution identity changed.");
       }
       let state: CodexImplementerExecutionState = durableWorkflowTerminalState(result.body, false, false);
@@ -656,17 +658,30 @@ export class CodexImplementerExecutionService {
           presentation = { status: "committed", message: "Checkpoint committed.", checkpointId: checkpoint.id, commit: checkpoint.body.resultingRevisionId, remote: "not-requested", receipts: [] };
         } else if (result.body.outcome === "failed" && result.body.blockers.includes("Application rejected source changes outside the accepted Architect path scope; exact checkout restored.")) {
           presentation = { status: "not-required", message: "Scope-violating attempt was rejected and the exact checkout restored; no SourceCheckpoint was created.", remote: "not-requested", receipts: [] };
-        } else if (!mutationRequired) {
-          presentation = { status: "not-required", message: "Approved WorkItem requires no source mutation; the source revision is unchanged.", remote: "not-requested", receipts: [] };
+        } else if (!checkpointRequired) {
+          presentation = { status: "not-required", message: "No source mutation occurred; the verified source revision is unchanged.", remote: "not-requested", receipts: [] };
         } else {
           const message = result.body.outcome !== "implemented" ? "Implementation did not produce a successful validated result; source changes require inspection."
-            : !checkpoint && !recovery.implementation.retryable ? "No attributable source changes were reported; a structured implementation checkpoint cannot be created."
+            : !checkpoint && !recovery.implementation.retryable ? "Exact source outcome evidence is missing; inspect before checkpoint recovery."
             : recovery.implementation.reason ?? "Structured implementation checkpoint requires inspection.";
           presentation = { status: "blocked", message, ...(checkpoint ? { checkpointId: checkpoint.id } : {}), remote: "not-requested", receipts: [] };
           if (state === "completed") { state = "failed"; failureReason = message; }
         }
       }
-      return { ...baseModel(projectRoot), state, lastRunState: state, ...workflowRetryReadiness(state, result.body.outcome, recovery), failureReason,
+      let retry = workflowRetryReadiness(state, result.body.outcome, recovery);
+      if (result.body.outcome === "blocked") {
+        try {
+          if (view.items.find(item => item.record.id === selector.workItemId)?.record.body.workState === "blocked")
+            await kernel.assertWorkItemRetryEligible(projectRoot, selector.workflowId, selector.workItemId);
+          else {
+            const context = await this.resolveWorkflowWorkItemContext(projectRoot, selector);
+            if (context instanceof Error) throw context;
+          }
+          retry = { canRunAgain: true, retryBlocker: null };
+        }
+        catch (error) { retry = { canRunAgain: false, retryBlocker: error instanceof Error ? error.message : String(error) }; }
+      }
+      return { ...baseModel(projectRoot), state, lastRunState: state, ...retry, failureReason,
         checkpoint: presentation, executionKind: "workflow-work-item-implementation", workflowId: selector.workflowId, workItemId: selector.workItemId,
         workItemVersion: attempt.body.workItemVersion, executionContractDigest: attempt.body.contractDigest, phaseId: evidence.phaseId,
         workCardId: selector.workItemId, workCardTitle: historicalWorkItem.body.objective, sourceMode: attempt.body.sourceMode, reportUpdated: true };
@@ -744,7 +759,7 @@ export class CodexImplementerExecutionService {
         runtimeState: appServer.getRuntimeState?.() ?? null, pendingApproval: null, pendingUserInput: null, pendingMcpElicitation: null,
         failureReason: null, reportUpdated: false, reportSha256After: null, abortController: new AbortController(), threadAdapter: null,
         appServerAdapter: appServer, executionPromise: null, cancellationRequested: false,
-        checkpoint: exact.sourceBacked && exact.contract.sourceMutation === "required"
+        checkpoint: exact.sourceBacked && exact.contract.sourceMutation === "allowed"
           ? { status: "blocked", message: "Source-backed checkpoint is pending validated completion.", remote: "not-requested", receipts: [] }
           : { status: "not-required", message: "This WorkItem does not require source mutation or an implementation SourceCheckpoint.", remote: "not-requested", receipts: [] },
       };
@@ -767,9 +782,10 @@ export class CodexImplementerExecutionService {
     const exact = context.workflowWorkItem;
     if (!exact?.executionRef || !exact.evidencePacketPath || !exact.workerDirectory) throw Error("Exact WorkItem attempt evidence identity is incomplete.");
     const boundedAttributablePaths = exact.sourceBacked ? [...new Set(exact.sourceBacked.attributablePaths)].sort() : [];
-    const sourceCheckpointAttempt = exact.sourceBacked && result.outcome === "implemented" && boundedAttributablePaths.length > 0 && boundedAttributablePaths.length <= 256
+    const sourceCheckpointAttempt = exact.sourceBacked && boundedAttributablePaths.length <= 256
       ? { repositoryCheckoutId: exact.sourceBacked.repositoryCheckoutId, sourceLineId: exact.sourceBacked.sourceLineId,
-        expectedRevisionId: exact.sourceBacked.expectedRevisionId, attributablePaths: boundedAttributablePaths }
+        expectedRevisionId: exact.sourceBacked.expectedRevisionId, attributablePaths: boundedAttributablePaths,
+        ...(exact.sourceBacked.attributionFailure ? { attributionFailure: exact.sourceBacked.attributionFailure } : {}) }
       : undefined;
     const packet = { schemaVersion: 1, projectId: exact.contract.projectId, workflowId: exact.workflowId, workItemId: exact.workItemId,
       executionRef: exact.executionRef, contractDigest: exact.contract.digest, startedAt: new Date(startedAt).toISOString(), completedAt: new Date(this.now()).toISOString(),
@@ -976,8 +992,8 @@ export class CodexImplementerExecutionService {
         reasoningEffort: session.selection?.reasoningEffort,
         skipGitRepoCheck: true,
         ...threadOptionsFromCodexImplementerPolicy(session.executionPolicy),
-        ...(session.workflowWorkItem?.sourceBacked && session.workflowWorkItem.contract.sourceMutation === "not-required" ? { readOnly: true } : {}),
-        writableRoots: session.workflowWorkItem?.sourceBacked && session.workflowWorkItem.contract.sourceMutation === "not-required" ? [] : session.executionPolicy.sandboxMode === "workspace-write"
+        ...(session.workflowWorkItem?.sourceBacked && session.workflowWorkItem.contract.sourceMutation === "forbidden" ? { readOnly: true } : {}),
+        writableRoots: session.workflowWorkItem?.sourceBacked && session.workflowWorkItem.contract.sourceMutation === "forbidden" ? [] : session.executionPolicy.sandboxMode === "workspace-write"
           ? [session.workflowWorkItem?.workerDirectory ?? session.projectRoot]
           : undefined,
       });
@@ -1002,7 +1018,7 @@ export class CodexImplementerExecutionService {
           catch (error) {
             const message = messageForCodexFailure(error);
             appendTail(session.stderrTail, `File-change telemetry: ${message}`);
-            if (session.workflowWorkItem.contract.sourceMutation === "not-required" ||
+            if (session.workflowWorkItem.contract.sourceMutation === "forbidden" ||
               !["App Server file-change event omitted attributable path evidence.", "App Server file-change event contains an invalid path record."].includes(message))
               session.workflowWorkItem.sourceBacked.attributionFailure ??= message;
           }
@@ -1092,6 +1108,8 @@ export class CodexImplementerExecutionService {
               projection.source.repositoryCheckoutId !== sourceAttempt.repositoryCheckoutId || projection.source.workSourceLineId !== sourceAttempt.sourceLineId)
               throw Error("Reserved source revision or binding changed unexpectedly.");
             sourceAttempt.attributablePaths = paths;
+            if (!paths.length && (await runBoundedGit({cwd: sourceAttempt.checkoutRoot, args: ["status", "--porcelain", "--untracked-files=all"]})).stdout)
+              throw Error("Zero source delta requires an exact clean checkout.");
           } catch (error) { sourceAttempt.attributionFailure = messageForCodexFailure(error); }
         }
         const scopeViolated = Boolean(sourceAttempt?.attributionFailure || (sourceAttempt &&
@@ -1146,12 +1164,12 @@ export class CodexImplementerExecutionService {
             const source = session.workflowWorkItem.sourceBacked;
             if (scopeViolated && scopeRestored) {
               session.checkpoint = { status: "not-required", message: "Scope-violating attempt was rejected and the exact checkout restored; no SourceCheckpoint was created.", remote: "not-requested", receipts: [] };
-            } else if (!scopeViolated && session.workflowWorkItem.contract.sourceMutation === "not-required") {
-              session.checkpoint = { status: "not-required", message: "Approved WorkItem requires no source mutation; the source revision is unchanged.", remote: "not-requested", receipts: [] };
+            } else if (!scopeViolated && source.attributablePaths.length === 0) {
+              session.checkpoint = { status: "not-required", message: "No source mutation occurred; the verified source revision is unchanged.", remote: "not-requested", receipts: [] };
             } else if (result.outcome !== "implemented" || source.attributionFailure || source.attributablePaths.length === 0) {
               session.checkpoint = { status: "blocked", message: source.attributionFailure ?? (result.outcome !== "implemented"
                 ? "Implementation did not produce a successful validated result; source changes require inspection."
-                : "No attributable source changes were reported; a structured implementation checkpoint cannot be created."), remote: "not-requested", receipts: [] };
+                : "Exact source outcome evidence is missing; inspect before checkpoint recovery."), remote: "not-requested", receipts: [] };
               if (terminalState === "completed") {
                 terminalState = "failed";
                 session.failureReason = session.checkpoint.message;
@@ -1259,7 +1277,7 @@ Authority and identity:
 ${JSON.stringify(contract, null, 2)}
 
 Execution boundary:
-- Your working directory is the exact registered Workflow checkout at ${sourceCheckoutRoot}; ${contract.sourceMutation === "not-required" ? "use it only for read/context. Do not modify any source files; successful implemented completion with zero changes is valid and no implementation checkpoint is required." : "make only the accepted bounded source changes there, within scopeIn and outside scopeOut."}
+- Your working directory is the exact registered Workflow checkout at ${sourceCheckoutRoot}; ${contract.sourceMutation === "forbidden" ? "use it only for read/context. Do not modify any source files; successful implemented completion with zero changes is valid and no implementation checkpoint is required." : "make source changes only when necessary to complete the Work Card, within affectedPaths and scopeIn and outside scopeOut."}
 - Do not modify files outside that checkout, the Project container, or application-owned evidence. Do not use another repository or checkout.
 - Do not run Git commands or stage, commit, push, or otherwise mutate Git state. ChampCity captures App Server file-change evidence and performs the structured checkpoint after your result.
 - Do not edit generated output, dependencies, credentials, or application state. Do not claim checkpoint or permanent validation.
@@ -1268,7 +1286,7 @@ Execution boundary:
 - proofIntent may describe downstream Tester, Validator, or integration proof. Only implementation-local checks available within this exact WorkItem execution boundary belong to the Implementer.
 - Application-owned integration checks such as champcity-source-integrity are run later by ChampCity on registered isolated integration candidate source with application-supplied immutable context. They are not expected to be callable from the WorkItem checkout as npm scripts or shell commands. Do not treat that absence alone as a blocker to an otherwise successfully implemented, policy-compliant WorkItem.
 - Never claim a check passed without running it. Report outstanding downstream proof truthfully in residualRisks when appropriate; deferred proof does not turn a partial or failed semantic result into implemented.
-- The approved sourceMutation contract governs success: required means a qualifying attributable source change and application-owned checkpoint are necessary; not-required means zero unauthorized changes and checkpoint-not-required. Never fabricate file edits or a successful outcome to bypass this policy.
+- affectedPaths are the maximum approved mutation scope, not a command to change source. sourceMutation=allowed grants permission; sourceMutation=forbidden requires read-only source. Mutate only when necessary to complete the actual Work Card. Zero source changes are a valid implemented result when the Work Card is already satisfied; the application verifies unchanged source and marks its checkpoint not-required. Never fabricate edits or no-op commits. Actual authorized changes receive an application-owned checkpoint. Independent Tester/Validator proof remains downstream.
 - If the objective cannot be completed within this bounded source checkout, use partial, blocked, or failed and explain why in blockers.
 `;
   return `You are the Implementer for one exact ChampCity Workflow WorkItem.
@@ -1502,9 +1520,9 @@ async function verifyDurableCheckpointCommit(checkoutRoot: string, checkpoint: P
     !message.includes(`Checkpoint-Kind: ${checkpoint.body.checkpointKind}`)) throw Error("Committed checkpoint Git parent/receipt does not match durable evidence.");
 }
 
-function durableWorkflowTerminalState(result: EntityBodyMap["ImplementationRecord"], mutationRequired: boolean, committed: boolean): "completed" | "failed" | "cancelled" {
+function durableWorkflowTerminalState(result: EntityBodyMap["ImplementationRecord"], checkpointRequired: boolean, committed: boolean): "completed" | "failed" | "cancelled" {
   if (result.outcome === "abandoned" && result.summary === "Codex execution was cancelled.") return "cancelled";
-  if (mutationRequired && !committed || result.summary === "Codex execution did not produce a valid semantic completion." ||
+  if (checkpointRequired && !committed || result.summary === "Codex execution did not produce a valid semantic completion." ||
     result.summary === "Codex App Server could not start." || result.summary === "Source-neutral Codex setup failed." ||
     result.blockers.some(blocker => blocker.startsWith("Application rejected source changes outside the accepted Architect path scope") || blocker.startsWith("Out-of-scope source recovery"))) return "failed";
   // A valid semantic failed/partial/abandoned result can still be a completed Codex turn.

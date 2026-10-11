@@ -163,7 +163,8 @@ export interface WorkItemExecutionContract {
   implementationBoundaries: string[];
   affectedPaths: string[];
   proofIntent: string[];
-  sourceMutation: "required" | "not-required";
+  /** Implementer permission only. Actual validated delta determines checkpoint need. */
+  sourceMutation: "allowed" | "forbidden";
   sourceRevisionId: string | null;
 }
 

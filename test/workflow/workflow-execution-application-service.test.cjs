@@ -169,9 +169,9 @@ test("Feature and Issue use the same exact-Workflow projection and isolate concu
   const acceptedFirst = await kernel.acceptWorkItemExecutionPlan(env.root, { workflowId: feature.workflow.id, workItemId: featureFirst.id, expectedVersion: featureFirst.recordVersion,
     plan: { implementationBoundaries: ["Implement feature objective"], affectedPaths: [], proofIntent: ["Run focused feature proof"] } });
   const firstContract = await kernel.createWorkItemExecutionContract(env.root, feature.workflow.id, featureFirst.id,
-    { sourceMutation: "not-required", affectedPaths: ["ignored.ts"], proofIntent: ["ignored"] });
+    { sourceMutation: "forbidden", affectedPaths: ["ignored.ts"], proofIntent: ["ignored"] });
   const issueContract = await kernel.createWorkItemExecutionContract(env.root, issue.workflow.id, issueParent.id,
-    { sourceMutation: "not-required", affectedPaths: [], proofIntent: ["Run focused issue proof"] });
+    { sourceMutation: "forbidden", affectedPaths: [], proofIntent: ["Run focused issue proof"] });
   assert.equal(firstContract.workflowId, feature.workflow.id);
   assert.equal(firstContract.workItemId, featureFirst.id);
   assert.equal(firstContract.workItemVersion, acceptedFirst.recordVersion);
@@ -187,30 +187,30 @@ test("Feature and Issue use the same exact-Workflow projection and isolate concu
   const revisedPlan = await kernel.acceptWorkItemExecutionPlan(env.root, { workflowId: feature.workflow.id, workItemId: featureFirst.id, expectedVersion: acceptedFirst.recordVersion,
     plan: { implementationBoundaries: ["Implement feature objective", "Preserve exact Workflow scope"], affectedPaths: [], proofIntent: ["Run expanded focused feature proof"] } });
   const revisedContract = await kernel.createWorkItemExecutionContract(env.root, feature.workflow.id, featureFirst.id,
-    { sourceMutation: "not-required", affectedPaths: [], proofIntent: [] });
+    { sourceMutation: "forbidden", affectedPaths: [], proofIntent: [] });
   assert.equal(revisedPlan.recordVersion, acceptedFirst.recordVersion + 1);
   assert.notEqual(revisedContract.digest, firstContract.digest);
   const attempt = await beginApprovedFixtureAttempt(kernel, env.root, feature.workflow.id, featureFirst.id, revisedPlan.recordVersion, "tester-contract-execution");
   await kernel.finishWorkItemAttempt(env.root, feature.workflow.id, featureFirst.id, attempt.executionRef,
     { summary: "Implementation complete", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
   const testerContract = await kernel.createTesterWorkItemExecutionContract(env.root, feature.workflow.id, featureFirst.id,
-    { sourceMutation: "not-required", affectedPaths: ["src/feature.ts"], proofIntent: ["Assess permanent proof"] });
+    { sourceMutation: "forbidden", affectedPaths: ["src/feature.ts"], proofIntent: ["Assess permanent proof"] });
   assert.equal(testerContract.workItemId, featureFirst.id);
   assert.equal(testerContract.workItemVersion, (await env.state.getRecord(env.projectId, featureFirst.id)).recordVersion);
   await assert.rejects(kernel.createTesterWorkItemExecutionContract(env.root, feature.workflow.id,
     featurePlan.directWorkItems.find(item => item.body.title === "Second").id,
-    { sourceMutation: "not-required", affectedPaths: [], proofIntent: ["No implementation exists yet"] }), /not eligible/);
+    { sourceMutation: "forbidden", affectedPaths: [], proofIntent: ["No implementation exists yet"] }), /not eligible/);
   const laterImplementer = createProjectStateService(env.store, { principalId: "later-implementer", principalType: "agent", role: "Implementer" });
   await laterImplementer.recordImplementation(env.projectId, featureFirst.id,
     { summary: "Later attempt failed", deviations: [], blockers: ["execution stopped"], residualRisks: [], outcome: "failed", executionRef: "later-failed-attempt" });
   await assert.rejects(kernel.createTesterWorkItemExecutionContract(env.root, feature.workflow.id, featureFirst.id,
-    { sourceMutation: "not-required", affectedPaths: [], proofIntent: ["Latest implementation attempt failed"] }), /latest successful implementation/);
+    { sourceMutation: "forbidden", affectedPaths: [], proofIntent: ["Latest implementation attempt failed"] }), /latest successful implementation/);
   await assert.rejects(kernel.createWorkItemExecutionContract(env.root, feature.workflow.id, featureFirst.id,
-    { sourceMutation: "not-required", affectedPaths: [], proofIntent: ["Implementer path remains closed"] }), /not eligible/);
+    { sourceMutation: "forbidden", affectedPaths: [], proofIntent: ["Implementer path remains closed"] }), /not eligible/);
   assert.equal((await env.state.getRecord(env.projectId, featureFirst.id)).body.workState, "validation_pending");
   await assert.rejects(kernel.createWorkItemExecutionContract(env.root, feature.workflow.id,
     featurePlan.directWorkItems.find(item => item.body.title === "Second").id,
-    { sourceMutation: "not-required", affectedPaths: [], proofIntent: ["Must be ineligible"] }), /not eligible/);
+    { sourceMutation: "forbidden", affectedPaths: [], proofIntent: ["Must be ineligible"] }), /not eligible/);
 });
 
 test("phased readiness observes owning Phase and dependencies; source preparation remains lazy and bounded", async context => {
@@ -336,7 +336,7 @@ test("SQLite reopen restores exact ready, validation-pending, Tester, Validator,
   const item = plan.directWorkItems[0], criterion = plan.criteria.find(entry => entry.ownerId === item.id).record;
   const kernel = createWorkflowExecutionApplicationService();
   await assert.rejects(kernel.createWorkItemExecutionContract(env.root, created.workflow.id, item.id,
-    { sourceMutation: "not-required", affectedPaths: [], proofIntent: ["Must be rejected"] }), /Architect execution planning/);
+    { sourceMutation: "forbidden", affectedPaths: [], proofIntent: ["Must be rejected"] }), /Architect execution planning/);
   const acceptedExecutionPlan = await kernel.acceptWorkItemExecutionPlan(env.root, { workflowId: created.workflow.id, workItemId: item.id, expectedVersion: item.recordVersion,
     plan: { implementationBoundaries: ["Keep exact Workflow identity"], affectedPaths: [], proofIntent: ["Run focused recovery proof"] } });
   assert.equal(acceptedExecutionPlan.recordVersion, item.recordVersion + 1);
@@ -870,7 +870,7 @@ test("failed Phase visual Criterion creates a durable same-Phase Repair and requ
   await kernel.acceptWorkItemExecutionPlan(env.root, { workflowId: created.workflow.id, workItemId: repairRecord.id, expectedVersion: repairRecord.recordVersion,
     plan: { implementationBoundaries: ["Correct the exact Phase aggregate failure"], affectedPaths: [], proofIntent: ["Verify the failed Phase criterion is resolved"] } });
   const contract = await kernel.createWorkItemExecutionContract(env.root, created.workflow.id, phaseRepair.repair.id,
-    { sourceMutation: "not-required", affectedPaths: [], proofIntent: ["Verify the failed Phase criterion is resolved"] });
+    { sourceMutation: "forbidden", affectedPaths: [], proofIntent: ["Verify the failed Phase criterion is resolved"] });
   const repairAttempt = await beginApprovedFixtureAttempt(kernel, env.root, created.workflow.id, phaseRepair.repair.id, contract.workItemVersion, "phase-repair-attempt");
   const repairImplementation = await kernel.finishWorkItemAttempt(env.root, created.workflow.id, phaseRepair.repair.id, repairAttempt.executionRef,
     { summary: "Corrected the missing aggregate result", deviations: [], blockers: [], residualRisks: [], outcome: "implemented" });
@@ -964,7 +964,7 @@ test("canonical Repair executes through the shared exact contract and requeues i
   await kernel.acceptWorkItemExecutionPlan(env.root, { workflowId: created.workflow.id, workItemId: repair.id, expectedVersion: repairRecord.recordVersion,
     plan: { implementationBoundaries: ["Repair the exact reported defect"], affectedPaths: [], proofIntent: ["Verify the Repair objective"] } });
   const contract = await kernel.createWorkItemExecutionContract(env.root, created.workflow.id, repair.id,
-    { sourceMutation: "not-required", affectedPaths: [], proofIntent: ["Verify the Repair objective"] });
+    { sourceMutation: "forbidden", affectedPaths: [], proofIntent: ["Verify the Repair objective"] });
   assert.equal(contract.workItemId, repair.id);
   assert.equal(contract.workflowId, created.workflow.id);
   assert.equal(contract.criteria.length, 1);
@@ -1184,6 +1184,7 @@ test('semantic blocked contracts revise through the same typed owner and reject 
   const before=await env.store.listStateChanges(env.projectId);
   if(!['feature','integration','infrastructure'].includes(scenario)){
    assert.equal((await planning.get(env.root,created.workflow.id,item.id)).revisionEligibility.eligible,false,scenario);
+   await assert.rejects(kernel.assertWorkItemRetryEligible(env.root,created.workflow.id,item.id));await assert.rejects(kernel.prepareImplementationAttempt(env.root,created.workflow.id,item.id));
    await assert.rejects(planning.review(env.root,created.workflow.id,item.id,decision));
    await assert.rejects(planning.save(env.root,created.workflow.id,item.id,JSON.stringify(contract)));
    await assert.rejects(env.state.saveWorkItemPlanningContract(env.projectId,contract));
@@ -1191,6 +1192,7 @@ test('semantic blocked contracts revise through the same typed owner and reject 
   }
   reopenProject(env);
   assert.equal((await planning.get(env.root,created.workflow.id,item.id)).revisionEligibility.eligible,true);
+  assert.equal(await kernel.assertWorkItemRetryEligible(env.root,created.workflow.id,item.id),current.recordVersion);await assert.rejects(env.state.assertBlockedImplementationRetry(env.projectId,created.workflow.id,item.id,current.recordVersion-1),/stale/);
   assert.deepEqual(await env.store.listStateChanges(env.projectId),before,'Reads after restart do not mutate');
   await assert.rejects(planning.review(env.root,created.workflow.id,item.id,{...decision,notes:'   '}),/Operator|notes/);
   await assert.rejects(planning.review(env.root,created.workflow.id,item.id,{...decision,expectedRecordVersion:1}),/stale/);

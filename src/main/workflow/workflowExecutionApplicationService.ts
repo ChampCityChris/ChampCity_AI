@@ -323,18 +323,43 @@ export function createWorkflowExecutionApplicationService(dependencies: {
         }
       }
       const source = (await project(store, projectId, plan)).source;
-      const noMutationRequired = Array.isArray(item.body.affectedPaths) && item.body.affectedPaths.length === 0;
+      // The approved path list grants permission. Only exact execution evidence can
+      // prove that no mutation occurred (including historical R13/R03 packets).
+      let noMutationObserved = false;
+      if (sourceMode === "source-backed" && implementation?.body.outcome === "implemented" && !implementationCheckpoint && implementation.body.executionRef) {
+        try {
+          const evidence = await getDurableImplementationEvidence(projectRoot, workflowId, workItemId, implementation.body.executionRef);
+          const packetPath = path.join(fs.realpathSync(projectRoot), ".champcity", "runtime", "work-item-attempts", `${evidence.attempt.id}.json`);
+          const stat = fs.lstatSync(packetPath);
+          if (!stat.isFile() || stat.isSymbolicLink() || fs.realpathSync(packetPath) !== packetPath || stat.size > 48 * 1024)
+            throw Error("Unchanged-source attempt packet is unavailable, redirected or oversized.");
+          const packet = JSON.parse(fs.readFileSync(packetPath, "utf8"));
+          const delta = packet.sourceCheckpointAttempt;
+          noMutationObserved = !checkpoints.some(record => record.entityType === "SourceCheckpoint" && record.body.workflowId === workflowId && record.body.boundaryId === evidence.attempt.id) &&
+            evidence.result.id === implementation.id && packet.schemaVersion === 1 && packet.projectId === projectId && packet.workflowId === workflowId &&
+            typeof packet.contractDigest === "string" && /^[a-f0-9]{64}$/i.test(packet.contractDigest) &&
+            packet.workItemId === workItemId && packet.executionRef === evidence.attempt.id &&
+            ["summary", "deviations", "blockers", "residualRisks", "outcome"].every(key => JSON.stringify(packet.result?.[key]) === JSON.stringify((implementation.body as unknown as Record<string, unknown>)[key])) &&
+            (!delta || Array.isArray(delta.attributablePaths) && delta.attributablePaths.length === 0 && !delta.attributionFailure &&
+              delta.expectedRevisionId === evidence.attempt.body.sourceRevisionId && delta.repositoryCheckoutId === source.repositoryCheckoutId &&
+              delta.sourceLineId === source.workSourceLineId &&
+              (!evidence.historicalBinding?.body.repositoryCheckoutId || delta.repositoryCheckoutId === evidence.historicalBinding.body.repositoryCheckoutId) &&
+              (!evidence.historicalBinding?.body.workSourceLineId || delta.sourceLineId === evidence.historicalBinding.body.workSourceLineId));
+        } catch { noMutationObserved = false; }
+      }
       const noMutationRevision = tester?.body.sourceMode === "source-backed" && tester.body.checkpointState === "committed" &&
         testerCheckpoint?.entityType === "SourceCheckpoint" && testerCheckpoint.body.checkpointState === "committed" && testerCheckpoint.body.checkpointKind === "tester" &&
         testerCheckpoint.body.workflowId === workflowId && testerCheckpoint.body.expectedRevisionId === tester.body.implementerRevisionId &&
         testerCheckpoint.body.resultingRevisionId === source.currentRevisionId && tester.body.candidateRevisionId === source.currentRevisionId
         ? tester.body.implementerRevisionId : source.currentRevisionId;
-      let noMutationCurrent = sourceMode === "source-backed" && noMutationRequired && implementation?.body.outcome === "implemented" &&
+      let noMutationCurrent = sourceMode === "source-backed" && noMutationObserved && implementation?.body.outcome === "implemented" &&
         source.state === "ready" && Boolean(source.currentRevisionId) && await createProjectStateService(store, operator)
           .isSourceBackedNoMutationImplementation(projectId, workflowId, workItemId, implementation.id, noMutationRevision!);
       if (noMutationCurrent) {
         try {
-          const checkout = fs.realpathSync(resolveManagedWorkflowCheckoutPath(fs.realpathSync(projectRoot), workflowId).checkoutRoot);
+          const managed = resolveManagedWorkflowCheckoutPath(fs.realpathSync(projectRoot), workflowId).checkoutRoot;
+          const checkout = fs.realpathSync(managed);
+          if (checkout !== managed || fs.lstatSync(managed).isSymbolicLink()) throw Error("Unchanged-source checkout is redirected.");
           const [head, top, branch, dirty, common, devCommon] = await Promise.all([
             runBoundedGit({ cwd: checkout, args: ["rev-parse", "HEAD"] }), runBoundedGit({ cwd: checkout, args: ["rev-parse", "--show-toplevel"] }),
             runBoundedGit({ cwd: checkout, args: ["branch", "--show-current"] }), runBoundedGit({ cwd: checkout, args: ["status", "--porcelain", "--untracked-files=all"] }),
@@ -345,9 +370,9 @@ export function createWorkflowExecutionApplicationService(dependencies: {
             fs.realpathSync(path.resolve(checkout, common.stdout.trim())) === fs.realpathSync(path.resolve(projectRoot, "Dev", devCommon.stdout.trim()));
         } catch { noMutationCurrent = false; }
       }
-      const implState = sourceMode === "source-neutral" ? "not-applicable" : implementationCheckpoint?.entityType === "SourceCheckpoint" ? implementationCheckpoint.body.checkpointState : implementation?.body.outcome === "implemented" ? noMutationRequired ? noMutationCurrent ? "not-required" : "inspection-required" : "pending" : "not-required";
+      const implState = sourceMode === "source-neutral" ? "not-applicable" : implementationCheckpoint?.entityType === "SourceCheckpoint" ? implementationCheckpoint.body.checkpointState : implementation?.body.outcome === "implemented" ? noMutationCurrent ? "not-required" : packetValid ? "pending" : "inspection-required" : "not-required";
       const testerState = sourceMode === "source-neutral" ? "not-applicable" : tester?.body.checkpointState ?? "not-required";
-      const implRetryable = sourceMode === "source-backed" && !noMutationRequired && packetValid && item.body.workState === "validation_pending" && implState !== "committed";
+      const implRetryable = sourceMode === "source-backed" && !noMutationCurrent && packetValid && item.body.workState === "validation_pending" && implState !== "committed";
       const testerRetryable = sourceMode === "source-backed" && Boolean(tester && tester.body.checkpointState === "pending" && tester.body.permanentTestPaths.length && item.body.workState === "validation_pending");
       return { workflowId, workItemId, sourceMode,
         implementation: { implementationRecordId: implementation?.id ?? null, checkpointId: implementationCheckpoint?.id ?? null, state: implState, retryable: implRetryable,
@@ -1083,19 +1108,20 @@ export function createWorkflowExecutionApplicationService(dependencies: {
   }
 
   async function buildWorkItemExecutionContract(projectRoot: string, workflowId: EntityId, workItemId: EntityId, input: {
-    sourceMutation: "required" | "not-required"; affectedPaths: string[]; proofIntent: string[];
+    sourceMutation: "allowed" | "forbidden"; affectedPaths: string[]; proofIntent: string[];
   }, allowValidationPending: boolean): Promise<WorkItemExecutionContract> {
-    if (!input || !["required", "not-required"].includes(input.sourceMutation) || !Array.isArray(input.affectedPaths) || !Array.isArray(input.proofIntent))
+    if (!input || !["allowed", "forbidden"].includes(input.sourceMutation) || !Array.isArray(input.affectedPaths) || !Array.isArray(input.proofIntent))
       throw Error("A bounded Work Item execution contract is required.");
     for (const value of [...input.affectedPaths, ...input.proofIntent]) if (typeof value !== "string" || !value.trim() || value.length > 512) throw Error("Execution contract details must be bounded text.");
     return withCurrentProject(projectRoot, async (store, projectId) => {
       const plan = await workItemPlan(store, projectId, await exactPlan(store, projectId, workflowId), workItemId);
       const projection = await project(store, projectId, plan);
-      if (input.sourceMutation === "required" && projection.source.state === "non-source") throw Error("SOURCE_CAPABILITY_UNAVAILABLE");
+      if (input.sourceMutation === "allowed" && projection.source.state === "non-source") throw Error("SOURCE_CAPABILITY_UNAVAILABLE");
       if (projection.source.state !== "non-source" && projection.source.state !== "ready") throw Error("Source-backed execution requires a prepared exact Workflow checkout.");
       const item = projection.items.find(candidate => candidate.record.id === workItemId);
       if (!item) throw Error("Exact Work Item is not part of the selected Workflow plan.");
-      const allowedStates = allowValidationPending ? ["validation_pending"] : ["planned", "ready"];
+      const allowedStates = allowValidationPending ? ["validation_pending"] : ["planned", "ready", "blocked"];
+      if (!allowValidationPending && item.record.body.workState === "blocked") await assertWorkItemRetryEligible(projectRoot, workflowId, workItemId);
       if (!item.eligibility.eligible || !allowedStates.includes(item.record.body.workState)) throw Error("Work Item is not eligible for this execution contract.");
       if (allowValidationPending) {
         const attempts = await createProjectStateService(store, operator).getImplementationAttempts(projectId, workItemId);
@@ -1113,7 +1139,7 @@ export function createWorkflowExecutionApplicationService(dependencies: {
         projectId, workflowId, workItemId, workItemVersion: item.record.recordVersion, objective: item.record.body.objective,
         solution, phase, criteria, dependencyIds: item.dependencyIds, scopeIn: [...solution.body.scopeIn], scopeOut: [...solution.body.scopeOut],
         constraints: [...solution.body.constraints], implementationBoundaries: [...item.record.body.implementationBoundaries], affectedPaths: [...item.record.body.affectedPaths].sort(), proofIntent: [...item.record.body.proofIntent],
-        sourceMutation: allowValidationPending ? input.sourceMutation : item.record.body.affectedPaths.length > 0 ? "required" as const : "not-required" as const, sourceRevisionId: projection.source.currentRevisionId,
+        sourceMutation: item.record.body.affectedPaths.length > 0 ? "allowed" as const : "forbidden" as const, sourceRevisionId: projection.source.currentRevisionId,
       };
       const serialized = JSON.stringify(body);
       const digest = createHash("sha256").update(serialized).digest("hex");
@@ -1122,13 +1148,13 @@ export function createWorkflowExecutionApplicationService(dependencies: {
   }
 
   async function createWorkItemExecutionContract(projectRoot: string, workflowId: EntityId, workItemId: EntityId, input: {
-    sourceMutation: "required" | "not-required"; affectedPaths: string[]; proofIntent: string[];
+    sourceMutation: "allowed" | "forbidden"; affectedPaths: string[]; proofIntent: string[];
   }): Promise<WorkItemExecutionContract> {
     return buildWorkItemExecutionContract(projectRoot, workflowId, workItemId, input, false);
   }
 
   async function createTesterWorkItemExecutionContract(projectRoot: string, workflowId: EntityId, workItemId: EntityId, input: {
-    sourceMutation: "required" | "not-required"; affectedPaths: string[]; proofIntent: string[];
+    sourceMutation: "allowed" | "forbidden"; affectedPaths: string[]; proofIntent: string[];
   }): Promise<WorkItemExecutionContract> {
     return buildWorkItemExecutionContract(projectRoot, workflowId, workItemId, input, true);
   }
@@ -1144,7 +1170,8 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       for (const value of [...input.affectedPaths, ...input.proofIntent]) if (typeof value !== "string" || !value.trim() || value.length > 512) throw Error("Execution contract details must be bounded text.");
       const item = projection.items.find(candidate => candidate.record.id === workItemId);
       if (!item) throw Error("Exact Work Item is not part of the selected Workflow plan.");
-      if ((!allowValidationPending && (!item.eligibility.eligible || !["planned", "ready"].includes(item.record.body.workState))) ||
+      if (!allowValidationPending && item.record.body.workState === "blocked") await assertWorkItemRetryEligible(projectRoot, workflowId, workItemId);
+      if ((!allowValidationPending && (!item.eligibility.eligible || !["planned", "ready", "blocked"].includes(item.record.body.workState))) ||
         (allowValidationPending && item.record.body.workState !== "validation_pending")) throw Error("Work Item is not eligible for this source-neutral execution contract.");
       if (allowValidationPending) {
         const attempts = await createProjectStateService(store, operator).getImplementationAttempts(projectId, workItemId);
@@ -1161,14 +1188,47 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       const body = { projectId, workflowId, workItemId, workItemVersion: item.record.recordVersion, objective: item.record.body.objective,
         solution, phase, criteria, dependencyIds: item.dependencyIds, scopeIn: [...solution.body.scopeIn], scopeOut: [...solution.body.scopeOut],
         constraints: [...solution.body.constraints], implementationBoundaries: [...item.record.body.implementationBoundaries], affectedPaths: [], proofIntent: [...item.record.body.proofIntent],
-        sourceMutation: "not-required" as const, sourceRevisionId: null };
+        sourceMutation: "forbidden" as const, sourceRevisionId: null };
       const digest = createHash("sha256").update(JSON.stringify(body)).digest("hex");
       return { contractId: `work-item-contract:${digest}`, digest, ...body };
     });
   }
 
   async function prepareImplementationAttempt(projectRoot: string, workflowId: EntityId, workItemId: EntityId) {
-    return withCurrentProject(projectRoot, (store, projectId) => createProjectStateService(store, operator).prepareImplementationAttempt(projectId, workflowId, workItemId));
+    const view = await getExecutionProjection(projectRoot, workflowId);
+    const item = view.items.find(candidate => candidate.record.id === workItemId);
+    if (item?.record.body.workState === "blocked") await assertWorkItemRetryEligible(projectRoot, workflowId, workItemId);
+    return withCurrentProject(projectRoot, (store, projectId) => createProjectStateService(store, operator).prepareImplementationAttempt(projectId, workflowId, workItemId, undefined, item?.record.recordVersion));
+  }
+
+  // Read-only readiness; Start alone creates the next reservation and begins execution.
+  async function assertWorkItemRetryEligible(projectRoot: string, workflowId: EntityId, workItemId: EntityId) {
+    return withCurrentProject(projectRoot, async (store, projectId) => {
+      const state = createProjectStateService(store, operator);
+      const item = await store.getEntity(projectId, workItemId);
+      if (item?.entityType !== "WorkItem") throw Error("Exact blocked WorkItem is unavailable.");
+      await state.assertBlockedImplementationRetry(projectId, workflowId, workItemId, item.recordVersion);
+      const attempt = await state.getImplementationAttempt(projectId, workflowId, workItemId);
+      if (!attempt) throw Error("Exact retry attempt evidence is missing.");
+      if (attempt.body.attemptState === "completed") await getDurableImplementationEvidence(projectRoot, workflowId, workItemId, attempt.id);
+      const view = await getExecutionProjection(projectRoot, workflowId);
+      if (attempt.body.sourceMode === "source-backed") {
+        const source = view.source;
+        if (source.state !== "ready" || !source.repositoryCheckoutId || !source.workSourceLineId || source.currentRevisionId !== attempt.body.sourceRevisionId)
+          throw Error("Blocked retry requires the unchanged ready source binding.");
+        const checkout = resolveManagedWorkflowCheckoutPath(fs.realpathSync(projectRoot), workflowId).checkoutRoot;
+        const lease = acquireWorkflowExecutionLease(workflowExecutionLeaseKey("source-backed", checkout), `retry-inspection:${attempt.id}`);
+        if (!lease) throw Error("Blocked retry has a competing execution lease.");
+        try {
+          const paths = await reconcileWorkflowSource(fs.realpathSync(projectRoot), workflowId, {
+            repositoryCheckoutId: source.repositoryCheckoutId, sourceLineId: source.workSourceLineId, expectedRevisionId: attempt.body.sourceRevisionId!,
+          });
+          if (paths.length || (await runBoundedGit({cwd: checkout, args: ["status", "--porcelain", "--untracked-files=all"]})).stdout)
+            throw Error("Blocked retry requires the exact clean checkout with no remaining source delta.");
+        } finally { lease.release(); }
+      } else if (view.source.state !== "non-source") throw Error("Blocked retry source identity changed.");
+      return item.recordVersion;
+    });
   }
   async function getWorkflowSourceInspection(projectRoot: string, workflowId: EntityId) {
     return withCurrentProject(projectRoot, async (store, projectId) => {
@@ -1295,5 +1355,5 @@ export function createWorkflowExecutionApplicationService(dependencies: {
     recordWorkItemVisualCriterion, recordWorkItemCriterionDecision, getPhaseValidationProjection, recordPhaseVisualCriterion,
     recordPhaseCriterionDecision, validateDeterministicPhaseCriterion, validateSemanticPhaseCriterion,
     completeWorkItem, completePhase, createWorkflowRepair, createPhaseRepair, validateSemanticWorkItemCriterion, validateDeterministicWorkItemCriterion, prepareExecution, createWorkItemExecutionContract, createTesterWorkItemExecutionContract,
-    prepareImplementationAttempt, getImplementationAttempt, getWorkflowSourceInspection, getDurableImplementationEvidence, assertImplementationAttemptCurrent, createSourceNeutralWorkItemExecutionContract, beginWorkItemAttempt, finishWorkItemAttempt };
+    prepareImplementationAttempt, assertWorkItemRetryEligible, getImplementationAttempt, getWorkflowSourceInspection, getDurableImplementationEvidence, assertImplementationAttemptCurrent, createSourceNeutralWorkItemExecutionContract, beginWorkItemAttempt, finishWorkItemAttempt };
 }

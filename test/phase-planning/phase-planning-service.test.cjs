@@ -604,7 +604,7 @@ test('Greenfield stranded parent checkpoint recovers before a stale prepared Rep
  assert.equal(savedBinding.body.preparationState,interruption==='pre-materialization'?'unprepared':'ready');
  if(!materialized)materialized=await materializer.materialize(f.workflow.id);
  const checkout=path.join(f.root,materialized.checkout.projectRelativePath);
- const executionContract=await kernel.createWorkItemExecutionContract(f.root,f.workflow.id,parent.id,{sourceMutation:'required',affectedPaths:[relative],proofIntent:['Check source evidence']});
+ const executionContract=await kernel.createWorkItemExecutionContract(f.root,f.workflow.id,parent.id,{sourceMutation:'allowed',affectedPaths:[relative],proofIntent:['Check source evidence']});
  assert.notEqual(executionContract.digest,attempt.body.contractDigest);
  await kernel.beginWorkItemAttempt(f.root,f.workflow.id,parent.id,attempt.body.workItemVersion,attempt.id);
  const chronology=await f.store.listOutbox(f.projectId);
@@ -698,7 +698,7 @@ test('Greenfield stranded parent checkpoint recovers before a stale prepared Rep
  });
 });
 
-for (const revisionMode of ['mutation','failed','blocked','blocked-head-drift','blocked-checkpoint','blocked-validation','prepared','prepared-checkpoint','prepared-validation','returned','prepared-history','prepared-history-validation','prepared-history-checkpoint','prepared-history-head-drift']) test('Greenfield fresh source-backed Implement and Repair start from read-only readiness and preserve no-mutation Review through '+revisionMode, async context => {
+for (const revisionMode of ['mutation','failed','blocked-retry','blocked','blocked-head-drift','blocked-checkpoint','blocked-validation','prepared','prepared-checkpoint','prepared-validation','returned','prepared-history','prepared-history-validation','prepared-history-checkpoint','prepared-history-head-drift']) test('Greenfield fresh source-backed Implement and Repair start from read-only readiness and preserve no-mutation Review through '+revisionMode, async context => {
  const blockedRevision=revisionMode.startsWith('blocked'),failedRevision=revisionMode!=='mutation',historyRevision=revisionMode.startsWith('prepared-history'),preparedRevision=revisionMode.startsWith('prepared')||revisionMode==='returned';
  const f=await structuredPhaseLoopFixture(context,true);
  const loop=require('../../dist/main/phasePlanning/structuredPhaseLoopService.js').createStructuredPhaseLoopService();
@@ -721,7 +721,7 @@ for (const revisionMode of ['mutation','failed','blocked','blocked-head-drift','
   const selector={ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:id};
   if(!rerun&&!preparedSeed)assert.equal(await kernel.getImplementationAttempt(f.root,f.workflow.id,id),null);
   const before=await f.store.listStateChanges(f.projectId),execution=await service.getStatus(f.root,selector);
-  assert.equal(execution.state,rerun&&(!preparedRevision||historyRevision)?'failed':'ready',execution.failureReason);assert.equal(execution.canRunAgain,true);assert.equal(execution.sourceMode,'source-backed');
+  assert.equal(execution.state,rerun&&(!preparedRevision||historyRevision)?'completed':'ready',execution.failureReason);assert.equal(execution.canRunAgain,true);assert.equal(execution.sourceMode,'source-backed');
   assert.equal(execution.workflowId,f.workflow.id);assert.equal(execution.workItemId,id);if(!rerun)assert.equal(execution.workItemVersion,(await f.store.getEntity(f.projectId,id)).recordVersion);
   if(!rerun){if(preparedSeed)assert.ok(execution.executionContractDigest);else assert.equal(execution.executionContractDigest,null);assert.equal(execution.failureReason,null);}assert.equal(execution.retryBlocker,null);
   assert.deepEqual(await f.store.listStateChanges(f.projectId),before);assert.equal(preparations,expectedPreparations);
@@ -748,7 +748,7 @@ for (const revisionMode of ['mutation','failed','blocked','blocked-head-drift','
    releaseFailure();
   }
   let completed;for(let i=0;i<300;i++){completed=await service.getStatus(f.root,selector);if(completed.state!=='running')break;await new Promise(resolve=>setTimeout(resolve,20));}
-  assert.equal(completed.state,failRepair&&executions.at(-1).prompt.includes('Exact repair evidence')?'failed':'completed',completed.failureReason);assert.equal(preparations,expectedPreparations+1);
+  assert.equal(completed.state,'completed',completed.failureReason);assert.equal(preparations,expectedPreparations+1);
   const attempts=(await f.store.listEntities(f.projectId,'ImplementationAttempt')).filter(a=>a.body.workItemId===id);assert.equal(attempts.length,rerun?(historyRevision?3:2):1);
   const attempt=(await kernel.getImplementationAttempt(f.root,f.workflow.id,id)).attempt,implementation=await f.store.getEntity(f.projectId,attempt.body.implementationRecordId);
   assert.equal(implementation.body.executionRef,attempt.id);assert.equal(implementation.body.workItemId,id);assert.ok(executions.at(-1).prompt.includes(id));
@@ -759,7 +759,7 @@ for (const revisionMode of ['mutation','failed','blocked','blocked-head-drift','
  model=await loop.get(f.root,f.workflow.id,'phase_one','planning');model=await loop.save(f.root,f.workflow.id,'phase_one','planning',{workflowId:f.workflow.id,phaseId:model.phase.id,stageKind:'planning',facts:[],direction,criteria:[],candidates:[{candidateId:'read_work',order:1,title:'Read source',purpose:'Assess context',dependsOn:[],resolutionStatus:'planned',resolutionReason:'',evidencePaths:[],criteria:[]}],sources:model.sources});model=await loop.review(f.root,f.workflow.id,'phase_one','planning',model.review.cycle.id,{expectedRecordVersion:1,outcome:'approved'});
  const item=model.review.workItems[0];await kernel.acceptWorkItemExecutionPlan(f.root,{workflowId:f.workflow.id,workItemId:item.id,expectedVersion:item.recordVersion,plan:{implementationBoundaries:['Read exact source'],affectedPaths:[],proofIntent:['Review context assessment']}});
  const planningService=require('../../dist/main/workCardPlanning/structuredWorkItemPlanningService.js').createStructuredWorkItemPlanningService();
- const assertSourceGuidance=handoff=>{assert.match(handoff,/affectedPaths=\[\] is valid/);assert.match(handoff,/authorized mutation intent, not every file read/);assert.match(handoff,/mutation-required.*committed checkpoint/);assert.match(handoff,/must leave Git\/source unchanged/);assert.match(handoff,/Never infer \[\] from Repair prose/);assert.doesNotMatch(handoff,/accepted affected paths required/);};
+ const assertSourceGuidance=handoff=>{assert.match(handoff,/affectedPaths=\[\] is valid/);assert.match(handoff,/maximum authorized mutation scope, not required changes or every file read/);assert.match(handoff,/Nonempty paths allow changes only when necessary.*zero edits and checkpoint not-required.*Actual authorized changes require a committed checkpoint/);assert.match(handoff,/must leave Git\/source unchanged/);assert.match(handoff,/Never infer \[\] from Repair prose/);assert.doesNotMatch(handoff,/accepted affected paths required/);};
  assertSourceGuidance((await planningService.get(f.root,f.workflow.id,item.id)).handoff);
  assert.equal((await kernel.getExecutionProjection(f.root,f.workflow.id)).source.state,'unprepared');
  if(preparedRevision){const reservation=await kernel.prepareImplementationAttempt(f.root,f.workflow.id,item.id),changes=await f.store.listStateChanges(f.projectId);assert.equal((await planningService.get(f.root,f.workflow.id,item.id)).revisionEligibility.eligible,true);assert.equal((await kernel.getExecutionProjection(f.root,f.workflow.id)).source.state,'unprepared');assert.deepEqual(await f.store.listStateChanges(f.projectId),changes);assert.equal((await kernel.getImplementationAttempt(f.root,f.workflow.id,item.id)).attempt.id,reservation.id);assert.equal(preparations,0);}
@@ -820,7 +820,7 @@ for (const revisionMode of ['mutation','failed','blocked','blocked-head-drift','
    assert.match(require('react-dom/server').renderToStaticMarkup(React.createElement(CodexExecutionConsole,{execution:returned,isActionRunning:false})),/REPOSITORY_CHECKOUT_MATERIALIZATION_FAILED/);
   }
   const failed=preparedRevision?{attempt:revisionMode==='returned'?(await kernel.getImplementationAttempt(f.root,f.workflow.id,repair.id)).attempt:await kernel.prepareImplementationAttempt(f.root,f.workflow.id,repair.id),implementation:null,completed:returned??await service.getStatus(f.root,{ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:repair.id})}:await clickImplement(repair.id,1);
-  if(preparedRevision){assert.equal(failed.attempt.body.attemptState,'prepared');assert.equal(failed.completed.state,returned?'unavailable':historyRevision?'failed':'ready');assert.equal(executions.length,historyRevision?2:1);assert.equal((await f.store.listEntities(f.projectId,'ImplementationRecord')).length,historyRevision?2:1);}
+  if(preparedRevision){assert.equal(failed.attempt.body.attemptState,'prepared');assert.equal(failed.completed.state,returned?'unavailable':historyRevision?'completed':'ready');assert.equal(executions.length,historyRevision?2:1);assert.equal((await f.store.listEntities(f.projectId,'ImplementationRecord')).length,historyRevision?2:1);}
   else assert.equal(failed.implementation.body.outcome,blockedRevision?'blocked':'partial');assert.equal((await f.store.getEntity(f.projectId,repair.id)).body.workState,blockedRevision?'blocked':preparedRevision&&!historyRevision?'planned':'ready');
   assert.equal((await nav.get(f.root,f.workflow.id)).currentWorkspace,'work-card-building-review');assert.equal((await f.store.listEntities(f.projectId,'SourceCheckpoint')).length,0);
   const packetPath=path.join(f.root,'.champcity','runtime','work-item-attempts',failed.attempt.id+'.json'),packetBytes=preparedRevision?null:fs.readFileSync(packetPath),attemptBytes=JSON.stringify(await f.store.getEntity(f.projectId,failed.attempt.id)),resultBytes=JSON.stringify(failed.implementation);
@@ -837,6 +837,18 @@ for (const revisionMode of ['mutation','failed','blocked','blocked-head-drift','
   }
   let exact=await planning.get(f.root,f.workflow.id,repair.id);assert.equal(exact.revisionEligibility.eligible,true,exact.revisionEligibility.reason);
   const input={expectedRecordVersion:exact.workItem.recordVersion,outcome:'revision_requested',notes:'File already conforms; preserve it with an approved no-mutation contract'};
+  if(revisionMode==='blocked-retry'){
+   assert.equal(failed.completed.canRunAgain,true);assert.equal(exact.review.disposition.state,'approved');
+   const originalVersion=exact.workItem.recordVersion,originalContract=exact.workItem.body.contractRevision;
+   failRepair=false;const retried=await clickImplement(repair.id,2,true);
+   assert.notEqual(retried.attempt.id,failed.attempt.id);assert.equal(retried.attempt.body.workItemVersion,originalVersion);assert.equal(retried.implementation.body.outcome,'implemented');assert.equal(retried.completed.checkpoint.status,'not-required');assert.notEqual(executions.at(-1).options.readOnly,true);
+   assert.equal((await f.store.getEntity(f.projectId,repair.id)).body.contractRevision,originalContract);assert.deepEqual((await f.store.getEntity(f.projectId,repair.id)).body.affectedPaths,['package.json']);
+   assert.equal(JSON.stringify(await f.store.getEntity(f.projectId,failed.attempt.id)),attemptBytes);assert.equal(JSON.stringify(await f.store.getEntity(f.projectId,failed.implementation.id)),resultBytes);assert.deepEqual(fs.readFileSync(packetPath),packetBytes);
+   assert.equal((await nav.get(f.root,f.workflow.id)).currentWorkspace,'work-card-report-review');assert.equal(git('rev-parse','HEAD'),cleanHead);assert.equal(git('status','--porcelain'),'');assert.equal((await f.store.listEntities(f.projectId,'SourceCheckpoint')).length,0);
+   const reopened=await new CodexImplementerExecutionService(implementerFactory,undefined,undefined,undefined,runtime.manager).getStatus(f.root,{ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:repair.id});assert.equal(reopened.state,'completed');assert.equal(reopened.checkpoint.status,'not-required');
+   await tester.createTesterResult(f.projectId,f.workflow.id,repair.id,retried.implementation.id,{sourceMode:'source-backed',implementerRevisionId:cleanHead,recommendation:'no-permanent-test-required',affectedCapabilityIds:[],permanentTestPaths:[],determinationEvidence:['Independent unchanged-source inspection'],unknowns:[],rationale:'Conforming source preserved'});
+   return;
+  }
   if(revisionMode==='blocked'){
    await assert.rejects(planning.review(f.root,f.workflow.id,repair.id,{...input,notes:'   '}),/Operator|notes/);
    await assert.rejects(planning.save(f.root,f.workflow.id,repair.id,JSON.stringify({workflowId:f.workflow.id,workItemId:repair.id,expectedVersion:input.expectedRecordVersion,implementationBoundaries:['Deliberate replacement'],affectedPaths:[],proofIntent:['Inspect source']})),/revision disposition/);
@@ -846,7 +858,7 @@ for (const revisionMode of ['mutation','failed','blocked','blocked-head-drift','
     const changed={...binding,recordVersion:binding.recordVersion+1,body:{...binding.body,preparationState,...(preparationState==='blocked'?{failureCode:'REPOSITORY_CHECKOUT_MATERIALIZATION_FAILED'}:{})}};
     await f.store.transaction(f.projectId,unit=>unit.saveEntity(changed,binding.recordVersion));const snapshot=await f.store.listStateChanges(f.projectId);
     assert.equal((await planning.get(f.root,f.workflow.id,repair.id)).revisionEligibility.eligible,false);
-    await assert.rejects(planning.review(f.root,f.workflow.id,repair.id,input),/ready source binding/);
+    await assert.rejects(planning.review(f.root,f.workflow.id,repair.id,input),/ready source binding/);await assert.rejects(kernel.assertWorkItemRetryEligible(f.root,f.workflow.id,repair.id),/ready source binding/);
     assert.deepEqual(await f.store.listStateChanges(f.projectId),snapshot);
     await f.store.transaction(f.projectId,unit=>unit.saveEntity({...binding,recordVersion:changed.recordVersion+1},changed.recordVersion));
    }
@@ -855,7 +867,7 @@ for (const revisionMode of ['mutation','failed','blocked','blocked-head-drift','
   if(revisionMode==='prepared-history-head-drift'||revisionMode==='blocked-head-drift'){
    git('commit','--allow-empty','-m','Disposable fixture revision drift');const changedHead=git('rev-parse','HEAD');assert.notEqual(changedHead,cleanHead);
    const changes=await f.store.listStateChanges(f.projectId);assert.equal((await planning.get(f.root,f.workflow.id,repair.id)).revisionEligibility.eligible,false);await assert.rejects(planning.review(f.root,f.workflow.id,repair.id,input),/unchanged|revision|HEAD/);
-   assert.deepEqual(await f.store.listStateChanges(f.projectId),changes);assert.equal(git('rev-parse','HEAD'),changedHead);assert.equal(git('status','--porcelain'),'');return;
+   assert.deepEqual(await f.store.listStateChanges(f.projectId),changes);assert.equal(git('rev-parse','HEAD'),changedHead);assert.equal(git('status','--porcelain'),'');if(blockedRevision)await assert.rejects(kernel.assertWorkItemRetryEligible(f.root,f.workflow.id,repair.id));return;
   }
   if(['blocked-checkpoint','blocked-validation','prepared-checkpoint','prepared-validation','prepared-history-validation','prepared-history-checkpoint'].includes(revisionMode)){
    const source=require('../../dist/shared/projectState/projectStateService.js').createProjectStateService(f.store,{principalId:'synthetic-downstream',principalType:'system',role:'System'});
@@ -898,7 +910,7 @@ for (const revisionMode of ['mutation','failed','blocked','blocked-head-drift','
   const button=(p,label)=>nodes(p.navigation).find(n=>n.type==='button'&&n.props.children===label);
   const settle=async()=>{for(let i=0;i<300&&values[3];i++)await new Promise(resolve=>setTimeout(resolve,10));assert.equal(values[3],false);assert.equal(values[4],'');};
   try{
-   let surface=draw();assert.equal(button(surface,'Continue to Review & Validation').props.disabled,true);assert.match(renderToStaticMarkup(surface.navigation),preparedRevision?/reservation is prepared and has not started/:blockedRevision?/latest Implement result is blocked/:/latest Implement result is partial/);if(!preparedRevision)assert.equal(surface.codexExecution.checkpoint.status,'blocked');
+   let surface=draw();assert.equal(button(surface,'Continue to Review & Validation').props.disabled,true);assert.match(renderToStaticMarkup(surface.navigation),preparedRevision?/reservation is prepared and has not started/:blockedRevision?/latest Implement result is blocked/:/latest Implement result is partial/);if(!preparedRevision)assert.equal(surface.codexExecution.checkpoint.status,'not-required');
    assert.equal(button(surface,'Request Work Card Revision').props.disabled,true);
    const readsBefore=(await f.store.listStateChanges(f.projectId)).length;button(surface,'Refresh').props.onClick();await settle();surface=draw();assert.match(surface.feedback,/refreshed/);assert.equal(reconciled.currentWorkspace,'work-card-building-review');assert.equal((await f.store.listStateChanges(f.projectId)).length,readsBefore);
    assert.ok(button(surface,'Request Work Card Revision'),JSON.stringify({eligibility:values[0].revisionEligibility,workState:values[0].workItem.body.workState,attempt:values[1]?.attempt.body}));
@@ -915,12 +927,12 @@ for (const revisionMode of ['mutation','failed','blocked','blocked-head-drift','
   if(revisionMode==='failed'||blockedRevision){
    service=new CodexImplementerExecutionService(implementerFactory,undefined,undefined,undefined,runtime.manager);configure(service);
    const changes=await f.store.listStateChanges(f.projectId),historical=await service.getStatus(f.root,{ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:repair.id});
-   assert.equal(historical.state,'failed');assert.equal(historical.workItemVersion,failed.attempt.body.workItemVersion);assert.equal(historical.executionContractDigest,failed.attempt.body.contractDigest);assert.equal(historical.checkpoint.status,'blocked','Old mutation-required contract cannot become no-mutation after revision');assert.equal(historical.canRunAgain,true);
+   assert.equal(historical.state,'completed');assert.equal(historical.workItemVersion,failed.attempt.body.workItemVersion);assert.equal(historical.executionContractDigest,failed.attempt.body.contractDigest);assert.equal(historical.checkpoint.status,'not-required','Unsuccessful unchanged source retains its semantic result');assert.equal(historical.canRunAgain,true);
    assert.deepEqual(await f.store.listStateChanges(f.projectId),changes);assert.deepEqual(await f.store.getEntityVersion(f.projectId,repair.id,failed.attempt.body.workItemVersion).then(record=>record.body.affectedPaths),['package.json']);assert.deepEqual((await f.store.getEntity(f.projectId,repair.id)).body.affectedPaths,[]);
   }
   if(preparedRevision){assert.equal((await planning.get(f.root,f.workflow.id,repair.id)).revisionEligibility.eligible,false,'Superseded reservation is ineligible');const fresh=await kernel.prepareImplementationAttempt(f.root,f.workflow.id,repair.id);assert.notEqual(fresh.id,failed.attempt.id);assert.equal((await f.store.getEntity(f.projectId,failed.attempt.id)).body.attemptState,'abandoned');}
   failRepair=false;const revised=await clickImplement(repair.id,historyRevision?2:preparedRevision?1:2,true);assert.notEqual(revised.attempt.id,failed.attempt.id);assert.equal(revised.implementation.body.outcome,'implemented');assert.equal(revised.completed.checkpoint.status,'not-required');assert.equal(executions.at(-1).options.readOnly,true);
-  assert.match(executions.at(-1).prompt,/"sourceMutation": "not-required"/);assert.equal(git('rev-parse','HEAD'),cleanHead);assert.equal(git('status','--porcelain'),'');
+  assert.match(executions.at(-1).prompt,/"sourceMutation": "forbidden"/);assert.equal(git('rev-parse','HEAD'),cleanHead);assert.equal(git('status','--porcelain'),'');
   if(revisionMode==='failed'||blockedRevision){
    const reopened=await new CodexImplementerExecutionService(implementerFactory,undefined,undefined,undefined,runtime.manager).getStatus(f.root,{ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:repair.id});
    assert.equal(reopened.state,'completed',reopened.failureReason);assert.equal(reopened.lastRunState,'completed');assert.equal(reopened.checkpoint.status,'not-required');assert.equal(reopened.canRunAgain,false);assert.equal(reopened.executionContractDigest,revised.attempt.body.contractDigest);
@@ -930,7 +942,7 @@ for (const revisionMode of ['mutation','failed','blocked','blocked-head-drift','
   else{assert.equal(JSON.stringify(await f.store.getEntity(f.projectId,failed.attempt.id)),attemptBytes);assert.equal(JSON.stringify(await f.store.getEntity(f.projectId,failed.implementation.id)),resultBytes);assert.deepEqual(fs.readFileSync(packetPath),packetBytes);}
   if(prior){assert.equal(JSON.stringify(await f.store.getEntity(f.projectId,prior.attempt.id)),priorBytes.attempt);assert.equal(JSON.stringify(await f.store.getEntity(f.projectId,prior.implementation.id)),priorBytes.result);assert.deepEqual(fs.readFileSync(path.join(f.root,'.champcity','runtime','work-item-attempts',prior.attempt.id+'.json')),priorBytes.packet);}
   assert.deepEqual(await f.store.getEntity(f.projectId,implementation.id),implementation,'Older successful WorkItem evidence remains immutable');
-  assert.equal((await kernel.createTesterWorkItemExecutionContract(f.root,f.workflow.id,repair.id,{sourceMutation:'not-required',affectedPaths:[],proofIntent:['Independent exact assessment']})).sourceRevisionId,cleanHead);
+  assert.equal((await kernel.createTesterWorkItemExecutionContract(f.root,f.workflow.id,repair.id,{sourceMutation:'forbidden',affectedPaths:[],proofIntent:['Independent exact assessment']})).sourceRevisionId,cleanHead);
   await tester.createTesterResult(f.projectId,f.workflow.id,repair.id,revised.implementation.id,{sourceMode:'source-backed',implementerRevisionId:cleanHead,recommendation:'no-permanent-test-required',affectedCapabilityIds:[],permanentTestPaths:[],determinationEvidence:['Independent unchanged-source inspection'],unknowns:[],rationale:'Conforming source preserved'});
   await assert.rejects(planning.review(f.root,f.workflow.id,repair.id,{expectedRecordVersion:(await f.store.getEntity(f.projectId,repair.id)).recordVersion,outcome:'revision_requested',notes:'Successful attempts cannot replan'}),/planned\/ready|successful|unavailable/);
   return;

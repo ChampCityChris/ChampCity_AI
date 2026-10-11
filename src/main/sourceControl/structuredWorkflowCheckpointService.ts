@@ -216,7 +216,7 @@ export async function inspectLegacyImplementationCheckpoint(root: string, projec
       implementation?.entityType !== "ImplementationRecord" || implementation.body.workItemId !== workItemId ||
       implementation.body.outcome !== "implemented" || implementation.body.blockers.length || !implementation.body.executionRef ||
       !item.body.affectedPaths?.length || (await state.getWorkItemPlanningReview(projectId, workItemId)).disposition.state !== "approved")
-      throw Error("Inspection required: exact approved successful mutation-required implementation is unavailable.");
+      throw Error("Inspection required: exact approved successful mutation-allowed implementation is unavailable.");
     const approved = boundedSourcePaths(item.body.affectedPaths);
     const attempt = await state.getImplementationAttempt(projectId, workflowId, workItemId);
     if (attempt?.id !== implementation.body.executionRef || attempt.lifecycleState !== "active" || attempt.body.attemptState !== "completed" ||

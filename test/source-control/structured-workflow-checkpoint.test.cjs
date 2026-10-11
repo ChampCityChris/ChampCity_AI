@@ -42,7 +42,7 @@ test("legacy checkpoint recovery requires exact current ownership, approval and 
   const attempt=await kernel.prepareImplementationAttempt(root,workflow.id,work.id);
   if(mode!=='ready-after-run'&&!materialized)materialized=await materializer.materialize(workflow.id);
   let digest='a'.repeat(64);
-  if(mode!=='ready-after-run')digest=(await kernel.createWorkItemExecutionContract(root,workflow.id,work.id,{sourceMutation:'required',affectedPaths:[relative],proofIntent:['Review source']})).digest;
+  if(mode!=='ready-after-run')digest=(await kernel.createWorkItemExecutionContract(root,workflow.id,work.id,{sourceMutation:'allowed',affectedPaths:[relative],proofIntent:['Review source']})).digest;
   assert.notEqual(digest,attempt.body.contractDigest);
   if(['historical-checkout-drift','historical-revision-drift'].includes(mode)){
    const key=mode==='historical-checkout-drift'?'repositoryCheckoutId':'currentRevisionId';

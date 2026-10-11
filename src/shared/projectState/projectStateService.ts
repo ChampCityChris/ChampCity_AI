@@ -1612,11 +1612,12 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       const currentOwners = (await unit.listEntities(projectId, "Workflow")).filter(record => record.entityType === "Workflow" && record.lineageId === workflow.lineageId && record.lifecycleState === "active" && !["closed", "cancelled"].includes(record.body.workflowState));
       if (currentOwners.length !== 1 || currentOwners[0].id !== workflowId) fail("Exact Workflow is not the unique current owner.");
       const item = await requiredRecord(unit, projectId, workItemId);
-      if (item.entityType !== "WorkItem" || item.recordVersion !== expectedWorkItemVersion || !["planned", "ready"].includes(item.body.workState)) fail("Work Item is unavailable, stale, or already active.");
+      if (item.entityType !== "WorkItem" || item.recordVersion !== expectedWorkItemVersion || !["planned", "ready", "blocked"].includes(item.body.workState)) fail("Work Item is unavailable, stale, or already active.");
       const edges = (await unit.listRelationships(projectId)).filter(edge => !edge.endedAt);
       const plan = await getWorkflowExecutionPlan(projectId, workflowId);
       const projectedWork = [...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].find(candidate => candidate.id === workItemId);
       if (!projectedWork) fail("Work Item does not belong to the exact Workflow execution plan.");
+      if (item.body.workState === "blocked") await blockedPlanningRevisionContext(unit, projectId, workflow, item, plan, "approved", true);
       if (workflow.body.workflowType === "project-creation") await workItemPlanningContext(unit, projectId, workflowId, workItemId);
       const contractReview = await getWorkItemPlanningReview(projectId, workItemId);
       if (contractReview.required && contractReview.disposition.state !== "approved") fail("Approve the exact current WorkItem planning contract before implementation.");
@@ -1686,12 +1687,12 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     if (live.length > 1) fail("Ambiguous current ImplementationAttempt.");
     return live[0] ?? attempts.sort((a,b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)).at(-1) ?? null;
   }
-  /** Exact historical reservation proof for source-backed work that authorized no source edits. */
+  /** SQL provenance for unchanged source; the main-process owner also verifies exact attempt delta and checkout evidence. */
   async function isSourceBackedNoMutationImplementation(projectId: ProjectId, workflowId: EntityId, workItemId: EntityId,
     implementationRecordId: EntityId, sourceRevisionId: string, reader: ProjectStateStore | ProjectStateUnitOfWork = store): Promise<boolean> {
     const item = await reader.getEntity(projectId, workItemId);
     const implementation = await reader.getEntity(projectId, implementationRecordId);
-    if (item?.entityType !== "WorkItem" || !Array.isArray(item.body.affectedPaths) || item.body.affectedPaths.length !== 0 ||
+    if (item?.entityType !== "WorkItem" || !Array.isArray(item.body.affectedPaths) ||
       implementation?.entityType !== "ImplementationRecord" || implementation.body.workItemId !== workItemId || implementation.body.outcome !== "implemented" ||
       implementation.body.blockers.length || !implementation.body.executionRef || !sourceRevisionId) return false;
     const attempt = await reader.getEntity(projectId, implementation.body.executionRef);
@@ -1701,7 +1702,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
       (await getImplementationAttempts(projectId, workItemId)).at(-1)?.id !== implementation.id) return false;
     if ((await getWorkItemPlanningReview(projectId, workItemId)).disposition.state !== "approved") return false;
     const reserved = await reader.getEntityVersion(projectId, workItemId, attempt.body.workItemVersion);
-    if (reserved?.entityType !== "WorkItem" || reserved.body.affectedPaths?.length !== 0 ||
+    if (reserved?.entityType !== "WorkItem" || !Array.isArray(reserved.body.affectedPaths) ||
       ["objective", "implementationBoundaries", "affectedPaths", "proofIntent", "contractRevision"].some(key =>
         JSON.stringify((reserved.body as unknown as Record<string, unknown>)[key]) !== JSON.stringify((item.body as unknown as Record<string, unknown>)[key]))) return false;
     for (const source of attempt.body.layout.sources) {
@@ -1724,8 +1725,16 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     await recordMutation(unit, {projectId: previous.projectId, entityId: previous.id, fromVersion: previous.recordVersion, toVersion: next.recordVersion, operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: now, changedFields: ["attemptState", "implementationRecordId"], defaultReason: "Transition exact ImplementationAttempt", context});
     return next;
   }
-  async function prepareImplementationAttempt(projectId: ProjectId, workflowId: EntityId, workItemId: EntityId, context?: MutationContext) {
+  async function assertBlockedImplementationRetry(projectId: ProjectId, workflowId: EntityId, workItemId: EntityId, expectedVersion: number) {
     return store.transaction(projectId, async unit => {
+      const eligible = await implementationEligibility(unit, projectId, workflowId, workItemId, expectedVersion);
+      if (eligible.item.body.workState !== "blocked") fail("Exact blocked WorkItem required for unchanged-contract retry.");
+      return eligible.item;
+    });
+  }
+  async function prepareImplementationAttempt(projectId: ProjectId, workflowId: EntityId, workItemId: EntityId, context?: MutationContext, expectedVersion?: number) {
+    return store.transaction(projectId, async unit => {
+      if (expectedVersion !== undefined && (await requiredRecord(unit, projectId, workItemId)).recordVersion !== expectedVersion) fail("Retry WorkItem version is stale.");
       const previous = await getImplementationAttempt(projectId, workflowId, workItemId);
       if (previous?.body.attemptState === "running") fail("Running attempt requires recovery/inspection; no second execution may start.");
       const reservation = await implementationReservation(unit, projectId, workflowId, workItemId);
@@ -3806,17 +3815,20 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
   // A blocked state alone is never authority to reopen planning. This transaction
   // rechecks durable provenance; the application owner also verifies the live checkout.
   async function blockedPlanningRevisionContext(unit: ProjectStateUnitOfWork, projectId: ProjectId,
-    workflow: ProjectStateRecord<"Workflow">, workItem: ProjectStateRecord<"WorkItem">, plan: WorkflowExecutionPlanView, disposition: "approved" | "revision_requested") {
+    workflow: ProjectStateRecord<"Workflow">, workItem: ProjectStateRecord<"WorkItem">, plan: WorkflowExecutionPlanView, disposition: "approved" | "revision_requested", retry = false) {
     const records = await unit.listEntities(projectId), edges = (await unit.listRelationships(projectId)).filter(edge => !edge.endedAt);
     const sequence = new Map((await unit.listOutbox(projectId)).filter(event => event.entityId && event.payload.operation === "create").map(event => [event.entityId!, event.sequence]));
     const attempts = records.filter((record): record is ProjectStateRecord<"ImplementationAttempt"> => record.entityType === "ImplementationAttempt" && record.body.workflowId === workflow.id && record.body.workItemId === workItem.id && record.body.attemptState !== "abandoned")
       .sort((a,b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
-    const attempt = attempts.at(-1);
+    const prepared = attempts.filter(record => record.body.attemptState === "prepared");
+    if (retry && (prepared.length > 1 || prepared.some(record => record.body.workItemVersion !== workItem.recordVersion || record.body.implementationRecordId)))
+      fail("Blocked retry has a stale or competing reservation.");
+    const attempt = retry ? attempts.filter(record => record.body.attemptState !== "prepared").at(-1) : attempts.at(-1);
     const results = records.filter((record): record is ProjectStateRecord<"ImplementationRecord"> => record.entityType === "ImplementationRecord" && (record.body.workItemId === workItem.id || record.body.executionRef === attempt?.id))
       .sort((a,b) => (sequence.get(a.id) ?? 0) - (sequence.get(b.id) ?? 0) || a.id.localeCompare(b.id));
     const result = results.at(-1), owners = results.filter(record => record.body.executionRef === attempt?.id);
     if (!isStructuredExecutionWorkflowType(workflow.body.workflowType) || workItem.body.workState !== "blocked" ||
-      attempt?.lifecycleState !== "active" || attempt.body.attemptState !== "completed" || attempts.some(record => ["prepared", "running"].includes(record.body.attemptState)) ||
+      attempt?.lifecycleState !== "active" || attempt.body.attemptState !== "completed" || attempts.some(record => record.body.attemptState === "running" || !retry && record.body.attemptState === "prepared") ||
       owners.length !== 1 || !result || result.id !== attempt.body.implementationRecordId || result.body.workItemId !== workItem.id || result.body.executionRef !== attempt.id || result.body.outcome !== "blocked" || results.some(record => record.body.outcome === "implemented"))
       fail("Blocked planning requires exact completed unsuccessful attempt/result provenance without successful or competing history.");
     for (const [type, from, to] of [["implementation_attempt_for", attempt.id, workItem.id], ["attempt_result", result.id, attempt.id], ["implements_work_item", result.id, workItem.id]]) {
@@ -3825,6 +3837,10 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     }
     const reserved = await unit.getEntityVersion(projectId, workItem.id, attempt.body.workItemVersion);
     if (reserved?.entityType !== "WorkItem" || reserved.body.contractRevision !== workItem.body.contractRevision) fail("Blocked planning contract provenance is stale.");
+    if (retry && (workItem.recordVersion !== attempt.body.workItemVersion + 2 ||
+      ["objective", "implementationBoundaries", "affectedPaths", "proofIntent", "contractRevision"].some(key =>
+        JSON.stringify((reserved.body as unknown as Record<string, unknown>)[key]) !== JSON.stringify((workItem.body as unknown as Record<string, unknown>)[key]))))
+      fail("Blocked retry requires the unchanged reserved WorkItem version and contract.");
     const approvedBeforeRun = attempt.body.layout.sources.some(source => records.some(record => record.id === source.entityId && record.recordVersion === source.recordVersion &&
       record.entityType === "Decision" && record.body.decisionType === "work-item-planning-review" && record.body.outcome === "approved" &&
       record.body.decidedBy.principalType === "human" && record.body.decisionRole === "Operator" &&
@@ -4651,7 +4667,7 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     createWorkflowSourceBaseline, createWorkflowSourceBinding, updateSourceBinding, createSourceCheckpoint, createRecoveredImplementationSourceCheckpoint, advanceSourceCheckpoint, completeTesterResultCheckpoint, createIntegrationRecord, advanceIntegrationRecord, completeWorkflowExecution, closeIntegratedWorkflow,
     prepareWorkItemValidationCycle, getWorkItemValidationCycle, reviewWorkItemValidationCycle,
     createRegressionObligation, setRegressionObligationState, recordTestLifecycleAssessment, createTesterResult, createWorkflowRepair, createPhaseRepair, recordImplementationProof, recordPermanentTestReference, linkPermanentTestReference,
-    reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, recordCriterionOperatorDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, prepareImplementationAttempt, getImplementationAttempt, assertImplementationAttemptCurrent, getImplementationAttemptReport, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,
+    reviseRecord, supersedeRecord, createRelationship, linkWorkflowRouteTarget, endRelationship, recordDecision, recordCriterionOperatorDecision, supersedeDecision, recordValidation, recordEvidence, recordImplementation, prepareImplementationAttempt, assertBlockedImplementationRetry, getImplementationAttempt, assertImplementationAttemptCurrent, getImplementationAttemptReport, beginWorkItemAttempt, finishWorkItemAttempt, decomposeWorkItem, completeWorkItem, completePhase,
     getRecord, queryRecords, queryRecordsPage, getCurrentProjectStateView, renderView, exportStructuredProjectState, getAuthoritativeContext, getCommittedEventFeed, getCurrentRecord, getRecordHistory, getRelationships, getLineage, getProjectStateSummary, getEvidence,
     getEffectiveDisposition, getCriterionOperatorDecisionStatus, getRequiredOperatorDecisions, getValidationFreshness, getCriterionValidationStatus, linkPhaseValidationEvidence,
     isSourceBackedNoMutationImplementation, getImplementationAttempts, getExecutionPlan, getWorkflowExecutionPlan, getProjectCompletionEligibility, getWorkflowSourceRevisionChain: (projectId: ProjectId, workflowId: EntityId) => workflowSourceRevisionChain(projectId, workflowId), acceptWorkflowPlanningGraph, acceptFeatureAssessment, acceptIssueRca, getWorkItemCompletionEligibility, getPhaseCompletionEligibility,
