@@ -385,20 +385,65 @@ export function createWorkflowExecutionApplicationService(dependencies: {
     });
   }
 
-  // One guard for candidate saves and the failed-Implement revision disposition.
+  // One guard for candidate saves and the unsuccessful-Implement revision disposition.
   async function executionPlanningContext(store: ProjectStateStore, projectId: ProjectId, projectRoot: string,
     input: {workflowId: string; workItemId: string; expectedVersion: number}) {
       const workflow = await exactPlan(store, projectId, input.workflowId);
       if (!implementationWorkflowTypes.has(workflow.workflow.body.workflowType)) throw Error("Execution planning requires the exact current supported Workflow.");
       const projection = await project(store, projectId, workflow);
       const item = projection.items.find(candidate => candidate.record.id === input.workItemId);
-      if (!item || !["planned", "ready"].includes(item.record.body.workState) || item.record.recordVersion !== input.expectedVersion) throw Error("Execution planning requires the exact current planned/ready WorkItem; identity or revision is stale.");
+      if (!item || !["planned", "ready", "blocked"].includes(item.record.body.workState) || item.record.recordVersion !== input.expectedVersion) throw Error("Execution planning requires the exact current planned/ready or semantic blocked WorkItem; identity or revision is stale.");
       if (item.repairIds.some(id => projection.items.some(candidate => candidate.record.id === id && !["closed", "cancelled"].includes(candidate.record.body.workState)))) throw Error("Execution planning is blocked while an active Repair owns the next correction.");
+      if (item.record.body.workState === "blocked") {
+        const state = createProjectStateService(store, operator);
+        const attempt = await state.getImplementationAttempt(projectId, input.workflowId, input.workItemId);
+        if (!attempt || attempt.lifecycleState !== "active" || attempt.body.attemptState !== "completed")
+          throw Error("Blocked planning revision requires an exact completed semantic blocked attempt with no competing reservation.");
+        const evidence = await getDurableImplementationEvidence(projectRoot, input.workflowId, input.workItemId, attempt.id);
+        if (evidence.result.body.outcome !== "blocked" || evidence.historicalWorkItem.body.contractRevision !== item.record.body.contractRevision ||
+          item.record.lifecycleState !== "active" || item.eligibility.blockers.some(reason => reason !== "blocking-decision"))
+          throw Error("Blocked planning revision requires exact current contract provenance without dependency, Phase, terminal or blocking evidence.");
+        const review = await state.getWorkItemPlanningReview(projectId, input.workItemId);
+        if (!["approved", "revision_requested"].includes(review.disposition.state))
+          throw Error("Blocked planning revision requires approved planning or its explicit revision disposition.");
+        const reserved = await Promise.all(attempt.body.layout.sources.map(source => store.getEntityVersion(projectId, source.entityId, source.recordVersion)));
+        if (!reserved.some(record => record?.entityType === "Decision" && record.body.decisionType === "work-item-planning-review" && record.body.outcome === "approved" &&
+          record.body.decidedBy.principalType === "human" && record.body.decisionRole === "Operator" && record.body.decisionScope === `work-item-planning-review:${input.workItemId}@${item.record.body.contractRevision}`))
+          throw Error("Blocked planning revision requires approved contract evidence reserved before implementation.");
+        const edges = (await store.listRelationships(projectId)).filter(edge => !edge.endedAt);
+        if ((await store.listEntities(projectId, "Decision")).some(record => record.entityType === "Decision" && record.lifecycleState === "active" &&
+          edges.some(edge => edge.relationshipType === "governs" && edge.fromEntityId === record.id &&
+            ([attempt.id, evidence.result.id].includes(edge.toEntityId) || edge.toEntityId === input.workItemId && record.body.decisionType !== "work-item-planning-review" && ["proposed", "revision_requested", "rejected", "revoked"].includes(record.body.outcome)))))
+          throw Error("Blocked planning revision has an unrelated downstream disposition.");
+        if (attempt.body.sourceMode === "source-backed") {
+          const source = projection.source;
+          const bindings = (await store.listEntities(projectId, "SourceBinding")).filter(record => record.entityType === "SourceBinding" && record.lifecycleState === "active" && record.body.workflowId === input.workflowId);
+          if (source.state !== "ready" || !source.repositoryCheckoutId || !source.workSourceLineId || source.currentRevisionId !== attempt.body.sourceRevisionId ||
+            bindings.length !== 1 || evidence.historicalBinding?.id !== bindings[0].id)
+            throw Error("Blocked source-backed attempt must retain its exact ready source binding and unchanged revision.");
+          const checkout = resolveManagedWorkflowCheckoutPath(fs.realpathSync(projectRoot), input.workflowId).checkoutRoot;
+          const lease = acquireWorkflowExecutionLease(workflowExecutionLeaseKey("source-backed", checkout), `planning-revision:${attempt.id}`);
+          if (!lease) throw Error("Blocked planning revision is blocked by a conflicting execution lease.");
+          try {
+            const changes = await reconcileWorkflowSource(fs.realpathSync(projectRoot), input.workflowId, {
+              repositoryCheckoutId: source.repositoryCheckoutId, sourceLineId: source.workSourceLineId, expectedRevisionId: attempt.body.sourceRevisionId!,
+            });
+            const status = (await runBoundedGit({cwd: checkout, args: ["status", "--porcelain", "--untracked-files=all"]})).stdout;
+            if (changes.length || status) throw Error("Blocked source-backed checkout is not restored clean at the unchanged SourceBinding revision.");
+          } finally {lease.release();}
+        } else {
+          if (projection.source.state !== "non-source") throw Error("Blocked source-neutral attempt has changed source identity.");
+          const lease = acquireWorkflowExecutionLease(workflowExecutionLeaseKey("source-neutral", path.join(fs.realpathSync(projectRoot), ".champcity", "runtime", "work-item-workers", attempt.id)), `planning-revision:${attempt.id}`);
+          if (!lease) throw Error("Blocked planning revision is blocked by a conflicting execution lease.");
+          lease.release();
+        }
+      }
       if (item.implementationAttempts.length) {
         const latest = item.implementationAttempts.at(-1)!;
         if (item.implementationAttempts.some(record => record.body.outcome === "implemented")) throw Error("Execution plan cannot change after a successful implementation attempt.");
         const scopeFailure = latest.body.outcome === "failed" && latest.body.blockers.some(value => /outside the accepted Architect path scope|exact checkout restored/i.test(value));
-        if (!(item.record.body.workState === "ready" && latest.body.outcome !== "implemented" && (scopeFailure || ["partial", "failed", "abandoned"].includes(latest.body.outcome))))
+        if (!(item.record.body.workState === "ready" && latest.body.outcome !== "implemented" && (scopeFailure || ["partial", "failed", "abandoned"].includes(latest.body.outcome)) ||
+          item.record.body.workState === "blocked" && latest.body.outcome === "blocked"))
           throw Error("Execution plan cannot change after a successful or unresolved implementation attempt.");
         const attemptRefs = new Set(item.implementationAttempts.map(record => record.body.executionRef).filter((value): value is string => Boolean(value)));
         const attemptTester = (await store.listEntities(projectId, "TesterResult")).some(record => record.entityType === "TesterResult" && record.body.workflowId === input.workflowId && record.body.workItemId === item.record.id && item.implementationAttempts.some(attempt => attempt.id === record.body.implementationRecordId));
@@ -470,10 +515,13 @@ export function createWorkflowExecutionApplicationService(dependencies: {
           return;
         } finally { lease.release(); }
       }
-      if (item.record.body.workState !== "ready" || attempt?.body.attemptState !== "completed" ||
+      const blocked = item.record.body.workState === "blocked" && item.implementationAttempts.at(-1)?.body.outcome === "blocked";
+      if ((!blocked && item.record.body.workState !== "ready") || attempt?.body.attemptState !== "completed" ||
         item.implementationAttempts.at(-1)?.id !== attempt.body.implementationRecordId ||
-        !["partial", "failed", "abandoned"].includes(item.implementationAttempts.at(-1)?.body.outcome ?? ""))
+        !["partial", "failed", "abandoned", ...(blocked ? ["blocked"] : [])].includes(item.implementationAttempts.at(-1)?.body.outcome ?? ""))
         throw Error("Planning revision requires the exact completed unsuccessful ready WorkItem.");
+      if (blocked && (await state.getWorkItemPlanningReview(projectId, workItemId)).disposition.state !== "approved")
+        throw Error("Blocked planning revision requires approved current WorkItem planning.");
     });
   }
 

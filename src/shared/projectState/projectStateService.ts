@@ -3803,12 +3803,62 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     }
     return {workflow, workItem, plan};
   }
+  // A blocked state alone is never authority to reopen planning. This transaction
+  // rechecks durable provenance; the application owner also verifies the live checkout.
+  async function blockedPlanningRevisionContext(unit: ProjectStateUnitOfWork, projectId: ProjectId,
+    workflow: ProjectStateRecord<"Workflow">, workItem: ProjectStateRecord<"WorkItem">, plan: WorkflowExecutionPlanView, disposition: "approved" | "revision_requested") {
+    const records = await unit.listEntities(projectId), edges = (await unit.listRelationships(projectId)).filter(edge => !edge.endedAt);
+    const sequence = new Map((await unit.listOutbox(projectId)).filter(event => event.entityId && event.payload.operation === "create").map(event => [event.entityId!, event.sequence]));
+    const attempts = records.filter((record): record is ProjectStateRecord<"ImplementationAttempt"> => record.entityType === "ImplementationAttempt" && record.body.workflowId === workflow.id && record.body.workItemId === workItem.id && record.body.attemptState !== "abandoned")
+      .sort((a,b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+    const attempt = attempts.at(-1);
+    const results = records.filter((record): record is ProjectStateRecord<"ImplementationRecord"> => record.entityType === "ImplementationRecord" && (record.body.workItemId === workItem.id || record.body.executionRef === attempt?.id))
+      .sort((a,b) => (sequence.get(a.id) ?? 0) - (sequence.get(b.id) ?? 0) || a.id.localeCompare(b.id));
+    const result = results.at(-1), owners = results.filter(record => record.body.executionRef === attempt?.id);
+    if (!isStructuredExecutionWorkflowType(workflow.body.workflowType) || workItem.body.workState !== "blocked" ||
+      attempt?.lifecycleState !== "active" || attempt.body.attemptState !== "completed" || attempts.some(record => ["prepared", "running"].includes(record.body.attemptState)) ||
+      owners.length !== 1 || !result || result.id !== attempt.body.implementationRecordId || result.body.workItemId !== workItem.id || result.body.executionRef !== attempt.id || result.body.outcome !== "blocked" || results.some(record => record.body.outcome === "implemented"))
+      fail("Blocked planning requires exact completed unsuccessful attempt/result provenance without successful or competing history.");
+    for (const [type, from, to] of [["implementation_attempt_for", attempt.id, workItem.id], ["attempt_result", result.id, attempt.id], ["implements_work_item", result.id, workItem.id]]) {
+      const links = edges.filter(edge => edge.relationshipType === type && edge.fromEntityId === from);
+      if (links.length !== 1 || links[0].toEntityId !== to) fail("Blocked planning attempt/result ownership is ambiguous.");
+    }
+    const reserved = await unit.getEntityVersion(projectId, workItem.id, attempt.body.workItemVersion);
+    if (reserved?.entityType !== "WorkItem" || reserved.body.contractRevision !== workItem.body.contractRevision) fail("Blocked planning contract provenance is stale.");
+    const approvedBeforeRun = attempt.body.layout.sources.some(source => records.some(record => record.id === source.entityId && record.recordVersion === source.recordVersion &&
+      record.entityType === "Decision" && record.body.decisionType === "work-item-planning-review" && record.body.outcome === "approved" &&
+      record.body.decidedBy.principalType === "human" && record.body.decisionRole === "Operator" &&
+      record.body.decisionScope === `work-item-planning-review:${workItem.id}@${workItem.body.contractRevision}`));
+    const review = exactVersionReviewDisposition({...workItem, recordVersion: workItem.body.contractRevision!}, records, edges, await unit.listOutbox(projectId), "work-item-planning-review", "work-item-planning-review");
+    if (!approvedBeforeRun || review.state !== disposition) fail("Blocked planning requires prior approved contract and exact governed revision disposition.");
+    const bindings = records.filter((record): record is ProjectStateRecord<"SourceBinding"> => record.entityType === "SourceBinding" && record.lifecycleState === "active" && record.body.workflowId === workflow.id);
+    if (attempt.body.sourceMode === "source-backed" && (bindings.length !== 1 || bindings[0].body.preparationState !== "ready" || bindings[0].body.currentRevisionId !== attempt.body.sourceRevisionId ||
+      !attempt.body.layout.sources.some(source => source.entityId === bindings[0].id))) fail("Blocked planning requires unchanged ready source binding identity.");
+    const targets = new Set([workItem.id, ...plan.criteria.filter(entry => entry.ownerId === workItem.id).map(entry => entry.record.id), ...results.map(record => record.id), ...attempts.map(record => record.id)]);
+    if (edges.some(edge => edge.relationshipType === "governs" && targets.has(edge.toEntityId) && records.some(record => record.id === edge.fromEntityId && record.lifecycleState === "active" && record.entityType === "Decision" &&
+      (edge.toEntityId !== workItem.id || record.body.decisionType !== "work-item-planning-review" && ["proposed", "revision_requested", "rejected", "revoked"].includes(record.body.outcome)))))
+      fail("Blocked planning has an unrelated downstream disposition.");
+    if (records.some(record => record.entityType === "TesterResult" && (record.body.workItemId === workItem.id || results.some(result => result.id === record.body.implementationRecordId)) ||
+      record.entityType === "Validation" && (targets.has(record.body.targetEntityId) || !!record.body.implementationRecordId && targets.has(record.body.implementationRecordId)) ||
+      record.entityType === "SourceCheckpoint" && record.body.workflowId === workflow.id && targets.has(record.body.boundaryId) && record.body.checkpointState !== "not-required") ||
+      edges.some(edge => ["evaluates", "checkpoints", "blocks", "repairs"].includes(edge.relationshipType) && targets.has(edge.toEntityId) && records.some(record => record.id === edge.fromEntityId && record.lifecycleState === "active")))
+      fail("Blocked planning is owned by downstream evidence, checkpoint, Repair or blocking disposition.");
+    for (const edge of edges.filter(edge => edge.relationshipType === "depends_on" && edge.fromEntityId === workItem.id)) {
+      if (!records.some(record => record.id === edge.toEntityId && record.entityType === "WorkItem" && record.body.workState === "closed")) fail("Blocked planning dependency is incomplete.");
+    }
+    const phase = plan.phases.find(phase => phase.workItemIds.includes(workItem.id));
+    if (phase && (["blocked", "closed", "cancelled"].includes(phase.record.body.phaseState) || plan.phases.some(prior => prior.sequence < phase.sequence &&
+      (prior.record.body.phaseState !== "closed" || prior.workItemIds.some(id => !records.some(record => record.id === id && record.entityType === "WorkItem" && record.body.workState === "closed"))))))
+      fail("Blocked planning Phase is unavailable.");
+  }
   async function saveWorkItemPlanningContract(projectId: ProjectId, value: WorkItemPlanningContract) {
     const input = validateWorkItemPlanningContract(value);
     if (input.decomposition) fail("Decomposition is a separate explicit Operator action; it cannot silently replace the contract.");
     return store.transaction(projectId, async unit => {
-      const {workItem, workflow} = await workItemPlanningContext(unit, projectId, input.workflowId, input.workItemId);
-      if (workItem.recordVersion !== input.expectedVersion || !["planned", "ready"].includes(workItem.body.workState)) fail("WorkItem contract revision is stale or has left planning.");
+      const {workItem, workflow, plan} = await workItemPlanningContext(unit, projectId, input.workflowId, input.workItemId);
+      if (workItem.recordVersion !== input.expectedVersion || !["planned", "ready", "blocked"].includes(workItem.body.workState)) fail("WorkItem contract revision is stale or has left planning.");
+      const reopen = workItem.body.workState === "blocked";
+      if (reopen) await blockedPlanningRevisionContext(unit, projectId, workflow, workItem, plan, "revision_requested");
       const history = (await unit.listRelationships(projectId)).filter(edge => !edge.endedAt);
       if (!isStructuredExecutionWorkflowType(workflow.body.workflowType) && history.some(edge => edge.relationshipType === "implements_work_item" && edge.toEntityId === workItem.id)) fail("WorkItem detailed planning has implementation history.");
       const contractTargets = new Set([workItem.id, ...history.filter(edge => edge.relationshipType === "defines_criterion" && edge.fromEntityId === workItem.id).map(edge => edge.toEntityId)]);
@@ -3834,8 +3884,8 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
         }
       }
       const version = workItem.recordVersion + 1;
-      const next = validateProjectStateEntity({...workItem, recordVersion: version, updatedAt: new Date().toISOString(), updatedBy: trustedPrincipal, body: {...workItem.body, implementationBoundaries: input.implementationBoundaries, affectedPaths: input.affectedPaths, proofIntent: input.proofIntent, contractRevision: version, contractReviewRequired: true, contractCriterionIds}}) as ProjectStateRecord<"WorkItem">;
-      await unit.saveEntity(next, workItem.recordVersion); await recordMutation(unit, {projectId, entityId: workItem.id, fromVersion: workItem.recordVersion, toVersion: version, operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: next.updatedAt, changedFields: ["implementationBoundaries", "affectedPaths", "proofIntent", "contractRevision", "contractReviewRequired", "contractCriterionIds"], defaultReason: "Save one exact SQL WorkItem planning contract"}); return next;
+      const next = validateProjectStateEntity({...workItem, recordVersion: version, updatedAt: new Date().toISOString(), updatedBy: trustedPrincipal, body: {...workItem.body, ...(reopen ? {workState: "planned"} : {}), implementationBoundaries: input.implementationBoundaries, affectedPaths: input.affectedPaths, proofIntent: input.proofIntent, contractRevision: version, contractReviewRequired: true, contractCriterionIds}}) as ProjectStateRecord<"WorkItem">;
+      await unit.saveEntity(next, workItem.recordVersion); await recordMutation(unit, {projectId, entityId: workItem.id, fromVersion: workItem.recordVersion, toVersion: version, operation: "revise", eventType: PROJECT_STATE_EVENT_TYPES.revise, occurredAt: next.updatedAt, changedFields: ["implementationBoundaries", "affectedPaths", "proofIntent", "contractRevision", "contractReviewRequired", "contractCriterionIds", ...(reopen ? ["workState"] : [])], defaultReason: "Save one exact SQL WorkItem planning contract"}); return next;
     });
   }
   async function getWorkItemPlanningReview(projectId: ProjectId, workItemId: EntityId) {
@@ -3850,8 +3900,12 @@ export function createProjectStateService(store: ProjectStateStore, principal: P
     exactInput(input, ["expectedRecordVersion", "outcome", "notes"]);
     if (trustedPrincipal.principalType !== "human" || trustedPrincipal.role !== "Operator" || !Number.isSafeInteger(input.expectedRecordVersion) || !["approved", "revision_requested", "rejected"].includes(input.outcome) || input.notes !== undefined && (typeof input.notes !== "string" || input.notes.length > 4096) || input.outcome === "revision_requested" && !input.notes?.trim()) fail("Exact Operator WorkItem contract review required.");
     return store.transaction(projectId, async unit => {
-      const {workItem} = await workItemPlanningContext(unit, projectId, workflowId, workItemId);
-      if (workItem.recordVersion !== input.expectedRecordVersion || !workItem.body.contractRevision || !["planned", "ready"].includes(workItem.body.workState)) fail("WorkItem review version is stale or unavailable.");
+      const {workItem, workflow, plan} = await workItemPlanningContext(unit, projectId, workflowId, workItemId);
+      if (workItem.recordVersion !== input.expectedRecordVersion || !workItem.body.contractRevision || !["planned", "ready", "blocked"].includes(workItem.body.workState)) fail("WorkItem review version is stale or unavailable.");
+      if (workItem.body.workState === "blocked") {
+        if (input.outcome !== "revision_requested") fail("Blocked WorkItem requires an explicit planning revision before replacement approval.");
+        await blockedPlanningRevisionContext(unit, projectId, workflow, workItem, plan, "approved");
+      }
       const now = new Date().toISOString(), decision = createProjectStateEntity({entityType: "Decision", projectId, principal: trustedPrincipal, body: decisionBody({decisionType: "work-item-planning-review", outcome: input.outcome, decisionScope: `work-item-planning-review:${workItem.id}@${workItem.body.contractRevision}`, rationale: input.notes ?? ""}, trustedPrincipal, now)});
       await unit.saveEntity(decision, null); await recordMutation(unit, {projectId, entityId: decision.id, fromVersion: null, toVersion: 1, operation: "create", eventType: PROJECT_STATE_EVENT_TYPES.create, occurredAt: now, changedFields: Object.keys(decision.body), defaultReason: "Review exact WorkItem contract revision"}); await linkSemantic(unit, projectId, decision, workItem, "governs"); return decision;
     });

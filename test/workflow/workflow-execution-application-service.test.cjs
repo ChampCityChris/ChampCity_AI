@@ -145,7 +145,7 @@ test("Feature and Issue use the same exact-Workflow projection and isolate concu
   const issueBlocked = issuePlan.directWorkItems.find(item => item.body.title === "Blocked");
   const kernel = createWorkflowExecutionApplicationService();
   await assert.rejects(kernel.acceptWorkItemExecutionPlan(env.root, { workflowId: feature.workflow.id, workItemId: issueParent.id, expectedVersion: issueParent.recordVersion,
-    plan: { implementationBoundaries: ["Wrong peer"], affectedPaths: [], proofIntent: ["Must reject"] } }), /exact current planned\/ready WorkItem/);
+    plan: { implementationBoundaries: ["Wrong peer"], affectedPaths: [], proofIntent: ["Must reject"] } }), /exact current planned\/ready or semantic blocked WorkItem/);
   const acceptedIssue = await kernel.acceptWorkItemExecutionPlan(env.root, { workflowId: issue.workflow.id, workItemId: issueParent.id, expectedVersion: issueParent.recordVersion,
     plan: { implementationBoundaries: ["Correct issue"], affectedPaths: [], proofIntent: ["Run focused issue proof"] } });
   await env.state.reviseRecord(env.projectId, issueBlocked.id, { ...issueBlocked.body, workState: "blocked" }, issueBlocked.recordVersion);
@@ -1131,6 +1131,82 @@ test('exact WorkItem planning requires current Operator review and rejects unsup
   const result=await service.decompose(env.root,created.workflow.id,id,JSON.stringify(proposal)); assert.equal(result.result.replacements.length,2);
   const corrected=await env.state.getWorkflowExecutionPlan(env.projectId,created.workflow.id); assert.equal(corrected.phases.length,2); assert.equal(corrected.directWorkItems.length,0); assert.equal(corrected.criteria.filter(entry=>entry.record.body.criticality==='required').length,2);
 });
+test('semantic blocked contracts revise through the same typed owner and reject unrelated blocked provenance', async suite => {
+ for (const scenario of ['feature','integration','infrastructure','dependency','phase','child-repair','validation','tester','checkpoint-pending','checkpoint-committed','checkpoint-inspection','running','prepared','wrong-owner','ambiguous-result','successful-history','missing-approval','unrelated-blocked','downstream-disposition','attempt-disposition']) await suite.test(scenario, async context => {
+  const env=await setup(context),kernel=createWorkflowExecutionApplicationService();
+  const type=scenario==='integration'?'integration-composition':scenario==='infrastructure'?'infrastructure-platform':'feature-capability';
+  const created=await env.state.createSubstantiveWorkflow(env.projectId,{workflowType:type,title:'Blocked contract recovery',entryWorkspace:type==='integration-composition'?'integration-intake':type==='infrastructure-platform'?'infrastructure-intake':'feature-intake'});
+  const phased=scenario==='phase';
+  const plan=await env.state.acceptWorkflowPlanningGraph(env.projectId,graph(created.workflow.id,phased?'phased':'direct','feature',[
+   {key:'work',kind:'feature',title:scenario==='infrastructure'?'Infrastructure contract':'Exact contract',objective:'Assess accepted outcome',dependencyKeys:[],...(phased?{phaseKey:'one'}:{}),criteria:[]},
+   {key:'peer',kind:'feature',title:'Peer',objective:'Independent outcome',dependencyKeys:[],...(phased?{phaseKey:'one'}:{}),criteria:[]}
+  ],phased?[{key:'one',title:'Phase',objective:'Phase acceptance',sequence:1,criteria:[]}]:[]));
+  const items=[...plan.directWorkItems,...Object.values(plan.workItemsByPhase).flat()],item=items.find(item=>item.body.title!=='Peer'),peer=items.find(item=>item.body.title==='Peer');
+  const accepted=await kernel.acceptWorkItemExecutionPlan(env.root,{workflowId:created.workflow.id,workItemId:item.id,expectedVersion:1,plan:{implementationBoundaries:['Assess only exact approved outcome'],affectedPaths:[],proofIntent:['Independent semantic review']}});
+  let attempt=await kernel.prepareImplementationAttempt(env.root,created.workflow.id,item.id);
+  await kernel.beginWorkItemAttempt(env.root,created.workflow.id,item.id,accepted.recordVersion,attempt.id);
+  const result=await kernel.finishWorkItemAttempt(env.root,created.workflow.id,item.id,attempt.id,{summary:'Approved contract cannot be satisfied safely',deviations:[],blockers:['Contract revision required'],residualRisks:[],outcome:scenario==='unrelated-blocked'?'partial':'blocked'});
+  attempt=await env.store.getEntity(env.projectId,attempt.id);
+  const planning=require('../../dist/main/workCardPlanning/structuredWorkItemPlanningService.js').createStructuredWorkItemPlanningService();
+  let current=await env.store.getEntity(env.projectId,item.id);
+  const replaceFixture=async(record,body)=>env.store.transaction(env.projectId,unit=>unit.saveEntity({...record,recordVersion:record.recordVersion+1,body:{...record.body,...body}},record.recordVersion));
+  // Incompatible persisted provenance is injected through the fixture store,
+  // without revising immutable evidence or weakening production ingress rules.
+  const insertFixture=async(entityType,body)=>{
+   const record=require('../../dist/shared/projectState/entityTypeRegistry.js').createProjectStateEntity({projectId:env.projectId,entityType,body,principal:operator});
+   await env.store.transaction(env.projectId,unit=>unit.saveEntity(record,null));return record;
+  };
+  const linkFixture=async(from,relationshipType,to)=>env.store.transaction(env.projectId,unit=>unit.saveRelationship({id:require('node:crypto').randomUUID(),projectId:env.projectId,fromEntityId:from,relationshipType,toEntityId:to,createdAt:new Date().toISOString(),createdBy:operator}));
+  if(scenario==='dependency')await linkFixture(item.id,'depends_on',peer.id);
+  if(scenario==='phase')await env.state.reviseRecord(env.projectId,plan.phases[0].phaseId,{...plan.phases[0].record.body,phaseState:'blocked'},plan.phases[0].record.recordVersion);
+  if(scenario==='child-repair'){await replaceFixture(peer,{workItemKind:'repair'});await env.state.createRelationship(env.projectId,peer.id,'repairs',item.id);}
+  if(scenario==='validation')await env.state.recordValidation(env.projectId,item.id,{validationType:'semantic',method:'Fixture',validationMode:'semantic_ai',outcome:'inconclusive',summary:'Downstream owns review',targetRecordVersion:current.recordVersion});
+  if(scenario==='tester')await insertFixture('TesterResult',{workflowId:created.workflow.id,workItemId:item.id,implementationRecordId:result.id,sourceMode:'source-neutral',checkpointState:'not-required',recommendation:'reuse-existing-proof',affectedCapabilityIds:[],permanentTestPaths:[],determinationEvidence:['Fixture'],unknowns:[],rationale:'Downstream evidence'});
+  if(scenario.startsWith('checkpoint-'))await insertFixture('SourceCheckpoint',{workflowId:created.workflow.id,boundaryId:attempt.id,sourceLineId:'fixture',expectedRevisionId:'fixture-revision',checkpointKind:'implementation',checkpointState:scenario==='checkpoint-inspection'?'inspection-required':scenario.slice('checkpoint-'.length),...(scenario==='checkpoint-committed'?{resultingRevisionId:'committed-revision',receiptDigest:'a'.repeat(64)}:{})});
+  if(['running','prepared'].includes(scenario)){const {implementationRecordId,...body}=attempt.body;await insertFixture('ImplementationAttempt',{...body,attemptState:scenario});}
+  if(scenario==='wrong-owner')await insertFixture('ImplementationRecord',{...result.body,workItemId:peer.id});
+  if(scenario==='ambiguous-result')await insertFixture('ImplementationRecord',{...result.body});
+  if(scenario==='successful-history'){
+   const success=await insertFixture('ImplementationRecord',{...result.body,executionRef:'old-success',outcome:'implemented'});
+   await linkFixture(success.id,'implements_work_item',item.id);
+  }
+  if(scenario==='missing-approval'){
+   const approval=(await env.store.listEntities(env.projectId,'Decision')).find(record=>record.body.decisionType==='work-item-planning-review'&&record.body.outcome==='approved');
+   const rejection=await insertFixture('Decision',{...approval.body,outcome:'rejected',rationale:'Current contract approval withdrawn',decidedAt:new Date().toISOString(),effectiveAt:new Date().toISOString()});await linkFixture(rejection.id,'governs',item.id);
+  }
+  if(scenario==='unrelated-blocked'){await replaceFixture(current,{workState:'blocked'});current=await env.store.getEntity(env.projectId,item.id);}
+  if(['downstream-disposition','attempt-disposition'].includes(scenario)){
+   const decision=await insertFixture('Decision',{decisionType:'work-item-disposition',outcome:scenario==='attempt-disposition'?'approved':'rejected',rationale:'Downstream disposition',decisionRole:'Operator',decisionScope:'fixture',decidedBy:operator,decidedAt:new Date().toISOString(),effectiveAt:new Date().toISOString()});
+   await linkFixture(decision.id,'governs',scenario==='attempt-disposition'?attempt.id:item.id);
+  }
+  const decision={expectedRecordVersion:current.recordVersion,outcome:'revision_requested',notes:'Replace impossible exact contract'};
+  const contract={workflowId:created.workflow.id,workItemId:item.id,expectedVersion:current.recordVersion,implementationBoundaries:['Replacement bounded contract'],affectedPaths:[],proofIntent:['Independent semantic review']};
+  const before=await env.store.listStateChanges(env.projectId);
+  if(!['feature','integration','infrastructure'].includes(scenario)){
+   assert.equal((await planning.get(env.root,created.workflow.id,item.id)).revisionEligibility.eligible,false,scenario);
+   await assert.rejects(planning.review(env.root,created.workflow.id,item.id,decision));
+   await assert.rejects(planning.save(env.root,created.workflow.id,item.id,JSON.stringify(contract)));
+   await assert.rejects(env.state.saveWorkItemPlanningContract(env.projectId,contract));
+   assert.deepEqual(await env.store.listStateChanges(env.projectId),before);return;
+  }
+  reopenProject(env);
+  assert.equal((await planning.get(env.root,created.workflow.id,item.id)).revisionEligibility.eligible,true);
+  assert.deepEqual(await env.store.listStateChanges(env.projectId),before,'Reads after restart do not mutate');
+  await assert.rejects(planning.review(env.root,created.workflow.id,item.id,{...decision,notes:'   '}),/Operator|notes/);
+  await assert.rejects(planning.review(env.root,created.workflow.id,item.id,{...decision,expectedRecordVersion:1}),/stale/);
+  await assert.rejects(planning.save(env.root,created.workflow.id,item.id,JSON.stringify(contract)),/revision disposition/);
+  await assert.rejects(env.state.recordWorkItemPlanningReview(env.projectId,created.workflow.id,item.id,{...decision,outcome:'approved'}),/explicit planning revision/);
+  await planning.review(env.root,created.workflow.id,item.id,decision);
+  assert.equal((await env.store.getEntity(env.projectId,item.id)).body.workState,'blocked');
+  await planning.save(env.root,created.workflow.id,item.id,JSON.stringify(contract));
+  current=await env.store.getEntity(env.projectId,item.id);assert.equal(current.body.workState,'planned');assert.equal(current.recordVersion,contract.expectedVersion+1);
+  await assert.rejects(kernel.prepareImplementationAttempt(env.root,created.workflow.id,item.id),/Approve/);
+  await planning.review(env.root,created.workflow.id,item.id,{expectedRecordVersion:current.recordVersion,outcome:'approved'});
+  const fresh=await kernel.prepareImplementationAttempt(env.root,created.workflow.id,item.id);assert.notEqual(fresh.id,attempt.id);assert.equal(fresh.body.workItemVersion,current.recordVersion);
+  assert.deepEqual(await env.store.getEntity(env.projectId,attempt.id),attempt);assert.deepEqual(await env.store.getEntity(env.projectId,result.id),result);
+ });
+});
+
 test('typed legacy Formal metadata and prose remain inert historical evidence', async context => {
   const env=await setup(context), created=await env.state.createSubstantiveWorkflow(env.projectId,{workflowType:'feature-capability',title:'Legacy typed work',entryWorkspace:'feature-intake'});
   await env.state.acceptWorkflowPlanningGraph(env.projectId,graph(created.workflow.id,'direct','feature',[{key:'legacy_work',kind:'feature',title:'Legacy work',objective:'Explicit bounded result',dependencyKeys:[],criteria:[]}]));
