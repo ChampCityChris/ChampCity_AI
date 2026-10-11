@@ -673,6 +673,11 @@ test('Greenfield stranded parent checkpoint recovers before a stale prepared Rep
  const service=new CodexImplementerExecutionService(async()=>({startThread(options){calls++;assert.equal(git(checkout,'status','--porcelain','--untracked-files=all'),'');assert.notEqual(git(checkout,'rev-parse','HEAD'),revision);return {id:'repair-after-recovery',async runStreamed(){await finish;fs.writeFileSync(path.join(options.workingDirectory,'repair.txt'),'Approved repair');return {events:(async function*(){yield {type:'item.completed',item:{type:'agent_message',text:JSON.stringify({...result,summary:'Implemented repair without file telemetry'})}};yield {type:'turn.completed'};})()};}};}}),undefined,undefined,undefined,runtime.manager);
  service.configureSourceCheckoutProjection(async()=>({workspaceId:'stranded-greenfield',projection:{registerRepositoryCheckout:async(_id,value)=>({...value,availability:'available',validationError:null})}}));
  const selector={ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:repair.id};
+ const strandedBefore={changes:await f.store.listStateChanges(f.projectId),binding:await f.store.getEntity(f.projectId,materialized.binding.id),head:git(checkout,'rev-parse','HEAD'),status:git(checkout,'status','--porcelain','--untracked-files=all')};
+ const stranded=await service.getStatus(f.root,{ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:parent.id});
+ assert.equal(stranded.state,'unavailable');assert.equal(stranded.canRunAgain,false);assert.ok(stranded.lastRunState);assert.equal(stranded.reportUpdated,true);assert.equal(stranded.checkpoint.status,'blocked');
+ if(!interruption.startsWith('sql-committed'))assert.match(stranded.retryBlocker,/recover.*SourceCheckpoint.*instead of rerunning/);
+ assert.equal(calls,0);assert.deepEqual(await f.store.listStateChanges(f.projectId),strandedBefore.changes);assert.deepEqual(await f.store.getEntity(f.projectId,materialized.binding.id),strandedBefore.binding);assert.equal(git(checkout,'rev-parse','HEAD'),strandedBefore.head);assert.equal(git(checkout,'status','--porcelain','--untracked-files=all'),strandedBefore.status);assert.deepEqual(fs.readFileSync(packetPath),packetBytes);
  const beforePoll=await f.store.listStateChanges(f.projectId);await service.getStatus(f.root,selector);assert.deepEqual(await f.store.listStateChanges(f.projectId),beforePoll);
  const running=await service.start(f.root,selector,selection);assert.equal(running.state,'running',running.failureReason);assert.equal(calls,1);
  assert.equal((await service.start(f.root,selector,selection)).state,'running');assert.equal(calls,1);
@@ -706,11 +711,12 @@ for (const revisionMode of ['mutation','failed','prepared','prepared-checkpoint'
  const {CodexImplementerExecutionService}=require('../../dist/main/workCardBuilding/codexImplementerExecutionService.js');
  const {runtimeFixture,selection}=require('../support/codex-runtime.cjs');const runtime=runtimeFixture();await runtime.ready;
  let preparations=0,failRepair=failedRevision,releaseFailure,failPreparation=false;const executions=[];
- const service=new CodexImplementerExecutionService(async()=>({startThread(options){return {id:'greenfield-start',async runStreamed(prompt){
+ const implementerFactory=async()=>({startThread(options){return {id:'greenfield-start',async runStreamed(prompt){
   executions.push({options,prompt});if(!failRepair&&prompt.includes('"repair.txt"'))fs.writeFileSync(path.join(options.workingDirectory,'repair.txt'),'Approved repair');
   return {events:(async function*(){if(failRepair&&prompt.includes('Exact repair evidence'))await new Promise(resolve=>releaseFailure=resolve);if(prompt.includes('"repair.txt"'))yield {type:'item.completed',item:{type:'file_change',changes:[{path:'repair.txt'}],status:'completed'}};yield {type:'item.completed',item:{type:'agent_message',text:JSON.stringify({summary:'Exact source assessment',deviations:[],blockers:[],residualRisks:[],outcome:failRepair&&prompt.includes('Exact repair evidence')?'partial':'implemented'})}};yield {type:'turn.completed'};})()};
- }};}}),undefined,undefined,undefined,runtime.manager);
- service.configureSourceCheckoutProjection(async()=>{if(failPreparation)throw Error('Injected source preparation failure before Codex begins');preparations++;return {workspaceId:'greenfield-readiness',projection:{registerRepositoryCheckout:async(_id,checkout)=>({...checkout,availability:'available',validationError:null})}};});
+ }};}});
+ const configure=service=>service.configureSourceCheckoutProjection(async()=>{if(failPreparation)throw Error('Injected source preparation failure before Codex begins');preparations++;return {workspaceId:'greenfield-readiness',projection:{registerRepositoryCheckout:async(_id,checkout)=>({...checkout,availability:'available',validationError:null})}};});
+ let service=new CodexImplementerExecutionService(implementerFactory,undefined,undefined,undefined,runtime.manager);configure(service);
  async function clickImplement(id,expectedPreparations,rerun=false,preparedSeed=false){
   const selector={ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:id};
   if(!rerun&&!preparedSeed)assert.equal(await kernel.getImplementationAttempt(f.root,f.workflow.id,id),null);
@@ -821,6 +827,14 @@ for (const revisionMode of ['mutation','failed','prepared','prepared-checkpoint'
   const planning=require('../../dist/main/workCardPlanning/structuredWorkItemPlanningService.js').createStructuredWorkItemPlanningService();
   const git=(...args)=>require('node:child_process').execFileSync('git',args,{cwd:executions.at(-1).options.workingDirectory,encoding:'utf8'}).trim();
   const cleanHead=git('rev-parse','HEAD');assert.equal(cleanHead,revision);assert.equal(git('status','--porcelain'),'');
+  if(revisionMode==='failed'){
+   const before=await f.store.listStateChanges(f.projectId),binding=await f.store.listEntities(f.projectId,'SourceBinding'),count=preparations;
+   service=new CodexImplementerExecutionService(implementerFactory,undefined,undefined,undefined,runtime.manager);configure(service);
+   const reopened=await service.getStatus(f.root,{ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:repair.id});
+   for(const key of ['state','lastRunState','canRunAgain','retryBlocker','failureReason','checkpoint','executionKind','workItemVersion','executionContractDigest','sourceMode','reportUpdated'])assert.deepEqual(reopened[key],failed.completed[key],key+': restarted partial parity');
+   assert.deepEqual(await f.store.listStateChanges(f.projectId),before);assert.deepEqual(await f.store.listEntities(f.projectId,'SourceBinding'),binding);assert.equal(preparations,count);assert.equal(git('rev-parse','HEAD'),cleanHead);assert.equal(git('status','--porcelain'),'');
+   failed.completed=reopened;
+  }
   let exact=await planning.get(f.root,f.workflow.id,repair.id);assert.equal(exact.revisionEligibility.eligible,true,exact.revisionEligibility.reason);
   const input={expectedRecordVersion:exact.workItem.recordVersion,outcome:'revision_requested',notes:'File already conforms; preserve it with an approved no-mutation contract'};
   if(revisionMode==='prepared-history-head-drift'){
@@ -881,9 +895,19 @@ for (const revisionMode of ['mutation','failed','prepared','prepared-checkpoint'
   assert.equal((await nav.get(f.root,f.workflow.id)).currentWorkspace,'work-card-repair');
   assert.equal((await service.start(f.root,{ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:repair.id},selection)).state,'unavailable','replacement still requires Operator approval');
   exact=await planning.get(f.root,f.workflow.id,repair.id);await planning.review(f.root,f.workflow.id,repair.id,{expectedRecordVersion:exact.workItem.recordVersion,outcome:'approved',notes:'Approve exact inspection contract'});
+  if(revisionMode==='failed'){
+   service=new CodexImplementerExecutionService(implementerFactory,undefined,undefined,undefined,runtime.manager);configure(service);
+   const changes=await f.store.listStateChanges(f.projectId),historical=await service.getStatus(f.root,{ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:repair.id});
+   assert.equal(historical.state,'failed');assert.equal(historical.workItemVersion,failed.attempt.body.workItemVersion);assert.equal(historical.executionContractDigest,failed.attempt.body.contractDigest);assert.equal(historical.checkpoint.status,'blocked','Old mutation-required contract cannot become no-mutation after revision');assert.equal(historical.canRunAgain,true);
+   assert.deepEqual(await f.store.listStateChanges(f.projectId),changes);assert.deepEqual(await f.store.getEntityVersion(f.projectId,repair.id,failed.attempt.body.workItemVersion).then(record=>record.body.affectedPaths),['package.json']);assert.deepEqual((await f.store.getEntity(f.projectId,repair.id)).body.affectedPaths,[]);
+  }
   if(preparedRevision){assert.equal((await planning.get(f.root,f.workflow.id,repair.id)).revisionEligibility.eligible,false,'Superseded reservation is ineligible');const fresh=await kernel.prepareImplementationAttempt(f.root,f.workflow.id,repair.id);assert.notEqual(fresh.id,failed.attempt.id);assert.equal((await f.store.getEntity(f.projectId,failed.attempt.id)).body.attemptState,'abandoned');}
   failRepair=false;const revised=await clickImplement(repair.id,historyRevision?2:preparedRevision?1:2,true);assert.notEqual(revised.attempt.id,failed.attempt.id);assert.equal(revised.implementation.body.outcome,'implemented');assert.equal(revised.completed.checkpoint.status,'not-required');assert.equal(executions.at(-1).options.readOnly,true);
   assert.match(executions.at(-1).prompt,/"sourceMutation": "not-required"/);assert.equal(git('rev-parse','HEAD'),cleanHead);assert.equal(git('status','--porcelain'),'');
+  if(revisionMode==='failed'){
+   const reopened=await new CodexImplementerExecutionService(implementerFactory,undefined,undefined,undefined,runtime.manager).getStatus(f.root,{ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:repair.id});
+   assert.equal(reopened.state,'completed',reopened.failureReason);assert.equal(reopened.lastRunState,'completed');assert.equal(reopened.checkpoint.status,'not-required');assert.equal(reopened.canRunAgain,false);assert.equal(reopened.executionContractDigest,revised.attempt.body.contractDigest);
+  }
   assert.equal((await nav.get(f.root,f.workflow.id)).currentWorkspace,'work-card-report-review');assert.equal((await f.store.listEntities(f.projectId,'SourceCheckpoint')).length,0);
   if(preparedRevision){assert.equal((await f.store.getEntity(f.projectId,failed.attempt.id)).body.attemptState,'abandoned');assert.deepEqual((await f.store.getEntityVersion(f.projectId,failed.attempt.id,1)),failed.attempt);assert.equal(fs.existsSync(packetPath),false);}
   else{assert.equal(JSON.stringify(await f.store.getEntity(f.projectId,failed.attempt.id)),attemptBytes);assert.equal(JSON.stringify(await f.store.getEntity(f.projectId,failed.implementation.id)),resultBytes);assert.deepEqual(fs.readFileSync(packetPath),packetBytes);}
@@ -895,6 +919,8 @@ for (const revisionMode of ['mutation','failed','prepared','prepared-checkpoint'
   return;
  }
  const repaired=await clickImplement(repair.id,1);assert.equal(repaired.completed.checkpoint.status,'committed');assert.notEqual(executions[1].options.readOnly,true);assert.ok(executions[1].options.writableRoots.includes(executions[1].options.workingDirectory));
+ const committedRestart=await new CodexImplementerExecutionService(implementerFactory,undefined,undefined,undefined,runtime.manager).getStatus(f.root,{ownerKind:'workflow-work-item',workflowId:f.workflow.id,workItemId:repair.id});
+ for(const key of ['state','lastRunState','checkpoint','workItemVersion','executionContractDigest','canRunAgain','retryBlocker'])assert.deepEqual(committedRestart[key],repaired.completed[key],key+': committed checkpoint restart parity');
  assert.deepEqual((await kernel.getExecutionProjection(f.root,f.workflow.id)).items.find(i=>i.record.id===repair.id).record.body.affectedPaths,['repair.txt']);
  assert.equal((await f.store.listEntities(f.projectId,'SourceCheckpoint')).length,1);
  await assert.rejects(planningService.review(f.root,f.workflow.id,repair.id,{expectedRecordVersion:(await f.store.getEntity(f.projectId,repair.id)).recordVersion,outcome:'revision_requested',notes:'Checkpoint-owning success cannot revise'}),/planned\/ready|successful|checkpoint/);

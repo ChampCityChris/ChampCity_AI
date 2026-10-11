@@ -263,13 +263,13 @@ test("Implement tabs keep local identity, bounded bodies, interaction cues and a
 test('failed Implement refresh and typed revision preserve exact identity and gate successful Review', async () => {
  const React=require('react'),{loadRendererSourceModule:load}=require('./renderer-source-loader.cjs');
  const {WorkCardImplementWorkspace}=load('src/renderer/app/WorkCardImplementWorkspace.tsx');
- const {CodexExecutionConsole}=load('src/renderer/app/WorkCardImplementShell.tsx');
+ const {CodexExecutionConsole,LastRunSummary}=load('src/renderer/app/WorkCardImplementShell.tsx');
  const {renderToStaticMarkup}=require('react-dom/server');
  const original={useState:React.useState,useEffect:React.useEffect,useRef:React.useRef},old=global.window;
  const planning={workflowId:'wf',workflowType:'project-creation',workItem:{id:'repair',recordVersion:8,body:{workState:'ready',workItemKind:'repair',contractRevision:3,title:'Preserve correct file',affectedPaths:['correct.txt']}},review:{disposition:{state:'approved'}},revisionEligibility:{eligible:true,reason:''}};
  const report={attempt:{id:'attempt',body:{workflowId:'wf',workItemId:'repair',attemptState:'completed',implementationRecordId:'result'}}};
  const result={id:'result',body:{workflowId:'wf',workItemId:'repair',executionRef:'attempt',outcome:'partial'}};
- const execution={state:'completed',canRunAgain:true,checkpoint:{status:'blocked',message:'No qualifying source change'}};
+ const execution={state:'failed',lastRunState:'failed',executionKind:'workflow-work-item-implementation',workflowId:'wf',workItemId:'repair',sourceMode:'source-backed',reportUpdated:true,canRunAgain:true,failureReason:'Implementation did not produce a successful validated result; source changes require inspection.',checkpoint:{status:'blocked',message:'No qualifying source change'}};
  const nav={workflowId:'wf',currentWorkItemId:'repair',currentWorkspace:'work-card-building-review'};
  const values=[],refs=[];let index=0,refIndex=0,reads=0,reconciles=0,writeResolve,readFailure=false,nextFailure=false;const writes=[];
  const tick=()=>new Promise(setImmediate);
@@ -282,6 +282,7 @@ test('failed Implement refresh and typed revision preserve exact identity and ga
   let p=draw();button(p,'Refresh').props.onClick();await tick();p=draw();
   assert.match(p.feedback,/refreshed/);assert.equal(reconciles,1);assert.equal(button(p,'Continue to Review & Validation').props.disabled,true);
   assert.match(renderToStaticMarkup(p.navigation),/latest Implement result is partial.*Tester are not yet eligible/);
+  const lastRun=renderToStaticMarkup(React.createElement(LastRunSummary,{execution:p.codexExecution}));assert.match(lastRun,/Last Run<\/span><strong>failed/);assert.doesNotMatch(lastRun,/No terminal run yet|not prepared and verified/);assert.equal(writes.length,0,'Refresh is read-only');
   for(const status of ['blocked','committed','not-required']) {
    Object.assign(React,original);
    const markup=renderToStaticMarkup(React.createElement(CodexExecutionConsole,{execution:{...execution,checkpoint:{status,message:'Exact checkpoint'}},isActionRunning:false}));

@@ -47,7 +47,8 @@ import {
 } from "../developmentEnvironment/developmentEnvironmentPreflightService";
 import { createWorkflowExecutionApplicationService } from "../workflow/workflowExecutionApplicationService";
 import { acquireWorkflowExecutionLease, workflowExecutionLeaseKey } from "./workflowExecutionLease";
-import type { WorkItemExecutionContract } from "../../shared/workflowApplicationContracts";
+import type { WorkItemExecutionContract, WorkflowCheckpointRecoveryProjection, WorkflowExecutionProjection } from "../../shared/workflowApplicationContracts";
+import type { EntityBodyMap, ProjectStateRecord } from "../../shared/projectState/domainContracts";
 import { createWorkflowSourceMaterializationService } from "../sourceControl/workflowSourceMaterializationService";
 import { publishRepositoryCheckoutAccess, type RepositoryCheckoutAccessProjectionPort } from "../agentHarness/modelAccess/repositoryCheckoutAccessProjectionService";
 import { createImplementationCheckpoint } from "../sourceControl/semanticCheckpointService";
@@ -500,44 +501,25 @@ export class CodexImplementerExecutionService {
       } else {
         const projectId = projection.projectId;
         const kernel = this.workflowKernel(projectRoot, projectId);
-        const preparation = prepareSource
-          ? await kernel.prepareExecution(projectRoot, selector.workflowId, { sourceMutating: true })
-          : { state: projection.source.state, currentRevisionId: projection.source.currentRevisionId };
-        if (preparation.state !== "ready" || !preparation.sourceBinding || !preparation.repositoryCheckout)
-          throw Error(preparation.failureCode ?? "Source-backed Workflow checkout is not prepared and verified.");
+        const inspection = await kernel.getWorkflowSourceInspection(projectRoot, selector.workflowId);
+        if (!inspection.checkoutWorkflowId) throw Error("Source-backed Workflow checkout anchor is missing.");
+        if (prepareSource) {
+          const preparation = await kernel.prepareExecution(projectRoot, selector.workflowId, { sourceMutating: true });
+          if (preparation.state !== "ready" || !preparation.sourceBinding || !preparation.repositoryCheckout)
+            throw Error(preparation.failureCode ?? "Source-backed Workflow checkout is not prepared and verified.");
+          const checkout = preparation.repositoryCheckout;
+          const binding = preparation.sourceBinding.body;
+          if (checkout.role !== "workflow" || checkout.workflowId !== inspection.checkoutWorkflowId ||
+            checkout.repositoryCheckoutId !== binding.repositoryCheckoutId || checkout.sourceLineId !== binding.workSourceLineId ||
+            checkout.projectRelativePath !== resolveManagedWorkflowCheckoutPath(projectRoot, inspection.checkoutWorkflowId).projectRelativePath ||
+            binding.preparationState !== "ready" || preparation.currentRevisionId !== binding.currentRevisionId)
+            throw Error("Prepared Workflow checkout failed exact binding verification.");
+        }
+        const source = prepareSource ? (await kernel.getExecutionProjection(projectRoot, selector.workflowId)).source : projection.source;
+        sourceBacked = await inspectExistingWorkflowSource(projectRoot, inspection.checkoutWorkflowId, source);
         contract = await kernel.createWorkItemExecutionContract(projectRoot, selector.workflowId, selector.workItemId,
           { sourceMutation: "required", affectedPaths: [], proofIntent: ["Return semantic completion for the exact accepted WorkItem contract."] });
-        const binding = preparation.sourceBinding;
-        const checkout = preparation.repositoryCheckout;
-        const managed = resolveManagedWorkflowCheckoutPath(projectRoot, checkout.workflowId ?? selector.workflowId);
-        const checkoutRoot = fs.realpathSync(managed.checkoutRoot);
-        const gitTop = (await runBoundedGit({ cwd: checkoutRoot, args: ["rev-parse", "--show-toplevel"] })).stdout.trim();
-        const actualGitRoot = fs.realpathSync(gitTop);
-        const branch = (await runBoundedGit({ cwd: checkoutRoot, args: ["branch", "--show-current"] })).stdout.trim();
-        const head = (await runBoundedGit({ cwd: checkoutRoot, args: ["rev-parse", "HEAD"] })).stdout.trim();
-        const common = (await runBoundedGit({ cwd: checkoutRoot, args: ["rev-parse", "--git-common-dir"] })).stdout.trim();
-        const devRoot = path.resolve(projectRoot, "Dev");
-        const devCommon = (await runBoundedGit({ cwd: devRoot, args: ["rev-parse", "--git-common-dir"] })).stdout.trim();
-        const dirty = (await runBoundedGit({ cwd: checkoutRoot, args: ["status", "--porcelain", "--untracked-files=all"] })).stdout;
-        const checkoutMismatches = [
-          checkout.role !== "workflow" && "checkout-role",
-          checkout.repositoryCheckoutId !== binding.body.repositoryCheckoutId && "checkout-id-binding",
-          checkout.sourceLineId !== binding.body.workSourceLineId && "source-line-binding",
-          checkout.sourceLineId !== workflowSourceLineName(checkout.workflowId ?? selector.workflowId) && "source-line-workflow",
-          checkout.repositoryCheckoutId !== workflowRepositoryCheckoutId(checkout.workflowId ?? selector.workflowId) && "checkout-id-workflow",
-          checkout.projectRelativePath !== managed.projectRelativePath && "managed-path",
-          binding.body.preparationState !== "ready" && "binding-state",
-          binding.body.currentRevisionId !== contract.sourceRevisionId && "binding-revision",
-          preparation.currentRevisionId !== contract.sourceRevisionId && "contract-revision",
-          actualGitRoot !== checkoutRoot && "git-root",
-          branch !== checkout.sourceLineId && "branch",
-          head !== contract.sourceRevisionId && "head",
-          path.resolve(checkoutRoot, common) !== path.resolve(devRoot, devCommon) && "repository",
-          Boolean(dirty) && "dirty-checkout",
-        ].filter((value): value is string => typeof value === "string");
-        if (checkoutMismatches.length) throw Error(`Prepared Workflow checkout failed exact binding verification (${checkoutMismatches.join(", ")}).`);
-        sourceBacked = { checkoutWorkflowId: checkout.workflowId ?? selector.workflowId, checkoutRoot, repositoryCheckoutId: checkout.repositoryCheckoutId, sourceLineId: checkout.sourceLineId,
-          expectedRevisionId: contract.sourceRevisionId!, attributablePaths: [] };
+        if (contract.sourceRevisionId !== sourceBacked.expectedRevisionId) throw Error("Read-only source contract revision changed during inspection.");
       }
       if (sourceBacked && !contract.sourceRevisionId || !sourceBacked && contract.sourceRevisionId !== null || contract.sourceMutation === "required" && !sourceBacked)
         throw Error("Exact Codex WorkItem source contract is inconsistent with its Workflow source state.");
@@ -565,11 +547,7 @@ export class CodexImplementerExecutionService {
         active.state = "completed"; active.failureReason = null;
         active.checkpoint = { status: "not-required", message: "Approved WorkItem requires no source mutation; the source revision is unchanged.", remote: "not-requested", receipts: [] };
       }
-      const checkpointRecoveryRequired = recovery?.implementation.retryable === true || recovery?.implementation.state === "blocked" || recovery?.implementation.state === "inspection-required" || recovery?.implementation.state === "pending";
-      const canRunAgain = !checkpointRecoveryRequired && (active.state === "failed" || active.state === "cancelled" || active.workflowWorkItem.resultOutcome === "partial" || active.workflowWorkItem.resultOutcome === "failed");
-      return modelFromSession(active, this.now(), { canRunAgain, retryBlocker: checkpointRecoveryRequired
-        ? "Semantic implementation attempt is complete; recover its exact durable SourceCheckpoint instead of rerunning Implementer."
-        : canRunAgain || recovery?.implementation.state === "not-required" && active.state === "completed" ? null : "Refresh the exact WorkItem state before another implementation attempt." });
+      return modelFromSession(active, this.now(), workflowRetryReadiness(active.state, active.workflowWorkItem.resultOutcome, recovery));
     }
     const kernel = this.workflowExecutionServiceFactory();
     let durable: Awaited<ReturnType<typeof kernel.getImplementationAttempt>>;
@@ -609,16 +587,9 @@ export class CodexImplementerExecutionService {
       } catch (error) {return unavailableFromPreflight(error instanceof Error ? error : Error(String(error)));}
     }
     if (durable?.attempt.body.attemptState === "completed" && durable.attempt.body.implementationRecordId) {
-      const recovery = await this.workflowExecutionServiceFactory().getCheckpointRecoveryProjection(workspaceRoot, selector.workflowId, selector.workItemId).catch(() => null);
-      const view = await this.workflowExecutionServiceFactory().getExecutionProjection(workspaceRoot, selector.workflowId).catch(() => null);
-      const item = view?.items.find(candidate => candidate.record.id === selector.workItemId);
-      if (item?.record.body.affectedPaths?.length === 0 && item.implementationAttempts.at(-1)?.body.outcome === "implemented" &&
-        recovery?.implementation.state === "not-required" && recovery.implementation.implementationRecordId === durable.attempt.body.implementationRecordId && recovery.sourceMode === "source-backed")
-        return { ...baseModel(path.resolve(workspaceRoot)), state: "completed", lastRunState: "completed", canRunAgain: false, retryBlocker: null,
-          executionKind: "workflow-work-item-implementation", workflowId: selector.workflowId, workItemId: selector.workItemId,
-          workItemVersion: durable.attempt.body.workItemVersion, sourceMode: "source-backed", reportUpdated: true,
-          checkpoint: { status: "not-required", message: "Approved WorkItem requires no source mutation; the source revision is unchanged.", remote: "not-requested", receipts: [] } };
+      return this.rehydrateWorkflowWorkItemStatus(workspaceRoot, selector, durable.attempt.id);
     }
+    if (durable?.attempt.body.attemptState === "completed") return unavailableFromPreflight(Error("Completed ImplementationAttempt has no exact linked result; inspection required."));
     const context = await this.resolveWorkflowWorkItemContext(workspaceRoot, selector);
     if (context instanceof Error) {
       const recovery = await this.workflowExecutionServiceFactory().getCheckpointRecoveryProjection(workspaceRoot, selector.workflowId, selector.workItemId).catch(() => null);
@@ -629,6 +600,85 @@ export class CodexImplementerExecutionService {
       return unavailableFromPreflight(context);
     }
     return readyModel(context);
+  }
+
+  private async rehydrateWorkflowWorkItemStatus(workspaceRoot: string, selector: Extract<CodexExecutionSelector, { ownerKind: "workflow-work-item" }>, attemptId: string): Promise<CodexImplementerExecutionModel> {
+    let inspectionModel: CodexImplementerExecutionModel | undefined;
+    try {
+      const kernel = this.workflowExecutionServiceFactory();
+      const projectRoot = fs.realpathSync(path.resolve(workspaceRoot));
+      const evidence = await kernel.getDurableImplementationEvidence(projectRoot, selector.workflowId, selector.workItemId, attemptId);
+      const { attempt, result, historicalWorkItem, checkpoint } = evidence;
+      const view = await kernel.getExecutionProjection(projectRoot, selector.workflowId);
+      const recovery = await kernel.getCheckpointRecoveryProjection(projectRoot, selector.workflowId, selector.workItemId);
+      if (view.projectId !== attempt.projectId || view.workflowId !== selector.workflowId || view.plan.workflow.id !== selector.workflowId ||
+        recovery.workflowId !== selector.workflowId || recovery.workItemId !== selector.workItemId || recovery.sourceMode !== attempt.body.sourceMode ||
+        recovery.implementation.implementationRecordId !== result.id || recovery.implementation.checkpointId !== (checkpoint?.id ?? null))
+        throw Error("Durable implementation recovery ownership is stale or ambiguous.");
+      const mutationRequired = historicalWorkItem.body.affectedPaths!.length > 0;
+      const historicalState = durableWorkflowTerminalState(result.body, attempt.body.sourceMode === "source-backed" && mutationRequired, checkpoint?.body.checkpointState === "committed");
+      inspectionModel = { ...baseModel(projectRoot), lastRunState: historicalState, ...workflowRetryReadiness(historicalState, result.body.outcome, recovery),
+        executionKind: "workflow-work-item-implementation", workflowId: selector.workflowId, workItemId: selector.workItemId,
+        workItemVersion: attempt.body.workItemVersion, executionContractDigest: attempt.body.contractDigest, sourceMode: attempt.body.sourceMode,
+        reportUpdated: true, checkpoint: { status: "blocked", message: "Historical source boundary requires inspection.", ...(checkpoint ? { checkpointId: checkpoint.id } : {}), remote: "not-requested", receipts: [] } };
+      if (attempt.body.sourceMode === "source-backed") {
+        const source = await inspectExistingWorkflowSource(projectRoot, selector.workflowId, view.source);
+        if (view.source.baselineId !== evidence.historicalBaseline?.id || evidence.historicalBinding &&
+          (evidence.historicalBinding.body.repositoryCheckoutId && evidence.historicalBinding.body.repositoryCheckoutId !== source.repositoryCheckoutId ||
+           evidence.historicalBinding.body.workSourceLineId && evidence.historicalBinding.body.workSourceLineId !== source.sourceLineId))
+          throw Error("Historical execution source binding identity changed.");
+        if (checkpoint && checkpoint.body.sourceLineId !== source.sourceLineId) throw Error("Historical checkpoint source line changed.");
+        if (checkpoint?.body.checkpointState === "committed") {
+          if (!mutationRequired || result.body.outcome !== "implemented") throw Error("Historical committed checkpoint conflicts with the reserved mutation contract/result.");
+          await verifyDurableCheckpointCommit(source.checkoutRoot, checkpoint);
+        }
+        const implementedRevision = checkpoint?.body.checkpointState === "committed" ? checkpoint.body.resultingRevisionId : attempt.body.sourceRevisionId;
+        if (!implementedRevision) throw Error("Historical execution source revision is missing.");
+        // Exact downstream Tester checkpoints may advance this run's candidate; arbitrary source drift cannot.
+        if (source.expectedRevisionId !== implementedRevision) {
+          if (result.body.outcome !== "implemented" || recovery.tester.state !== "committed" || evidence.testerCandidateRevisionId !== source.expectedRevisionId)
+            throw Error("Historical execution source revision no longer matches the verified candidate.");
+          if (!evidence.testerCheckpoint || evidence.testerCheckpoint.body.sourceLineId !== source.sourceLineId) throw Error("Historical Tester source line changed.");
+          await verifyDurableCheckpointCommit(source.checkoutRoot, evidence.testerCheckpoint);
+        }
+        if (result.body.outcome === "implemented" && !mutationRequired && recovery.implementation.state !== "not-required")
+          throw Error("Historical unchanged-source implementation requires inspection.");
+        if (result.body.outcome === "implemented" && mutationRequired && recovery.implementation.state === "not-required")
+          throw Error("Historical mutation-required contract conflicts with the current checkpoint evidence.");
+      } else if (view.source.state !== "non-source" || mutationRequired || attempt.body.sourceRevisionId || checkpoint) {
+        throw Error("Historical source-neutral execution identity changed.");
+      }
+      let state: CodexImplementerExecutionState = durableWorkflowTerminalState(result.body, false, false);
+      let failureReason: string | null = state === "completed" ? null : state === "cancelled" ? result.body.summary : result.body.blockers.at(-1) ?? result.body.summary;
+      let presentation: WorkItemCheckpointResult = { status: "not-required", message: "This WorkItem does not require source mutation or an implementation SourceCheckpoint.", remote: "not-requested", receipts: [] };
+      if (attempt.body.sourceMode === "source-backed") {
+        if (checkpoint?.body.checkpointState === "committed") {
+          presentation = { status: "committed", message: "Checkpoint committed.", checkpointId: checkpoint.id, commit: checkpoint.body.resultingRevisionId, remote: "not-requested", receipts: [] };
+        } else if (result.body.outcome === "failed" && result.body.blockers.includes("Application rejected source changes outside the accepted Architect path scope; exact checkout restored.")) {
+          presentation = { status: "not-required", message: "Scope-violating attempt was rejected and the exact checkout restored; no SourceCheckpoint was created.", remote: "not-requested", receipts: [] };
+        } else if (!mutationRequired) {
+          presentation = { status: "not-required", message: "Approved WorkItem requires no source mutation; the source revision is unchanged.", remote: "not-requested", receipts: [] };
+        } else {
+          const message = result.body.outcome !== "implemented" ? "Implementation did not produce a successful validated result; source changes require inspection."
+            : !checkpoint && !recovery.implementation.retryable ? "No attributable source changes were reported; a structured implementation checkpoint cannot be created."
+            : recovery.implementation.reason ?? "Structured implementation checkpoint requires inspection.";
+          presentation = { status: "blocked", message, ...(checkpoint ? { checkpointId: checkpoint.id } : {}), remote: "not-requested", receipts: [] };
+          if (state === "completed") { state = "failed"; failureReason = message; }
+        }
+      }
+      return { ...baseModel(projectRoot), state, lastRunState: state, ...workflowRetryReadiness(state, result.body.outcome, recovery), failureReason,
+        checkpoint: presentation, executionKind: "workflow-work-item-implementation", workflowId: selector.workflowId, workItemId: selector.workItemId,
+        workItemVersion: attempt.body.workItemVersion, executionContractDigest: attempt.body.contractDigest, phaseId: evidence.phaseId,
+        workCardId: selector.workItemId, workCardTitle: historicalWorkItem.body.objective, sourceMode: attempt.body.sourceMode, reportUpdated: true };
+    } catch (error) {
+      const unavailable = unavailableFromPreflight(error instanceof Error ? error : Error(String(error)));
+      return { ...inspectionModel, ...unavailable, ...(inspectionModel ? { lastRunState: inspectionModel.lastRunState, checkpoint: inspectionModel.checkpoint,
+        workItemVersion: inspectionModel.workItemVersion, executionContractDigest: inspectionModel.executionContractDigest,
+        sourceMode: inspectionModel.sourceMode, reportUpdated: true,
+        retryBlocker: inspectionModel.retryBlocker === "Semantic implementation attempt is complete; recover its exact durable SourceCheckpoint instead of rerunning Implementer."
+          ? inspectionModel.retryBlocker : unavailable.retryBlocker } : {}),
+        executionKind: "workflow-work-item-implementation", workflowId: selector.workflowId, workItemId: selector.workItemId };
+    }
   }
 
   private async startWorkflowWorkItemSelected(workspaceRoot: string, selector: Extract<CodexExecutionSelector, { ownerKind: "workflow-work-item" }>, selection: CodexModelSelection): Promise<CodexImplementerExecutionModel> {
@@ -675,6 +725,7 @@ export class CodexImplementerExecutionService {
     if (context.ownerKind === "workflow-work-item") {
       context.executionRoot = workerDirectory;
       context.attemptEvidenceIdentity = executionRef;
+      context.executionContractDigest = preparedAttempt.body.contractDigest;
     }
     try {
       ensureRuntimeDirectory(context.projectRoot, runtimeDirectory, exact.sourceBacked ? undefined : workerDirectory);
@@ -1400,6 +1451,64 @@ function readyModel(context: ExecutionContext): CodexImplementerExecutionModel {
     implementerReportSha256: exactWorkflowWorkItem ? null : context.implementerReportSha256,
     developmentEnvironmentPreflight: context.developmentEnvironmentPreflight,
   };
+}
+
+/** Verify the existing SQL source identity and managed Git checkout without invoking preparation. */
+async function inspectExistingWorkflowSource(projectRoot: string, workflowId: string,
+  source: WorkflowExecutionProjection["source"]): Promise<NonNullable<WorkflowWorkItemExecutionData["sourceBacked"]>> {
+  if (source.state !== "ready") throw Error(source.failureCode ?? `Workflow source binding is ${source.state}; Start-time preparation or inspection is required.`);
+  if (!source.currentRevisionId || !source.repositoryCheckoutId || !source.workSourceLineId)
+    throw Error("Ready Workflow source binding is missing exact revision, checkout, or source line identity.");
+  const managed = resolveManagedWorkflowCheckoutPath(projectRoot, workflowId);
+  const checkoutRoot = fs.realpathSync(managed.checkoutRoot);
+  const devRoot = resolveManagedProjectSourceTopology(projectRoot).devCheckoutRoot;
+  const [top, branch, head, common, devCommon, dirty] = await Promise.all([
+    runBoundedGit({ cwd: checkoutRoot, args: ["rev-parse", "--show-toplevel"] }),
+    runBoundedGit({ cwd: checkoutRoot, args: ["branch", "--show-current"] }),
+    runBoundedGit({ cwd: checkoutRoot, args: ["rev-parse", "HEAD"] }),
+    runBoundedGit({ cwd: checkoutRoot, args: ["rev-parse", "--git-common-dir"] }),
+    runBoundedGit({ cwd: devRoot, args: ["rev-parse", "--git-common-dir"] }),
+    runBoundedGit({ cwd: checkoutRoot, args: ["status", "--porcelain", "--untracked-files=all"] }),
+  ]);
+  const mismatches = [
+    source.repositoryCheckoutId !== workflowRepositoryCheckoutId(workflowId) && "checkout-id-workflow",
+    source.workSourceLineId !== workflowSourceLineName(workflowId) && "source-line-workflow",
+    checkoutRoot !== managed.checkoutRoot && "redirected-checkout",
+    fs.realpathSync(top.stdout.trim()) !== checkoutRoot && "git-root",
+    branch.stdout.trim() !== source.workSourceLineId && "branch",
+    head.stdout.trim() !== source.currentRevisionId && "head",
+    fs.realpathSync(path.resolve(checkoutRoot, common.stdout.trim())) !== fs.realpathSync(path.resolve(devRoot, devCommon.stdout.trim())) && "repository",
+    Boolean(dirty.stdout) && "dirty-checkout",
+  ].filter((value): value is string => typeof value === "string");
+  if (mismatches.length) throw Error(`Existing Workflow checkout failed exact binding verification (${mismatches.join(", ")}).`);
+  return { checkoutWorkflowId: workflowId, checkoutRoot, repositoryCheckoutId: source.repositoryCheckoutId, sourceLineId: source.workSourceLineId,
+    expectedRevisionId: source.currentRevisionId, attributablePaths: [] };
+}
+
+function workflowRetryReadiness(state: CodexImplementerExecutionState, outcome: WorkflowWorkItemExecutionData["resultOutcome"],
+  recovery: WorkflowCheckpointRecoveryProjection | null): RetryReadiness {
+  const checkpointRecoveryRequired = recovery?.implementation.retryable === true || ["blocked", "inspection-required", "pending"].includes(recovery?.implementation.state ?? "");
+  const canRunAgain = !checkpointRecoveryRequired && (state === "failed" || state === "cancelled" || outcome === "partial" || outcome === "failed");
+  return { canRunAgain, retryBlocker: checkpointRecoveryRequired
+    ? "Semantic implementation attempt is complete; recover its exact durable SourceCheckpoint instead of rerunning Implementer."
+    : canRunAgain || recovery?.implementation.state === "not-required" && state === "completed" ? null : "Refresh the exact WorkItem state before another implementation attempt." };
+}
+
+async function verifyDurableCheckpointCommit(checkoutRoot: string, checkpoint: ProjectStateRecord<"SourceCheckpoint">): Promise<void> {
+  if (!checkpoint.body.resultingRevisionId || !checkpoint.body.receiptDigest) throw Error("Committed checkpoint revision/receipt is missing.");
+  const commit = (await runBoundedGit({ cwd: checkoutRoot, args: ["show", "-s", "--format=%P%n%B", checkpoint.body.resultingRevisionId] })).stdout;
+  const [parent, ...message] = commit.trim().split(/\r?\n/);
+  if (parent !== checkpoint.body.expectedRevisionId || !message.includes(`Checkpoint-Receipt: ${checkpoint.body.receiptDigest}`) ||
+    !message.includes(`Checkpoint-Kind: ${checkpoint.body.checkpointKind}`)) throw Error("Committed checkpoint Git parent/receipt does not match durable evidence.");
+}
+
+function durableWorkflowTerminalState(result: EntityBodyMap["ImplementationRecord"], mutationRequired: boolean, committed: boolean): "completed" | "failed" | "cancelled" {
+  if (result.outcome === "abandoned" && result.summary === "Codex execution was cancelled.") return "cancelled";
+  if (mutationRequired && !committed || result.summary === "Codex execution did not produce a valid semantic completion." ||
+    result.summary === "Codex App Server could not start." || result.summary === "Source-neutral Codex setup failed." ||
+    result.blockers.some(blocker => blocker.startsWith("Application rejected source changes outside the accepted Architect path scope") || blocker.startsWith("Out-of-scope source recovery"))) return "failed";
+  // A valid semantic failed/partial/abandoned result can still be a completed Codex turn.
+  return "completed";
 }
 
 function unavailableFromPreflight(context: Error): CodexImplementerExecutionModel {

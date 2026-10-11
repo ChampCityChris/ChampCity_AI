@@ -1122,6 +1122,16 @@ export function createWorkflowExecutionApplicationService(dependencies: {
   async function prepareImplementationAttempt(projectRoot: string, workflowId: EntityId, workItemId: EntityId) {
     return withCurrentProject(projectRoot, (store, projectId) => createProjectStateService(store, operator).prepareImplementationAttempt(projectId, workflowId, workItemId));
   }
+  async function getWorkflowSourceInspection(projectRoot: string, workflowId: EntityId) {
+    return withCurrentProject(projectRoot, async (store, projectId) => {
+      const plan = await exactPlan(store, projectId, workflowId);
+      const { source } = await project(store, projectId, plan);
+      const baseline = source.baselineId ? await store.getEntity(projectId, source.baselineId) : null;
+      if (source.state !== "non-source" && baseline?.entityType !== "SourceBaseline") throw Error("Exact Workflow source anchor is missing.");
+      return { source, checkoutWorkflowId: baseline?.entityType === "SourceBaseline" ? baseline.body.workflowId : null };
+    });
+  }
+
   async function getImplementationAttempt(projectRoot: string, workflowId: EntityId, workItemId: EntityId) {
     return withCurrentProject(projectRoot, async (store, projectId) => {
       const state = createProjectStateService(store, operator);
@@ -1129,6 +1139,86 @@ export function createWorkflowExecutionApplicationService(dependencies: {
       if (![...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].some(item => item.id === workItemId)) throw Error("Exact owned WorkItem required.");
       const attempt = await state.getImplementationAttempt(projectId, workflowId, workItemId);
       return attempt ? state.getImplementationAttemptReport(projectId, attempt.id) : null;
+    });
+  }
+
+  /** Read the immutable result and reserved SQL context; never reserve, prepare, or repair source. */
+  async function getDurableImplementationEvidence(projectRoot: string, workflowId: EntityId, workItemId: EntityId, attemptId: EntityId) {
+    return withCurrentProject(projectRoot, async (store, projectId) => {
+      const state = createProjectStateService(store, operator);
+      const plan = await state.getWorkflowExecutionPlan(projectId, workflowId);
+      if (![...plan.directWorkItems, ...Object.values(plan.workItemsByPhase).flat()].some(item => item.id === workItemId))
+        throw Error("Durable attempt WorkItem is not owned by the exact Workflow.");
+      const attempt = await state.getImplementationAttempt(projectId, workflowId, workItemId);
+      if (!attempt || attempt.id !== attemptId || attempt.projectId !== projectId || attempt.body.workflowId !== workflowId || attempt.body.workItemId !== workItemId ||
+        attempt.body.attemptState !== "completed" || !attempt.body.implementationRecordId)
+        throw Error("Exact completed ImplementationAttempt is unavailable.");
+      const results = (await store.listEntities(projectId, "ImplementationRecord")).filter((record): record is ProjectStateRecord<"ImplementationRecord"> =>
+        record.entityType === "ImplementationRecord" && record.body.executionRef === attempt.id);
+      if (results.length !== 1 || results[0].projectId !== projectId || results[0].id !== attempt.body.implementationRecordId || results[0].body.workItemId !== workItemId ||
+        (await state.getImplementationAttempts(projectId, workItemId)).at(-1)?.id !== results[0].id)
+        throw Error("Durable attempt result linkage is stale or ambiguous.");
+      const result = results[0];
+      const edges = (await store.listRelationships(projectId)).filter(edge => !edge.endedAt);
+      for (const [type, from, to] of [["implementation_attempt_for", attempt.id, workItemId], ["attempt_result", result.id, attempt.id], ["implements_work_item", result.id, workItemId]]) {
+        const links = edges.filter(edge => edge.relationshipType === type && edge.fromEntityId === from);
+        if (links.length !== 1 || links[0].toEntityId !== to) throw Error("Durable attempt ownership linkage is inconsistent.");
+      }
+      const sources = await Promise.all(attempt.body.layout.sources.map(async source => {
+        const record = await store.getEntityVersion(projectId, source.entityId, source.recordVersion);
+        if (!record || record.id !== source.entityId || record.recordVersion !== source.recordVersion || record.projectId !== projectId)
+          throw Error("Reserved historical attempt context is missing or changed identity.");
+        return record;
+      }));
+      if (new Set(sources.map(record => record.id)).size !== sources.length ||
+        JSON.stringify(sources.map(record => record.id)) !== JSON.stringify(attempt.body.layout.memberIds))
+        throw Error("Reserved historical attempt layout is ambiguous.");
+      const workItems = sources.filter((record): record is ProjectStateRecord<"WorkItem"> => record.entityType === "WorkItem" && record.id === workItemId);
+      const historicalWorkItem = workItems[0];
+      const workflow = sources.find(record => record.entityType === "Workflow" && record.id === workflowId);
+      if (workItems.length !== 1 || historicalWorkItem.recordVersion !== attempt.body.workItemVersion || !workflow ||
+        !historicalWorkItem.body.implementationBoundaries?.length || !historicalWorkItem.body.proofIntent?.length || !Array.isArray(historicalWorkItem.body.affectedPaths))
+        throw Error("Reserved historical WorkItem contract is unavailable or changed identity.");
+      const baselines = sources.filter((record): record is ProjectStateRecord<"SourceBaseline"> => record.entityType === "SourceBaseline");
+      const bindings = sources.filter((record): record is ProjectStateRecord<"SourceBinding"> => record.entityType === "SourceBinding");
+      if (baselines.length > 1 || bindings.length > 1 || (attempt.body.sourceMode === "source-backed") !== (baselines.length === 1) ||
+        baselines.some(record => record.body.workflowId !== workflowId) || bindings.some(record => record.body.workflowId !== workflowId || record.body.sourceBaselineId !== baselines[0]?.id))
+        throw Error("Reserved historical source identity is inconsistent.");
+      if ((bindings[0]?.body.currentRevisionId ?? baselines[0]?.body.baseRevisionId) !== attempt.body.sourceRevisionId)
+        throw Error("Reserved historical source revision is inconsistent.");
+      const digest = createHash("sha256").update(JSON.stringify([sources.filter(record => record.entityType !== "SourceBinding").map(record => [record.id, record.recordVersion]),
+        [baselines[0]?.id ?? null, bindings[0]?.id ?? null, attempt.body.sourceRevisionId ?? null]])).digest("hex");
+      if (digest !== attempt.body.contractDigest || attempt.body.contractId !== `work-item-reservation:${digest}`)
+        throw Error("Reserved historical contract digest does not match SQL context.");
+      const checkpointLinks = edges.filter(edge => edge.relationshipType === "checkpoints" && edge.toEntityId === result.id);
+      if (checkpointLinks.length > 1) throw Error("Durable implementation checkpoint is ambiguous.");
+      const checkpointRecord = checkpointLinks.length ? await store.getEntity(projectId, checkpointLinks[0].fromEntityId) : null;
+      if (checkpointRecord && (checkpointRecord.entityType !== "SourceCheckpoint" || checkpointRecord.body.workflowId !== workflowId ||
+        checkpointRecord.body.boundaryId !== attempt.id || checkpointRecord.body.checkpointKind !== "implementation" ||
+        checkpointRecord.body.expectedRevisionId !== attempt.body.sourceRevisionId)) throw Error("Durable implementation checkpoint identity mismatch.");
+      if (checkpointLinks.length && !checkpointRecord) throw Error("Durable implementation checkpoint is missing.");
+      const checkpoint = checkpointRecord?.entityType === "SourceCheckpoint" ? checkpointRecord : null;
+      const testerResults = (await store.listEntities(projectId, "TesterResult")).filter((record): record is ProjectStateRecord<"TesterResult"> =>
+        record.entityType === "TesterResult" && record.body.implementationRecordId === result.id);
+      if (testerResults.length > 1) throw Error("Durable implementation Tester evidence is ambiguous.");
+      const tester = testerResults[0];
+      let testerCandidateRevisionId: string | null = null;
+      let testerCheckpoint: ProjectStateRecord<"SourceCheckpoint"> | null = null;
+      if (tester?.body.checkpointState === "committed") {
+        const candidateCheckpoint = tester.body.sourceCheckpointId ? await store.getEntity(projectId, tester.body.sourceCheckpointId) : null;
+        if (tester.body.workflowId !== workflowId || tester.body.workItemId !== workItemId || tester.body.sourceMode !== attempt.body.sourceMode ||
+          candidateCheckpoint?.entityType !== "SourceCheckpoint" || candidateCheckpoint.body.workflowId !== workflowId || candidateCheckpoint.body.checkpointKind !== "tester" ||
+          candidateCheckpoint.body.boundaryId !== `tester-result:${tester.id}` || candidateCheckpoint.body.checkpointState !== "committed" ||
+          candidateCheckpoint.body.expectedRevisionId !== tester.body.implementerRevisionId ||
+          tester.body.implementerRevisionId !== (checkpoint?.body.resultingRevisionId ?? attempt.body.sourceRevisionId) ||
+          candidateCheckpoint.body.resultingRevisionId !== tester.body.candidateRevisionId ||
+          !edges.some(edge => edge.relationshipType === "checkpoints" && edge.fromEntityId === candidateCheckpoint.id && edge.toEntityId === tester.id))
+          throw Error("Durable Tester candidate checkpoint identity mismatch.");
+        testerCheckpoint = candidateCheckpoint;
+        testerCandidateRevisionId = tester.body.candidateRevisionId ?? null;
+      }
+      return { attempt, result, historicalWorkItem, historicalBinding: bindings[0] ?? null, historicalBaseline: baselines[0] ?? null, checkpoint,
+        testerCandidateRevisionId, testerCheckpoint, phaseId: sources.find(record => record.entityType === "Phase")?.id ?? null };
     });
   }
 
@@ -1157,5 +1247,5 @@ export function createWorkflowExecutionApplicationService(dependencies: {
     recordWorkItemVisualCriterion, recordWorkItemCriterionDecision, getPhaseValidationProjection, recordPhaseVisualCriterion,
     recordPhaseCriterionDecision, validateDeterministicPhaseCriterion, validateSemanticPhaseCriterion,
     completeWorkItem, completePhase, createWorkflowRepair, createPhaseRepair, validateSemanticWorkItemCriterion, validateDeterministicWorkItemCriterion, prepareExecution, createWorkItemExecutionContract, createTesterWorkItemExecutionContract,
-    prepareImplementationAttempt, getImplementationAttempt, assertImplementationAttemptCurrent, createSourceNeutralWorkItemExecutionContract, beginWorkItemAttempt, finishWorkItemAttempt };
+    prepareImplementationAttempt, getImplementationAttempt, getWorkflowSourceInspection, getDurableImplementationEvidence, assertImplementationAttemptCurrent, createSourceNeutralWorkItemExecutionContract, beginWorkItemAttempt, finishWorkItemAttempt };
 }
