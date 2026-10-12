@@ -31,6 +31,12 @@ test("production Desktop and Service Host callers generate bounded sibling launc
     };
     const handlers = new Map();
     const mocks = {
+      "./core/projectSourceOperationCoordinator": { createProjectSourceOperationCoordinator: () => ({}) },
+      "./workflow/workflowApplicationIpc": { registerWorkflowApplicationIpc() {} },
+      "./featurePlanning/featurePlanningIpc": { registerFeaturePlanningIpc() {} },
+      "./issuePlanning/issuePlanningIpc": { registerIssuePlanningIpc() {} },
+      "./workflow/structuredWorkRoutingIpc": { registerStructuredWorkRoutingIpc() {} },
+      "./workCardBuilding/codexTesterExecutionService": { CodexTesterExecutionService: class {} },
       electron: { app: application, ipcMain: { handle: (channel, callback) => handlers.set(channel, callback) } },
       "../shared/productIdentity": { productIdentity: { productName: "fixture" } },
       "./sessionActiveWorkspaceSelection": { SessionActiveWorkspaceSelection: class {} },

@@ -72,7 +72,7 @@ function registryFor(root) {
       if (workspaceId !== context.workspaceId) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "Project workspace is not registered.");
       const checkoutRoot = path.basename(root) === "Dev" ? root : context.root;
       if (!fs.existsSync(path.join(checkoutRoot, ".git"))) throw new AgentHarnessError("GIT_CAPABILITY_UNAVAILABLE", "Fixture Git checkout is unavailable.");
-      return { workspaceId: context.workspaceId, root: checkoutRoot, checkout: { repositoryCheckoutId, repositoryId: "fixture-repository", sourceLineId: "dev", role: "dev", projectRelativePath: "Dev" } };
+      return { workspaceId: context.workspaceId, root: checkoutRoot, checkout: { repositoryCheckoutId, repositoryId: "fixture-repository", sourceLineId: "dev", role: "dev", projectRelativePath: "Dev" }, release: () => {} };
     },
     listRepositoryCheckoutSummaries: async () => [],
   });

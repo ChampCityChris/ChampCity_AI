@@ -33,7 +33,6 @@ test("WIR is source-not-applicable and routed target Workflows own their source 
     const captured = await captureStructuredWorkIntake(root, projectId, {
       projectId, projectName: "Source neutral routing", workRequest: title, desiredOutcome: `${title} handled`,
       knownConstraints: "Preserve source", repositoryReviewContext: "Synthetic proof", hasExistingSourceOrPlanning: true,
-      baseBranch: "dev", baseCommit: baseRevisionId,
     });
     assert.deepEqual(captured.source, { state: "not-applicable", workIntakeId: captured.intakeId });
     intakes.push(captured);

@@ -70,6 +70,7 @@ export function createAgentHarnessMcpServer(
   publishedContract: CapturedAgentHarnessToolContract,
   operationalDiagnostics?: AgentHarnessOperationalDiagnosticsCollector,
 ): AgentHarnessMcpServer {
+  const session = Object.freeze({});
   const server = new McpServer({
     name: "champcity-ai-agent-harness",
     title: "ChampCity Agent Harness",
@@ -109,6 +110,7 @@ export function createAgentHarnessMcpServer(
               arguments: record,
               scope: contract.scope,
               signal: extra?.signal,
+              session,
             });
             observation?.finish(result, extra?.signal?.aborted === true);
             return projectCallToolResult(result);
@@ -130,7 +132,7 @@ export function createAgentHarnessMcpServer(
 
   return {
     connect: (transport) => server.connect(transport),
-    close: () => server.close(),
+    close: async () => { registry.releaseSession?.(session); await server.close(); },
     publishedContract: () => snapshotContract(publishedContract),
   };
 }

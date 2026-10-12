@@ -75,6 +75,9 @@ import {
 } from "../workspace/workspaceAccess";
 import * as z from "zod/v4";
 import { LocalGitRepositoryAccessService, redactLocalGitResult } from "../workspace/localGitRepositoryAccessService";
+import { RepositoryTargetResolver } from "../workspace/repositoryTargetResolver";
+import { inspectGitRemote, inspectGitRemoteRefs } from "../../repository/gitRemoteManagement";
+import { pullGitBranch } from "../../repository/pullGitBranch";
 import { ENTITY_TYPE_REGISTRY } from "../../../shared/projectState/entityTypeRegistry";
 import { inspectRegisteredProjectState } from "../../projectState/projectStateInspectionService";
 
@@ -143,6 +146,7 @@ const HOTFIX10_RESERVED_TOOLBOX_NAMES = [
 type RequiredScope = "files.read" | "files.write";
 type ParamType = "string" | "number" | "boolean" | "string-array";
 type GitMutationAction =
+  | "pull_branch"
   | "replace_branch_ref" | "push_with_lease" | "delete_untracked_paths" | "discard_managed_worktree" | "skip_isolated_operation_step"
   | "begin_isolated_operation" | "continue_isolated_operation" | "abort_isolated_operation" | "advance_isolated_operation"
   | "amend_commit" | "revert_commit" | "cherry_pick_commit"
@@ -227,6 +231,7 @@ export interface AgentHarnessToolCall {
   arguments: Record<string, unknown>;
   scope?: string;
   signal?: AbortSignal;
+  session?: object;
 }
 
 export interface AgentHarnessToolResult {
@@ -235,6 +240,7 @@ export interface AgentHarnessToolResult {
   action: string;
   workspaceId?: string;
   payload?: unknown;
+  repositoryContext?: unknown;
   imageContent?: AgentHarnessToolImageContent[];
   error?: ReturnType<typeof toBoundedError>;
   attemptId: string;
@@ -247,6 +253,7 @@ export interface AgentHarnessToolImageContent {
 }
 
 export interface AgentHarnessToolRegistry {
+  releaseSession?: (session: object) => void;
   listTools: (scope?: string) => AgentHarnessToolDefinition[];
   callTool: (call: AgentHarnessToolCall) => Promise<AgentHarnessToolResult>;
 }
@@ -270,12 +277,14 @@ interface ImageBearingDispatchResult {
 }
 
 export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentHarnessToolRegistry {
+  const repositoryTargets = new RepositoryTargetResolver(options.workspaceAccess, options.localGitAccess);
   const releaseToolbox = options.releaseToolbox ?? createReleaseToolbox();
   const sourceOperationCoordinator = options.sourceOperationCoordinator ??
     createProjectSourceOperationCoordinator({ userDataRoot: options.userDataRoot });
   const providers = createToolProviders(releaseToolbox);
   const providerByName = new Map(providers.map((provider) => [provider.name, provider]));
   return {
+    releaseSession: session => options.localGitAccess?.releaseSession(session),
     listTools: (scope = PRIMARY_MCP_RESOURCE_SCOPE) => providers
       .map((provider) => buildToolDefinition(provider, scope))
       .filter((definition): definition is AgentHarnessToolDefinition => Boolean(definition)),
@@ -314,26 +323,42 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
         if (localMode) {
           if (args.workspaceId !== undefined || supplied.repositoryCheckoutId !== undefined) throw new AgentHarnessError("INVALID_INPUT", "Local Git targets and registered workspace targets are mutually exclusive.");
           const service = options.localGitAccess;
-          if (!service) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "Local Git access requires Operator-configured Trusted Local Git Roots.");
+          if (!service) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "Local Git access is unavailable in this host.");
           const params = validateParams(args.params, localVariant(contract));
           let payload: unknown;
-          if (action === "discover_local_repositories") payload = await service.discover({ directory: requiredString(params.directory, "directory"), maxDepth: numberValue(params.maxDepth), maxRepositories: numberValue(params.maxRepositories) });
+          let repositoryContext: unknown;
+          if (action === "inspect_local_git_access") payload = service.accessConfiguration();
+          else if (action === "configure_local_git_access") payload = await service.configureAccess({ operation: requiredString(params.operation, "operation") as "add" | "remove", directories: requiredStringArray(params.directories, "directories"), expectedConfigurationId: requiredString(params.expectedConfigurationId, "expectedConfigurationId") });
+          else if (action === "discover_local_repositories") {
+            const input = { directory: requiredString(params.directory, "directory"), maxDepth: numberValue(params.maxDepth), maxRepositories: numberValue(params.maxRepositories) };
+            payload = call.session ? await service.inSession(call.session, session => service.discover(input, session)) : await service.discover(input);
+          }
           else if (action === "init_local_repository") payload = await service.init({ directory: requiredString(params.directory, "directory"), initialBranch: requiredString(params.initialBranch, "initialBranch") });
-          else payload = await service.withCheckout(requiredString(params.localCheckoutHandle, "localCheckoutHandle"), async (checkout) => {
+          else if (action === "select_repository_context") payload = await service.inSession(call.session, session => service.selectContext(session, { repositoryHandle: requiredString(params.repositoryHandle, "repositoryHandle"), localCheckoutHandle: stringValue(params.localCheckoutHandle), branchName: stringValue(params.branchName) }));
+          else if (action === "inspect_repository_context") payload = await service.inSession(call.session, session => service.withContext(session, service.selectedHandle(session), async checkout => ({ ...(await service.verifyContext(session, checkout)), availableWorktrees: await service.listWorktrees(checkout) })));
+          else payload = await service.inSession(call.session, session => repositoryTargets.withTarget({ localCheckoutHandle: requiredString(params.localCheckoutHandle, "localCheckoutHandle") }, async ({ local: checkout, context, repositoryContext: receipt }) => {
+            repositoryContext = receipt;
+            if (!checkout) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "Local checkout resolution failed.");
             if (isManagedOnlyGitAction(action)) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "This action requires an application-managed checkout; use the typed local worktree lifecycle actions for local targets.");
             if (action === "create_local_worktree") return service.createWorktree(checkout, { destinationDirectory: requiredString(params.destinationDirectory, "destinationDirectory"), branchName: requiredString(params.branchName, "branchName"), sourceRef: stringValue(params.sourceRef) });
             if (action === "remove_local_worktree") return service.removeWorktree(checkout, requiredString(params.expectedBranch, "expectedBranch"));
             if (action === "list_worktrees") return service.listWorktrees(checkout);
             if (action === "delete_tag" && params.remote === undefined) return deleteLocalGitTag(checkout.root, requiredString(params.tagName, "tagName"));
             if (action === "inspect_worktree") return (await service.listWorktrees(checkout)).find(item => item.localCheckoutHandle === checkout.localCheckoutHandle);
-            const context: AgentHarnessWorkspaceContext = { workspaceId: "", root: checkout.root, repositoryName: "local-repository", gitBacked: true,
-              capabilities: { filesystemRead: true, artifactWrite: true, patchWorkflow: true, gitInspection: true } };
             const result = await contract.dispatch({ scope: call.scope, context, params, signal: call.signal, userDataRoot: options.userDataRoot,
+              managedWorkspaces: service.isolatedStore(checkout),
               workspaceSummaries: options.workspaceAccess.listWorkspaceSummaries, repositoryCheckoutSummaries: options.workspaceAccess.listRepositoryCheckoutSummaries });
             if (action === "status") return { ...(result as object), ...(await service.listWorktrees(checkout)).find(item => item.localCheckoutHandle === checkout.localCheckoutHandle) };
+            if (/isolated_operation/.test(action) || action === "pull_branch") {
+              const record = result as { workspaceId?: string };
+              if (record.workspaceId) {
+                const candidate = await service.isolatedCheckoutSummary(checkout, record.workspaceId);
+                return { ...(result as object), candidateLocalCheckoutHandle: candidate.localCheckoutHandle };
+              }
+            }
             return result;
-          });
-          return { ok: true, toolName: provider.name, action, payload: redactLocalGitResult(payload), attemptId, timestamp };
+          }, session));
+          return { ok: true, toolName: provider.name, action, payload: redactLocalGitResult(payload), ...(repositoryContext ? { repositoryContext: redactLocalGitResult(repositoryContext) } : {}), attemptId, timestamp };
         }
         let context = await options.workspaceAccess.resolveWorkspaceContext(args.workspaceId);
         const projectRoot = context.root;
@@ -345,14 +370,9 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
           throw new AgentHarnessError("REPOSITORY_CHECKOUT_REQUIRED", "This operation requires an exact registered repositoryCheckoutId.");
         }
         const params = validateParams(args.params, contract);
-        let releaseCheckout: (() => void) | undefined;
         try {
           sourceOperationLease = await sourceOperationCoordinator.acquireShared(projectRoot, `${provider.name}:${action}`);
-          if (checkoutBound) {
-            const checkout = await options.workspaceAccess.resolveRepositoryCheckoutContext(args.workspaceId, params.repositoryCheckoutId);
-            context = { ...context, root: checkout.root, gitBacked: true, capabilities: { ...context.capabilities, gitInspection: true } };
-            releaseCheckout = checkout.release;
-          }
+          const dispatch = async (context: AgentHarnessWorkspaceContext) => {
           assertActionAccess(context, contract.kind);
           const dispatchResult = await contract.dispatch({
             scope: call.scope,
@@ -373,8 +393,9 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
           }
           return { ok: true, toolName: provider.name, action, workspaceId: context.workspaceId,
             payload: dispatchResult, attemptId, timestamp };
+          };
+          return checkoutBound ? await repositoryTargets.withTarget({ workspaceId: requiredString(args.workspaceId, "workspaceId"), repositoryCheckoutId: requiredString(params.repositoryCheckoutId, "repositoryCheckoutId") }, resolved => dispatch(resolved.context)) : await dispatch(context);
         } finally {
-          releaseCheckout?.();
           await sourceOperationLease?.release();
         }
       } catch (error) {
@@ -577,6 +598,14 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
       title: "git_toolbox",
       description: "ChampCity A/I Agent Harness git_toolbox.",
       actions: [
+        localGitAction("inspect_local_git_access", "files.read", {}),
+        localGitAction("select_repository_context", "files.read", {
+          repositoryHandle: { type: "string", required: true, minLength: 1, maxLength: 128 },
+          localCheckoutHandle: { type: "string", minLength: 1, maxLength: 128 },
+          branchName: { type: "string", minLength: 1, maxLength: 240 },
+        }),
+        localGitAction("inspect_repository_context", "files.read", {}),
+        localGitAction("configure_local_git_access", "files.write", { operation: { type: "string", required: true, allowedValues: ["add", "remove"] }, directories: { type: "string-array", required: true, minItems: 1, maxItems: 32, minLength: 1, maxLength: 4096 }, expectedConfigurationId: { type: "string", required: true, minLength: 64, maxLength: 64 } }),
         localGitAction("discover_local_repositories", "files.read", { ...requiredParams({ directory: "string" }), maxDepth: { type: "number", integer: true, minimum: 0, maximum: 6 }, maxRepositories: { type: "number", integer: true, minimum: 1, maximum: 50 } }),
         localGitAction("init_local_repository", "files.write", requiredParams({ directory: "string", initialBranch: "string" })),
         localGitAction("create_local_worktree", "files.write", { ...requiredParams({ localCheckoutHandle: "string", destinationDirectory: "string", branchName: "string" }), ...optionalParams({ sourceRef: "string" }) }),
@@ -600,6 +629,8 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
         gitInspectionAction("inspect_worktree", requiredParams({ workspaceId: "string" }), ({ context, params, managedWorkspaces }) => inspectManagedWorktree(context.root, requiredString(params.workspaceId, "workspaceId"), requiredManagedStore(managedWorkspaces))),
         gitInspectionAction("list_tags", {}, ({ context }) => listGitTags(context.root)),
         gitInspectionAction("inspect_remotes", {}, ({ context }) => inspectGitRemotes(context.root)),
+        gitInspectionAction("inspect_remote", requiredParams({ remote: "string" }), ({ context, params }) => inspectGitRemote(context.root, requiredString(params.remote, "remote"))),
+        gitInspectionAction("inspect_remote_refs", { ...requiredParams({ remote: "string" }), refClass: { type: "string", allowedValues: ["branches", "tags", "all"] }, ...optionalParams({ pattern: "string" }) }, ({ context, params }) => inspectGitRemoteRefs(context.root, { remote: requiredString(params.remote, "remote"), refClass: stringValue(params.refClass) as "branches" | "tags" | "all" | undefined, pattern: stringValue(params.pattern) })),
         gitInspectionAction("pre_commit_scan", {}, ({ context }) => preCommitSafetyScan(context.root, context.gitBacked)),
         gitInspectionAction("readiness_summary", {}, ({ context }) => preCommitSafetyScan(context.root, context.gitBacked)),
         gitInspectionAction("inspect_branch_state", optionalParams({ branchName: "string" }), ({ context, params }) => (
@@ -628,6 +659,7 @@ function createToolProviders(releaseToolbox: ReleaseToolbox): ToolProvider[] {
         gitMutationAction("prepare_branch", requiredParams({ branchName: "string" })),
         gitMutationAction("switch_branch", requiredParams({ branchName: "string" })),
         gitMutationAction("fetch_remote", optionalParams({ remote: "string" })),
+        gitMutationAction("pull_branch", { ...requiredParams({ branchName: "string", remote: "string", remoteBranch: "string", expectedLocalCommit: "string" }), ...optionalParams({ expectedRemoteCommit: "string" }), strategy: { type: "string", required: true, allowedValues: ["ff-only", "merge", "rebase"] } }),
         gitMutationAction("fast_forward_branch", optionalParams({
           branchName: "string",
           remote: "string",
@@ -1026,7 +1058,7 @@ function isGitCheckoutAction(action: ToolActionContract): boolean {
   return !action.localOnly && (action.kind === "git-inspection" || action.kind === "git-mutation");
 }
 function isManagedOnlyGitAction(name: string): boolean {
-  return /isolated_operation/.test(name) || ["create_worktree_from_ref", "create_worktree_for_branch", "remove_worktree", "discard_managed_worktree", "delete_untracked_paths"].includes(name);
+  return ["create_worktree_from_ref", "create_worktree_for_branch", "remove_worktree", "discard_managed_worktree", "delete_untracked_paths"].includes(name);
 }
 function localVariant(action: ToolActionContract): ToolActionContract {
   if (action.localOnly) return action;
@@ -1088,6 +1120,8 @@ function gitMutationAction(
     params: withRepositoryCheckoutId(params),
     dispatch: async ({ context, params: values, managedWorkspaces }) => {
       switch (name) {
+        case "pull_branch":
+          return pullGitBranch(context.root, { branchName: requiredString(values.branchName, "branchName"), remote: requiredString(values.remote, "remote"), remoteBranch: requiredString(values.remoteBranch, "remoteBranch"), expectedLocalCommit: requiredString(values.expectedLocalCommit, "expectedLocalCommit"), expectedRemoteCommit: stringValue(values.expectedRemoteCommit), strategy: requiredString(values.strategy, "strategy") as "ff-only" | "merge" | "rebase" }, managedWorkspaces);
         case "replace_branch_ref":
           return replaceGitBranchRef(context.root, { branchName: requiredString(values.branchName, "branchName"), expectedCurrentCommit: requiredString(values.expectedCurrentCommit, "expectedCurrentCommit"), sourceRef: requiredString(values.sourceRef, "sourceRef") });
         case "push_with_lease":

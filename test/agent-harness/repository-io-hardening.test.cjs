@@ -287,24 +287,22 @@ test("repo_toolbox and workspace-only git_toolbox status stay within the registe
   });
   const nestedRegistration = await nestedService.registerWorkspaceRoot(registeredRoot);
   const nestedWorkspaceId = nestedRegistration.workspace.workspaceId;
-  assert.equal(nestedRegistration.workspace.gitBacked, true);
+  assert.equal(nestedRegistration.workspace.gitBacked, false);
 
   const gitToolStatus = await nestedService.toolRegistry().callTool({
     name: "git_toolbox",
     scope: "files.read",
     arguments: { workspaceId: nestedWorkspaceId, action: "status", params: {} },
   });
-  assert.equal(gitToolStatus.ok, true, JSON.stringify(gitToolStatus.error));
-  assert.match(gitToolStatus.payload.shortStatus, /inside\.txt/);
-  assert.match(gitToolStatus.payload.shortStatus, /nested\/child\.txt/);
-  assert.doesNotMatch(gitToolStatus.payload.shortStatus, /outside\.txt|\.\.\//);
+  assert.equal(gitToolStatus.ok, false);
+  assert.equal(gitToolStatus.error.code, "REPOSITORY_CHECKOUT_REQUIRED");
   const unregisteredTarget = await nestedService.toolRegistry().callTool({
     name: "git_toolbox",
     scope: "files.read",
     arguments: { workspaceId: nestedWorkspaceId, action: "status", params: { repositoryCheckoutId: "inferred-project-root" } },
   });
   assert.equal(unregisteredTarget.ok, false);
-  assert.equal(unregisteredTarget.error.code, "WORKSPACE_ACCESS_DENIED");
+  assert.equal(unregisteredTarget.error.code, "REPOSITORY_CHECKOUT_REQUIRED");
 
   const repoToolStatus = await nestedService.toolRegistry().callTool({
     name: "repo_toolbox",
@@ -312,9 +310,13 @@ test("repo_toolbox and workspace-only git_toolbox status stay within the registe
     arguments: { workspaceId: nestedWorkspaceId, action: "status" },
   });
   assert.equal(repoToolStatus.ok, true);
-  assert.match(repoToolStatus.payload.repository.shortStatus, /inside\.txt/);
-  assert.match(repoToolStatus.payload.repository.shortStatus, /nested\/child\.txt/);
-  assert.doesNotMatch(repoToolStatus.payload.repository.shortStatus, /outside\.txt|\.\.\//);
+  assert.equal(repoToolStatus.payload.repository.gitBacked, false);
+  const files = await nestedService.toolRegistry().callTool({ name: "repo_toolbox", scope: "files.read",
+    arguments: { workspaceId: nestedWorkspaceId, action: "list_files" } });
+  assert.equal(files.ok, true);
+  assert.ok(files.payload.files.includes("inside.txt"));
+  assert.ok(files.payload.files.includes("nested/child.txt"));
+  assert.equal(files.payload.files.some(file => file.includes("outside.txt") || file.includes("..")), false);
 
   const unknownStatus = await nestedService.toolRegistry().callTool({
     name: "git_toolbox",
@@ -335,10 +337,14 @@ test("repo_toolbox and workspace-only git_toolbox status stay within the registe
     allowUnauthenticatedLocal: true,
   });
   const ordinaryRegistration = await ordinaryService.registerWorkspaceRoot(ordinaryRoot);
+  const checkoutList = await ordinaryService.toolRegistry().callTool({ name: "git_toolbox", scope: "files.read",
+    arguments: { workspaceId: ordinaryRegistration.workspace.workspaceId, action: "list_repository_checkouts", params: {} } });
+  assert.equal(checkoutList.ok, true);
+  assert.equal(checkoutList.payload.length, 1);
   const ordinaryStatus = await ordinaryService.toolRegistry().callTool({
     name: "git_toolbox",
     scope: "files.read",
-    arguments: { workspaceId: ordinaryRegistration.workspace.workspaceId, action: "status", params: {} },
+    arguments: { workspaceId: ordinaryRegistration.workspace.workspaceId, action: "status", params: { repositoryCheckoutId: checkoutList.payload[0].repositoryCheckoutId } },
   });
   assert.equal(ordinaryStatus.ok, true, JSON.stringify(ordinaryStatus.error));
   assert.match(ordinaryStatus.payload.shortStatus, /tracked\.txt/);

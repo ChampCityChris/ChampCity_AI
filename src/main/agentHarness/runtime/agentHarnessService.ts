@@ -85,7 +85,12 @@ export class AgentHarnessService {
       listRepositoryCheckoutSummaries: (workspaceId) => this.workspaceRegistry.listRepositoryCheckoutSummaries(workspaceId),
     });
     this.registry = createAgentHarnessToolRegistry({
-      localGitAccess: new LocalGitRepositoryAccessService(() => this.configuration.trustedLocalGitRoots),
+      localGitAccess: new LocalGitRepositoryAccessService(() => this.configuration.trustedLocalGitRoots, Date.now, roots => {
+        const next = { ...this.configuration, trustedLocalGitRoots: roots };
+        writeAgentHarnessSettings(this.userDataRoot, next);
+        this.configuration = next;
+        this.recordActivity("Local repository access configuration updated through a typed MCP action.");
+      }),
       workspaceAccess: this.workspaceAccess,
       managedWorkspaces: this.workspaceRegistry,
       userDataRoot: options.userDataRoot,

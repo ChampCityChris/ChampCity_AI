@@ -69,6 +69,8 @@ test("production command adapter fixes executables, arguments, deadlines, and sa
         currentChild = child;
         return child;
       },
+    } : id === "../../core/windowsNpmInvocation" ? {
+      resolveWindowsNpmInvocation: () => ({ executable: path.join(toolchain, "node.exe"), cliPath: path.join(npmRoot, "bin/npm-cli.js") }),
     } : nativeRequire(id),
   });
 
@@ -136,6 +138,7 @@ test("release_toolbox publishes exact read/write-scoped actions with no raw comm
       gitInspection: true,
     },
   };
+  let checkoutAvailable = true;
   const registry = createAgentHarnessToolRegistry({
     workspaceAccess: {
       resolveWorkspaceContext(workspaceId) {
@@ -145,6 +148,13 @@ test("release_toolbox publishes exact read/write-scoped actions with no raw comm
         return context;
       },
       listWorkspaceSummaries: () => [],
+      resolveRepositoryCheckoutContext: async (workspaceId, repositoryCheckoutId) => {
+        if (!checkoutAvailable) throw new (require("../../dist/main/core/applicationErrors.js").AgentHarnessError)("GIT_CAPABILITY_UNAVAILABLE", "Fixture checkout is unavailable.");
+        assert.equal(workspaceId, context.workspaceId);
+        assert.equal(repositoryCheckoutId, "fixture-checkout");
+        return { workspaceId, root, checkout: { repositoryId: "fixture-repository", repositoryCheckoutId }, release: () => {} };
+      },
+      listRepositoryCheckoutSummaries: async () => [],
     },
     userDataRoot: path.join(root, "user-data"),
     releaseToolbox,
@@ -170,7 +180,7 @@ test("release_toolbox publishes exact read/write-scoped actions with no raw comm
   assert.equal(fullTool.inputZodSchema.safeParse({
     workspaceId: context.workspaceId,
     action: "set_version",
-    params: { version: "0.1.0-beta.3" },
+    params: { repositoryCheckoutId: "fixture-checkout", version: "0.1.0-beta.3" },
   }).success, true);
   for (const rejected of [
     { workspaceId: context.workspaceId, action: "set_version", params: { version: "0.1.0", command: "whoami" } },
@@ -180,7 +190,7 @@ test("release_toolbox publishes exact read/write-scoped actions with no raw comm
     { workspaceId: context.workspaceId, action: "raw_command", params: { executable: "cmd.exe" } },
     { workspaceId: context.workspaceId, action: "inspect_release_artifact", params: { relativePath: "README.md" } },
   ]) {
-    assert.equal(fullTool.inputZodSchema.safeParse(rejected).success, false);
+    assert.equal(fullTool.inputZodSchema.safeParse({ ...rejected, params: { repositoryCheckoutId: "fixture-checkout", ...rejected.params } }).success, false);
   }
 
   const denied = await registry.callTool({
@@ -192,7 +202,7 @@ test("release_toolbox publishes exact read/write-scoped actions with no raw comm
   assert.equal(denied.error.code, "OAUTH_SCOPE_DENIED");
   const dispatched = await registry.callTool({
     name: "release_toolbox",
-    arguments: { workspaceId: context.workspaceId, action: "publish_github_release", params: { tagName: "v0.1.0-beta.2" } },
+    arguments: { workspaceId: context.workspaceId, action: "publish_github_release", params: { repositoryCheckoutId: "fixture-checkout", tagName: "v0.1.0-beta.2" } },
     scope: "files.write",
   });
   assert.equal(dispatched.ok, true);
@@ -200,7 +210,7 @@ test("release_toolbox publishes exact read/write-scoped actions with no raw comm
     action: "publishGithubRelease",
     args: [root, true, "v0.1.0-beta.2"],
   });
-  const abandonment = { workspaceId: context.workspaceId, action: "abandon_github_draft_release", params: { tagName: "v0.1.0-beta.2" } };
+  const abandonment = { workspaceId: context.workspaceId, action: "abandon_github_draft_release", params: { repositoryCheckoutId: "fixture-checkout", tagName: "v0.1.0-beta.2" } };
   assert.equal(fullTool.inputZodSchema.safeParse(abandonment).success, true);
   for (const extra of ["repository", "command", "args", "token", "executable", "timeout", "cwd", "environment", "assetPath", "cleanupTag"]) {
     assert.equal(fullTool.inputZodSchema.safeParse({ ...abandonment, params: { ...abandonment.params, [extra]: "forbidden" } }).success, false);
@@ -213,6 +223,7 @@ test("release_toolbox publishes exact read/write-scoped actions with no raw comm
   assert.equal((await registry.callTool({ name: "release_toolbox", arguments: abandonment, scope: "files.read" })).error.code, "OAUTH_SCOPE_DENIED");
   assert.equal((await registry.callTool({ name: "release_toolbox", arguments: { ...abandonment, workspaceId: "foreign" }, scope: "files.write" })).ok, false);
   context.gitBacked = false;
+  checkoutAvailable = false;
   releaseToolbox.abandonGithubDraftRelease = createReleaseToolbox().abandonGithubDraftRelease;
   assert.equal((await registry.callTool({ name: "release_toolbox", arguments: abandonment, scope: "files.write" })).error.code, "GIT_CAPABILITY_UNAVAILABLE");
   assert.equal(calls.length, beforeDeniedCalls);

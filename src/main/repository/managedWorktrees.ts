@@ -7,6 +7,9 @@ import { createGitBranchFromRef, inspectGitBranchState, inspectGitHistory, inspe
 import type { AgentHarnessWorkspaceContext } from "../agentHarness/workspace/workspaceAccess";
 
 export interface ManagedWorkspaceStore {
+  /** External local targets never force-discard worktree content. */
+  cleanOnly?: boolean;
+  advanceCurrentTarget?: boolean;
   registerManaged(root: string, commonDirectory: string, checkoutName: string): Promise<unknown>;
   unregister(workspaceId: string): unknown;
   resolve(workspaceId: unknown): Promise<AgentHarnessWorkspaceContext>;
@@ -125,7 +128,7 @@ export async function createManagedWorktree(root: string, input: { checkoutName:
     } catch (error) {
       if (created) {
         await verifyManagedCheckout(checkout, common, input.checkoutName);
-        await managedGit(root, ["worktree", "remove", "--force", checkout]);
+        await managedGit(root, ["worktree", "remove", ...(store.cleanOnly ? [] : ["--force"]), checkout]);
       }
       if (branchCreated && !(await records(root)).some((entry) => entry.branchName === input.branchName)) await managedGit(root, ["update-ref", "--no-deref", "-d", `refs/heads/${input.branchName}`, sourceCommit]);
       throw error;

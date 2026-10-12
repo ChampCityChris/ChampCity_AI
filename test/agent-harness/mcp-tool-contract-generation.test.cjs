@@ -369,7 +369,7 @@ test("public MCP Git contract requires exact registered checkout targeting", { t
       if (local) {
         assert.equal(action.properties.workspaceId, undefined);
         assert.equal(params.properties.repositoryCheckoutId, undefined);
-        assert.equal(params.required.includes("localCheckoutHandle"), !["discover_local_repositories", "init_local_repository"].includes(action.title));
+        assert.equal(params.required.includes("localCheckoutHandle"), !["inspect_local_git_access", "configure_local_git_access", "select_repository_context", "inspect_repository_context", "discover_local_repositories", "init_local_repository"].includes(action.title));
       }
       for (const identity of ["checkoutId", "projectId", "workflowId", "workIntakeId", "sourceBaselineId", "sourceBindingId", "sourceLineId", "workItemId"]) {
         assert.equal(params.required.includes(identity), tool.name === "workflow_toolbox" && action.title === "submit_stage_candidate" && identity === "workflowId", `${tool.name}.${action.title} requires ${identity}`);

@@ -54,7 +54,7 @@ function localGitArguments(args: string[], config: string[]): string[] {
   }
   const settings = ["core.hooksPath=/dev/null", "core.fsmonitor=false", "core.pager=", "commit.gpgSign=false",
     "tag.gpgSign=false", "credential.helper=", "credential.interactive=false", "core.askPass=",
-    "protocol.allow=never", "protocol.https.allow=always", "protocol.http.allow=always", "diff.external=",
+    "protocol.allow=never", "protocol.https.allow=always", "protocol.http.allow=always", "protocol.ssh.allow=always", "core.sshCommand=ssh", "ssh.variant=ssh", "diff.external=",
     "interactive.diffFilter=", "core.editor=", "sequence.editor=", "init.templateDir=", "maintenance.auto=false",
     "gc.auto=0", "submodule.recurse=false", "fetch.recurseSubmodules=false", "diff.ignoreSubmodules=all",
     "core.protectNTFS=true", "core.protectHFS=true", "core.attributesFile=/dev/null", ...config];

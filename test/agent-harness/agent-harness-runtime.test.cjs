@@ -200,7 +200,10 @@ test("Agent Harness HTTP runtime serves registered workspace tool discovery, rea
       action: "list_repository_checkouts",
     });
     assert.equal(git.structuredContent.ok, true);
-    assert.deepEqual(git.structuredContent.payload, []);
+    assert.equal(git.structuredContent.payload.length, 1);
+    assert.equal(git.structuredContent.payload[0].role, "conventional");
+    assert.equal(git.structuredContent.payload[0].projectRelativePath, ".");
+    assert.equal(git.structuredContent.payload[0].availability, "available");
 
     const diagnostics = await callTool(client, "diagnostics_toolbox", {
       workspaceId: "fo76_collector",
@@ -615,6 +618,24 @@ test("Agent Harness configuration persists under userData and survives service r
   assert.equal(reconstructedStatus.configuredPort, 4321);
   assert.equal(reconstructedStatus.localAuthenticationMode, "oauth-required");
   assert.deepEqual(reconstructedStatus.trustedLocalGitRoots, [fs.realpathSync.native(root)]);
+  const access = async (action, params, scope = "files.read files.write") => reconstructed.toolRegistry().callTool({ name: "git_toolbox", arguments: { action, params }, scope });
+  const initialAccess = await access("inspect_local_git_access", {});
+  assert.equal(initialAccess.ok, true);
+  assert.equal(initialAccess.payload.trustedRootCount, 1);
+  assert.equal(JSON.stringify(initialAccess.payload).includes(root), false);
+  const beforeAccessChange = fs.readFileSync(settingsPath);
+  const readDenied = await access("configure_local_git_access", { operation: "remove", directories: [root], expectedConfigurationId: initialAccess.payload.configurationId }, "files.read");
+  assert.equal(readDenied.error.code, "OAUTH_SCOPE_DENIED");
+  assert.ok(fs.readFileSync(settingsPath).equals(beforeAccessChange));
+  const removed = await access("configure_local_git_access", { operation: "remove", directories: [root], expectedConfigurationId: initialAccess.payload.configurationId });
+  assert.equal(removed.ok, true); assert.equal(removed.payload.trustedRootCount, 0);
+  assert.equal((await access("configure_local_git_access", { operation: "add", directories: [root], expectedConfigurationId: initialAccess.payload.configurationId })).ok, false);
+  const restoredAccess = await access("configure_local_git_access", { operation: "add", directories: [root], expectedConfigurationId: removed.payload.configurationId });
+  assert.equal(restoredAccess.ok, true);
+  const persistedAccess = new BaseAgentHarnessService({ userDataRoot, enabled: false });
+  assert.deepEqual(persistedAccess.status().trustedLocalGitRoots, [fs.realpathSync.native(root)]);
+  assert.equal(persistedAccess.status().configuredPort, 4321);
+  assert.equal(persistedAccess.status().localAuthenticationMode, "oauth-required");
   const refused = await reconstructed.toolRegistry().callTool({ name: "git_toolbox", arguments: { action: "discover_local_repositories", params: { directory: path.dirname(root) } }, scope: "files.read" });
   assert.equal(refused.error.code, "WORKSPACE_ACCESS_DENIED");
   await assert.rejects(() => reconstructed.saveConfiguration({ trustedLocalGitRoots: [path.join(root, "missing")] }));

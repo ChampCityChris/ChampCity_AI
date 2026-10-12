@@ -463,6 +463,10 @@
           "description": "LOCALGIT01 trust, expiry, redirects and helper suppression fail closed without registration"
         },
         {
+          "behaviorId": "model-configures-local-access-through-cas",
+          "description": "Delegated MCP write scope configures canonical local access roots with stale-write rejection, persisted application policy and handle revocation."
+        },
+        {
           "behaviorId": "oauth-discovery-separates-permissions-from-session-scopes-on-both-metadata-routes",
           "description": "OAuth discovery separates permissions from session scopes on both metadata routes"
         },
@@ -477,6 +481,10 @@
         {
           "behaviorId": "pkce-issuance-and-refresh-preserve-expectedscope-without-escalating-mcp-permissions",
           "description": "PKCE issuance and refresh preserve ${expectedScope} without escalating MCP permissions"
+        },
+        {
+          "behaviorId": "repository-context-isolated-by-mcp-session",
+          "description": "Explicit repository selection binds each MCP session independently, preserves exact checkout targeting and rejects unrelated or stale repository identities without workflow registration."
         }
       ]
     },
@@ -2940,13 +2948,18 @@
       "description": "Candidate validation, bounded Git mutations, release actions, and repository-state evidence.",
       "sourcePatterns": [
         ".champcity/integration-policy.json",
+        "docs/implementation-bundles/repository-release-management-mcp/**",
         "src/main/agentHarness/release/candidateValidationSnapshot.ts",
         "src/main/agentHarness/release/releaseCommandAdapter.ts",
         "src/main/agentHarness/release/releaseToolbox.ts",
         "src/main/agentHarness/tools/releaseToolbox.ts",
         "src/main/agentHarness/workspace/localGitRepositoryAccessService.ts",
+        "src/main/agentHarness/workspace/repositoryTargetResolver.ts",
         "src/main/planExecution/**",
         "src/main/repository/gitMutations.ts",
+        "src/main/repository/gitRemoteManagement.ts",
+        "src/main/repository/providerOwnedRemote.ts",
+        "src/main/repository/pullGitBranch.ts",
         "src/main/sourceControl/**",
         "src/main/workIntake/workIntakeBranchService.ts",
         "src/shared/integration*",
@@ -3065,6 +3078,10 @@
           "description": "exact incomplete publication resumes with upload only and exact complete publication is idempotent"
         },
         {
+          "behaviorId": "exact-local-pull-isolated-recovery",
+          "description": "RMCP01 local pull checks exact refs and recovers merge and rebase candidates without registration"
+        },
+        {
           "behaviorId": "exact-workflow-candidate-uses-linked-dev-common-repository-without-intake-identity",
           "description": "Exact Workflow candidate identity is independent of WorkIntake, candidate state belongs to the verified Git common directory, and a linked Dev checkout advances only after validation."
         },
@@ -3151,6 +3168,10 @@
         {
           "behaviorId": "production-command-adapter-fixes-executables-arguments-deadlines-and-safe-receipt-paths",
           "description": "production command adapter fixes executables, arguments, deadlines, and safe receipt paths"
+        },
+        {
+          "behaviorId": "provider-owned-remotes-and-trusted-clone",
+          "description": "RMCP01 provider-owned remote CAS, exact refs and trusted clone preserve identity boundaries"
         },
         {
           "behaviorId": "publication-preserves-git-source-artifact-and-provider-prerequisites",
@@ -5443,13 +5464,13 @@
     {
       "testPath": "test/agent-harness/git-toolbox-local-operations.test.cjs",
       "currentTestCount": {
-        "value": 6,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 11,
+        "basis": "Observed TAP summary in the RMCP01 supported-Windows composed receipt 67ee78b9-5110-45c9-a504-15a84fa6fdee."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 12473,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
+        "milliseconds": 410371,
+        "basis": "Measured file-process duration in the RMCP01 supported-Windows composed receipt 67ee78b9-5110-45c9-a504-15a84fa6fdee; all 11 cases passed."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
@@ -5499,6 +5520,18 @@
           "proofLocator": "LOCALGIT01 trust, expiry, redirects and helper suppression fail closed without registration"
         },
         {
+          "capabilityId": "agent-harness-security",
+          "behaviorId": "model-configures-local-access-through-cas",
+          "proofRole": "primary",
+          "proofLocator": "LOCALGIT01 trust, expiry, redirects and helper suppression fail closed without registration"
+        },
+        {
+          "capabilityId": "agent-harness-security",
+          "behaviorId": "repository-context-isolated-by-mcp-session",
+          "proofLocator": "RMCP repository contexts isolate MCP sessions and reject stale or unrelated targets",
+          "proofRole": "primary"
+        },
+        {
           "capabilityId": "release-and-git-operations",
           "behaviorId": "all-five-bounded-git-toolbox-mutations-execute-in-a-registered-git-repository-without-a-planning",
           "proofLocator": "all five bounded git_toolbox mutations execute in a registered Git repository without a planning corpus",
@@ -5509,6 +5542,12 @@
           "behaviorId": "branch-state-existing-branch-switching-and-bounded-history-expose-real-repository-evidence",
           "proofLocator": "branch state, existing-branch switching, and bounded history expose real repository evidence",
           "proofRole": "primary"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "exact-local-pull-isolated-recovery",
+          "proofRole": "primary",
+          "proofLocator": "RMCP01 local pull checks exact refs and recovers merge and rebase candidates without registration"
         },
         {
           "capabilityId": "release-and-git-operations",
@@ -5539,6 +5578,12 @@
           "behaviorId": "oauth-workspace-registration-git-backed-state-action-and-parameter-gates-remain-enforced",
           "proofLocator": "OAuth, workspace registration, Git-backed state, action, and parameter gates remain enforced",
           "proofRole": "primary"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "provider-owned-remotes-and-trusted-clone",
+          "proofRole": "primary",
+          "proofLocator": "RMCP01 provider-owned remote CAS, exact refs and trusted clone preserve identity boundaries"
         }
       ]
     },

@@ -136,7 +136,7 @@ async function cleanupOperation(root: string, record: OperationRecord, store: Ma
   const head = checkout.headCommit;
   if (!head) throw fail("Operation branch endpoint is unavailable.");
   store.unregister(record.workspaceId);
-  try { await managedGit(root, ["worktree", "remove", "--force", checkout.root]); }
+  try { await managedGit(root, ["worktree", "remove", ...(store.cleanOnly ? [] : ["--force"]), checkout.root]); }
   catch (error) { await store.registerManaged(checkout.root, checkout.commonDirectory, checkout.checkoutName); throw error; }
   await managedGit(root, ["update-ref", "--no-deref", "-d", `refs/heads/${record.temporaryBranch}`, head]);
 }
@@ -169,7 +169,18 @@ async function advanceIsolatedOperationImpl(root: string, input: { operationId: 
     const parents = (await managedGit(root, ["show", "--no-patch", "--format=%P", input.expectedCandidateCommit])).trim();
     if (parents !== record.targetCommit) throw fail("Commit-transform candidate must be one commit after the captured target.");
   }
-  const advanced = await (record.operation === "rebase" ? replaceGitBranchRef : advanceGitBranchRef)(root, { branchName: record.targetBranch, sourceRef: input.expectedCandidateCommit, expectedCurrentCommit: input.expectedTargetCommit });
+  const targetState = await inspectGitBranchState(root, record.targetBranch);
+  let advanced: { commit: string };
+  if (store.advanceCurrentTarget && targetState.currentBranch === record.targetBranch) {
+    const targetCheckout = await inspectGitCheckout(root);
+    await assertNoGitOperation(root);
+    if (!targetCheckout.clean || targetCheckout.commit !== input.expectedTargetCommit) throw fail("Checked-out target changed or is dirty; candidate was preserved.");
+    await managedGit(root, record.operation === "rebase" ? ["reset", "--keep", input.expectedCandidateCommit] : ["merge", "--ff-only", input.expectedCandidateCommit]);
+    advanced = { commit: (await inspectGitCheckout(root)).commit };
+    if (advanced.commit !== input.expectedCandidateCommit) throw fail("Target did not advance to the accepted candidate.");
+  } else {
+    advanced = await (record.operation === "rebase" ? replaceGitBranchRef : advanceGitBranchRef)(root, { branchName: record.targetBranch, sourceRef: input.expectedCandidateCommit, expectedCurrentCommit: input.expectedTargetCommit });
+  }
   // Retain the clean candidate for evidence; explicit managed cleanup remains available.
   record.state = "advanced";
   await saveRecord(root, record);
