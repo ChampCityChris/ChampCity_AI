@@ -176,6 +176,10 @@
           "description": "repository incomplete telemetry admits the shared bounded reason set and rejects unapproved values"
         },
         {
+          "behaviorId": "repository-process-public-contract",
+          "description": "development_toolbox publishes one project-independent execution action with strict portable handles, scope and bounded JSON/Zod/SDK inventory inputs."
+        },
+        {
           "behaviorId": "resume-reconciliation-disposes-every-pre-epoch-session-through-canonical-resumereset",
           "description": "resume reconciliation disposes every pre-epoch session through canonical resumeReset"
         },
@@ -442,6 +446,7 @@
       "capabilityId": "agent-harness-security",
       "description": "OAuth, scope, authorization, and secure public-connector behavior for the Agent Harness.",
       "sourcePatterns": [
+        "src/main/agentHarness/development/**",
         "src/main/agentHarness/runtime/httpRuntime.ts",
         "src/main/agentHarness/runtime/oauthStore.ts",
         "src/main/agentHarness/workspace/localGitRepositoryAccessService.ts"
@@ -489,6 +494,10 @@
         {
           "behaviorId": "repository-context-isolated-by-mcp-session",
           "description": "Explicit repository selection binds each MCP session independently, preserves exact checkout targeting and rejects unrelated or stale repository identities without workflow registration."
+        },
+        {
+          "behaviorId": "repository-process-execution-boundaries",
+          "description": "Portable repository process execution preserves exact source/trust, approved direct runtimes, path and environment containment, bounded output, timeout and MCP cancellation tree cleanup."
         }
       ]
     },
@@ -5736,8 +5745,8 @@
     {
       "testPath": "test/agent-harness/git-toolbox-qualification.test.cjs",
       "currentTestCount": {
-        "value": 3,
-        "basis": "RMCP-REPAIR02 extends the existing qualification suite with disconnected SDK transport capability lifetime and isolation proof."
+        "value": 4,
+        "basis": "RMCP-REPAIR03 extends the existing owner with previously uncovered repository-process boundaries and contracts."
       },
       "duration": {
         "kind": "measured",
@@ -5752,7 +5761,7 @@
         "git": true,
         "network": true,
         "process": true,
-        "timing": false
+        "timing": true
       },
       "sourceInspectionClassification": "none",
       "v2Disposition": "preserve",
@@ -5766,12 +5775,13 @@
         "externalCapabilities": [
           "git-cli"
         ],
-        "scheduling": "parallel-safe",
-        "schedulingReason": "Independent disposable repositories, ephemeral public MCP endpoint and bounded Git child processes; no registered Project or live provider.",
+        "scheduling": "exclusive-process",
+        "schedulingReason": "Repository process secret-filter proof temporarily adjusts application environment; isolated repositories and bounded process-tree cleanup.",
         "ownedResources": [
           "bounded-child-process",
           "isolated-git-fixture",
           "loopback-dynamic-endpoint",
+          "shared-global-state-exclusive",
           "temp-filesystem-isolated"
         ]
       },
@@ -5789,6 +5799,12 @@
           "behaviorId": "portable-repository-context-across-mcp-transports",
           "proofRole": "primary",
           "proofLocator": "RMCP portable context survives disconnected SDK clients and isolates repositories trust identity expiry and principals"
+        },
+        {
+          "capabilityId": "agent-harness-security",
+          "behaviorId": "repository-process-execution-boundaries",
+          "proofRole": "primary",
+          "proofLocator": "RMCP repository process uses disconnected portable targets and bounds programs paths source output secrets and process trees"
         },
         {
           "capabilityId": "release-and-git-operations",
@@ -6584,8 +6600,8 @@
     {
       "testPath": "test/agent-harness/mcp-tool-contract-generation.test.cjs",
       "currentTestCount": {
-        "value": 6,
-        "basis": "MPSI01 observed complete owner count from the normal Windows composed validation receipt; includes existing and new inspection proof."
+        "value": 8,
+        "basis": "RMCP-REPAIR03 extends the existing owner with previously uncovered repository-process boundaries and contracts."
       },
       "duration": {
         "kind": "measured",
@@ -6662,6 +6678,12 @@
           "behaviorId": "public-mcp-git-requires-exact-registered-checkout-targeting",
           "proofLocator": "public MCP Git contract requires exact registered checkout targeting",
           "proofRole": "primary"
+        },
+        {
+          "capabilityId": "agent-harness-mcp-runtime",
+          "behaviorId": "repository-process-public-contract",
+          "proofRole": "primary",
+          "proofLocator": "repository process JSON Zod and published inventory require portable targets and approved bounded inputs"
         },
         {
           "capabilityId": "agent-harness-mcp-runtime",
@@ -10379,7 +10401,7 @@
       "testPath": "test/external-providers/github-provider.test.cjs",
       "currentTestCount": {
         "value": 19,
-        "basis": "RMCP-REPAIR01 extends existing public MCP release lifecycle and fixed compatibility proof with streamed upload, retrieval, integrity, source identity and schema boundaries; nineteen cases retained."
+        "basis": "RMCP-REPAIR03 extends the existing public MCP lifecycle with a repository-process-generated 1 MiB artifact and unchanged verified provider asset handoff; nineteen cases retained."
       },
       "duration": {
         "kind": "measured",

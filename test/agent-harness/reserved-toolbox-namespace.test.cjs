@@ -31,7 +31,6 @@ const RESERVED_TOOLBOX_NAMES = [
   "skill_toolbox",
   "memory_toolbox",
   "validation_toolbox",
-  "development_toolbox",
   "system_toolbox",
   "network_toolbox",
   "security_toolbox",
@@ -46,6 +45,7 @@ const RESERVED_TOOLBOX_NAMES = [
 ];
 
 const EXISTING_TOOL_ACTIONS = {
+  development_toolbox: ["status", "run_repository_process"],
   data_toolbox: ["status", "inspect_entity", "list_entities", "list_entity_versions", "list_entity_relationships", "list_entity_changes"],
   workflow_toolbox: ["status", "submit_stage_candidate"],
   repo_toolbox: [
@@ -176,7 +176,7 @@ test("HOTFIX10 publishes the exact stable top-level namespace and preserves exis
 
   assert.equal(fullTools.length, 35);
   assert.deepEqual([...toolsByName.keys()].sort(), EXPECTED_TOOL_NAMES);
-  assert.equal(RESERVED_TOOLBOX_NAMES.length, 22);
+  assert.equal(RESERVED_TOOLBOX_NAMES.length, 21);
   for (const [name, actions] of Object.entries(EXISTING_TOOL_ACTIONS)) {
     assert.deepEqual(toolsByName.get(name)?.actions, actions, name);
   }

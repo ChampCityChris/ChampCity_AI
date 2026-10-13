@@ -47,7 +47,9 @@ test("GitHub public MCP executes official writes and named compatibility gaps wi
   for (const directory of [local, unrelated]) { await fs.mkdir(directory); execFileSync("git", ["init", "-b", "dev"], { cwd: directory, windowsHide: true, stdio: "pipe" }); }
   const localGitAccess = new LocalGitRepositoryAccessService(() => [root], () => now);
   const bytes = Buffer.alloc(1024 * 1024, 0xa5), digest = createHash("sha256").update(bytes).digest("hex");
-  await fs.writeFile(path.join(local, "artifact.bin"), bytes);
+  await fs.writeFile(path.join(local, "build.cjs"), "require('node:fs').writeFileSync('artifact.bin', Buffer.alloc(1024 * 1024, 0xa5));\n");
+  execFileSync("git", ["add", "build.cjs"], { cwd: local, windowsHide: true, stdio: "pipe" });
+  execFileSync("git", ["-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "build fixture"], { cwd: local, windowsHide: true, stdio: "pipe" });
   const base = "a".repeat(40), head = "b".repeat(40), compatibilityCalls = [], files = new Map(), branches = new Map(), tags = new Map(), pulls = new Map(), reviews = [], releases = new Map();
   let repository = { id: 2, full_name: "example/operations", private: true, description: "", size: 0, default_branch: "main", archived: false, fork: false, updated_at: "2026-01-01T00:00:00Z" };
   const schemas = () => [...inventory().filter(entry => !["search_repositories", "pull_request_read", "create_pull_request"].includes(entry.name)),
@@ -160,6 +162,12 @@ test("GitHub public MCP executes official writes and named compatibility gaps wi
   await client.close();
   client = new Client({ name: "asset-reconnected", version: "1" });
   await client.connect(new StreamableHTTPClientTransport(new URL(runtime.url)));
+  const built = (await client.callTool({ name: "development_toolbox", arguments: { action: "run_repository_process", params: {
+    repositoryContextHandle: selected.repositoryContextHandle, localCheckoutHandle: checkout.localCheckoutHandle, program: "node", arguments: ["build.cjs"], expectedHead: selected.headCommit,
+  } } })).structuredContent;
+  assert.equal(built.ok, true, JSON.stringify(built)); assert.equal(built.payload.exitCode, 0);
+  assert.equal((await fs.stat(path.join(local, "artifact.bin"))).size, bytes.length);
+  assert.equal(createHash("sha256").update(await fs.readFile(path.join(local, "artifact.bin"))).digest("hex"), digest);
   const source = { repositoryContextHandle: selected.repositoryContextHandle, localCheckoutHandle: checkout.localCheckoutHandle, relativePath: "artifact.bin", expectedSize: bytes.length, expectedSha256: digest };
   const upload = extra => invoke("upload_hosted_release_asset", { releaseId: release.id, expectedState: release.stateId, name: "artifact.bin", ...source, ...extra });
   for (const invalid of [{ expectedSize: bytes.length + 1 }, { expectedSha256: "0".repeat(64) }, { relativePath: "../artifact.bin" }, { relativePath: path.join(local, "artifact.bin") }, { relativePath: "NUL" }, { relativePath: "artifact.bin:stream" }, { relativePath: ".git/config" }, { relativePath: ".git" }, { relativePath: "directory" }, { localCheckoutHandle: other.localCheckoutHandle }, { contentBase64: "YQ==" }]) {

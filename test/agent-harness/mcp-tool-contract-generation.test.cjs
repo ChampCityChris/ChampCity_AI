@@ -32,6 +32,31 @@ const {
   StreamableHTTPClientTransport,
 } = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
 
+test("repository process JSON Zod and published inventory require portable targets and approved bounded inputs", () => {
+  const registry = createAgentHarnessToolRegistry({ userDataRoot: os.tmpdir(), workspaceAccess: {
+    resolveWorkspaceContext: () => { throw Error("not used"); }, listWorkspaceSummaries: () => [], listRepositoryCheckoutSummaries: () => [],
+  } });
+  const tool = registry.listTools("files.read files.write").find(tool => tool.name === "development_toolbox");
+  assert.deepEqual(tool.actions, ["status", "run_repository_process"]);
+  const schema = tool.inputSchema.oneOf.find(form => form.title === "run_repository_process");
+  assert.deepEqual(schema.required, ["action", "params"]); assert.equal(schema.properties.workspaceId, undefined);
+  assert.deepEqual(schema.properties.params.required, ["repositoryContextHandle", "localCheckoutHandle", "program", "arguments"]);
+  assert.deepEqual(schema.properties.params.properties.program.enum, ["python", "node", "npm", "dotnet"]);
+  assert.equal(schema.properties.params.additionalProperties, false);
+  assert.equal(schema.properties.params.properties.arguments.maxItems, 128);
+  assert.equal(schema.properties.params.properties.timeoutMs.maximum, 600000);
+  const valid = { action: "run_repository_process", params: { repositoryContextHandle: "local_context_fixture", localCheckoutHandle: "local_checkout_fixture", program: "node", arguments: ["scripts/build.cjs", "--version", "0.1.0-alpha.3"] } };
+  for (const program of schema.properties.params.properties.program.enum) assert.equal(tool.inputZodSchema.safeParse({ ...valid, params: { ...valid.params, program } }).success, true);
+  assert.equal(tool.inputZodSchema.safeParse({ ...valid, params: { ...valid.params, arguments: [] } }).success, true);
+  for (const key of schema.properties.params.required) { const params = { ...valid.params }; delete params[key]; assert.equal(tool.inputZodSchema.safeParse({ ...valid, params }).success, false, key); }
+  for (const extra of [{ program: "cmd.exe" }, { cwd: "." }, { environment: {} }, { repositoryCheckoutId: "fake" }, { timeoutMs: 600001 }, { timeoutMs: 1 }, { arguments: Array(129).fill("x") }, { arguments: ["x".repeat(4097)] }]) assert.equal(tool.inputZodSchema.safeParse({ ...valid, params: { ...valid.params, ...extra } }).success, false);
+  assert.equal(tool.inputZodSchema.safeParse({ ...valid, workspaceId: "forbidden" }).success, false);
+  assert.deepEqual(registry.listTools("files.read").find(tool => tool.name === "development_toolbox").actions, ["status"]);
+  assert.deepEqual(registry.listTools("files.write").find(tool => tool.name === "development_toolbox").actions, ["run_repository_process"]);
+  const publicTools = require("../../dist/main/agentHarness/runtime/mcpServer.js").captureAgentHarnessRuntimeToolContract(registry, "files.read files.write").publicDefinitions;
+  assert.deepEqual(publicTools.find(tool => tool.name === "development_toolbox").inputSchema, tool.inputSchema);
+});
+
 test("public MCP test execution consumes exact checkout routing before the strict child adapter", { timeout: 30_000 }, async (t) => {
   const { validationFixture } = require("../support/validation-fixture.cjs");
   const testPath = "test/checkout-routing.test.cjs";

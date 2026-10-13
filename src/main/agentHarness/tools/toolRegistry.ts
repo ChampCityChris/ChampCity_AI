@@ -67,6 +67,7 @@ import {
 } from "../../repository/patches";
 import { createReleaseToolbox, type ReleaseToolbox } from "../release/releaseToolbox";
 import { executeTestToolbox, type TestToolboxAction } from "../test/testToolbox";
+import { runRepositoryProcess, REPOSITORY_PROCESS_PROGRAMS, MAX_REPOSITORY_PROCESS_TIMEOUT } from "../development/repositoryProcess";
 import { INTEGRATION_VALIDATION_LANES, INTEGRATION_VALIDATION_PROFILES } from "../../../shared/integrationPolicyContracts";
 import {
   type AgentHarnessWorkspaceAccessProvider,
@@ -139,7 +140,6 @@ const HOTFIX10_RESERVED_TOOLBOX_NAMES = [
   "skill_toolbox",
   "memory_toolbox",
   "validation_toolbox",
-  "development_toolbox",
   "system_toolbox",
   "network_toolbox",
   "security_toolbox",
@@ -306,7 +306,7 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
   });
   const sourceOperationCoordinator = options.sourceOperationCoordinator ??
     createProjectSourceOperationCoordinator({ userDataRoot: options.userDataRoot });
-  const providers = createToolProviders(releaseToolbox, repositoryHosting, options.localGitAccess);
+  const providers = createToolProviders(releaseToolbox, repositoryHosting, options.localGitAccess, repositoryTargets);
   const providerByName = new Map(providers.map((provider) => [provider.name, provider]));
   return {
     shutdownProviders: () => repositoryHosting.shutdown(),
@@ -348,7 +348,8 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
         if (contract.globalOnly) {
           if (args.workspaceId !== undefined || !contract.dispatchGlobal) throw new AgentHarnessError("INVALID_INPUT", "This provider action is independent of workspace registration.");
           const params = validateParams(args.params, contract);
-          const payload = await withGitHttpAuthentication(() => Promise.resolve(contract.dispatchGlobal!({ params, signal: call.signal, session: call.session, principal: call.principal })), (cwd, argv) => repositoryHosting.gitHttpAuthentication(cwd, argv));
+          const dispatch = () => Promise.resolve(contract.dispatchGlobal!({ params, signal: call.signal, session: call.session, principal: call.principal }));
+          const payload = provider.name === "development_toolbox" ? await dispatch() : await withGitHttpAuthentication(dispatch, (cwd, argv) => repositoryHosting.gitHttpAuthentication(cwd, argv));
           return { ok: true, toolName: provider.name, action, payload: redactLocalGitResult(payload), attemptId, timestamp };
         }
         localMode = (provider.name === "git_toolbox" || contract.repositoryTarget === true) && (contract.localOnly === true || supplied.localCheckoutHandle !== undefined);
@@ -438,7 +439,7 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
           ok: false,
           toolName: call.name,
           action,
-          error: localMode || call.name === "integration_toolbox" ? redactLocalGitResult(toBoundedError(error)) as ReturnType<typeof toBoundedError> : call.name === "data_toolbox"
+          error: localMode || call.name === "integration_toolbox" || call.name === "development_toolbox" ? redactLocalGitResult(toBoundedError(error)) as ReturnType<typeof toBoundedError> : call.name === "data_toolbox"
             ? { code: error instanceof AgentHarnessError ? error.code : "RUNTIME_ERROR",
                 message: "Project State inspection request was rejected; verify workspace registration, read scope and bounded parameters." }
             : call.name === "test_toolbox" && !(error instanceof AgentHarnessError)
@@ -454,8 +455,37 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
   };
 }
 
-function createToolProviders(releaseToolbox: ReleaseToolbox, repositoryHosting: RepositoryHostingFacade, localGitAccess?: LocalGitRepositoryAccessService): ToolProvider[] {
+function createToolProviders(releaseToolbox: ReleaseToolbox, repositoryHosting: RepositoryHostingFacade, localGitAccess: LocalGitRepositoryAccessService | undefined, repositoryTargets: RepositoryTargetResolver): ToolProvider[] {
   return [
+    {
+      name: "development_toolbox", title: "development_toolbox",
+      description: "Execute an explicit trusted repository process independently of Project registration. Approved toolchains, fixed verified checkout, bounded output and timeout; no shell or caller environment.",
+      actions: [
+        readAction("status", {}, () => ({ toolbox: "development_toolbox", state: "implemented", implemented: true, programs: REPOSITORY_PROCESS_PROGRAMS })),
+        {
+          name: "run_repository_process", kind: "artifact-write", requiredScope: "files.write", globalOnly: true,
+          params: {
+            repositoryContextHandle: { ...portableContextParam, required: true },
+            localCheckoutHandle: { type: "string", required: true, minLength: 1, maxLength: 128 },
+            program: { type: "string", required: true, allowedValues: REPOSITORY_PROCESS_PROGRAMS },
+            arguments: { type: "string-array", required: true, minItems: 0, maxItems: 128, minLength: 1, maxLength: 4096 },
+            expectedHead: { type: "string", minLength: 40, maxLength: 64 },
+            timeoutMs: { type: "number", integer: true, minimum: 100, maximum: MAX_REPOSITORY_PROCESS_TIMEOUT },
+          },
+          dispatch: () => { throw new AgentHarnessError("INVALID_INPUT", "Repository process requires a portable local target."); },
+          dispatchGlobal: async ({ params, signal, session, principal }) => {
+            if (!localGitAccess) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "Local repository access is unavailable in this host.");
+            return repositoryTargets.withTarget({
+              repositoryContextHandle: requiredString(params.repositoryContextHandle, "repositoryContextHandle"),
+              localCheckoutHandle: requiredString(params.localCheckoutHandle, "localCheckoutHandle"),
+            }, async ({ context }) => runRepositoryProcess(context.root, {
+              program: requiredString(params.program, "program"), arguments: params.arguments as string[],
+              expectedHead: stringValue(params.expectedHead), timeoutMs: numberValue(params.timeoutMs),
+            }, signal), session, principal);
+          },
+        },
+      ],
+    },
     {
       name: "repo_toolbox",
       title: "repo_toolbox",
@@ -815,7 +845,7 @@ function createToolProviders(releaseToolbox: ReleaseToolbox, repositoryHosting: 
             registry: {
               state: "registry-only",
               fingerprint: null,
-              tools: createToolProviders(releaseToolbox, repositoryHosting, localGitAccess).map((provider) => ({
+              tools: createToolProviders(releaseToolbox, repositoryHosting, localGitAccess, repositoryTargets).map((provider) => ({
                 name: provider.name,
                 actions: provider.actions.map((action) => action.name),
               })),

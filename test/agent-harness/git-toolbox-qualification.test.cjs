@@ -10,6 +10,113 @@ const { Client } = require("@modelcontextprotocol/sdk/client/index.js");
 const { StreamableHTTPClientTransport } = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
 const { execFileSync } = require("node:child_process");
 
+test("RMCP repository process uses disconnected portable targets and bounds programs paths source output secrets and process trees", { timeout: 180000 }, async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "rmcp-process-"));
+  const first = path.join(root, "one"), second = path.join(root, "two");
+  const git = (cwd, ...args) => execFileSync("git", args, { cwd, encoding: "utf8", windowsHide: true, stdio: "pipe" }).trim();
+  const script = `const fs = require('node:fs');
+const {spawn} = require('node:child_process');
+const mode = process.argv[2];
+if(mode === 'tree') {
+  const child = spawn(process.execPath, ['fixture.cjs', 'wait'], {stdio:'ignore'});
+  fs.writeFileSync('pids.json', JSON.stringify([process.pid,child.pid]));
+  setInterval(()=>{},1000);
+} else if(mode === 'wait') setInterval(()=>{},1000);
+else if(mode === 'flood') { process.stdout.write('o'.repeat(200000)); process.stderr.write('e'.repeat(200000)); }
+else if(mode === 'paths') process.stdout.write('/x '.repeat(30000));
+else if(mode === 'unicode') process.stdout.write('a' + '🌊'.repeat(40000));
+else if(mode === 'secret') { console.log(process.argv[3]); console.error(process.argv[3]); }
+else if(mode === 'partial') process.stdout.write('x'.repeat(65530) + process.argv[3]);
+else if(mode === 'nonzero') process.exitCode = 7;
+else {
+  fs.writeFileSync('ran.txt','yes');
+  const names=['FORGEJO_TOKEN','GITHUB_TOKEN','CHAMPCITY_SECRET','OPENAI_API_KEY','NODE_OPTIONS','GIT_CONFIG_VALUE_0'];
+  console.log(JSON.stringify({numeric:1,cwd:process.cwd(), present:names.filter(key=>process.env[key]),stdin:fs.readFileSync(0,'utf8')}));
+}`;
+  for (const directory of [first, second]) {
+    fs.mkdirSync(directory); git(directory, "init", "-b", "dev"); fs.writeFileSync(path.join(directory, "fixture.cjs"), script);
+    git(directory, "add", "."); git(directory, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "seed");
+  }
+  const access = new LocalGitRepositoryAccessService(() => [root]);
+  const registry = createAgentHarnessToolRegistry({ userDataRoot: path.join(root, "harness"), localGitAccess: access, workspaceAccess: {
+    resolveWorkspaceContext: () => { throw Error("must not register a workspace"); }, listWorkspaceSummaries: () => [], listRepositoryCheckoutSummaries: () => [],
+  } });
+  const runtime = await startAgentHarnessHttpRuntime({ host: "127.0.0.1", port: 0, userDataRoot: path.join(root, "harness"), registry, allowUnauthenticatedLocal: true });
+  t.after(async () => { await runtime.close(); await registry.shutdownProviders(); fs.rmSync(root, { recursive: true, force: true }); });
+  const call = async (name, action, params) => {
+    const client = new Client({ name: "process-fixture", version: "1" });
+    const transport = new StreamableHTTPClientTransport(new URL(runtime.url));
+    await client.connect(transport);
+    try { return (await client.callTool({ name, arguments: { action, params } })).structuredContent; }
+    finally { await transport.terminateSession(); await client.close(); }
+  };
+  const group = (await call("git_toolbox", "discover_local_repositories", { directory: first })).payload.repositories[0];
+  const other = (await call("git_toolbox", "discover_local_repositories", { directory: second })).payload.repositories[0];
+  const selected = (await call("git_toolbox", "select_repository_context", { repositoryHandle: group.repositoryHandle })).payload;
+  const target = { repositoryContextHandle: selected.repositoryContextHandle, localCheckoutHandle: group.checkouts[0].localCheckoutHandle };
+  const params = { ...target, program: "node", arguments: ["fixture.cjs"], expectedHead: selected.headCommit };
+  const direct = (extra, signal) => registry.callTool({ name: "development_toolbox", arguments: { action: "run_repository_process", params: { ...params, ...extra } }, principal: "local-unauthenticated", signal });
+  const names = ["FORGEJO_TOKEN", "GITHUB_TOKEN", "CHAMPCITY_SECRET", "OPENAI_API_KEY", "NODE_OPTIONS", "GIT_CONFIG_VALUE_0", "ELECTRON_RUN_AS_NODE"];
+  const saved = new Map(names.map(name => [name, process.env[name]]));
+  names.forEach(name => { process.env[name] = "synthetic-process-private-value"; });
+  process.env.ELECTRON_RUN_AS_NODE = "1";
+  try {
+    const result = await call("development_toolbox", "run_repository_process", params);
+    assert.equal(result.ok, true, JSON.stringify(result));
+    assert.equal(result.payload.exitCode, 0); assert.equal(result.payload.startingHead, selected.headCommit);
+    assert.equal(result.payload.terminationReason, "exited"); assert.equal(result.workspaceId, undefined);
+    const output = JSON.parse(result.payload.stdout); assert.equal(output.numeric, 1); assert.equal(output.cwd, "<checkout>"); assert.deepEqual(output.present, []); assert.equal(output.stdin, "");
+    assert.equal(JSON.stringify(result).includes(root), false);
+    for (const mode of ["secret", "partial"]) {
+      const secret = await direct({ arguments: ["fixture.cjs", mode, "synthetic-process-private-value"] });
+      assert.equal(secret.ok, true, JSON.stringify(secret)); assert.equal(JSON.stringify(secret).includes("synthetic-process-private-value"), false);
+      assert.equal(secret.payload.stdout.includes("synthe"), false, "capture boundary must redact partial credentials");
+    }
+  } finally { for (const [name, value] of saved) { if (value === undefined) delete process.env[name]; else process.env[name] = value; } }
+  fs.unlinkSync(path.join(first, "ran.txt"));
+  const stale = await direct({ expectedHead: "0".repeat(40) }); assert.equal(stale.error.code, "STALE_SOURCE"); assert.equal(fs.existsSync(path.join(first, "ran.txt")), false);
+  const wrong = await direct({ localCheckoutHandle: other.checkouts[0].localCheckoutHandle }); assert.equal(wrong.error.code, "REPOSITORY_CONTEXT_MISMATCH"); assert.equal(fs.existsSync(path.join(second, "ran.txt")), false);
+  for (const program of ["cmd.exe", "powershell", "pwsh", "bash", "sh", "node fixture.cjs", process.execPath]) assert.equal((await direct({ program })).ok, false, program);
+  for (const arguments of [["../fixture.cjs"], [path.join(first, "fixture.cjs")], ["--output=../../escape"], ["--output=/tmp/escape"], [".git/config"], ["NUL.txt"], ["file.bin:stream"], ["-e", "process.exit()"], ["--eval=process.exit()"], ["x\ncmd"], Array(129).fill("x"), Array(10).fill("x".repeat(4096))]) assert.equal((await direct({ arguments })).ok, false, JSON.stringify(arguments).slice(0,100));
+  for (const extra of [{ cwd: second }, { env: { X: "x" } }, { timeoutMs: 600001 }, { timeoutMs: 1 }, { arguments: ["x".repeat(4097)] }]) assert.equal((await direct(extra)).ok, false);
+  assert.equal((await registry.callTool({ name: "development_toolbox", scope: "files.read", arguments: { action: "run_repository_process", params } })).error.code, "OAUTH_SCOPE_DENIED");
+  const nonzero = await direct({ arguments: ["fixture.cjs", "nonzero"] }); assert.equal(nonzero.payload.exitCode, 7); assert.equal(nonzero.payload.terminationReason, "exited");
+  const flood = await direct({ arguments: ["fixture.cjs", "flood"] }); assert.equal(flood.ok, true); assert.equal(Buffer.byteLength(flood.payload.stdout), 65536); assert.equal(Buffer.byteLength(flood.payload.stderr), 65536); assert.equal(flood.payload.stdoutTruncated, true); assert.equal(flood.payload.stderrTruncated, true);
+  for (const mode of ["paths", "unicode"]) { const result = await direct({ arguments: ["fixture.cjs", mode] }); assert.equal(result.ok, true); assert.ok(Buffer.byteLength(result.payload.stdout) <= 65536); assert.equal(result.payload.stdoutTruncated, true); }
+  const isAlive = pid => { try { process.kill(pid, 0); return true; } catch { return false; } };
+  const pidsFile = path.join(first, "pids.json");
+  const waitForPids = async () => { const end = Date.now()+20000; while (!fs.existsSync(pidsFile) && Date.now()<end) await new Promise(r => setTimeout(r, 30)); assert.ok(fs.existsSync(pidsFile)); return JSON.parse(fs.readFileSync(pidsFile)); };
+  const timed = await direct({ arguments: ["fixture.cjs", "tree"], timeoutMs: 1500 }); assert.equal(timed.ok, true, JSON.stringify(timed)); assert.equal(timed.payload.terminationReason, "timeout");
+  const timedPids = await waitForPids(); assert.deepEqual(timedPids.map(isAlive), [false,false]); fs.unlinkSync(pidsFile);
+  const controller = new AbortController(); const pending = direct({ arguments: ["fixture.cjs", "tree"], timeoutMs: 30000 }, controller.signal);
+  const cancelledPids = await waitForPids(); controller.abort(); const cancelled = await pending;
+  assert.equal(cancelled.ok, true, JSON.stringify(cancelled)); assert.equal(cancelled.payload.terminationReason, "cancelled"); assert.deepEqual(cancelledPids.map(isAlive), [false,false]);
+  const preCancelled = new AbortController(); preCancelled.abort(); fs.unlinkSync(pidsFile);
+  assert.equal((await direct({ arguments: ["fixture.cjs", "tree"] }, preCancelled.signal)).payload.terminationReason, "cancelled"); assert.equal(fs.existsSync(pidsFile), false);
+  // Exercise the SDK cancellation notification and the server's current AbortSignal.
+  const cancelClient = new Client({ name: "process-cancel", version: "1" });
+  const cancelTransport = new StreamableHTTPClientTransport(new URL(runtime.url)); await cancelClient.connect(cancelTransport);
+  const originalCall = registry.callTool;
+  let finished;
+  const finishedPromise = new Promise(resolve => { finished = resolve; });
+  registry.callTool = async request => { const result = await originalCall(request); if (request.name === "development_toolbox") finished(result); return result; };
+  try {
+    const sdkController = new AbortController();
+    const request = cancelClient.callTool({ name: "development_toolbox", arguments: { action: "run_repository_process", params: { ...params, arguments: ["fixture.cjs", "tree"], timeoutMs: 30000 } } }, undefined, { signal: sdkController.signal });
+    const rejected = assert.rejects(request);
+    const sdkPids = await waitForPids(); sdkController.abort(); await rejected;
+    let timer;
+    const completed = await Promise.race([finishedPromise, new Promise((_, reject) => { timer = setTimeout(() => reject(Error("MCP cancellation cleanup timed out")), 15000); })]).finally(() => clearTimeout(timer));
+    assert.equal(completed.payload.terminationReason, "cancelled"); assert.deepEqual(sdkPids.map(isAlive), [false,false]);
+  } finally { registry.callTool = originalCall; await cancelTransport.terminateSession(); await cancelClient.close(); }
+  await fs.promises.symlink(first, path.join(first, "redirect"), process.platform === "win32" ? "junction" : "dir");
+  assert.equal((await direct({ arguments: ["redirect/fixture.cjs"] })).ok, false); fs.rmSync(path.join(first, "redirect"), { recursive: true });
+  fs.linkSync(path.join(first, "fixture.cjs"), path.join(first, "hard.cjs")); assert.equal((await direct({ arguments: ["hard.cjs"] })).ok, false); fs.unlinkSync(path.join(first, "hard.cjs"));
+  // Replaced checkout control metadata cannot run a process, even with old handles.
+  const control = path.join(first, ".git"), savedControl = path.join(first, "saved-control"); fs.renameSync(control, savedControl); git(first, "init", "-b", "dev");
+  assert.equal((await direct({})).error.code, "REPOSITORY_CONTEXT_STALE");
+});
+
 test("RMCP repair discovers generic trusted common directories and rejects inconsistent worktree identity", { timeout: 120000 }, async t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "rmcp-topology-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
