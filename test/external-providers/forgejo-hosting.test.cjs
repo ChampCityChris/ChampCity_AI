@@ -169,6 +169,53 @@ test("Forgejo provider-owned Git destinations bind exact host, namespace, reposi
   await assert.rejects(adapter.resolveGitRemote({ repository: "source" }, "https"));
   const httpRemote = await f.adapter({ allowInsecureGitHttp: true }).resolveGitRemote({ repository: "source" }, "https");
   assert.equal(httpRemote.identity.transport, "http");
+  const { createProviderOwnedRemote, remoteDestinationIdentity } = require("../../dist/main/repository/providerOwnedRemote.js");
+  assert.equal(remoteDestinationIdentity("https://forge.example.invalid/fixture-user/source.git").transport, "https");
+  assert.equal(remoteDestinationIdentity("ssh://git@forge.example.invalid/fixture-user/source.git").transport, "ssh");
+  for (const prefix of ["", "/forge"]) {
+    const origin = "https://forge.example.invalid", base = `${origin}${prefix}/fixture-user/source`;
+    let advertisedHttp = `${base}.git`;
+    const configured = validateForgejoHostingConfiguration({ ...f.input, apiBaseUrl: `${origin}${prefix}/api/v1`, preferredTransport: "https", allowInsecureHttp: false });
+    const provider = new ForgejoHostingAdapter({ configuration: configured, resolveCredential: async () => credential,
+      fetch: async (url, options) => {
+        assert.equal(options.headers.Authorization, `token ${credential}`);
+        if (!url.endsWith("/user") && !url.endsWith("/repos/fixture-user/source")) return new Response("{}", { status: 404 });
+        const data = url.endsWith("/user") ? { login: "fixture-user" } : { ...f.repos.get("fixture-user/source"), clone_url: advertisedHttp };
+        return new Response(JSON.stringify(data), { status: 200 });
+      } });
+    const canonical = await provider.resolveGitRemote({ repository: "source" });
+    for (const value of [`${base}.git`, base, `${base}.git/`, `${base}/`, `${base}.git`.replace("https://", "HTTPS://").replace("forge.example.invalid", "FORGE.EXAMPLE.INVALID:443"), `${base}.git`.replace("https://", "https://fixture-user@")]) {
+      advertisedHttp = value;
+      const resolved = await provider.resolveGitRemote({ repository: "source" });
+      assert.equal(resolved.destination, `${base}.git`); assert.deepEqual(resolved.identity, canonical.identity);
+      const auth = await provider.gitHttpAuthentication(value);
+      assert.equal(auth.username, "fixture-user"); assert.equal(new URL(auth.destination).username, "");
+      assert.equal(JSON.stringify(resolved).includes(credential), false);
+    }
+    const rejected = [
+      [`${base}.git`.replace("https://", "https://fixture-user:secret@"), "unsupported-userinfo"],
+      [`${base}.git`.replace("https://", `https://${credential}@`), "unsupported-userinfo"],
+      [`${base}.git`.replace("https://", "https://unrelated@"), "unsupported-userinfo"],
+      [`${base}.git?token=secret`, "query-or-fragment"], [`${base}.git#secret`, "query-or-fragment"],
+      [`${base}.git`.replace("forge.example.invalid", "other.example.invalid"), "unexpected-host"],
+      [`${base}.git`.replace("forge.example.invalid", "forge.example.invalid:444"), "unexpected-port"],
+      [`${base}.git`.replace("fixture-user", "other"), "unexpected-repository-path"],
+      [`${base}-other.git`, "unexpected-repository-path"],
+      [`${base}.git`.replace("/source", "/%2fsource"), "unsafe-path-encoding"],
+      [`${base}.git`.replace("/source", "/%5csource"), "unsafe-path-encoding"],
+      [`${base}.git`.replace("/source", "/../fixture-user/source"), "unsafe-path-encoding"],
+      [`${base}.git`.replace("/source", "/%2e%2e/fixture-user/source"), "unsafe-path-encoding"],
+      [`${base}.git`.replace("/source", "//source"), "unsafe-path-encoding"],
+      ["ext::git something", "unsafe-path-encoding"], ["helper::destination", "unsupported-transport"],
+      [`${base}.git`.replace("https:", "http:"), "unsupported-transport"],
+    ];
+    for (const [value, reason] of rejected) {
+      advertisedHttp = value;
+      await assert.rejects(provider.resolveGitRemote({ repository: "source" }), error => error.details?.transportReason === reason && !error.message.includes(value));
+      assert.equal(await provider.gitHttpAuthentication(value), null);
+    }
+    for (const value of [`${base}.git`.replace("https://", "https://fixture-user@"), `${base}.git/`]) assert.throws(() => createProviderOwnedRemote({ providerId: "fixture", destination: value }));
+  }
   const raw = f.repos.get("fixture-user/source"); raw.description = `provider echoed ${credential}`;
   assert.equal(JSON.stringify(await adapter.inspectRepository({ repository: "source" })).includes(credential), false);
   let current = true;
@@ -289,7 +336,7 @@ test("private HTTP Git authentication stays scoped to the configured destination
       authenticatedSpawns++;
       assert.equal(JSON.stringify(args).includes(credential), false);
       assert.equal(JSON.stringify(args).includes(encoded), false);
-      assert.match(options.env.GIT_CONFIG_KEY_2, /^http\.http:\/\/127\.0\.0\.1:\d+\/fixture-user\/private\.git\.extraHeader$/);
+      assert.match(options.env.GIT_CONFIG_KEY_2, /^http\.http:\/\/127\.0\.0\.1:\d+\/fixture-user\/private\.git\/?\.extraHeader$/);
       assert.equal(options.env.GIT_CONFIG_VALUE_3, "false");
     }
     return originalSpawn(command, args, options);
@@ -349,15 +396,60 @@ test("private HTTP Git authentication stays scoped to the configured destination
   await call("git_toolbox", "push", { localCheckoutHandle: initialized.localCheckoutHandle, remote: "forgejo", branch: "dev", remoteBranch: "dev", expectedCommit: commit });
   f.repos.get("fixture-user/private").empty = false;
   await call("integration_toolbox", "verify_hosted_repository", { ...target, expectedRefs: [`refs/heads/dev=${commit}`] });
+  const canonicalUrl = `${f.origin}/fixture-user/private.git`;
+  const legacyUrl = `${canonicalUrl}/`.replace("http://", "http://fixture-user@");
+  git(source, ["remote", "set-url", "forgejo", legacyUrl]);
+  git(source, ["config", "remote.forgejo.custom", "preserved"]);
+  const inspectParams = { localCheckoutHandle: initialized.localCheckoutHandle, remote: "forgejo" };
+  const legacy = (await call("git_toolbox", "inspect_remote", inspectParams)).payload;
+  assert.equal(legacy.fetchDestinations[0].repository, "fixture-user/private");
+  assert.equal(legacy.fetchDestinations[0].identity, (await provider.resolveGitRemote({ repository: "private" })).identity.identity);
+  assert.equal(JSON.stringify(legacy).includes(legacyUrl), false);
+  assert.equal((await call("git_toolbox", "inspect_remote", inspectParams)).payload.binding, legacy.binding);
+  assert.equal(git(source, ["config", "remote.forgejo.url"]), legacyUrl);
+  await call("git_toolbox", "inspect_remote_refs", inspectParams);
+  await call("git_toolbox", "fetch_remote", inspectParams);
+  await call("git_toolbox", "push", { ...inspectParams, branch: "dev", remoteBranch: "dev", expectedCommit: commit });
+  await call("git_toolbox", "create_tag", { localCheckoutHandle: initialized.localCheckoutHandle, tagName: "legacy-auth", tagType: "lightweight", target: commit });
+  await call("git_toolbox", "push_tag", { ...inspectParams, tagName: "legacy-auth" });
+  await call("integration_toolbox", "bind_repository_remote", { ...target, expectedCurrentBinding: "0".repeat(64) }, "GIT_EXECUTION_FAILED");
+  assert.equal(git(source, ["config", "remote.forgejo.url"]), legacyUrl);
+  await call("integration_toolbox", "bind_repository_remote", { ...target, expectedCurrentBinding: legacy.binding });
+  assert.equal(git(source, ["config", "remote.forgejo.url"]), canonicalUrl);
+  assert.equal(git(source, ["config", "remote.forgejo.custom"]), "preserved");
+  const replaced = (await call("git_toolbox", "inspect_remote", inspectParams)).payload;
+  assert.notEqual(replaced.binding, legacy.binding); assert.equal(replaced.fetchDestinations[0].identity, legacy.fetchDestinations[0].identity);
+  for (const bad of [`${canonicalUrl}?token=secret`, canonicalUrl.replace("http://", "http://fixture-user:secret@"), canonicalUrl.replace("http://", "http://unrelated@"), "ext::git something"]) {
+    git(source, ["remote", "set-url", "forgejo", bad]); await call("git_toolbox", "inspect_remote", inspectParams, "INVALID_INPUT");
+  }
+  git(source, ["remote", "set-url", "forgejo", canonicalUrl]);
+  git(source, ["config", "--add", "remote.forgejo.url", canonicalUrl]);
+  await call("git_toolbox", "inspect_remote", inspectParams, "GIT_EXECUTION_FAILED");
+  git(source, ["config", "--unset-all", "remote.forgejo.url"]); git(source, ["config", "remote.forgejo.url", canonicalUrl]);
+  git(source, ["config", `url.${f.origin}/rewritten/.insteadOf`, `${f.origin}/fixture-user/`]);
+  await call("git_toolbox", "inspect_remote", inspectParams, "GIT_EXECUTION_FAILED");
+  await assert.rejects(hosting.gitHttpAuthentication(source, ["ls-remote", "--", "forgejo"]), { code: "REPOSITORY_PROVIDER_NOT_READY" });
+  git(source, ["config", "--remove-section", `url.${f.origin}/rewritten/`]);
   const prune = (await call("git_toolbox", "inspect_prune", { localCheckoutHandle: initialized.localCheckoutHandle, remote: "forgejo" })).payload;
   await call("git_toolbox", "prune_remote", { localCheckoutHandle: initialized.localCheckoutHandle, remote: "forgejo", expectedBinding: prune.binding, expectedTrackingState: "0".repeat(64) }, "GIT_EXECUTION_FAILED");
   await call("git_toolbox", "prune_remote", { localCheckoutHandle: initialized.localCheckoutHandle, remote: "forgejo", expectedBinding: prune.binding, expectedTrackingState: prune.trackingState });
+  f.repos.get("fixture-user/private").clone_url = legacyUrl;
+  assert.equal((await call("integration_toolbox", "provider_status", { providerId: configuration.providerId })).payload.readiness, "ready");
+  await call("integration_toolbox", "inspect_hosted_repository", { providerId: configuration.providerId, repository: "private" });
   const cloned = (await call("integration_toolbox", "clone_hosted_repository", { providerId: configuration.providerId, repository: "private", destinationDirectory: path.join(trusted, "cloned"), branch: "dev" })).payload;
   assert.equal(cloned.headCommit, commit); assert.ok(authenticatedRequests >= 4); assert.ok(authenticatedSpawns >= 3);
+  assert.equal(git(path.join(trusted, "cloned"), ["config", "remote.origin.url"]), canonicalUrl);
+  assert.equal(git(path.join(trusted, "cloned"), ["branch", "--show-current"]), "dev");
+  f.mode("authentication-failed");
+  await call("integration_toolbox", "clone_hosted_repository", { providerId: configuration.providerId, repository: "private", destinationDirectory: path.join(trusted, "failed"), branch: "dev" }, "REPOSITORY_PROVIDER_NOT_READY");
+  assert.equal(fs.existsSync(path.join(trusted, "failed")), false); f.mode("ready");
   for (const root of [source, path.join(trusted, "cloned")]) {
     const config = fs.readFileSync(path.join(root, ".git", "config"), "utf8"); assert.equal(config.includes(credential), false); assert.equal(config.includes(encoded), false);
   }
   assert.equal(await hosting.gitHttpAuthentication(source, ["clone", "--", "http://unrelated.example.invalid/fixture-user/private.git", "unused"]), null);
+  const duplicateConfiguration = validateForgejoHostingConfiguration({ ...f.input, providerId: "forgejo-duplicate", preferredTransport: "https", allowInsecureGitHttp: true });
+  const ambiguous = new RepositoryHostingFacade({ configurations: () => [configuration, duplicateConfiguration], resolveCredential: async () => credential });
+  await assert.rejects(ambiguous.gitHttpAuthentication(source, ["ls-remote", "--", "forgejo"]), { code: "REPOSITORY_PROVIDER_NOT_READY" });
   const args = ["ls-remote", "--", "forgejo"]; assert.equal(args.join(" ").includes(credential), false);
   const result = await withGitHttpAuthentication(() => runBoundedGit({ cwd: source, args }), (cwd, argv) => hosting.gitHttpAuthentication(cwd, argv));
   assert.ok(result.stdout.includes(commit)); assert.equal(JSON.stringify(result).includes(credential), false);

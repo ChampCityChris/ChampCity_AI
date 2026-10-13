@@ -36,6 +36,10 @@ const localPolicy = new AsyncLocalStorage<{ config: string[]; verify?: (cwd: str
 export interface GitHttpAuthentication { destination: string; username: string; password: string }
 export type GitHttpAuthenticationResolver = (cwd: string, args: string[]) => Promise<GitHttpAuthentication | null>;
 const httpAuthentication = new AsyncLocalStorage<GitHttpAuthenticationResolver>();
+/** Internal provider proof for username-only legacy inspection; never a public credential result. */
+export async function verifiedGitHttpUsername(cwd: string, remote: string, push = false): Promise<string | undefined> {
+  return (await httpAuthentication.getStore()?.(cwd, [push ? "push" : "ls-remote", "--", remote]))?.username;
+}
 /** Application-owned credentials never become Git arguments or repository configuration. */
 export function withGitHttpAuthentication<T>(operation: () => Promise<T>, resolver: GitHttpAuthenticationResolver): Promise<T> {
   return httpAuthentication.run(resolver, operation);

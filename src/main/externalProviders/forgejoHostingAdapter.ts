@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { AgentHarnessError } from "../core/applicationErrors";
 import type { ForgejoHostingConfiguration, HostedRepository, HostedRepositoryCreateRequest, HostedRepositoryLocator, HostedRepositorySettingsChanges, RepositoryHostingStatus } from "../../shared/repositoryHostingContracts";
-import { createProviderOwnedRemote, remoteDestinationIdentity } from "../repository/providerOwnedRemote";
+import { createProviderOwnedRemote, remoteDestinationIdentity, parseGitHttpDestination } from "../repository/providerOwnedRemote";
 import type { RepositoryHostingAdapter } from "./repositoryHostingAdapter";
 import type { GitHttpAuthentication } from "../core/gitExecution";
 import type { HostedPage, HostedRef, HostedFile, HostedFileWrite, HostedPullRequest, HostedPullCreate, HostedPullUpdate, HostedReview } from "../../shared/repositoryHostingContracts";
@@ -192,18 +192,35 @@ export class ForgejoHostingAdapter implements RepositoryHostingAdapter {
   }
   async resolveGitRemote(locator: HostedRepositoryLocator, transport = this.cfg.preferredTransport, signal?: AbortSignal) {
     if (!["https", "ssh"].includes(transport)) throw new AgentHarnessError("INVALID_INPUT", "Select a configured Git transport.");
-    const token = await this.credential(); await this.authenticate(token, signal);
+    const token = await this.credential(), authenticated = await this.authenticate(token, signal);
     const inspected = await this.inspect(locator, token, signal);
     if (!inspected) throw fail("Hosted repository is unavailable.");
-    const destination = inspected.raw[transport === "ssh" ? "ssh_url" : "clone_url"];
+    let destination = inspected.raw[transport === "ssh" ? "ssh_url" : "clone_url"];
     if (typeof destination !== "string" || destination.includes(token)) throw fail("Provider Git transport could not be verified.");
-    const identity = remoteDestinationIdentity(destination), api = new URL(this.cfg.apiBaseUrl), selected = inspected.repository;
-    const apiPrefix = api.pathname.slice(0, -7).replace(/^\//, "");
+    const api = new URL(this.cfg.apiBaseUrl), selected = inspected.repository;
     if (transport === "ssh") {
+      const identity = remoteDestinationIdentity(destination);
       if (identity.transport !== "ssh" || identity.host !== (this.cfg.expectedSshHost ?? api.hostname).toLowerCase() || (identity.port ?? 22) !== (this.cfg.expectedSshPort ?? 22) || identity.repository !== `${selected.owner}/${selected.repository}`) throw fail("Provider SSH destination differs from configured host or repository policy.");
-    } else if (!["https", ...(this.cfg.allowInsecureGitHttp ? ["http"] : [])].includes(identity.transport) || identity.host !== api.hostname.toLowerCase() || (identity.port ?? (identity.transport === "https" ? 443 : 80)) !== Number(api.port || (api.protocol === "https:" ? 443 : 80)) || identity.repository !== `${apiPrefix ? `${apiPrefix}/` : ""}${selected.owner}/${selected.repository}`) throw fail("Provider HTTPS destination differs from configured host or repository policy.");
+    } else destination = this.canonicalHttpDestination(destination, selected.owner, selected.repository, authenticated.login);
     this.current();
-    return createProviderOwnedRemote({ providerId: this.providerId, destination, allowInsecureHttp: this.cfg.allowInsecureGitHttp, hostedRepositoryId: selected.repositoryId, hostedRepositoryState: selected.state });
+    return createProviderOwnedRemote({ providerId: this.providerId, destination: destination as string, allowInsecureHttp: this.cfg.allowInsecureGitHttp, hostedRepositoryId: selected.repositoryId, hostedRepositoryState: selected.state });
+  }
+
+  private canonicalHttpDestination(destination: string, owner: string, repository: string, login?: string): string {
+    const reject = (transportReason: string): never => { throw new AgentHarnessError("REPOSITORY_PROVIDER_FAILED", "Forgejo Git destination violates configured transport identity policy.", { transportReason }); };
+    let url: URL;
+    try { url = parseGitHttpDestination(destination); }
+    catch (error) { return reject(error instanceof AgentHarnessError ? String(error.details?.transportReason ?? "unsupported-transport") : "unsupported-transport"); }
+    const api = new URL(this.cfg.apiBaseUrl);
+    if (url.protocol !== api.protocol || url.protocol === "http:" && !this.cfg.allowInsecureGitHttp) reject("unsupported-transport");
+    if (url.hostname !== api.hostname) reject("unexpected-host");
+    if (url.port !== api.port) reject("unexpected-port");
+    if (url.username && (!login || url.username !== login || !/^[a-z0-9][a-z0-9_.-]{0,99}$/i.test(url.username))) reject("unsupported-userinfo");
+    const expectedPath = `${api.pathname.slice(0, -7)}/${owner}/${repository}`;
+    if (url.pathname.replace(/\/$/, "").replace(/\.git$/, "") !== expectedPath) reject("unexpected-repository-path");
+    url.username = "";
+    url.pathname = `${expectedPath}.git`;
+    return url.toString();
   }
 
   private page(input: HostedPage) {
@@ -391,16 +408,22 @@ export class ForgejoHostingAdapter implements RepositoryHostingAdapter {
 
   /** Private application route, absent from normalized hosting contracts and MCP arguments/results. */
   async gitHttpAuthentication(destination: string): Promise<GitHttpAuthentication | null> {
-    let identity: ReturnType<typeof remoteDestinationIdentity>;
-    try { identity = remoteDestinationIdentity(destination); } catch { return null; }
+    let url: URL;
+    try { url = parseGitHttpDestination(destination); } catch { return null; }
     const api = new URL(this.cfg.apiBaseUrl);
-    if (!["https", ...(this.cfg.allowInsecureGitHttp ? ["http"] : [])].includes(identity.transport) || identity.host !== api.hostname.toLowerCase() || (identity.port ?? (identity.transport === "https" ? 443 : 80)) !== Number(api.port || (api.protocol === "https:" ? 443 : 80))) return null;
-    const prefix = api.pathname.slice(0, -7).replace(/^\//, ""), parts = identity.repository?.split("/") ?? [];
+    if (url.protocol !== api.protocol || url.protocol === "http:" && !this.cfg.allowInsecureGitHttp || url.hostname !== api.hostname || url.port !== api.port) return null;
+    const prefix = api.pathname.slice(0, -7).replace(/^\//, ""), parts = url.pathname.replace(/^\//, "").replace(/\/$/, "").replace(/\.git$/, "").split("/");
     const namespaceIndex = prefix ? prefix.split("/").length : 0;
     if (parts.length !== namespaceIndex + 2 || parts.slice(0, namespaceIndex).join("/") !== prefix || parts[namespaceIndex]?.toLowerCase() !== this.cfg.namespace.toLowerCase()) return null;
-    segment(parts[namespaceIndex + 1]);
+    try { segment(parts[namespaceIndex + 1]); } catch { return null; }
     const token = await this.credential(), identityUser = await this.authenticate(token);
+    if (destination.includes(token)) return null;
+    const hosted = await this.inspect({ owner: parts[namespaceIndex], repository: parts[namespaceIndex + 1] }, token, undefined, true);
+    if (!hosted) return null;
+    // Preserve the safe path spelling for Git's exact HTTP header scope, but strip userinfo.
+    try { this.canonicalHttpDestination(destination, hosted.repository.owner, hosted.repository.repository, identityUser.login); } catch { return null; }
+    url.username = "";
     this.current();
-    return { destination, username: identityUser.login, password: token };
+    return { destination: url.toString(), username: identityUser.login, password: token };
   }
 }

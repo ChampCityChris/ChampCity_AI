@@ -2,9 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { AgentHarnessError } from "../core/applicationErrors";
-import { runBoundedGit } from "../core/gitExecution";
+import { runBoundedGit, verifiedGitHttpUsername } from "../core/gitExecution";
 import { inspectGitRemotes } from "./gitMutations";
-import { assertProviderOwnedRemote, createProviderOwnedRemote, remoteDestinationIdentity, type ProviderOwnedRemote } from "./providerOwnedRemote";
+import { assertProviderOwnedRemote, createProviderOwnedRemote, inspectedRemoteDestinationIdentity, parseGitHttpDestination, type ProviderOwnedRemote } from "./providerOwnedRemote";
 
 const fail = (message: string) => new AgentHarnessError("GIT_EXECUTION_FAILED", message);
 export function boundedRemoteName(value: string): string {
@@ -21,15 +21,22 @@ export async function inspectGitRemote(root: string, remoteInput: string) {
   const remote = boundedRemoteName(remoteInput);
   const names = await values(root, ["remote"]);
   if (!names.includes(remote)) throw fail("The selected remote is not configured.");
-  // get-url accounts for Git's insteadOf/pushInsteadOf rewrites.
+  // Compare effective destinations with exact configured bytes; reject rewrite ambiguity.
   const fetch = await values(root, ["remote", "get-url", "--all", remote]);
   const push = await values(root, ["remote", "get-url", "--push", "--all", remote]);
-  const fetchDestinations = fetch.map(remoteDestinationIdentity), pushDestinations = push.map(remoteDestinationIdentity);
+  const rawFetch = await values(root, ["config", "--get-all", `remote.${remote}.url`]);
+  const rawPush = await values(root, ["config", "--get-all", `remote.${remote}.pushurl`]);
+  if (fetch.length !== 1 || push.length !== 1 || rawFetch.length !== 1 || rawPush.length > 1 || fetch[0] !== rawFetch[0] || push[0] !== (rawPush[0] ?? rawFetch[0])) throw fail("Remote destinations are multiple or rewritten; bounded inspection is unavailable.");
+  const inspectDestination = async (destination: string, push: boolean) => {
+    const needsProof = /^https?:\/\//i.test(destination) && parseGitHttpDestination(destination).username;
+    return inspectedRemoteDestinationIdentity(destination, needsProof ? await verifiedGitHttpUsername(root, remote, push) : undefined);
+  };
+  const fetchDestinations = [await inspectDestination(fetch[0], false)], pushDestinations = [await inspectDestination(push[0], true)];
   const mirrorValues = await values(root, ["config", "--get-all", "--bool", `remote.${remote}.mirror`]);
   const fetchRefspecs = await values(root, ["config", "--get-all", `remote.${remote}.fetch`]);
   const mirror = mirrorValues.includes("true");
-  const destinationsEqual = fetch.length === 1 && push.length === 1 && fetch[0] === push[0];
-  const binding = createHash("sha256").update(JSON.stringify({ fetch, push, mirrorValues, fetchRefspecs })).digest("hex");
+  const destinationsEqual = fetchDestinations[0].identity === pushDestinations[0].identity;
+  const binding = createHash("sha256").update(JSON.stringify({ rawFetch, rawPush, fetch, push, mirrorValues, fetchRefspecs })).digest("hex");
   return { remote, fetchDestinations, pushDestinations, destinationsEqual, mirror, binding, fetchRefspecs, tracking: await inspectGitRemotes(root) };
 }
 
@@ -55,7 +62,12 @@ export async function removeConfiguredGitRemote(root: string, input: { remoteNam
   const before = await inspectGitRemote(root, input.remoteName);
   if (before.binding !== input.expectedBinding || !before.destinationsEqual || before.mirror) throw fail("Configured remote changed or is ambiguous.");
   const destination = (await runBoundedGit({ cwd: root, args: ["remote", "get-url", "--all", before.remote] })).stdout.trim();
-  const remote = createProviderOwnedRemote({ providerId: "configured-remote", destination, allowLocalTransport: true, allowInsecureHttp: true });
+  let canonical = destination;
+  if (/^https?:\/\//i.test(destination)) {
+    const url = parseGitHttpDestination(destination); url.username = "";
+    url.pathname = `${url.pathname.replace(/\/$/, "").replace(/\.git$/, "")}.git`; canonical = url.toString();
+  }
+  const remote = createProviderOwnedRemote({ providerId: "configured-remote", destination: canonical, allowLocalTransport: true, allowInsecureHttp: true });
   return mutateProviderOwnedRemote(root, { remoteName: before.remote, operation: "remove", expectedBinding: input.expectedBinding, remote });
 }
 
@@ -88,10 +100,14 @@ export async function mutateProviderOwnedRemote(root: string, input: { remoteNam
       if (current.binding !== input.expectedBinding || !current.destinationsEqual || current.mirror) throw fail("Remote binding changed or is ambiguous; no mutation was attempted.");
       if (input.operation === "remove" && current.fetchDestinations[0].identity !== input.remote.identity.identity) throw fail("Removal requires the expected provider destination.");
     }
-    if (input.operation !== "add") await runBoundedGit({ cwd: root, args: ["config", "--file", lock, "--remove-section", `remote.${name}`] });
+    if (input.operation === "remove") await runBoundedGit({ cwd: root, args: ["config", "--file", lock, "--remove-section", `remote.${name}`] });
+    if (input.operation === "replace") for (const field of ["url", "pushurl"]) {
+      const result = await runBoundedGit({ cwd: root, args: ["config", "--file", lock, "--unset-all", `remote.${name}.${field}`], rejectNonZero: false });
+      if (result.exitCode !== 0 && result.exitCode !== 5) throw fail("Remote destination replacement failed.");
+    }
     if (input.operation !== "remove") {
       await runBoundedGit({ cwd: root, args: ["config", "--file", lock, "--add", `remote.${name}.url`, input.remote.destination] });
-      await runBoundedGit({ cwd: root, args: ["config", "--file", lock, "--add", `remote.${name}.fetch`, `+refs/heads/*:refs/remotes/${name}/*`] });
+      if (input.operation === "add") await runBoundedGit({ cwd: root, args: ["config", "--file", lock, "--add", `remote.${name}.fetch`, `+refs/heads/*:refs/remotes/${name}/*`] });
       // Effective rewrites or worktree-specific overrides must not change the provider-owned destination.
       const rewrites = await runBoundedGit({ cwd: root, args: ["config", "--null", "--get-regexp", "^url\\..*\\.(insteadof|pushinsteadof)$"], rejectNonZero: false });
       if (rewrites.exitCode !== 0 && rewrites.exitCode !== 1 || rewrites.stdout.split("\0").filter(Boolean).some(entry => {

@@ -63,6 +63,9 @@ export class RepositoryHostingFacade {
       const inspected = await runBoundedGit({ cwd, args: ["remote", "get-url", ...(command === "push" ? ["--push"] : []), "--all", destination] });
       const destinations = inspected.stdout.split(/\r?\n/).filter(Boolean);
       if (destinations.length !== 1) throw new AgentHarnessError("REPOSITORY_PROVIDER_NOT_READY", "Git authentication requires an exact configured destination.");
+      const raw = await runBoundedGit({ cwd, args: ["config", "--get-all", `remote.${destination}.${command === "push" ? "pushurl" : "url"}`], rejectNonZero: false });
+      const configured = raw.exitCode === 1 && command === "push" ? await runBoundedGit({ cwd, args: ["config", "--get-all", `remote.${destination}.url`] }) : raw;
+      if (configured.exitCode !== 0 || configured.stdout.split(/\r?\n/).filter(Boolean).length !== 1 || configured.stdout.trim() !== destinations[0]) throw new AgentHarnessError("REPOSITORY_PROVIDER_NOT_READY", "Git authentication rejects rewritten or ambiguous destinations.");
       destination = destinations[0];
     }
     if (!/^https?:\/\//i.test(destination)) return null;
