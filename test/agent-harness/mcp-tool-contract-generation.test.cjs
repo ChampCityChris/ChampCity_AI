@@ -367,6 +367,13 @@ test("public MCP Git contract requires exact registered checkout targeting", { t
         (tool.name === "integration_toolbox" && ["bind_repository_remote", "remove_repository_remote", "verify_hosted_repository"].includes(action.title) && action.required.includes("workspaceId")) ||
         tool.name === "release_toolbox" || (tool.name === "test_toolbox" && action.title !== "status");
       assert.equal(params.required.includes("repositoryCheckoutId"), checkoutBound, `${tool.name}.${action.title} checkout boundary`);
+      const portable = (local && (params.required.includes("localCheckoutHandle") || action.title === "inspect_repository_context")) ||
+        (tool.name === "integration_toolbox" && (params.required.includes("localCheckoutHandle") || params.properties.localCheckoutHandle));
+      if (portable) {
+        assert.deepEqual(params.properties.repositoryContextHandle, { type: "string", minLength: 1, maxLength: 128 });
+        assert.equal(params.required.includes("repositoryContextHandle"), false, "session fallback remains compatible");
+
+      }
       if (local) {
         assert.equal(action.properties.workspaceId, undefined);
         assert.equal(params.properties.repositoryCheckoutId, undefined);
@@ -381,6 +388,13 @@ test("public MCP Git contract requires exact registered checkout targeting", { t
     }
   }
   const gitDefinition = definitions.find((tool) => tool.name === "git_toolbox");
+  for (const action of ["status", "inspect_history", "inspect_repository_context"]) {
+    const params = { repositoryContextHandle: "local_context_fixture", ...(action === "inspect_repository_context" ? {} : { localCheckoutHandle: "local_checkout_fixture" }) };
+    const parsed = gitDefinition.inputZodSchema.safeParse({ action, params });
+    assert.equal(parsed.success, true, action);
+    assert.equal(parsed.data.params.repositoryContextHandle, params.repositoryContextHandle);
+  }
+
   async function invoke(action, params, id = workspaceId, expectedError) {
     const args = { workspaceId: id, action, ...(params === undefined ? {} : { params }) };
     assert.equal(gitDefinition.inputZodSchema.safeParse(args).success, true, action);

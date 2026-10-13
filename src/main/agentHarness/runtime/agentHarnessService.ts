@@ -47,6 +47,7 @@ export interface AgentHarnessServiceOptions {
 export class AgentHarnessService {
   private readonly workspaceAccess: AgentHarnessWorkspaceAccessProvider;
   private readonly registry: AgentHarnessToolRegistry;
+  private readonly localGitAccess: LocalGitRepositoryAccessService;
   private readonly workspaceRegistry: RegisteredWorkspaceRegistry;
   private readonly workspaceRegistryReady: Promise<void>;
   private readonly pendingRegistryOperations = new Set<Promise<unknown>>();
@@ -84,13 +85,14 @@ export class AgentHarnessService {
       resolveRepositoryCheckoutContext: (workspaceId, id) => this.workspaceRegistry.resolveRepositoryCheckoutContext(workspaceId, id),
       listRepositoryCheckoutSummaries: (workspaceId) => this.workspaceRegistry.listRepositoryCheckoutSummaries(workspaceId),
     });
+    this.localGitAccess = new LocalGitRepositoryAccessService(() => this.configuration.trustedLocalGitRoots, Date.now, roots => {
+      const next = { ...this.configuration, trustedLocalGitRoots: roots };
+      writeAgentHarnessSettings(this.userDataRoot, next);
+      this.configuration = next;
+      this.recordActivity("Local repository access configuration updated through a typed MCP action.");
+    });
     this.registry = createAgentHarnessToolRegistry({
-      localGitAccess: new LocalGitRepositoryAccessService(() => this.configuration.trustedLocalGitRoots, Date.now, roots => {
-        const next = { ...this.configuration, trustedLocalGitRoots: roots };
-        writeAgentHarnessSettings(this.userDataRoot, next);
-        this.configuration = next;
-        this.recordActivity("Local repository access configuration updated through a typed MCP action.");
-      }),
+      localGitAccess: this.localGitAccess,
       workspaceAccess: this.workspaceAccess,
       managedWorkspaces: this.workspaceRegistry,
       userDataRoot: options.userDataRoot,
@@ -372,6 +374,7 @@ export class AgentHarnessService {
       this.state = "stopped";
     }
     writeAgentHarnessSettings(this.userDataRoot, nextConfiguration);
+    this.localGitAccess.revokeRemovedTrustedRoots(nextConfiguration.trustedLocalGitRoots);
     this.configuration = nextConfiguration;
     this.lastError = null;
     this.recordActivity("Agent Harness settings saved.");
@@ -397,6 +400,7 @@ export class AgentHarnessService {
       this.handle = await this.openRuntime(nextConfiguration);
       this.state = "running";
       writeAgentHarnessSettings(this.userDataRoot, nextConfiguration);
+      this.localGitAccess.revokeRemovedTrustedRoots(nextConfiguration.trustedLocalGitRoots);
       this.recordActivity("Agent Harness settings saved.");
       this.recordActivity(`Agent Harness running at ${this.handle.url}.`);
       return this.status();

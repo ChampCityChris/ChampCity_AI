@@ -783,7 +783,7 @@ async function handleMcpRequest(req: IncomingMessage, res: ServerResponse, optio
   const sessionId = headerValue(req.headers["mcp-session-id"]);
   const existingSession = sessionId ? options.sessions.find(sessionId) : undefined;
   if (existingSession) {
-    if (!scopeSatisfies(options.scope, existingSession.requiredScope)) {
+    if (options.authorizationPrincipal !== existingSession.authorizationPrincipal || !scopeSatisfies(options.scope, existingSession.requiredScope)) {
       writeJson(res, 403, {
         jsonrpc: "2.0",
         id: null,
@@ -849,6 +849,7 @@ async function handleMcpRequest(req: IncomingMessage, res: ServerResponse, optio
         options.registry,
         publishedContract,
         options.operationalDiagnostics,
+        options.authorizationPrincipal,
       );
       options.sessions.attachResources(record, mcpServer, transport);
       const request = options.sessions.beginWork(record);

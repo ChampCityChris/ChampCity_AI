@@ -106,7 +106,7 @@ test("GitHub public MCP executes official writes and named compatibility gaps wi
     resolveWorkspaceContext: () => { throw Error("must not resolve a workflow Project"); }, listWorkspaceSummaries: () => [], listRepositoryCheckoutSummaries: () => [],
   } });
   const runtime = await startAgentHarnessHttpRuntime({ host: "127.0.0.1", port: 0, userDataRoot: root, registry, allowUnauthenticatedLocal: true });
-  const client = new Client({ name: "github-hosting-fixture", version: "1" });
+  let client = new Client({ name: "github-hosting-fixture", version: "1" });
   t.after(async () => { await client.close(); await runtime.close(); await registry.shutdownProviders(); await fs.rm(root, { recursive: true, force: true }); });
   await client.connect(new StreamableHTTPClientTransport(new URL(runtime.url)));
   const published = (await client.listTools()).tools, definition = registry.listTools().find(tool => tool.name === "integration_toolbox");
@@ -155,8 +155,12 @@ test("GitHub public MCP executes official writes and named compatibility gaps wi
   const gitCall = async (action, params) => { const response = await client.callTool({ name: "git_toolbox", arguments: { action, params } }); const result = response.structuredContent ?? response; assert.equal(result.ok, true, JSON.stringify(result)); return result.payload; };
   const group = (await gitCall("discover_local_repositories", { directory: local })).repositories[0], checkout = group.checkouts[0];
   const other = (await gitCall("discover_local_repositories", { directory: unrelated })).repositories[0].checkouts[0];
-  await gitCall("select_repository_context", { repositoryHandle: group.repositoryHandle });
-  const source = { localCheckoutHandle: checkout.localCheckoutHandle, relativePath: "artifact.bin", expectedSize: bytes.length, expectedSha256: digest };
+  const selected = await gitCall("select_repository_context", { repositoryHandle: group.repositoryHandle });
+  // The local asset capability must survive the selecting client's disconnection.
+  await client.close();
+  client = new Client({ name: "asset-reconnected", version: "1" });
+  await client.connect(new StreamableHTTPClientTransport(new URL(runtime.url)));
+  const source = { repositoryContextHandle: selected.repositoryContextHandle, localCheckoutHandle: checkout.localCheckoutHandle, relativePath: "artifact.bin", expectedSize: bytes.length, expectedSha256: digest };
   const upload = extra => invoke("upload_hosted_release_asset", { releaseId: release.id, expectedState: release.stateId, name: "artifact.bin", ...source, ...extra });
   for (const invalid of [{ expectedSize: bytes.length + 1 }, { expectedSha256: "0".repeat(64) }, { relativePath: "../artifact.bin" }, { relativePath: path.join(local, "artifact.bin") }, { relativePath: "NUL" }, { relativePath: "artifact.bin:stream" }, { relativePath: ".git/config" }, { relativePath: ".git" }, { relativePath: "directory" }, { localCheckoutHandle: other.localCheckoutHandle }, { contentBase64: "YQ==" }]) {
     await fs.mkdir(path.join(local, "directory"), { recursive: true });

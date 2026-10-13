@@ -122,3 +122,93 @@ test("RMCP generic public MCP bootstraps independent repositories and closes ide
   now += 31 * 60_000; assert.equal((await invoke(a, "status", { localCheckoutHandle: one.localCheckoutHandle })).error.code, "REPOSITORY_CONTEXT_STALE");
   assert.equal(fs.existsSync(path.join(first, ".champcity")), false); assert.equal(fs.existsSync(path.join(second, ".champcity")), false);
 });
+
+
+test("RMCP portable context survives disconnected SDK clients and isolates repositories trust identity expiry and principals", { timeout: 180000 }, async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "rmcp-portable-"));
+  const first = path.join(root, "one"), second = path.join(root, "two");
+  const git = (cwd, ...args) => execFileSync("git", args, { cwd, encoding: "utf8", windowsHide: true, stdio: "pipe" }).trim();
+  for (const directory of [first, second]) {
+    fs.mkdirSync(directory); git(directory, "init", "-b", "dev");
+    git(directory, "config", "user.name", "Fixture"); git(directory, "config", "user.email", "fixture@example.invalid");
+    fs.writeFileSync(path.join(directory, "file.txt"), path.basename(directory));
+    git(directory, "add", "."); git(directory, "commit", "-m", "seed");
+  }
+  let now = Date.now(), roots = [first, second];
+  const access = new LocalGitRepositoryAccessService(() => roots, () => now, next => { roots = next; });
+  const registry = createAgentHarnessToolRegistry({ userDataRoot: path.join(root, "harness"), localGitAccess: access, workspaceAccess: {
+    resolveWorkspaceContext: () => { throw Error("must not register a workspace"); }, listWorkspaceSummaries: () => [], listRepositoryCheckoutSummaries: () => [],
+  } });
+  const runtime = await startAgentHarnessHttpRuntime({ host: "127.0.0.1", port: 0, userDataRoot: path.join(root, "harness"), registry, allowUnauthenticatedLocal: true });
+  t.after(async () => { await runtime.close(); await registry.shutdownProviders(); fs.rmSync(root, { recursive: true, force: true }); });
+  const call = async (action, params, error) => {
+    // Every invocation initializes AND terminates a distinct real SDK transport.
+    const client = new Client({ name: "portable-fixture", version: "1" });
+    const transport = new StreamableHTTPClientTransport(new URL(runtime.url));
+    await client.connect(transport);
+    try {
+      const response = await client.callTool({ name: "git_toolbox", arguments: { action, params } });
+      const result = response.structuredContent ?? response;
+      assert.equal(result.ok, !error, JSON.stringify(result));
+      if (error) assert.equal(result.error.code, error);
+      assert.equal(JSON.stringify(result).includes(root), false, "context output must not expose filesystem paths");
+      return result.payload;
+    } finally { await transport.terminateSession(); await client.close(); }
+  };
+  const discover = async directory => (await call("discover_local_repositories", { directory })).repositories[0];
+  const select = group => call("select_repository_context", { repositoryHandle: group.repositoryHandle, localCheckoutHandle: group.checkouts[0].localCheckoutHandle });
+  const a = await discover(first), b = await discover(second);
+  const ca = await select(a), cb = await select(b);
+  assert.match(ca.repositoryContextHandle, /^local_context_[a-f0-9]{48}$/);
+  assert.notEqual(ca.repositoryContextHandle, cb.repositoryContextHandle);
+  const active = new Client({ name: "explicit-priority", version: "1" });
+  const activeTransport = new StreamableHTTPClientTransport(new URL(runtime.url));
+  await active.connect(activeTransport);
+  try {
+    await active.callTool({ name: "git_toolbox", arguments: { action: "select_repository_context", params: { repositoryHandle: b.repositoryHandle } } });
+    const explicit = await active.callTool({ name: "git_toolbox", arguments: { action: "inspect_repository_context", params: { repositoryContextHandle: ca.repositoryContextHandle } } });
+    assert.equal(explicit.structuredContent.payload.repositoryHandle, a.repositoryHandle);
+    const fallback = await active.callTool({ name: "git_toolbox", arguments: { action: "inspect_repository_context", params: {} } });
+    assert.equal(fallback.structuredContent.payload.repositoryHandle, b.repositoryHandle);
+  } finally { await activeTransport.terminateSession(); await active.close(); }
+  const targetA = { repositoryContextHandle: ca.repositoryContextHandle, localCheckoutHandle: a.checkouts[0].localCheckoutHandle };
+  const targetB = { repositoryContextHandle: cb.repositoryContextHandle, localCheckoutHandle: b.checkouts[0].localCheckoutHandle };
+  assert.equal((await call("inspect_repository_context", { repositoryContextHandle: ca.repositoryContextHandle })).repositoryHandle, a.repositoryHandle);
+  assert.equal((await call("status", targetA)).headCommit, ca.headCommit);
+  assert.equal((await call("inspect_history", targetA)).resolvedCommit, ca.headCommit);
+  await call("status", { localCheckoutHandle: targetA.localCheckoutHandle }, "REPOSITORY_CONTEXT_REQUIRED");
+  await call("status", { ...targetA, repositoryContextHandle: "local_context_unknown" }, "REPOSITORY_CONTEXT_STALE");
+  const beforeB = git(second, "rev-parse", "HEAD");
+  await call("commit", { ...targetA, localCheckoutHandle: targetB.localCheckoutHandle, message: "must not execute" }, "REPOSITORY_CONTEXT_MISMATCH");
+  assert.equal(git(second, "rev-parse", "HEAD"), beforeB);
+  fs.writeFileSync(path.join(first, "change.txt"), "portable mutation");
+  await call("stage_changes", { ...targetA, paths: ["change.txt"] });
+  const commit = await call("commit", { ...targetA, message: "portable commit", expectedHead: ca.headCommit });
+  assert.notEqual(git(first, "rev-parse", "HEAD"), ca.headCommit);
+  assert.ok(commit); assert.equal((await call("status", targetB)).headCommit, beforeB);
+  const crossPrincipal = await registry.callTool({ name: "git_toolbox", arguments: { action: "status", params: targetA }, principal: "different-client", scope: "files.read" });
+  assert.equal(crossPrincipal.error.code, "REPOSITORY_CONTEXT_STALE");
+  const revoked = await registry.callTool({ name: "git_toolbox", arguments: { action: "commit", params: { ...targetA, message: "denied" } }, principal: "local-unauthenticated", scope: "files.read" });
+  assert.equal(revoked.error.code, "OAUTH_SCOPE_DENIED");
+  await call("status", targetA);
+  await call("configure_local_git_access", { operation: "remove", directories: [first], expectedConfigurationId: access.accessConfiguration().configurationId });
+  await call("status", targetA, "REPOSITORY_CONTEXT_STALE"); await call("status", targetB);
+  await call("configure_local_git_access", { operation: "add", directories: [first], expectedConfigurationId: access.accessConfiguration().configurationId });
+  await call("status", targetA, "REPOSITORY_CONTEXT_STALE");
+  const freshA = await discover(first), freshContext = await select(freshA);
+  const freshTarget = { localCheckoutHandle: freshA.checkouts[0].localCheckoutHandle, repositoryContextHandle: freshContext.repositoryContextHandle };
+  const old = path.join(first, "saved-control"); fs.renameSync(path.join(first, ".git"), old);
+  git(first, "init", "-b", "dev");
+  await call("inspect_repository_context", { repositoryContextHandle: freshContext.repositoryContextHandle }, "REPOSITORY_CONTEXT_STALE");
+  fs.rmSync(path.join(first, ".git"), { recursive: true }); fs.renameSync(old, path.join(first, ".git"));
+  await call("status", freshTarget, "REPOSITORY_CONTEXT_STALE");
+  const linked = path.join(first, "linked"); git(first, "worktree", "add", "-b", "linked", linked);
+  const group = await discover(first), linkedCheckout = group.checkouts.find(checkout => checkout.branchName === "linked");
+  const linkedContext = await call("select_repository_context", { repositoryHandle: group.repositoryHandle, localCheckoutHandle: linkedCheckout.localCheckoutHandle });
+  fs.renameSync(path.join(linked, ".git"), path.join(linked, "saved-pointer"));
+  fs.writeFileSync(path.join(linked, ".git"), fs.readFileSync(path.join(linked, "saved-pointer")));
+  await call("status", { repositoryContextHandle: linkedContext.repositoryContextHandle, localCheckoutHandle: linkedCheckout.localCheckoutHandle }, "REPOSITORY_CONTEXT_STALE");
+  await call("status", targetB);
+  now += 31 * 60_000;
+  await call("inspect_repository_context", { repositoryContextHandle: cb.repositoryContextHandle }, "REPOSITORY_CONTEXT_STALE");
+});

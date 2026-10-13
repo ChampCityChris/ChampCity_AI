@@ -69,6 +69,7 @@ export function createAgentHarnessMcpServer(
   registry: AgentHarnessToolRegistry,
   publishedContract: CapturedAgentHarnessToolContract,
   operationalDiagnostics?: AgentHarnessOperationalDiagnosticsCollector,
+  principal?: string,
 ): AgentHarnessMcpServer {
   const session = Object.freeze({});
   const server = new McpServer({
@@ -111,6 +112,7 @@ export function createAgentHarnessMcpServer(
               scope: contract.scope,
               signal: extra?.signal,
               session,
+              principal,
             });
             observation?.finish(result, extra?.signal?.aborted === true);
             return projectCallToolResult(result);

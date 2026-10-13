@@ -63,7 +63,7 @@ async function localBranchName(root: string, branchName: string): Promise<void> 
 
 interface Identity { root: string; gitDirectory: string; commonDirectory: string; primary: boolean; fingerprint: string }
 interface Handle { identity: Identity; expires: number; repositoryHandle: string }
-interface RepositorySelection { handle: string; entry: Handle; stale: boolean }
+interface RepositorySelection { handle: string; entry: Handle; stale: boolean; contextHandle: string; principal: string; trustedRoots: string[]; configurationId: string }
 interface WorktreeRecord { root: string; primary: boolean; branchName: string | null; locked: boolean }
 export interface LocalGitCheckoutSummary {
   localCheckoutHandle: string; repositoryHandle: string; primary: boolean; linked: boolean;
@@ -76,6 +76,7 @@ export class LocalGitRepositoryAccessService {
   private readonly handles = new Map<string, Handle>();
   private readonly groups = new Map<string, string>();
   private readonly locks = new Map<string, Promise<void>>();
+  private readonly contexts = new Map<string, RepositorySelection>();
   private readonly selections = new WeakMap<object, RepositorySelection>();
   private readonly rediscoveryRequired = new WeakMap<object, Set<string>>();
   private readonly sessionLocks = new WeakMap<object, Promise<void>>();
@@ -108,8 +109,15 @@ export class LocalGitRepositoryAccessService {
         next = canonicalTrustedLocalGitRoots(roots.filter(root => !removing.has(key(root))));
       }
       await this.saveTrustedRoots(next);
+      this.revokeRemovedTrustedRoots(next);
       return this.accessConfiguration();
     });
+  }
+
+
+  /** Apply every successful policy update, including Settings writes between MCP calls. */
+  revokeRemovedTrustedRoots(next: readonly string[]): void {
+    for (const context of this.contexts.values()) if (context.trustedRoots.some(root => !next.some(current => equal(root, current)))) context.stale = true;
   }
 
   private permitted(value: string): string {
@@ -336,7 +344,22 @@ export class LocalGitRepositoryAccessService {
     try { return await operation(session); } finally { release(); if (this.sessionLocks.get(session) === tail) this.sessionLocks.delete(session); }
   }
 
-  async selectContext(session: object, input: { repositoryHandle: string; localCheckoutHandle?: string; branchName?: string }) {
+  /** Portable capabilities belong to this host service, not to a transport. */
+  async inContext<T>(session: object | undefined, contextHandle: string | undefined, principal: string | undefined,
+    operation: (context: object) => Promise<T>): Promise<T> {
+    if (contextHandle !== undefined) {
+      const context = this.contexts.get(contextHandle);
+      if (!context || context.principal !== (principal ?? "host-local")) throw new AgentHarnessError("REPOSITORY_CONTEXT_STALE", "Repository context is unavailable; rediscover and reselect.");
+      return this.inSession(context, async identity => { this.selectedHandle(identity); return operation(identity); });
+    }
+    return this.inSession(session, async identity => {
+      this.selectedHandle(identity);
+      if (this.selections.get(identity)!.principal !== (principal ?? "host-local")) throw new AgentHarnessError("REPOSITORY_CONTEXT_STALE", "Repository context is unavailable; rediscover and reselect.");
+      return operation(identity);
+    });
+  }
+
+  async selectContext(session: object, input: { repositoryHandle: string; localCheckoutHandle?: string; branchName?: string }, principal = "host-local") {
     this.selections.delete(session); // A failed switch cannot leave an unrelated selection active.
     if (this.rediscoveryRequired.get(session)?.has(input.repositoryHandle)) throw new AgentHarnessError("REPOSITORY_CONTEXT_STALE", "This session must rediscover the repository before selecting it again.");
     const candidates = [...this.handles.entries()].filter(([, entry]) => entry.repositoryHandle === input.repositoryHandle && entry.expires > this.now());
@@ -350,12 +373,19 @@ export class LocalGitRepositoryAccessService {
           : input.branchName ? availableWorktrees.find(item => item.branchName === input.branchName) : availableWorktrees.find(item => item.primary) ?? availableWorktrees[0];
         if (!selected || input.branchName && selected.branchName !== input.branchName) throw new AgentHarnessError("INVALID_INPUT", "Select an available checkout with the requested active branch; selection does not change branches.");
         const entry = this.handles.get(selected.localCheckoutHandle)!;
-        this.selections.set(session, { handle: selected.localCheckoutHandle, entry, stale: false });
-        return { repositoryHandle: input.repositoryHandle, availableWorktrees, selectedCheckout: selected, activeBranch: selected.branchName, headCommit: selected.headCommit };
+        for (const [handle, context] of this.contexts) if (context.entry.expires <= this.now() || context.stale) this.contexts.delete(handle);
+        if (this.contexts.size >= 1000) throw denied("Repository context capacity reached; wait for expiry.");
+        const repositoryContextHandle = opaque("local_context");
+        const trustedRoots = [...this.trustedRoots()].filter(root => [entry.identity.root, entry.identity.gitDirectory, entry.identity.commonDirectory].some(target => contains(root, target)));
+        const selection: RepositorySelection = { handle: selected.localCheckoutHandle, entry, stale: false, contextHandle: repositoryContextHandle, principal, trustedRoots, configurationId: this.accessConfiguration().configurationId };
+        this.contexts.set(repositoryContextHandle, selection);
+        this.selections.set(selection, selection);
+        this.selections.set(session, selection);
+        return { repositoryContextHandle, repositoryHandle: input.repositoryHandle, availableWorktrees, selectedCheckout: selected, activeBranch: selected.branchName, headCommit: selected.headCommit };
       });
     } catch (error) {
       if (error instanceof AgentHarnessError && error.code === "INVALID_INPUT") throw error;
-      this.invalidateSelection({ handle: candidate[0], entry: candidate[1], stale: true }, session);
+      this.invalidateSelection({ handle: candidate[0], entry: candidate[1], stale: true, contextHandle: "", principal, trustedRoots: [], configurationId: "" }, session);
       throw new AgentHarnessError("REPOSITORY_CONTEXT_STALE", "Repository verification failed; rediscover before selecting context.");
     }
   }
@@ -363,7 +393,7 @@ export class LocalGitRepositoryAccessService {
   selectedHandle(session: object): string {
     const selection = this.selections.get(session);
     if (!selection) throw new AgentHarnessError("REPOSITORY_CONTEXT_REQUIRED", "Select_repository_context is required in this MCP session.");
-    if (selection.stale || selection.entry.expires <= this.now() || this.handles.get(selection.handle) !== selection.entry) {
+    if (selection.stale || selection.trustedRoots.some(root => !this.trustedRoots().some(current => equal(root, current))) || selection.entry.expires <= this.now() || this.handles.get(selection.handle) !== selection.entry) {
       this.invalidateSelection(selection, session);
       throw new AgentHarnessError("REPOSITORY_CONTEXT_STALE", "Selected repository context is stale; rediscover and select_repository_context again.");
     }
@@ -383,7 +413,7 @@ export class LocalGitRepositoryAccessService {
     }
     if (checkout.repositoryHandle !== selection.entry.repositoryHandle) throw new AgentHarnessError("REPOSITORY_CONTEXT_MISMATCH", "Explicit checkout belongs to another repository; select_repository_context to switch repositories.");
     const selectedCheckout = await this.headSummary(selection.entry.identity);
-    return { repositoryHandle: checkout.repositoryHandle, selectedCheckout, targetCheckout: checkout.localCheckoutHandle === selection.handle ? selectedCheckout : await this.headSummary(this.filesystemIdentity(checkout.root)) };
+    return { repositoryContextHandle: selection.contextHandle, repositoryHandle: checkout.repositoryHandle, selectedCheckout, targetCheckout: checkout.localCheckoutHandle === selection.handle ? selectedCheckout : await this.headSummary(this.filesystemIdentity(checkout.root)) };
   }
 
   async withContext<T>(session: object, handle: string, operation: (checkout: AgentHarnessLocalGitContext, receipt: unknown) => Promise<T>): Promise<T> {
@@ -413,6 +443,7 @@ export class LocalGitRepositoryAccessService {
         }
         return result;
       }, () => {
+        this.selectedHandle(session);
         if (this.filesystemIdentity(selected.entry.identity.root).fingerprint !== selected.entry.identity.fingerprint) throw new AgentHarnessError("REPOSITORY_CONTEXT_STALE", "Selected repository identity changed during execution; rediscover and reselect.");
       });
     } catch (error) {

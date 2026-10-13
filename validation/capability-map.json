@@ -483,6 +483,10 @@
           "description": "PKCE issuance and refresh preserve ${expectedScope} without escalating MCP permissions"
         },
         {
+          "behaviorId": "portable-repository-context-across-mcp-transports",
+          "description": "Host-owned opaque repository contexts survive disconnected MCP SDK clients and retain repository, principal, trust, expiry and filesystem identity isolation."
+        },
+        {
           "behaviorId": "repository-context-isolated-by-mcp-session",
           "description": "Explicit repository selection binds each MCP session independently, preserves exact checkout targeting and rejects unrelated or stale repository identities without workflow registration."
         }
@@ -5732,8 +5736,8 @@
     {
       "testPath": "test/agent-harness/git-toolbox-qualification.test.cjs",
       "currentTestCount": {
-        "value": 2,
-        "basis": "RMCP-REPAIR01 adds generic managed topology and containment regression to the existing public Git qualification owner."
+        "value": 3,
+        "basis": "RMCP-REPAIR02 extends the existing qualification suite with disconnected SDK transport capability lifetime and isolation proof."
       },
       "duration": {
         "kind": "measured",
@@ -5780,6 +5784,12 @@
         "current-proof-appropriate"
       ],
       "behaviorCoverage": [
+        {
+          "capabilityId": "agent-harness-security",
+          "behaviorId": "portable-repository-context-across-mcp-transports",
+          "proofRole": "primary",
+          "proofLocator": "RMCP portable context survives disconnected SDK clients and isolates repositories trust identity expiry and principals"
+        },
         {
           "capabilityId": "release-and-git-operations",
           "behaviorId": "rmcp-generic-public-mcp-bootstraps-independent-repositories-and-closes-identity-clone-index-work",

@@ -209,7 +209,7 @@ interface ToolActionContract {
   localOnly?: boolean;
   globalOnly?: boolean;
   repositoryTarget?: boolean;
-  dispatchGlobal?: (input: { params: Record<string, unknown>; signal?: AbortSignal; session?: object }) => unknown | Promise<unknown>;
+  dispatchGlobal?: (input: { params: Record<string, unknown>; signal?: AbortSignal; session?: object; principal?: string }) => unknown | Promise<unknown>;
   dispatch: (input: DispatchInput) => unknown | Promise<unknown>;
 }
 
@@ -248,6 +248,7 @@ export interface AgentHarnessToolCall {
   scope?: string;
   signal?: AbortSignal;
   session?: object;
+  principal?: string;
 }
 
 export interface AgentHarnessToolResult {
@@ -347,7 +348,7 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
         if (contract.globalOnly) {
           if (args.workspaceId !== undefined || !contract.dispatchGlobal) throw new AgentHarnessError("INVALID_INPUT", "This provider action is independent of workspace registration.");
           const params = validateParams(args.params, contract);
-          const payload = await withGitHttpAuthentication(() => Promise.resolve(contract.dispatchGlobal!({ params, signal: call.signal, session: call.session })), (cwd, argv) => repositoryHosting.gitHttpAuthentication(cwd, argv));
+          const payload = await withGitHttpAuthentication(() => Promise.resolve(contract.dispatchGlobal!({ params, signal: call.signal, session: call.session, principal: call.principal })), (cwd, argv) => repositoryHosting.gitHttpAuthentication(cwd, argv));
           return { ok: true, toolName: provider.name, action, payload: redactLocalGitResult(payload), attemptId, timestamp };
         }
         localMode = (provider.name === "git_toolbox" || contract.repositoryTarget === true) && (contract.localOnly === true || supplied.localCheckoutHandle !== undefined);
@@ -365,9 +366,9 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
             payload = call.session ? await service.inSession(call.session, session => service.discover(input, session)) : await service.discover(input);
           }
           else if (action === "init_local_repository") payload = await service.init({ directory: requiredString(params.directory, "directory"), initialBranch: requiredString(params.initialBranch, "initialBranch") });
-          else if (action === "select_repository_context") payload = await service.inSession(call.session, session => service.selectContext(session, { repositoryHandle: requiredString(params.repositoryHandle, "repositoryHandle"), localCheckoutHandle: stringValue(params.localCheckoutHandle), branchName: stringValue(params.branchName) }));
-          else if (action === "inspect_repository_context") payload = await service.inSession(call.session, session => service.withContext(session, service.selectedHandle(session), async checkout => ({ ...(await service.verifyContext(session, checkout)), availableWorktrees: await service.listWorktrees(checkout) })));
-          else payload = await service.inSession(call.session, session => withGitHttpAuthentication(() => repositoryTargets.withTarget({ localCheckoutHandle: requiredString(params.localCheckoutHandle, "localCheckoutHandle") }, async ({ local: checkout, context, repositoryContext: receipt }) => {
+          else if (action === "select_repository_context") payload = await service.inSession(call.session ?? {}, session => service.selectContext(session, { repositoryHandle: requiredString(params.repositoryHandle, "repositoryHandle"), localCheckoutHandle: stringValue(params.localCheckoutHandle), branchName: stringValue(params.branchName) }, call.principal));
+          else if (action === "inspect_repository_context") payload = await service.inContext(call.session, stringValue(params.repositoryContextHandle), call.principal, session => service.withContext(session, service.selectedHandle(session), async checkout => ({ ...(await service.verifyContext(session, checkout)), availableWorktrees: await service.listWorktrees(checkout) })));
+          else payload = await withGitHttpAuthentication(() => repositoryTargets.withTarget({ localCheckoutHandle: requiredString(params.localCheckoutHandle, "localCheckoutHandle"), repositoryContextHandle: stringValue(params.repositoryContextHandle) }, async ({ local: checkout, context, repositoryContext: receipt }) => {
             repositoryContext = receipt;
             if (!checkout) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "Local checkout resolution failed.");
             if (isManagedOnlyGitAction(action)) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "This action requires an application-managed checkout; use the typed local worktree lifecycle actions for local targets.");
@@ -391,7 +392,7 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
               }
             }
             return result;
-          }, session), (cwd, argv) => repositoryHosting.gitHttpAuthentication(cwd, argv)));
+          }, call.session, call.principal), (cwd, argv) => repositoryHosting.gitHttpAuthentication(cwd, argv));
           return { ok: true, toolName: provider.name, action, payload: redactLocalGitResult(payload), ...(repositoryContext ? { repositoryContext: redactLocalGitResult(repositoryContext) } : {}), attemptId, timestamp };
         }
         let context = await options.workspaceAccess.resolveWorkspaceContext(args.workspaceId);
@@ -1089,18 +1090,18 @@ function githubReleaseActions(
   const content = (params: Record<string, unknown>) => ({ tagName: requiredString(params.tagName, "tagName"), name: params.name as string, body: params.body as string, draft: params.draft as boolean, prerelease: params.prerelease as boolean });
   const upload = { ...expected, name: { type: "string" as const, required: true, minLength: 1, maxLength: 160 } };
   const inline = { contentBase64: { type: "string" as const, required: true, minLength: 1, maxLength: 699052 } };
-  const local = { localCheckoutHandle: { type: "string" as const, required: true, minLength: 1, maxLength: 128 }, relativePath: { type: "string" as const, required: true, minLength: 1, maxLength: 4096 }, expectedSha256: { type: "string" as const, required: true, minLength: 64, maxLength: 64 }, expectedSize: { type: "number" as const, required: true, integer: true, minimum: 1, maximum: MAX_RELEASE_ARTIFACT_SIZE } };
+  const local = { repositoryContextHandle: portableContextParam, localCheckoutHandle: { type: "string" as const, required: true, minLength: 1, maxLength: 128 }, relativePath: { type: "string" as const, required: true, minLength: 1, maxLength: 4096 }, expectedSha256: { type: "string" as const, required: true, minLength: 64, maxLength: 64 }, expectedSize: { type: "number" as const, required: true, integer: true, minimum: 1, maximum: MAX_RELEASE_ARTIFACT_SIZE } };
   return [
     global("list_hosted_releases", "files.read", selected, ({ params, signal }) => adapter(params).listReleases(locator(params), signal)),
     global("inspect_hosted_release", "files.read", release, ({ params, signal }) => adapter(params).inspectRelease(locator(params), numberValue(params.releaseId)!, signal)),
     global("create_hosted_release", "files.write", { ...selected, ...write }, ({ params, signal }) => adapter(params).writeRelease(locator(params), content(params), undefined, undefined, signal)),
     global("update_hosted_release", "files.write", { ...expected, ...write }, ({ params, signal }) => adapter(params).writeRelease(locator(params), content(params), numberValue(params.releaseId)!, requiredString(params.expectedState, "expectedState"), signal)),
     global("delete_hosted_release", "files.write", expected, ({ params, signal }) => adapter(params).deleteRelease(locator(params), numberValue(params.releaseId)!, requiredString(params.expectedState, "expectedState"), signal)),
-    { ...global("upload_hosted_release_asset", "files.write", { ...upload, ...inline, ...local }, async ({ params, signal, session }) => {
+    { ...global("upload_hosted_release_asset", "files.write", { ...upload, ...inline, ...local }, async ({ params, signal, session, principal }) => {
       const provider = adapter(params), releaseId = numberValue(params.releaseId)!, expectedState = requiredString(params.expectedState, "expectedState"), name = requiredString(params.name, "name");
       if (params.contentBase64 !== undefined) return provider.mutateAsset(locator(params), releaseId, expectedState, { name, contentBase64: requiredString(params.contentBase64, "contentBase64") }, signal);
       if (!localGitAccess) throw new AgentHarnessError("WORKSPACE_ACCESS_DENIED", "Local repository access is unavailable in this host.");
-      return localGitAccess.inSession(session, selected => localGitAccess.withContext(selected, requiredString(params.localCheckoutHandle, "localCheckoutHandle"), checkout =>
+      return localGitAccess.inContext(session, stringValue(params.repositoryContextHandle), principal, selected => localGitAccess.withContext(selected, requiredString(params.localCheckoutHandle, "localCheckoutHandle"), checkout =>
         provider.artifacts.withCheckoutSource(checkout, { relativePath: requiredString(params.relativePath, "relativePath"), expectedSha256: requiredString(params.expectedSha256, "expectedSha256"), expectedSize: numberValue(params.expectedSize)! },
           async source => { await localGitAccess.verifyContext(selected, checkout); return provider.mutateAsset(locator(params), releaseId, expectedState, { name, source }, signal); }, signal)));
     }), paramForms: [{ ...upload, ...inline }, { ...upload, ...local }] },
@@ -1291,18 +1292,20 @@ function isGitCheckoutAction(action: ToolActionContract): boolean {
 function isManagedOnlyGitAction(name: string): boolean {
   return ["create_worktree_from_ref", "create_worktree_for_branch", "remove_worktree", "discard_managed_worktree", "delete_untracked_paths"].includes(name);
 }
+const portableContextParam: ParamSpec = { type: "string", minLength: 1, maxLength: 128 };
+
 function localVariant(action: ToolActionContract): ToolActionContract {
   if (action.localOnly) return action;
   const { repositoryCheckoutId: _checkout, ...params } = action.params;
   if (action.name === "inspect_worktree") delete params.workspaceId;
-  return { ...action, localOnly: true, params: { ...params, localCheckoutHandle: { type: "string", required: true, minLength: 1, maxLength: 128 } } };
+  return { ...action, localOnly: true, params: { ...params, repositoryContextHandle: portableContextParam, localCheckoutHandle: { type: "string", required: true, minLength: 1, maxLength: 128 } } };
 }
 function actionVariants(action: ToolActionContract): ToolActionContract[] {
   if (action.paramForms) return action.paramForms.map(params => ({ ...action, params, paramForms: undefined }));
   return isGitCheckoutAction(action) && !isManagedOnlyGitAction(action.name) ? [action, localVariant(action)] : [action];
 }
 function localGitAction(name: string, requiredScope: RequiredScope, params: Record<string, ParamSpec>): ToolActionContract {
-  return { name, kind: requiredScope === "files.read" ? "git-inspection" : "git-mutation", requiredScope, params, localOnly: true,
+  return { name, kind: requiredScope === "files.read" ? "git-inspection" : "git-mutation", requiredScope, params: params.localCheckoutHandle?.required || name === "inspect_repository_context" ? { ...params, repositoryContextHandle: portableContextParam } : params, localOnly: true,
     dispatch: () => { throw new AgentHarnessError("INVALID_INPUT", "Local Git action requires local target resolution."); } };
 }
 

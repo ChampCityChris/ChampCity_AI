@@ -632,6 +632,13 @@ test("Agent Harness configuration persists under userData and survives service r
   assert.equal((await access("configure_local_git_access", { operation: "add", directories: [root], expectedConfigurationId: initialAccess.payload.configurationId })).ok, false);
   const restoredAccess = await access("configure_local_git_access", { operation: "add", directories: [root], expectedConfigurationId: removed.payload.configurationId });
   assert.equal(restoredAccess.ok, true);
+  const discovered = (await access("discover_local_repositories", { directory: root, maxDepth: 0 })).payload.repositories[0];
+  const selected = await access("select_repository_context", { repositoryHandle: discovered.repositoryHandle });
+  assert.equal(selected.ok, true);
+  const portable = { repositoryContextHandle: selected.payload.repositoryContextHandle };
+  await reconstructed.saveConfiguration({ trustedLocalGitRoots: [] });
+  await reconstructed.saveConfiguration({ trustedLocalGitRoots: [root] });
+  assert.equal((await access("inspect_repository_context", portable)).error.code, "REPOSITORY_CONTEXT_STALE", "Settings root revocation persists even when roots are restored before the next tool call");
   const persistedAccess = new BaseAgentHarnessService({ userDataRoot, enabled: false });
   assert.deepEqual(persistedAccess.status().trustedLocalGitRoots, [fs.realpathSync.native(root)]);
   assert.equal(persistedAccess.status().configuredPort, 4321);
