@@ -1,3 +1,4 @@
+import type { RepositoryHostingSettingsResult } from "../shared/repositoryHostingContracts";
 import { contextBridge, ipcRenderer } from "electron";
 import type {
   AgentHarnessSettingsInput,
@@ -103,11 +104,11 @@ const api: ChampCityApi = {
   getWorkIntakeProjection: () => ipcRenderer.invoke("workIntake:projection"),
   submitWorkIntake: (submission) => ipcRenderer.invoke("workIntake:submit", submission),
   getGithubProviderStatus: () => ipcRenderer.invoke("githubProvider:status"),
-  getRepositoryHostingSettings: () => ipcRenderer.invoke("repositoryHosting:settings"),
-  saveRepositoryHostingSettings: input => ipcRenderer.invoke("repositoryHosting:saveSettings", input),
-  getRepositoryHostingProviderStatus: providerId => ipcRenderer.invoke("repositoryHosting:providerStatus", providerId),
-  saveRepositoryHostingCredential: input => ipcRenderer.invoke("repositoryHosting:saveCredential", input),
-  removeRepositoryHostingCredential: input => ipcRenderer.invoke("repositoryHosting:removeCredential", input),
+  getRepositoryHostingSettings: () => invokeRepositoryHosting("repositoryHosting:settings"),
+  saveRepositoryHostingSettings: input => invokeRepositoryHosting("repositoryHosting:saveSettings", input),
+  getRepositoryHostingProviderStatus: providerId => invokeRepositoryHosting("repositoryHosting:providerStatus", providerId),
+  saveRepositoryHostingCredential: input => invokeRepositoryHosting("repositoryHosting:saveCredential", input),
+  removeRepositoryHostingCredential: input => invokeRepositoryHosting("repositoryHosting:removeCredential", input),
   connectGithubProvider: () => ipcRenderer.invoke("githubProvider:connect"),
   restartGithubProvider: () => ipcRenderer.invoke("githubProvider:restart"),
   disconnectGithubProvider: () => ipcRenderer.invoke("githubProvider:disconnect"),
@@ -298,5 +299,10 @@ const api: ChampCityApi = {
 
 
 };
+
+// Resolve a typed result: contextBridge does not preserve custom Error properties.
+function invokeRepositoryHosting<T>(channel: string, input?: unknown): Promise<RepositoryHostingSettingsResult<T>> {
+  return ipcRenderer.invoke(channel, input);
+}
 
 contextBridge.exposeInMainWorld("champcity", api);

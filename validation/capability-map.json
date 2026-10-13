@@ -3685,6 +3685,10 @@
           "description": "Forgejo global MCP publishes paged refs, file CAS, PR lifecycle and reviews without workspace registration"
         },
         {
+          "behaviorId": "forgejo-settings-connection-authentication-flow",
+          "description": "Visible responsive Forgejo Settings controls, canonical connection save, bounded errors, and credential lifecycle."
+        },
+        {
           "behaviorId": "global-mcp-hosting-and-explicit-targets",
           "description": "global hosting MCP binds, pushes exact refs and clones within selected repository context without workflow registration"
         },
@@ -13908,8 +13912,8 @@
     {
       "testPath": "test/renderer/github-provider-settings.test.cjs",
       "currentTestCount": {
-        "value": 2,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 3,
+        "basis": "RMCP-REPAIR03A adds the Settings connection/authentication regression to the two existing provider renderer proofs."
       },
       "duration": {
         "kind": "measured",
@@ -13959,6 +13963,12 @@
           "capabilityId": "external-provider-integration",
           "behaviorId": "typed-preload-executes-only-fixed-github-ipc-channels-and-forwards-constrained-reads",
           "proofLocator": "typed preload executes only fixed GitHub IPC channels and forwards constrained reads",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "repository-hosting",
+          "behaviorId": "forgejo-settings-connection-authentication-flow",
+          "proofLocator": "Forgejo Settings controls, canonical save, authentication and bounded errors",
           "proofRole": "primary"
         }
       ]

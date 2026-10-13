@@ -233,21 +233,35 @@ test("application hosting settings persist metadata with CAS while credentials r
   const handlers = new Map(), secrets = new Map(), credentialCalls = [];
   const store = { get: async reference => secrets.get(reference) ?? null, set: async (reference, token) => { secrets.set(reference, token); credentialCalls.push(reference); }, remove: async reference => { secrets.delete(reference); } };
   registerRepositoryHostingIpc({ handle: (name, handler) => handlers.set(name, handler) }, () => root, store);
-  const call = (name, input) => handlers.get(`repositoryHosting:${name}`)(null, input);
-  const initial = call("settings");
-  const saved = call("saveSettings", { configurationId: initial.configurationId, providers: [f.input] });
+  const call = async (name, input) => {
+    const result = await handlers.get(`repositoryHosting:${name}`)(null, input);
+    if (!result.ok) throw Object.assign(new Error("Bounded Settings failure"), { settingsCode: result.error.code });
+    return result.value;
+  };
+  const initial = await call("settings");
+  const saved = await call("saveSettings", { configurationId: initial.configurationId, providers: [{ ...f.input, providerId: `  ${f.input.providerId.toUpperCase()}  ` }] });
+  assert.equal(saved.providers[0].providerId, f.input.providerId);
+  for (const [changes, settingsCode] of [[{ providerId: "bad id" }, "invalid-provider-id"], [{ apiBaseUrl: "https://example.invalid" }, "invalid-api-url"], [{ allowInsecureHttp: false }, "http-api-policy"], [{ namespace: "bad/name" }, "invalid-namespace"]]) {
+    const result = await handlers.get("repositoryHosting:saveSettings")(null, { configurationId: saved.configurationId, providers: [{ ...f.input, ...changes }] });
+    assert.deepEqual(result, { ok: false, error: { code: settingsCode } });
+    assert.equal(JSON.stringify(result).includes(credential), false);
+  }
   assert.notEqual(saved.configurationId, initial.configurationId);
   assert.deepEqual(readRepositoryHostingSettings(root), saved);
   assert.throws(() => saveRepositoryHostingSettings(root, { configurationId: initial.configurationId, providers: [] }), { code: "REPOSITORY_PROVIDER_STATE_CHANGED" });
   assert.equal((await call("providerStatus", f.input.providerId)).readiness, "authentication-required");
   await call("saveCredential", { providerId: f.input.providerId, expectedConfigurationId: saved.configurationId, token: credential });
   assert.equal((await call("providerStatus", f.input.providerId)).readiness, "ready");
+  const identity = await call("providerStatus", f.input.providerId); assert.equal(identity.identity.login, "fixture-user");
+  f.mode("authentication-failed"); const rejected = await call("providerStatus", f.input.providerId); assert.equal(rejected.readiness, "authentication-failed"); assert.match(rejected.diagnostic, /Authentication failed/); assert.equal(JSON.stringify(rejected).includes(credential), false);
+  f.mode("wrong-identity"); assert.match((await call("providerStatus", f.input.providerId)).diagnostic, /configured namespace/); f.mode("ready");
+  await assert.rejects(call("saveCredential", { providerId: f.input.providerId, expectedConfigurationId: saved.configurationId, token: "" }), { settingsCode: "invalid-token" });
   const persisted = fs.readFileSync(path.join(root, "repository-hosting", "providers.json"), "utf8");
-  assert.equal(persisted.includes(credential), false); assert.equal(JSON.stringify(call("settings")).includes(credential), false);
+  assert.equal(persisted.includes(credential), false); assert.equal(JSON.stringify(await call("settings")).includes(credential), false);
   assert.equal(credentialCalls[0], saved.providers[0].credentialReference);
-  await assert.rejects(call("saveCredential", { providerId: f.input.providerId, expectedConfigurationId: initial.configurationId, token: credential }), { code: "REPOSITORY_PROVIDER_STATE_CHANGED" });
+  await assert.rejects(call("saveCredential", { providerId: f.input.providerId, expectedConfigurationId: initial.configurationId, token: credential }), { settingsCode: "stale-configuration" });
   await assert.rejects(call("saveCredential", { providerId: f.input.providerId, expectedConfigurationId: saved.configurationId, token: credential, reference: "unrelated-credential" }));
-  const changed = call("saveSettings", { configurationId: saved.configurationId, providers: [{ ...f.input, apiBaseUrl: "https://other.example.invalid/api/v1", allowInsecureHttp: false }] });
+  const changed = await call("saveSettings", { configurationId: saved.configurationId, providers: [{ ...f.input, apiBaseUrl: "https://other.example.invalid/api/v1", allowInsecureHttp: false }] });
   assert.notEqual(changed.providers[0].credentialReference, saved.providers[0].credentialReference);
   assert.equal((await call("providerStatus", f.input.providerId)).readiness, "authentication-required");
   assert.equal(fs.existsSync(path.join(root, ".champcity")), false);

@@ -33,6 +33,22 @@ export interface RepositoryHostingSettings {
 export type ForgejoHostingConfigurationInput = Omit<ForgejoHostingConfiguration, "credentialReference"> & { credentialReference?: string };
 export interface RepositoryHostingSettingsInput { configurationId: string; providers: ForgejoHostingConfigurationInput[] }
 
+// Settings IPC sends only catalogued errors, never exception text or details.
+export const repositoryHostingSettingsErrors = {
+  "invalid-provider-id": { message: "Provider ID must start with a letter and contain lowercase letters, numbers, _ or -. The ID github is reserved.", field: "providerId" },
+  "invalid-api-url": { message: "Forgejo API URL must be a credential-free HTTP(S) URL identifying an /api/v1 endpoint.", field: "apiBaseUrl" },
+  "http-api-policy": { message: "HTTP API requires explicit insecure-HTTP permission.", field: "apiBaseUrl" },
+  "invalid-namespace": { message: "Namespace is invalid.", field: "namespace" },
+  "invalid-ssh-policy": { message: "Expected SSH host or port is invalid.", field: "expectedSshHost" },
+  "invalid-configuration": { message: "Connection fields are invalid. Check the connection settings.", field: null },
+  "stale-configuration": { message: "Connection settings changed. Refresh before saving and retry.", field: null },
+  "authentication-required": { message: "Save the connection and provide an authentication token.", field: null },
+  "invalid-token": { message: "Authentication token is required and must contain only printable non-space characters.", field: "token" },
+  "settings-unavailable": { message: "Repository hosting settings or secure credential storage are unavailable. Refresh and retry.", field: null },
+} as const;
+export type RepositoryHostingSettingsErrorCode = keyof typeof repositoryHostingSettingsErrors;
+export type RepositoryHostingSettingsResult<T> = { ok: true; value: T } | { ok: false; error: { code: RepositoryHostingSettingsErrorCode } };
+
 export interface HostedPage { page?: number; limit?: number }
 export interface HostedRef { name: string; commit: string; protected: boolean }
 export interface HostedFile { filePath: string; ref: string; sha: string | null; content: string | null; exists: boolean }

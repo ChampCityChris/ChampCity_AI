@@ -1,7 +1,7 @@
 import type { CodexManagedRuntimeStatus, CodexModelSelection } from "./codexRuntimeContracts";
 import type { LegacyPhaseArtifactScope, WorkItemArtifactScopeProjection, WorkItemArtifactScopeReference } from "./workItemArtifactScope";
 import type { GithubEvidence, GithubEvidenceRequest, GithubProviderStatus } from "./githubProviderContracts";
-import type { RepositoryHostingSettings, RepositoryHostingSettingsInput, RepositoryHostingStatus } from "./repositoryHostingContracts";
+import type { RepositoryHostingSettingsResult, RepositoryHostingSettings, RepositoryHostingSettingsInput, RepositoryHostingStatus } from "./repositoryHostingContracts";
 import type {
   FirstNonApprovedResult,
 } from "./documents/documentOrder";
@@ -1496,11 +1496,11 @@ export interface ChampCityApi {
   getWorkIntakeProjection: () => Promise<import("./workIntakeContracts").WorkIntakeProjection>;
   submitWorkIntake: (submission: import("./workIntakeContracts").WorkIntakeSubmission) => Promise<import("./workIntakeContracts").WorkIntakeSubmissionResult>;
   getGithubProviderStatus: () => Promise<GithubProviderStatus>;
-  getRepositoryHostingSettings: () => Promise<RepositoryHostingSettings>;
-  saveRepositoryHostingSettings: (input: RepositoryHostingSettingsInput) => Promise<RepositoryHostingSettings>;
-  getRepositoryHostingProviderStatus: (providerId: string) => Promise<RepositoryHostingStatus>;
-  saveRepositoryHostingCredential: (input: { providerId: string; expectedConfigurationId: string; token: string }) => Promise<{ stored: true }>;
-  removeRepositoryHostingCredential: (input: { providerId: string; expectedConfigurationId: string }) => Promise<{ removed: true }>;
+  getRepositoryHostingSettings: () => Promise<RepositoryHostingSettingsResult<RepositoryHostingSettings>>;
+  saveRepositoryHostingSettings: (input: RepositoryHostingSettingsInput) => Promise<RepositoryHostingSettingsResult<RepositoryHostingSettings>>;
+  getRepositoryHostingProviderStatus: (providerId: string) => Promise<RepositoryHostingSettingsResult<RepositoryHostingStatus>>;
+  saveRepositoryHostingCredential: (input: { providerId: string; expectedConfigurationId: string; token: string }) => Promise<RepositoryHostingSettingsResult<{ stored: true }>>;
+  removeRepositoryHostingCredential: (input: { providerId: string; expectedConfigurationId: string }) => Promise<RepositoryHostingSettingsResult<{ removed: true }>>;
   connectGithubProvider: () => Promise<GithubProviderStatus>;
   restartGithubProvider: () => Promise<GithubProviderStatus>;
   disconnectGithubProvider: () => Promise<GithubProviderStatus>;

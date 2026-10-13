@@ -28,7 +28,7 @@ export function readRepositoryHostingSettings(userDataRoot: string): RepositoryH
 export function saveRepositoryHostingSettings(userDataRoot: string, input: RepositoryHostingSettingsInput): RepositoryHostingSettings {
   try {
   if (!input || typeof input !== "object" || Object.keys(input).some(field => !["providers", "configurationId"].includes(field)) || !Array.isArray(input.providers) || input.providers.length > 32 || typeof input.configurationId !== "string" || !/^[a-f0-9]{64}$/.test(input.configurationId)) throw fail();
-  const providers = input.providers.map(validateForgejoHostingConfiguration).sort((left, right) => left.providerId.localeCompare(right.providerId));
+  const providers = input.providers.map(provider => validateForgejoHostingConfiguration(provider && typeof provider === "object" ? { ...provider, providerId: typeof provider.providerId === "string" ? provider.providerId.trim().toLowerCase() : provider.providerId } : provider)).sort((left, right) => left.providerId.localeCompare(right.providerId));
   if (new Set(providers.map(provider => provider.providerId)).size !== providers.length) throw fail();
   const file = settingsPath(userDataRoot), lock = `${file}.lock`, temporary = `${file}.tmp-${randomBytes(8).toString("hex")}`;
   fs.mkdirSync(path.dirname(file), { recursive: true });

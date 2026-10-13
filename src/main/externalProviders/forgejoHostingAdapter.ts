@@ -25,12 +25,17 @@ const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(va
 export function validateForgejoHostingConfiguration(input: unknown): ForgejoHostingConfiguration {
   const cfg = record(input);
   const fields = ["providerId", "kind", "apiBaseUrl", "namespace", "namespaceType", "preferredTransport", "expectedSshHost", "expectedSshPort", "credentialReference", "allowInsecureHttp", "allowInsecureGitHttp"];
-  if (Object.keys(cfg).some(field => !fields.includes(field)) || typeof cfg.providerId !== "string" || !/^[a-z][a-z0-9_-]{0,63}$/.test(cfg.providerId) || cfg.providerId === "github" || cfg.kind !== "forgejo" || !["user", "organization"].includes(String(cfg.namespaceType)) || !["https", "ssh"].includes(String(cfg.preferredTransport)) || typeof cfg.allowInsecureHttp !== "boolean" || typeof cfg.allowInsecureGitHttp !== "boolean") throw fail("Forgejo connection configuration is invalid.");
+  const invalid = (settingsError: string, message: string): never => { throw new AgentHarnessError("INVALID_INPUT", message, { settingsError }); };
+  if (Object.keys(cfg).some(field => !fields.includes(field)) || cfg.kind !== "forgejo" || !["user", "organization"].includes(String(cfg.namespaceType)) || !["https", "ssh"].includes(String(cfg.preferredTransport)) || typeof cfg.allowInsecureHttp !== "boolean" || typeof cfg.allowInsecureGitHttp !== "boolean") invalid("invalid-configuration", "Forgejo connection configuration is invalid.");
+  if (typeof cfg.providerId !== "string" || !/^[a-z][a-z0-9_-]{0,63}$/.test(cfg.providerId) || cfg.providerId === "github") invalid("invalid-provider-id", "Provider ID is invalid.");
   let url: URL;
-  try { url = new URL(String(cfg.apiBaseUrl)); } catch { throw fail("Forgejo API base URL is invalid."); }
-  if (typeof cfg.apiBaseUrl !== "string" || cfg.apiBaseUrl.length > 2048 || url.username || url.password || url.search || url.hash || !["https:", "http:"].includes(url.protocol) || url.protocol === "http:" && !cfg.allowInsecureHttp || !/^\/(?:[a-z0-9_.-]+\/)*api\/v1\/?$/i.test(url.pathname) || url.pathname.split("/").includes("..")) throw fail("Forgejo requires a configured credential-free API base URL and explicit HTTP policy.");
-  if (cfg.expectedSshHost !== undefined && (typeof cfg.expectedSshHost !== "string" || !/^[a-z0-9.-]{1,253}$/i.test(cfg.expectedSshHost)) || cfg.expectedSshPort !== undefined && (typeof cfg.expectedSshPort !== "number" || !Number.isInteger(cfg.expectedSshPort) || cfg.expectedSshPort < 1 || cfg.expectedSshPort > 65535)) throw fail("Forgejo SSH host policy is invalid.");
-  const apiBaseUrl = url.toString().replace(/\/$/, ""), namespace = segment(cfg.namespace);
+  try { url = new URL(String(cfg.apiBaseUrl)); } catch { return invalid("invalid-api-url", "Forgejo API URL must identify an /api/v1 endpoint."); }
+  if (typeof cfg.apiBaseUrl !== "string" || cfg.apiBaseUrl.length > 2048 || url.username || url.password || url.search || url.hash || !["https:", "http:"].includes(url.protocol) || !/^\/(?:[a-z0-9_.-]+\/)*api\/v1\/?$/i.test(url.pathname) || url.pathname.split("/").includes("..")) invalid("invalid-api-url", "Forgejo API URL must identify a credential-free /api/v1 endpoint.");
+  if (url.protocol === "http:" && !cfg.allowInsecureHttp) invalid("http-api-policy", "HTTP API requires explicit insecure-HTTP permission.");
+  if (cfg.expectedSshHost !== undefined && (typeof cfg.expectedSshHost !== "string" || !/^[a-z0-9.-]{1,253}$/i.test(cfg.expectedSshHost)) || cfg.expectedSshPort !== undefined && (typeof cfg.expectedSshPort !== "number" || !Number.isInteger(cfg.expectedSshPort) || cfg.expectedSshPort < 1 || cfg.expectedSshPort > 65535)) invalid("invalid-ssh-policy", "Forgejo SSH host policy is invalid.");
+  let namespace: string;
+  try { namespace = segment(cfg.namespace); } catch { return invalid("invalid-namespace", "Namespace is invalid."); }
+  const apiBaseUrl = url.toString().replace(/\/$/, "");
   const credentialReference = `repository-hosting:${cfg.providerId}:${digest({ apiBaseUrl, namespace: namespace.toLowerCase(), namespaceType: cfg.namespaceType })}`;
   if (cfg.credentialReference !== undefined && cfg.credentialReference !== credentialReference) throw fail("Credential reference does not belong to this configured connection.");
   return { ...cfg, apiBaseUrl, namespace, credentialReference } as unknown as ForgejoHostingConfiguration;
@@ -142,7 +147,7 @@ export class ForgejoHostingAdapter implements RepositoryHostingAdapter {
       const identity = await this.authenticate(token, signal);
       return { ...base, identity, readiness: "ready", diagnostic: null, capabilities: ["repository.list", "repository.inspect", "repository.create", "repository.update-settings", "repository.resolve-remote", "repository.verify", "branch.list", "branch.inspect", "branch.create", "branch.delete", "tag.list", "tag.inspect", "tag.create", "tag.delete", "file.read", "file.write", "file.delete", "pull_request.list", "pull_request.read", "pull_request.create", "pull_request.update", "pull_request.merge", "review.list", "review.create"] };
     } catch (error) {
-      return { ...base, readiness: error instanceof AgentHarnessError && error.code === "REPOSITORY_PROVIDER_NOT_READY" ? "authentication-failed" : "unreachable", diagnostic: "Provider identity could not be authenticated and verified." };
+      return { ...base, readiness: error instanceof AgentHarnessError && error.code === "REPOSITORY_PROVIDER_NOT_READY" ? "authentication-failed" : "unreachable", diagnostic: error instanceof AgentHarnessError && error.code === "REPOSITORY_PROVIDER_STATE_CHANGED" ? "Connection settings changed. Refresh before retrying." : error instanceof AgentHarnessError && error.code === "REPOSITORY_PROVIDER_NOT_READY" ? "Authentication failed or does not match the configured namespace." : "Forgejo could not be reached or returned invalid identity metadata." };
     }
   }
   async inspectRepository(locator: HostedRepositoryLocator, signal?: AbortSignal) {

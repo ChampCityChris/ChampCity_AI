@@ -9592,3 +9592,53 @@ body {
 }
 .work-card-implement-navigation .apply-button:hover:not(:disabled) { filter: brightness(1.12); }
 .work-card-implement-navigation .apply-button:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Forgejo controls are scoped so GitHub and Agent Harness retain their layout. */
+.repository-hosting-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+  padding: 16px;
+  margin: 16px 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.repository-hosting-form label,
+.repository-hosting-field { display: grid; gap: 6px; min-width: 0; }
+.repository-hosting-settings label > span { color: var(--foreground); font-size: 13px; font-weight: 650; }
+.repository-hosting-settings small { color: var(--figma-shell-muted); line-height: 1.5; }
+.repository-hosting-settings input,
+.repository-hosting-settings select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 8px 10px;
+  color: var(--foreground);
+  background: var(--input-background);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+.repository-hosting-settings .repository-hosting-checkbox { grid-template-columns: auto minmax(0, 1fr); align-items: center; }
+.repository-hosting-checkbox > span:first-child { grid-column: 1 / -1; }
+.repository-hosting-settings input[type="checkbox"] { width: 18px; min-height: 18px; padding: 0; }
+.repository-hosting-form button {
+  min-height: 36px;
+  padding: 8px 12px;
+  color: var(--foreground);
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+.repository-hosting-settings :is(input, select, button):focus-visible { outline: 2px solid var(--figma-shell-primary); outline-offset: 2px; }
+.repository-hosting-settings :is(input, select, button):disabled { opacity: 0.6; cursor: not-allowed; }
+.repository-hosting-settings [aria-invalid="true"] { border-color: #f87171; }
+.repository-hosting-settings .settings-workspace-actions { flex-wrap: wrap; margin-top: 12px; }
+@media (max-width: 700px) {
+  .repository-hosting-form { grid-template-columns: minmax(0, 1fr); }
+}
