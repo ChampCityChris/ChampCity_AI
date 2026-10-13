@@ -32,10 +32,10 @@ function register(name, factory) {
     const accepted = await service.acceptWorkflowPlanningGraph(project.id, { workflowId: workflow.id, topology: "direct",
       solution: { title: "Accepted", objective: "Repair the feature", scopeIn: ["feature"], scopeOut: [], constraints: [], assumptions: [], risks: [] },
       solutionCriteria: [], workItems: [{ key: "parent", kind: "feature", title: "Parent", objective: "Implement feature", dependencyKeys: [],
-        criteria: [{ statement: "Output preserves all rows", criticality: "required", verificationIntent: "Run the focused export proof", validationPolicy: "deterministic" }] }] });
+        criteria: [{ statement: "Output preserves all rows", criticality: "required", verificationIntent: "Review the source-neutral export result", validationPolicy: "semantic_ai" }] }] });
     const parent = accepted.directWorkItems[0];
     const target = accepted.criteria.find(item => item.ownerId === parent.id).record;
-    const failure = await service.recordValidation(project.id, target.id, { validationType: "criterion", method: "catalog-profile", outcome: "fail",
+    const failure = await service.recordValidation(project.id, target.id, { validationType: "criterion", method: "inspection", validationMode: "semantic_ai", outcome: "fail",
       summary: "One export row is missing", targetRecordVersion: target.recordVersion });
     const result = await service.createWorkflowRepair(project.id, { workflowId: workflow.id, workItemId: parent.id, failureEvidenceId: failure.id });
     assert.equal(result.repair.body.workItemKind, "fix");
@@ -57,7 +57,7 @@ function register(name, factory) {
     const project = await service.createRecord(null, "Project", { name: "Planning", description: "Synthetic" });
     const first = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Same", currentWorkspace: "feature-intake" });
     const second = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Same", currentWorkspace: "feature-intake" });
-    const criterion = { statement: "Works", criticality: "required", verificationIntent: "Run proof", validationPolicy: "deterministic" };
+    const criterion = { statement: "Works", criticality: "required", verificationIntent: "Review the source-neutral outcome", validationPolicy: "semantic_ai" };
     const accepted = await service.acceptWorkflowPlanningGraph(project.id, { workflowId: first.id, topology: "phased",
       solution: { title: "Solution", objective: "Deliver", scopeIn: ["feature"], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [criterion],
       phases: [{ key: "p1", title: "Phase", objective: "Build", sequence: 1, criteria: [criterion] }],
@@ -370,7 +370,7 @@ test("typed WorkItem decomposition preserves exact ownership, criteria, dependen
   const service = createProjectStateService(store, operator);
   const project = await service.createRecord(null, "Project", { name: "Decomposition", description: "Synthetic" });
   const workflow = await service.createWorkflow(project.id, { workflowType: "feature-capability", title: "Decompose", currentWorkspace: "feature-intake" });
-  const criterion = statement => ({ statement, criticality: "required", verificationIntent: `Verify ${statement}`, validationPolicy: "deterministic" });
+  const criterion = statement => ({ statement, criticality: "required", verificationIntent: `Review ${statement}`, validationPolicy: "semantic_ai" });
   const graph = await service.acceptWorkflowPlanningGraph(project.id, { workflowId: workflow.id, topology: "direct",
     solution: { title: "Accepted solution", objective: "Deliver", scopeIn: ["scope"], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [],
     workItems: [
@@ -455,7 +455,7 @@ test("the same typed WorkItem decomposition command supports Issue Workflows", a
   const graph = await service.acceptWorkflowPlanningGraph(project.id, { workflowId: workflow.id, topology: "direct",
     solution: { title: "Accepted fix", objective: "Resolve", scopeIn: ["fix"], scopeOut: [], constraints: [], assumptions: [], risks: [] }, solutionCriteria: [],
     workItems: [{ key: "source", kind: "fix", title: "Large fix", objective: "Large issue fix", dependencyKeys: [], criteria: [
-      { statement: "Correct behavior", criticality: "required", verificationIntent: "Verify correction", validationPolicy: "deterministic" },
+      { statement: "Correct behavior", criticality: "required", verificationIntent: "Review the source-neutral correction", validationPolicy: "semantic_ai" },
     ] }] });
   const source = graph.directWorkItems[0];
   const criterion = graph.criteria.find(item => item.ownerId === source.id).record;

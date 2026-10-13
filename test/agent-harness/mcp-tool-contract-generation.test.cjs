@@ -364,6 +364,7 @@ test("public MCP Git contract requires exact registered checkout targeting", { t
       const params = action.properties.params;
       const local = tool.name === "git_toolbox" && !action.required.includes("workspaceId");
       const checkoutBound = (tool.name === "git_toolbox" && action.title !== "list_repository_checkouts" && !local) ||
+        (tool.name === "integration_toolbox" && ["bind_repository_remote", "remove_repository_remote", "verify_hosted_repository"].includes(action.title) && action.required.includes("workspaceId")) ||
         tool.name === "release_toolbox" || (tool.name === "test_toolbox" && action.title !== "status");
       assert.equal(params.required.includes("repositoryCheckoutId"), checkoutBound, `${tool.name}.${action.title} checkout boundary`);
       if (local) {

@@ -14,6 +14,8 @@ export interface ProviderOwnedRemote {
   readonly providerId: string;
   readonly destination: string;
   readonly identity: RemoteDestinationIdentity;
+  readonly hostedRepositoryId?: string;
+  readonly hostedRepositoryState?: string;
 }
 const invalid = () => new AgentHarnessError("INVALID_INPUT", "Remote destination must be a bounded credential-free Git transport identity.");
 
@@ -40,11 +42,12 @@ export function remoteDestinationIdentity(destination: string): RemoteDestinatio
 }
 
 /** Hosting adapters mint these after resolving application-owned provider configuration. Never an MCP argument. */
-export function createProviderOwnedRemote(input: { providerId: string; destination: string; allowInsecureHttp?: boolean; allowLocalTransport?: boolean }): ProviderOwnedRemote {
+export function createProviderOwnedRemote(input: { providerId: string; destination: string; allowInsecureHttp?: boolean; allowLocalTransport?: boolean; hostedRepositoryId?: string; hostedRepositoryState?: string }): ProviderOwnedRemote {
   if (!/^[a-z][a-z0-9_-]{0,63}$/.test(input.providerId)) throw invalid();
   const identity = remoteDestinationIdentity(input.destination);
+  if (input.hostedRepositoryId !== undefined && !/^[a-z0-9_.:-]{1,128}$/i.test(input.hostedRepositoryId) || input.hostedRepositoryState !== undefined && !/^[a-f0-9]{64}$/.test(input.hostedRepositoryState)) throw invalid();
   if (identity.transport === "http" && !input.allowInsecureHttp || identity.transport === "local" && !input.allowLocalTransport) throw invalid();
-  const remote = Object.freeze({ providerId: input.providerId, destination: input.destination, identity: Object.freeze(identity) });
+  const remote = Object.freeze({ providerId: input.providerId, destination: input.destination, identity: Object.freeze(identity), ...(input.hostedRepositoryId ? { hostedRepositoryId: input.hostedRepositoryId } : {}), ...(input.hostedRepositoryState ? { hostedRepositoryState: input.hostedRepositoryState } : {}) });
   owned.add(remote);
   return remote;
 }

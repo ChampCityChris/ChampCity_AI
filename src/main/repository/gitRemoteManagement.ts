@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { AgentHarnessError } from "../core/applicationErrors";
 import { runBoundedGit } from "../core/gitExecution";
 import { inspectGitRemotes } from "./gitMutations";
-import { assertProviderOwnedRemote, remoteDestinationIdentity, type ProviderOwnedRemote } from "./providerOwnedRemote";
+import { assertProviderOwnedRemote, createProviderOwnedRemote, remoteDestinationIdentity, type ProviderOwnedRemote } from "./providerOwnedRemote";
 
 const fail = (message: string) => new AgentHarnessError("GIT_EXECUTION_FAILED", message);
 export function boundedRemoteName(value: string): string {
@@ -26,10 +26,11 @@ export async function inspectGitRemote(root: string, remoteInput: string) {
   const push = await values(root, ["remote", "get-url", "--push", "--all", remote]);
   const fetchDestinations = fetch.map(remoteDestinationIdentity), pushDestinations = push.map(remoteDestinationIdentity);
   const mirrorValues = await values(root, ["config", "--get-all", "--bool", `remote.${remote}.mirror`]);
+  const fetchRefspecs = await values(root, ["config", "--get-all", `remote.${remote}.fetch`]);
   const mirror = mirrorValues.includes("true");
   const destinationsEqual = fetch.length === 1 && push.length === 1 && fetch[0] === push[0];
-  const binding = createHash("sha256").update(JSON.stringify({ fetch, push, mirrorValues })).digest("hex");
-  return { remote, fetchDestinations, pushDestinations, destinationsEqual, mirror, binding, tracking: await inspectGitRemotes(root) };
+  const binding = createHash("sha256").update(JSON.stringify({ fetch, push, mirrorValues, fetchRefspecs })).digest("hex");
+  return { remote, fetchDestinations, pushDestinations, destinationsEqual, mirror, binding, fetchRefspecs, tracking: await inspectGitRemotes(root) };
 }
 
 export async function inspectGitRemoteRefs(root: string, input: { remote: string; refClass?: "branches" | "tags" | "all"; pattern?: string }) {
@@ -48,6 +49,14 @@ export async function inspectGitRemoteRefs(root: string, input: { remote: string
   }).filter((entry): entry is NonNullable<typeof entry> => entry !== null);
   if (entries.length > 1000 || new Set(entries.map(entry => entry.ref)).size !== entries.length) throw fail("Remote ref inventory exceeds its bound or is ambiguous.");
   return { remote: remote.remote, binding: remote.binding, refs: entries };
+}
+
+export async function removeConfiguredGitRemote(root: string, input: { remoteName: string; expectedBinding: string }) {
+  const before = await inspectGitRemote(root, input.remoteName);
+  if (before.binding !== input.expectedBinding || !before.destinationsEqual || before.mirror) throw fail("Configured remote changed or is ambiguous.");
+  const destination = (await runBoundedGit({ cwd: root, args: ["remote", "get-url", "--all", before.remote] })).stdout.trim();
+  const remote = createProviderOwnedRemote({ providerId: "configured-remote", destination, allowLocalTransport: true, allowInsecureHttp: true });
+  return mutateProviderOwnedRemote(root, { remoteName: before.remote, operation: "remove", expectedBinding: input.expectedBinding, remote });
 }
 
 /** Hold Git's config lock through CAS and replacement; preserve unrelated configuration. */

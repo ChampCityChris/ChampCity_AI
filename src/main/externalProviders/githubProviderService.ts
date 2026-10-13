@@ -6,6 +6,8 @@ import { githubCapabilityIds, githubMinimumCapabilities, githubProviderDefinitio
 import { githubProviderEnvironment, type GithubRuntime, type GithubRuntimeOperations } from "./githubRuntime";
 import { runFixedReleaseCommand } from "../agentHarness/release/releaseCommandAdapter";
 import { ExternalProviderError } from "./externalProviderErrors";
+import { AgentHarnessError } from "../core/applicationErrors";
+import { runGithubCompatibility, resolveGithubGitCredential, type GithubCompatibilityOperation } from "./githubHostingCompatibility";
 
 export interface GithubProviderServiceOptions {
   runtime: GithubRuntimeOperations;
@@ -13,6 +15,8 @@ export interface GithubProviderServiceOptions {
   readOrigin?: (root: string) => Promise<string>;
   authenticationTimeoutMs?: number;
   authenticationRetryMs?: number;
+  compatibility?: (operation: GithubCompatibilityOperation, input: Record<string, unknown>, identity: string, signal?: AbortSignal) => Promise<unknown>;
+  resolveGitCredential?: (identity: string, signal?: AbortSignal) => Promise<string>;
 }
 
 export class GithubProviderService {
@@ -70,6 +74,44 @@ export class GithubProviderService {
   }
 
   async restart(): Promise<void> { await this.disconnect(); await this.connect(); }
+
+  /** Explicit hosted identity; no origin or workflow lookup, and no retry after mutation. */
+  async invokeHosted(capabilityId: string, request: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
+    if (this.getStatus().runtime !== "ready" || this.state.busy || !this.active) throw new AgentHarnessError("REPOSITORY_PROVIDER_NOT_READY", "Connect the official GitHub provider before using hosted operations.");
+    const gateway = this.active, generation = this.state.capabilityGeneration;
+    try {
+      const receipt = await gateway.invokeCapability("github", capabilityId, request, signal);
+      if (gateway !== this.active || generation !== this.state.capabilityGeneration || this.state.busy) throw new Error("Session changed.");
+      const data = githubResultData(receipt.result);
+      if (!data || typeof data !== "object") throw new Error("Unverified result.");
+      return data;
+    } catch (error) {
+      if (error instanceof ExternalProviderError && error.kind === "capability-unavailable") throw new AgentHarnessError("REPOSITORY_PROVIDER_NOT_READY", "The exact official GitHub tool contract is unavailable.");
+      if (gateway.getStatus("github").transport !== "connected") this.invalidate("GitHub connection was lost; reconnect to refresh capabilities.");
+      throw new AgentHarnessError("REPOSITORY_PROVIDER_NOT_READY", "GitHub operation failed or its outcome could not be verified. Inspect provider and hosted state before retrying.");
+    }
+  }
+
+  async invokeCompatibility(operation: GithubCompatibilityOperation, input: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
+    const generation = this.state.capabilityGeneration;
+    const identity = await this.invokeHosted("github.context.read", {}, signal) as { login: string };
+    try {
+      const result = await (this.options.compatibility ?? runGithubCompatibility)(operation, input, identity.login, signal);
+      if (generation !== this.state.capabilityGeneration || this.getStatus().runtime !== "ready" || this.state.busy) throw new Error("Session changed.");
+      return result;
+    } catch {
+      throw new AgentHarnessError("REPOSITORY_PROVIDER_NOT_READY", "The named GitHub compatibility operation is unavailable or unverified. Its GitHub CLI account must match the official provider; inspect state before retrying.");
+    }
+  }
+
+  async gitCredential(signal?: AbortSignal): Promise<{ login: string; token: string }> {
+    const generation = this.state.capabilityGeneration, identity = await this.invokeHosted("github.context.read", {}, signal) as { login: string };
+    try {
+      const token = await (this.options.resolveGitCredential ?? resolveGithubGitCredential)(identity.login, signal);
+      if (generation !== this.state.capabilityGeneration || this.getStatus().runtime !== "ready" || this.state.busy || !/^[\x21-\x7e]{1,2048}$/.test(token)) throw new Error("Session changed.");
+      return { login: identity.login, token };
+    } catch { throw new AgentHarnessError("REPOSITORY_PROVIDER_NOT_READY", "GitHub Git authentication must match the authenticated official provider."); }
+  }
 
   async read(root: string | null, request: GithubEvidenceRequest): Promise<GithubEvidence> {
     validateRequest(request);

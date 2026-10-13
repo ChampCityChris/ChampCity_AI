@@ -33,6 +33,13 @@ export type GitCandidateTruncationReason = "candidate-limit" | "deadline" | "out
 
 // Call-scoped policy: external checkout hardening never changes registered-mode Git.
 const localPolicy = new AsyncLocalStorage<{ config: string[]; verify?: (cwd: string, args: string[]) => void; deadline?: number }>();
+export interface GitHttpAuthentication { destination: string; username: string; password: string }
+export type GitHttpAuthenticationResolver = (cwd: string, args: string[]) => Promise<GitHttpAuthentication | null>;
+const httpAuthentication = new AsyncLocalStorage<GitHttpAuthenticationResolver>();
+/** Application-owned credentials never become Git arguments or repository configuration. */
+export function withGitHttpAuthentication<T>(operation: () => Promise<T>, resolver: GitHttpAuthenticationResolver): Promise<T> {
+  return httpAuthentication.run(resolver, operation);
+}
 export function withLocalGitExecution<T>(operation: () => Promise<T>, policy: { config?: string[]; verify?: (cwd: string, args: string[]) => void; deadline?: number } = {}): Promise<T> {
   return localPolicy.run({ ...policy, config: policy.config ?? [] }, operation);
 }
@@ -62,9 +69,27 @@ function localGitArguments(args: string[], config: string[]): string[] {
   return ["--no-pager", ...settings.flatMap(value => ["-c", value]), ...safeArgs];
 }
 
-export function runBoundedGit(options: GitExecutionOptions): Promise<GitExecutionResult> {
+export async function runBoundedGit(options: GitExecutionOptions): Promise<GitExecutionResult> {
   const policy = localPolicy.getStore();
   policy?.verify?.(options.cwd, options.args);
+  const resolver = httpAuthentication.getStore();
+  const command = options.args[gitCommandIndex(options.args)];
+  const authentication = resolver && (["clone", "fetch", "push", "ls-remote"].includes(command) || command === "remote" && options.args[gitCommandIndex(options.args) + 1] === "prune") ? await resolver(options.cwd, options.args) : null;
+  policy?.verify?.(options.cwd, options.args);
+  let authenticationEnvironment: Record<string, string> = {};
+  const confidential: string[] = [];
+  if (authentication) {
+    let destination: URL;
+    try { destination = new URL(authentication.destination); } catch { throw new AgentHarnessError("REPOSITORY_PROVIDER_NOT_READY", "Git authentication destination is invalid."); }
+    if (!["https:", "http:"].includes(destination.protocol) || destination.username || destination.password || destination.search || destination.hash || !/^[a-z0-9][a-z0-9_.-]{0,99}$/i.test(authentication.username) || !/^[\x21-\x7e]{1,2048}$/.test(authentication.password) || options.onStdout) throw new AgentHarnessError("REPOSITORY_PROVIDER_NOT_READY", "Git authentication cannot be applied to this bounded operation.");
+    const encoded = Buffer.from(`${authentication.username}:${authentication.password}`, "utf8").toString("base64");
+    confidential.push(authentication.password, encoded);
+    authenticationEnvironment = { GIT_CONFIG_COUNT: "4", GIT_CONFIG_KEY_0: "http.extraHeader", GIT_CONFIG_VALUE_0: "",
+      GIT_CONFIG_KEY_1: `http.${destination.toString()}.extraHeader`, GIT_CONFIG_VALUE_1: "",
+      GIT_CONFIG_KEY_2: `http.${destination.toString()}.extraHeader`, GIT_CONFIG_VALUE_2: `Authorization: Basic ${encoded}`,
+      GIT_CONFIG_KEY_3: "http.followRedirects", GIT_CONFIG_VALUE_3: "false" };
+  }
+  const scrub = (value: string) => confidential.reduce((result, secret) => result.replaceAll(secret, "<REDACTED>"), value);
   if (policy?.deadline && Date.now() >= policy.deadline) return Promise.reject(new AgentHarnessError("GIT_TIMEOUT", "Local Git discovery deadline reached."));
   const timeoutMs = Math.min(Math.max(1, options.timeoutMs ?? GIT_COMMAND_TIMEOUT_MS), GIT_COMMAND_TIMEOUT_MS,
     policy?.deadline ? Math.max(1, policy.deadline - Date.now()) : GIT_COMMAND_TIMEOUT_MS);
@@ -90,7 +115,7 @@ export function runBoundedGit(options: GitExecutionOptions): Promise<GitExecutio
     try {
       const requestedArgs = policy ? localGitArguments(options.args, policy.config) : options.args;
       const args = process.platform === "win32" ? ["-c", "core.longpaths=true", ...requestedArgs] : requestedArgs;
-      const environment = policy ? Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(GIT_|GCM_|SSH_)/i.test(key))) : process.env;
+      const environment = Object.fromEntries(Object.entries(process.env).filter(([key]) => !(policy && /^(GIT_|GCM_|SSH_)/i.test(key)) && !(authentication && /^(GIT_CONFIG_|GIT_TRACE|GIT_CURL_VERBOSE)/i.test(key))));
       child = spawn("git", args, {
         cwd: options.cwd,
         detached: process.platform !== "win32",
@@ -105,6 +130,7 @@ export function runBoundedGit(options: GitExecutionOptions): Promise<GitExecutio
           GIT_TERMINAL_PROMPT: "0",
           GIT_MERGE_AUTOEDIT: "no",
           GCM_INTERACTIVE: "Never",
+          ...authenticationEnvironment,
         },
       });
     } catch {
@@ -225,7 +251,7 @@ export function runBoundedGit(options: GitExecutionOptions): Promise<GitExecutio
         reject(terminalError);
         return;
       }
-      const stderrText = Buffer.concat(stderr).toString("utf8");
+      const stderrText = scrub(Buffer.concat(stderr).toString("utf8"));
       if (!stoppedEarly && options.rejectNonZero !== false && exitCode !== 0) {
         reject(new AgentHarnessError(
           "GIT_EXECUTION_FAILED",
@@ -237,7 +263,8 @@ export function runBoundedGit(options: GitExecutionOptions): Promise<GitExecutio
         ));
         return;
       }
-      const stdoutBuffer = Buffer.concat(stdout);
+      const collected = Buffer.concat(stdout);
+      const stdoutBuffer = authentication ? Buffer.from(scrub(collected.toString("utf8")), "utf8") : collected;
       resolve({
         stdout: stdoutBuffer.toString("utf8"),
         stdoutBuffer,

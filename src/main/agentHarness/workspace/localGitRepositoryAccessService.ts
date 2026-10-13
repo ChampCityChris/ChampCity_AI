@@ -5,7 +5,8 @@ import { AgentHarnessError } from "../../core/applicationErrors";
 import { runBoundedGit, withLocalGitExecution, gitCommandIndex } from "../../core/gitExecution";
 import { assertValidLocalBranchName, inspectGitHistory, assertNoGitOperation } from "../../repository/gitMutations";
 import type { AgentHarnessLocalGitContext } from "./workspaceAccess";
-import { assertProviderOwnedRemote, type ProviderOwnedRemote } from "../../repository/providerOwnedRemote";
+import { assertProviderOwnedRemote, createProviderOwnedRemote, type ProviderOwnedRemote } from "../../repository/providerOwnedRemote";
+import { mutateProviderOwnedRemote } from "../../repository/gitRemoteManagement";
 import { managedWorkspaceId, verifyManagedCheckout, type ManagedWorkspaceStore } from "../../repository/managedWorktrees";
 
 const denied = (message: string) => new AgentHarnessError("WORKSPACE_ACCESS_DENIED", message);
@@ -51,7 +52,8 @@ function stamp(target: string): string {
   return `${stat.dev}:${stat.ino}:${stat.birthtimeMs}:${stat.isDirectory() ? "directory" : "file"}`;
 }
 function boundedText(target: string): string {
-  if (!fs.statSync(target).isFile() || fs.statSync(target).size > 65536) throw denied("Git control file exceeds its bounds.");
+  const stat = fs.lstatSync(target);
+  if (!stat.isFile() || stat.nlink !== 1 || stat.size > 65536) throw denied("Git control file must be ordinary, without hardlinks, and within its bounds.");
   return fs.readFileSync(target, "utf8");
 }
 async function localBranchName(root: string, branchName: string): Promise<void> {
@@ -66,6 +68,7 @@ interface WorktreeRecord { root: string; primary: boolean; branchName: string | 
 export interface LocalGitCheckoutSummary {
   localCheckoutHandle: string; repositoryHandle: string; primary: boolean; linked: boolean;
   branchName: string | null; detached: boolean; headCommit: string | null; unborn: boolean; clean: boolean; noRemote: boolean;
+  locked?: boolean;
 }
 
 /** A target adapter. All normal operations remain the existing repository Git primitives. */
@@ -140,21 +143,28 @@ export class LocalGitRepositoryAccessService {
     root = this.permitted(root);
     if (!fs.statSync(root).isDirectory()) throw denied("Local checkout must be a directory.");
     const metadata = this.permitted(path.join(root, ".git"));
-    const primary = fs.statSync(metadata).isDirectory();
+    const pointerFile = fs.statSync(metadata).isFile();
+    let primary = !pointerFile;
     let gitDirectory = metadata, commonDirectory = metadata;
     if (!primary) {
       const pointer = /^gitdir: ([^\r\n]+)\r?\n?$/.exec(boundedText(metadata));
       if (!pointer) throw denied("Linked checkout has invalid Git metadata.");
       gitDirectory = this.permitted(path.resolve(root, pointer[1]));
-      const common = boundedText(this.permitted(path.join(gitDirectory, "commondir"))).trim();
-      commonDirectory = this.permitted(path.resolve(gitDirectory, common));
-      if (!equal(path.dirname(path.dirname(gitDirectory)), commonDirectory) || component(path.basename(path.dirname(gitDirectory))) !== "worktrees") throw denied("Linked Git directory has an invalid common-directory relationship.");
-      const backlink = this.permitted(path.resolve(gitDirectory, boundedText(this.permitted(path.join(gitDirectory, "gitdir"))).trim()));
-      if (!equal(backlink, metadata)) throw denied("Linked Git metadata points to a different checkout.");
+      if (entryExists(path.join(gitDirectory, "commondir"))) {
+        const common = boundedText(this.permitted(path.join(gitDirectory, "commondir"))).trim();
+        if (!common) throw denied("Linked Git common-directory pointer is empty.");
+        commonDirectory = this.permitted(path.resolve(gitDirectory, common));
+        if (!equal(path.dirname(path.dirname(gitDirectory)), commonDirectory) || component(path.basename(path.dirname(gitDirectory))) !== "worktrees") throw denied("Linked Git directory has an invalid common-directory relationship.");
+        const backlink = this.permitted(path.resolve(gitDirectory, boundedText(this.permitted(path.join(gitDirectory, "gitdir"))).trim()));
+        if (!equal(backlink, metadata)) throw denied("Linked Git metadata points to a different checkout.");
+      } else { commonDirectory = gitDirectory; primary = true; }
     }
-    if (component(path.basename(commonDirectory)) !== ".git" || !fs.statSync(commonDirectory).isDirectory()) throw denied("Local repository requires primary Git control metadata inside trusted scope.");
+    if (!fs.statSync(commonDirectory).isDirectory() ||
+      !fs.statSync(this.permitted(path.join(commonDirectory, "objects"))).isDirectory() ||
+      !fs.statSync(this.permitted(path.join(commonDirectory, "refs"))).isDirectory()) throw denied("Local repository requires ordinary trusted Git control metadata.");
+    boundedText(this.permitted(path.join(commonDirectory, "HEAD")));
     const fingerprint = [root, gitDirectory, commonDirectory].map(key).join("\0") + "\0" +
-      [root, metadata, gitDirectory, commonDirectory].map(stamp).join("\0") + (primary ? "" : "\0" + boundedText(metadata) + boundedText(path.join(gitDirectory, "commondir")) + boundedText(path.join(gitDirectory, "gitdir")));
+      [root, metadata, gitDirectory, commonDirectory].map(stamp).join("\0") + (pointerFile ? "\0" + boundedText(metadata) : "") + (primary ? "" : "\0" + boundedText(path.join(gitDirectory, "commondir")) + boundedText(path.join(gitDirectory, "gitdir")));
     return { root, gitDirectory, commonDirectory, primary, fingerprint };
   }
 
@@ -162,13 +172,19 @@ export class LocalGitRepositoryAccessService {
     const output = (await runBoundedGit({ cwd: root, args: ["worktree", "list", "--porcelain", "-z"] })).stdout;
     const records = output.split("\0\0").filter(Boolean).map((record, index) => {
       const fields = record.split("\0");
-      if (fields.some(field => field === "bare" || field.startsWith("prunable"))) throw denied("Bare or dangling worktree metadata is not a usable local target.");
-      return { root: fields.find(field => field.startsWith("worktree "))?.slice(9) ?? "", primary: index === 0,
+      if (fields.some(field => field.startsWith("prunable"))) throw denied("Dangling worktree metadata is not a usable local target.");
+      return { root: fields.find(field => field.startsWith("worktree "))?.slice(9) ?? "", primary: index === 0 && !fields.includes("bare"), bare: fields.includes("bare"),
         branchName: fields.find(field => field.startsWith("branch refs/heads/"))?.slice(18) ?? null,
         locked: fields.some(field => field.startsWith("locked")) };
     });
     if (!records.length || records.length > 50) throw denied("Local worktree inventory exceeds its bound.");
-    return records;
+    const identity = this.filesystemIdentity(root);
+    // Git lists a --separate-git-dir primary by its metadata path. The requested
+    // checkout must still agree with show-toplevel/absolute-git-dir below.
+    if (identity.primary && records[0]?.primary && equal(records[0].root, identity.commonDirectory)) records[0].root = identity.root;
+    for (const [index, record] of records.entries()) if (record.bare &&
+      (index !== 0 || !equal(this.permitted(record.root), identity.commonDirectory))) throw denied("Bare inventory entry does not identify the trusted common directory.");
+    return records.filter(record => !record.bare);
   }
 
   private async verified(root: string, deadline?: number): Promise<Identity> {
@@ -331,7 +347,7 @@ export class LocalGitRepositoryAccessService {
       return await this.withCheckout(candidate[0], async checkout => {
         const availableWorktrees = await this.listWorktrees(checkout);
         const selected = input.localCheckoutHandle ? availableWorktrees.find(item => item.localCheckoutHandle === input.localCheckoutHandle)
-          : input.branchName ? availableWorktrees.find(item => item.branchName === input.branchName) : availableWorktrees.find(item => item.primary);
+          : input.branchName ? availableWorktrees.find(item => item.branchName === input.branchName) : availableWorktrees.find(item => item.primary) ?? availableWorktrees[0];
         if (!selected || input.branchName && selected.branchName !== input.branchName) throw new AgentHarnessError("INVALID_INPUT", "Select an available checkout with the requested active branch; selection does not change branches.");
         const entry = this.handles.get(selected.localCheckoutHandle)!;
         this.selections.set(session, { handle: selected.localCheckoutHandle, entry, stale: false });
@@ -470,7 +486,7 @@ export class LocalGitRepositoryAccessService {
 
   async listWorktrees(context: AgentHarnessLocalGitContext): Promise<LocalGitCheckoutSummary[]> {
     const summaries: LocalGitCheckoutSummary[] = [];
-    for (const record of await this.records(context.root)) summaries.push(await this.summary(this.filesystemIdentity(record.root)));
+    for (const record of await this.records(context.root)) summaries.push({ ...await this.summary(this.filesystemIdentity(record.root)), locked: record.locked });
     return summaries;
   }
 
@@ -525,6 +541,38 @@ export class LocalGitRepositoryAccessService {
         return await this.summary(await this.verified(destination));
       } catch { throw precondition("Clone failed or left a partial destination; inspect it before retrying. No cleanup was attempted."); }
     }, { config: remote.identity.transport === "local" ? ["protocol.file.allow=always"] : [] }));
+  }
+
+  async cloneSelected(context: AgentHarnessLocalGitContext, input: { destinationDirectory: string; branch: string; expectedSourceCommit: string }) {
+    await localBranchName(context.root, input.branch);
+    const commit = (await inspectGitHistory(context.root, { ref: `refs/heads/${input.branch}`, maxCount: 1 })).resolvedCommit;
+    if (commit !== input.expectedSourceCommit) throw precondition("Source branch changed; no clone was attempted.");
+    const remote = createProviderOwnedRemote({ providerId: "trusted-local", destination: context.root, allowLocalTransport: true });
+    const created = await this.clone(remote, { destinationDirectory: input.destinationDirectory, branch: input.branch });
+    if (created.headCommit !== commit) throw precondition("Clone source changed; inspect the created destination before retrying. No cleanup was attempted.");
+    return { ...created, requiresRepositorySelection: true };
+  }
+
+  async bindLocalRemote(context: AgentHarnessLocalGitContext, input: { sourceCheckoutHandle: string; remoteName: string; expectedBinding?: string }) {
+    const entry = this.handles.get(input.sourceCheckoutHandle);
+    if (!entry || entry.expires <= this.now()) throw denied("Source checkout handle is unknown or expired.");
+    const identity = await this.verified(entry.identity.root);
+    if (identity.fingerprint !== entry.identity.fingerprint || equal(identity.commonDirectory, context.commonDirectory)) throw denied("Remote source requires an independent currently authorized repository.");
+    const remote = createProviderOwnedRemote({ providerId: "trusted-local", destination: identity.root, allowLocalTransport: true });
+    const result = await mutateProviderOwnedRemote(context.root, { remoteName: input.remoteName, operation: input.expectedBinding ? "replace" : "add", expectedBinding: input.expectedBinding, remote });
+    if (this.filesystemIdentity(identity.root).fingerprint !== identity.fingerprint) throw denied("Local remote source changed; inspect the binding before retrying.");
+    return result;
+  }
+
+  async setWorktreeLock(context: AgentHarnessLocalGitContext, input: { locked: boolean; expectedLocked: boolean; expectedHead: string; expectedBranch: string; reason?: string }) {
+    const before = (await this.records(context.root)).find(record => equal(record.root, context.root));
+    const head = (await inspectGitHistory(context.root, { maxCount: 1 })).resolvedCommit;
+    if (!before || context.primary || before.locked !== input.expectedLocked || head !== input.expectedHead || before.branchName !== input.expectedBranch) throw precondition("Worktree state changed or is not a linked branch checkout.");
+    if (input.reason !== undefined && (!input.reason.trim() || input.reason.length > 2000 || /[\x00-\x1f]/.test(input.reason))) throw denied("Select a bounded worktree lock reason.");
+    if (input.locked === before.locked) return { ...await this.summary(this.filesystemIdentity(context.root)), locked: before.locked };
+    await runBoundedGit({ cwd: context.root, args: ["worktree", input.locked ? "lock" : "unlock", ...(input.locked && input.reason ? ["--reason", input.reason] : []), "--", context.root] });
+    const after = (await this.records(context.root)).find(record => equal(record.root, context.root)); if (!after || after.locked !== input.locked) throw precondition("Worktree lock did not verify; inspect before retrying.");
+    return { ...await this.summary(this.filesystemIdentity(context.root)), locked: after.locked };
   }
 
   async createWorktree(context: AgentHarnessLocalGitContext, input: { destinationDirectory: string; branchName: string; sourceRef?: string }) {

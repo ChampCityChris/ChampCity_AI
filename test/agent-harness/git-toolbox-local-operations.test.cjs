@@ -703,7 +703,7 @@ test("LOCALGIT01 trust, expiry, redirects and helper suppression fail closed wit
     assert.equal(variedPath.payload.repositories[0].checkouts[0].localCheckoutHandle, fresh);
     const metadata = path.join(root, ".git"), mixedMetadata = path.join(root, ".GiT");
     fs.renameSync(metadata, mixedMetadata);
-    assert.equal((await f.invoke("status", { localCheckoutHandle: fresh })).ok, false, "altered metadata naming must still match Git's actual worktree inventory");
+    assert.equal((await f.invoke("status", { localCheckoutHandle: fresh })).ok, true, "Windows metadata casing is valid when Git resolves the same trusted checkout/common-directory identity");
     fs.renameSync(mixedMetadata, metadata);
     rediscovered = await f.success("discover_local_repositories", { directory: root }); fresh = rediscovered.repositories[0].checkouts[0].localCheckoutHandle;
     const config = path.join(metadata, "config"), upper = path.join(metadata, "CONFIG"), before = fs.readFileSync(config);

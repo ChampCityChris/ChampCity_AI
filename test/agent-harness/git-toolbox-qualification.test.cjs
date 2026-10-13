@@ -1,0 +1,124 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const test = require("node:test");
+const { createAgentHarnessToolRegistry } = require("../../dist/main/agentHarness/tools/toolRegistry.js");
+const { LocalGitRepositoryAccessService } = require("../../dist/main/agentHarness/workspace/localGitRepositoryAccessService.js");
+const { startAgentHarnessHttpRuntime } = require("../../dist/main/agentHarness/runtime/httpRuntime.js");
+const { Client } = require("@modelcontextprotocol/sdk/client/index.js");
+const { StreamableHTTPClientTransport } = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
+const { execFileSync } = require("node:child_process");
+
+test("RMCP repair discovers generic trusted common directories and rejects inconsistent worktree identity", { timeout: 120000 }, async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "rmcp-topology-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const git = (cwd, ...args) => execFileSync("git", args, { cwd, encoding: "utf8", windowsHide: true, stdio: ["ignore", "pipe", "pipe"] }).trim();
+  const seed = path.join(root, "seed"); fs.mkdirSync(seed); git(seed, "init", "-b", "dev");
+  fs.writeFileSync(path.join(seed, "source.txt"), "fixture"); git(seed, "add", "."); git(seed, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "seed");
+  for (const layout of ["metadata/control", ".champcity/repository.git"]) {
+    const trusted = path.join(root, layout.startsWith("metadata") ? "generic" : "managed"); fs.mkdirSync(trusted);
+    const common = path.join(trusted, layout); fs.mkdirSync(path.dirname(common), { recursive: true });
+    git(trusted, "clone", "--bare", "--no-local", seed, common);
+    const dev = path.join(trusted, "Dev"), main = path.join(trusted, "Main");
+    git(trusted, "--git-dir", common, "worktree", "add", dev, "dev");
+    git(dev, "worktree", "add", "-b", "main", main, "HEAD");
+    const access = new LocalGitRepositoryAccessService(() => [trusted]), session = {};
+    const discovery = await access.discover({ directory: dev }, session);
+    assert.equal(discovery.repositories.length, 1); const group = discovery.repositories[0];
+    assert.equal(group.checkouts.length, 2); assert.ok(group.checkouts.every(checkout => checkout.repositoryHandle === group.repositoryHandle && !checkout.primary));
+    const selection = await access.selectContext(session, { repositoryHandle: group.repositoryHandle, branchName: "main" });
+    assert.equal(selection.activeBranch, "main");
+    await access.withContext(session, selection.selectedCheckout.localCheckoutHandle, checkout => assert.equal(checkout.commonDirectory, common));
+    assert.equal((await access.discover({ directory: common })).repositories.length, 0, "bare metadata never issues a checkout handle");
+    const gitDir = git(dev, "rev-parse", "--absolute-git-dir");
+    const hardlink = path.join(trusted, "pointer-hardlink"); fs.linkSync(path.join(dev, ".git"), hardlink);
+    await assert.rejects(access.discover({ directory: dev })); fs.unlinkSync(hardlink);
+    const replace = (file, content) => { const descriptor = fs.openSync(file, "r+"); try { fs.ftruncateSync(descriptor); fs.writeFileSync(descriptor, content); } finally { fs.closeSync(descriptor); } };
+    const rejects = async (file, content) => { const bytes = fs.readFileSync(file); replace(file, content); try { await assert.rejects(access.discover({ directory: dev })); } finally { replace(file, bytes); } };
+    await rejects(path.join(gitDir, "gitdir"), path.join(main, ".git"));
+    await rejects(path.join(gitDir, "commondir"), seed);
+    await rejects(path.join(gitDir, "commondir"), "");
+    await rejects(path.join(main, ".git"), `gitdir: ${path.join(seed, ".git")}\n`);
+    const config = path.join(common, "config"); await rejects(config, fs.readFileSync(config, "utf8") + "\n[include]\npath = external\n");
+    const alternate = path.join(common, "objects", "info", "alternates"); fs.writeFileSync(alternate, seed);
+    await assert.rejects(access.discover({ directory: dev })); fs.unlinkSync(alternate);
+    const saved = common + "-saved"; fs.renameSync(common, saved); fs.symlinkSync(saved, common, process.platform === "win32" ? "junction" : "dir");
+    await assert.rejects(access.discover({ directory: dev })); fs.rmSync(common, { recursive: true }); fs.renameSync(saved, common);
+    const moved = main + "-moved"; fs.renameSync(main, moved); await assert.rejects(access.discover({ directory: dev })); fs.renameSync(moved, main);
+    assert.equal((await access.discover({ directory: dev })).repositories[0].checkouts.length, 2);
+  }
+  const trusted = path.join(root, "separate"); fs.mkdirSync(trusted);
+  const checkout = path.join(trusted, "source"), common = path.join(trusted, "control");
+  git(trusted, "init", "--separate-git-dir", common, checkout);
+  const access = new LocalGitRepositoryAccessService(() => [trusted]);
+  assert.equal((await access.discover({ directory: checkout })).repositories[0].checkouts[0].primary, true);
+  const external = new LocalGitRepositoryAccessService(() => [checkout]);
+  await assert.rejects(external.discover({ directory: checkout }), /outside Trusted/);
+});
+
+test("RMCP generic public MCP bootstraps independent repositories and closes identity clone index worktree and remote gaps", { timeout: 600000 }, async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "rmcp-qual-")), first = path.join(root, "one"), second = path.join(root, "two"); fs.mkdirSync(first); fs.mkdirSync(second);
+  let now = Date.now(); const access = new LocalGitRepositoryAccessService(() => [root], () => now);
+  const registry = createAgentHarnessToolRegistry({ userDataRoot: path.join(root, "harness"), localGitAccess: access, workspaceAccess: {
+    resolveWorkspaceContext: () => { throw Error("must not enroll a Project"); }, listWorkspaceSummaries: () => [], listRepositoryCheckoutSummaries: () => [],
+  } });
+  const runtime = await startAgentHarnessHttpRuntime({ host: "127.0.0.1", port: 0, userDataRoot: path.join(root, "harness"), registry, allowUnauthenticatedLocal: true });
+  const a = new Client({ name: "independent-one", version: "1" }), b = new Client({ name: "independent-two", version: "1" });
+  t.after(async () => { await a.close(); await b.close(); await runtime.close(); await registry.shutdownProviders(); fs.rmSync(root, { recursive: true, force: true }); });
+  await a.connect(new StreamableHTTPClientTransport(new URL(runtime.url))); await b.connect(new StreamableHTTPClientTransport(new URL(runtime.url)));
+  const invoke = async (client, action, params = {}) => { const response = await client.callTool({ name: "git_toolbox", arguments: { action, params } }); return response.structuredContent ?? response; };
+  const success = async (client, action, params) => { const response = await invoke(client, action, params); assert.equal(response.ok, true, JSON.stringify(response)); return response.payload; };
+  const one = await success(a, "init_local_repository", { directory: first, initialBranch: "dev" });
+  const two = await success(b, "init_local_repository", { directory: second, initialBranch: "dev" });
+  assert.notEqual(one.repositoryHandle, two.repositoryHandle);
+  const select = (client, checkout) => success(client, "select_repository_context", { repositoryHandle: checkout.repositoryHandle, localCheckoutHandle: checkout.localCheckoutHandle });
+  await select(a, one); await select(b, two);
+  const run = (client, checkout, action, params = {}) => success(client, action, { localCheckoutHandle: checkout.localCheckoutHandle, ...params });
+  const state = (client, checkout) => run(client, checkout, "inspect_git_state");
+  const write = async (client, checkout, filePath, content, stage = true) => { const file = await run(client, checkout, "inspect_git_file", { filePath }); return run(client, checkout, "write_git_file_cas", { filePath, content, stage, expectedFileState: file.fileState, expectedIndexState: file.indexState }); };
+  for (const [client, checkout, content] of [[a, one, "first\n"], [b, two, "unrelated\n"]]) {
+    const identity = await run(client, checkout, "inspect_git_identity");
+    await run(client, checkout, "configure_git_identity", { name: "MCP Fixture", email: "fixture@example.invalid", expectedConfigurationState: identity.configurationState });
+    assert.equal((await invoke(client, "configure_git_identity", { localCheckoutHandle: checkout.localCheckoutHandle, name: "stale", email: "stale@example.invalid", expectedConfigurationState: identity.configurationState })).ok, false);
+    await write(client, checkout, "file.txt", content); await run(client, checkout, "commit", { message: "MCP bootstrap" });
+  }
+  const firstState = await state(a, one), secondState = await state(b, two); assert.notEqual(firstState.head, secondState.head);
+  assert.equal((await invoke(a, "status", { localCheckoutHandle: two.localCheckoutHandle })).error.code, "REPOSITORY_CONTEXT_MISMATCH");
+  assert.equal((await run(b, two, "status")).headCommit, secondState.head);
+  const discovered = await success(a, "discover_local_repositories", { directory: root }); assert.equal(discovered.repositories.length, 2);
+  await select(a, one);
+  const clone = await run(a, one, "clone_local_repository", { destinationDirectory: path.join(root, "clone"), branch: "dev", expectedSourceCommit: firstState.head });
+  assert.equal(clone.headCommit, firstState.head); assert.equal(clone.requiresRepositorySelection, true);
+  assert.equal((await invoke(a, "status", { localCheckoutHandle: clone.localCheckoutHandle })).error.code, "REPOSITORY_CONTEXT_MISMATCH");
+  await run(a, one, "checkout_ref", { ref: firstState.head, expectedState: firstState.state });
+  assert.equal((await invoke(a, "checkout_branch", { localCheckoutHandle: one.localCheckoutHandle, branchName: "dev", expectedBranchCommit: secondState.head, expectedState: (await state(a, one)).state })).ok, false);
+  assert.equal((await run(a, one, "checkout_branch", { branchName: "dev", expectedBranchCommit: firstState.head, expectedState: (await state(a, one)).state })).branch, "refs/heads/dev");
+  await write(a, one, "file.txt", "staged change\n");
+  await run(a, one, "restore_file_cas", { filePath: "file.txt", expectedState: (await state(a, one)).state, sourceRef: firstState.head, index: true, worktree: false });
+  assert.equal(fs.readFileSync(path.join(first, "file.txt"), "utf8"), "staged change\n");
+  await run(a, one, "restore_file_cas", { filePath: "file.txt", expectedState: (await state(a, one)).state, index: false, worktree: true }); assert.equal(fs.readFileSync(path.join(first, "file.txt"), "utf8").replace(/\r\n/g, "\n"), "first\n");
+  await run(a, one, "create_tag", { tagName: "v1", tagType: "annotated", target: firstState.head, message: "bounded object" });
+  const tag = await run(a, one, "inspect_tag_object", { tagName: "v1" }); assert.notEqual(tag.objectId, firstState.head);
+  assert.equal((await invoke(a, "delete_tag_cas", { localCheckoutHandle: one.localCheckoutHandle, tagName: "v1", expectedObjectId: firstState.head })).ok, false);
+  assert.equal((await run(a, one, "delete_tag_cas", { tagName: "v1", expectedObjectId: tag.objectId })).objectId, null);
+  const tree = await run(a, one, "create_local_worktree", { destinationDirectory: path.join(root, "linked"), branchName: "linked", sourceRef: firstState.head });
+  await select(a, tree);
+  assert.equal((await run(a, tree, "set_local_worktree_lock", { locked: true, expectedLocked: false, expectedHead: firstState.head, expectedBranch: "linked", reason: "fixture lock" })).locked, true);
+  assert.equal((await invoke(a, "remove_local_worktree", { localCheckoutHandle: tree.localCheckoutHandle, expectedBranch: "linked" })).ok, false);
+  assert.equal((await run(a, tree, "set_local_worktree_lock", { locked: false, expectedLocked: true, expectedHead: firstState.head, expectedBranch: "linked" })).locked, false);
+  await run(a, tree, "remove_local_worktree", { expectedBranch: "linked" });
+  await success(a, "discover_local_repositories", { directory: root }); await select(a, one);
+  let remote = await run(a, one, "bind_local_repository_remote", { sourceCheckoutHandle: two.localCheckoutHandle, remoteName: "peer" });
+  assert.equal((await invoke(a, "remove_remote", { localCheckoutHandle: one.localCheckoutHandle, remoteName: "peer", expectedBinding: "0".repeat(64) })).ok, false);
+  const oldBinding = remote.binding;
+  remote = await run(a, one, "configure_remote_tracking", { remote: "peer", sourceBranch: "dev", trackingBranch: "dev", expectedBinding: remote.binding }); assert.notEqual(remote.binding, oldBinding);
+  assert.equal((await invoke(a, "rename_remote", { localCheckoutHandle: one.localCheckoutHandle, remote: "peer", newName: "other", expectedBinding: oldBinding })).ok, false);
+  remote = await run(a, one, "rename_remote", { remote: "peer", newName: "other", expectedBinding: remote.binding }); assert.equal(remote.remote, "other");
+  await run(a, one, "remove_remote", { remoteName: "other", expectedBinding: remote.binding });
+  assert.deepEqual((await run(a, one, "inspect_remotes")).remotes, []);
+  await select(a, two); assert.equal((await invoke(a, "status", { localCheckoutHandle: one.localCheckoutHandle })).error.code, "REPOSITORY_CONTEXT_MISMATCH"); await select(a, one);
+  for (const params of [{ sourceRef: firstState.head, mode: "hard", expectedState: firstState.state }, { sourceRef: firstState.head, mode: "mixed", expectedState: firstState.state, command: "git clean -fd" }]) { const response = await invoke(a, "reset_ref", { localCheckoutHandle: one.localCheckoutHandle, ...params }); assert.ok(response.isError || response.ok === false); }
+  now += 31 * 60_000; assert.equal((await invoke(a, "status", { localCheckoutHandle: one.localCheckoutHandle })).error.code, "REPOSITORY_CONTEXT_STALE");
+  assert.equal(fs.existsSync(path.join(first, ".champcity")), false); assert.equal(fs.existsSync(path.join(second, ".champcity")), false);
+});

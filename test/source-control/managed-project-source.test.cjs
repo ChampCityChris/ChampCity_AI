@@ -20,7 +20,10 @@ function git(root, ...args) {
 }
 
 function tempRoot(context, prefix = "forced-normalization-") {
-  const temp = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  // The executor nests each fixture below its own temp root. Git for Windows
+  // reserves room beneath $GIT_DIR even with core.longpaths; keep fixture names
+  // short while retaining the intentional space-path retirement scenario.
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), prefix.includes(" ") ? "ad x-" : "ad-"));
   context.after(() => fs.rmSync(temp, { recursive: true, force: true }));
   const root = path.join(temp, "Project");
   fs.mkdirSync(root);

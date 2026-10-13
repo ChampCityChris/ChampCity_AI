@@ -199,6 +199,7 @@ export class AgentHarnessService {
 
   async stop(): Promise<AgentHarnessStatus> {
     if (!this.handle) {
+      await this.registry.shutdownProviders?.();
       this.state = "stopped";
       this.recordActivity("Stop requested while Agent Harness was already stopped.");
       return this.status();
@@ -208,6 +209,7 @@ export class AgentHarnessService {
     try {
       const closingHandle = this.handle;
       await closingHandle.close();
+      await this.registry.shutdownProviders?.();
       this.lastSessionDiagnostics = closingHandle.sessionDiagnostics();
       this.registryContract = closingHandle.runtimeToolContract();
       this.lastPublishedContractDiagnostics = closingHandle.publishedToolContractDiagnostics();

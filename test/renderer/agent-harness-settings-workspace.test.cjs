@@ -273,6 +273,9 @@ test("Settings workspace renders persistent controls, lifecycle controls, OAuth 
   }));
 
   assert.match(markup, /Agent Harness configuration/);
+  assert.match(markup, /Forgejo repository hosting/);
+  assert.match(markup, /independently of Project and workflow registration/);
+  assert.match(markup, /type="password"[^>]*autocomplete="new-password"/i);
   assert.match(markup, /Start Background Agent for my Windows user at sign-in/);
   assert.match(markup, /Start MCP Runtime when Background Agent starts/);
   assert.match(markup, /Service Host PID/);

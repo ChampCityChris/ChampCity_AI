@@ -65,6 +65,8 @@ export interface ExternalProviderDefinition {
   nativeToolFilter?: ExternalProviderNativeToolFilter;
   lifecycle: "ephemeral" | "persistent";
   requestTimeoutMs: number;
+  /** Application-owned result budgets for specific verified capabilities, never model input. */
+  resultCaptureLimits?: Readonly<Record<string, number>>;
   adapter: ExternalProviderAdapter;
 }
 
@@ -113,6 +115,7 @@ function validateDefinition(definition: ExternalProviderDefinition): void {
   if (capabilityIds.length === 0 || new Set(capabilityIds).size !== capabilityIds.length) {
     throw new Error(`External provider ${definition.providerId} requires unique normalized capability IDs.`);
   }
+  if (Object.entries(definition.resultCaptureLimits ?? {}).some(([id, limit]) => !capabilityIds.includes(id) || !Number.isSafeInteger(limit) || limit < 64000 || limit > 1000000)) throw new Error("Provider result limits require a known capability and a bounded application-owned budget.");
   const filteredTools = definition.nativeToolFilter?.tools ?? [];
   if (new Set(filteredTools).size !== filteredTools.length || filteredTools.some((name) => !name.trim())) {
     throw new Error(`External provider ${definition.providerId} has an invalid tool filter.`);
@@ -158,6 +161,7 @@ function freezeDefinition(definition: ExternalProviderDefinition): ExternalProvi
     ...definition,
     transport,
     nativeToolFilter,
+    ...(definition.resultCaptureLimits ? { resultCaptureLimits: Object.freeze({ ...definition.resultCaptureLimits }) } : {}),
   });
 }
 

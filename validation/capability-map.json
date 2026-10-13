@@ -1996,8 +1996,16 @@
           "description": "cold update acquisition failure falls back to verified prior runtime"
         },
         {
-          "behaviorId": "future-discovered-release-write-evidence-cannot-enable-a-mutation-route",
-          "description": "future discovered release write evidence cannot enable a mutation route"
+          "behaviorId": "github-named-compatibility-fixes-account-host-sha-routes-and-exact-binary-release-asset-identity",
+          "description": "GitHub named compatibility fixes account host SHA routes and exact binary release asset identity"
+        },
+        {
+          "behaviorId": "github-private-git-credential-verifies-the-resolved-token-user-and-never-accepts-another-host-or",
+          "description": "GitHub private Git credential verifies the resolved token user and never accepts another host or session identity"
+        },
+        {
+          "behaviorId": "github-public-mcp-executes-official-writes-and-named-compatibility-gaps-without-workflow-registrat",
+          "description": "GitHub public MCP executes official writes and named compatibility gaps without workflow registration Includes exclusive inline/trusted-local sources, 2 GiB transport policy, session identity, streamed >512 KiB assets and temporary download/hash verification."
         },
         {
           "behaviorId": "github-registration-fixes-official-stdio-toolsets-and-oauth-environment",
@@ -2006,6 +2014,10 @@
         {
           "behaviorId": "github-settings-shows-bounded-auth-runtime-capability-state-and-cancellable-login",
           "description": "GitHub Settings shows bounded auth/runtime/capability state and cancellable login"
+        },
+        {
+          "behaviorId": "incomplete-discovered-release-write-schemas-cannot-enable-a-mutation-route",
+          "description": "incomplete discovered release write schemas cannot enable a mutation route"
         },
         {
           "behaviorId": "malformed-results-and-provider-declared-errors-have-distinct-failure-kinds",
@@ -2956,6 +2968,7 @@
         "src/main/agentHarness/workspace/localGitRepositoryAccessService.ts",
         "src/main/agentHarness/workspace/repositoryTargetResolver.ts",
         "src/main/planExecution/**",
+        "src/main/repository/gitExtendedOperations.ts",
         "src/main/repository/gitMutations.ts",
         "src/main/repository/gitRemoteManagement.ts",
         "src/main/repository/providerOwnedRemote.ts",
@@ -3090,6 +3103,10 @@
           "description": "explicit retries recover safely after ambiguous create and upload timeouts"
         },
         {
+          "behaviorId": "external-git-ordinary-operations-and-recovery",
+          "description": "unregistered selected Git checkout supports file CAS, stash, search, notes, reset and conflict recovery"
+        },
+        {
           "behaviorId": "fetch-remote-and-fast-forward-branch-update-from-configured-upstream-without-a-merge-commit",
           "description": "fetch_remote and fast_forward_branch update from configured upstream without a merge commit"
         },
@@ -3196,6 +3213,18 @@
         {
           "behaviorId": "release-toolbox-publishes-exact-read-write-scoped-actions-with-no-raw-command-surface",
           "description": "release_toolbox publishes exact read/write-scoped actions with no raw command surface"
+        },
+        {
+          "behaviorId": "rmcp-direct-rebase-cherry-pick-and-revert-preserve-conflicts-and-recover-through-typed-mcp",
+          "description": "RMCP direct rebase cherry-pick and revert preserve conflicts and recover through typed MCP"
+        },
+        {
+          "behaviorId": "rmcp-generic-public-mcp-bootstraps-independent-repositories-and-closes-identity-clone-index-work",
+          "description": "RMCP generic public MCP bootstraps independent repositories and closes identity clone index worktree and remote gaps"
+        },
+        {
+          "behaviorId": "rmcp-trusted-common-directory-topology",
+          "description": "RMCP repair discovers generic trusted common directories and rejects inconsistent worktree identity"
         },
         {
           "behaviorId": "semver-and-set-version-are-bounded-to-a-validated-version-and-npm-owned-version-files",
@@ -3600,6 +3629,55 @@
         {
           "behaviorId": "workflow-stage-inspection-exact-read-and-mount-lifecycle",
           "description": "Inspection reads exact bounded SQL evidence without mutation and discards responses after unmount."
+        }
+      ]
+    },
+    {
+      "capabilityId": "repository-hosting",
+      "description": "Provider-neutral repository hosting facade, Forgejo compatibility metadata operations and application-owned authentication independent of workflow registration.",
+      "sourcePatterns": [
+        "src/main/externalProviders/forgejoHostingAdapter.ts",
+        "src/main/externalProviders/repositoryHosting*.ts",
+        "src/renderer/app/ForgejoProviderSettings.tsx",
+        "src/shared/repositoryHostingContracts.ts"
+      ],
+      "dependsOn": [
+        "agent-harness-mcp-runtime",
+        "agent-harness-repository-operations",
+        "release-and-git-operations"
+      ],
+      "behaviors": [
+        {
+          "behaviorId": "application-settings-cas-and-credential-realms",
+          "description": "application hosting settings persist metadata with CAS while credentials remain in the bounded secret store"
+        },
+        {
+          "behaviorId": "bounded-windows-credential-bridge",
+          "description": "bounded Windows credential bridge compiles and reads only an absent synthetic fixture reference"
+        },
+        {
+          "behaviorId": "configured-provider-owned-git-destinations",
+          "description": "Forgejo provider-owned Git destinations bind exact host, namespace, repository and metadata identity"
+        },
+        {
+          "behaviorId": "empty-repository-create-and-settings-expected-state",
+          "description": "Forgejo creates empty user and organization repositories idempotently and guards settings state"
+        },
+        {
+          "behaviorId": "forgejo-authentication-bounds-and-secret-projection",
+          "description": "Forgejo API authenticates exact namespaces, bounds responses and never projects provider secrets"
+        },
+        {
+          "behaviorId": "forgejo-hosted-ref-content-pr-review-contracts",
+          "description": "Forgejo global MCP publishes paged refs, file CAS, PR lifecycle and reviews without workspace registration"
+        },
+        {
+          "behaviorId": "global-mcp-hosting-and-explicit-targets",
+          "description": "global hosting MCP binds, pushes exact refs and clones within selected repository context without workflow registration"
+        },
+        {
+          "behaviorId": "private-http-git-authentication-isolation",
+          "description": "private HTTP Git authentication stays scoped to the configured destination and outside arguments, config and results"
         }
       ]
     },
@@ -5462,10 +5540,74 @@
       ]
     },
     {
+      "testPath": "test/agent-harness/git-toolbox-extended-operations.test.cjs",
+      "currentTestCount": {
+        "value": 2,
+        "basis": "Existing extension lifecycle plus RMCP04 direct-transform conflict/mainline proof."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 680000,
+        "basis": "Separately observed existing 502631 ms lifecycle and 165591 ms transform case, plus process allowance; the two-case file was not rerun as a whole."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": false,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [
+          "git-cli"
+        ],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: bounded-child-process, isolated-git-fixture, repository-readonly.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "repository-readonly"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "environment-bound",
+        "external-capability-bound"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "external-git-ordinary-operations-and-recovery",
+          "proofLocator": "unregistered selected Git checkout supports file CAS, stash, search, notes, reset and conflict recovery",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "rmcp-direct-rebase-cherry-pick-and-revert-preserve-conflicts-and-recover-through-typed-mcp",
+          "proofLocator": "RMCP direct rebase cherry-pick and revert preserve conflicts and recover through typed MCP",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
       "testPath": "test/agent-harness/git-toolbox-local-operations.test.cjs",
       "currentTestCount": {
         "value": 11,
-        "basis": "Observed TAP summary in the RMCP01 supported-Windows composed receipt 67ee78b9-5110-45c9-a504-15a84fa6fdee."
+        "basis": "Preserved RMCP01 suite; the materially distinct RMCP02 extended lifecycle proof is separately bounded."
       },
       "duration": {
         "kind": "measured",
@@ -5584,6 +5726,71 @@
           "behaviorId": "provider-owned-remotes-and-trusted-clone",
           "proofRole": "primary",
           "proofLocator": "RMCP01 provider-owned remote CAS, exact refs and trusted clone preserve identity boundaries"
+        }
+      ]
+    },
+    {
+      "testPath": "test/agent-harness/git-toolbox-qualification.test.cjs",
+      "currentTestCount": {
+        "value": 2,
+        "basis": "RMCP-REPAIR01 adds generic managed topology and containment regression to the existing public Git qualification owner."
+      },
+      "duration": {
+        "kind": "measured",
+        "milliseconds": 142976,
+        "basis": "RMCP05 corrected normal-Windows public MCP fixture; entire file process duration."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "none",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": true,
+        "process": true,
+        "timing": false
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "any",
+        "externalCapabilities": [
+          "git-cli"
+        ],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Independent disposable repositories, ephemeral public MCP endpoint and bounded Git child processes; no registered Project or live provider.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "loopback-dynamic-endpoint",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral",
+        "environment-bound",
+        "external-capability-bound"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "rmcp-generic-public-mcp-bootstraps-independent-repositories-and-closes-identity-clone-index-work",
+          "proofLocator": "RMCP generic public MCP bootstraps independent repositories and closes identity clone index worktree and remote gaps",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "release-and-git-operations",
+          "behaviorId": "rmcp-trusted-common-directory-topology",
+          "proofLocator": "RMCP repair discovers generic trusted common directories and rejects inconsistent worktree identity",
+          "proofRole": "primary"
         }
       ]
     },
@@ -10060,24 +10267,123 @@
       ]
     },
     {
+      "testPath": "test/external-providers/forgejo-hosting.test.cjs",
+      "currentTestCount": {
+        "value": 8,
+        "basis": "RMCP02 adds one previously uncovered published MCP ordinary-operation lifecycle case to the existing capability suite."
+      },
+      "duration": {
+        "kind": "estimated",
+        "milliseconds": 90000,
+        "basis": "Initial synthetic HTTP, native credential bridge and MCP Git fixture estimate; final supported-Windows measurement pending."
+      },
+      "proposedValidationLane": "integration",
+      "platformDependency": "windows",
+      "dependencies": {
+        "electron": false,
+        "filesystem": true,
+        "git": true,
+        "network": true,
+        "process": true,
+        "timing": true
+      },
+      "sourceInspectionClassification": "none",
+      "v2Disposition": "preserve",
+      "validationRoles": [
+        "capability",
+        "integration"
+      ],
+      "execution": {
+        "requiresBuild": true,
+        "platform": "windows",
+        "externalCapabilities": [
+          "git-cli"
+        ],
+        "scheduling": "parallel-safe",
+        "schedulingReason": "Isolated dynamic HTTP endpoints, temporary Git/settings fixtures and a read-only absent native credential reference; no shared mutable system state.",
+        "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "loopback-dynamic-endpoint",
+          "temp-filesystem-isolated"
+        ]
+      },
+      "proofCharacteristics": [
+        "behavioral"
+      ],
+      "dispositionReasons": [
+        "current-proof-appropriate"
+      ],
+      "behaviorCoverage": [
+        {
+          "capabilityId": "repository-hosting",
+          "behaviorId": "application-settings-cas-and-credential-realms",
+          "proofLocator": "application hosting settings persist metadata with CAS while credentials remain in the bounded secret store",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "repository-hosting",
+          "behaviorId": "bounded-windows-credential-bridge",
+          "proofLocator": "bounded Windows credential bridge compiles and reads only an absent synthetic fixture reference",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "repository-hosting",
+          "behaviorId": "configured-provider-owned-git-destinations",
+          "proofLocator": "Forgejo provider-owned Git destinations bind exact host, namespace, repository and metadata identity",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "repository-hosting",
+          "behaviorId": "empty-repository-create-and-settings-expected-state",
+          "proofLocator": "Forgejo creates empty user and organization repositories idempotently and guards settings state",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "repository-hosting",
+          "behaviorId": "forgejo-authentication-bounds-and-secret-projection",
+          "proofLocator": "Forgejo API authenticates exact namespaces, bounds responses and never projects provider secrets",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "repository-hosting",
+          "behaviorId": "forgejo-hosted-ref-content-pr-review-contracts",
+          "proofLocator": "Forgejo global MCP publishes paged refs, file CAS, PR lifecycle and reviews without workspace registration",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "repository-hosting",
+          "behaviorId": "global-mcp-hosting-and-explicit-targets",
+          "proofLocator": "global hosting MCP binds, pushes exact refs and clones within selected repository context without workflow registration",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "repository-hosting",
+          "behaviorId": "private-http-git-authentication-isolation",
+          "proofLocator": "private HTTP Git authentication stays scoped to the configured destination and outside arguments, config and results",
+          "proofRole": "primary"
+        }
+      ]
+    },
+    {
       "testPath": "test/external-providers/github-provider.test.cjs",
       "currentTestCount": {
-        "value": 16,
-        "basis": "Observed TAP summary in the TSR11 final supported-Windows serial per-file audit."
+        "value": 19,
+        "basis": "RMCP-REPAIR01 extends existing public MCP release lifecycle and fixed compatibility proof with streamed upload, retrieval, integrity, source identity and schema boundaries; nineteen cases retained."
       },
       "duration": {
         "kind": "measured",
-        "milliseconds": 433,
-        "basis": "Measured by the TSR11 final supported-Windows serial per-file audit; wall-clock file-process duration."
+        "milliseconds": 1290,
+        "basis": "RMCP05 final normal-Windows GitHub MCP proof file; all nineteen cases, entire file process duration."
       },
       "proposedValidationLane": "integration",
       "platformDependency": "none",
       "dependencies": {
         "electron": false,
         "filesystem": true,
-        "git": false,
-        "network": false,
-        "process": false,
+        "git": true,
+        "network": true,
+        "process": true,
         "timing": true
       },
       "sourceInspectionClassification": "none",
@@ -10090,10 +10396,15 @@
       "execution": {
         "requiresBuild": true,
         "platform": "any",
-        "externalCapabilities": [],
+        "externalCapabilities": [
+          "git-cli"
+        ],
         "scheduling": "parallel-safe",
-        "schedulingReason": "Parallel-safe audited ownership with no mutable shared/global state: temp-filesystem-isolated.",
+        "schedulingReason": "Isolated synthetic provider sessions, ephemeral loopback MCP port and temporary filesystem; no live authentication or runtime download.",
         "ownedResources": [
+          "bounded-child-process",
+          "isolated-git-fixture",
+          "loopback-dynamic-endpoint",
           "temp-filesystem-isolated"
         ]
       },
@@ -10137,14 +10448,32 @@
         },
         {
           "capabilityId": "external-provider-integration",
-          "behaviorId": "future-discovered-release-write-evidence-cannot-enable-a-mutation-route",
-          "proofLocator": "future discovered release write evidence cannot enable a mutation route",
+          "behaviorId": "github-named-compatibility-fixes-account-host-sha-routes-and-exact-binary-release-asset-identity",
+          "proofLocator": "GitHub named compatibility fixes account host SHA routes and exact binary release asset identity",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "external-provider-integration",
+          "behaviorId": "github-private-git-credential-verifies-the-resolved-token-user-and-never-accepts-another-host-or",
+          "proofLocator": "GitHub private Git credential verifies the resolved token user and never accepts another host or session identity",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "external-provider-integration",
+          "behaviorId": "github-public-mcp-executes-official-writes-and-named-compatibility-gaps-without-workflow-registrat",
+          "proofLocator": "GitHub public MCP executes official writes and named compatibility gaps without workflow registration",
           "proofRole": "primary"
         },
         {
           "capabilityId": "external-provider-integration",
           "behaviorId": "github-registration-fixes-official-stdio-toolsets-and-oauth-environment",
           "proofLocator": "GitHub registration fixes official stdio toolsets and OAuth environment",
+          "proofRole": "primary"
+        },
+        {
+          "capabilityId": "external-provider-integration",
+          "behaviorId": "incomplete-discovered-release-write-schemas-cannot-enable-a-mutation-route",
+          "proofLocator": "incomplete discovered release write schemas cannot enable a mutation route",
           "proofRole": "primary"
         },
         {

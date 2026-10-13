@@ -38,5 +38,11 @@ test("typed preload executes only fixed GitHub IPC channels and forwards constra
   await api.readGithubEvidence({ kind: "release", tag: "v1" });
   assert.deepEqual(invocations.map((entry) => entry[0]), ["githubProvider:status", "githubProvider:connect", "githubProvider:restart", "githubProvider:disconnect", "githubProvider:read"]);
   assert.deepEqual(invocations.at(-1)[1], { kind: "release", tag: "v1" });
+  await api.getRepositoryHostingSettings();
+  await api.saveRepositoryHostingSettings({ configurationId: "a".repeat(64), providers: [] });
+  await api.getRepositoryHostingProviderStatus("forgejo-fixture");
+  await api.saveRepositoryHostingCredential({ providerId: "forgejo-fixture", expectedConfigurationId: "a".repeat(64), token: "synthetic-fixture" });
+  await api.removeRepositoryHostingCredential({ providerId: "forgejo-fixture", expectedConfigurationId: "a".repeat(64) });
+  assert.deepEqual(invocations.slice(-5).map(entry => entry[0]), ["repositoryHosting:settings", "repositoryHosting:saveSettings", "repositoryHosting:providerStatus", "repositoryHosting:saveCredential", "repositoryHosting:removeCredential"]);
   assert.ok(!Object.keys(api).some((name) => /callGithubTool|invokeCapability|registerProvider/.test(name)));
 });

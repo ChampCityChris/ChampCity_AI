@@ -2,6 +2,7 @@ import {useState,useEffect,type FormEvent} from "react";
 import {Bot,FileText,FolderOpen,Play,RefreshCw,RotateCcw,Settings as SettingsIcon,Square} from "lucide-react";
 import type {AgentHarnessAuthenticationMode,AgentHarnessSettingsInput,AgentHarnessServiceHostLifecycleSettingsInput,AgentHarnessServiceHostLifecycleStatus,AgentHarnessStatus,AgentHarnessWorkspaceRegistrySnapshot} from "../../shared/workspaceContracts";
 import {GithubProviderSettings} from "./GithubProviderSettings";
+import {ForgejoProviderSettings} from "./ForgejoProviderSettings";
 import {CodexConnectionsPanel} from "./CodexConnectionsPanel";
 export interface AgentHarnessSettingsForm {
   trustedLocalGitRoots: string;
@@ -303,6 +304,7 @@ export function AgentHarnessSettingsWorkspace({
 
       <div className="settings-grid">
         <GithubProviderSettings />
+        <ForgejoProviderSettings />
         <section className="settings-panel settings-panel-wide" aria-label="Registered MCP Projects">
           <header>
             <span>Registered MCP Projects</span>

@@ -3,6 +3,7 @@ import type { CodexModelSelection } from "../shared/codexRuntimeContracts";
 import { createGithubRuntimeOperations } from "./externalProviders/githubRuntime";
 import { GithubProviderService } from "./externalProviders/githubProviderService";
 import { registerGithubProviderIpc } from "./externalProviders/githubProviderIpc";
+import { registerRepositoryHostingIpc } from "./externalProviders/repositoryHostingIpc";
 import { productIdentity } from "../shared/productIdentity";
 import { codexRuntimeManager } from "./workCardBuilding/codexRuntimeManager";
 import { createCodexRuntimeExecutionOperations } from "./workCardBuilding/codexRuntimeOperations";
@@ -163,6 +164,7 @@ const sessionActiveWorkspace = new SessionActiveWorkspaceSelection();
 const projectSourceOperationCoordinator = createProjectSourceOperationCoordinator({ userDataRoot: getUserDataRoot() });
 const githubProviderService = new GithubProviderService({ runtime: createGithubRuntimeOperations(getUserDataRoot()) });
 registerGithubProviderIpc(ipcMain, githubProviderService, getRequiredWorkspaceRoot);
+registerRepositoryHostingIpc(ipcMain, getUserDataRoot);
 const selectedWorkspaceEvidenceNotifier = new SelectedWorkspaceEvidenceNotifier((notification) => {
   sendRendererEvent("workspace:evidenceChanged", notification);
 });

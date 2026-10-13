@@ -170,7 +170,7 @@ export class ExternalProviderGateway {
         startedAt: started.toISOString(),
         completedAt: completed.toISOString(),
         durationMs: Math.max(0, completed.getTime() - started.getTime()),
-        result: captureProviderResult(result),
+        result: captureProviderResult(result, definition.resultCaptureLimits?.[capabilityId]),
       };
       status.readiness = "ready";
       status.transport = "connected";
@@ -461,23 +461,23 @@ function providerErrorDiagnostic(result: unknown): string {
   return text || "The external provider reported a tool execution error.";
 }
 
-function captureProviderResult(result: unknown): unknown {
-  const state = { nodes: 0, characters: 0, truncated: false };
+function captureProviderResult(result: unknown, limit = maximumCapturedResultCharacters): unknown {
+  const state = { nodes: 0, characters: 0, truncated: false, limit };
   const seen = new WeakSet<object>();
   const captured = captureValue(result, state, seen, 0);
   const serialized = JSON.stringify(captured);
-  if (serialized.length <= maximumCapturedResultCharacters) {
+  if (serialized.length <= limit) {
     return captured;
   }
   return {
     truncated: true,
-    preview: redactProviderText(serialized.slice(0, maximumCapturedResultCharacters)),
+    preview: redactProviderText(serialized.slice(0, limit)),
   };
 }
 
 function captureValue(
   value: unknown,
-  state: { nodes: number; characters: number; truncated: boolean },
+  state: { nodes: number; characters: number; truncated: boolean; limit: number },
   seen: WeakSet<object>,
   depth: number,
 ): unknown {
@@ -487,7 +487,7 @@ function captureValue(
     return "[TRUNCATED]";
   }
   if (typeof value === "string") {
-    const remaining = Math.max(0, maximumCapturedResultCharacters - state.characters);
+    const remaining = Math.max(0, state.limit - state.characters);
     const text = redactProviderText(value).slice(0, remaining);
     state.characters += text.length;
     if (text.length < value.length) state.truncated = true;

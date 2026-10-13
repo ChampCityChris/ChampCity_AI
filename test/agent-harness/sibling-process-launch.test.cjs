@@ -43,6 +43,7 @@ test("production Desktop and Service Host callers generate bounded sibling launc
       "./externalProviders/githubRuntime": { createGithubRuntimeOperations: () => ({}) },
       "./externalProviders/githubProviderService": { GithubProviderService: class {} },
       "./externalProviders/githubProviderIpc": { registerGithubProviderIpc() {} },
+      "./externalProviders/repositoryHostingIpc": { registerRepositoryHostingIpc() {} },
       "./workspaceEvidence/selectedWorkspaceEvidenceNotifier": { SelectedWorkspaceEvidenceNotifier: class {} },
       "./browser/architectBrowserService": { subscribeArchitectBrowserFoundationStatus() {} },
       "./agentHarness/runtime/desktopLifecycleLease": { acquireDesktopLifecycleLease: () => new Promise(() => {}) },

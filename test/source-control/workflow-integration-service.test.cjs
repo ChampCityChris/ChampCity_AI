@@ -17,7 +17,8 @@ const operator = { principalId: "operator", principalType: "human", role: "Opera
 function git(root, ...args) { return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim(); }
 
 async function qualifyExactWorkflowIntegration(context, workflowType) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "champcity-exact-workflow-integration-"));
+  // Keep the fixture below Git for Windows' metadata path limit under the executor's nested temp root.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "wfi-"));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const seed = path.join(root, "seed"); fs.mkdirSync(seed, { recursive: true });
   git(seed, "init", "-b", "dev"); git(seed, "config", "user.name", "Workflow Integration Test"); git(seed, "config", "user.email", "workflow@example.invalid");
