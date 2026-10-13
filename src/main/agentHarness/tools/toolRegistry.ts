@@ -87,7 +87,7 @@ import { WindowsRepositoryHostingCredentialStore } from "../../externalProviders
 import { GithubHostingAdapter } from "../../externalProviders/githubHostingAdapter";
 import { GithubProviderService } from "../../externalProviders/githubProviderService";
 import { createGithubRuntimeOperations } from "../../externalProviders/githubRuntime";
-import { withGitHttpAuthentication } from "../../core/gitExecution";
+import { withGitHttpAuthentication, withGitExecutionCancellation } from "../../core/gitExecution";
 import * as extendedGit from "../../repository/gitExtendedOperations";
 import { ENTITY_TYPE_REGISTRY } from "../../../shared/projectState/entityTypeRegistry";
 import { inspectRegisteredProjectState } from "../../projectState/projectStateInspectionService";
@@ -314,7 +314,7 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
     listTools: (scope = PRIMARY_MCP_RESOURCE_SCOPE) => providers
       .map((provider) => buildToolDefinition(provider, scope))
       .filter((definition): definition is AgentHarnessToolDefinition => Boolean(definition)),
-    callTool: async (call) => {
+    callTool: (call) => withGitExecutionCancellation(async () => {
       const attemptId = `ahr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
       const timestamp = new Date().toISOString();
       let action = "unknown";
@@ -451,9 +451,12 @@ export function createAgentHarnessToolRegistry(options: RegistryOptions): AgentH
           timestamp,
         };
       }
-    },
+    // Other toolboxes own cancellation/cleanup results (notably repository processes).
+    }, providerNamesWithGitCancellation.has(call.name) ? call.signal : undefined),
   };
 }
+
+const providerNamesWithGitCancellation = new Set(["git_toolbox", "integration_toolbox"]);
 
 function createToolProviders(releaseToolbox: ReleaseToolbox, repositoryHosting: RepositoryHostingFacade, localGitAccess: LocalGitRepositoryAccessService | undefined, repositoryTargets: RepositoryTargetResolver): ToolProvider[] {
   return [

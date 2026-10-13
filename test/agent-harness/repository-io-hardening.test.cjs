@@ -15,6 +15,10 @@ const {
 } = require("../../dist/main/repository/repositoryOperations.js");
 const {
   GIT_COMMAND_TIMEOUT_MS,
+  GIT_EXECUTION_BUDGETS,
+  gitExecutionClass,
+  withLocalGitExecution,
+  withGitExecutionCancellation,
   GIT_STDERR_LIMIT_BYTES,
   GIT_STDOUT_LIMIT_BYTES,
   runBoundedGit,
@@ -215,6 +219,69 @@ test("Git status and diff are asynchronous, bounded, and terminate timed-out chi
   assert.equal(GIT_COMMAND_TIMEOUT_MS, 15_000);
   assert.equal(GIT_STDOUT_LIMIT_BYTES, 1_000_000);
   assert.equal(GIT_STDERR_LIMIT_BYTES, 65_536);
+
+  await t.test("internal network budgets preserve short local caps, deadlines and cancellation", async context => {
+    const { EventEmitter } = require("node:events"), { PassThrough } = require("node:stream");
+    const timers = [], children = [];
+    context.mock.method(global, "setTimeout", (callback, milliseconds) => {
+      const timer = { callback, milliseconds, unref() {} }; timers.push(timer); return timer;
+    });
+    context.mock.method(global, "clearTimeout", () => undefined);
+    context.mock.method(Date, "now", () => 1000);
+    context.mock.method(childProcess, "spawn", () => {
+      const child = new EventEmitter(); child.stdout = new PassThrough(); child.stderr = new PassThrough(); child.exitCode = null;
+      child.kills = 0; child.kill = () => { child.kills++; child.exitCode = 1; queueMicrotask(() => child.emit("close", 1)); };
+      children.push(child); return child;
+    });
+    assert.deepEqual(GIT_EXECUTION_BUDGETS, { "local-default": 15000, "network-read": 120000, "network-write": 120000, "network-clone": 300000 });
+    const mappings = [
+      [["status"], "local-default"], [["diff", "--", "clone"], "local-default"], [["commit", "-m", "push"], "local-default"],
+      [["rev-parse", "HEAD"], "local-default"], [["branch"], "local-default"], [["tag", "v1"], "local-default"],
+      [["add", "."], "local-default"], [["reset", "--soft", "HEAD"], "local-default"], [["worktree", "list"], "local-default"],
+      [["config", "remote.origin.url"], "local-default"], [["remote", "get-url", "origin"], "local-default"],
+      [["remote", "show", "-n", "origin"], "local-default"], [["remote", "show", "origin"], "network-read"],
+      [["-c", "x=clone", "-C", "push", "fetch", "origin"], "network-read"],
+      [["fetch", "origin"], "network-read"], [["pull", "origin"], "network-read"], [["ls-remote", "origin"], "network-read"],
+      [["remote", "prune", "origin"], "network-read"], [["remote", "update"], "network-read"],
+      [["push", "origin", "dev"], "network-write"], [["push", "--delete", "origin", "dev"], "network-write"],
+      [["push", "origin", "refs/tags/v1:refs/tags/v1"], "network-write"], [["clone", "url", "destination"], "network-clone"],
+    ];
+    for (const [args, executionClass] of mappings) {
+      assert.equal(gitExecutionClass(args), executionClass);
+      const offset = timers.length, pending = runBoundedGit({ cwd: root, args, timeoutMs: 999999 });
+      const rejection = assert.rejects(pending, { code: "GIT_TIMEOUT" });
+      assert.equal(timers[offset].milliseconds, GIT_EXECUTION_BUDGETS[executionClass]);
+      timers[offset].callback(); await rejection; assert.equal(children.at(-1).kills, 1);
+    }
+    for (const executionClass of ["network-read", "network-write", "network-clone"]) {
+      const offset = timers.length;
+      const pending = withLocalGitExecution(() => runBoundedGit({ cwd: root, args: ["clone"], executionClass, timeoutMs: 999999 }), { deadline: 1025 });
+      const rejection = assert.rejects(pending, { code: "GIT_TIMEOUT" });
+      assert.equal(timers[offset].milliseconds, 25); timers[offset].callback(); await rejection;
+    }
+    const offset = timers.length, short = runBoundedGit({ cwd: root, args: ["clone"], timeoutMs: 10 });
+    const shortRejection = assert.rejects(short, { code: "GIT_TIMEOUT" });
+    assert.equal(timers[offset].milliseconds, 10); timers[offset].callback(); await shortRejection;
+    const beforeExpired = children.length;
+    await assert.rejects(withLocalGitExecution(() => runBoundedGit({ cwd: root, args: ["clone"] }), { deadline: 1000 }), { code: "GIT_TIMEOUT" });
+    assert.equal(children.length, beforeExpired, "expired parent deadline never spawns Git");
+    for (const innerDeadline of [undefined, 999999]) {
+      const offset = timers.length;
+      const pending = withLocalGitExecution(() => withLocalGitExecution(() => runBoundedGit({ cwd: root, args: ["clone"] }), { deadline: innerDeadline }), { deadline: 1025 });
+      const rejection = assert.rejects(pending, { code: "GIT_TIMEOUT" });
+      assert.equal(timers[offset].milliseconds, 25); timers[offset].callback(); await rejection;
+    }
+    for (const inherited of [false, true]) {
+      const controller = new AbortController();
+      const start = () => runBoundedGit({ cwd: root, args: ["clone"], ...(inherited ? {} : { signal: controller.signal }) });
+      const pending = inherited ? withGitExecutionCancellation(start, controller.signal) : start();
+      const rejection = assert.rejects(pending, error => error.code === "GIT_EXECUTION_FAILED" && error.details.terminationReason === "cancelled");
+      controller.abort(); await rejection; assert.equal(children.at(-1).kills, 1);
+      const before = children.length;
+      await assert.rejects(inherited ? withGitExecutionCancellation(start, controller.signal) : start(), /cancelled/);
+      assert.equal(children.length, before, "pre-cancelled command never spawns Git");
+    }
+  });
 });
 
 test("bounded Git cancels streamed output and terminates children on either output limit", async (t) => {

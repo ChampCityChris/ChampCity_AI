@@ -567,7 +567,7 @@ export class LocalGitRepositoryAccessService {
       }
       if (input.branch !== undefined) await localBranchName(parent, input.branch);
       try {
-        await runBoundedGit({ cwd: parent, args: ["clone", "--no-local", "--no-hardlinks", "--no-recurse-submodules", "--template=",
+        await runBoundedGit({ cwd: parent, executionClass: "network-clone", args: ["clone", "--no-local", "--no-hardlinks", "--no-recurse-submodules", "--template=",
           ...(input.branch ? ["--branch", input.branch] : []), "--", remote.destination, destination] });
         return await this.summary(await this.verified(destination));
       } catch { throw precondition("Clone failed or left a partial destination; inspect it before retrying. No cleanup was attempted."); }

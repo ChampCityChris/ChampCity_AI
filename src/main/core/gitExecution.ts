@@ -3,6 +3,14 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { AgentHarnessError } from "./applicationErrors";
 
 export const GIT_COMMAND_TIMEOUT_MS = 15_000;
+/** Internal budgets only. MCP callers cannot select classes or extend deadlines. */
+export const GIT_EXECUTION_BUDGETS = Object.freeze({
+  "local-default": GIT_COMMAND_TIMEOUT_MS,
+  "network-read": 120_000,
+  "network-write": 120_000,
+  "network-clone": 300_000,
+});
+export type GitExecutionClass = keyof typeof GIT_EXECUTION_BUDGETS;
 export const GIT_STDOUT_LIMIT_BYTES = 1_000_000;
 export const GIT_STDERR_LIMIT_BYTES = 65_536;
 
@@ -13,6 +21,8 @@ interface GitExecutionOptions {
   /** Only bootstrap uses fixed commit dates to make an interrupted initial revision reproducible. */
   commitDates?: { author: string; committer: string };
   timeoutMs?: number;
+  executionClass?: GitExecutionClass;
+  signal?: AbortSignal;
   stdoutLimitBytes?: number;
   stderrLimitBytes?: number;
   rejectNonZero?: boolean;
@@ -36,6 +46,11 @@ const localPolicy = new AsyncLocalStorage<{ config: string[]; verify?: (cwd: str
 export interface GitHttpAuthentication { destination: string; username: string; password: string }
 export type GitHttpAuthenticationResolver = (cwd: string, args: string[]) => Promise<GitHttpAuthentication | null>;
 const httpAuthentication = new AsyncLocalStorage<GitHttpAuthenticationResolver>();
+const cancellation = new AsyncLocalStorage<AbortSignal | undefined>();
+/** Inherit MCP cancellation without weakening nested checkout verification/deadlines. */
+export function withGitExecutionCancellation<T>(operation: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  return cancellation.run(signal, operation);
+}
 /** Internal provider proof for username-only legacy inspection; never a public credential result. */
 export async function verifiedGitHttpUsername(cwd: string, remote: string, push = false): Promise<string | undefined> {
   return (await httpAuthentication.getStore()?.(cwd, [push ? "push" : "ls-remote", "--", remote]))?.username;
@@ -45,7 +60,9 @@ export function withGitHttpAuthentication<T>(operation: () => Promise<T>, resolv
   return httpAuthentication.run(resolver, operation);
 }
 export function withLocalGitExecution<T>(operation: () => Promise<T>, policy: { config?: string[]; verify?: (cwd: string, args: string[]) => void; deadline?: number } = {}): Promise<T> {
-  return localPolicy.run({ ...policy, config: policy.config ?? [] }, operation);
+  const parentDeadline = localPolicy.getStore()?.deadline;
+  const deadline = parentDeadline === undefined ? policy.deadline : Math.min(parentDeadline, policy.deadline ?? parentDeadline);
+  return localPolicy.run({ ...policy, deadline, config: policy.config ?? [] }, operation);
 }
 
 /** Locate the command, never confuse a branch/path/message operand with it. */
@@ -55,6 +72,16 @@ export function gitCommandIndex(args: string[]): number {
     if (!args[index].startsWith("-")) return index;
   }
   return -1;
+}
+/** Only command/subcommand positions confer a network budget, never operands. */
+export function gitExecutionClass(args: string[]): GitExecutionClass {
+  const position = gitCommandIndex(args), command = args[position];
+  if (command === "clone") return "network-clone";
+  if (command === "push") return "network-write";
+  if (["fetch", "pull", "ls-remote"].includes(command)) return "network-read";
+  if (command === "remote" && ["prune", "update"].includes(args[position + 1])) return "network-read";
+  if (command === "remote" && args[position + 1] === "show" && !args.slice(position + 2).includes("-n")) return "network-read";
+  return "local-default";
 }
 function localGitArguments(args: string[], config: string[]): string[] {
   const position = gitCommandIndex(args), command = args[position];
@@ -74,6 +101,9 @@ function localGitArguments(args: string[], config: string[]): string[] {
 }
 
 export async function runBoundedGit(options: GitExecutionOptions): Promise<GitExecutionResult> {
+  const signals = [...new Set([options.signal, cancellation.getStore()].filter((signal): signal is AbortSignal => Boolean(signal)))];
+  const cancelled = () => new AgentHarnessError("GIT_EXECUTION_FAILED", "Git operation was cancelled.", { terminationReason: "cancelled" });
+  if (signals.some(signal => signal.aborted)) throw cancelled();
   const policy = localPolicy.getStore();
   policy?.verify?.(options.cwd, options.args);
   const resolver = httpAuthentication.getStore();
@@ -94,9 +124,11 @@ export async function runBoundedGit(options: GitExecutionOptions): Promise<GitEx
       GIT_CONFIG_KEY_3: "http.followRedirects", GIT_CONFIG_VALUE_3: "false" };
   }
   const scrub = (value: string) => confidential.reduce((result, secret) => result.replaceAll(secret, "<REDACTED>"), value);
-  if (policy?.deadline && Date.now() >= policy.deadline) return Promise.reject(new AgentHarnessError("GIT_TIMEOUT", "Local Git discovery deadline reached."));
-  const timeoutMs = Math.min(Math.max(1, options.timeoutMs ?? GIT_COMMAND_TIMEOUT_MS), GIT_COMMAND_TIMEOUT_MS,
-    policy?.deadline ? Math.max(1, policy.deadline - Date.now()) : GIT_COMMAND_TIMEOUT_MS);
+  if (signals.some(signal => signal.aborted)) throw cancelled();
+  if (policy?.deadline !== undefined && Date.now() >= policy.deadline) throw new AgentHarnessError("GIT_TIMEOUT", "Local Git discovery deadline reached.");
+  const classCap = GIT_EXECUTION_BUDGETS[options.executionClass ?? gitExecutionClass(options.args)];
+  const timeoutMs = Math.min(Math.max(1, Number.isFinite(options.timeoutMs) ? options.timeoutMs! : classCap), classCap,
+    policy?.deadline !== undefined ? Math.max(1, policy.deadline - Date.now()) : classCap);
   const stdoutLimitBytes = Math.min(
     Math.max(1, options.stdoutLimitBytes ?? GIT_STDOUT_LIMIT_BYTES),
     GIT_STDOUT_LIMIT_BYTES,
@@ -194,10 +226,22 @@ export async function runBoundedGit(options: GitExecutionOptions): Promise<GitEx
     };
 
     const timeout = setTimeout(() => {
+      if (terminalError || settled) return;
       terminalError = new AgentHarnessError("GIT_TIMEOUT", `Git exceeded the ${timeoutMs} ms command deadline.`);
       terminate();
     }, timeoutMs);
     timeout.unref();
+    const abort = () => {
+      if (terminalError || settled) return;
+      terminalError = cancelled();
+      terminate();
+    };
+    for (const signal of signals) signal.addEventListener("abort", abort, { once: true });
+    if (signals.some(signal => signal.aborted)) abort();
+    const clearExecution = () => {
+      clearTimeout(timeout);
+      for (const signal of signals) signal.removeEventListener("abort", abort);
+    };
 
     child.stdout!.on("data", (value: Buffer | string) => {
       if (stoppedEarly || terminalError) {
@@ -241,7 +285,7 @@ export async function runBoundedGit(options: GitExecutionOptions): Promise<GitEx
         return;
       }
       settled = true;
-      clearTimeout(timeout);
+      clearExecution();
       reject(new AgentHarnessError("GIT_EXECUTION_FAILED", "Git could not be started or executed."));
     });
 
@@ -250,7 +294,7 @@ export async function runBoundedGit(options: GitExecutionOptions): Promise<GitEx
         return;
       }
       settled = true;
-      clearTimeout(timeout);
+      clearExecution();
       if (terminalError) {
         reject(terminalError);
         return;

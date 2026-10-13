@@ -322,12 +322,13 @@ test("bounded Windows credential bridge compiles and reads only an absent synthe
   await assert.rejects(store.set(reference, "invalid\nvalue"), { code: "REPOSITORY_PROVIDER_NOT_READY" });
 });
 
-test("private HTTP Git authentication stays scoped to the configured destination and outside arguments, config and results", { timeout: 180000 }, async t => {
+test("private HTTP Git authentication stays scoped to the configured destination and outside arguments, config and results", { timeout: 360000 }, async t => {
   const f = await forgejo(t), trusted = fs.mkdtempSync(path.join(os.tmpdir(), "rmcp-private-git-"));
   t.after(() => fs.rmSync(trusted, { recursive: true, force: true }));
   const hostedRoot = path.join(trusted, "hosted"), namespace = path.join(hostedRoot, "fixture-user"); fs.mkdirSync(namespace, { recursive: true });
   const bare = path.join(namespace, "private.git"); git(trusted, ["init", "--bare", "--initial-branch=dev", bare]); git(bare, ["config", "http.receivepack", "true"]);
   let authenticatedRequests = 0, redirect = false;
+  let delayNextGitRequest = 0, requestObserved;
   const encoded = Buffer.from(`fixture-user:${credential}`).toString("base64");
   const childProcess = require("node:child_process"), originalSpawn = childProcess.spawn;
   let authenticatedSpawns = 0;
@@ -346,6 +347,15 @@ test("private HTTP Git authentication stays scoped to the configured destination
     if (redirect) { res.writeHead(302, { location: "http://127.0.0.1:1/credential-trap" }); res.end(); return; }
     if (req.headers.authorization !== `Basic ${encoded}`) { res.writeHead(401, { "www-authenticate": 'Basic realm="synthetic fixture"' }); res.end(); return; }
     authenticatedRequests++;
+    if (delayNextGitRequest) {
+      const delay = delayNextGitRequest; delayNextGitRequest = 0;
+      requestObserved?.(); requestObserved = undefined;
+      await new Promise(resolve => {
+        const timer = setTimeout(resolve, delay);
+        res.once("close", () => { clearTimeout(timer); resolve(); });
+      });
+      if (res.destroyed) return;
+    }
     const uri = new URL(req.url, f.origin);
     await new Promise((resolve, reject) => {
       const child = spawn("git", ["http-backend"], { cwd: hostedRoot, windowsHide: true, shell: false, stdio: ["pipe", "pipe", "pipe"], env: {
@@ -372,19 +382,31 @@ test("private HTTP Git authentication stays scoped to the configured destination
   const provider = hosting.adapter(configuration.providerId);
   await provider.createRepository({ repository: "private", visibility: "private", initialize: false });
   f.repos.get("fixture-user/private").default_branch = "dev";
-  const { withGitHttpAuthentication, runBoundedGit } = require("../../dist/main/core/gitExecution.js");
+  const { withGitHttpAuthentication, runBoundedGit, GIT_EXECUTION_BUDGETS } = require("../../dist/main/core/gitExecution.js");
   const { LocalGitRepositoryAccessService } = require("../../dist/main/agentHarness/workspace/localGitRepositoryAccessService.js");
   const { createAgentHarnessToolRegistry } = require("../../dist/main/agentHarness/tools/toolRegistry.js");
   const { createRegisteredWorkspaceAccessProvider } = require("../../dist/main/agentHarness/workspace/workspaceAccess.js");
   const localGitAccess = new LocalGitRepositoryAccessService(() => [trusted]), session = Object.freeze({});
   const registry = createAgentHarnessToolRegistry({ userDataRoot: path.join(trusted, "harness"), localGitAccess, repositoryHosting: hosting,
     workspaceAccess: createRegisteredWorkspaceAccessProvider({ resolveWorkspaceContext: () => { throw Error("no workflow registration"); }, listWorkspaceSummaries: () => [] }) });
-  const call = async (name, action, params, error) => {
-    const result = await registry.callTool({ name, session, scope: "files.read files.write", arguments: { action, params } });
+  const call = async (name, action, params, error, signal) => {
+    const result = await registry.callTool({ name, session, signal, scope: "files.read files.write", arguments: { action, params } });
     assert.equal(result.ok, !error, JSON.stringify(result)); if (error) assert.equal(result.error.code, error);
     assert.equal(JSON.stringify(result).includes(credential), false); assert.equal(JSON.stringify(result).includes(encoded), false);
     return result;
   };
+  // Extend this existing authenticated smart-HTTP owner with actual >15s transfers.
+  const delayedCall = async (name, action, params, executionClass) => {
+    delayNextGitRequest = 16000;
+    const started = Date.now(), result = await call(name, action, params), duration = Date.now() - started;
+    assert.equal(delayNextGitRequest, 0, "operation must contact the delayed authenticated server");
+    assert.ok(duration > 15000 && duration < GIT_EXECUTION_BUDGETS[executionClass]);
+    t.diagnostic(`${action} delayed authenticated fixture completed in ${duration} ms (${executionClass})`);
+    return result;
+  };
+  for (const tool of registry.listTools().filter(tool => ["git_toolbox", "integration_toolbox"].includes(tool.name))) {
+    assert.doesNotMatch(JSON.stringify(tool.inputSchema), /"(?:timeoutMs|executionClass|deadline|processDeadline)"/);
+  }
   const source = path.join(trusted, "source"); fs.mkdirSync(source); fs.writeFileSync(path.join(source, "source.txt"), "private source\n");
   const initialized = (await call("git_toolbox", "init_local_repository", { directory: source, initialBranch: "dev" })).payload;
   await call("git_toolbox", "select_repository_context", { repositoryHandle: initialized.repositoryHandle });
@@ -393,7 +415,7 @@ test("private HTTP Git authentication stays scoped to the configured destination
   await call("integration_toolbox", "bind_repository_remote", target);
   await call("git_toolbox", "stage_changes", { localCheckoutHandle: initialized.localCheckoutHandle, paths: ["source.txt"] });
   const commit = (await call("git_toolbox", "commit", { localCheckoutHandle: initialized.localCheckoutHandle, message: "private transport fixture" })).payload.commit;
-  await call("git_toolbox", "push", { localCheckoutHandle: initialized.localCheckoutHandle, remote: "forgejo", branch: "dev", remoteBranch: "dev", expectedCommit: commit });
+  await delayedCall("git_toolbox", "push", { localCheckoutHandle: initialized.localCheckoutHandle, remote: "forgejo", branch: "dev", remoteBranch: "dev", expectedCommit: commit }, "network-write");
   f.repos.get("fixture-user/private").empty = false;
   await call("integration_toolbox", "verify_hosted_repository", { ...target, expectedRefs: [`refs/heads/dev=${commit}`] });
   const canonicalUrl = `${f.origin}/fixture-user/private.git`;
@@ -407,11 +429,11 @@ test("private HTTP Git authentication stays scoped to the configured destination
   assert.equal(JSON.stringify(legacy).includes(legacyUrl), false);
   assert.equal((await call("git_toolbox", "inspect_remote", inspectParams)).payload.binding, legacy.binding);
   assert.equal(git(source, ["config", "remote.forgejo.url"]), legacyUrl);
-  await call("git_toolbox", "inspect_remote_refs", inspectParams);
-  await call("git_toolbox", "fetch_remote", inspectParams);
+  await delayedCall("git_toolbox", "inspect_remote_refs", inspectParams, "network-read");
+  await delayedCall("git_toolbox", "fetch_remote", inspectParams, "network-read");
   await call("git_toolbox", "push", { ...inspectParams, branch: "dev", remoteBranch: "dev", expectedCommit: commit });
   await call("git_toolbox", "create_tag", { localCheckoutHandle: initialized.localCheckoutHandle, tagName: "legacy-auth", tagType: "lightweight", target: commit });
-  await call("git_toolbox", "push_tag", { ...inspectParams, tagName: "legacy-auth" });
+  await delayedCall("git_toolbox", "push_tag", { ...inspectParams, tagName: "legacy-auth" }, "network-write");
   await call("integration_toolbox", "bind_repository_remote", { ...target, expectedCurrentBinding: "0".repeat(64) }, "GIT_EXECUTION_FAILED");
   assert.equal(git(source, ["config", "remote.forgejo.url"]), legacyUrl);
   await call("integration_toolbox", "bind_repository_remote", { ...target, expectedCurrentBinding: legacy.binding });
@@ -436,7 +458,7 @@ test("private HTTP Git authentication stays scoped to the configured destination
   f.repos.get("fixture-user/private").clone_url = legacyUrl;
   assert.equal((await call("integration_toolbox", "provider_status", { providerId: configuration.providerId })).payload.readiness, "ready");
   await call("integration_toolbox", "inspect_hosted_repository", { providerId: configuration.providerId, repository: "private" });
-  const cloned = (await call("integration_toolbox", "clone_hosted_repository", { providerId: configuration.providerId, repository: "private", destinationDirectory: path.join(trusted, "cloned"), branch: "dev" })).payload;
+  const cloned = (await delayedCall("integration_toolbox", "clone_hosted_repository", { providerId: configuration.providerId, repository: "private", destinationDirectory: path.join(trusted, "cloned"), branch: "dev" }, "network-clone")).payload;
   assert.equal(cloned.headCommit, commit); assert.ok(authenticatedRequests >= 4); assert.ok(authenticatedSpawns >= 3);
   assert.equal(git(path.join(trusted, "cloned"), ["config", "remote.origin.url"]), canonicalUrl);
   assert.equal(git(path.join(trusted, "cloned"), ["branch", "--show-current"]), "dev");
@@ -451,6 +473,21 @@ test("private HTTP Git authentication stays scoped to the configured destination
   const ambiguous = new RepositoryHostingFacade({ configurations: () => [configuration, duplicateConfiguration], resolveCredential: async () => credential });
   await assert.rejects(ambiguous.gitHttpAuthentication(source, ["ls-remote", "--", "forgejo"]), { code: "REPOSITORY_PROVIDER_NOT_READY" });
   const args = ["ls-remote", "--", "forgejo"]; assert.equal(args.join(" ").includes(credential), false);
+  for (const extra of [{ timeoutMs: 999999 }, { executionClass: "network-clone" }, { deadline: Date.now() + 999999 }]) {
+    await call("git_toolbox", "inspect_remote_refs", { ...inspectParams, ...extra }, "INVALID_INPUT");
+  }
+  delayNextGitRequest = 16000;
+  const shortStarted = Date.now();
+  await assert.rejects(withGitHttpAuthentication(() => runBoundedGit({ cwd: source, args, executionClass: "local-default" }),
+    (cwd, argv) => hosting.gitHttpAuthentication(cwd, argv)), { code: "GIT_TIMEOUT" });
+  assert.ok(Date.now() - shortStarted >= 15000); assert.equal(delayNextGitRequest, 0);
+  const controller = new AbortController(); delayNextGitRequest = 30000;
+  const observed = new Promise(resolve => { requestObserved = resolve; });
+  const cancelled = call("git_toolbox", "inspect_remote_refs", inspectParams, "GIT_EXECUTION_FAILED", controller.signal);
+  await observed; const cancelledAt = Date.now(); controller.abort();
+  const cancellationResult = await cancelled;
+  assert.equal(cancellationResult.error.details.terminationReason, "cancelled");
+  assert.ok(Date.now() - cancelledAt < 15000, "MCP cancellation beats the network-read budget");
   const result = await withGitHttpAuthentication(() => runBoundedGit({ cwd: source, args }), (cwd, argv) => hosting.gitHttpAuthentication(cwd, argv));
   assert.ok(result.stdout.includes(commit)); assert.equal(JSON.stringify(result).includes(credential), false);
   const binding = (await call("git_toolbox", "inspect_remote", { localCheckoutHandle: initialized.localCheckoutHandle, remote: "forgejo" })).payload;
